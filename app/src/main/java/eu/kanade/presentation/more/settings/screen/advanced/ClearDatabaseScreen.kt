@@ -51,6 +51,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.novel.NovelRepository
+import reikai.domain.source.sourceVisualName
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.NovelSourceIcon
 import tachiyomi.core.common.util.lang.launchIO
@@ -193,7 +194,10 @@ class ClearDatabaseScreen : Screen() {
                             // RK <--
                             items(s.items) { sourceWithCount ->
                                 ClearDatabaseItem(
-                                    source = sourceWithCount.source,
+                                    // RK --> the row takes a name and an icon, so novel rows share it
+                                    name = sourceWithCount.source.visualName,
+                                    icon = { SourceIcon(source = sourceWithCount.source) },
+                                    // RK <--
                                     count = sourceWithCount.count,
                                     isSelected = s.selection.contains(sourceWithCount.id),
                                     onClickSelect = { viewModel.toggleSelection(sourceWithCount.source) },
@@ -204,8 +208,10 @@ class ClearDatabaseScreen : Screen() {
                                 item { ClearDatabaseSectionHeader(stringResource(MR.strings.content_type_novels)) }
                             }
                             items(s.novelItems) { novelSource ->
-                                ClearDatabaseNovelItem(
-                                    item = novelSource,
+                                ClearDatabaseItem(
+                                    name = sourceVisualName(novelSource.name, novelSource.lang),
+                                    icon = { NovelSourceIcon(iconUrl = novelSource.iconUrl) },
+                                    count = novelSource.count,
                                     isSelected = s.novelSelection.contains(novelSource.id),
                                     onClickSelect = { viewModel.toggleNovelSelection(novelSource.id) },
                                 )
@@ -220,7 +226,10 @@ class ClearDatabaseScreen : Screen() {
 
     @Composable
     private fun ClearDatabaseItem(
-        source: Source,
+        // RK -->
+        name: String,
+        icon: @Composable () -> Unit,
+        // RK <--
         count: Long,
         isSelected: Boolean,
         onClickSelect: () -> Unit,
@@ -233,14 +242,14 @@ class ClearDatabaseScreen : Screen() {
                 .height(56.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            SourceIcon(source = source)
+            icon() // RK
             Column(
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .weight(1f),
             ) {
                 Text(
-                    text = source.visualName,
+                    text = name, // RK
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(text = stringResource(MR.strings.clear_database_source_item_count, count))
@@ -252,8 +261,7 @@ class ClearDatabaseScreen : Screen() {
         }
     }
 
-    // RK --> novel section pieces: a plain subheader and the novel twin of ClearDatabaseItem
-    // (String-keyed source, icon from the plugin registry's CDN URL)
+    // RK --> the novel section's subheader
     @Composable
     private fun ClearDatabaseSectionHeader(label: String) {
         Text(
@@ -262,39 +270,6 @@ class ClearDatabaseScreen : Screen() {
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
         )
-    }
-
-    @Composable
-    private fun ClearDatabaseNovelItem(
-        item: ClearDatabaseViewModel.NovelSourceWithCount,
-        isSelected: Boolean,
-        onClickSelect: () -> Unit,
-    ) {
-        Row(
-            modifier = Modifier
-                .selectedBackground(isSelected)
-                .clickable(onClick = onClickSelect)
-                .padding(horizontal = 8.dp)
-                .height(56.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            NovelSourceIcon(iconUrl = item.iconUrl)
-            Column(
-                modifier = Modifier
-                    .padding(start = 8.dp)
-                    .weight(1f),
-            ) {
-                Text(
-                    text = item.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(text = stringResource(MR.strings.clear_database_source_item_count, item.count))
-            }
-            Checkbox(
-                checked = isSelected,
-                onCheckedChange = { onClickSelect() },
-            )
-        }
     }
     // RK <--
 }
@@ -327,10 +302,12 @@ class ClearDatabaseViewModel(
                 .collectLatest { (list, novelList) ->
                     val novelItems = novelList
                         .map { (sourceId, count) ->
+                            val identity = novelSourceManager.identityOf(sourceId)
                             NovelSourceWithCount(
                                 id = sourceId,
-                                name = novelSourceManager.nameOf(sourceId),
-                                iconUrl = novelSourceManager.get(sourceId)?.iconUrl,
+                                name = identity.name,
+                                iconUrl = identity.iconUrl,
+                                lang = identity.lang.orEmpty(),
                                 count = count,
                             )
                         }
@@ -363,28 +340,18 @@ class ClearDatabaseViewModel(
         // RK <--
     }
 
-    // RK -->
+    // RK --> one membership toggle for the manga and the novel selection
+    private fun <T> List<T>.toggled(item: T): List<T> = if (item in this) this - item else this + item
+
     fun toggleNovelSelection(id: String) = state.update { state ->
         if (state !is State.Ready) return@update state
-        val mutableList = state.novelSelection.toMutableList()
-        if (mutableList.contains(id)) {
-            mutableList.remove(id)
-        } else {
-            mutableList.add(id)
-        }
-        state.copy(novelSelection = mutableList)
+        state.copy(novelSelection = state.novelSelection.toggled(id))
     }
     // RK <--
 
     fun toggleSelection(source: Source) = state.update { state ->
         if (state !is State.Ready) return@update state
-        val mutableList = state.selection.toMutableList()
-        if (mutableList.contains(source.id)) {
-            mutableList.remove(source.id)
-        } else {
-            mutableList.add(source.id)
-        }
-        state.copy(selection = mutableList)
+        state.copy(selection = state.selection.toggled(source.id)) // RK: the shared toggle above
     }
 
     fun clearSelection() = state.update { state ->
@@ -449,13 +416,14 @@ class ClearDatabaseViewModel(
         ) : State
     }
 
-    // RK --> display row for a novel source with its non-favorite count; name/icon resolved from
-    // the source manager at map time, an uninstalled source keeping the name it was last seen with
+    // RK --> display row for a novel source with its non-favorite count; an uninstalled source keeps
+    // the identity it was last seen with (NovelSourceManager.identityOf)
     @Immutable
     data class NovelSourceWithCount(
         val id: String,
         val name: String,
         val iconUrl: String?,
+        val lang: String,
         val count: Long,
     )
     // RK <--

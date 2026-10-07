@@ -25,6 +25,7 @@ import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
+import tachiyomi.domain.source.model.StubSource
 
 /**
  * The add flow's decision half, pinned once for both content types instead of as a twin pair. The
@@ -94,6 +95,13 @@ class AddDecisionConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a duplicate from a source that is gone is named by its stored name`(probe: AddDecisionProbe) = runTest {
+        probe.prompt(duplicate = true, installed = false)?.sourceLabels?.values?.toList() shouldBe
+            listOf(EntrySourceLabel.Missing(SOURCE_NAME))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `resolving the default category writes nothing`(probe: AddDecisionProbe) = runTest {
         probe.resolve(userCategories = listOf(category(3L)), defaultId = 3) shouldBe
             Resolution(categoryIds = listOf(3L), wroteCategories = false)
@@ -156,8 +164,11 @@ interface AddDecisionProbe {
         sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
     ): List<Pair<Long, Boolean>>
 
-    /** The prompt this type's adder raises with one possible duplicate in the library, or with none. */
-    suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>?
+    /**
+     * The prompt this type's adder raises with one possible duplicate in the library, or with none.
+     * [installed] false leaves only the name the duplicate's source was stored with.
+     */
+    suspend fun prompt(duplicate: Boolean, installed: Boolean = true): DuplicatePrompt<*, *>?
 }
 
 class MangaAddDecisionProbe : AddDecisionProbe {
@@ -172,10 +183,15 @@ class MangaAddDecisionProbe : AddDecisionProbe {
         current: List<Category>,
         sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         duplicates: List<MangaWithChapterCount> = emptyList(),
+        installed: Boolean = true,
     ) =
         MangaLibraryAdder(
             sourceManager = mockk {
-                coEvery { getOrStub(DUPLICATE_SOURCE) } returns mockk<Source> { every { name } returns SOURCE_NAME }
+                coEvery { getOrStub(DUPLICATE_SOURCE) } returns if (installed) {
+                    mockk<Source> { every { name } returns SOURCE_NAME }
+                } else {
+                    StubSource(id = DUPLICATE_SOURCE, lang = "en", name = SOURCE_NAME)
+                }
             },
             libraryPreferences = mockk(relaxed = true) {
                 every { defaultCategory } returns mockk { every { get() } returns defaultId }
@@ -211,9 +227,10 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             .categoryPickerSelection(mangaId = 1L)
             .map { it.value.id to (it is CheckboxState.State.Checked) }
 
-    override suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>? {
+    override suspend fun prompt(duplicate: Boolean, installed: Boolean): DuplicatePrompt<*, *>? {
         val row = MangaWithChapterCount(Manga.create().copy(id = DUPLICATE_ID, source = DUPLICATE_SOURCE), 0L)
-        return adder(emptyList(), -1, emptyList(), duplicates = listOfNotNull(row.takeIf { duplicate }))
+        val duplicates = listOfNotNull(row.takeIf { duplicate })
+        return adder(emptyList(), -1, emptyList(), duplicates = duplicates, installed = installed)
             .findDuplicates(Manga.create())
     }
 
@@ -234,6 +251,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
         current: List<Category>,
         sortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
         duplicates: List<NovelWithChapterCount> = emptyList(),
+        installed: Boolean = true,
     ) =
         NovelLibraryAdder(
             novelRepository = mockk(relaxed = true) {
@@ -241,7 +259,8 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             },
             manager = mockk {
                 coEvery { this@mockk.get(DUPLICATE_SOURCE) } returns
-                    mockk<NovelSource> { every { name } returns SOURCE_NAME }
+                    mockk<NovelSource> { every { name } returns SOURCE_NAME }.takeIf { installed }
+                coEvery { nameOf(DUPLICATE_SOURCE) } returns SOURCE_NAME
             },
             getNovelCategories = mockk<GetNovelCategories> {
                 coEvery { await() } returns userCategories
@@ -274,9 +293,10 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             .categoryPickerPrompt(novelId = 1L)
             .map { it.value.id to it.isChecked }
 
-    override suspend fun prompt(duplicate: Boolean): DuplicatePrompt<*, *>? {
+    override suspend fun prompt(duplicate: Boolean, installed: Boolean): DuplicatePrompt<*, *>? {
         val row = NovelWithChapterCount(Novel.create().copy(id = DUPLICATE_ID, source = DUPLICATE_SOURCE), 0L)
-        return adder(emptyList(), -1, emptyList(), duplicates = listOfNotNull(row.takeIf { duplicate }))
+        val duplicates = listOfNotNull(row.takeIf { duplicate })
+        return adder(emptyList(), -1, emptyList(), duplicates = duplicates, installed = installed)
             .findDuplicates(-1L, "Title")
     }
 

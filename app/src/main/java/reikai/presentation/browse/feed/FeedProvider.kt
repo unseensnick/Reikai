@@ -50,6 +50,9 @@ interface FeedProvider {
     /** The source behind [key], or null when it is no longer installed. */
     suspend fun source(key: SourceKey): BrowseSearchRow?
 
+    /** The name [key]'s source was stored with, for a row whose source is no longer installed. */
+    suspend fun missingName(key: SourceKey): String
+
     /** Whether the source behind [row] can serve a Latest listing, which decides where a tap lands. */
     fun supportsLatest(row: BrowseSearchRow): Boolean
 
@@ -84,6 +87,8 @@ class MangaFeedProvider(
 
     override suspend fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Manga)?.let { sourceManager.get(it.id) }?.let(::toRow)
+
+    override suspend fun missingName(key: SourceKey) = sourceManager.getOrStub((key as SourceKey.Manga).id).name
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as Source).supportsLatest
 
@@ -130,6 +135,8 @@ class NovelFeedProvider(
 
     override suspend fun source(key: SourceKey): BrowseSearchRow? =
         (key as? SourceKey.Novel)?.let { sourceManager.get(it.id) }?.let(::toRow)
+
+    override suspend fun missingName(key: SourceKey) = sourceManager.nameOf((key as SourceKey.Novel).id)
 
     override fun supportsLatest(row: BrowseSearchRow) = (row.source as NovelSource).supportsLatest
 

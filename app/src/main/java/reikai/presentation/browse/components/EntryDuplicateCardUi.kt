@@ -23,8 +23,8 @@ data class EntryDuplicateCardUi(
 
 /**
  * A duplicate's source, as far as the app can resolve it. [Missing] means its extension or plugin is
- * not installed, so the name is only what was stored (a manga stub's name, a novel's raw source key)
- * and the card warns about it.
+ * not installed, so the name is only what was stored (a manga stub's name, a novel source's last seen
+ * one) and the card warns about it.
  */
 sealed interface EntrySourceLabel {
     val name: String

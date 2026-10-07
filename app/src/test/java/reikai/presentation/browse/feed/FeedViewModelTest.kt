@@ -26,6 +26,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.seconds
 import eu.kanade.tachiyomi.source.Source as MangaSource
@@ -57,6 +58,16 @@ class FeedViewModelTest {
             .entries.single().sourceName shouldBe SOURCE_NAME
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a row whose source is gone is named by the name it had`(probe: FeedRegistryProbe) = runTest {
+        val model = feedViewModel(probe)
+
+        val entry = settle { model.state.first { it.loaded } }.entries.single()
+
+        listOf(entry.row.name, entry.sourceName) shouldBe listOf(STORED_NAME, STORED_NAME)
+    }
+
     private fun feedViewModel(probe: FeedRegistryProbe) = FeedViewModel(
         feedRepository = mockk {
             every { subscribeGlobal() } returns flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
@@ -76,6 +87,7 @@ class FeedViewModelTest {
 
     companion object {
         const val SOURCE_NAME = "Installed later"
+        const val STORED_NAME = "Stored name"
 
         @JvmStatic
         fun probes() = listOf(MangaFeedRegistryProbe(), NovelFeedRegistryProbe())
@@ -106,6 +118,7 @@ class MangaFeedRegistryProbe : FeedRegistryProbe {
     override val mangaRegistry = mockk<SourceManager> {
         every { sources } returns installed
         coEvery { this@mockk.get(any<Long>()) } answers { installed.value.firstOrNull { it.id == firstArg<Long>() } }
+        coEvery { getOrStub(1L) } returns StubSource(id = 1L, lang = "en", name = FeedViewModelTest.STORED_NAME)
     }
     override val novelRegistry = emptyNovelRegistry()
     override fun install() {
@@ -130,6 +143,7 @@ class NovelFeedRegistryProbe : FeedRegistryProbe {
     init {
         // Stubbed off the mock: `get` inside a mockk block binds to MockK's own dynamic-call helper.
         coEvery { novelRegistry.get(any()) } answers { installed.value.firstOrNull { it.id == firstArg<String>() } }
+        coEvery { novelRegistry.nameOf("plugin") } returns FeedViewModelTest.STORED_NAME
     }
 
     override fun install() {

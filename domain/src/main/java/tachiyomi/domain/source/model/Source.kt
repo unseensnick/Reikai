@@ -1,5 +1,7 @@
 package tachiyomi.domain.source.model
 
+import reikai.domain.source.sourceVisualName
+
 data class Source(
     val id: Long,
     val lang: String,
@@ -11,10 +13,7 @@ data class Source(
 ) {
 
     val visualName: String
-        get() = when {
-            lang.isEmpty() -> name
-            else -> "$name (${lang.uppercase()})"
-        }
+        get() = sourceVisualName(name, lang) // RK: one rule with the novel rows of Clear database
 
     val key: () -> String = {
         when {

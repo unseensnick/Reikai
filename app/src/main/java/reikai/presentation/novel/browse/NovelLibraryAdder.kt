@@ -75,8 +75,8 @@ class NovelLibraryAdder(
     /**
      * The duplicate prompt every novel add path raises, or null when nothing similar is in the library.
      * [id] is the row to exclude from its own match (-1 when the item has no library row yet). A source
-     * the manager cannot answer for is not installed, so only its stored key is known and the card warns
-     * about it. Twin of `MangaLibraryAdder.findDuplicates`, pinned by `AddDecisionConformanceTest`.
+     * the manager cannot answer for is not installed, so it is named as it was last seen and the card
+     * warns about it. Twin of `MangaLibraryAdder.findDuplicates`, pinned by `AddDecisionConformanceTest`.
      */
     suspend fun findDuplicates(id: Long, title: String): DuplicatePrompt<NovelWithChapterCount, String>? =
         duplicatePrompt(
@@ -85,7 +85,8 @@ class NovelLibraryAdder(
             mergeManager = mergeManager,
         ) { duplicates ->
             duplicates.map { it.novel.source }.distinct().associateWith { key ->
-                manager.get(key)?.let { EntrySourceLabel.Installed(it.name) } ?: EntrySourceLabel.Missing(key)
+                manager.get(key)?.let { EntrySourceLabel.Installed(it.name) }
+                    ?: EntrySourceLabel.Missing(manager.nameOf(key))
             }
         }
 
@@ -171,8 +172,8 @@ class NovelLibraryAdder(
 
     /**
      * Add a novel that already has a library row, through the shared sequence. Twin of
-     * `MangaLibraryAdder.resolveAddFavorite`, both over the `addEntryOrPrompt` kernel, for the stored-row
-     * case its browse twin above cannot serve: nothing is inserted here, only favorited and filed.
+     * `MangaLibraryAdder.resolveAddFavorite`, pinned by the `addEntryOrPrompt` kernel both call, for the
+     * stored-row case its browse twin above cannot serve: nothing is inserted here, only favorited and filed.
      */
     suspend fun addStoredToLibrary(novelId: Long): AddFavoriteResult = addEntryOrPrompt(
         resolveCategories = { resolveDefaultCategories() },
@@ -182,8 +183,9 @@ class NovelLibraryAdder(
     )
 
     /**
-     * The stored-row twin of the browse [addToExistingGroup] above, answering the shared result type
-     * instead of a browse dialog. Twin of `MangaLibraryAdder.addToExistingGroup`.
+     * The stored-row form of the browse [addToExistingGroup] above, answering the shared result type
+     * instead of a browse dialog. Twin of `MangaLibraryAdder.addToExistingGroup`, pinned by the
+     * `addEntryOrPrompt` kernel both call.
      */
     suspend fun addToExistingGroup(novelId: Long, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
         resolveCategories = { groupOrDefaultCategories(selectedIds) },

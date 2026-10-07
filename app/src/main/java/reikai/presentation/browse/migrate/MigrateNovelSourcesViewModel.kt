@@ -18,6 +18,8 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.identity
+import reikai.domain.novel.resolveSourceIdentity
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import kotlin.time.Duration.Companion.seconds
@@ -43,9 +45,7 @@ class MigrateNovelSourcesViewModel(
         sourceManager.loadedSources(),
         novelPreferences.seenNovelSources().changes(),
     ) { counts, installedSources, cached ->
-        val installed = installedSources.associate {
-            it.id to LnSourceIdentity(name = it.name, iconUrl = it.iconUrl, lang = it.lang)
-        }
+        val installed = installedSources.associate { it.id to it.identity() }
         val formats = installedSources.associate { it.id to it.format }
         buildNovelMigrateSources(
             countsPerSource = counts,
@@ -83,12 +83,12 @@ internal fun buildNovelMigrateSources(
     cached: Map<String, LnSourceIdentity>,
 ): List<NovelMigrateSource> {
     return countsPerSource.map { (id, count) ->
-        val identity = installed[id] ?: cached[id]
+        val identity = resolveSourceIdentity(id, installed[id], cached[id])
         NovelMigrateSource(
             id = id,
-            name = identity?.name ?: id,
-            iconUrl = identity?.iconUrl,
-            lang = identity?.lang.orEmpty(),
+            name = identity.name,
+            iconUrl = identity.iconUrl,
+            lang = identity.lang.orEmpty(),
             count = count,
             isInstalled = id in installed,
         )

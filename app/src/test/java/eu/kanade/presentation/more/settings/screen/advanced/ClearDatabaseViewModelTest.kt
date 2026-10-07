@@ -25,6 +25,8 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.source.interactor.GetSourcesWithNonLibraryManga
+import tachiyomi.domain.source.model.Source
+import tachiyomi.domain.source.model.SourceWithCount
 
 class ClearDatabaseViewModelTest {
 
@@ -56,6 +58,78 @@ class ClearDatabaseViewModelTest {
 
         ready.novelItems.single().name shouldBe "Old Site"
     }
+
+    @Test
+    fun `an uninstalled plugin keeps the icon it was last seen with`() = runTest {
+        val model = ClearDatabaseViewModel(
+            mangaRepository = mockk(),
+            historyRepository = mockk(),
+            getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
+            novelRepository = mockk<NovelRepository> {
+                every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
+            },
+            novelSourceManager = manager(
+                seen = mapOf("p1" to LnSourceIdentity(name = "Old Site", iconUrl = "https://i/p1.png")),
+            ),
+        )
+
+        val ready = model.state.filterIsInstance<ClearDatabaseViewModel.State.Ready>().first()
+        model.viewModelScope.cancel()
+
+        ready.novelItems.single().iconUrl shouldBe "https://i/p1.png"
+    }
+
+    @Test
+    fun `an uninstalled plugin keeps the language it was last seen with`() = runTest {
+        val model = ClearDatabaseViewModel(
+            mangaRepository = mockk(),
+            historyRepository = mockk(),
+            getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
+            novelRepository = mockk<NovelRepository> {
+                every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
+            },
+            novelSourceManager = manager(seen = mapOf("p1" to LnSourceIdentity(name = "Old Site", lang = "ja"))),
+        )
+
+        val ready = model.state.filterIsInstance<ClearDatabaseViewModel.State.Ready>().first()
+        model.viewModelScope.cancel()
+
+        ready.novelItems.single().lang shouldBe "ja"
+    }
+
+    @Test
+    fun `a second tap on a manga source deselects it`() = runTest {
+        val source = Source(id = 1L, lang = "en", name = "Site", supportsLatest = false, isStub = false)
+        val model = readyModel(manga = listOf(SourceWithCount(source, 2L)))
+
+        repeat(2) { model.toggleSelection(source) }
+        model.viewModelScope.cancel()
+
+        (model.state.value as ClearDatabaseViewModel.State.Ready).selection shouldBe emptyList()
+    }
+
+    @Test
+    fun `a second tap on a novel source deselects it`() = runTest {
+        val model = readyModel(novels = listOf("p1" to 2L))
+
+        repeat(2) { model.toggleNovelSelection("p1") }
+        model.viewModelScope.cancel()
+
+        (model.state.value as ClearDatabaseViewModel.State.Ready).novelSelection shouldBe emptyList()
+    }
+
+    private suspend fun readyModel(
+        manga: List<SourceWithCount> = emptyList(),
+        novels: List<Pair<String, Long>> = emptyList(),
+    ) = ClearDatabaseViewModel(
+        mangaRepository = mockk(),
+        historyRepository = mockk(),
+        getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(manga) },
+        novelRepository = mockk<NovelRepository> {
+            every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(novels)
+        },
+        novelSourceManager = manager(seen = emptyMap()),
+    ).also { model -> model.state.filterIsInstance<ClearDatabaseViewModel.State.Ready>().first() }
 
     private fun manager(seen: Map<String, LnSourceIdentity>) = NovelSourceManager(
         installer = { mockk<LnPluginInstaller>(relaxed = true) },

@@ -110,14 +110,17 @@ class FeedViewModel(
             val provider = providers.firstOrNull { it.contentType == feed.sourceKey.contentType }
             val row = provider?.source(feed.sourceKey)
             val search = feed.savedSearchId?.let { searches[it] }
+            // A gone source keeps the name it was stored with; the stored key stands in only where it
+            // has none (a row restored for a source never installed here).
+            val sourceName = row?.name
+                ?: provider?.missingName(feed.sourceKey)?.ifBlank { null }
+                ?: feed.sourceKey.serialize()
             FeedEntry(
                 feedId = feed.id,
                 savedSearch = search,
                 row = row?.copy(id = feed.id.toString(), name = search?.name ?: row.name)
-                    ?: unavailableRow(feed, search),
-                // The stored key, when there is no source left to name it: it is what the reader
-                // added, and it is enough to tell two dead rows apart.
-                sourceName = row?.name ?: feed.sourceKey.serialize(),
+                    ?: unavailableRow(feed, search, sourceName),
+                sourceName = sourceName,
                 supportsLatest = row != null && provider.supportsLatest(row),
             )
         }
@@ -125,9 +128,9 @@ class FeedViewModel(
         startFilling(entries)
     }
 
-    private fun unavailableRow(feed: FeedSavedSearch, search: SavedSearch?) = BrowseSearchRow(
+    private fun unavailableRow(feed: FeedSavedSearch, search: SavedSearch?, sourceName: String) = BrowseSearchRow(
         key = feed.sourceKey,
-        name = search?.name ?: feed.sourceKey.serialize(),
+        name = search?.name ?: sourceName,
         lang = "",
         isPinned = false,
         state = EntrySearchState.Unavailable,

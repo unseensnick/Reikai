@@ -5,7 +5,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
-import reikai.novel.source.toLangCode
 
 /**
  * One content type's half of the migrate-from list. A provider answers about its own sources; it
@@ -50,9 +49,7 @@ class NovelMigrateSourcesProvider(private val model: MigrateNovelSourcesViewMode
             BrowseMigrateRow(
                 key = SourceKey.Novel(source.id),
                 name = source.name,
-                // Normalised like the Sources list, so a plugin naming its language in that
-                // language still renders a language name here.
-                lang = source.lang.toLangCode(),
+                lang = source.lang,
                 count = source.count,
                 isStub = !source.isInstalled,
                 source = source,

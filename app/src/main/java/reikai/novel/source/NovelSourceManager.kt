@@ -24,6 +24,8 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.identity
+import reikai.domain.novel.resolveSourceIdentity
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.ireader.IReaderNovelSource
 import reikai.novel.source.ireader.IReaderSourceHolder
@@ -118,7 +120,7 @@ class NovelSourceManager(
         return sourcesFlow.value[id]
     }
 
-    /** The novel twin of manga's `getOrStub`, whose stub throws this same exception from every call. */
+    /** Twin of manga's `getOrStub`, pinned by NovelSourceManagerTest: both throw SourceNotInstalledException. */
     suspend fun getOrThrow(id: String): NovelSource = get(id) ?: throw SourceNotInstalledException()
 
     /**
@@ -126,13 +128,15 @@ class NovelSourceManager(
      * stub keeps the name it was stored with. Never loads the plugins: every install and load records the
      * name, so a caller wanting only that (a backup, a library search) does not evaluate them all.
      */
-    suspend fun nameOf(id: String): String =
-        getWithoutPlugins(id)?.name ?: prefs.seenNovelSources().get()[id]?.name ?: id
+    suspend fun nameOf(id: String): String = identityOf(id).name
 
     /** A source's language by the same rule, blank when neither it nor its seen record names one, as a
      *  manga stub keeps the language it was stored with. */
-    suspend fun langOf(id: String): String =
-        getWithoutPlugins(id)?.lang ?: prefs.seenNovelSources().get()[id]?.lang.orEmpty()
+    suspend fun langOf(id: String): String = identityOf(id).lang.orEmpty()
+
+    /** A source's name, icon and language by [resolveSourceIdentity], without loading the plugins. */
+    suspend fun identityOf(id: String): LnSourceIdentity =
+        resolveSourceIdentity(id, getWithoutPlugins(id)?.identity(), prefs.seenNovelSources().get()[id])
 
     /** A registered source without loading the plugins first: for a caller only an app's source or an
      *  already loaded plugin serves, as [nameOf] is. */

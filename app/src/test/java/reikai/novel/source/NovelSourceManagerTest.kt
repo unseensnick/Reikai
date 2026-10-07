@@ -96,7 +96,7 @@ class NovelSourceManagerTest {
         manager.sources.first { it.size == 2 }.first { it.id == "ireader:7" } shouldBeSameInstanceAs before
     }
 
-    /** The novel twin of manga's stub source, which throws the same exception from every call. */
+    /** Manga's stub source throws this same exception from every call; this pins the novel half to it. */
     @Test
     fun `a novel source that is not installed resolves to SourceNotInstalledException`() = runTest {
         shouldThrow<SourceNotInstalledException> { manager.getOrThrow("gone") }
@@ -143,6 +143,14 @@ class NovelSourceManagerTest {
         every { seen.get() } returns mapOf("gone" to LnSourceIdentity(name = "Old Name", lang = "ja"))
 
         manager.langOf("gone") shouldBe "ja"
+    }
+
+    /** Records written before plugins reported a code hold the registry's endonym. */
+    @Test
+    fun `a language remembered by its registry name reads as its code`() = runTest {
+        every { seen.get() } returns mapOf("gone" to LnSourceIdentity(name = "Old Name", lang = "English"))
+
+        manager.langOf("gone") shouldBe "en"
     }
 
     @Test
