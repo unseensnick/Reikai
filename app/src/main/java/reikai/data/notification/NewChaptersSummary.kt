@@ -9,6 +9,7 @@ import coil3.request.ImageRequest
 import coil3.request.transformations
 import coil3.transform.CircleCropTransformation
 import eu.kanade.tachiyomi.data.download.Downloader
+import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -52,6 +53,10 @@ fun NotificationCompat.Builder.setNewChaptersSummary(context: Context, summary: 
         }
     }
 }
+
+/** The updates that get a row of their own: none while every entry is hidden, else the first few. */
+fun <T> postedEntries(updates: List<T>, hideAll: Boolean): List<T> =
+    if (hideAll) emptyList() else updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS)
 
 /** Whether an entry's new-chapters notification offers Download, which queues every one of them at once. */
 fun offersDownloadAction(newChapters: Int): Boolean =

@@ -1,9 +1,7 @@
 package reikai.data.novel.update
 
 import android.app.Notification
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
@@ -11,18 +9,20 @@ import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
-import eu.kanade.tachiyomi.ui.main.MainActivity
-import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
-import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.hiddenEntryIds
-import reikai.data.notification.newChaptersDescription
+import reikai.data.notification.mainActivityPendingIntent
+import reikai.data.notification.newChaptersEntry
 import reikai.data.notification.newChaptersSummary
 import reikai.data.notification.notificationCover
 import reikai.data.notification.offersDownloadAction
+import reikai.data.notification.postedEntries
+import reikai.data.notification.setNewChaptersEntry
 import reikai.data.notification.setNewChaptersSummary
+import reikai.data.notification.updateProgressPercent
+import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
@@ -30,11 +30,8 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.asNovelCover
 import tachiyomi.core.common.Constants
-import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
-import java.math.RoundingMode
-import java.text.NumberFormat
 
 /**
  * Notifications for the background novel-update job: an ongoing progress entry (with a Cancel action)
@@ -46,12 +43,6 @@ class NovelUpdateNotifier(
     private val securityPreferences: SecurityPreferences,
     private val adultChecker: AdultContentChecker,
 ) {
-
-    /** The same formatter the manga updater's progress title uses, so both read alike. */
-    private val percentFormatter = NumberFormat.getPercentInstance().apply {
-        roundingMode = RoundingMode.DOWN
-        maximumFractionDigits = 0
-    }
 
     private val progressBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_PROGRESS) {
@@ -80,7 +71,7 @@ class NovelUpdateNotifier(
                 } else {
                     context.stringResource(
                         MR.strings.notification_updating_progress,
-                        percentFormatter.format(current.toFloat() / total),
+                        updateProgressPercent(current, total),
                     )
                 },
             )
@@ -97,15 +88,10 @@ class NovelUpdateNotifier(
         context.cancelNotification(Notifications.ID_NOVEL_LIBRARY_PROGRESS)
     }
 
-    /** The twin of the manga updater's error notification; novels used to only log a failure. */
     fun showUpdateErrors(failed: Int, log: Uri, tracked: Boolean) {
         if (failed == 0) return
         context.notify(Notifications.ID_NOVEL_LIBRARY_ERROR, Notifications.CHANNEL_NOVEL_LIBRARY_ERROR) {
-            setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
-            setContentText(context.stringResource(MR.strings.action_show_errors))
-            setSmallIcon(R.drawable.ic_reikai)
-            setAutoCancel(true)
-            setContentIntent(updateErrorPendingIntent(context, ContentType.NOVELS, log, tracked))
+            setUpdateErrorContent(context, failed, updateErrorPendingIntent(context, ContentType.NOVELS, log, tracked))
         }
     }
 
@@ -115,75 +101,56 @@ class NovelUpdateNotifier(
         if (updates.isEmpty()) return
         val hideAll = securityPreferences.hideNotificationContent.get()
         val hidden = hiddenNovelIds(updates.map { it.first })
-        // Hidden, only the count is posted, as the manga updater posts no per-series entries then.
-        val perNovel = if (hideAll) {
-            emptyList()
-        } else {
-            updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS).map { (novel, newChapters) ->
-                val chapterIds = newChapters.map { it.id }.toLongArray()
-                val isHidden = novel.id in hidden
-                // Names the chapters through the shared rule rather than counting them, so a novel row
-                // reads like a manga one: "Chapters 1, 2, 3 and 10 more". A hidden one only counts them.
-                val description = if (isHidden) {
-                    context.pluralStringResource(
-                        MR.plurals.notification_chapters_generic,
+        val perNovel = postedEntries(updates, hideAll).map { (novel, newChapters) ->
+            val chapterIds = newChapters.map { it.id }.toLongArray()
+            val isHidden = novel.id in hidden
+            val cover = if (isHidden) null else context.notificationCover(novel.asNovelCover())
+            val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
+                setNewChaptersEntry(
+                    context,
+                    newChaptersEntry(
+                        novel.title.takeUnless { isHidden },
+                        newChapters.map { it.chapterNumber },
                         newChapters.size,
-                        newChapters.size,
-                    )
-                } else {
-                    context.newChaptersDescription(newChapters.map { it.chapterNumber }, newChapters.size)
-                }
-                val cover = if (isHidden) null else context.notificationCover(novel.asNovelCover())
-                val notification = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
-                    // Chopped for the same reason the manga twin is: a collapsed group draws the title and
-                    // the chapters on one line, and a long title pushed the chapters off the end.
-                    setContentTitle(
-                        if (isHidden) {
-                            context.stringResource(MR.strings.notification_new_chapters)
-                        } else {
-                            novel.title.chop(NOTIF_TITLE_MAX_LEN)
-                        },
-                    )
-                    setContentText(description)
-                    setStyle(NotificationCompat.BigTextStyle().bigText(description))
-                    setSmallIcon(R.drawable.ic_reikai)
-                    cover?.let(::setLargeIcon)
-                    setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
-                    setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
-                    setAutoCancel(true)
-                    setContentIntent(
-                        NotificationReceiver.openNovelChapterPendingActivity(context, novel, newChapters.first()),
-                    )
+                    ),
+                )
+                setSmallIcon(R.drawable.ic_reikai)
+                cover?.let(::setLargeIcon)
+                setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
+                setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
+                setAutoCancel(true)
+                setContentIntent(
+                    NotificationReceiver.openNovelChapterPendingActivity(context, novel, newChapters.first()),
+                )
+                addAction(
+                    R.drawable.ic_done_24dp,
+                    context.stringResource(MR.strings.action_mark_as_read),
+                    NotificationReceiver.markNovelAsReadPendingBroadcast(
+                        context,
+                        novel.id,
+                        chapterIds,
+                        Notifications.ID_NOVEL_LIBRARY_RESULT,
+                    ),
+                )
+                addAction(
+                    R.drawable.ic_book_24dp,
+                    context.stringResource(MR.strings.action_view_chapters),
+                    NotificationReceiver.openNovelPendingActivity(context, novel),
+                )
+                if (offersDownloadAction(newChapters.size)) {
                     addAction(
-                        R.drawable.ic_done_24dp,
-                        context.stringResource(MR.strings.action_mark_as_read),
-                        NotificationReceiver.markNovelAsReadPendingBroadcast(
+                        android.R.drawable.stat_sys_download_done,
+                        context.stringResource(MR.strings.action_download),
+                        NotificationReceiver.downloadNovelChaptersPendingBroadcast(
                             context,
                             novel.id,
                             chapterIds,
                             Notifications.ID_NOVEL_LIBRARY_RESULT,
                         ),
                     )
-                    addAction(
-                        R.drawable.ic_book_24dp,
-                        context.stringResource(MR.strings.action_view_chapters),
-                        NotificationReceiver.openNovelPendingActivity(context, novel),
-                    )
-                    if (offersDownloadAction(newChapters.size)) {
-                        addAction(
-                            android.R.drawable.stat_sys_download_done,
-                            context.stringResource(MR.strings.action_download),
-                            NotificationReceiver.downloadNovelChaptersPendingBroadcast(
-                                context,
-                                novel.id,
-                                chapterIds,
-                                Notifications.ID_NOVEL_LIBRARY_RESULT,
-                            ),
-                        )
-                    }
-                }.build()
-                NotificationWithIdAndTag(Notifications.TAG_NOVEL_NEW_CHAPTERS, novel.id.hashCode(), notification)
-            }
+                }
+            }.build()
+            NotificationWithIdAndTag(Notifications.TAG_NOVEL_NEW_CHAPTERS, novel.id.hashCode(), notification)
         }
         val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
@@ -202,26 +169,13 @@ class NovelUpdateNotifier(
             setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
             setGroupSummary(true)
             setAutoCancel(true)
-            setContentIntent(openUpdatesPendingIntent())
+            setContentIntent(mainActivityPendingIntent(context, Constants.SHORTCUT_UPDATES))
         }.build()
         // The summary goes first, as the manga updater's does. Posted last it is the one Android
         // refuses at the package budget, and children with no summary of their own get an invented
         // one drawn with the launcher icon.
         context.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
         context.notify(perNovel)
-    }
-
-    private fun openUpdatesPendingIntent(): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            action = Constants.SHORTCUT_UPDATES
-        }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
     }
 
     private suspend fun hiddenNovelIds(novels: List<Novel>): Set<Long> = hiddenEntryIds(

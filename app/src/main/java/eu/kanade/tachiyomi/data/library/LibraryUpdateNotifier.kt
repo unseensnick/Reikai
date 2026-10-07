@@ -1,9 +1,7 @@
 package eu.kanade.tachiyomi.data.library
 
 import android.app.Notification
-import android.app.PendingIntent
 import android.content.Context
-import android.content.Intent
 import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
@@ -16,23 +14,25 @@ import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.UnmeteredSource
-import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
-import reikai.data.notification.NOTIF_TITLE_MAX_LEN
 import reikai.data.notification.hiddenEntryIds
-import reikai.data.notification.newChaptersDescription
+import reikai.data.notification.mainActivityPendingIntent
+import reikai.data.notification.newChaptersEntry
 import reikai.data.notification.newChaptersSummary
 import reikai.data.notification.notificationCover
 import reikai.data.notification.offersDownloadAction
+import reikai.data.notification.postedEntries
+import reikai.data.notification.setNewChaptersEntry
 import reikai.data.notification.setNewChaptersSummary
+import reikai.data.notification.updateProgressPercent
+import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import tachiyomi.core.common.Constants
-import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.domain.chapter.model.Chapter
@@ -40,8 +40,6 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
-import java.math.RoundingMode
-import java.text.NumberFormat
 
 @Inject
 class LibraryUpdateNotifier(
@@ -53,10 +51,7 @@ class LibraryUpdateNotifier(
     private val adultCheckerProvider: () -> AdultContentChecker,
 ) {
 
-    private val percentFormatter = NumberFormat.getPercentInstance().apply {
-        roundingMode = RoundingMode.DOWN
-        maximumFractionDigits = 0
-    }
+    // RK: percentFormatter moved to reikai.data.notification.updateProgressPercent, shared with novels
 
     // RK: hide adult titles + covers from the "new chapters" notification (lock-screen privacy).
     private val adultChecker by lazy { adultCheckerProvider() }
@@ -112,7 +107,7 @@ class LibraryUpdateNotifier(
             .setContentTitle(
                 context.stringResource(
                     MR.strings.notification_updating_progress,
-                    percentFormatter.format(current.toFloat() / total),
+                    updateProgressPercent(current, total), // RK
                 ),
             )
 
@@ -175,15 +170,9 @@ class LibraryUpdateNotifier(
             Notifications.ID_LIBRARY_ERROR,
             Notifications.CHANNEL_LIBRARY_ERROR,
         ) {
-            setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
-            setContentText(context.stringResource(MR.strings.action_show_errors))
-            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
-
-            // RK --> the tap opens the Update errors screen when failures are recorded and the shared
-            //        dump when they are not, through the rule the novel updater answers by too.
-            setAutoCancel(true)
-            setContentIntent(updateErrorPendingIntent(context, ContentType.MANGA, uri, tracked))
-            // RK <--
+            // RK: the text, icon and tap are shared with the novel updater and the gallery checker; the
+            //     tap opens the Update errors screen when failures are recorded and the shared dump when not.
+            setUpdateErrorContent(context, failed, updateErrorPendingIntent(context, ContentType.MANGA, uri, tracked))
         }
     }
 
@@ -218,17 +207,18 @@ class LibraryUpdateNotifier(
             setGroupSummary(true)
             priority = NotificationCompat.PRIORITY_HIGH
 
-            setContentIntent(getNotificationIntent())
+            setContentIntent(mainActivityPendingIntent(context, Constants.SHORTCUT_UPDATES)) // RK: shared with novels
             setAutoCancel(true)
         }
 
         // Per-manga notification
-        if (!securityPreferences.hideNotificationContent.get()) {
+        // RK: which entries get a row is shared with novels: none while content is hidden, and capped,
+        //     because everything a package posts past Android's 50 live notifications is refused.
+        val posted = postedEntries(updates, securityPreferences.hideNotificationContent.get())
+        if (posted.isNotEmpty()) {
             launchUI {
                 context.notify(
-                    // RK: capped, because everything a package posts past Android's 50 live
-                    //     notifications is refused, and a big update loses its tail unannounced.
-                    updates.take(Notifications.MAX_ENTRY_UPDATE_NOTIFICATIONS).map { (manga, chapters) ->
+                    posted.map { (manga, chapters) ->
                         NotificationManagerCompat.NotificationWithIdAndTag(
                             manga.id.hashCode(),
                             // RK: hide the title + cover for adult manga
@@ -249,23 +239,15 @@ class LibraryUpdateNotifier(
     ): Notification {
         val icon = if (hideContent) null else context.notificationCover(manga) // RK: shared with novels
         return context.notificationBuilder(Notifications.CHANNEL_NEW_CHAPTERS) {
-            setContentTitle(
-                // RK: chopped, because a collapsed group draws the title and the chapters on one line
-                //     and a long title pushed the chapters off the end.
-                if (hideContent) {
-                    context.stringResource(MR.strings.notification_new_chapters)
-                } else {
-                    manga.title.chop(NOTIF_TITLE_MAX_LEN)
-                },
+            // RK: the title, chapter list and hidden-entry wording are shared with the novel updater
+            setNewChaptersEntry(
+                context,
+                newChaptersEntry(
+                    manga.title.takeUnless { hideContent },
+                    chapters.map { it.chapterNumber },
+                    chapters.size,
+                ),
             )
-
-            val description = if (hideContent) {
-                context.pluralStringResource(MR.plurals.notification_chapters_generic, chapters.size, chapters.size)
-            } else {
-                getNewChaptersDescription(chapters)
-            }
-            setContentText(description)
-            setStyle(NotificationCompat.BigTextStyle().bigText(description))
 
             setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
 
@@ -329,26 +311,8 @@ class LibraryUpdateNotifier(
     // RK: getMangaIcon and NOTIF_ICON_SIZE moved to reikai.data.notification.notificationCover, which
     //     the novel updater draws its covers with too
 
-    // RK: the rule itself moved to reikai.data.notification, so the novel updater answers the same
-    //     way instead of only ever reporting a count.
-    private fun getNewChaptersDescription(chapters: Array<Chapter>): String =
-        context.newChaptersDescription(chapters.map { it.chapterNumber }, chapters.size)
-
-    /**
-     * Returns an intent to open the main activity.
-     */
-    private fun getNotificationIntent(): PendingIntent {
-        val intent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-            action = Constants.SHORTCUT_UPDATES
-        }
-        return PendingIntent.getActivity(
-            context,
-            0,
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-    }
+    // RK: getNewChaptersDescription moved to reikai.data.notification.setNewChaptersEntry and
+    //     getNotificationIntent to reikai.data.notification.mainActivityPendingIntent, both shared with novels
 
     companion object {
         const val HELP_WARNING_URL = // RK: Reikai's docs site

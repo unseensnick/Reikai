@@ -15,12 +15,11 @@ import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notificationManager
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.shownEntryName
-import tachiyomi.core.common.i18n.pluralStringResource
+import reikai.data.notification.updateProgressPercent
+import reikai.data.updateerror.setUpdateErrorContent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import java.math.RoundingMode
-import java.text.NumberFormat
 
 /**
  * Ongoing progress notifications for the E-Hentai gallery update checker and the favorites backup,
@@ -33,11 +32,6 @@ class EHentaiUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
 ) {
-
-    private val percentFormatter = NumberFormat.getPercentInstance().apply {
-        roundingMode = RoundingMode.DOWN
-        maximumFractionDigits = 0
-    }
 
     private val notificationBitmap by lazy {
         BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
@@ -82,12 +76,8 @@ class EHentaiUpdateNotifier(
             Notifications.ID_EHENTAI_ERROR,
             Notifications.CHANNEL_LIBRARY_EHENTAI,
         ) {
-            setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
-            setContentText(context.stringResource(MR.strings.action_show_errors))
-            setSmallIcon(R.drawable.ic_reikai)
+            setUpdateErrorContent(context, failed, NotificationReceiver.openErrorLogPendingActivity(context, uri))
             setLargeIcon(notificationBitmap)
-            setAutoCancel(true)
-            setContentIntent(NotificationReceiver.openErrorLogPendingActivity(context, uri))
         }
     }
 
@@ -115,7 +105,7 @@ class EHentaiUpdateNotifier(
         current: Int,
         total: Int,
     ) {
-        builder.setContentTitle(context.stringResource(title, percentFormatter.format(current.toFloat() / total)))
+        builder.setContentTitle(context.stringResource(title, updateProgressPercent(current, total)))
 
         // A gallery is always adult.
         shownEntryName(

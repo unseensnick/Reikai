@@ -1,7 +1,9 @@
 package reikai.data.notification
 
 import android.content.Context
+import androidx.core.app.NotificationCompat
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.tachiyomi.util.lang.chop
 import reikai.domain.chapter.isRecognizedChapterNumber
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -44,9 +46,27 @@ fun newChapters(chapterNumbers: List<Double>, total: Int): NewChapters {
     }
 }
 
+/** What one entry's new-chapters row says; a null [title] is an entry the row must leave unnamed. */
+data class NewChaptersEntry(val title: String?, val chapters: NewChapters)
+
+/** [shownTitle] is null for a hidden entry, whose row names neither the series nor its chapters. */
+fun newChaptersEntry(shownTitle: String?, chapterNumbers: List<Double>, total: Int): NewChaptersEntry =
+    NewChaptersEntry(
+        title = shownTitle?.chop(NOTIF_TITLE_MAX_LEN),
+        chapters = if (shownTitle == null) NewChapters.Count(total) else newChapters(chapterNumbers, total),
+    )
+
+/** Writes [entry] into one entry's new-chapters notification, as Mihon's library updater words it. */
+fun NotificationCompat.Builder.setNewChaptersEntry(context: Context, entry: NewChaptersEntry) {
+    setContentTitle(entry.title ?: context.stringResource(MR.strings.notification_new_chapters))
+    val description = context.newChaptersDescription(entry.chapters)
+    setContentText(description)
+    setStyle(NotificationCompat.BigTextStyle().bigText(description))
+}
+
 /** The same answer written out: "Chapter 3", "Chapters 1, 2, 3 and 10 more", "5 new chapters". */
-fun Context.newChaptersDescription(chapterNumbers: List<Double>, total: Int): String =
-    when (val found = newChapters(chapterNumbers, total)) {
+private fun Context.newChaptersDescription(found: NewChapters): String =
+    when (found) {
         is NewChapters.Count ->
             pluralStringResource(MR.plurals.notification_chapters_generic, found.total, found.total)
         is NewChapters.Single -> when (found.remaining) {
