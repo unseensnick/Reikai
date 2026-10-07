@@ -14,8 +14,8 @@ context(context: Context)
 val Throwable.formattedMessage: String
     get() {
         // RK --> an offline source error arrives wrapped, and read off the wrapper it shows the raw text
-        val cause = formattableCause()
-        if (cause !== this) return cause.formattedMessage
+        val cause = wordedCause()
+        if (cause != null && cause !== this) return cause.formattedMessage
         // RK <--
         when (this) {
             is HttpException -> return context.stringResource(MR.strings.exception_http, code)
@@ -36,13 +36,13 @@ val Throwable.formattedMessage: String
         }
     }
 
-// RK --> the first throwable in the cause chain the formatter has a message for, or this one
-internal fun Throwable.formattableCause(): Throwable = firstCause {
+// RK --> the first throwable in the cause chain the formatter has a message for, or null for none
+internal fun Throwable.wordedCause(): Throwable? = firstCause {
     it.takeIf { cause ->
         cause is HttpException ||
             cause is UnknownHostException ||
             cause is NoResultsException ||
             cause is SourceNotInstalledException
     }
-} ?: this
+}
 // RK <--

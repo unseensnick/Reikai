@@ -24,7 +24,6 @@ import androidx.paging.compose.itemKey
 import eu.kanade.presentation.browse.components.BrowseSourceEHentaiList
 import eu.kanade.presentation.browse.components.BrowseSourceLoadingItem
 import eu.kanade.presentation.library.components.CommonMangaItemDefaults
-import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
@@ -33,6 +32,7 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.browse.EntryBrowseGridCell
 import reikai.presentation.browse.EntryCellHaptics
 import reikai.presentation.browse.EntryGestures
+import reikai.presentation.browse.sourceFailureMessage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
@@ -76,7 +76,7 @@ fun EntryBrowseCatalogue(
     LaunchedEffect(errorState) {
         if (rows.itemCount > 0 && errorState is LoadState.Error) {
             val result = snackbarHostState.showSnackbar(
-                message = with(context) { errorState.error.formattedMessage },
+                message = with(context) { errorState.error.sourceFailureMessage },
                 actionLabel = context.stringResource(MR.strings.action_retry),
                 duration = SnackbarDuration.Indefinite,
             )
@@ -96,7 +96,7 @@ fun EntryBrowseCatalogue(
         EmptyScreen(
             modifier = Modifier.padding(contentPadding),
             message = (errorState as? LoadState.Error)
-                ?.let { with(context) { it.error.formattedMessage } }
+                ?.let { with(context) { it.error.sourceFailureMessage } }
                 ?: stringResource(MR.strings.no_results_found),
             actions = onLocalSourceHelpClick?.let {
                 listOf(EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it))

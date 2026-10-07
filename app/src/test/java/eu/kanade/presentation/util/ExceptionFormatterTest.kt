@@ -1,6 +1,6 @@
 package eu.kanade.presentation.util
 
-import io.kotest.matchers.shouldBe
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.types.shouldBeInstanceOf
 import org.junit.jupiter.api.Test
 import java.io.IOException
@@ -15,14 +15,12 @@ class ExceptionFormatterTest {
     @Test
     fun `a network failure wrapped by OkHttp is formatted by its cause`() {
         IOException("Unable to resolve host", UnknownHostException("Unable to resolve host"))
-            .formattableCause()
+            .wordedCause()
             .shouldBeInstanceOf<UnknownHostException>()
     }
 
     @Test
-    fun `an error with no recognised cause is formatted as itself`() {
-        val error = IOException("closed", IllegalStateException("closed"))
-
-        (error.formattableCause() === error) shouldBe true
+    fun `an error with no recognised cause has no worded cause`() {
+        IOException("closed", IllegalStateException("closed")).wordedCause().shouldBeNull()
     }
 }

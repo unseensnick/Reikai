@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.browse.components.GlobalSearchErrorResultItem
 import eu.kanade.presentation.browse.components.GlobalSearchLoadingResultItem
-import eu.kanade.presentation.util.formattedMessage
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.browse.components.sourceDetail
@@ -56,7 +55,7 @@ fun SearchResultSection(
         when (val result = row.state) {
             is EntrySearchState.Loading -> GlobalSearchLoadingResultItem()
             is EntrySearchState.Error ->
-                GlobalSearchErrorResultItem(with(context) { result.error.formattedMessage })
+                GlobalSearchErrorResultItem(with(context) { result.error.sourceFailureMessage })
             is EntrySearchState.Unavailable ->
                 GlobalSearchErrorResultItem(stringResource(MR.strings.feed_source_unavailable))
             is EntrySearchState.Success -> EntrySearchCardRow(

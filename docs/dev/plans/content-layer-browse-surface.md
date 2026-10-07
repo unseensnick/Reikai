@@ -627,3 +627,14 @@ them off the neutral row style, so no composable reads the preference.
   unpatched, and it is one provider in both modes so a mode flip does not rebuild the list. The
   migration candidate strip, which always chooses, takes the same rule through `rememberEntryGestures`.
   Pinned by `EntryGesturesTest`; the buzz itself is owed a device check.
+- **Offline, a source that fails to list or search reads "No Internet connection" whatever it
+  threw.** Mihon's `formattedMessage` says offline only for an `UnknownHostException`, so the cut-build
+  device check found a self-hosted source refused on its LAN address and a source that swallowed the
+  network error and then indexed an empty list (`IndexOutOfBoundsException`) still showing raw text in
+  Global search. `sourceFailureMessage` is the one rule for the catalogue, the search and feed rows and
+  the migration strips, both content types: offline, a failure the formatter has no wording for (no
+  `wordedCause`) reads as offline; HTTP errors, "No results found" and "not installed" keep their text,
+  and online wording is upstream's. It stays off the reader and the details screens, where a stored page
+  or a local read can fail offline for reasons of its own. A source that turns a failure into an empty
+  answer (seen on one IReader source) still reads "No results found", since the host cannot tell it
+  from a real one. Pinned by `SourceFailureMessageTest`.
