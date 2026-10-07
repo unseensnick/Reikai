@@ -63,6 +63,7 @@ import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ChapterSwipeActions
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
@@ -73,7 +74,6 @@ import reikai.presentation.updates.EntryUpdatesRow
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
 import tachiyomi.presentation.core.components.ListGroupHeader
@@ -455,7 +455,7 @@ private fun RecentsMixedLaneRow(
     membership: Map<EntryId, Long>,
     selected: Boolean,
     selectionActive: Boolean,
-    swipeActions: RecentsSwipeActions,
+    swipeActions: ChapterSwipeActions,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -475,7 +475,7 @@ private fun RecentsMixedLaneRow(
     // Swipe stays on the updated lane by ruling rather than by capability: the read lane carries its
     // own chapter state now, so it could answer one, but giving History swipe is its own decision.
     val swipeable = item.lane is RecentsLane.Updated
-    val swipe = if (swipeable) swipeActions else DISABLED_SWIPE
+    val swipe = if (swipeable) swipeActions else ChapterSwipeActions.DISABLED
     // Only resolved where a gesture or an indicator draws it. The read lane answers this by asking
     // the queue and the on-disk index, so invoking it per row would put that lookup in every
     // composition to feed a control that lane does not draw.
@@ -612,11 +612,6 @@ private fun mixedLaneTime(
 private fun RecentsItem.isFromToday(): Boolean =
     timestamp.toLocalDate() == Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).date
 
-private val DISABLED_SWIPE = RecentsSwipeActions(
-    start = ChapterSwipeAction.Disabled,
-    end = ChapterSwipeAction.Disabled,
-)
-
 private fun LazyListScope.recentsRows(
     rows: List<RecentsRow>,
     engine: RecentsEngine,
@@ -625,7 +620,7 @@ private fun LazyListScope.recentsRows(
     selection: Set<ChapterRef>,
     selectionEnabled: Boolean,
     orderedRefs: List<ChapterRef>,
-    swipeActions: RecentsSwipeActions,
+    swipeActions: ChapterSwipeActions,
     onOpen: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
 ) {
@@ -756,7 +751,7 @@ private fun RecentsEntryRow(
     membership: Map<EntryId, Long>,
     selected: Boolean,
     selectionActive: Boolean,
-    swipeActions: RecentsSwipeActions,
+    swipeActions: ChapterSwipeActions,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -838,8 +833,8 @@ private fun RecentsEntryRow(
                 onClick = { onPress(item) },
                 onLongClick = { onLongPress(item) },
                 onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
-                chapterSwipeStartAction = DISABLED_SWIPE.start,
-                chapterSwipeEndAction = DISABLED_SWIPE.end,
+                chapterSwipeStartAction = ChapterSwipeActions.DISABLED.start,
+                chapterSwipeEndAction = ChapterSwipeActions.DISABLED.end,
                 onChapterSwipe = {},
                 downloadState = Download.State.NOT_DOWNLOADED,
                 modifier = modifier,

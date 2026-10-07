@@ -61,8 +61,10 @@ import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ChapterSwipeActions
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.chapterSwipeActions
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
@@ -700,10 +702,7 @@ class NovelDetailsViewModel(
                 hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
                 mergeSources = mergeGroup.chipsOf(group),
                 selectedSourceNovelId = group.selected,
-                // Match manga's swipe mapping (MangaViewModel): the start/end action fields cross
-                // the swipeToEnd/swipeToStart prefs, so a right-swipe reads the same on both content types.
-                chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get(),
-                chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get(),
+                chapterSwipeActions = libraryPreferences.chapterSwipeActions(),
             )
         }
         updateSeedColor(viewNovel)
@@ -1632,11 +1631,7 @@ sealed interface NovelDetailsState {
         val mergeSources: List<EntryMergeSource> = emptyList(),
         /** The selected source chip's novelId; null = the unified ("All") view. */
         val selectedSourceNovelId: Long? = null,
-        /** Chapter swipe actions, read from the shared (manga) library prefs so novels match manga. */
-        val chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction =
-            LibraryPreferences.ChapterSwipeAction.Disabled,
-        val chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction =
-            LibraryPreferences.ChapterSwipeAction.Disabled,
+        val chapterSwipeActions: ChapterSwipeActions = ChapterSwipeActions.DISABLED,
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 

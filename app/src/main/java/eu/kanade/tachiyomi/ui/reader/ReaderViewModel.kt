@@ -76,6 +76,7 @@ import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
@@ -1270,10 +1271,9 @@ class ReaderViewModel(
         }
     }
 
-    // RK: the chapter-list swipe actions follow the same prefs as the details list, with start/end crossed
-    // to match those screens so a given swipe direction does the same thing everywhere.
-    val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
-    val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
+    // RK: the chapter-list swipe actions, read through the kernel every chapter list shares.
+    val chapterSwipeStartAction = libraryPreferences.chapterSwipeActions().start
+    val chapterSwipeEndAction = libraryPreferences.chapterSwipeActions().end
 
     // RK: the sheet's list and the navigation list are built separately, so they hold different chapter
     // instances for the same row, and a chapter the navigation list skipped (read, with skip-read on)

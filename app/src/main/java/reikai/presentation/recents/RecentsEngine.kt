@@ -42,7 +42,10 @@ import kotlinx.coroutines.withContext
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ChapterSwipeActions
 import reikai.domain.library.ContentType
+import reikai.domain.library.chapterSwipeActions
+import reikai.domain.library.chapterSwipeActionsChanges
 import reikai.domain.library.includes
 import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
@@ -304,24 +307,10 @@ class RecentsEngine(
             .stateIn(viewModelScope, SharingStarted.Eagerly, RecentsChapterFilters.NONE)
     }
 
-    /**
-     * The swipe choices, read from the same two preferences the details screens use, so one setting
-     * governs a chapter row wherever it is drawn. The property names are crossed on purpose: the
-     * preference called `swipeToEndAction` is the action the start side runs.
-     */
-    val swipeActions: StateFlow<RecentsSwipeActions> by lazy {
-        combine(
-            libraryPreferences.swipeToEndAction.changes(),
-            libraryPreferences.swipeToStartAction.changes(),
-        ) { start, end -> RecentsSwipeActions(start = start, end = end) }
-            .stateIn(
-                viewModelScope,
-                SharingStarted.Eagerly,
-                RecentsSwipeActions(
-                    start = libraryPreferences.swipeToEndAction.get(),
-                    end = libraryPreferences.swipeToStartAction.get(),
-                ),
-            )
+    /** The swipe choices every chapter list reads, so one setting governs a row wherever it is drawn. */
+    val swipeActions: StateFlow<ChapterSwipeActions> by lazy {
+        libraryPreferences.chapterSwipeActionsChanges()
+            .stateIn(viewModelScope, SharingStarted.Eagerly, libraryPreferences.chapterSwipeActions())
     }
 
     /** The Updates mode's own display toggle. The combined modes ignore it: they have no ungrouped

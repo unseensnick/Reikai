@@ -163,24 +163,6 @@ class RecentsEngineTest {
         suggestGroup = false,
     )
 
-    /**
-     * The two preference names are crossed, so binding them the obvious way puts each swipe on the
-     * wrong side, silently and identically on both content types. Reading `value` is the assertion
-     * here rather than a shortcut: the seed is what `get()` resolved, which is the binding itself.
-     */
-    @Test
-    fun `the start side runs the preference named for the end`() = runTest {
-        libraryPreferences.swipeToEndAction.set(LibraryPreferences.ChapterSwipeAction.Download)
-        libraryPreferences.swipeToStartAction.set(LibraryPreferences.ChapterSwipeAction.ToggleBookmark)
-
-        val engine = engine(listOf(provider(ContentType.MANGA)))
-
-        engine.swipeActions.value shouldBe RecentsSwipeActions(
-            start = LibraryPreferences.ChapterSwipeAction.Download,
-            end = LibraryPreferences.ChapterSwipeAction.ToggleBookmark,
-        )
-    }
-
     @Test
     fun `both content types assemble into one feed, newest first`() = runTest {
         val engine = engine(

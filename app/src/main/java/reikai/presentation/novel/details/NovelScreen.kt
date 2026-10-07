@@ -110,8 +110,8 @@ class NovelScreen(
                         state = loaded,
                         snackbarHostState = viewModel.snackbarHostState,
                         isTabletUi = isTabletUi(),
-                        chapterSwipeStartAction = s.chapterSwipeStartAction,
-                        chapterSwipeEndAction = s.chapterSwipeEndAction,
+                        chapterSwipeStartAction = s.chapterSwipeActions.start,
+                        chapterSwipeEndAction = s.chapterSwipeActions.end,
                         nav = EntryDetailsNavigation(
                             navigateUp = navigator::pop,
                             onOpenChapter = { chapterId ->

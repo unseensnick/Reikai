@@ -92,6 +92,7 @@ import reikai.domain.download.downloadStateOf
 import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
@@ -280,8 +281,9 @@ class MangaViewModel(
     private val filteredChapters: List<ChapterList.Item>?
         get() = successState?.processedChapters
 
-    val chapterSwipeStartAction = libraryPreferences.swipeToEndAction.get()
-    val chapterSwipeEndAction = libraryPreferences.swipeToStartAction.get()
+    // RK: the crossed preference names resolve in the one kernel every chapter list reads.
+    val chapterSwipeStartAction = libraryPreferences.chapterSwipeActions().start
+    val chapterSwipeEndAction = libraryPreferences.chapterSwipeActions().end
 
     // RK: autoTrackState moved to EntryAutoTrackOnMarkRead, which reads the preference itself.
 

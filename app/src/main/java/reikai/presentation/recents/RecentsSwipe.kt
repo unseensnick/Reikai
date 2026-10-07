@@ -1,20 +1,8 @@
 package reikai.presentation.recents
 
-import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.download.swipeDownloadAction
 import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
-
-/**
- * The two swipe choices a row draws, in screen terms rather than preference terms: the preference
- * names are crossed (`swipeToEndAction` holds the start-side action), so the engine resolves them
- * once and nothing downstream has to remember the inversion.
- */
-@Immutable
-data class RecentsSwipeActions(
-    val start: ChapterSwipeAction,
-    val end: ChapterSwipeAction,
-)
 
 /**
  * Runs one row's swipe. Each verb acts on that row alone and leaves the selection alone, which is why
