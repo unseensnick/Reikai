@@ -33,7 +33,6 @@ import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterCopyRow
-import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RECENTS_FEED_LIMIT
@@ -194,34 +193,27 @@ class MangaRecentsAdapter(
 
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
         val (resolved, mangaById) = resolveTarget(item) ?: return null
-        val chapter = resolved.chapters[resolved.chapterId] ?: return null
-        // Not necessarily this row's manga: a merged row resolves across the group, and the download
-        // lookup is keyed by the owner's stored title and source.
-        val owner = mangaById[chapter.mangaId] ?: return null
-        val unitOf = resolved.stitch.associateBy { it.chapterId }
-        val copies = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }.mapNotNull { copy ->
-            val copyOwner = mangaById[copy.mangaId] ?: return@mapNotNull null
-            ChapterCopyRow(
-                namedId = chapter.id,
-                copy = unitOf[copy.id] ?: ChapterUnit(copy.id, unit = 0, copyOrder = 0),
-                ownerTitle = copyOwner.title,
-                ownerSource = copyOwner.source.toString(),
-                chapterName = copy.name,
-                scanlator = copy.scanlator,
-                chapterUrl = copy.url,
-            )
-        }
-        return RecentsTargetRow(
-            ref = ChapterRef(EntryId.Manga(owner.id), chapter.id),
-            chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
-            state = chapterState(
-                read = resolved.marks.isRead(chapter.id, chapter.read),
-                bookmark = resolved.marks.isBookmarked(chapter.id, chapter.bookmark),
-                progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount),
-            ),
-            // The copy a tap opens, which on a group-scoped lane can be another source's on disk.
-            download = copiesDownloadUi(item.lane, chapter.id) { copies },
-        )
+        return resolved.toTargetRow(
+            item.lane,
+            id = { it.id },
+            project = { copies ->
+                copies.mapNotNull { copy ->
+                    val owner = mangaById[copy.mangaId] ?: return@mapNotNull null
+                    copy.id to RecentsTargetCopy(
+                        owner = EntryId.Manga(owner.id),
+                        ownerTitle = owner.title,
+                        ownerSource = owner.source.toString(),
+                        name = copy.name,
+                        number = copy.chapterNumber,
+                        scanlator = copy.scanlator,
+                        url = copy.url,
+                        read = copy.read,
+                        bookmark = copy.bookmark,
+                        progress = ChapterProgress.Pages(copy.lastPageRead, copy.pageCount),
+                    )
+                }.toMap()
+            },
+        ) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) }
     }
 
     /**

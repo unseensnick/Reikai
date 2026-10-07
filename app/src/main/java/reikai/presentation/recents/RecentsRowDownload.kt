@@ -24,6 +24,9 @@ internal fun <T> recentsRowCopies(named: T, stitch: List<ChapterUnit>, pooled: L
     return listOf(named) + pooled.filter { id(it) in ids && id(it) != id(named) }
 }
 
+/** A copy no stored stitch places, which [recentsRowCopies] then returns alone: its own merged chapter. */
+internal fun soloUnit(chapterId: Long) = ChapterUnit(chapterId, unit = 0, copyOrder = 0)
+
 /**
  * A recents row's download state, the one rule both adapters draw it by: the named chapter's queue
  * entry first, else whether the copy a tap opens is on disk ([CopyToOpen] in the lane's scope). An
@@ -101,7 +104,7 @@ internal class RecentsRowCopiesIndex {
     ): List<ChapterCopyRow> = byChapter[chapterId] ?: listOf(
         ChapterCopyRow(
             chapterId,
-            ChapterUnit(chapterId, unit = 0, copyOrder = 0),
+            soloUnit(chapterId),
             ownerTitle,
             ownerSource,
             chapterName,

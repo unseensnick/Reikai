@@ -1,8 +1,11 @@
 package reikai.presentation.recents
 
 import reikai.domain.chapter.ReadingOrder
+import reikai.domain.entry.EntryId
+import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupMarks
+import reikai.domain.reader.ChapterProgress
 
 /**
  * One of an entry's chapters, projected to what a target rule needs, built by each provider from its own
@@ -70,7 +73,7 @@ suspend fun resumeTarget(
  * and this surface deliberately does not, because a filter about what to list should not decide where
  * a newly added series starts.
  */
-fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = chapters.firstOrNull { !it.read }?.id
+fun firstUnreadOf(chapters: List<RecentsChapter>): Long? = ReadingOrder.nextToRead(chapters) { it.read }?.id
 
 /**
  * The chapter a newly added row opens: the group's first unread, else the entry's own. The second pass
@@ -125,4 +128,57 @@ suspend fun <T> resolveRecentsTarget(
         RecentsLane.Added -> addedTarget(group.forRules()) { ownSourceForRules() }
     } ?: return null
     return RecentsTarget(chapterId, chapters, stitch, pooled, marks)
+}
+
+/**
+ * One copy of a row's target chapter as its engine stores it. [owner] is the entry the copy belongs to,
+ * not necessarily the row's, since a merged row resolves across the group; a download is filed under
+ * its stored [ownerTitle] and [ownerSource]. Only the named copy's state and label are drawn.
+ */
+class RecentsTargetCopy(
+    val owner: EntryId,
+    val ownerTitle: String,
+    val ownerSource: String,
+    val name: String,
+    val number: Double,
+    val scanlator: String?,
+    val url: String,
+    val read: Boolean,
+    val bookmark: Boolean,
+    val progress: ChapterProgress,
+)
+
+/**
+ * The row [lane] draws for this target, so the label, the state and the download control all describe
+ * the chapter a tap opens. [project] answers every copy whose owner it can find, keyed by id, and runs
+ * here rather than on the draw path; no row when it cannot answer the named chapter.
+ */
+internal suspend fun <T> RecentsTarget<T>.toTargetRow(
+    lane: RecentsLane,
+    id: (T) -> Long,
+    project: suspend (List<T>) -> Map<Long, RecentsTargetCopy>,
+    download: (chapterId: Long, copies: () -> List<ChapterCopyRow>) -> RecentsDownloadUi,
+): RecentsTargetRow? {
+    val named = chapters[chapterId] ?: return null
+    val sameChapter = recentsRowCopies(named, stitch, pooled, id)
+    val projected = project(sameChapter)
+    val chapter = projected[chapterId] ?: return null
+    val unitOf = stitch.associateBy { it.chapterId }
+    val copies = sameChapter.mapNotNull { copy ->
+        val copyId = id(copy)
+        projected[copyId]?.let {
+            val unit = unitOf[copyId] ?: soloUnit(copyId)
+            ChapterCopyRow(chapterId, unit, it.ownerTitle, it.ownerSource, it.name, it.scanlator, it.url)
+        }
+    }
+    return RecentsTargetRow(
+        ref = ChapterRef(chapter.owner, chapterId),
+        chapter = lane.chapterLabel(chapter.name, chapter.number),
+        state = chapterState(
+            read = marks.isRead(chapterId, chapter.read),
+            bookmark = marks.isBookmarked(chapterId, chapter.bookmark),
+            progress = chapter.progress,
+        ),
+        download = download(chapterId) { copies },
+    )
 }

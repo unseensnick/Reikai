@@ -48,9 +48,9 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Drives the light-novel side of the Updates tab, the novel twin of
- * [eu.kanade.tachiyomi.ui.updates.UpdatesViewModel]. Subscribes to the recent-novel-updates feed
- * (chapters fetched after the novel was added) and the download queue, exposing a flat list the
- * shared recents screen groups by date. The chapter verbs live in
+ * [eu.kanade.tachiyomi.ui.updates.UpdatesViewModel], pinned by RecentsFeedSurfaceTest. Subscribes to
+ * the recent-novel-updates feed (chapters fetched after the novel was added) and the download queue,
+ * exposing a flat list the shared recents screen groups by date. The chapter verbs live in
  * [reikai.presentation.recents.NovelRecentsChapterActions], which every recents surface builds. Novels
  * rely on the manga tab's unread-count badge reset, so there is nothing to reset here.
  */

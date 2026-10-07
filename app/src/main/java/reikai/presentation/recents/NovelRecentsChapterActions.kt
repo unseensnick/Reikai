@@ -12,7 +12,10 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.util.lang.withIOContext
 
-/** Novels' chapter verbs on recent activity, the twin of [MangaRecentsChapterActions]. */
+/**
+ * Novels' chapter verbs on recent activity, twin of [MangaRecentsChapterActions], pinned by
+ * RecentsChapterActionsConformanceTest.
+ */
 @Inject
 class NovelRecentsChapterActions(
     private val chapterRepository: NovelChapterRepository,

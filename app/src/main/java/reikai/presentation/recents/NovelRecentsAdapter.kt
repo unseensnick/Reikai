@@ -25,7 +25,6 @@ import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterCopyRow
-import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
@@ -57,8 +56,8 @@ import reikai.presentation.updates.NovelUpdatesItem
 import reikai.presentation.updates.NovelUpdatesViewModel
 
 /**
- * The novel twin of [MangaRecentsAdapter], over Reikai's two novel models. Like the manga pair, both
- * stay live behind this adapter as the feeds, wrapped the same way so the seam is symmetric.
+ * The novel twin of [MangaRecentsAdapter], pinned by RecentsMappingTest and RecentsTargetRowTest, over
+ * Reikai's two novel models. Like the manga pair, both stay live behind this adapter as the feeds.
  */
 @AssistedInject
 class NovelRecentsAdapter(
@@ -86,7 +85,7 @@ class NovelRecentsAdapter(
     override val chapterActions: NovelRecentsChapterActions,
 ) : RecentsProvider {
 
-    /** One entry point per surface, the twin of [MangaRecentsAdapter]'s. */
+    /** One entry point per surface, twin of [MangaRecentsAdapter]'s, type only. */
     @AssistedFactory
     interface Factory {
         fun create(
@@ -190,40 +189,28 @@ class NovelRecentsAdapter(
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }
 
-    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
-        val resolved = resolveTarget(item) ?: return null
-        val chapter = resolved.chapters[resolved.chapterId] ?: return null
-        // Not necessarily this row's novel: a merged row resolves across the group, and the download
-        // lookup is keyed by the owner's stored title and source.
-        val owner = novelRepository.getById(chapter.novelId) ?: return null
-        val sameChapter = recentsRowCopies(chapter, resolved.stitch, resolved.pooled) { it.id }
-        // Resolved here, off the draw path, so the state below only asks the in-memory index.
-        val ownerOf = novelRepository.ownersOf(sameChapter)
-        val unitOf = resolved.stitch.associateBy { it.chapterId }
-        val copies = sameChapter.mapNotNull { copy ->
-            val copyOwner = ownerOf[copy.novelId] ?: return@mapNotNull null
-            ChapterCopyRow(
-                namedId = chapter.id,
-                copy = unitOf[copy.id] ?: ChapterUnit(copy.id, unit = 0, copyOrder = 0),
-                ownerTitle = copyOwner.title,
-                ownerSource = copyOwner.source,
-                chapterName = copy.name,
-                scanlator = null,
-                chapterUrl = copy.url,
-            )
-        }
-        return RecentsTargetRow(
-            ref = ChapterRef(EntryId.Novel(owner.id), chapter.id),
-            chapter = item.lane.chapterLabel(chapter.name, chapter.chapterNumber),
-            state = chapterState(
-                read = resolved.marks.isRead(chapter.id, chapter.read),
-                bookmark = resolved.marks.isBookmarked(chapter.id, chapter.bookmark),
-                progress = ChapterProgress.Percent(chapter.lastTextProgress),
-            ),
-            // The copy a tap opens, which on a group-scoped lane can be another source's on disk.
-            download = copiesDownloadUi(item.lane, chapter.id) { copies },
-        )
-    }
+    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? = resolveTarget(item)?.toTargetRow(
+        item.lane,
+        id = { it.id },
+        project = { copies ->
+            val ownerOf = novelRepository.ownersOf(copies)
+            copies.mapNotNull { copy ->
+                val owner = ownerOf[copy.novelId] ?: return@mapNotNull null
+                copy.id to RecentsTargetCopy(
+                    owner = EntryId.Novel(owner.id),
+                    ownerTitle = owner.title,
+                    ownerSource = owner.source,
+                    name = copy.name,
+                    number = copy.chapterNumber,
+                    scanlator = null,
+                    url = copy.url,
+                    read = copy.read,
+                    bookmark = copy.bookmark,
+                    progress = ChapterProgress.Percent(copy.lastTextProgress),
+                )
+            }.toMap()
+        },
+    ) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) }
 
     /** Only the chapter reads are this type's; the lane rules are [resolveRecentsTarget]'s. */
     private suspend fun resolveTarget(item: RecentsItem): RecentsTarget<NovelChapter>? {
@@ -293,7 +280,7 @@ class NovelRecentsAdapter(
 
     override suspend fun clearHistory(): Boolean = historyModel?.removeAllHistory() == true
 
-    // Straight to the job, the twin of the manga side and for the same two reasons.
+    // Straight to the job, as the manga adapter goes and for the same two reasons.
     override fun refresh(): Boolean = NovelUpdateWorker.startNow(application.workManager)
 
     override suspend fun detailsScreen(entry: EntryId): Screen? {

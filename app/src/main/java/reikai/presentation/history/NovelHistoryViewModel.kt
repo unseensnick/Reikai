@@ -40,10 +40,10 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Novel side of the consolidated History tab (the novel twin of
- * [eu.kanade.tachiyomi.ui.history.HistoryViewModel]). Mihon's manga model drives manga rows; this
- * drives novel rows, both rendered by the shared recents screen. The feed is one row per novel, its
- * most-recently-read chapter; the recents engine searches, interleaves and dates it, so what leaves
- * here is the raw list and nothing else.
+ * [eu.kanade.tachiyomi.ui.history.HistoryViewModel], pinned by RecentsFeedSurfaceTest). Mihon's manga
+ * model drives manga rows; this drives novel rows, both rendered by the shared recents screen. The
+ * feed is one row per novel, its most-recently-read chapter; the recents engine searches, interleaves
+ * and dates it, so what leaves here is the raw list and nothing else.
  */
 @AssistedInject
 class NovelHistoryViewModel(
@@ -110,7 +110,7 @@ class NovelHistoryViewModel(
         viewModelScope.launchIO { removeNovelHistory.await(novelId) }
     }
 
-    /** Suspends and answers, the twin of its manga counterpart: the shell announces the wipe. */
+    /** Suspends and answers, so the shell announces the wipe. */
     suspend fun removeAllHistory(): Boolean = withIOContext { removeNovelHistory.awaitAll() }
 
     @Immutable
