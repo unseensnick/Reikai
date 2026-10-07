@@ -20,6 +20,7 @@ import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
@@ -34,9 +35,21 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * selection means nothing to choose, and the screen forwards itself to [EntryMigrationConfigScreen].
  */
 class EntryMigrationSourcePickScreen(
-    private val contentType: ContentType,
-    private val entryIds: List<Long>,
+    val contentType: ContentType,
+    val entryIds: List<Long>,
 ) : Screen(), MigrationFlowScreen {
+
+    companion object {
+        /**
+         * The migration a multi-select opens, or null when it holds nothing or both content types: each
+         * type migrates over its own id space, so a mixed selection has no one flow to open, and the
+         * caller hides the action rather than greying it out.
+         */
+        fun forSelection(selection: Collection<EntryId>): EntryMigrationSourcePickScreen? {
+            val type = selection.mapTo(HashSet()) { it.contentType }.singleOrNull() ?: return null
+            return EntryMigrationSourcePickScreen(type, selection.map { it.rawId })
+        }
+    }
 
     @Composable
     override fun Content() {

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import reikai.data.novel.update.NovelUpdateWorker
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
@@ -79,13 +80,15 @@ class UpdateErrorsViewModel(
                 }
                 manga + novel
             }.collectLatest { entries ->
-                val validKeys = entries.mapTo(mutableSetOf()) { it.key }
                 state.update { current ->
                     val prev = current as? UpdateErrorsScreenState.Success
                     UpdateErrorsScreenState.Success(
                         entries = entries,
                         contentType = prev?.contentType ?: initialContentType,
-                        selected = prev?.selected.orEmpty() intersect validKeys,
+                        selection = EntrySelection.retain(
+                            prev?.selection ?: SelectionState(),
+                            entries.map { it.entryId },
+                        ),
                     )
                 }
             }
@@ -94,24 +97,21 @@ class UpdateErrorsViewModel(
 
     fun setContentType(type: ContentType) = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
-        val kept = EntrySelection.afterChipFlip(SelectionState(state.selected), state.contentType, type)
-        state.copy(contentType = type, selected = kept.selection)
+        val kept = EntrySelection.afterChipFlip(state.selection, state.contentType, type)
+        state.copy(contentType = type, selection = kept)
     }
 
-    fun toggleSelection(key: String) = state.update { state ->
-        if (state !is UpdateErrorsScreenState.Success) return@update state
-        val selected = state.selected.toMutableSet().apply { if (!add(key)) remove(key) }
-        state.copy(selected = selected)
-    }
+    fun toggleSelection(id: EntryId) = select { EntrySelection.toggle(it.selection, id) }
 
-    fun selectAll() = state.update { state ->
-        if (state !is UpdateErrorsScreenState.Success) return@update state
-        state.copy(selected = state.visibleEntries.mapTo(mutableSetOf()) { it.key })
-    }
+    fun rangeSelection(id: EntryId) = select { EntrySelection.rangeOrToggle(it.selection, id, it.orderedIds) }
 
-    fun clearSelection() = state.update { state ->
+    fun selectAll() = select { EntrySelection.selectAll(it.selection, it.orderedIds) }
+
+    fun clearSelection() = select { EntrySelection.clear() }
+
+    private fun select(verb: (UpdateErrorsScreenState.Success) -> SelectionState<EntryId>) = state.update { state ->
         if (state !is UpdateErrorsScreenState.Success) return@update state
-        state.copy(selected = emptySet())
+        state.copy(selection = verb(state))
     }
 
     fun dismissSelected() {
@@ -126,23 +126,11 @@ class UpdateErrorsViewModel(
         }
     }
 
-    /** The manga ids of the current selection (their library ids, for migration). */
-    fun selectedMangaIds(): List<Long> {
-        val state = state.value as? UpdateErrorsScreenState.Success ?: return emptyList()
-        return state.selectedEntries.filterIsInstance<UpdateErrorEntry.Manga>().map { it.error.mangaId }
-    }
-
-    /** The novel ids of the current selection (their library ids, for migration). */
-    fun selectedNovelIds(): List<Long> {
-        val state = state.value as? UpdateErrorsScreenState.Success ?: return emptyList()
-        return state.selectedEntries.filterIsInstance<UpdateErrorEntry.Novel>().map { it.error.novelId }
-    }
-
     fun dismissAll() {
         val type = (state.value as? UpdateErrorsScreenState.Success)?.contentType ?: return
         viewModelScope.launchIO {
-            if (type != ContentType.NOVELS) deleteLibraryUpdateErrors.all()
-            if (type != ContentType.MANGA) deleteNovelUpdateErrors.all()
+            if (type.includes(ContentType.MANGA)) deleteLibraryUpdateErrors.all()
+            if (type.includes(ContentType.NOVELS)) deleteNovelUpdateErrors.all()
         }
     }
 
@@ -169,52 +157,44 @@ sealed interface UpdateErrorsScreenState {
     data class Success(
         val entries: List<UpdateErrorEntry>,
         val contentType: ContentType = ContentType.ALL,
-        val selected: Set<String> = emptySet(),
+        val selection: SelectionState<EntryId> = SelectionState(),
     ) : UpdateErrorsScreenState {
-        val visibleEntries: List<UpdateErrorEntry> get() = when (contentType) {
-            ContentType.ALL -> entries
-            ContentType.MANGA -> entries.filterIsInstance<UpdateErrorEntry.Manga>()
-            ContentType.NOVELS -> entries.filterIsInstance<UpdateErrorEntry.Novel>()
-        }
+        val visibleEntries: List<UpdateErrorEntry> get() =
+            entries.filter { contentType.includes(it.entryId.contentType) }
         val groups: List<UpdateErrorGroup> get() = visibleEntries
             .groupBy { it.message }
             .map { (message, items) -> UpdateErrorGroup(message, items) }
-        val isEmpty: Boolean get() = visibleEntries.isEmpty()
-        val selectionMode: Boolean get() = selected.isNotEmpty()
-        val selectedEntries: List<UpdateErrorEntry> get() = entries.filter { it.key in selected }
 
-        /** True when the selection is non-empty and all one vertical. Migration runs one vertical
-         *  at a time, so a mixed manga + novel selection can't be migrated together. */
-        val selectionIsSingleVertical: Boolean get() {
-            val hasManga = selectedEntries.any { it is UpdateErrorEntry.Manga }
-            val hasNovel = selectedEntries.any { it is UpdateErrorEntry.Novel }
-            return hasManga != hasNovel
-        }
+        /** The rows in the order they are drawn, under their message headers: what a range runs over. */
+        val orderedIds: List<EntryId> get() = groups.flatMap { group -> group.errors.map { it.entryId } }
+        val isEmpty: Boolean get() = visibleEntries.isEmpty()
+        val selectionMode: Boolean get() = !selection.isEmpty
+        val selectedEntries: List<UpdateErrorEntry> get() = entries.filter { it.entryId in selection }
     }
 }
 
 @Immutable
 data class UpdateErrorGroup(val message: String, val errors: List<UpdateErrorEntry>)
 
-/** A failed entry from either vertical, normalized for the shared list. [key] is unique across both
- *  tables (their error ids can collide), so it drives selection. */
+/** A failed entry from either vertical, normalized for the shared list. Each table holds at most one
+ *  error per entry (its entry column is UNIQUE), so [entryId] identifies the row and drives selection. */
 @Immutable
 sealed interface UpdateErrorEntry {
-    val key: String
+    val entryId: EntryId
     val title: String
     val message: String
     val sourceName: String
 
     @Immutable
     data class Manga(val error: LibraryUpdateError, override val sourceName: String) : UpdateErrorEntry {
-        override val key get() = "m:${error.errorId}"
+        override val entryId get() = EntryId.Manga(error.mangaId)
         override val title get() = error.mangaTitle
         override val message get() = error.message
     }
 
     @Immutable
     data class Novel(val error: NovelUpdateError, override val sourceName: String) : UpdateErrorEntry {
-        override val key get() = "n:${error.errorId}"
+        override val entryId get() = EntryId.Novel(error.novelId)
         override val title get() = error.novelTitle
         override val message get() = error.message
     }

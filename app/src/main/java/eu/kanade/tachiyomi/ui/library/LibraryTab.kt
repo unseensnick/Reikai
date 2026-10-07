@@ -494,29 +494,11 @@ data object LibraryTab : Tab {
                     }
                         .takeIf { engine.canDownloadSelection(libraryContentType) },
                     onDeleteClicked = { engine.openDeleteDialog(libraryContentType) },
-                    // RK: migration is per-type (each pushes a screen over its own id space), so it routes
-                    // by what the selection actually holds, and a mixed selection hides the action rather
-                    // than silently flattening two id spaces into one screen.
-                    onMigrateClicked = run {
-                        val mangaIds = activeSelection.filterIsInstance<EntryId.Manga>().map { it.rawId }
-                        val novelIds = activeSelection.filterIsInstance<EntryId.Novel>().map { it.rawId }
-                        when {
-                            novelIds.isEmpty() && mangaIds.isNotEmpty() -> {
-                                {
-                                    engine.clearSelection()
-                                    // RK: source picker first (merged-manga member choice).
-                                    navigator.push(EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds))
-                                }
-                            }
-                            mangaIds.isEmpty() && novelIds.isNotEmpty() -> {
-                                {
-                                    engine.clearSelection()
-                                    navigator.push(
-                                        EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),
-                                    )
-                                }
-                            }
-                            else -> null
+                    // RK: routed by what the selection holds; a mixed selection hides the action.
+                    onMigrateClicked = EntryMigrationSourcePickScreen.forSelection(activeSelection)?.let { screen ->
+                        {
+                            engine.clearSelection()
+                            navigator.push(screen)
                         }
                     },
                     // RK: manual merge of the selected entries (needs at least two OF ONE TYPE: a merge

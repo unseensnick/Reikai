@@ -81,35 +81,27 @@ class UpdateErrorsScreen(
                 AppBar(
                     title = stringResource(MR.strings.label_update_errors),
                     navigateUp = navigator::pop,
-                    actionModeCounter = successState.selected.size,
+                    actionModeCounter = successState.selection.size,
                     onCancelActionMode = viewModel::clearSelection,
                     actionModeActions = {
+                        val migration = EntryMigrationSourcePickScreen.forSelection(successState.selection.selection)
                         AppBarActions(
-                            listOf(
+                            listOfNotNull(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_select_all),
                                     icon = MaterialSymbols.Rounded.SelectAll,
                                     onClick = viewModel::selectAll,
                                 ),
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.action_migrate),
-                                    icon = MaterialSymbols.Rounded.SwapCalls,
-                                    enabled = successState.selectionIsSingleVertical,
-                                    onClick = {
-                                        val mangaIds = viewModel.selectedMangaIds()
-                                        val novelIds = viewModel.selectedNovelIds()
-                                        if (mangaIds.isNotEmpty()) {
-                                            navigator.push(
-                                                EntryMigrationSourcePickScreen(ContentType.MANGA, mangaIds),
-                                            )
-                                        } else if (novelIds.isNotEmpty()) {
-                                            navigator.push(
-                                                EntryMigrationSourcePickScreen(ContentType.NOVELS, novelIds),
-                                            )
-                                        }
-                                        viewModel.clearSelection()
-                                    },
-                                ),
+                                migration?.let {
+                                    AppBar.Action(
+                                        title = stringResource(MR.strings.action_migrate),
+                                        icon = MaterialSymbols.Rounded.SwapCalls,
+                                        onClick = {
+                                            viewModel.clearSelection()
+                                            navigator.push(it)
+                                        },
+                                    )
+                                },
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_delete),
                                     icon = MaterialSymbols.Rounded.Delete,
@@ -179,14 +171,14 @@ class UpdateErrorsScreen(
                         }
                         items(
                             items = group.errors,
-                            key = { "error-${it.key}" },
+                            key = { "error-${it.entryId}" },
                         ) { entry ->
                             UpdateErrorRow(
                                 entry = entry,
-                                isSelected = entry.key in successState.selected,
+                                isSelected = entry.entryId in successState.selection,
                                 onClick = {
                                     if (successState.selectionMode) {
-                                        viewModel.toggleSelection(entry.key)
+                                        viewModel.toggleSelection(entry.entryId)
                                     } else {
                                         when (entry) {
                                             is UpdateErrorEntry.Manga ->
@@ -196,7 +188,7 @@ class UpdateErrorsScreen(
                                         }
                                     }
                                 },
-                                onLongClick = { viewModel.toggleSelection(entry.key) },
+                                onLongClick = { viewModel.rangeSelection(entry.entryId) },
                             )
                         }
                     }

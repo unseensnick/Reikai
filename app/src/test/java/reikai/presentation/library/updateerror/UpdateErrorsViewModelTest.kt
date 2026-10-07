@@ -22,7 +22,10 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.data.novel.update.NovelUpdateWorker
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.updateerror.LibraryUpdateError
+import reikai.domain.novel.updateerror.NovelUpdateError
 
 class UpdateErrorsViewModelTest {
 
@@ -100,24 +103,68 @@ class UpdateErrorsViewModelTest {
 
         viewModel.setContentType(ContentType.ALL)
 
-        viewModel.selected() shouldBe setOf("m1")
+        viewModel.selected() shouldBe setOf(EntryId.Manga(1L))
+    }
+
+    /** Rows are drawn under their message headers, so the range runs in that order, not the feed's. */
+    @Test
+    fun `a long press selects every row drawn between the last touched one and it`() = runTest {
+        val viewModel = viewModel(
+            ContentType.ALL,
+            manga = listOf(mangaError(1L, "timeout"), mangaError(2L, "404")),
+            novels = listOf(novelError(1L, "404"), novelError(2L, "timeout")),
+        )
+        viewModel.state.first { it is UpdateErrorsScreenState.Success }
+
+        viewModel.toggleSelection(EntryId.Manga(1L))
+        viewModel.rangeSelection(EntryId.Manga(2L))
+
+        viewModel.selected() shouldBe setOf(EntryId.Manga(1L), EntryId.Novel(2L), EntryId.Manga(2L))
     }
 
     private suspend fun selectingOne(chip: ContentType) = viewModel(chip).also {
         it.state.first { state -> state is UpdateErrorsScreenState.Success }
-        it.toggleSelection("m1")
+        it.toggleSelection(EntryId.Manga(1L))
     }
 
-    private fun UpdateErrorsViewModel.selected() = (state.value as UpdateErrorsScreenState.Success).selected
+    private fun UpdateErrorsViewModel.selected() =
+        (state.value as UpdateErrorsScreenState.Success).selection.selection
 
-    private fun viewModel(chip: ContentType) = UpdateErrorsViewModel(
+    private fun viewModel(
+        chip: ContentType,
+        manga: List<LibraryUpdateError> = emptyList(),
+        novels: List<NovelUpdateError> = emptyList(),
+    ) = UpdateErrorsViewModel(
         initialContentType = chip,
-        getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(emptyList()) },
+        getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
         deleteLibraryUpdateErrors = mockk(relaxed = true),
-        getNovelUpdateErrors = mockk { every { subscribeAll() } returns flowOf(emptyList()) },
+        getNovelUpdateErrors = mockk { every { subscribeAll() } returns flowOf(novels) },
         deleteNovelUpdateErrors = mockk(relaxed = true),
         sourceManager = mockk(relaxed = true),
         novelSourceManager = mockk(relaxed = true),
+    )
+
+    private fun mangaError(id: Long, message: String) = LibraryUpdateError(
+        errorId = id,
+        mangaId = id,
+        mangaTitle = "m$id",
+        sourceId = 0L,
+        thumbnailUrl = null,
+        coverLastModified = 0L,
+        message = message,
+        lastUpdate = 0L,
+    )
+
+    private fun novelError(id: Long, message: String) = NovelUpdateError(
+        errorId = id,
+        novelId = id,
+        novelTitle = "n$id",
+        source = "src",
+        novelUrl = "/n$id",
+        thumbnailUrl = null,
+        coverLastModified = 0L,
+        message = message,
+        lastUpdate = 0L,
     )
 
     private companion object {
