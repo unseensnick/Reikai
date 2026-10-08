@@ -49,6 +49,7 @@ import logcat.LogPriority
 import mihon.core.archive.ZipWriter
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
+import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.hasRoomToDownload // RK
 import tachiyomi.core.common.i18n.stringResource
@@ -68,7 +69,6 @@ import tachiyomi.i18n.MR
 import java.io.File
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * This class is the one in charge of downloading chapters.
@@ -625,8 +625,9 @@ class Downloader(
         }
             // Retry 3 times, waiting 2, 4 and 8 seconds between attempts.
             .retryWhen { _, attempt ->
-                if (attempt < 3) {
-                    delay((2L shl attempt.toInt()).seconds)
+                // RK: the schedule the novel downloader runs too
+                if (attempt < DownloadRetry.MAX_RETRIES) {
+                    delay(DownloadRetry.delayBefore(attempt.toInt()))
                     true
                 } else {
                     false

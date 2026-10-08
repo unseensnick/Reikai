@@ -23,6 +23,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.data.notification.isHiddenAdult
+import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
@@ -445,10 +446,9 @@ class NovelDownloadManager(
                         break
                     }
                     // An empty answer is the source's, not a blip, so trying again gets the same.
-                    if (attempt >= MAX_RETRIES || lastError is EmptyChapterException) break
+                    if (attempt >= DownloadRetry.MAX_RETRIES || lastError is EmptyChapterException) break
+                    delay(maxOf(DownloadRetry.delayBefore(attempt).inWholeMilliseconds, minimumMs))
                     attempt++
-                    // Exponential backoff: 2s, 4s, 8s.
-                    delay(maxOf((1L shl attempt) * 1000L, minimumMs))
                 }
                 if (connectionLost) {
                     // Requeue so it's re-picked when the connection returns (not left DOWNLOADING or ERROR).
@@ -522,10 +522,6 @@ class NovelDownloadManager(
     }
 
     companion object {
-        /** Retry a failed chapter download this many times (after the first try) before surfacing ERROR,
-         *  with exponential backoff (2s, 4s, 8s), the manga Downloader's schedule for one page image. */
-        private const val MAX_RETRIES = 3
-
         /** How often a drain paused for the network checks it again. */
         private const val NETWORK_RECHECK_MS = 5_000L
     }
