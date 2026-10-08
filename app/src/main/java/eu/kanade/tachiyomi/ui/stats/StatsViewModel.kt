@@ -42,7 +42,7 @@ import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
-import tachiyomi.domain.track.interactor.GetTracks
+import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 
@@ -53,7 +53,7 @@ class StatsViewModel(
     private val downloadManager: DownloadManager,
     private val getLibraryManga: GetLibraryManga,
     private val getTotalReadDuration: GetTotalReadDuration,
-    private val getTracks: GetTracks,
+    private val getTracksPerManga: GetTracksPerManga,
     private val preferences: LibraryPreferences,
     private val trackerManager: TrackerManager,
     // RK --> novel stats: library, tracks, read-duration, and the novel global-update prefs
@@ -204,8 +204,11 @@ class StatsViewModel(
 
     private suspend fun getMangaTrackMap(libraryManga: List<LibraryManga>): Map<Long, List<Track>> {
         val loggedInTrackerIds = loggedInTrackers.map { it.id }.toHashSet()
+        if (loggedInTrackerIds.isEmpty()) return emptyMap()
+
+        val tracksPerManga = getTracksPerManga.await()
         return libraryManga.associate { manga ->
-            val tracks = getTracks.await(manga.id)
+            val tracks = tracksPerManga[manga.id].orEmpty()
                 .fastFilter { it.trackerId in loggedInTrackerIds }
 
             manga.id to tracks
@@ -213,11 +216,14 @@ class StatsViewModel(
     }
 
     // RK --> novel track map: convert each novel track to a manga Track (toUiTrack) so the scoring kernels
-    // are shared with the manga side. Per-novel, matching the manga side's per-id map.
+    // are shared with the manga side. Per-novel, matching the manga side's per-id map, read in one query.
     private suspend fun getNovelTrackMap(libraryNovels: List<LibraryNovel>): Map<Long, List<Track>> {
         val loggedInTrackerIds = loggedInTrackers.map { it.id }.toHashSet()
+        if (loggedInTrackerIds.isEmpty()) return emptyMap()
+
+        val tracksPerNovel = getNovelTracks.awaitAll()
         return libraryNovels.associate { novel ->
-            val tracks = getNovelTracks.await(novel.id)
+            val tracks = tracksPerNovel[novel.id].orEmpty()
                 .map { it.toUiTrack() }
                 .fastFilter { it.trackerId in loggedInTrackerIds }
 

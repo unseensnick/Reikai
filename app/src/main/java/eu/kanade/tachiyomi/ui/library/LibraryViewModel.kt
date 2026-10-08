@@ -337,11 +337,12 @@ class LibraryViewModel(
             mergedChapterUnitRepository.getRecognizedChapterCountsAsFlow(),
             // RK <--
         ) { libraryManga, preferences, _, mergePrefs, recognizedChapterCounts ->
+            val sources = libraryManga
+                .mapTo(mutableSetOf()) { it.manga.source }
+                .associateWith { sourceManager.getOrStub(it) }
             val items = libraryManga.map { manga ->
-                // RK: resolve the download count once (it walks the download-cache tree); reused for the
-                //     field and the badge instead of two identical traversals per manga per emit.
+                val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadManager.getDownloadCount(manga.manga)
-                val source = sourceManager.getOrStub(manga.manga.source)
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadCount,

@@ -35,6 +35,7 @@ class KitsuEntryIdCopiesTest {
     private val trackRepository = object : TrackRepository {
         override suspend fun getTrackById(id: Long) = mangaRows.value.find { it.id == id }
         override suspend fun getTracksByMangaId(mangaId: Long) = mangaRows.value.filter { it.mangaId == mangaId }
+        override suspend fun getTracks(): List<Track> = mangaRows.value
         override fun getTracksAsFlow(): Flow<List<Track>> = mangaRows
         override fun getTracksByMangaIdAsFlow(mangaId: Long) = mangaRows.map { rows ->
             rows.filter {
@@ -59,6 +60,7 @@ class KitsuEntryIdCopiesTest {
                     novelId
             }
         }
+        override suspend fun getTracks(): List<NovelTrack> = novelRows.value
         override fun getTracksAsFlow(): Flow<List<NovelTrack>> = novelRows
         override suspend fun delete(novelId: Long, trackerId: Long) = Unit
         override suspend fun upsert(track: NovelTrack) = upsertAll(listOf(track))

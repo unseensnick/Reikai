@@ -30,6 +30,9 @@ class NovelTrackRepositoryImpl(
     override fun getTracksByNovelIdAsFlow(novelId: Long): Flow<List<NovelTrack>> =
         database.novel_tracksQueries.getTracksByNovelId(novelId, ::mapNovelTrack).subscribeToList()
 
+    override suspend fun getTracks(): List<NovelTrack> =
+        database.novel_tracksQueries.getTracks(::mapNovelTrack).awaitAsList()
+
     override fun getTracksAsFlow(): Flow<List<NovelTrack>> =
         database.novel_tracksQueries.getTracks(::mapNovelTrack).subscribeToList()
 
