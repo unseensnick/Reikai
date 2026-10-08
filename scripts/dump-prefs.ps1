@@ -29,7 +29,9 @@ if (-not $File) { $File = "${Package}_preferences.xml" }
 $deviceArgs = if ($Serial) { @('-s', $Serial) } else { @() }
 
 $raw = & $adb @deviceArgs exec-out run-as $Package cat "shared_prefs/$File"
-if ($LASTEXITCODE -ne 0 -or -not $raw) { throw "Could not read shared_prefs/$File from $Package." }
+if ($LASTEXITCODE -ne 0 -or -not $raw -or ($raw -join '') -like 'run-as:*') {
+    throw "Could not read shared_prefs/$File from $Package (run-as works only on a debuggable build)."
+}
 [xml]$xml = ($raw -join "`n")
 
 function Test-Secret([string]$key) {
