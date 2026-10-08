@@ -1,0 +1,6 @@
+{
+  "name": "allow the masking helper on a source's prefs file",
+  "stdin": { "tool_input": { "command": "pwsh -NoProfile -File scripts/dump-prefs.ps1 -File source_6124137935211270893.xml" } },
+  "expect_exit": 0,
+  "expect_stdout_not_contains": ["deny"]
+}

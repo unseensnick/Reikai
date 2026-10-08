@@ -339,10 +339,11 @@ fi
 
 # ── App preferences are read through the masking helper ────────────────
 # The main SharedPreferences file of a debug build holds tracker tokens, proxy passwords and source
-# cookies under __PRIVATE_ keys, so `run-as ... cat` of it prints them whenever a filter is broader
-# than meant. scripts/dump-prefs.ps1 prints the same file with those values masked to their length.
-if contains_icmd 'run-as[^|;&]*[[:space:]](cat|head|tail|more|less|grep|type|gc|get-content)[[:space:]][^|;&]*shared_prefs/[^[:space:]|;&]*_preferences\.xml'; then
-  emit_deny "Blocked: that prints the app's preferences file, which holds tracker tokens. Use pwsh scripts/dump-prefs.ps1 -Match <key regex>, which masks secret values."
+# cookies under __PRIVATE_ keys, and a source's own source_<id>.xml holds its API key or login, so
+# `run-as ... cat` of either prints them whenever a filter is broader than meant. scripts/dump-prefs.ps1
+# prints the same files with those values masked to their length.
+if contains_icmd 'run-as[^|;&]*[[:space:]](cat|head|tail|more|less|grep|type|gc|get-content)[[:space:]][^|;&]*shared_prefs/([^[:space:]|;&]*_preferences|source_[^[:space:]|;&]*)\.xml'; then
+  emit_deny "Blocked: that prints a preferences file holding tracker tokens or a source's credentials. Use pwsh scripts/dump-prefs.ps1 [-File source_<id>.xml] -Match <key regex>, which masks secret values."
 fi
 
 # ── Protected paths are never written through the shell ────────────────

@@ -1,0 +1,6 @@
+{
+  "name": "block printing a source's own prefs file, which holds its credentials",
+  "stdin": { "tool_input": { "command": "adb -s emulator-5554 exec-out run-as app.reikai.dev cat shared_prefs/source_6124137935211270893.xml" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "dump-prefs.ps1"]
+}
