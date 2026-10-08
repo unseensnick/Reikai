@@ -1037,7 +1037,8 @@ class NovelReaderViewModel(
         val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
         val sourceNames = chapterSourceNames()
         val novels = novelRepo.ownersOf(pooled + chapters)
-        val numberOnly = novelRepo.getById(novelId)?.effectiveHideChapterTitles(novelPreferences) == true
+        val settings = getNextNovelChapter.chapterSettings(novelId)
+        val numberOnly = settings?.effectiveHideChapterTitles(novelPreferences) == true
         val targets = downloadTargets(pooled)
         emitAll(
             combine(downloadManager.queueState, chapter) { queue, _ ->
@@ -1201,8 +1202,8 @@ class NovelReaderViewModel(
         )
     }
 
-    /** Which chapters a forward step may stop on, per the skip settings and this novel's own chapter-list
-     *  filters. The open chapter stays eligible either way. */
+    /** Which chapters a forward step may stop on, per the skip settings and the chapter-list filters
+     *  its merge group shares. The open chapter stays eligible either way. */
     private suspend fun resolveForwardEligible(
         chapters: List<NovelChapter>,
         flags: GroupChapterFlags<NovelChapter>,
@@ -1210,7 +1211,7 @@ class NovelReaderViewModel(
         val skipRead = novelPreferences.readerSkipRead().get()
         val skipFiltered = novelPreferences.readerSkipFiltered().get()
         if (!skipRead && !skipFiltered) return chapters.mapTo(HashSet()) { it.id }
-        val novel = novelRepo.getById(novelId) ?: return chapters.mapTo(HashSet()) { it.id }
+        val novel = getNextNovelChapter.chapterSettings(novelId) ?: return chapters.mapTo(HashSet()) { it.id }
         val filters = novel.readerChapterFilters(novelPreferences, basePreferences.downloadedOnly.get())
         return chapters.filterTo(HashSet()) { ch ->
             ch.id == currentChapterId || flags.isForwardEligible(ch, skipRead, skipFiltered, filters)

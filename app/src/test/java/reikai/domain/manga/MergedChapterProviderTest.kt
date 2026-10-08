@@ -61,7 +61,7 @@ class MergedChapterProviderTest {
         }
         val provider = MergedChapterProvider(
             getMangaWithChapters = mockk(relaxed = true),
-            mergeManager = MangaMergeManager(repository, preferences) {},
+            mergeManager = MangaMergeManager(repository, preferences, onMerged = {}) {},
             sourceManager = mockk(relaxed = true),
             reikaiLibraryPreferences = preferences,
             reconcile = mockk(relaxed = true),

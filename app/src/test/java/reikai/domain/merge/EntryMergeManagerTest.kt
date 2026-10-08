@@ -28,6 +28,9 @@ class EntryMergeManagerTest {
     /** Groups handed to the dissolve hook, in call order, so the tracker-copy step can be asserted. */
     private val dissolved = mutableListOf<List<Long>>()
 
+    /** Groups handed to the merged hook, in call order. */
+    private val merged = mutableListOf<List<Long>>()
+
     private fun manager(
         type: ContentType,
         repository: MergeGroupRepository = mockk(relaxed = true),
@@ -40,10 +43,11 @@ class EntryMergeManagerTest {
             every { autoMergeSameTitle } returns preference(mangaSameTitle)
             every { novelAutoMergeSameTitle } returns preference(novelSameTitle)
         }
+        val onMerged: suspend (List<Long>) -> Unit = { merged += it }
         val onBeforeDissolve: suspend (List<Long>) -> Unit = { dissolved += it }
         return when (type) {
-            ContentType.MANGA -> MangaMergeManager(repository, preferences, onBeforeDissolve)
-            ContentType.NOVELS -> NovelMergeManager(repository, preferences, onBeforeDissolve)
+            ContentType.MANGA -> MangaMergeManager(repository, preferences, onMerged, onBeforeDissolve)
+            ContentType.NOVELS -> NovelMergeManager(repository, preferences, onMerged, onBeforeDissolve)
             ContentType.ALL -> error("not a merge-group type")
         }
     }
@@ -161,6 +165,20 @@ class EntryMergeManagerTest {
         manager(type, repo).merge(listOf(1L, 2L))
 
         coVerify { repo.merge(type, listOf(1L, 2L)) }
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merge hands the group's library members, lead first, to the merged hook`(type: ContentType) = runTest {
+        // The hook is how the members joining take the lead's chapter settings.
+        val repo = mockk<MergeGroupRepository> {
+            coEvery { merge(type, listOf(3L, 1L)) } returns 7L
+            coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L, 3L)
+        }
+
+        manager(type, repo).merge(listOf(3L, 1L))
+
+        merged shouldContainExactly listOf(listOf(1L, 2L, 3L))
     }
 
     @ParameterizedTest

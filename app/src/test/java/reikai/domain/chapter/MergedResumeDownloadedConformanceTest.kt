@@ -18,6 +18,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -137,6 +138,7 @@ class MergedResumeDownloadedConformanceTest {
                 NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
                 mergeManager,
                 mergedChapterProvider,
+                NovelChapterSettings(novelRepository),
             ).awaitFirstUnreadInGroup(1L, downloadedOnly = true, downloadedIds = cache::downloadedChapterIds)?.id
         }
 

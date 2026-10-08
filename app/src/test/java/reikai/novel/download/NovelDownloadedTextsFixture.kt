@@ -4,6 +4,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -57,6 +58,7 @@ object NovelDownloadedTextsFixture {
                 prefs,
                 mockk<NovelMergeManager> { coEvery { computeRelatedIds(any()) } returns longArrayOf(1L) },
                 mockk(),
+                NovelChapterSettings(novelRepository),
             ),
             novelRepository,
             mockk {

@@ -27,8 +27,8 @@ class StandaloneResolutionConformanceTest {
             every { novelAutoMergeSameTitle } returns mockk()
         }
         return when (type) {
-            ContentType.MANGA -> MangaMergeManager(repository, preferences) {}
-            else -> NovelMergeManager(repository, preferences) {}
+            ContentType.MANGA -> MangaMergeManager(repository, preferences, onMerged = {}) {}
+            else -> NovelMergeManager(repository, preferences, onMerged = {}) {}
         }
     }
 

@@ -18,6 +18,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.merge.GroupMarks
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -136,7 +137,14 @@ class HiddenChapterResumeConformanceTest {
             val chapterRepository = mockk<NovelChapterRepository> { coEvery { getByNovelId(1L) } returns novelChapters }
             val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel }
             val mergeManager = mockk<NovelMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L) }
-            GetNextNovelChapter(chapterRepository, novelRepository, preferences, mergeManager, mockk())
+            GetNextNovelChapter(
+                chapterRepository,
+                novelRepository,
+                preferences,
+                mergeManager,
+                mockk(),
+                NovelChapterSettings(novelRepository),
+            )
                 .awaitFirstUnreadInGroup(1L, downloadedOnly = false) { _, _ -> emptySet() }?.id
         }
 

@@ -22,6 +22,9 @@ open class EntryMergeManager(
     private val preferences: ReikaiLibraryPreferences,
     // The type's own "suggest grouping same-title series" switch, which each subclass hands in.
     private val sameTitlePreference: Preference<Boolean>,
+    // Runs after a merge with the group's library members in order, so the members joining take the
+    // lead's chapter settings (GroupChapterSettings.adoptLead).
+    private val onMerged: suspend (memberIds: List<Long>) -> Unit,
     private val onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : MergeManager {
 
@@ -71,7 +74,8 @@ open class EntryMergeManager(
      */
     override suspend fun merge(ids: List<Long>) {
         if (!preferences.seriesMergingEnabled.get()) return
-        repository.merge(contentType, ids)
+        val groupId = repository.merge(contentType, ids) ?: return
+        onMerged(repository.getFavoriteMembers(contentType, groupId))
     }
 
     /**

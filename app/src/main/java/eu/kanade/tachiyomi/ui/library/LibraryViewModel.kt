@@ -47,6 +47,7 @@ import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.RemoveMangaFromLibrary
+import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.groupFlags
 import reikai.domain.manga.inReadingOrder
@@ -455,7 +456,9 @@ class LibraryViewModel(
         //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
         //     source. Falls through to the plain per-manga list when the entry is not merged.
         val group = mergedChapterProvider.load(manga)
-        return group.chapters.getNextUnread(manga, downloadManager, group, mangaPreferences.hiddenChapters().get())
+        //     The filters and order are the group's shared chapter settings, the lead's.
+        val settings = group.chapterSettingsOf(manga)
+        return group.chapters.getNextUnread(settings, downloadManager, group, mangaPreferences.hiddenChapters().get())
     }
 
     /**
@@ -472,7 +475,7 @@ class LibraryViewModel(
             val hidden = mangaPreferences.hiddenChapters().get()
             mangas.forEach { manga ->
                 val group = mergedGroupOf(manga)
-                val chapters = group?.chapters?.inReadingOrder(manga) ?: when (action) {
+                val chapters = group?.chapters?.inReadingOrder(group.chapterSettingsOf(manga)) ?: when (action) {
                     DownloadAction.BOOKMARKED_CHAPTERS -> getBookmarkedChaptersByMangaId.await(manga.id)
                     else -> getNextChapters.await(manga.id)
                 }

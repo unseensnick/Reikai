@@ -44,6 +44,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -51,6 +52,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -303,7 +305,7 @@ class NovelReaderViewModelHarness private constructor(
     fun open(novelId: Long, chapterId: Long, sourceScoped: Boolean = false): NovelReaderViewModel {
         val context = mockk<Context>(relaxed = true)
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
-        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
+        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         val mergedChapterProvider = NovelMergedChapterProvider(
             mergeManager,
@@ -358,6 +360,7 @@ class NovelReaderViewModelHarness private constructor(
                 novelPreferences,
                 mergeManager,
                 mergedChapterProvider,
+                NovelChapterSettings(novelRepo),
             ),
             io = dispatcher,
         ).also(::track)
@@ -378,7 +381,7 @@ class NovelReaderViewModelHarness private constructor(
      */
     fun openDetails(sourceId: String, url: String, shown: Boolean = true): NovelDetailsViewModel {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
-        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
+        val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         return NovelDetailsViewModel(
             sourceId = sourceId,
@@ -390,7 +393,8 @@ class NovelReaderViewModelHarness private constructor(
             sourceTracker = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
             resetEntryInfo = mockk(relaxed = true),
-            setNovelChapterFlags = mockk(relaxed = true),
+            setNovelChapterFlags = SetNovelChapterFlags(novelRepo, novelPreferences),
+            chapterSettings = NovelChapterSettings(novelRepo),
             chapterRepo = detailsChapters,
             downloadManagerProvider = { downloadManager },
             novelDownloadCache = downloadCache,

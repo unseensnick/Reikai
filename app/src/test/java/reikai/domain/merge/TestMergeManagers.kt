@@ -29,8 +29,8 @@ class TestMergeManagers(memberships: Map<ContentType, Map<Long, Long>>, mergingO
         InMemoryPreferenceStore(sequenceOf(InMemoryPreference("series_merging_enabled", mergingOn, true))),
     )
 
-    val manga = MangaMergeManager(repository, preferences) {}
-    val novel = NovelMergeManager(repository, preferences) {}
+    val manga = MangaMergeManager(repository, preferences, onMerged = {}) {}
+    val novel = NovelMergeManager(repository, preferences, onMerged = {}) {}
 
     fun of(type: ContentType): EntryMergeManager = if (type == ContentType.MANGA) manga else novel
 }

@@ -80,6 +80,7 @@ import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.CopyToOpen
@@ -214,6 +215,10 @@ class ReaderViewModel(
     val manga: Manga?
         get() = state.value.manga
 
+    /** RK: [manga] carrying the chapter settings its merge group shares, the lead's (GroupChapterSettings). */
+    val chapterSettings: Manga?
+        get() = manga?.let { mergedGroup.chapterSettingsOf(it) }
+
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.
      */
@@ -331,14 +336,14 @@ class ReaderViewModel(
     ) { downloadManager.downloadedChapterIds(pooled) { mangaForChapterId(it.mangaId) } }
 
     /** RK: whether a forward step may land on each of [chapters], asked of the whole group through the one
-     *  eligibility rule the novel readers share. The filter PREFS stay the opened manga's, which is the
-     *  user's current context. On disk is probed only behind a downloaded filter. */
+     *  eligibility rule the novel readers share. The filters are the group's shared chapter settings, as
+     *  the details list shows them. On disk is probed only behind a downloaded filter. */
     private fun forwardEligibility(chapters: List<Chapter>): (Chapter) -> Boolean {
         val skipRead = readerPreferences.skipRead.get()
         val skipFiltered = readerPreferences.skipFiltered.get()
         if (!skipRead && !skipFiltered) return { true }
         val flags = groupFlags(chapters)
-        val filters = manga!!.readerChapterFilters()
+        val filters = chapterSettings!!.readerChapterFilters()
         return { flags.isForwardEligible(it, skipRead, skipFiltered, filters) }
     }
 
@@ -445,7 +450,7 @@ class ReaderViewModel(
         // RK: returned, since buildChapterList serves both chapter lists
         return chaptersForReader
             // RK: the one reading order, which the library's "download next" and Recents walk too.
-            .inReadingOrder(manga)
+            .inReadingOrder(chapterSettings!!)
             // RK --> user-hidden chapters and, with skip-duplicate on, duplicates, by the kernel the novel
             // reader runs too. The opened chapter is kept, so opening a hidden one directly still resolves.
             .let { sorted -> navigable(sorted, selectedChapter, isForwardEligible) }
@@ -840,7 +845,7 @@ class ReaderViewModel(
                 // Sorted the way the reader itself pages, not by stitch position: a group sorted by
                 // upload date or by name otherwise queues chapters the reader never steps into next.
                 // RK: through the reader's own rule, or it queued chapters the reader never stops on.
-                val ahead = opened.inReadingOrder(manga)
+                val ahead = opened.inReadingOrder(mergedGroup.chapterSettingsOf(manga))
                     .let { sorted -> navigable(sorted, nextChapter.toDomainChapter()!!, forwardEligibility(sorted)) }
                 chaptersToDownloadAhead(
                     ahead,

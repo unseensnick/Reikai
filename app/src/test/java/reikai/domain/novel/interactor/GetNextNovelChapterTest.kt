@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -30,6 +31,7 @@ class GetNextNovelChapterTest {
         NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
         mergeManager,
         mergedChapterProvider,
+        NovelChapterSettings(novelRepository),
     )
 
     @BeforeEach
@@ -122,6 +124,23 @@ class GetNextNovelChapterTest {
         )
 
         resume() shouldBe 11L
+    }
+
+    @Test
+    fun `a merged novel resumed through a sibling follows the lead's chapter sort`() = runTest {
+        // As above, but resumed through novel 2, whose own sort is source order and would say Gamma (10).
+        merged(listOf(ChapterUnit(10, 0, 0), ChapterUnit(20, 1, 0), ChapterUnit(11, 2, 0)))
+        coEvery { novelRepository.getById(1L) } returns Novel.create()
+            .copy(chapterFlags = NovelChapterFlags.SORT_LOCAL or NovelChapterFlags.SORTING_ALPHABET)
+        coEvery { chapterRepository.getByNovelId(1L) } returns listOf(
+            chapter(10, 1, read = false, name = "Gamma"),
+            chapter(11, 2, read = false, name = "Beta"),
+        )
+        coEvery { chapterRepository.getByNovelId(2L) } returns listOf(
+            chapter(20, 1, read = true, novelId = 2L, name = "Alpha"),
+        )
+
+        interactor.awaitFirstUnreadInGroup(2L, downloadedOnly = false) { _, _ -> emptySet() }?.id shouldBe 11L
     }
 
     @Test

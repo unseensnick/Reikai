@@ -8,6 +8,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -64,11 +65,12 @@ class GetNextNovelChapter(
     private val novelPreferences: NovelPreferences,
     private val mergeManager: NovelMergeManager,
     private val mergedChapterProvider: NovelMergedChapterProvider,
+    private val groupSettings: NovelChapterSettings,
 ) {
     /**
      * The group's chapters as one cross-source list, the same one the details "All" view shows. Ordered
-     * by the novel's own chapter sort, ascending, which is the order its reader pages in; a merged list is
-     * restamped to the stitch first, so the default "by source order" reads that cross-source order
+     * by the group's shared chapter sort, ascending, which is the order its reader pages in; a merged list
+     * is restamped to the stitch first, so the default "by source order" reads that cross-source order
      * rather than interleaving the sources.
      */
     suspend fun groupChapters(novelId: Long): NovelGroupChapters {
@@ -127,7 +129,7 @@ class GetNextNovelChapter(
         chapterRepository.getByNovelId(novelId).sortedWith(readingOrder(novelId))
 
     /**
-     * The group's first unread chapter among those the novel's own chapter filters list, skipping what
+     * The group's first unread chapter among those the group's shared chapter filters list, skipping what
      * another of its sources has already read, and what the user hid unless only hidden chapters are
      * left. The filters are the details list's ([sortedAndFiltered]), as the manga library's resume
      * applies its manga's. [downloadedIds] answers disk membership for chapters of the given novels.
@@ -156,7 +158,7 @@ class GetNextNovelChapter(
         flags: GroupChapterFlags<NovelChapter>,
         downloadedOnly: Boolean,
     ): List<NovelChapter> {
-        val novel = novelRepository.getById(novelId) ?: return chapters
+        val novel = chapterSettings(novelId) ?: return chapters
         val kept = chapters.sortedAndFiltered(novel, novelPreferences, flags.downloadedIds, flags.marks, downloadedOnly)
             .mapTo(HashSet()) { it.id }
         return chapters.filter { it.id in kept }
@@ -170,10 +172,17 @@ class GetNextNovelChapter(
         return { chapter -> chapter.hiddenKey(sourceOf) in hidden }
     }
 
-    /** [novelId]'s own chapter sort, ascending, the order its reader pages in. Falls back to source order
+    /** [novelId]'s chapter sort, ascending, the order its reader pages in. Falls back to source order
      *  for a novel that is no longer stored, which only a stale id reaches. */
     suspend fun readingOrder(novelId: Long): Comparator<NovelChapter> {
-        val novel = novelRepository.getById(novelId) ?: return compareBy { it.sourceOrder }
+        val novel = chapterSettings(novelId) ?: return compareBy { it.sourceOrder }
         return readingOrderComparator(novel, novelPreferences)
+    }
+
+    /** [novelId] carrying the chapter settings its merge group shares, the lead's, whichever member it is
+     *  opened through (GroupChapterSettings). Null for a novel that is no longer stored. */
+    suspend fun chapterSettings(novelId: Long): Novel? {
+        val novel = novelRepository.getById(novelId) ?: return null
+        return groupSettings.shown(novel, mergeManager.computeRelatedIds(novelId).asList())
     }
 }

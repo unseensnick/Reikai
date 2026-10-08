@@ -474,7 +474,7 @@ class MergedStitchReconcileTest {
             return MangaGroupStitcher(
                 groups,
                 GetMangaWithChapters(mangaRepository, chapterRepository),
-                MangaMergeManager(groups, prefs) {},
+                MangaMergeManager(groups, prefs, onMerged = {}) {},
                 sourceManager,
                 prefs,
             )
@@ -562,7 +562,7 @@ class MergedStitchReconcileTest {
                 groups,
                 novelRepository,
                 chapterRepository,
-                NovelMergeManager(groups, prefs) {},
+                NovelMergeManager(groups, prefs, onMerged = {}) {},
                 prefs,
             )
         }

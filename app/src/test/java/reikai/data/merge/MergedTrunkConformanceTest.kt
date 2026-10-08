@@ -151,7 +151,7 @@ class MergedTrunkConformanceTest {
             val stitcher = MangaGroupStitcher(
                 groups,
                 GetMangaWithChapters(MangaRepositoryImpl(database), chapters),
-                MangaMergeManager(groups, preferences) {},
+                MangaMergeManager(groups, preferences, onMerged = {}) {},
                 sourceManager,
                 preferences,
             )
@@ -234,7 +234,7 @@ class MergedTrunkConformanceTest {
                 groups,
                 NovelRepositoryImpl(database),
                 chapters,
-                NovelMergeManager(groups, preferences) {},
+                NovelMergeManager(groups, preferences, onMerged = {}) {},
                 preferences,
             )
             return storedLead(stitcher) { chapters.getById(it)!!.novelId }

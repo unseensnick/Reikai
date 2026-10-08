@@ -29,6 +29,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -223,13 +224,15 @@ class MangaRecentsAdapter(
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
+        // The order is the group's shared chapter settings, the lead's, in either scope.
+        val settings = manga?.let { group.chapterSettingsOf(it) }
         val hidden = mangaPreferences.hiddenChapters().get()
         val target = resolveRecentsTarget(
             lane = item.lane,
-            group = readingOrder(manga, group?.chapters),
+            group = readingOrder(settings, group?.chapters),
             pooled = group?.pooledChapters.orEmpty(),
             stitch = group?.stitch.orEmpty(),
-            ownSource = { readingOrder(manga, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)) },
+            ownSource = { readingOrder(settings, getChaptersByMangaId.await(mangaId, applyScanlatorFilter = true)) },
             id = { it.id },
             read = { it.read },
             bookmark = { it.bookmark },

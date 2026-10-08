@@ -224,7 +224,7 @@ class MangaReaderProvider(
                     .map { it.copy(chapter = it.chapter.copy(pageCount = pageCounts[it.chapter.id] ?: 0L)) }
                 val queued = queue.associateBy { it.chapter.id }
                 val flags = viewModel.sheetFlags(chapters.map { it.chapter })
-                val numberOnly = viewModel.manga?.displayMode == Manga.CHAPTER_DISPLAY_NUMBER
+                val numberOnly = viewModel.chapterSettings?.displayMode == Manga.CHAPTER_DISPLAY_NUMBER
                 val targets = viewModel.downloadTargets
                 val build = { chapters.map { it.toReaderChapterRow(queued, flags, numberOnly, titleWords, targets) } }
                 if (queued.isEmpty()) {

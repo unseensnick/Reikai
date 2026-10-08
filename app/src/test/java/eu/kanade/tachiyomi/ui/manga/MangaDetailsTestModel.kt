@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -33,6 +34,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
+import tachiyomi.domain.manga.interactor.SetMangaChapterFlags
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 
@@ -68,7 +70,7 @@ internal fun mangaDetailsModel(
         getAvailableScanlators = GetAvailableScanlators(chapters),
         getExcludedScanlators = GetExcludedScanlators(mangas),
         setExcludedScanlators = mockk(relaxed = true),
-        setMangaChapterFlags = mockk(relaxed = true),
+        setMangaChapterFlags = SetMangaChapterFlags(mangas),
         setMangaDefaultChapterFlags = mockk(relaxed = true),
         setReadStatus = mockk(relaxed = true),
         updateChapter = mockk(relaxed = true),
@@ -113,6 +115,7 @@ internal fun mangaDetailsModel(
         autoBindTrackers = mockk(relaxed = true),
         remoteFirstRemoval = mockk(relaxed = true),
         editChapterNumber = mockk(relaxed = true),
+        chapterSettings = MangaChapterSettings(mangas),
     )
 }
 

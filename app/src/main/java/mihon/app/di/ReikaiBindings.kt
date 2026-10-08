@@ -6,9 +6,11 @@ import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -31,7 +33,9 @@ object ReikaiBindings {
         repository: MergeGroupRepository,
         preferences: ReikaiLibraryPreferences,
         propagate: PropagateTrackerLinks,
-    ): MangaMergeManager = MangaMergeManager(repository, preferences) { propagate.distribute(it) }
+        chapterSettings: MangaChapterSettings,
+    ): MangaMergeManager =
+        MangaMergeManager(repository, preferences, chapterSettings::adoptLead) { propagate.distribute(it) }
 
     // The novel propagator arrives deferred because it reads tracks through GetNovelTracks, which
     // takes this manager, and Metro rejects the cycle. The lambda only ever runs inside a suspend
@@ -42,7 +46,9 @@ object ReikaiBindings {
         repository: MergeGroupRepository,
         preferences: ReikaiLibraryPreferences,
         propagate: () -> PropagateNovelTrackerLinks,
-    ): NovelMergeManager = NovelMergeManager(repository, preferences) { propagate().distribute(it) }
+        chapterSettings: NovelChapterSettings,
+    ): NovelMergeManager =
+        NovelMergeManager(repository, preferences, chapterSettings::adoptLead) { propagate().distribute(it) }
 
     // Each fetcher wants a concrete tracker, and those are properties of the TrackerManager
     // singleton rather than bindings of their own. Binding them separately would build second

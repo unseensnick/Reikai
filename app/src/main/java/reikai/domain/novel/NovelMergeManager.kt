@@ -13,11 +13,13 @@ import reikai.domain.merge.MergeGroupRepository
 class NovelMergeManager(
     repository: MergeGroupRepository,
     preferences: ReikaiLibraryPreferences,
+    onMerged: suspend (memberIds: List<Long>) -> Unit,
     onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : EntryMergeManager(
     ContentType.NOVELS,
     repository,
     preferences,
     sameTitlePreference = preferences.novelAutoMergeSameTitle,
+    onMerged = onMerged,
     onBeforeDissolve = onBeforeDissolve,
 )

@@ -72,14 +72,14 @@ class GroupTrackSubscriptionConformanceTest {
                 every { subscribe(OPEN) } returns flowOf(emptyList())
                 every { subscribe(SIBLING) } returns flowOf(listOf(mangaTrack()))
             },
-            MangaMergeManager(repository(type.contentType), preferences) {},
+            MangaMergeManager(repository(type.contentType), preferences, onMerged = {}) {},
         ).subscribe(OPEN).map { it.map(Track::trackerId) }
         Type.NOVEL -> GetNovelTracks(
             mockk<NovelTrackRepository> {
                 every { getTracksByNovelIdAsFlow(OPEN) } returns flowOf(emptyList())
                 every { getTracksByNovelIdAsFlow(SIBLING) } returns flowOf(listOf(novelTrack()))
             },
-            NovelMergeManager(repository(type.contentType), preferences) {},
+            NovelMergeManager(repository(type.contentType), preferences, onMerged = {}) {},
             preferences,
         ).subscribeGroup(OPEN).map { it.map(NovelTrack::trackerId) }
     }

@@ -103,12 +103,14 @@ import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.GetTracksInGroup
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.manga.withGroupChapterFlags
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.DownloadTargets
@@ -257,6 +259,7 @@ class MangaViewModel(
     private val autoBindTrackers: AutoBindTrackers,
     private val remoteFirstRemoval: RemoteFirstRemoval,
     private val editChapterNumber: EditChapterNumber,
+    private val chapterSettings: MangaChapterSettings,
     // RK <--
 ) : ViewModel() {
 
@@ -1071,7 +1074,7 @@ class MangaViewModel(
             val mangaBySource = siblings.associate { (id, manga, _) -> id to manga }
             val stitch = mergedChapterProvider.stitchOf(sourceMangaId)
             MergedChapters(
-                manga = displayManga,
+                manga = displayManga.withGroupChapterFlags(siblings.map { it.second }),
                 chapters = ownChapters,
                 mangaBySource = mapOf(sourceManga.id to sourceManga),
                 displayManga = sourceManga,
@@ -1157,7 +1160,7 @@ class MangaViewModel(
             val isInstalled = { mangaId: Long -> sources[mangaId].let { it != null && it !is StubSource } }
             val served = unifiedViewMember(displayManga.id, group.ids.asList(), isInstalled)
             MergedChapters(
-                manga = displayManga,
+                manga = displayManga.withGroupChapterFlags(mangaBySource.values),
                 chapters = merged,
                 mangaBySource = mangaBySource,
                 servedManga = mangaBySource[served]?.takeIf { served != displayManga.id },
@@ -1545,9 +1548,7 @@ class MangaViewModel(
             TriState.ENABLED_IS -> Manga.CHAPTER_SHOW_UNREAD
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_READ
         }
-        viewModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetUnreadFilter(manga, flag)
-        }
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetUnreadFilter(manga, flag) } // RK
     }
 
     /**
@@ -1563,9 +1564,7 @@ class MangaViewModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_DOWNLOADED
         }
 
-        viewModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetDownloadedFilter(manga, flag)
-        }
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDownloadedFilter(manga, flag) } // RK
     }
 
     /**
@@ -1581,9 +1580,7 @@ class MangaViewModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_BOOKMARKED
         }
 
-        viewModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetBookmarkFilter(manga, flag)
-        }
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetBookmarkFilter(manga, flag) } // RK
     }
 
     /**
@@ -1593,9 +1590,7 @@ class MangaViewModel(
     fun setDisplayMode(mode: Long) {
         val manga = successState?.manga ?: return
 
-        viewModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetDisplayMode(manga, mode)
-        }
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDisplayMode(manga, mode) } // RK
     }
 
     /**
@@ -1605,9 +1600,7 @@ class MangaViewModel(
     fun setSorting(sort: Long) {
         val manga = successState?.manga ?: return
 
-        viewModelScope.launchNonCancellable {
-            setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(manga, sort)
-        }
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(manga, sort) } // RK
     }
 
     fun setCurrentSettingsAsDefault(applyToExisting: Boolean) {
@@ -1623,10 +1616,17 @@ class MangaViewModel(
 
     fun resetToDefaultSettings() {
         val manga = successState?.manga ?: return
+        changeChapterSettings(manga) { setMangaDefaultChapterFlags.await(manga) } // RK
+    }
+
+    // RK --> a merged series shares one chapter setting, so [change] writes the opened manga from the
+    // setting it shows, the lead's, and every other member takes the result (GroupChapterSettings)
+    private fun changeChapterSettings(manga: Manga, change: suspend () -> Unit) {
         viewModelScope.launchNonCancellable {
-            setMangaDefaultChapterFlags.await(manga)
+            chapterSettings.change(manga.id, mergeGroup.relatedIds.asList(), change)
         }
     }
+    // RK <--
 
     // RK --> chapter selection routes through the shared kernel, so manga, novels and every other
     // multi-select surface answer a range the same way. A long press ranges from the last row you

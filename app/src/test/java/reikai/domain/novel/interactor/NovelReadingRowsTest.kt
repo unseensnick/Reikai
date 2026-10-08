@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -33,6 +34,7 @@ class NovelReadingRowsTest {
         NovelPreferences(InMemoryPreferenceStore(sequenceOf())),
         mergeManager,
         mergedChapterProvider,
+        NovelChapterSettings(novelRepository),
     )
 
     @BeforeEach

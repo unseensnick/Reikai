@@ -85,6 +85,7 @@ import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.NovelPreferences
@@ -200,6 +201,7 @@ class NovelDetailsViewModel(
     private val coverCache: CoverCache,
     private val resetEntryInfo: ResetEntryInfo,
     private val setNovelChapterFlags: SetNovelChapterFlags,
+    private val chapterSettings: NovelChapterSettings,
     private val chapterRepo: NovelChapterRepository,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCache: NovelDownloadCache,
@@ -346,7 +348,9 @@ class NovelDetailsViewModel(
         hiddenChaptersPref.changes(),
         showHiddenFlow,
     ) { inputs, _, _ -> inputs }
-        .flatMapLatest { (anchor, group, idx) ->
+        .flatMapLatest { (stored, group, idx) ->
+            // Sort, filter and display are the group's shared settings, the lead's (GroupChapterSettings).
+            val anchor = stored?.let { chapterSettings.shown(it, group.ids.asList()) }
             when {
                 anchor == null -> flowOf(null)
                 group.ids.size > 1 && group.selected == null -> unifiedChapters(anchor, group)
@@ -679,8 +683,9 @@ class NovelDetailsViewModel(
 
     /** Build the list's half of [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view
      *  flags) and the [viewNovel] whose metadata the header shows (== anchor for the unified view, the
-     *  selected sibling otherwise). Sort/filter always follow the anchor's flags. The chips and the picked
-     *  chip come from [group], the one the rows were built for: the live group may have moved on. */
+     *  selected sibling otherwise). Sort/filter follow the anchor's flags, which carry the group's lead's.
+     *  The chips and the picked chip come from [group], the one the rows were built for: the live group may
+     *  have moved on. */
     private fun buildLoaded(
         group: EntryMergeGroupHost.GroupState,
         anchor: Novel,
@@ -1149,13 +1154,13 @@ class NovelDetailsViewModel(
         tracker.getMangaMetadata(track)
 
     fun setSortMode(sort: Long) =
-        withLoadedNovel { setNovelChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) }
+        changeChapterSettings { setNovelChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) }
 
     fun setFilters(read: Long, bookmarked: Long, downloaded: Long) =
-        withLoadedNovel { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked, downloaded) }
+        changeChapterSettings { setNovelChapterFlags.awaitSetFilters(it, read, bookmarked, downloaded) }
 
     fun setHideChapterTitles(hide: Boolean) =
-        withLoadedNovel { setNovelChapterFlags.awaitSetHideTitles(it, hide) }
+        changeChapterSettings { setNovelChapterFlags.awaitSetHideTitles(it, hide) }
 
     /**
      * Write the current view as the global chapter-settings default and drop this novel's overrides, and
@@ -1170,19 +1175,23 @@ class NovelDetailsViewModel(
             novelPreferences.defaultChapterFilterUnread().set(loaded.readFilter)
             novelPreferences.defaultChapterFilterBookmarked().set(loaded.bookmarkedFilter)
             novelPreferences.defaultChapterFilterDownloaded().set(loaded.downloadedFilter)
-            setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
+            chapterSettings.change(loaded.novel.id, mergeGroup.relatedIds.asList()) {
+                setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
+            }
             if (applyToLibrary) setNovelChapterFlags.awaitClearLibraryLocalOverrides()
             snackbarHostState.showSnackbar(message = context.stringResource(MR.strings.chapter_settings_updated))
         }
     }
 
     fun resetChapterSettings() =
-        withLoadedNovel { setNovelChapterFlags.awaitClearLocalOverrides(it) }
+        changeChapterSettings { setNovelChapterFlags.awaitClearLocalOverrides(it) }
 
-    private fun withLoadedNovel(block: suspend (Novel) -> Unit) {
+    /** Runs [change] on the novel as shown, carrying its group's shared settings, then gives every other
+     *  member the result, so a merged series keeps one setting (GroupChapterSettings). */
+    private fun changeChapterSettings(change: suspend (Novel) -> Unit) {
         viewModelScope.launchIO {
             val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
-            block(n)
+            chapterSettings.change(n.id, mergeGroup.relatedIds.asList()) { change(n) }
         }
     }
 
