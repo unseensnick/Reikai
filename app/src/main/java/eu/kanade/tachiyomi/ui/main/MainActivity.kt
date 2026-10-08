@@ -62,6 +62,7 @@ import eu.kanade.presentation.components.AppStateBanners
 import eu.kanade.presentation.components.DownloadedOnlyBannerBackgroundColor
 import eu.kanade.presentation.components.IncognitoModeBannerBackgroundColor
 import eu.kanade.presentation.components.IndexingBannerBackgroundColor
+import eu.kanade.presentation.more.AppMigratingScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
@@ -83,6 +84,7 @@ import eu.kanade.tachiyomi.util.system.updaterEnabled
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import exh.debug.DebugModeOverlay
 import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.drop
@@ -94,6 +96,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
@@ -139,6 +142,10 @@ class MainActivity : BaseActivity() {
 
     @Inject private lateinit var chapterCache: ChapterCache
 
+    @Inject private lateinit var databaseRepository: DatabaseRepository
+
+    private val isAppMigrating = MutableStateFlow(Migrator.isRunning)
+
     @Inject private lateinit var getIncognitoState: GetIncognitoState
 
     // RK: cover-based theming; persisted on pause below
@@ -162,7 +169,10 @@ class MainActivity : BaseActivity() {
 
         super.onCreate(savedInstanceState)
 
-        Migrator.awaitAndRelease()
+        lifecycleScope.launch {
+            Migrator.awaitAndRelease()
+            isAppMigrating.value = false
+        }
 
         // Do not let the launcher create a new activity http://stackoverflow.com/questions/16283079
         // RK: the launcher's only; a backup or link opened from another app lands in that app's task
@@ -172,6 +182,15 @@ class MainActivity : BaseActivity() {
         }
 
         setComposeContent {
+            val appMigrating by isAppMigrating.collectAsState()
+            val databaseMigrating by databaseRepository.isMigrating.collectAsState()
+            if (appMigrating || databaseMigrating) {
+                AppMigratingScreen()
+                // Release the splash screen so the reason for the wait shows
+                LaunchedEffect(Unit) { ready = true }
+                return@setComposeContent
+            }
+
             val context = LocalContext.current
 
             var incognito by remember { mutableStateOf(false) }

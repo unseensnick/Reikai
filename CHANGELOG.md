@@ -666,6 +666,7 @@ agent under Settings -> Advanced.
 - **The What's new screen now shows the Note, Tip, Important, Warning and Caution callouts in release notes.**
 - **Settings -> About now links Reikai's website and privacy policy.**
 - **Settings -> Advanced -> Open debug menu adds debugging toggles and maintenance tools, such as hiding every cover.**
+- **A screen now explains the wait while the app updates its data after an upgrade (from Mihon).** Upstream: mihon fd4f73c90.
 
 #### Changed
 
@@ -719,7 +720,8 @@ agent under Settings -> Advanced.
 - Synced from Mihon: settings sliders redraw only their own row while dragged instead of the whole settings screen (mihonapp/mihon#3958), the flag that shows or hides a settings row is renamed to say what it does, and background jobs are renamed to workers, with work queued before an upgrade still running.
 - Synced from Mihon: global search no longer leaves threads behind each time it is opened (mihonapp/mihon#4036).
 - Under the hood, synced from Mihon: screens hold state in AndroidX ViewModels (mihonapp/mihon#3594, mihonapp/mihon#3763), and components are wired together at build time, closing a class of release-only crash (mihonapp/mihon#3608, mihonapp/mihon#3965).
-- Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy with four readers, keeping WAL except on low-memory devices.
+- Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy.
+- Synced from Mihon: the database uses WAL on every device, with one reader instead of four on low-memory ones (mihon 61cd786e7).
 - Under the hood, synced from Mihon: cancelling an extension install no longer goes through a local broadcast (mihonapp/mihon#3226), and tracker internals were tidied up (mihonapp/mihon#3900, mihonapp/mihon#3908).
 
 ## [0.3.2]

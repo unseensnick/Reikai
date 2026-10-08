@@ -83,7 +83,7 @@ class ForeignKeyEnforcementTest {
             driver = BundledSQLiteDriver(),
             databaseType = AndroidxSqliteDatabaseType.File(context.getDatabasePath(name).absolutePath),
             schema = ProbeSchema,
-            configuration = DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = false).let {
+            configuration = DatabaseBindings.sqlDriverConfiguration(isLowRam = false).let {
                 if (enforced) it else it.copy(isForeignKeyConstraintsEnabled = false)
             },
         )

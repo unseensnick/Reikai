@@ -6,29 +6,36 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
 /**
- * Upstream's port of Room's connection setup inverted the low-RAM check, turning WAL off on every device
- * with normal memory. Room keeps WAL except on low-RAM devices, and so does Reikai.
+ * WAL on every device, so a write never blocks reads; a low-RAM device keeps it with one reader instead of four,
+ * since each connection holds its own page cache.
  */
 class DatabaseWalTest {
 
     @Test
     fun `a device with normal memory keeps WAL`() {
-        DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = false).journalMode shouldBe SqliteJournalMode.WAL
+        DatabaseBindings.sqlDriverConfiguration(isLowRam = false).journalMode shouldBe SqliteJournalMode.WAL
     }
 
     @Test
-    fun `a device that cannot report its memory keeps WAL`() {
-        DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = null).journalMode shouldBe SqliteJournalMode.WAL
+    fun `a low-RAM device keeps WAL`() {
+        DatabaseBindings.sqlDriverConfiguration(isLowRam = true).journalMode shouldBe SqliteJournalMode.WAL
     }
 
     @Test
-    fun `a low-RAM device drops to TRUNCATE`() {
-        DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = true).journalMode shouldBe SqliteJournalMode.Truncate
+    fun `the reader pool runs in WAL on a low-RAM device`() {
+        val model = DatabaseBindings.sqlDriverConfiguration(isLowRam = true).concurrencyModel
+        (model as MultipleReadersSingleWriter).isWal shouldBe true
     }
 
     @Test
-    fun `the reader pool follows the journal mode`() {
-        val model = DatabaseBindings.sqlDriverConfiguration(isLowRamDevice = true).concurrencyModel
-        (model as MultipleReadersSingleWriter).isWal shouldBe false
+    fun `a device with normal memory opens four readers`() {
+        val model = DatabaseBindings.sqlDriverConfiguration(isLowRam = false).concurrencyModel
+        (model as MultipleReadersSingleWriter).walCount shouldBe 4
+    }
+
+    @Test
+    fun `a low-RAM device opens one reader`() {
+        val model = DatabaseBindings.sqlDriverConfiguration(isLowRam = true).concurrencyModel
+        (model as MultipleReadersSingleWriter).walCount shouldBe 1
     }
 }
