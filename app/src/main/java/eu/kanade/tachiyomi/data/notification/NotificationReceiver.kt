@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
+import reikai.data.notification.NovelNewChaptersNotice
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
@@ -158,7 +159,7 @@ class NotificationReceiver : BroadcastReceiver() {
                 context,
                 notificationId,
                 intent.getIntExtra(EXTRA_GROUP_ID, 0),
-                Notifications.TAG_NOVEL_NEW_CHAPTERS,
+                NovelNewChaptersNotice.TAG,
             )
         }
     }
@@ -608,9 +609,9 @@ class NotificationReceiver : BroadcastReceiver() {
         internal fun openNovelPendingActivity(context: Context, novel: Novel): PendingIntent {
             val intent = novelDetailsIntent(context, novel.source, novel.url).apply {
                 flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                putExtra("notificationId", novel.id.hashCode())
-                putExtra("groupId", Notifications.ID_NOVEL_LIBRARY_RESULT)
-                putExtra("notificationTag", Notifications.TAG_NOVEL_NEW_CHAPTERS)
+                putExtra("notificationId", NovelNewChaptersNotice.id(novel.id))
+                putExtra("groupId", NovelNewChaptersNotice.SUMMARY_ID)
+                putExtra("notificationTag", NovelNewChaptersNotice.TAG)
             }
             return PendingIntent.getActivity(
                 context,
@@ -709,7 +710,7 @@ class NotificationReceiver : BroadcastReceiver() {
             val intent = Intent(context, NotificationReceiver::class.java).apply {
                 action = broadcastAction
                 putExtra(EXTRA_NOVEL_CHAPTER_IDS, chapterIds)
-                putExtra(EXTRA_NOTIFICATION_ID, novelId.hashCode())
+                putExtra(EXTRA_NOTIFICATION_ID, NovelNewChaptersNotice.id(novelId))
                 putExtra(EXTRA_GROUP_ID, groupId)
             }
             return PendingIntent.getBroadcast(

@@ -172,7 +172,7 @@ class MangaUpdateNoticeHalf : UpdateNoticeHalf() {
 
 class NovelUpdateNoticeHalf : UpdateNoticeHalf() {
 
-    private val novel = Novel.create().copy(id = 1L, source = "src", title = "Source title")
+    val novel = Novel.create().copy(id = 1L, source = "src", title = "Source title")
 
     private val notifier = NovelUpdateNotifier(
         context = context,

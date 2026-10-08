@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import reikai.data.notification.NovelNewChaptersNotice
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.mainActivityPendingIntent
 import reikai.data.notification.newChaptersEntry
@@ -138,7 +139,7 @@ class NovelUpdateNotifier(
                         context,
                         novel.id,
                         chapterIds,
-                        Notifications.ID_NOVEL_LIBRARY_RESULT,
+                        NovelNewChaptersNotice.SUMMARY_ID,
                     ),
                 )
                 addAction(
@@ -154,12 +155,12 @@ class NovelUpdateNotifier(
                             context,
                             novel.id,
                             chapterIds,
-                            Notifications.ID_NOVEL_LIBRARY_RESULT,
+                            NovelNewChaptersNotice.SUMMARY_ID,
                         ),
                     )
                 }
             }.build()
-            NotificationWithIdAndTag(Notifications.TAG_NOVEL_NEW_CHAPTERS, novel.id.hashCode(), notification)
+            NotificationWithIdAndTag(NovelNewChaptersNotice.TAG, NovelNewChaptersNotice.id(novel.id), notification)
         }
         val summary = context.notificationBuilder(Notifications.CHANNEL_NOVEL_LIBRARY_RESULT) {
             setContentTitle(context.stringResource(MR.strings.notification_new_chapters))
@@ -183,7 +184,7 @@ class NovelUpdateNotifier(
         // The summary goes first, as the manga updater's does. Posted last it is the one Android
         // refuses at the package budget, and children with no summary of their own get an invented
         // one drawn with the launcher icon.
-        context.notify(Notifications.ID_NOVEL_LIBRARY_RESULT, summary)
+        context.notify(NovelNewChaptersNotice.SUMMARY_ID, summary)
         context.notify(perNovel)
     }
 

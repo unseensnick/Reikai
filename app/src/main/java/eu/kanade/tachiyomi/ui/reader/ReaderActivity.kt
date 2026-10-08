@@ -98,6 +98,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
+import reikai.data.notification.NovelNewChaptersNotice
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
@@ -356,9 +357,9 @@ class ReaderActivity : BaseActivity() {
             )
             is EntryId.Novel -> NotificationReceiver.dismissNotification(
                 this,
-                launchedEntry.rawId.hashCode(),
-                Notifications.ID_NOVEL_LIBRARY_RESULT,
-                Notifications.TAG_NOVEL_NEW_CHAPTERS,
+                NovelNewChaptersNotice.id(launchedEntry.rawId),
+                NovelNewChaptersNotice.SUMMARY_ID,
+                NovelNewChaptersNotice.TAG,
             )
         }
         // RK <--
