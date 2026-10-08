@@ -15,6 +15,9 @@ import mihon.app.di.appGraph
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.autoScrollSpeedPreference
+import reikai.presentation.reader.hideThresholdPreference
+import reikai.presentation.reader.railHeightPreference
+import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.volumeKeyScrollPreference
@@ -217,7 +220,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = readerPreferences.preloadSize,
-                    valueRange = 1..20,
+                    valueRange = ReaderRanges.preloadPages,
                     title = stringResource(MR.strings.pref_reader_preload_size),
                     valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
                 ),
@@ -394,16 +397,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     )
                 },
                 // RK <--
-                Preference.PreferenceItem.ListPreference(
-                    preference = readerPreferences.readerHideThreshold,
-                    entries = mapOf(
-                        ReaderPreferences.ReaderHideThreshold.HIGHEST to stringResource(MR.strings.pref_highest),
-                        ReaderPreferences.ReaderHideThreshold.HIGH to stringResource(MR.strings.pref_high),
-                        ReaderPreferences.ReaderHideThreshold.LOW to stringResource(MR.strings.pref_low),
-                        ReaderPreferences.ReaderHideThreshold.LOWEST to stringResource(MR.strings.pref_lowest),
-                    ),
-                    title = stringResource(MR.strings.pref_hide_threshold),
-                ),
+                hideThresholdPreference(readerPreferences.readerHideThreshold), // RK: the row novels share
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.cropBordersWebtoon,
                     title = stringResource(MR.strings.pref_crop_borders),
@@ -490,18 +484,16 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_vertical_navigator),
                     visible = showNavigator, // RK
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.verticalNavigatorOnLeft,
-                    title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                    visible = showNavigator && verticalNavigator.isNotEmpty(), // RK
+                // RK --> the rail rows novels share
+                railOnLeftPreference(
+                    readerPreferences.verticalNavigatorOnLeft,
+                    visible = showNavigator && verticalNavigator.isNotEmpty(),
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    preference = readerPreferences.verticalNavigatorHeight,
-                    valueRange = ReaderRanges.railHeightPercent, // RK
-                    steps = ReaderRanges.railHeightSteps, // RK
-                    title = stringResource(MR.strings.pref_vertical_navigator_height),
-                    visible = showNavigator && verticalNavigator.isNotEmpty(), // RK
+                railHeightPreference(
+                    readerPreferences.verticalNavigatorHeight,
+                    visible = showNavigator && verticalNavigator.isNotEmpty(),
                 ),
+                // RK <--
             ),
         )
     }

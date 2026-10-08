@@ -16,7 +16,6 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelCodeSnippetsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelFontsScreen
 import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.ReaderHideThreshold
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelPreferences
@@ -35,6 +34,9 @@ import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.TtsOptions
 import reikai.presentation.reader.autoScrollSpeedPreference
+import reikai.presentation.reader.hideThresholdPreference
+import reikai.presentation.reader.railHeightPreference
+import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerOrientationChoices
@@ -451,7 +453,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerTapInvert(),
                     entries = tapLayout.invertModes.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                ).takeIf { tapLayout != NovelTapLayout.DISABLED && tapLayout.invertModes.size > 1 },
+                ).takeIf { tapLayout.offersInvert },
                 Preference.PreferenceItem.SliderPreference(
                     preference = novelPreferences.readerTapBottomZoneHeight(),
                     valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
@@ -524,16 +526,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     visible = useVolumeButtons,
                     subtitle = null,
                 ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerHideThreshold(),
-                    entries = mapOf(
-                        ReaderHideThreshold.HIGHEST to stringResource(MR.strings.pref_highest),
-                        ReaderHideThreshold.HIGH to stringResource(MR.strings.pref_high),
-                        ReaderHideThreshold.LOW to stringResource(MR.strings.pref_low),
-                        ReaderHideThreshold.LOWEST to stringResource(MR.strings.pref_lowest),
-                    ),
-                    title = stringResource(MR.strings.pref_hide_threshold),
-                ),
+                hideThresholdPreference(novelPreferences.readerHideThreshold()),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowNavigator(),
                     title = stringResource(MR.strings.pref_show_progress_navigator),
@@ -543,16 +536,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerUseRail(),
                     title = stringResource(MR.strings.pref_novel_use_rail),
                 ).takeIf { showNavigator },
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerRailOnLeft(),
-                    title = stringResource(MR.strings.pref_webtoon_vertical_navigator_on_left),
-                ).takeIf { showNavigator && useRail },
-                Preference.PreferenceItem.SliderPreference(
-                    preference = novelPreferences.readerRailHeight(),
-                    valueRange = ReaderRanges.railHeightPercent,
-                    steps = ReaderRanges.railHeightSteps,
-                    title = stringResource(MR.strings.pref_vertical_navigator_height),
-                ).takeIf { showNavigator && useRail },
+                railOnLeftPreference(novelPreferences.readerRailOnLeft(), visible = showNavigator && useRail),
+                railHeightPreference(novelPreferences.readerRailHeight(), visible = showNavigator && useRail),
             ),
         )
     }

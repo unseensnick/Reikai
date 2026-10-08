@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runInterruptible
 import kotlinx.coroutines.suspendCancellableCoroutine
+import reikai.presentation.reader.ReaderRanges
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import java.util.concurrent.PriorityBlockingQueue
@@ -43,7 +44,7 @@ internal class HttpPageLoader(
     private val queue = PriorityBlockingQueue<PriorityPage>()
 
     // RK: user-set page preload count, upstream fixes it at 4
-    private val preloadSize = readerPreferences.preloadSize.get().coerceIn(1, 20)
+    private val preloadSize = readerPreferences.preloadSize.get().coerceIn(ReaderRanges.preloadPages)
 
     init {
         scope.launchIO {

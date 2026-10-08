@@ -17,4 +17,7 @@ object ReaderRanges {
 
     /** How long a paged auto-scroll shows each page, in seconds. */
     val autoScrollIntervalSeconds = 1..30
+
+    /** How many pages past the one on screen a chapter loads; the loader clamps a stored value to it. */
+    val preloadPages = 1..20
 }

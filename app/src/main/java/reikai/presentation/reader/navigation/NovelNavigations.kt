@@ -29,12 +29,12 @@ class CenterNavigation(large: Boolean = false) : ViewerNavigation() {
     )
 }
 
-/** Only a band along the bottom opens the menu, [heightFraction] of the page tall. */
+/** Only a band along the bottom opens the menu, [heightFraction] of the page tall, as `NovelTapZones` bounds it. */
 class BottomNavigation(heightFraction: Float) : ViewerNavigation() {
 
     override var regionList: List<Region> = listOf(
         Region(
-            rectF = RectF(0f, 1f - heightFraction.coerceIn(0.02f, 0.5f), 1f, 1f),
+            rectF = RectF(0f, 1f - heightFraction, 1f, 1f),
             type = NavigationRegion.MENU,
         ),
     )

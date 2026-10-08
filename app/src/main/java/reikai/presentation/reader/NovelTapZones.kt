@@ -36,9 +36,13 @@ data class NovelTapZones(
             NovelTapLayout.RIGHT_AND_LEFT -> RightAndLeftNavigation()
             NovelTapLayout.CENTER -> CenterNavigation()
             NovelTapLayout.CENTER_LARGE -> CenterNavigation(large = true)
-            NovelTapLayout.BOTTOM -> BottomNavigation(bottomZoneHeightPercent / 100f)
+            NovelTapLayout.BOTTOM -> BottomNavigation(bottomZoneFraction)
         }.also { it.invertMode = invert }
     }
+
+    /** The bottom zone's share of the page, a stored height outside what the setting offers held to its ends. */
+    val bottomZoneFraction: Float
+        get() = bottomZoneHeightPercent.coerceIn(BOTTOM_ZONE_PERCENT) / 100f
 
     /** What a tap at [x], [y], each a fraction of the page, asks for. Next and right both read on. */
     fun actionAt(x: Float, y: Float): NovelTapAction {
@@ -57,7 +61,7 @@ data class NovelTapZones(
         /** How much of the screen a tap that reads on or back moves, in both renderers. */
         const val SCROLL_FRACTION = 0.75f
 
-        /** The bottom zone's height a setting may choose, as `BottomNavigation` bounds it. */
+        /** The bottom zone's height a setting may choose, in percent of the page. */
         val BOTTOM_ZONE_PERCENT = 2..50
     }
 }

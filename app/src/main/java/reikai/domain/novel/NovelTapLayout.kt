@@ -28,4 +28,8 @@ enum class NovelTapLayout(val titleRes: StringResource, val isZoneOnly: Boolean 
             BOTTOM -> listOf(TappingInvertMode.NONE, TappingInvertMode.VERTICAL)
             else -> TappingInvertMode.entries
         }
+
+    /** Whether the inversion choice is offered: Disabled has no zones to invert, and one inversion is no choice. */
+    val offersInvert: Boolean
+        get() = this != DISABLED && invertModes.size > 1
 }

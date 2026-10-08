@@ -369,8 +369,7 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
             )
         }
     }
-    // Disabled has no zones to invert, and a layout with one inversion has no choice to offer.
-    if (layout != NovelTapLayout.DISABLED && layout.invertModes.size > 1) {
+    if (layout.offersInvert) {
         SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
             layout.invertModes.forEach {
                 FilterChip(
