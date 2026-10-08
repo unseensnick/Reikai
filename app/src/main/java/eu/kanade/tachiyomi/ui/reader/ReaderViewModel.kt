@@ -854,7 +854,12 @@ class ReaderViewModel(
                     isRead = groupFlags(opened)::isRead,
                 )
             } else {
-                getNextChapters.await(nextChapterManga.id, nextChapter.id!!)
+                // RK --> ordered by the group's shared chapter settings, the lead's, as the reader pages, not
+                // the member's own sort GetNextChapters reads. From the next chapter on, as upstream slices.
+                getNextChapters.await(nextChapterManga.id)
+                    .inReadingOrder(mergedGroup.chapterSettingsOf(nextChapterManga))
+                    .let { unread -> unread.drop(unread.indexOfFirst { it.id == nextChapter.id }.coerceAtLeast(0)) }
+                    // RK <--
                     .let { next -> navigable(next, nextChapter.toDomainChapter()!!, forwardEligibility(next)) }
                     // RK: a source-scoped session on a merged series skips what another source read too.
                     .let { own -> chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own)::isRead) }

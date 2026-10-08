@@ -44,6 +44,7 @@ import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.domain.history.interactor.GetNextChapters
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -77,13 +78,13 @@ class MangaReaderViewModelHarness private constructor(
     private val titles = mutableMapOf<Long, String>()
 
     /** Stores a manga under a chosen [id], so a test can name its chapters' owners. */
-    suspend fun manga(id: Long, source: Long, title: String): Manga {
+    suspend fun manga(id: Long, source: Long, title: String, chapterFlags: Long = 0L): Manga {
         driver.execute(
             null,
             "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
                 "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
                 "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
-                "($id, $source, '/manga/$id', '$title', 0, 1, 0, 0, 0, 1, 0, 0, '', '{}')",
+                "($id, $source, '/manga/$id', '$title', 0, 1, 0, $chapterFlags, 0, 1, 0, 0, '', '{}')",
             0,
         ).await()
         titles[id] = title
@@ -205,7 +206,7 @@ class MangaReaderViewModelHarness private constructor(
                 getManga = getManga,
                 getCustomMangaInfo = mockk { every { subscribe(any()) } returns flowOf(null) },
                 getChaptersByMangaId = GetChaptersByMangaId(chapters),
-                getNextChapters = mockk(relaxed = true),
+                getNextChapters = GetNextChapters(GetChaptersByMangaId(chapters), getManga, mockk(relaxed = true)),
                 upsertHistory = mockk(relaxed = true),
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = mockk(relaxed = true),
