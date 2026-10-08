@@ -96,6 +96,7 @@ class RecentsFeedSurfaceTest {
                 every { statusFlow() } returns emptyFlow()
                 every { progressFlow() } returns emptyFlow()
                 every { queueState } returns MutableStateFlow(emptyList())
+                every { getQueuedDownloadsByChapterId() } returns emptyMap()
             }
             val getUpdates = mockk<GetUpdates> {
                 every { subscribe(any(), any(), any(), any(), any(), any(), any()) } answers {

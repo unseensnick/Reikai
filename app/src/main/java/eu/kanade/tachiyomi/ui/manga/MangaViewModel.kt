@@ -942,12 +942,13 @@ class MangaViewModel(
         // against the source it actually came from (key: mangaId). Empty for non-merged manga.
         mangaBySource: Map<Long, Manga> = emptyMap(),
     ): List<ChapterList.Item> {
+        val queuedDownloads = downloadManager.getQueuedDownloadsByChapterId()
         return map { chapter ->
             val owner = mangaBySource[chapter.mangaId] ?: manga
             val activeDownload = if (owner.isLocal()) {
                 null
             } else {
-                downloadManager.getQueuedDownloadOrNull(chapter.id)
+                queuedDownloads[chapter.id]
             }
             // The rule every Reikai row reads, novels' details list included.
             val downloadState = downloadStateOf(activeDownload?.status) { flags.isDownloaded(chapter) }

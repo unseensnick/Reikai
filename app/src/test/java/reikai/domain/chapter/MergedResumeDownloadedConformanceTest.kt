@@ -84,8 +84,8 @@ class MergedResumeDownloadedConformanceTest {
                 pooledChapters = pooled,
             )
             val downloadManager = mockk<DownloadManager> {
-                every { isChapterDownloaded(any(), any(), any(), any(), any()) } answers {
-                    firstArg<String>().toLong() in onDisk
+                every { getDownloadedChapterIds(any(), any()) } answers {
+                    firstArg<List<Chapter>>().map { it.id }.filterTo(HashSet()) { it in onDisk }
                 }
             }
             // As LibraryViewModel.getNextUnreadChapter calls it.

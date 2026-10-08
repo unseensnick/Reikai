@@ -10,14 +10,9 @@ import tachiyomi.source.local.isLocal
  * rather than the screen's manga: a merged series' chapter is stored under its own source's folder,
  * so probing them all against one manga's reports every sibling's chapter as missing.
  *
- * Resolved as a set because a merged group asks this of the same chapter several times over, and each
- * probe builds names and two digests.
+ * Grouped by owner so each owner's folder is looked up once for all its chapters.
  */
 fun DownloadManager.downloadedChapterIds(chapters: List<Chapter>, ownerOf: (Chapter) -> Manga): Set<Long> =
-    chapters.asSequence()
-        .filter { chapter ->
-            val owner = ownerOf(chapter)
-            owner.isLocal() ||
-                isChapterDownloaded(chapter.name, chapter.scanlator, chapter.url, owner.title, owner.source)
-        }
-        .mapTo(HashSet()) { it.id }
+    chapters.groupBy(ownerOf).flatMapTo(HashSet()) { (owner, owned) ->
+        if (owner.isLocal()) owned.map { it.id } else getDownloadedChapterIds(owned, owner)
+    }

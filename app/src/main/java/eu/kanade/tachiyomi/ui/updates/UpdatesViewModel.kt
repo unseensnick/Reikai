@@ -83,6 +83,13 @@ class UpdatesViewModel(
      */
     private val downloadStates = MutableStateFlow(emptyMap</* Chapter */ Long, DownloadProgress>())
 
+    // A finished chapter leaves the queue, and its last status change can be lost with it, so its state is left to
+    // the queried item once it's no longer queued
+    private val queuedDownloadStates = combine(downloadStates, downloadManager.queueState) { states, queue ->
+        val queuedChapterIds = queue.mapTo(HashSet()) { it.chapter.id }
+        states.filterKeys { it in queuedChapterIds }
+    }
+
     private val updateItems: StateFlow<List<UpdatesItem>?> = combine(
         // needed for SQL filters (unread, started, bookmarked, etc)
         // RK: the category selection is a query parameter, so it rides the same flow the
@@ -131,7 +138,7 @@ class UpdatesViewModel(
         //     Updates tab a tick before the query answers.
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), null)
 
-    val state: StateFlow<State> = combine(updateItems, downloadStates) { items, downloads ->
+    val state: StateFlow<State> = combine(updateItems, queuedDownloadStates) { items, downloads ->
         State(
             isLoading = items == null,
             items = items.orEmpty().applyDownloadOverrides(downloads),
@@ -146,16 +153,6 @@ class UpdatesViewModel(
                 .catch { logcat(LogPriority.ERROR, it) }
                 .collect(this@UpdatesViewModel::updateDownloadState)
         }
-        // RK --> drop an override once its chapter leaves the queue. Upstream's cancel verb patched this
-        //     map itself, because the cancel's own status tick can be lost as the queue re-emits; that
-        //     verb now lives outside this model, so the queue clears it instead.
-        viewModelScope.launchIO {
-            downloadManager.queueState.collect { queue ->
-                val queued = queue.mapTo(HashSet()) { it.chapter.id }
-                downloadStates.update { states -> states.filterKeys(queued::contains) }
-            }
-        }
-        // RK <--
     }
 
     private fun List<UpdatesItem>.applyFilters(
@@ -193,9 +190,10 @@ class UpdatesViewModel(
     // RK <--
 
     private fun List<UpdatesWithRelations>.toUpdateItems(): List<UpdatesItem> {
+        val queuedDownloads = downloadManager.getQueuedDownloadsByChapterId()
         return this
             .map { update ->
-                val activeDownload = downloadManager.getQueuedDownloadOrNull(update.chapterId)
+                val activeDownload = queuedDownloads[update.chapterId]
                 val downloaded = downloadManager.isChapterDownloaded(
                     update.chapterName,
                     update.scanlator,

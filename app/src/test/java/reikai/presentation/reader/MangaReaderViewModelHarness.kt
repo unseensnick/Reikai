@@ -159,6 +159,10 @@ class MangaReaderViewModelHarness private constructor(
                 every { isChapterDownloaded(any(), any(), any(), any(), any()) } answers {
                     isOnDisk(firstArg(), arg(3))
                 }
+                every { getDownloadedChapterIds(any(), any()) } answers {
+                    val title = secondArg<Manga>().title
+                    firstArg<List<Chapter>>().filter { isOnDisk(it.name, title) }.mapTo(HashSet()) { it.id }
+                }
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 every { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
             }

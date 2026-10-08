@@ -217,6 +217,7 @@ agent under Settings -> Advanced.
 - **With Group by series on, an Updates group you expanded now stays open when the screen rotates.**
 - **A new-chapter notification for an adult series that gained a newer version now opens that chapter, and its Mark as read and Download actions work.**
 - **A series with one new chapter in the Updates Group by series view now reads "1 new chapter".**
+- **A manga chapter that just finished downloading no longer shows as still downloading in Updates (from Mihon).** Upstream: mihon 1e471a414.
 
 ### Details
 
@@ -724,6 +725,7 @@ agent under Settings -> Advanced.
 - Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy.
 - Synced from Mihon: the database uses WAL on every device, with one reader instead of four on low-memory ones (mihon 61cd786e7).
 - The manga and novel libraries read each entry's last read time without joining history to every chapter, so they refresh faster (partly from Mihon, mihon 5df78e305).
+- Manga chapter lists and Updates look up queued and downloaded chapters once per list instead of once per chapter, and download progress no longer polls for a chapter's pages (from Mihon, mihon fb8e640d6, mihon 9a6dea804).
 - Under the hood, synced from Mihon: cancelling an extension install no longer goes through a local broadcast (mihonapp/mihon#3226), and tracker internals were tidied up (mihonapp/mihon#3900, mihonapp/mihon#3908).
 
 ## [0.3.2]
