@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.track.ranobedb
 
-import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import reikai.data.track.TrackerSignedOutException
 
 class RanobeDbInterceptor(
@@ -25,7 +25,7 @@ class RanobeDbInterceptor(
                     addHeader("Authorization", "Bearer $credential")
                 }
             }
-            .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", REIKAI_TRACKER_USER_AGENT)
             // SvelteKit refuses a non-GET whose content type is form-encoded unless Origin matches
             // the site, with a 403 raised before the route runs. The shared DELETE helper defaults
             // its body to an empty FormBody, so unbinding hit exactly that while the JSON PUT, which

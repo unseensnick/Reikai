@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.track.mangaupdates
 
-import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import reikai.data.track.TrackerSignedOutException
 
 class MangaUpdatesInterceptor(
@@ -20,7 +20,7 @@ class MangaUpdatesInterceptor(
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer $token")
             // RK: the app's own name in the User-Agent
-            .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", REIKAI_TRACKER_USER_AGENT)
             .build()
 
         return chain.proceed(authRequest)

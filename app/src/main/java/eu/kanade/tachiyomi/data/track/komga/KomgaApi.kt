@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track.komga
 
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.network.GET
@@ -13,6 +12,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import uy.kohesive.injekt.injectLazy
@@ -27,7 +27,7 @@ class KomgaApi(
     private val headers: Headers by lazy {
         Headers.Builder()
             // RK: identifies as Reikai
-            .add("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .add("User-Agent", REIKAI_TRACKER_USER_AGENT)
             .build()
     }
 

@@ -1,8 +1,8 @@
 package eu.kanade.tachiyomi.data.track.novellist
 
-import eu.kanade.tachiyomi.BuildConfig
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import reikai.data.track.TrackerSignedOutException
 
 /**
@@ -19,7 +19,7 @@ class NovelListInterceptor(
 
         val authRequest = chain.request().newBuilder()
             .addHeader("Authorization", "Bearer $credential")
-            .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", REIKAI_TRACKER_USER_AGENT)
             .build()
 
         return chain.proceed(authRequest)

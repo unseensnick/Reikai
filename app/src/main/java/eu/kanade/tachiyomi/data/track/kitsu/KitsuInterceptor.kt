@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
-import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.network.parseAs
 import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
+import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import reikai.data.track.TrackerSignedOutException
 import uy.kohesive.injekt.injectLazy
 
@@ -43,7 +43,7 @@ class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
         val authRequest = originalRequest.newBuilder()
             .addHeader("Authorization", "Bearer ${currAuth.accessToken}")
             // RK: Reikai identity
-            .header("User-Agent", "Reikai v${BuildConfig.VERSION_NAME} (${BuildConfig.APPLICATION_ID})")
+            .header("User-Agent", REIKAI_TRACKER_USER_AGENT)
             .header("Accept", "application/vnd.api+json")
             .header("Content-Type", "application/vnd.api+json")
             .build()
