@@ -625,7 +625,7 @@ class MangaEngine : MigrateEngine {
         }
         val coverCache = mockk<CoverCache> {
             every { getCustomCoverFile(any<Long>()) } answers { coverFile(rec.coverDir, firstArg<Long>()) }
-            every { setCustomCoverToCache(any(), any()) } answers {
+            every { setCustomCoverToCache(any<Manga>(), any()) } answers {
                 coverFile(rec.coverDir, firstArg<Manga>().id).writeBytes(secondArg<InputStream>().readBytes())
             }
         }
@@ -799,6 +799,9 @@ class NovelEngine : MigrateEngine {
         }
         val coverCache = mockk<CoverCache> {
             every { getCustomCoverFile(any<EntryId>()) } answers { coverFile(rec.coverDir, firstArg<EntryId>().rawId) }
+            every { setCustomCoverToCache(any<EntryId>(), any()) } answers {
+                coverFile(rec.coverDir, firstArg<EntryId>().rawId).writeBytes(secondArg<InputStream>().readBytes())
+            }
         }
         val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
             coEvery { awaitDeleteNovel(any()) } answers { rec.downloadsDeleted += firstArg<Novel>().id }

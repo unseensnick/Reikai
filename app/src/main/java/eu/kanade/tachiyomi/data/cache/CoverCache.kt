@@ -117,6 +117,23 @@ class CoverCache(private val context: Context) {
             it.exists() && it.delete()
         }
     }
+
+    // Keyed by entry for novels: twin of the Manga overloads above, pinned by CoverCacheConformanceTest.
+    @Throws(IOException::class)
+    fun setCustomCoverToCache(entryId: EntryId, inputStream: InputStream) {
+        getCustomCoverFile(entryId).outputStream().use {
+            inputStream.copyTo(it)
+        }
+    }
+
+    fun deleteFromCache(entryId: EntryId, thumbnailUrl: String?, deleteCustomCover: Boolean = false): Int {
+        var deleted = 0
+        getCoverFile(thumbnailUrl)?.let {
+            if (it.exists() && it.delete()) ++deleted
+        }
+        if (deleteCustomCover && deleteCustomCover(entryId)) ++deleted
+        return deleted
+    }
     // RK <--
 
     private fun getCacheDir(dir: String): File {

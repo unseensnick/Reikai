@@ -146,8 +146,7 @@ class MigrateNovelUseCase(
 
             if (NovelMigrationFlag.COVER in flags && current.hasCustomCover(coverCache)) {
                 coverCache.getCustomCoverFile(EntryId.Novel(current.id)).inputStream().use { input ->
-                    coverCache.getCustomCoverFile(EntryId.Novel(target.id))
-                        .outputStream().use { output -> input.copyTo(output) }
+                    coverCache.setCustomCoverToCache(EntryId.Novel(target.id), input)
                 }
                 // Bump the target's coverLastModified so coil reloads, mirroring NovelCoverViewModel.
                 updateNovel.awaitUpdateCoverLastModified(target.id)

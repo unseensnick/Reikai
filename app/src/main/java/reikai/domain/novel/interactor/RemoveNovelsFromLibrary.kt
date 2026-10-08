@@ -26,11 +26,11 @@ class RemoveNovelsFromLibrary(
     override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Long?>): Boolean =
         novelRepository.updateAll(favoriteAt.map { (id, at) -> NovelUpdate(id) { this.favoriteAt = at } })
 
-    override suspend fun deleteCovers(id: Long): Boolean {
-        val cover = coverCache.getCoverFile(novelRepository.getById(id)?.thumbnailUrl)
-        val deletedCover = cover?.let { it.exists() && it.delete() } == true
-        return coverCache.deleteCustomCover(EntryId.Novel(id)) || deletedCover
-    }
+    override suspend fun deleteCovers(id: Long): Boolean = coverCache.deleteFromCache(
+        EntryId.Novel(id),
+        novelRepository.getById(id)?.thumbnailUrl,
+        deleteCustomCover = true,
+    ) > 0
 
     override suspend fun stampCover(id: Long) {
         updateNovel.awaitUpdateCoverLastModified(id)

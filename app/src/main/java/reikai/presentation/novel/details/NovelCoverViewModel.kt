@@ -60,8 +60,7 @@ class NovelCoverViewModel(
     override fun hasCustomCover(): Boolean = entry.value?.hasCustomCover(coverCache) ?: false
 
     override suspend fun persistCustomCover(entry: Novel, stream: InputStream) {
-        coverCache.getCustomCoverFile(EntryId.Novel(entry.id))
-            .outputStream().use { output -> stream.copyTo(output) }
+        coverCache.setCustomCoverToCache(EntryId.Novel(entry.id), stream)
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
 
