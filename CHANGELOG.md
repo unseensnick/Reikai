@@ -36,49 +36,18 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 ### Before you upgrade
 
-Upgrading merges any manga or novel you have twice from the same source into one, keeping the
-library copy with your read chapters, history, categories, tracking, custom cover and downloads.
-Every merged series also rebuilds its combined chapter list once.
+Back up first, under Settings -> Data and storage. Upgrading merges any manga or novel you have twice
+from the same source into one, keeping the library copy with your read chapters, history, categories,
+tracking, custom cover and downloads.
 
-Crash reports and anonymous usage data are on by default and start sending after the update, since
-the switches did nothing on earlier builds. Turn them off under Settings -> Security and privacy, or
-install the `-foss` APK, which carries neither but installs as a separate app, so bring your library
-across with a backup.
+Your novel library takes on the manga library's sort, filters and grouping, and existing categories
+carry over as Manga only or Novels only. Novels open in the shared reader instead of the old novel
+reader, and a chapter you have already read opens at its start unless Resume reading position is on.
+A backup made by this version restores in 0.3.2 without the details you edited.
 
-The previous novel reader is gone: every novel opens in the shared reader, as text or as a web page
-under Settings -> Novel reader -> Rendering mode. A chapter you have already read now opens at its
-start unless Resume reading position is on, Continuous chapters and Skip filtered chapters start on,
-and in the web page mode a chapter's own scripts no longer run unless Run scripts a chapter embeds
-is on.
-
-Your novel library takes on the manga library's sort, filters and grouping, and from then on one
-setting covers both. Existing categories carry over as Manga only or Novels only in one Edit
-categories list, the Default category follows the global sort, and empty categories are now always
-hidden. In library search, `src:` now matches a source's name; use `srcid:` for an id.
-
-Some defaults change. Adding a series that shares a title with one in your library now asks before
-grouping them instead of grouping them on its own. Mark duplicate read chapter as read, Track update
-errors and Share trackers across merged sources are on, manhwa, manhua and webtoons open in webtoon
-mode, and removing a merged series starts with All grouped sources ticked. On a merged series,
-Updates, a source chip and new-chapter notifications now open only that source in the reader.
-
-Settings moved: reader settings split into Settings -> Manga reader and Settings -> Novel reader,
-Recommendations has its own entry, and the source settings screens, Enable adult sources and a new
-Safe / Mixed / 18+ picker that keeps your NSFW choice sit under Settings -> Browse and sources.
-
-The Manga and Novels chips on Browse -> Sources, Extensions and Migrate now filter one mixed list,
-and the download queue drops them for one list in one order. The Sources list's Last used starts
-empty until you next open a source, the Updates category filter is cleared once, and novel
-downloads left in the queue wait for Resume when the app opens.
-
-Extensions now install and update only from a repo whose signing key matches, though a repo with no
-key still updates the extensions no keyed repo signs. New backups store your edited details in
-Komikku and Yōkai's format, so Reikai 0.3.2 restores them without those edits.
-
-Two repairs need a tap. Novels an earlier build saved with another novel's title and cover stay that
-way until you refresh them or run Repair novel details under Settings -> Advanced, and ongoing
-novels saved wrongly as Completed stay that way until you refresh them. If a FlareSolverr test left
-sources looping on a Cloudflare challenge, reset your user agent under Settings -> Advanced.
+Novels an earlier build saved with another novel's title and cover, or wrongly as Completed, stay that
+way until you refresh them. Settings -> Advanced -> Repair novel details fixes the titles and covers
+all at once.
 
 ### Library
 
@@ -662,8 +631,6 @@ sources looping on a Cloudflare challenge, reset your user agent under Settings 
 
 #### Added
 
-- **Reikai can now send crash reports and anonymous usage data, both on unless you turn them off under Settings -> Security and privacy.** Onboarding offers the same choice on a fresh install.
-- **Every stable release now also has a `-foss` APK with no crash reporting or analytics in it.** It installs as a separate app, so it can sit alongside your normal one.
 - **A new Tokyo Night app theme, under Settings -> Appearance (from Mihon).** Upstream: mihonapp/mihon#3502.
 - **A background job that fails to start now shows a notification naming it, instead of failing silently every time it runs.**
 - **The What's new screen now shows the Note, Tip, Important, Warning and Caution callouts in release notes.**
@@ -676,7 +643,7 @@ sources looping on a Cloudflare challenge, reset your user agent under Settings 
 - **Updating the app now happens on the update screen itself, with the download progress on the button (from Mihon).** Tap once more when it finishes to install. Upstream: mihonapp/mihon#3669, mihonapp/mihon#3707.
 - **Reikai now checks for app and extension updates every time you open it from cold, instead of waiting days between checks (from Mihon).** Upstream: mihonapp/mihon#3658.
 - **Icons across the app are now drawn in Google's newer Material Symbols style (from Mihon).** A few Reikai-only icons, like the novel reader's text-alignment controls and the star ratings, keep their current look. Upstream: mihonapp/mihon#3873.
-- **Every help link in the app now opens Reikai's own documentation at reikai.app, and a Nightly build opens the Nightly docs.**
+- **A Nightly build's help links now open the Nightly docs at reikai.app.**
 - **The pre-release channel is now called Nightly and has a teal icon, so it is easy to tell apart from the stable app (partly from Mihon).** Downloads keep their file names and installs are unaffected. Upstream: mihonapp/mihon#3760.
 - **The two source settings screens that sat at the top of Settings now live under Settings -> Browse and sources, with Enable adult sources and Page preview rows.** The two screens are listed in its Source settings group while their sources are on.
 - **Recommendations settings now have their own entry in Settings instead of sitting inside Library.**
