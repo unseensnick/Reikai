@@ -351,6 +351,7 @@ class LibraryViewModel(
             val sources = libraryManga
                 .mapTo(mutableSetOf()) { it.manga.source }
                 .associateWith { sourceManager.getOrStub(it) }
+            // RK: named for the merge collapse below
             val items = libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadManager.getDownloadCount(manga.manga)
