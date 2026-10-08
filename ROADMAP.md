@@ -4,14 +4,7 @@ Forward plan only: what is left to build, in what order. Shipped work lives in [
 
 ## The 0.4.0 cut
 
-Six items gate the 0.4.0 cut (owner, 2026-10-01); when to cut after them is the owner's call.
-
-- **Run the targeted duplicate, performance and security check** `[M]` - read-only: a loop-until-dry search for code written twice in Reikai's own code, plus dedicated performance and security reviews of the hot-path and untrusted-input code.
-- **Remove the remaining duplicated code before the cut** `[L]` - the 95 open findings from the 2026-10-01 re-check (15 already behave differently for a user) plus whatever the check above confirms, fixed with one shared rule each for manga and novels.
-- **Audit the user docs against the app** `[M]` - check every page the website publishes (the guides under `docs/` and the site's own pages) against current behaviour, since this cycle moved settings, merged lists and replaced the novel reader; fix what is stale.
-- **Ground every 0.4.0 changelog entry** `[M]` - check each bullet's claim, setting path and wording against the code and the shipped strings after the duplicate fixes land, the same mechanical pass the 0.3.x audit used.
-- **Smoke-test a minified nightly build** `[S]` - build `:app:assembleNightly` and walk the main screens on the emulator, since release builds are minified and the debug build is not, so shrinker-only crashes never show in the dev loop.
-- **Test the upgrade from the real 0.3.2 build** `[M]` - install v0.3.2's preview build with a real library, upgrade to the cut build and compare the data, covering this cycle's duplicate merge, download-folder carry and newest schema migrations.
+All six items that gated the 0.4.0 cut (owner, 2026-10-01) are done; when to cut is the owner's call.
 
 ## Later
 
@@ -20,6 +13,10 @@ Backlog, grouped by area. Unordered within an area.
 ### Browse & sources
 
 - **One "not installed" signal for a missing source, manga and novels alike** `[S]` - on Clear database and the Migrate list a gone novel source keeps its remembered icon while a manga stub shows the red warning; give both types the same sign that the source is missing.
+
+### Code health
+
+- **Close the duplicate-hunt leftovers** `[S]` - the unchecked Lows of the 2026-10-08 duplicate hunt, the novel reader working out download targets twice, and one name for the member whose chapter settings a merged group uses (today the first by source priority, while the library card picks its lead by ranking).
 
 ### UI & design
 
