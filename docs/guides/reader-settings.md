@@ -494,7 +494,7 @@ Moves that slider to the left edge, for left-handed reading.
 How tall the slider is, as a percentage of the screen.
 
 #### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-How far you have to scroll before the menu hides: **Highest** hides it after the smallest scroll, **Lowest** after the largest. A change applies the next time the reader opens.
+How quickly you have to scroll before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Read aloud
 
