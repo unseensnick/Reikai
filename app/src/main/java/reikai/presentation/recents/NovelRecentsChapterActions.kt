@@ -12,6 +12,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
+import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.withIOContext
@@ -56,7 +57,7 @@ class NovelRecentsChapterActions(
 
     /** The chapters of [chapters] whose own novel's source is installed. */
     private suspend fun installedAmong(chapters: List<NovelChapter>): Set<Long> {
-        val installed = novelRepository.ownersOf(chapters).filterValues { sourceManager.get(it.source) != null }.keys
+        val installed = novelRepository.ownersOf(chapters).filterValues { sourceManager.isInstalled(it.source) }.keys
         return chapters.filter { it.novelId in installed }.mapTo(HashSet()) { it.id }
     }
 

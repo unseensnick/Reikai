@@ -86,6 +86,7 @@ import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.source.SourceKey
+import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -1395,7 +1396,7 @@ class NovelReaderViewModel(
     }
 
     // The first open already waits on the plugin host to read the chapter's stylesheet, so this adds no wait.
-    private suspend fun isInstalled(novel: Novel) = sourceManager.get(novel.source) != null
+    private suspend fun isInstalled(novel: Novel) = sourceManager.isInstalled(novel.source)
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
      *  Outlives the session. Twin of ReaderViewModel.markChapterReadOnSkip, pinned by

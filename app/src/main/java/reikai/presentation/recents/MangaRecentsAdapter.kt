@@ -38,6 +38,7 @@ import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.isInstalled
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.MangaLibraryAdder
@@ -51,7 +52,6 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -213,7 +213,7 @@ class MangaRecentsAdapter(
 
     /** Which of [sources], manga source ids as text, are not installed. */
     private suspend fun missingSourcesAmong(sources: Set<String>): Set<String> =
-        sources.filterTo(HashSet()) { sourceManager.getOrStub(it.toLong()) is StubSource }
+        sources.filterNotTo(HashSet()) { sourceManager.isInstalled(it.toLong()) }
 
     /**
      * The lane's target over the group, with the group's members by id, which a copy's download is looked

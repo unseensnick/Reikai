@@ -104,6 +104,7 @@ import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.source.SourceKey // RK
+import reikai.domain.source.isInstalled
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.components.mergeSourceLabels
@@ -131,7 +132,6 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal
@@ -562,7 +562,7 @@ class ReaderViewModel(
                     val pooled = group.pooledChapters
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
                     val installed = group.mangaById.values
-                        .filter { sourceManager.getOrStub(it.source) !is StubSource }
+                        .filter { sourceManager.isInstalled(it.source) }
                         .mapTo(HashSet()) { it.id }
                     downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
                         it.mangaId in installed

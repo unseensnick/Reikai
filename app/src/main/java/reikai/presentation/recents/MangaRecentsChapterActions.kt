@@ -8,13 +8,13 @@ import reikai.domain.download.rowDownloadChapters
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.MergeScope
+import reikai.domain.source.isInstalled
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.manga.interactor.GetManga
-import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -64,7 +64,7 @@ class MangaRecentsChapterActions(
     /** The chapters of [chapters] whose own manga's source is installed. */
     private suspend fun installedAmong(chapters: List<Chapter>): Set<Long> {
         val installed = chapters.mapTo(HashSet()) { it.mangaId }.filterTo(HashSet()) { mangaId ->
-            getManga.await(mangaId)?.let { sourceManager.getOrStub(it.source) !is StubSource } == true
+            getManga.await(mangaId)?.let { sourceManager.isInstalled(it.source) } == true
         }
         return chapters.filter { it.mangaId in installed }.mapTo(HashSet()) { it.id }
     }

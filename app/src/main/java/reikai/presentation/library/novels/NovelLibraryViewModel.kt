@@ -56,6 +56,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
@@ -430,7 +431,7 @@ class NovelLibraryViewModel(
                 val copies = if (group.stitch.isEmpty()) {
                     DownloadTargets.OWN
                 } else {
-                    val installed = novelsById.filterValues { sourceManager.get(it.source) != null }.keys
+                    val installed = novelsById.filterValues { sourceManager.isInstalled(it.source) }.keys
                     DownloadTargets.of(MergeScope.Group, group.pooledChapters, group.chapters, group.stitch, {
                         it.id
                     }) { it.novelId in installed }

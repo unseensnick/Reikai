@@ -39,6 +39,7 @@ import reikai.domain.recents.RecentlyAddedNovel
 import reikai.domain.recents.RecentlyAddedRepository
 import reikai.domain.recents.RecentsUnreadRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
@@ -207,7 +208,7 @@ class NovelRecentsAdapter(
 
     /** Which of [sources] are not installed, which a lookup answers after the first plugin load. */
     private suspend fun missingSourcesAmong(sources: Set<String>): Set<String> =
-        sources.filterTo(HashSet()) { sourceManager.get(it) == null }
+        sources.filterNotTo(HashSet()) { sourceManager.isInstalled(it) }
 
     /** Only the chapter reads are this type's; the lane rules are [resolveRecentsTarget]'s. */
     private suspend fun resolveTarget(item: RecentsItem): RecentsTarget<NovelChapter>? {

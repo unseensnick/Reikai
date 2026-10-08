@@ -59,6 +59,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
+import reikai.domain.source.isInstalled
 import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
@@ -516,7 +517,7 @@ class LibraryViewModel(
         val flags = group.groupFlags(chapters) { downloadManager.downloadedChapterIds(it, ownerOf) }
         val targets = group?.takeIf { it.stitch.isNotEmpty() }?.let { merged ->
             val installed = merged.mangaById.values
-                .filter { sourceManager.getOrStub(it.source) !is StubSource }
+                .filter { sourceManager.isInstalled(it.source) }
                 .mapTo(HashSet()) { it.id }
             DownloadTargets.of(MergeScope.Group, merged.pooledChapters, chapters, merged.stitch, { it.id }) {
                 it.mangaId in installed
