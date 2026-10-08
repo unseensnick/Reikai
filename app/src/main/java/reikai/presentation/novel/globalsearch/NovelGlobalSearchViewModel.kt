@@ -15,6 +15,7 @@ import reikai.domain.source.GetEnabledNovelSources
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
+import reikai.novel.source.listedNovels
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.novelBrowseRow
 import reikai.presentation.novel.browse.NovelAddFlow
@@ -59,7 +60,7 @@ class NovelGlobalSearchViewModel(
     }
 
     suspend fun searchSource(source: NovelSource, query: String): List<EntryBrowseRow> =
-        source.search(query, 1, filters = null).items.map { novelBrowseRow(it, source.id, favorited) }
+        source.search(query, 1, filters = null).listedNovels().map { novelBrowseRow(it, source.id, favorited) }
 
     // The source id comes from each result's row, since results span sources.
     val addFlow = NovelAddFlow(libraryAdder, viewModelScope)

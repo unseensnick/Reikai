@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.SourceTracker
 import kotlinx.coroutines.CoroutineScope
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.source.CatalogueEnd
+import reikai.domain.source.listedOnce
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import tachiyomi.core.common.util.lang.withIOContext
@@ -177,3 +178,6 @@ internal suspend fun <T> appSourceCall(block: suspend CoroutineScope.() -> T): T
  * listed row and the novel stored from it read one name.
  */
 data class NovelItemsPage(val items: List<NovelItem>, val end: CatalogueEnd)
+
+/** The novels this page lists, by [listedOnce] on the path. */
+fun NovelItemsPage.listedNovels(): List<NovelItem> = items.listedOnce { it.path }

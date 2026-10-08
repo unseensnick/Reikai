@@ -18,6 +18,7 @@ import reikai.novel.host.NovelItem
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.listedNovels
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
@@ -149,13 +150,13 @@ class NovelFeedProvider(
         val defaults = source.filters?.defaultState()
         if (savedSearch == null) {
             val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
-            return source.browse(listing, page = 1, defaults).items
+            return source.browse(listing, page = 1, defaults).listedNovels()
         }
         val stored = source.filters?.let { filters.restore(savedSearch.filtersJson, it::defaultState) }
         return when (val run = NovelSavedSearchRun.of(source.filters?.applyToSearch == true, savedSearch.query)) {
-            is NovelSavedSearchRun.SearchWithFilters -> source.search(run.query, page = 1, stored).items
-            is NovelSavedSearchRun.PlainSearch -> source.search(run.query, page = 1, defaults).items
-            NovelSavedSearchRun.FilteredPopular -> source.browse(NovelListing.Popular, page = 1, stored).items
+            is NovelSavedSearchRun.SearchWithFilters -> source.search(run.query, page = 1, stored).listedNovels()
+            is NovelSavedSearchRun.PlainSearch -> source.search(run.query, page = 1, defaults).listedNovels()
+            NovelSavedSearchRun.FilteredPopular -> source.browse(NovelListing.Popular, page = 1, stored).listedNovels()
         }
     }
 
