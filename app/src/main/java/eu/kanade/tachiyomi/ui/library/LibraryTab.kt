@@ -47,7 +47,6 @@ import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.library.DeleteLibraryMangaDialog
 import eu.kanade.presentation.library.components.LibraryContent
 import eu.kanade.presentation.library.components.LibraryToolbar
-import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.LibraryBottomActionMenu
 import eu.kanade.presentation.more.onboarding.GETTING_STARTED_URL
@@ -81,6 +80,7 @@ import reikai.presentation.library.LibrarySettingsSheet
 import reikai.presentation.library.LibrarySettingsTab
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
+import reikai.presentation.library.libraryToolbarTitle
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
 import reikai.presentation.library.reikaiIsCollapsed
@@ -191,7 +191,8 @@ data object LibraryTab : Tab {
         // favorites (which under All counted only one of the two content types). Distinct because an
         // entry in several categories sits in several buckets. Remembered: it walks the whole library,
         // and only the tabbed view with counts on ever shows it.
-        val showWholeLibraryCount = display.showItemCounts && display.showCategoryTabs
+        val showWholeLibraryCount =
+            display.showItemCounts && (display.showCategoryTabs || display.reikai.showAllCategories)
         val wholeLibraryCount = remember(activeBuckets, activeGetItems, showWholeLibraryCount) {
             if (!showWholeLibraryCount) {
                 0
@@ -379,21 +380,17 @@ data object LibraryTab : Tab {
                 // RK: built here over the assembled list, keeping the manga model's rules. It used to be
                 // the manga State's own, which knew only manga categories and counted only manga rows.
                 val defaultTitle = stringResource(MR.strings.label_library)
-                // Single-list tracks the visible section on scroll, so the title follows it.
-                val title = when (val bucket = currentBucket()) {
-                    null -> LibraryToolbarTitle(defaultTitle)
-                    else -> LibraryToolbarTitle(
-                        // "Always show current category" forces the section name into the title.
-                        text = if (display.reikai.showCategoryInTitle || !display.showCategoryTabs) {
-                            bucket.visualLabel
-                        } else {
-                            defaultTitle
-                        },
-                        numberOfManga = when {
-                            !display.showItemCounts -> null
-                            !display.showCategoryTabs -> activeGetItemCount(bucket)
-                            else -> wholeLibraryCount
-                        },
+                // The paged view without tabs names the section on screen; single-list reads "Library".
+                val title = currentBucket().let { bucket ->
+                    libraryToolbarTitle(
+                        defaultTitle = defaultTitle,
+                        sectionLabel = bucket?.visualLabel,
+                        showCategoryInTitle = display.reikai.showCategoryInTitle,
+                        showCategoryTabs = display.showCategoryTabs,
+                        showAllCategories = showAllCategories,
+                        showItemCounts = display.showItemCounts,
+                        sectionCount = { bucket?.let(activeGetItemCount) ?: 0 },
+                        wholeCount = { wholeLibraryCount },
                     )
                 }
                 // RK: stack the content-type chip under the toolbar so the Scaffold sizes
