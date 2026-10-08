@@ -10,6 +10,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.domain.entry.EntryId
+import reikai.domain.track.highestStillRead
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
@@ -147,7 +148,7 @@ class SourceTrackerKernel(
             }
             // Unreading below a chapter still read moves the site back to that one, as tsundoku does,
             // rather than telling it the entry was unread.
-            val highestRead = chapters.filter { it.read && it.number > 0 }.maxByOrNull { it.number }
+            val highestRead = highestStillRead(chapters, { it.read }, { it.number })
             if (highestRead != null) {
                 tracker.onChaptersRead(manga, listOf(highestRead.chapter), all, categories)
             } else {

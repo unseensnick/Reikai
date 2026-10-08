@@ -18,6 +18,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.UnreadPushTracker
 import reikai.domain.track.autobind.AutoBindEntry
 import reikai.domain.track.autobind.AutoBindTracker
+import reikai.domain.track.highestStillRead
 import reikai.domain.track.site.OwnedSites
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
@@ -136,9 +137,7 @@ class NovelUpdates(id: Long) :
         val onSite = api.readNotes(novelId)?.let { progressFrom(it.notes) }
         // Called after the unread is written, so this is what is still read.
         val chapters = groupChapters(track.manga_id)
-        val stillRead = chapters
-            .filter { it.read && it.chapterNumber > 0 }
-            .maxOfOrNull { it.chapterNumber }
+        val stillRead = highestStillRead(chapters, { it.read }, { it.chapterNumber })?.chapterNumber
         val progress = progressAfterUnread(unread.map { it.chapterNumber }, stillRead, onSite) ?: return null
         // With nothing still read the bookmark stays: the site has no way to move it to "none".
         if (progress > 0) bookmarkRelease(track, novelId, progress, readReleaseIds(chapters, progress))
