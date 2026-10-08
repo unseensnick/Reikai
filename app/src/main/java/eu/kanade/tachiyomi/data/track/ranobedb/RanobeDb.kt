@@ -11,13 +11,12 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeriesListEntry
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBStaff
+import eu.kanade.tachiyomi.util.lang.toLocalDate
 import reikai.data.track.MetadataAccess
 import reikai.data.track.NovelStatusTracker
 import reikai.data.track.NovelTrackerStatuses
 import reikai.data.track.TenPointScore
 import reikai.data.track.storeCheckedCredential
-import java.time.Instant
-import java.time.ZoneId
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 /**
@@ -231,8 +230,7 @@ class RanobeDb(id: Long) :
         else -> "Reading"
     }
 
-    private fun Long.toIsoDate(): String? = takeIf { it > 0 }
-        ?.let { Instant.ofEpochMilli(it).atZone(ZoneId.systemDefault()).toLocalDate().toString() }
+    private fun Long.toIsoDate(): String? = takeIf { it > 0 }?.toLocalDate()?.toString()
 
     private fun List<RDBStaff>.namesOfRole(role: String): String? =
         filter { it.roleType.equals(role, ignoreCase = true) }
