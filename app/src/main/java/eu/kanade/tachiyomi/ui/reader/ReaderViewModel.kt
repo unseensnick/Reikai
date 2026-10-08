@@ -556,15 +556,15 @@ class ReaderViewModel(
                 if (mergeScope.copiesIn(group.stitch).isNotEmpty()) {
                     val pooled = group.pooledChapters
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
-                    val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk)
-                    copiesToOpen = copies
-                    chapterId = copies.idOf(chapterId)
                     val installed = group.mangaById.values
                         .filter { sourceManager.getOrStub(it.source) !is StubSource }
                         .mapTo(HashSet()) { it.id }
                     downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
                         it.mangaId in installed
                     }
+                    val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk, downloadTargets)
+                    copiesToOpen = copies
+                    chapterId = copies.idOf(chapterId)
                 }
                 loader = MergedChapterLoader(
                     context,

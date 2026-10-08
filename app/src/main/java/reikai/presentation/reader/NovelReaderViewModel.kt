@@ -1125,7 +1125,7 @@ class NovelReaderViewModel(
      * nowhere to step from.
      */
     private suspend fun resolveReadingOrder() {
-        val reading = getNextNovelChapter.readingRows(novelId, sourceScoped) { chapters, owners ->
+        val reading = getNextNovelChapter.readingRows(novelId, sourceScoped, ::isInstalled) { chapters, owners ->
             novelDownloadCache.downloadedChapterIds(chapters, owners)
         }
         val pooled = reading.pooled
@@ -1389,9 +1389,12 @@ class NovelReaderViewModel(
      */
     private suspend fun downloadTargets(pooled: List<NovelChapter>): DownloadTargets {
         if (mergeScope != MergeScope.Group || groupStitch.isEmpty()) return DownloadTargets.OWN
-        val installed = novelRepo.ownersOf(pooled).filterValues { sourceManager.get(it.source) != null }.keys
+        val installed = novelRepo.ownersOf(pooled).filterValues { isInstalled(it) }.keys
         return DownloadTargets.of(mergeScope, pooled, pooled, groupStitch, { it.id }) { it.novelId in installed }
     }
+
+    // The first open already waits on the plugin host to read the chapter's stylesheet, so this adds no wait.
+    private suspend fun isInstalled(novel: Novel) = sourceManager.get(novel.source) != null
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
      *  Outlives the session. Twin of ReaderViewModel.markChapterReadOnSkip, pinned by

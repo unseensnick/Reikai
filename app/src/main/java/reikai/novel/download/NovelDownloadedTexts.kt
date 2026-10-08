@@ -29,7 +29,8 @@ class NovelDownloadedTexts(
     private val downloadManager: () -> NovelDownloadManager,
 ) {
     suspend fun chaptersOf(novelId: Long, sourceScoped: Boolean): NovelDownloadedChapters {
-        val rows = getNextNovelChapter.readingRows(novelId, sourceScoped) { chapters, owners ->
+        // Only rows on disk are read, and which installed copy opens matters only to a row with none.
+        val rows = getNextNovelChapter.readingRows(novelId, sourceScoped, isInstalled = { true }) { chapters, owners ->
             downloadCache.downloadedChapterIds(chapters, owners)
         }.rows
         val isHidden = getNextNovelChapter.hiddenAmong(rows)

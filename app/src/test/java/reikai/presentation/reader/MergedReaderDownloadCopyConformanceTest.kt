@@ -28,10 +28,11 @@ import reikai.domain.novel.model.NovelChapter
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Which copy the reader downloads in a merged series' group scope, pinned once over both readers. The
- * group is a member whose source is gone (M, ranked first, so its copies are the ones shown) and an
- * installed one (A). Chapters 1 to 3 are on both, chapter 4 only on M, and chapters 1 and 2 are read
- * from A's copies on disk. A download of a chapter shown from M fetches A's copy, or nothing.
+ * Which copy the reader downloads and opens in a merged series' group scope, pinned once over both
+ * readers. The group is a member whose source is gone (M, ranked first, so its copies are the ones
+ * shown) and an installed one (A). Chapters 1 to 3 are on both, chapter 4 only on M, and chapters 1 and
+ * 2 are read from A's copies on disk. A download of a chapter shown from M fetches A's copy, or
+ * nothing; opening one reads a copy on disk, else A's copy, else M's own.
  */
 class MergedReaderDownloadCopyConformanceTest {
 
@@ -78,6 +79,33 @@ class MergedReaderDownloadCopyConformanceTest {
             probe.sheetOffersDownload(this, ReaderCopy.M3) shouldBe true
         }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `opening a chapter shown from a missing source reads the installed copy`(probe: ReaderDownloadProbe) =
+        runTest {
+            probe.opened(this, ReaderCopy.M3) shouldBe ReaderCopy.A3
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `opening a chapter shown from a missing source reads its own copy on disk`(probe: ReaderDownloadProbe) =
+        runTest {
+            probe.opened(this, ReaderCopy.M3, alsoOnDisk = ReaderCopy.M3) shouldBe ReaderCopy.M3
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `opening a chapter only a missing source holds reads that copy`(probe: ReaderDownloadProbe) = runTest {
+        probe.opened(this, ReaderCopy.M4) shouldBe ReaderCopy.M4
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the step after a chapter on disk is the installed copy of the next`(probe: ReaderDownloadProbe) =
+        runTest {
+            probe.nextAfter(this, ReaderCopy.A2) shouldBe ReaderCopy.A3
+        }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaDownloadProbe(), NovelDownloadProbe())
@@ -87,8 +115,15 @@ class MergedReaderDownloadCopyConformanceTest {
 /** The group's copies by role: M's copy of chapter 1 to 4, and A's of 1 to 3. */
 enum class ReaderCopy { M1, M2, M3, M4, A1, A2, A3 }
 
-/** One content type's reader opened in group scope on A's copy of chapter 1. */
+/** One content type's reader opened in group scope, on A's copy of chapter 1 unless a probe names another. */
 interface ReaderDownloadProbe {
+
+    /** The copy the reader reads after opening [row], with [alsoOnDisk] downloaded too. A load that
+     *  fails names the copy it tried. */
+    suspend fun opened(scope: TestScope, row: ReaderCopy, alsoOnDisk: ReaderCopy? = null): ReaderCopy
+
+    /** The copy a step forward from [row] lands on. */
+    suspend fun nextAfter(scope: TestScope, row: ReaderCopy): ReaderCopy
 
     /** The copies the downloader is handed when the chapter sheet starts [row]'s download. */
     suspend fun sheetStart(scope: TestScope, row: ReaderCopy): Set<ReaderCopy>
@@ -97,7 +132,8 @@ interface ReaderDownloadProbe {
      *  on disk, which the downloader drops for itself; only what it is handed beyond that is returned. */
     suspend fun downloadAhead(scope: TestScope): Set<ReaderCopy>
 
-    /** Whether the chapter sheet draws [row]'s download control. */
+    /** Whether the chapter sheet draws the download control of the row standing for [row]'s chapter,
+     *  which is A's copy where the sheet lists the copy it opens. */
     suspend fun sheetOffersDownload(scope: TestScope, row: ReaderCopy): Boolean
 }
 
@@ -115,6 +151,14 @@ class MangaDownloadProbe : ReaderDownloadProbe {
         ReaderCopy.A1 to 21L,
     )
     private val roleOf = ids.entries.associate { (role, id) -> id to role }
+
+    override suspend fun opened(scope: TestScope, row: ReaderCopy, alsoOnDisk: ReaderCopy?): ReaderCopy =
+        open(chapter = row, alsoOnDisk = alsoOnDisk) { _, state, _, _ ->
+            roleOf.getValue(state.viewerChapters!!.currChapter.chapter.id!!)
+        }
+
+    override suspend fun nextAfter(scope: TestScope, row: ReaderCopy): ReaderCopy =
+        open(chapter = row) { _, state, _, _ -> roleOf.getValue(state.viewerChapters!!.nextChapter!!.chapter.id!!) }
 
     override suspend fun sheetStart(scope: TestScope, row: ReaderCopy): Set<ReaderCopy> = open {
             model,
@@ -167,6 +211,8 @@ class MangaDownloadProbe : ReaderDownloadProbe {
 
     private suspend fun <T> open(
         downloadAhead: Int = 0,
+        chapter: ReaderCopy = ReaderCopy.A1,
+        alsoOnDisk: ReaderCopy? = null,
         probe: suspend (
             eu.kanade.tachiyomi.ui.reader.ReaderViewModel,
             eu.kanade.tachiyomi.ui.reader.ReaderViewModel.State,
@@ -202,10 +248,10 @@ class MangaDownloadProbe : ReaderDownloadProbe {
         val queued = ConcurrentHashMap.newKeySet<Long>()
         harness.open(
             a,
-            chapterId = 21L,
+            chapterId = ids.getValue(chapter),
             group = group,
             preferences = mapOf("auto_download_while_reading" to downloadAhead),
-            onDisk = setOf(21L, 22L),
+            onDisk = setOf(21L, 22L) + listOfNotNull(alsoOnDisk?.let(ids::getValue)),
             missingSources = setOf(M_SOURCE),
             onDownload = { chapters -> chapters.forEach { queued += it.id } },
         ) { model, state -> probe(model, state, group, queued) }
@@ -222,6 +268,21 @@ class MangaDownloadProbe : ReaderDownloadProbe {
 class NovelDownloadProbe : ReaderDownloadProbe {
 
     override fun toString() = "novel"
+
+    override suspend fun opened(scope: TestScope, row: ReaderCopy, alsoOnDisk: ReaderCopy?): ReaderCopy =
+        open(scope) { harness, ids, _ ->
+            alsoOnDisk?.let { harness.download(SeededChapter(ids.getValue(it).id, ""), "<p>Also on disk</p>") }
+            val model = harness.open(ids.getValue(row).novel, ids.getValue(row).id)
+            scope.advanceUntilIdle()
+            val read = model.chapter.value?.chapterId ?: (model.loadState.value as ReaderLoadState.Failed).chapterId
+            ids.entries.single { it.value.id == read }.key
+        }
+
+    override suspend fun nextAfter(scope: TestScope, row: ReaderCopy): ReaderCopy = open(scope) { harness, ids, _ ->
+        val model = harness.open(ids.getValue(row).novel, ids.getValue(row).id)
+        scope.advanceUntilIdle()
+        ids.entries.single { it.value.id == model.chapterNeighbours.value.next }.key
+    }
 
     override suspend fun sheetStart(scope: TestScope, row: ReaderCopy): Set<ReaderCopy> = open(scope) {
             harness,
@@ -249,7 +310,10 @@ class NovelDownloadProbe : ReaderDownloadProbe {
         ->
         val model = harness.open(ids.getValue(ReaderCopy.A1).novel, ids.getValue(ReaderCopy.A1).id)
         scope.advanceUntilIdle()
-        model.chapterRows(EnglishChapterTitleWords).first().single { it.id == ids.getValue(row).id }.offersDownload
+        val chapter = ReaderCopy.entries.filter { it.name.drop(1) == row.name.drop(1) }.mapTo(HashSet()) {
+            ids.getValue(it).id
+        }
+        model.chapterRows(EnglishChapterTitleWords).first().single { it.id in chapter }.offersDownload
     }
 
     private class Seeded(val novel: Long, val id: Long)

@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
@@ -90,12 +91,14 @@ class GetNextNovelChapter(
 
     /**
      * The rows [novelId]'s reader lists in its scope, unsorted. Group scope lists the group's unified rows,
-     * each merged row swapped for the copy a tap opens, so a row is read from disk when any copy is there;
-     * source scope lists the novel's own rows. [downloadedIds] answers disk membership per owning novel.
+     * each merged row swapped for the copy a tap opens, so a row is read from disk when any copy is there
+     * and from a source [isInstalled] answers for when its own is gone; source scope lists the novel's own
+     * rows. [downloadedIds] answers disk membership per owning novel.
      */
     suspend fun readingRows(
         novelId: Long,
         sourceScoped: Boolean,
+        isInstalled: suspend (Novel) -> Boolean,
         downloadedIds: (List<NovelChapter>, Map<Long, Novel>) -> Set<Long>,
     ): NovelReadingRows {
         // Both scopes need the group: whether the story has been read is not a property of the row.
@@ -106,10 +109,12 @@ class GetNextNovelChapter(
         if (sourceScoped || pooled.isEmpty()) {
             return NovelReadingRows(chapterRepository.getByNovelId(novelId), memberIds, pooled, stitch, copies = null)
         }
-        val copies =
-            CopyToOpen(MergeScope.Group, pooled, stitch, {
-                it.id
-            }, downloadedIds(pooled, novelRepository.ownersOf(pooled)))
+        val owners = novelRepository.ownersOf(pooled)
+        val installed = owners.filterValues { isInstalled(it) }.keys
+        val fetched = DownloadTargets.of(MergeScope.Group, pooled, pooled, stitch, {
+            it.id
+        }) { it.novelId in installed }
+        val copies = CopyToOpen(MergeScope.Group, pooled, stitch, { it.id }, downloadedIds(pooled, owners), fetched)
         val rows = copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
             copy.copy(sourceOrder = row.sourceOrder)
         }

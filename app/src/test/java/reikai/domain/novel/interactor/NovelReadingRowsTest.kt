@@ -64,7 +64,7 @@ class NovelReadingRowsTest {
     )
 
     private suspend fun rows(sourceScoped: Boolean, onDisk: Set<Long>) =
-        interactor.readingRows(1L, sourceScoped) { chapters, _ ->
+        interactor.readingRows(1L, sourceScoped, isInstalled = { true }) { chapters, _ ->
             chapters.mapNotNullTo(HashSet()) { chapter -> chapter.id.takeIf { it in onDisk } }
         }.rows.map { it.id }
 

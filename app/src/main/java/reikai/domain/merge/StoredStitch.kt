@@ -85,10 +85,12 @@ enum class MergeScope {
 }
 
 /**
- * The copy of a merged chapter a reader opens: the one asked for when it is on disk or no copy is,
- * else the highest-ranked copy on disk that [scope] reaches. A row is downloaded ([isOnDisk]) exactly
- * when the copy it opens is. [chapters] is every member's chapters the caller may show; a copy outside
- * it is never picked.
+ * The copy of a merged chapter a reader opens: the one asked for when it is on disk, else the
+ * highest-ranked copy on disk that [scope] reaches, else the copy a download of it fetches ([fetched]),
+ * so a chapter shown from a source that is gone reads an installed source's copy. A row is downloaded
+ * ([isOnDisk]) exactly when the copy it opens is. [chapters] is every member's chapters the caller may
+ * show; a copy outside it is never picked. [fetched] defaults to each row's own, for a caller asking
+ * only about disk.
  */
 class CopyToOpen<T>(
     scope: MergeScope,
@@ -96,6 +98,7 @@ class CopyToOpen<T>(
     stitch: List<ChapterUnit>,
     private val id: (T) -> Long,
     private val onDisk: Set<Long>,
+    private val fetched: DownloadTargets = DownloadTargets.OWN,
 ) {
     private val byId = chapters.associateBy(id)
     private val unitOf = scope.copiesIn(stitch).associate { it.chapterId to it.unit }
@@ -103,8 +106,13 @@ class CopyToOpen<T>(
         .filter { it.chapterId in onDisk && it.chapterId in byId }
         .bestCopyByUnit()
 
-    fun idOf(chapterId: Long): Long =
-        if (chapterId in onDisk) chapterId else unitOf[chapterId]?.let(bestOnDisk::get) ?: chapterId
+    fun idOf(chapterId: Long): Long = if (chapterId in onDisk) {
+        chapterId
+    } else {
+        unitOf[chapterId]?.let(bestOnDisk::get)
+            ?: fetched.idOf(chapterId)?.takeIf { it in byId }
+            ?: chapterId
+    }
 
     fun isOnDisk(chapterId: Long): Boolean = idOf(chapterId) in onDisk
 
@@ -118,7 +126,8 @@ class CopyToOpen<T>(
 /**
  * The copy a download of each row fetches, as plain ids so a screen state can carry it: the row's own
  * while its source is installed, else the highest-ranked copy of it on an installed source that the
- * scope reaches, else none. Only fetching moves: the row shown and the copy opened stay the stitch's.
+ * scope reaches, else none. The row shown stays the stitch's; [CopyToOpen] opens this copy when no copy
+ * is on disk.
  */
 data class DownloadTargets(
     private val moved: Map<Long, Long> = emptyMap(),
