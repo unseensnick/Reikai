@@ -27,13 +27,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -43,6 +40,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
 import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.EntryDuplicateCardUi
@@ -70,15 +68,11 @@ class RecentsEngineTest {
     private val updatesPreferences = UpdatesPreferences(store)
     private val libraryPreferences = LibraryPreferences(store)
 
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    // Every engine is tracked: its stop timeouts and its off-main transforms otherwise outlive the test and
+    // resume on a Main that has been reset, failing whichever test runs next.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     private fun engine(
         providers: List<RecentsProvider>,
@@ -86,13 +80,15 @@ class RecentsEngineTest {
         modes: Set<RecentsMode> = setOf(RecentsMode.UPDATES),
     ): RecentsEngine {
         sourcePreferences.updatesContentType.set(chip)
-        return RecentsEngine(
-            providers = providers,
-            surface = RecentsSurface.UPDATES,
-            modes = modes,
-            sourcePreferences = sourcePreferences,
-            updatesPreferences = updatesPreferences,
-            libraryPreferences = libraryPreferences,
+        return main.track(
+            RecentsEngine(
+                providers = providers,
+                surface = RecentsSurface.UPDATES,
+                modes = modes,
+                sourcePreferences = sourcePreferences,
+                updatesPreferences = updatesPreferences,
+                libraryPreferences = libraryPreferences,
+            ),
         )
     }
 
@@ -106,13 +102,15 @@ class RecentsEngineTest {
 
     private fun multiModeEngine(modes: Set<RecentsMode>) = emittingEngine(provider(ContentType.MANGA), modes)
 
-    private fun emittingEngine(provider: RecentsProvider, modes: Set<RecentsMode>) = RecentsEngine(
-        providers = listOf(provider),
-        surface = RecentsSurface.UPDATES,
-        modes = modes,
-        sourcePreferences = ReikaiSourcePreferences(emittingStore),
-        updatesPreferences = emittingUpdatesPreferences,
-        libraryPreferences = LibraryPreferences(emittingStore),
+    private fun emittingEngine(provider: RecentsProvider, modes: Set<RecentsMode>) = main.track(
+        RecentsEngine(
+            providers = listOf(provider),
+            surface = RecentsSurface.UPDATES,
+            modes = modes,
+            sourcePreferences = ReikaiSourcePreferences(emittingStore),
+            updatesPreferences = emittingUpdatesPreferences,
+            libraryPreferences = LibraryPreferences(emittingStore),
+        ),
     )
 
     private suspend fun RecentsEngine.firstAssembly(): RecentsAssembled = assembled.filterNotNull().first()
