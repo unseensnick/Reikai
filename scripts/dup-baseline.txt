@@ -7,7 +7,6 @@ app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomMangaInfo.k
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupManga.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovel.kt	eb95fab0158a498f
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovelChapter.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovelTracking.kt	e2a3c11f39df2e9a
 app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadStore.kt	app/src/main/java/reikai/novel/download/NovelDownloadStore.kt	165a5301275c7653
-app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/NovelList.kt	app/src/main/java/eu/kanade/tachiyomi/data/track/ranobedb/RanobeDb.kt	f5f504d228519d3b
 app/src/main/java/eu/kanade/tachiyomi/data/track/novellist/NovelListApi.kt	app/src/main/java/eu/kanade/tachiyomi/data/track/ranobedb/RanobeDbApi.kt	6bea7d2c0ea7cd5a
 app/src/main/java/eu/kanade/tachiyomi/source/online/all/AsmHentai.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/HentaiFox.kt	da31f098f34d149c
 app/src/main/java/eu/kanade/tachiyomi/source/online/all/AsmHentai.kt	app/src/main/java/eu/kanade/tachiyomi/source/online/all/Koharu.kt	63d0c3f3c13840bb
