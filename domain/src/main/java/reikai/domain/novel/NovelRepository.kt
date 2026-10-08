@@ -18,13 +18,16 @@ interface NovelRepository {
     suspend fun getFavorites(): List<Novel>
 
     /** Non-favorite novels with read progress (read chapters or a mid-chapter position), for the
-     *  read-entries backup option. Twin of [tachiyomi.domain.manga.repository.MangaRepository.getReadMangaNotInLibrary]. */
+     *  read-entries backup option. Twin of
+     *  [tachiyomi.domain.manga.repository.MangaRepository.getReadMangaNotInLibrary], pinned by
+     *  NonLibraryEntryConformanceTest. */
     suspend fun getReadNovelsNotInLibrary(): List<Novel>
 
     /**
      * Reactive (source id, non-favorite row count) pairs for the Clear database screen's novel
      * section. Twin of `SourceRepository.getSourcesWithNonLibraryManga`, minus the source-manager
-     * mapping (novel source ids are Strings; callers resolve display data themselves).
+     * mapping (novel source ids are Strings; callers resolve display data themselves), pinned by
+     * NonLibraryEntryConformanceTest.
      */
     fun getSourcesWithNonLibraryNovelAsFlow(): Flow<List<Pair<String, Long>>>
 
@@ -37,14 +40,15 @@ interface NovelRepository {
     /**
      * Delete non-favorite novels of [sources]; with [keepReadNovels] true, rows with progress (a
      * read chapter or a mid-chapter position) survive. Chapters and other child rows go via FK
-     * cascade. Twin of `MangaRepository`'s clear-database delete.
+     * cascade. Twin of `MangaRepository`'s clear-database delete, pinned by NonLibraryEntryConformanceTest.
      */
     suspend fun deleteNonLibraryNovels(sources: List<String>, keepReadNovels: Boolean)
 
     /**
-     * Favorited novels whose title contains [title] (case-insensitive), excluding novel [id], each
-     * with its chapter count. Backs the browse "possible duplicates" dialog. Runs DB-side over the
-     * favorite partial index (mirrors the manga duplicate check) so it scales to large libraries.
+     * Favorited novels whose title contains [title] (case-insensitive) or that are tracked to the same
+     * remote entry, excluding novel [id], each with its chapter count. Backs the browse "possible
+     * duplicates" dialog. Runs DB-side over the favorite partial index (mirrors the manga duplicate
+     * check, pinned by DuplicateTitleMatchConformanceTest and DuplicateTrackMatchConformanceTest).
      */
     suspend fun getDuplicateLibraryNovel(id: Long, title: String): List<NovelWithChapterCount>
 
@@ -89,13 +93,15 @@ interface NovelRepository {
     /** Full-row update, for the writers that set columns back to null (restore and edit-info). */
     suspend fun update(novel: Novel): Boolean
 
-    /** Surgical partial update: writes only the fields [update] sets (null = leave unchanged), the
-     *  novel twin of `MangaRepository.update(MangaUpdate)`. Use over [update] for single-field edits. */
+    /** Surgical partial update: writes only the fields [update] sets, the novel twin of
+     *  `MangaRepository.update(MangaUpdate)`, pinned by FavoriteAtWriteConformanceTest. Use over
+     *  [update] for single-field edits. */
     suspend fun update(update: NovelUpdate): Boolean
 
     /** All of [updates] in ONE transaction (all or nothing), the novel twin of
-     *  `MangaRepository.updateAll`. The migration favorite swap depends on the atomicity: two
-     *  separate updates could unfavorite the source after favoriting the target failed. */
+     *  `MangaRepository.updateAll`, pinned by BatchUpdateAtomicityConformanceTest. The migration
+     *  favorite swap depends on the atomicity: two separate updates could unfavorite the source
+     *  after favoriting the target failed. */
     suspend fun updateAll(updates: List<NovelUpdate>): Boolean
     suspend fun setCategories(novelId: Long, categoryIds: List<Long>)
 }

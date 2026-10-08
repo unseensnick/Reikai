@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 
 /**
  * One History-tab novel row: a novel's most-recently-read chapter plus its cover. Novel twin of
- * [tachiyomi.domain.history.model.HistoryWithRelations]. [readAt] is epoch millis (the novel side
+ * [tachiyomi.domain.history.model.HistoryWithRelations], type only. [readAt] is epoch millis (the novel side
  * stores history times as plain Long, no Date adapter); nullable to mirror the manga model, though the
  * feed query only returns rows with readAt > 0.
  */
@@ -35,7 +35,7 @@ data class NovelHistoryWithRelations(
     val storedTitle: String,
 )
 
-/** One chapter's history row, the novel twin of [tachiyomi.domain.history.model.History]. */
+/** One chapter's history row, the novel twin of [tachiyomi.domain.history.model.History], type only. */
 data class NovelHistory(
     val chapterId: Long,
     val readAt: Long?,
@@ -45,7 +45,7 @@ data class NovelHistory(
 /**
  * Reader write payload (novel twin of [tachiyomi.domain.history.model.HistoryUpdate]). [readAt] is
  * epoch millis; [sessionReadDuration] is the time spent in the chapter this session, accumulated into
- * `time_read` on upsert.
+ * `time_read` on upsert, pinned by HistoryFeedConformanceTest.
  */
 data class NovelHistoryUpdate(
     val chapterId: Long,

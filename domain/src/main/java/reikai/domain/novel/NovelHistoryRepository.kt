@@ -11,6 +11,7 @@ import reikai.domain.novel.model.NovelHistoryWithRelations
  * novel feed. [getNovelHistory] is the reactive one-row-per-novel feed (search by title);
  * [getLastNovelHistory] drives tab-reselect resume. resetNovelHistory* soft-delete (last_read = 0,
  * hidden by the feed filter so a re-read re-surfaces it); [deleteAllNovelHistory] hard-clears.
+ * Pinned by HistoryFeedConformanceTest.
  */
 interface NovelHistoryRepository {
     /** Empty category lists mean no constraint, matching the manga twin. */

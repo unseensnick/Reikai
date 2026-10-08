@@ -1,7 +1,7 @@
 package reikai.domain.novel.model
 
 /**
- * Coil model for a light-novel cover, the novel twin of [tachiyomi.domain.manga.model.MangaCover].
+ * Coil model for a light-novel cover, the novel twin of [tachiyomi.domain.manga.model.MangaCover], type only.
  * [sourceId] picks the client and headers the cover is fetched with (`NovelImageRequests`), which
  * answers without loading plugins, since the image loader cannot wait on the source registry.
  * [novelId] locates a user-set custom cover, cached under `EntryId.Novel`'s key so it cannot collide

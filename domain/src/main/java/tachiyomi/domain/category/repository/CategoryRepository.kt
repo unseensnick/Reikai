@@ -25,7 +25,8 @@ interface CategoryRepository {
 
     fun getCategoriesByMangaIdAsFlow(mangaId: Long): Flow<List<Category>>
 
-    // RK: novel-side per-entry read over the shared table (the novel twin of getCategoriesByMangaId).
+    // RK: novel-side per-entry read over the shared table (the novel twin of getCategoriesByMangaId,
+    // pinned by EntryCategoryOrderConformanceTest).
     suspend fun getCategoriesByNovelId(novelId: Long): List<Category>
 
     // RK: contentType picks the manga (default) or novel insert; returns the new row id for the novel

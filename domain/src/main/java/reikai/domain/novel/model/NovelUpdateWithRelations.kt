@@ -4,7 +4,7 @@ import androidx.compose.runtime.Immutable
 
 /**
  * One light-novel "recent update" row, the novel twin of
- * [tachiyomi.domain.updates.model.UpdatesWithRelations]: a chapter of a favorited novel that was
+ * [tachiyomi.domain.updates.model.UpdatesWithRelations], type only: a chapter of a favorited novel that was
  * fetched after the novel was added. [coverData] is the novel coil model (the cover loads from the
  * library [eu.kanade.tachiyomi.data.cache.CoverCache] for favorites).
  */

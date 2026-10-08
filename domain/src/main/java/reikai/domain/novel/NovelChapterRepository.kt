@@ -26,7 +26,7 @@ interface NovelChapterRepository {
     suspend fun update(chapter: NovelChapter): Boolean
 
     /** All of [chapters] in ONE transaction (all or nothing), the novel twin of the manga chapter
-     *  carry's batched `UpdateChapter.awaitAll`. */
+     *  carry's batched `UpdateChapter.awaitAll`, pinned by BatchUpdateAtomicityConformanceTest. */
     suspend fun updateAll(chapters: List<NovelChapter>): Boolean
 
     /**

@@ -3,7 +3,7 @@ package reikai.domain.novel.updateerror
 /**
  * A single favorited novel that failed its last update, joined with the novel's display data
  * (the `novel_update_error_view` row). Favorites only; newest first. The novel twin of
- * [reikai.domain.library.updateerror.LibraryUpdateError], but it carries [source] + [novelUrl]
+ * [reikai.domain.library.updateerror.LibraryUpdateError], type only, but it carries [source] + [novelUrl]
  * instead of a manga id because novel details navigation is keyed by source slug + url, not by id.
  */
 data class NovelUpdateError(

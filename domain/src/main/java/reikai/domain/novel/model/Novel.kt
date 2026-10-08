@@ -36,10 +36,10 @@ data class Novel(
      * re-fetches `oldTotalPages + 1` through this value to discover new chapters on later pages.
      */
     val totalPages: Long,
-    /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`). */
+    /** Free-text user note shown/edited on the details screen (the novel twin of `Manga.notes`, type only). */
     val notes: String,
     /**
-     * Reader viewer-flags bitmask, the novel twin of `Manga.viewerFlags`. Currently only the
+     * Reader viewer-flags bitmask, the novel twin of `Manga.viewerFlags`, type only. Currently only the
      * `ReaderOrientation` bits are used (novels have no reading mode); 0 means "follow the global
      * default orientation". See `readerOrientation`.
      */
