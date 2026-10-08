@@ -71,7 +71,7 @@ To change it, switch to **All** and tap the cover there.
 A merged series reads as one.
 The chapter list in the reader holds every source's chapters together, each labelled with where it came from, and the previous and next controls run across the whole group: the end of one source's chapters flows into the next without leaving the reader.
 
-Underneath, each chapter still downloads, marks read and updates trackers through its own source, so the group reads as one series while staying correct per source.
+Reading or bookmarking a chapter marks that same chapter on every source in the group, and each chapter downloads once: a downloaded copy from any source opens without going online. Trackers work the same way, with one binding for the whole group rather than one per source; [Tracking](/docs/guides/tracking) explains how it behaves when you merge or split.
 
 ## Merging entries yourself
 

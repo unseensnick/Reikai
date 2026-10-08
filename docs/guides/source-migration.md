@@ -22,7 +22,7 @@ You will need to remove these manually with a file manager.
 
 ::::tabs
 ==Reikai
-However you start it, migration runs the same three steps: pick where to search, look over what was found, then confirm. Manga and light novels both go through it, with one difference noted under Search options below.
+However you start it, migration runs the same three steps: pick where to search, look over what was found, then confirm. Manga and light novels both go through it, with the same screens and search options.
 
 ### Starting a migration
 
@@ -46,7 +46,7 @@ Best when a source has died and you want everything off it.
 1. Open the overflow at the end of the bottom bar and tap **Migrate**. If the bar has room, because the download action is hidden, Migrate sits on the bar itself instead.
 :::
 
-Select entries of one type at a time: the migrate action disappears entirely on a selection mixing manga and novels, since each type migrates on its own screen.
+Select entries of one type at a time: the migrate action disappears entirely on a selection mixing manga and novels, since one migration moves entries of a single type.
 
 ::: info Grouped entries ask which source to move first
 If what you picked is a [merged group](/docs/multi-source), a **Migrate** screen lists its sources with their chapter counts so you can choose the one to move. Everything else is left where it is. Entries that are not grouped skip this step, as does the whole-source route above.
@@ -66,8 +66,6 @@ The **Migrate** screen lists your sources under **Selected** and **Available**. 
 * **Match based on chapter number** picks the match that is furthest ahead, rather than the first by source order.
 
 The app warns you about the last two, and means it: both are slow and hit sources hard enough to get you rate-limited or blocked.
-
-Those last two are manga only. Light-novel sources match on title instead, so the screen shows a note saying the chapter-based options are unavailable rather than listing them.
 :::
 
 Tap **Continue** when you are happy.

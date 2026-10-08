@@ -282,6 +282,22 @@ Zooms into the image on double tap.
 #### Disable zoom out <Badge type="info" text="Off" />
 TBA
 
+### High quality renderer
+
+**Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own, which are not on the settings screen.
+
+#### Dual page view <Badge type="info" text="Never" />
+On the **Reading** tab, paged modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
+
+#### Gap <Badge type="info" text="10%" />
+On the **Reading** tab, for **Long strip with gaps** only. The space between pages, as a share of the screen.
+
+#### Transition animation <Badge type="info" text="Basic" />
+On the **Appearance** tab, paged modes only. How the page turns: **Basic**, **Page flip** (also to the left or right), **Stack** in four directions, **Sphere**, **Cube (Inside)**, **Cube (Outside)**, **Fade**, **Fade to white** or **None**. While two pages are shown, **Transition animation (dual)** takes over, with the same choices apart from the left and right page flips.
+
+#### Display cutout mode <Badge type="info" text="Avoid" />
+On the **Appearance** tab, paged modes only. How the page sits around the camera cutout: **Ignore** draws under it, while **Avoid** and **Shift** keep the page clear of it. While two pages are shown, **Display cutout mode (dual)** <Badge type="info" text="Ignore" /> takes over.
+
 ### Navigation
 
 #### Volume keys <Badge type="info" text="Off" />
@@ -291,7 +307,7 @@ Enables page navigation with the volume keys.
 Inverts what the volume keys do.
 
 #### Volume key scroll amount <Badge type="info" text="75%" />
-How much of the screen one press moves. It applies to the long strip modes only, since a paged reader turns a whole page either way.
+How much of the screen one press moves. It applies to the long strip modes only, since a paged reader turns a whole page either way. Shown while **Volume keys** is on and **Use high quality renderer** in <nav to="advanced"> is off.
 
 #### Show chapter navigator <Badge type="info" text="On" />
 Shows the slider for moving through the chapter. With it off, neither the slider nor the vertical navigator is drawn, and the previous and next chapter buttons move to the two ends of the button bar. The settings below it only appear while it is on.
@@ -360,6 +376,9 @@ Flips the zones horizontally, vertically or both. Hidden for layouts it would no
 #### Bottom zone height <Badge type="info" text="12%" />
 How tall the menu zone is. Only shown for the **Bottom** layout.
 
+#### Show tap zones overlay <Badge type="info" text="Off" />
+Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout; this only adds it on opening. Hidden while **Tap zones** is **Disabled**.
+
 #### Swipe between chapters <Badge type="info" text="Off" />
 Swipe sideways to move to the previous or next chapter.
 
@@ -393,7 +412,12 @@ Reopens a chapter where you left it, even one already marked read.
 ### Text display
 
 #### Font <Badge type="info" text="Default" />
-Opens the font list, where you can also import, download and remove fonts.
+Opens the font list, with **Built in** fonts and **Your fonts**, each drawn in its own face. Tap **Add font** to add one:
+
+* **Import from device** takes a TTF or OTF file.
+* **Download** searches the whole Google Fonts library. Type a name in **Font name** and tap a match, or tap **Download** to fetch the name as typed. The search needs a connection; a font you already have works offline.
+
+A font you add is selected straight away. Fonts are kept in a `fonts` folder in your storage location, so they survive a reinstall. Remove one with the bin icon beside it under **Your fonts**; if it was in use, the reader goes back to **Default**. The **Font** row in the reader's settings sheet picks from the same list but cannot add fonts.
 
 #### Line spacing <Badge type="info" text="1.5x" />
 The space between lines, as a multiple of the text size.
@@ -409,6 +433,14 @@ Indents the first line of every paragraph, as a multiple of your text size.
 
 #### Paragraph spacing <Badge type="info" text="1.5em" />
 The gap between paragraphs, as a multiple of your text size.
+
+### Theme
+
+Set in the reader itself: the **Appearance** tab of the settings sheet, or the theme button on the bottom bar.
+
+**Follow system** <Badge type="info" text="On" /> uses the light swatch while your phone is in light mode and the grey one in dark mode. The six swatches pick a fixed theme instead: light, sepia, mint, grey, dark or black.
+
+For colours of your own, use the **Background color** and **Text color** rows below the swatches. Each opens a colour picker, and changing one keeps the other as the page shows it now. There is one custom pair, not a list of saved themes; tap a swatch or **Follow system** to leave it.
 
 ### Chapter text
 
@@ -470,7 +502,14 @@ Moves that slider to the left edge, for left-handed reading.
 #### Vertical navigator height <Badge type="info" text="65" />
 How tall the slider is, as a percentage of the screen.
 
+#### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
+How far you have to scroll before the menu hides: **Highest** hides it after the smallest scroll, **Lowest** after the largest. A change applies the next time the reader opens.
+
 ### Read aloud
+
+The **Read aloud** button on the bottom bar shows or hides the read-aloud controls, and a long press stops reading. The controls float above the bar and stay when the menu hides: **Read from here**, **Previous paragraph**, **Play** / **Pause**, **Next paragraph** and **Sleep timer**. The sleep timer stops reading after 15, 30, 45 or 60 minutes, or at the **End of chapter**, and the notification shows how long is left.
+
+The settings below are in <nav to="novel-reader">.
 
 #### Engine
 Which text-to-speech engine reads the chapter. Only shown when more than one is installed.

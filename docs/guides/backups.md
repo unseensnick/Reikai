@@ -138,6 +138,12 @@ in order to sync backup files to Drive automatically with the following steps:
 Users who are familiar with [Autosync for Google Drive](https://play.google.com/store/apps/details?id=com.ttxapps.drivesync)
 or [Tasker](https://play.google.com/store/apps/details?id=net.dinglisch.android.taskerm) can setup auto sync of their backups similarly.
 
+## Exporting a list of your library
+
+A backup is for restoring into the app. For a list you can read or open in a spreadsheet, use **Library List** under **Export** in <nav to="data-and-storage">.
+
+Pick the columns, **Title**, **Author** and **Artist** (all ticked to start), tap **Save** and choose where to save the file. It is a CSV file, `reikai_library.csv` unless you rename it, with one line per entry and no header row: your manga first, then your light novels. A merged series is listed once, and titles and names you changed with Edit info are written as you changed them.
+
 ## Backups from other apps
 
 **Reikai** uses Mihon's backup format, so `.tachibk` files move between apps in the same family:

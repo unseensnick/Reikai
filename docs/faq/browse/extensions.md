@@ -46,6 +46,16 @@ When prompted while installing your first extension, allow unknown apps installa
 If you need more help regarding this, read [this post](https://nerdschalk.com/how-to-allow-apps-installation-from-unknown-sources-on-android-9-pie/ "nerdschalk.com | How to allow apps installation from unknown sources on Android 9 Pie").
 :::
 
+## What does the Not loaded section mean?
+<nav to="extensions"> lists installed extensions and plugins that failed to load under **Not loaded**, so none of their sources show in Browse. Tap one to see why. The dialog gives the reason, any error message, and **Copy stack trace** for a bug report, with **Uninstall** beside **OK**. The usual reasons:
+
+* Its content warning is not one you allow (the row says **Filtered**). The [Browse FAQ](/docs/faq/browse/) covers changing that.
+* It is not trusted yet (the row says **Untrusted**). Tapping it asks whether to trust or uninstall it.
+* It is not signed, was built for an extension library this version of the app cannot load, or is missing information the app needs. Updating the app or the extension may help, and if an update is offered the row's button installs it.
+* It threw an error while loading.
+
+For a plugin whose script is missing, the dialog offers **Reinstall** instead.
+
 ## How do I uninstall an extension?
 Uninstall extensions like regular apps: through device settings or in **Reikai**.
 

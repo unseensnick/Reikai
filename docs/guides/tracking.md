@@ -56,7 +56,12 @@ Three of the services are built for novels rather than manga. They work like eve
 * **Signing in**: tap the row and sign in through the browser.
 * All five statuses sync. There is **no score and there are no reading dates**, because the site stores neither.
 * **Your progress lives in the note on your NovelUpdates list entry**, written as `total chapters read: 12`, because the site keeps no reading position of its own. Reikai rewrites that one line and leaves the rest of your note alone, and if it cannot read the note it writes nothing rather than risk replacing it.
-* **Use my own NovelUpdates lists** in <nav to="tracking"> sends each status to one of your own reading lists instead of the five NovelUpdates starts with.
+* **Use my own NovelUpdates lists** in <nav to="tracking"> sends each status to one of your own reading lists instead of the five NovelUpdates starts with. Pick the list for each status under **Match statuses to lists**.
+* **Novels from NovelUpdates' own app or plugin track themselves.** While you are signed in, adding one to your library binds it to its NovelUpdates page with no search. A novel from any other source binds through the tracking dialog like any tracker, and its chapters move your bookmark when their number matches a release.
+* **Never move progress back** is on by default: reading an earlier chapter leaves NovelUpdates where it is. Turn it off to follow rereads.
+* **Move back on unread** is off by default. Turn it on and marking chapters unread moves NovelUpdates back to the highest chapter you still have read.
+
+These three NovelUpdates rows show in <nav to="tracking"> only while you are signed in to it.
 ::::
 
 **Fill from tracker** works with all three, so a novel bound to any of them can pull its cover, description, author and genres from the service.
@@ -112,6 +117,11 @@ It visits only entries carrying a tracker you are signed into, so an untracked l
 1. Tap the desired tracker to begin login.
 
 Which login you get depends on the service: most open your browser, a few ask for a username and password in the app, and RanobeDB takes a token you paste (or the browser, if you prefer). NovelList and NovelUpdates only sign in through the browser, because neither issues a token.
+
+Each tracker you are signed in to with an account has a refresh button in its row, **Refresh tracker profile**. It reloads your account details, such as a changed nickname or score format, without signing out. It does not touch your tracked entries.
+
+### What does Tell source sites about migrations do?
+Some extensions sync your reading to their own site once their own tracking setting is on. **Tell source sites about migrations** in <nav to="tracking">, on by default, also tells those extensions when you migrate an entry, so the site follows the move. It has no effect on any other source.
 
 ### How do I set up tracking for each series?
 1. Go into the series.

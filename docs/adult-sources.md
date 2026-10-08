@@ -61,12 +61,23 @@ Decides which categories the front page shows you at all.
 
 Pushes the galleries you have favorited in Reikai up to a chosen favorites slot on your account, so a list you built over years also lives somewhere the app cannot lose it.
 There is a back-up-now action, and **Back up favorites to account** keeps doing it as you go.
-It only ever adds: removing a gallery from your library leaves it on the account.
+Removing a gallery from your library leaves it on the account unless you tick **Also remove from E-Hentai favorites** in the removal dialog. If that account removal fails, the gallery stays in your library and a message says why, so you can try again.
 
 ### Gallery update checker
 
 Re-checks saved galleries for new pages, because galleries get revised in place rather than gaining chapters the way a series does.
 It can be limited to Wi-Fi and to while charging, and it keeps statistics so you can see whether it is finding anything.
+
+## Adding many galleries at once
+
+<nav to="batch-add"> adds a list of galleries to your library in one go. It only shows in the More tab while adult sources are on.
+
+1. Paste the gallery links, one per line. Links from E-Hentai, ExHentai, NHentai, 8Muses and Pururin work, and so does data exported from the E-H Visited browser extension.
+1. Tap **Add galleries**.
+
+Each link is matched to an installed, enabled source for its site, preferring sources in the languages you have turned on, and tried up to twice. A chapter link adds the gallery it belongs to. Galleries go into your default category, if you have set one; with the default set to always ask, they get no category.
+
+The screen then lists each link as **[OK]** with the gallery's title, or **[ERROR]** with the reason, and ends with how many were added and how many failed. **Finish** clears it for another batch.
 
 ## Tags in your library
 
@@ -86,8 +97,5 @@ Nothing here changes what any other source shows you.
 
 ## If something is missing
 
-**Reikai** ships a deliberately smaller slice of this than the fork it came from.
-Some of the more obscure features are not here, and a few never will be.
-
+This support was ported from another Mihon fork, and a feature you used there may not have come across.
 If something you relied on is absent, say so in an issue rather than assuming it is a bug.
-Most of the gaps are deliberate and easy to revisit, but only if someone asks.

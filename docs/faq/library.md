@@ -68,8 +68,15 @@ To fix one series, manga or light novel, open it and pull down to refresh. That 
 If certain series chapters are marked as unread without your interaction, it could be due to changed URLs.
 **Reikai** detects these changes and interprets the chapters as new.
 
+## A chapter has the wrong number. Can I fix it?
+Yes, on manga and light novels. A chapter whose number is out of line with the chapters around it gets a red warning mark before its title on the series' page. Tap the mark to correct it: the dialog opens on a suggested number that fits between its neighbours, and you can type any other.
+
+To correct a chapter that is not marked, select just that chapter and choose **Correct chapter number** from the selection's overflow. A corrected chapter shows **The source says** with the original number, and **Reset** puts that back. Corrections survive refreshes and backups.
+
+Side stories, extras, specials and other bonus chapters are never marked, and hidden chapters are left out of the check. On a [merged series](/docs/multi-source), each source's chapters are checked against that source's own list.
+
 ## How do I pause reading history?
-Turn **Incognito mode** on, through <nav to="incognito-mode">. While it is on, nothing you read is recorded; turning it off starts recording again.
+Turn **Incognito mode** on, through <nav to="incognito-mode">. While it is on, nothing you read is recorded; turning it off starts recording again. To keep only one source out of your history, [turn on its own incognito mode](/docs/faq/browse/#can-i-keep-one-source-out-of-my-reading-history).
 
 ## How do I only read downloaded chapters?
 Enable **Downloaded only** via <nav to="downloaded-only">.

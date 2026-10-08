@@ -15,7 +15,15 @@ Two settings in <nav to="downloads"> control this for manga, and both start cons
 
 Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
 
-Light novels ignore both settings: their queue downloads one chapter at a time.
+Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Pacing**.
+
+## How do I slow novel downloads down?
+Novel sources do not limit their own request rate the way manga extensions do, so a fast queue can get you blocked. The **Pacing** group in <nav to="downloads"> sets the wait between novel chapter downloads. It has no effect on manga.
+
+* **Delay between chapters** applies to every novel source. It defaults to 0.5 s, and goes up to 10 s.
+* **Delay per source** lists your novel sources so you can give one its own delay. A source that declares a minimum shows **Needs at least** that much, and its choices never go below it.
+
+The wait also adjusts by itself: after a failed chapter it doubles, up to 30 seconds, and after a successful one it drops back towards your setting.
 
 ## Why did my downloads stop midway?
 Downloads stopping midway may be related to network connection issues or source problems.
@@ -34,11 +42,29 @@ Downloads might not be detected due to multiple factors:
 ## How do I manage what's downloading?
 Navigate to <nav to="download-queue"> to interact with queued downloads.
 
-Manga and light novels share the queue, with **All** / **Manga** / **Novels** chips to narrow it. Each series is one card holding its chapters.
+Manga and light novels share one list, with one card per series. While both types are queued, each card carries a badge saying which it is.
 
-* The pause button stops and restarts whatever is currently shown, so pausing on **Manga** leaves novels running.
-* **Sort** is an icon in the toolbar and **Cancel all** is in the overflow beside it. **Cancel all** clears only what is shown.
-* Drag a card by its handle to move that series up or down the queue.
+* The **Pause** / **Resume** button pauses or resumes every download, manga and novels together.
+* **Sort** is an icon in the toolbar. It orders the chapters inside each series by chapter number or upload date; tap the same option again to reverse it.
+* **Cancel all** is in the overflow beside it and clears the whole queue.
+* Drag a card by its handle to move that series above or below any other, or use its **Move to top** and **Move to bottom** buttons. **Cancel** on a card drops that series.
+
+Tap a card to open the series' chapters in download order. Each row shows its progress, **Queued**, or why it failed, and has three buttons: **Start downloading now** (**Retry** on a failed chapter), **Move to bottom** and **Cancel**. **Show entry** at the top opens the series' page.
+
+## How do I find or remove one series' downloads?
+Open the series and its <nav to="overflow">. Two entries show there while the series has downloaded chapters and its source is installed:
+
+* **Open folder** opens the series' download folder in a file manager app.
+* **Clear downloads** deletes every downloaded chapter of the series. Your progress, bookmarks and history stay.
+
+On a [merged series](/docs/multi-source), both follow the source you are viewing; on **All** they cover the whole group.
+
+## Can I search the text of a downloaded novel?
+Yes. On a novel's page, open <nav to="overflow"> and tap **Search downloaded chapters**. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched.
+
+**Word count** in the same menu counts the words in the downloaded chapters: the total, the words per chapter, and a density from 1 to 10 for how long the chapters run.
+
+Both are for light novels only.
 
 ## Can I use both internal storage and external SD card storage?
 No, you must choose a single location. Internal storage performs better than external SD cards.

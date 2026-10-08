@@ -98,7 +98,7 @@ If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at
 
 Put TLS and authentication in front of it. See the warning below.
 
-Basic auth goes under **FlareSolverr sign-in**, which asks for a username and password together. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
+Basic auth goes under **FlareSolverr sign-in**, which asks for a username and password. A proxy that checks only a password works too: leave the username empty and the row reads **Password only**. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
 
 Raise the proxy's read timeout to at least 180 seconds. A hard solve takes longer than the 60 seconds nginx allows by default, and the proxy cuts the request off before the solver answers.
 ::::
