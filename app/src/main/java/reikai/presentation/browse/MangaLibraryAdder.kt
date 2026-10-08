@@ -8,6 +8,7 @@ import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.track.autobind.AutoBindOnAdd
@@ -49,6 +50,7 @@ class MangaLibraryAdder(
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val removeMangaFromLibrary: RemoveMangaFromLibrary,
+    private val chapterSettings: MangaChapterSettings,
 ) {
 
     /**
@@ -122,8 +124,11 @@ class MangaLibraryAdder(
             confirmAddCategories(manga.id, categoryIds)
         }
 
-    private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? =
-        joinGroup(manga, selectedIds)?.also { setMangaDefaultChapterFlags.await(manga) }
+    // The defaults go first, so the setting the join hands the entry is the one it keeps.
+    private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? {
+        setMangaDefaultChapterFlags.await(manga)
+        return joinGroup(manga, selectedIds)
+    }
 
     /**
      * Favorite [manga] and merge it into [selectedIds]'s group as ONE unit, answering its id, or null
@@ -135,10 +140,12 @@ class MangaLibraryAdder(
      */
     suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? {
         val stored = getManga.await(manga.id) ?: return null
-        val favorited = transactions.run {
-            val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
-            if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
-            ok
+        val favorited = chapterSettings.rejoin(manga.id, mergeManager) {
+            transactions.run {
+                val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
+                if (ok) mergeManager.merge(listOf(manga.id) + selectedIds)
+                ok
+            }
         }
         if (!favorited) return null
         autoBindOnAdd.manga(manga, sourceManager.getOrStub(manga.source))
@@ -202,13 +209,16 @@ class MangaLibraryAdder(
      * failed. The row is re-read rather than trusted from a snapshot, which can say favorited for an
      * entry unfavorited since and would file categories against a row outside the library. An already
      * favorited row is not re-written: that would reset dateAdded. [onAdded] runs only for a row this
-     * call added. Twin of `NovelLibraryAdder.favoriteForAdd`, pinned by `AddToGroupConformanceTest`.
+     * call added, before a row rejoining its group takes the group's chapter settings. Twin of
+     * `NovelLibraryAdder.favoriteForAdd`, pinned by `AddToGroupConformanceTest`.
      */
     suspend fun favoriteForAdd(mangaId: Long, onAdded: suspend (Manga) -> Unit = {}): Long? {
         val stored = getManga.await(mangaId) ?: return null
         if (stored.favorite) return mangaId
-        if (!updateManga.awaitUpdateFavorite(mangaId, true)) return null
-        onAdded(stored)
+        val added = chapterSettings.rejoin(mangaId, mergeManager) {
+            updateManga.awaitUpdateFavorite(mangaId, true).also { if (it) onAdded(stored) }
+        }
+        if (!added) return null
         autoBindOnAdd.manga(stored, sourceManager.getOrStub(stored.source))
         return mangaId
     }

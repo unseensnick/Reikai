@@ -3,10 +3,10 @@ package reikai.domain.merge
 /**
  * A merged series has one chapter sort, filter and display setting: its settings owner's, the first
  * library member in stored source order (computeRelatedIds), so reordering the sources moves it. It is
- * deliberately not the library card's lead ([libraryLead]); see merge-system-rebuild.md. A change through
- * any member reaches every member ([change]) and a merge hands the owner's setting to the members joining
- * ([adoptOwnerSetting]), so the stored values agree; reading through the owner ([shown]) still holds for
- * a group whose members disagree, such as one restored from an older backup.
+ * deliberately not the library card's lead ([libraryLead]); see merge-system-rebuild.md. A change reaches
+ * every member ([change]), a merge hands the owner's setting to the members joining ([adoptOwnerSetting])
+ * and a member added back takes the group's ([rejoin]), so the stored values agree; reading through the
+ * owner ([shown]) still holds for a group whose members disagree, such as one restored from an older backup.
  */
 open class GroupChapterSettings<E>(
     private val flagsOf: (E) -> Long,
@@ -30,6 +30,22 @@ open class GroupChapterSettings<E>(
     /** After a merge: every member of [memberIds] takes the settings owner's setting. */
     suspend fun adoptOwnerSetting(memberIds: List<Long>) {
         memberIds.firstOrNull()?.let { spread(it, memberIds) }
+    }
+
+    /**
+     * Runs [add], which may put [id] back in the library, then gives every library member of its group
+     * the setting the group showed before. A member out of the library missed each [change] since it
+     * left and can be the owner again once back; a merge inside [add] has by then handed its stale
+     * setting to the others, which is why every member is written, not just [id].
+     */
+    suspend fun <T> rejoin(id: Long, mergeManager: EntryMergeManager, add: suspend () -> T): T {
+        val before = mergeManager.groupLibraryMembers(id)
+        val ownerId = before.firstOrNull()?.takeIf { id !in before }
+        val flags = ownerId?.let { load(it) }?.let(flagsOf) ?: return add()
+        return add().also {
+            val after = mergeManager.groupLibraryMembers(id)
+            if (id in after) write(after, flags)
+        }
     }
 
     private suspend fun spread(fromId: Long, memberIds: List<Long>) {

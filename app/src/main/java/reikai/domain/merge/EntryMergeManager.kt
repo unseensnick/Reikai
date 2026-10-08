@@ -36,10 +36,16 @@ open class EntryMergeManager(
      * [MergeGroupRepository.getMembers] instead. See merge-system-rebuild.md "two member reads".
      */
     suspend fun computeRelatedIds(targetId: Long): LongArray {
-        if (!preferences.seriesMergingEnabled.get()) return longArrayOf(targetId)
-        val groupId = repository.getGroupId(contentType, targetId) ?: return longArrayOf(targetId)
-        val members = repository.getFavoriteMembers(contentType, groupId)
+        val members = groupLibraryMembers(targetId)
         return if (targetId in members) members.toLongArray() else longArrayOf(targetId)
+    }
+
+    /** The library members of [targetId]'s group in order, whether or not [targetId] is one; just
+     *  [targetId] when it is ungrouped or merging is off. What an entry outside the library would rejoin. */
+    suspend fun groupLibraryMembers(targetId: Long): List<Long> {
+        if (!preferences.seriesMergingEnabled.get()) return listOf(targetId)
+        val groupId = repository.getGroupId(contentType, targetId) ?: return listOf(targetId)
+        return repository.getFavoriteMembers(contentType, groupId)
     }
 
     /**

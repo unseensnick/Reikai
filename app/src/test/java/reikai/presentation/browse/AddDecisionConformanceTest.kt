@@ -12,8 +12,10 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.EntryMergeManager
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -214,6 +216,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
                 every { categorySortOrder } returns mockk { every { get() } returns sortOrder }
             },
             removeMangaFromLibrary = mockk(relaxed = true),
+            chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {
@@ -280,6 +283,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             },
             autoBindOnAdd = mockk(relaxed = true),
             removeNovelsFromLibrary = mockk(relaxed = true),
+            chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

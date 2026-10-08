@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetNovelCategories
@@ -85,6 +86,7 @@ class NovelLibraryAdderTest {
         },
         autoBindOnAdd = mockk(relaxed = true),
         removeNovelsFromLibrary = mockk(relaxed = true),
+        chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
     )
 
     @Test

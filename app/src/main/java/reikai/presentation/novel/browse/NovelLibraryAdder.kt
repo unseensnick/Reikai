@@ -8,6 +8,7 @@ import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -52,6 +53,7 @@ class NovelLibraryAdder(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val autoBindOnAdd: AutoBindOnAdd,
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
+    private val chapterSettings: NovelChapterSettings,
 ) {
 
     /**
@@ -210,10 +212,12 @@ class NovelLibraryAdder(
      */
     suspend fun joinGroup(novelId: Long, selectedIds: List<Long>): Long? {
         val novel = novelRepository.getById(novelId) ?: return null
-        val favorited = transactions.run {
-            val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
-            if (ok) mergeManager.merge(listOf(novelId) + selectedIds)
-            ok
+        val favorited = chapterSettings.rejoin(novelId, mergeManager) {
+            transactions.run {
+                val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+                if (ok) mergeManager.merge(listOf(novelId) + selectedIds)
+                ok
+            }
         }
         if (!favorited) return null
         autoBindOnAdd.novel(novel)
@@ -227,10 +231,14 @@ class NovelLibraryAdder(
     suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? =
         materialize(item, sourceId)?.let { favoriteStored(it) }
 
-    /** [favoriteForAdd]'s rule over a row just read, which every favorite of a stored row here shares. */
+    /** [favoriteForAdd]'s rule over a row just read, which every favorite of a stored row here shares. A
+     *  row rejoining its group takes the group's chapter settings. */
     private suspend fun favoriteStored(novel: Novel): Long? {
         if (novel.favorite) return novel.id
-        if (!updateNovel.awaitUpdateFavorite(novel.id, favorite = true)) return null
+        val added = chapterSettings.rejoin(novel.id, mergeManager) {
+            updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
+        }
+        if (!added) return null
         autoBindOnAdd.novel(novel)
         return novel.id
     }

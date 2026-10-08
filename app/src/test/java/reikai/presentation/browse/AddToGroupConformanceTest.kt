@@ -12,7 +12,9 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -377,6 +379,7 @@ class MangaGroupAddProbe : GroupAddProbe {
             every { categorySortOrder } returns mockk { every { get() } returns CategorySortOrder.MANUAL }
         },
         removeMangaFromLibrary = mockk(relaxed = true),
+        chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
     )
 
     private fun reset() {
@@ -518,6 +521,7 @@ class NovelGroupAddProbe : GroupAddProbe {
             every { novel(any()) } answers { trackersBound = true }
         },
         removeNovelsFromLibrary = mockk(relaxed = true),
+        chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
     )
 
     private fun reset() {

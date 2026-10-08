@@ -12,9 +12,11 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.merge.EntryMergeManager
+import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -149,6 +151,7 @@ class FakeMangaLibrary(
             updateManga = updateManga,
             coverCache = mockk(relaxed = true),
         ),
+        chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
     )
 
     companion object {
@@ -227,6 +230,7 @@ class FakeNovelLibrary(
                 firstArg<List<Long>>().onEach { id -> rows[id]?.let { rows[id] = it.copy(favoriteAt = null) } }
             }
         },
+        chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
     )
 
     companion object {
