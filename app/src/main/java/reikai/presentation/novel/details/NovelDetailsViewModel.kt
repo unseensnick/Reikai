@@ -25,19 +25,28 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
@@ -165,6 +174,7 @@ import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Light-novel details state holder, re-typed from Yōkai's `NovelDetailsViewModel` onto the Mihon
@@ -223,9 +233,6 @@ class NovelDetailsViewModel(
     // keeps that work off the thread the screen opens on and skips it when nothing reads it at all.
     private val downloadManager: NovelDownloadManager get() = downloadManagerProvider()
 
-    val state: StateFlow<NovelDetailsState>
-        field = MutableStateFlow<NovelDetailsState>(NovelDetailsState.Loading)
-
     @AssistedFactory
     @ManualViewModelAssistedFactoryKey
     @ContributesIntoMap(AppScope::class)
@@ -242,16 +249,17 @@ class NovelDetailsViewModel(
     val snackbarHostState = SnackbarHostState()
     private val addToLibraryOffer = AddToLibraryOffer(snackbarHostState, context)
 
-    /** Resolved once the plugin host loads it; source-dependent ops defer until set. */
-    @Volatile
-    private var source: NovelSource? = null
+    // Every holder sits above the state and the init block: the state captures them, and init starts work
+    // writing them, while the constructor is still running, and a holder declared below would be null then.
 
-    /** Set once the plugin host answered that the opened novel's plugin is not installed. */
-    @Volatile
-    private var anchorSourceMissing = false
+    /** The opened novel's plugin as the plugin host answered for it; source-dependent ops defer until set. */
+    private val anchorSource = MutableStateFlow<SourceLookup>(SourceLookup.Pending)
 
-    /** A first-open fetch (no stored chapters) runs at most once. */
-    private var firstFetchTried = false
+    private val resolvedSource: NovelSource? get() = (anchorSource.value as? SourceLookup.Resolved)?.source
+
+    /** Why the opened novel could not load. Shown only while there is no stored novel to show instead. */
+    private val failure = MutableStateFlow<String?>(null)
+
     private var refreshJob: Job? = null
     private var seedExtracted = false
 
@@ -270,6 +278,10 @@ class NovelDetailsViewModel(
     @Volatile
     private var memberSources: Map<Long, String> = emptyMap()
 
+    // The chapter multi-select. The state shows it retained to the visible rows; the verbs retain it before
+    // they write, so a range anchor the list dropped stays dropped.
+    private val chapterSelection = MutableStateFlow(SelectionState<Long>())
+
     /**
      * Shared merge read/observe wiring: the group ids, the selected source chip, the membership observer,
      * and the switcher chips. Written once in [EntryMergeGroupHost] (the manga model composes the same host),
@@ -286,8 +298,7 @@ class NovelDetailsViewModel(
             .onEach { anchorNovelId = it.id }
             .map { it.id },
         onSourceChange = { from, to ->
-            chapterSelection = EntrySelection.afterChipFlip(chapterSelection, from, to)
-            updateLoaded { it.copy(selection = chapterSelection.selection) }
+            chapterSelection.update { EntrySelection.afterChipFlip(it, from, to) }
             pageIndex.value = 0
         },
         resolveSources = { ids -> resolveMergeSources(ids) },
@@ -303,34 +314,100 @@ class NovelDetailsViewModel(
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
 
-    // Source of truth for the chapter multi-select; `Loaded.selection` mirrors it for the UI.
-    private var chapterSelection = SelectionState<Long>()
+    private val dialog = MutableStateFlow<NovelDetailsDialog?>(null)
 
-    /** Latest Tracking button, held outside state so the first [NovelDetailsState.Loaded]
-     *  built picks it up even when the observer emitted while the screen was still loading. */
-    @Volatile
-    private var currentTrackingButton = TrackingButtonState(count = 0, hasTrackers = false)
+    private val isRefreshing = MutableStateFlow(false)
 
-    /** Latest custom-info overlay for the anchor novel, held outside state so the first
-     *  [NovelDetailsState.Loaded] built picks it up (mirrors [currentTrackingButton]). */
-    @Volatile
-    private var currentCustomInfo: CustomNovelInfo? = null
+    private val isPageLoading = MutableStateFlow(false)
 
-    /** The queue's states, held outside state like [currentTrackingButton]: the queue speaks only when
-     *  it changes, so one that spoke before the list loaded would leave its rows unmarked. */
-    @Volatile
-    private var currentDownloadStates: Map<Long, Download.State> = emptyMap()
+    /** Cover-derived tint, extracted once; see [updateSeedColor]. */
+    private val seedColor = MutableStateFlow<Color?>(null)
 
-    /** The viewed list's rows before hiding, filters and sort: one page on a paged source. */
-    @Volatile
-    private var viewRows: List<NovelChapter> = emptyList()
+    private val storedAnchor = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
+
+    private val anchorIdChanges = storedAnchor.map { it?.id }.distinctUntilChanged()
+
+    // DB-first: the stored anchor novel + the resolved merge group drive the chapter list. The unified
+    // ("All") view pools every grouped source's chapters into one list (no page bar); a selected source
+    // chip (or a non-merged novel) keeps its own per-page lazy list. Null while the novel has no stored row.
+    private val chapterList: Flow<NovelDetailsState.Loaded?> = combine(
+        combine(
+            storedAnchor,
+            mergeGroup.state,
+            pageIndex,
+            // In the combine only to rebuild with the chips once they resolve.
+            mergeGroup.chips,
+        ) { anchor, group, idx, _ -> ChapterInputs(anchor, group, idx) },
+        // Rebuild on a hide/unhide or the show-hidden toggle.
+        hiddenChaptersPref.changes(),
+        showHiddenFlow,
+    ) { inputs, _, _ -> inputs }
+        .flatMapLatest { (anchor, group, idx) ->
+            when {
+                anchor == null -> flowOf(null)
+                group.ids.size > 1 && group.selected == null -> unifiedChapters(anchor, group)
+                else -> singleChapters(anchor, group, idx)
+            }
+        }
+        .onEach { it?.let { list -> updateSeedColor(list.displayNovel) } }
+
+    // Kept apart from the rows, so a plugin lookup landing after the page shows marks it without a rebuild.
+    private val sourcedChapterList = combine(chapterList, anchorSource) { list, lookup -> list?.withSource(lookup) }
+
+    /** The live queue's states. Only the active ones (queued/downloading/error) live here; a finished download
+     *  is read from [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
+    private val downloadStates = flow { emitAll(downloadManager.queueState) }
+        .map { queue -> queue.associate { it.chapterId to it.state.toDownloadState() } }
+
+    /** The action-row Tracking button, counted by the tracking sheet's own offer rule, the one the manga
+     *  details screen runs too. */
+    private val trackingButton = anchorIdChanges
+        .flatMapLatest { novelId ->
+            if (novelId == null) {
+                flowOf(TrackingButtonState(count = 0, hasTrackers = false))
+            } else {
+                // The port's read spans the merge group, so a track bound on a sibling source counts.
+                val port = trackPorts.of(EntryId.Novel(novelId))
+                combine(port.tracks(), trackerManager.loggedInTrackersFlow()) { tracks, loggedIn ->
+                    val offered = offerTrackers(port, loggedIn, autoBindTrackers).offered
+                    trackingButtonState(tracks.map { it.trackerId }, offered)
+                }
+            }
+        }
+        .distinctUntilChanged()
+        .onStart { emit(TrackingButtonState(count = 0, hasTrackers = false)) }
+
+    /** The novel's custom-info overlay, so the header, description, tags, and cover show the user's edits (the
+     *  raw novel stays source-accurate). A write to custom_novel_info re-emits and the display follows. */
+    private val customInfo = anchorIdChanges
+        .flatMapLatest { novelId -> if (novelId == null) flowOf(null) else getCustomNovelInfo.subscribe(novelId) }
+
+    val state: StateFlow<NovelDetailsState> = combine(
+        sourcedChapterList,
+        combine(downloadStates, trackingButton, customInfo, ::Triple),
+        combine(chapterSelection, dialog, isRefreshing, isPageLoading, seedColor, ::Overlay),
+        failure,
+    ) { list, (downloads, tracking, info), overlay, failure ->
+        list?.copy(
+            downloadStates = downloads,
+            trackingCount = tracking.count,
+            hasLoggedInTrackers = tracking.hasTrackers,
+            customInfo = info,
+            dialog = overlay.dialog,
+            selection = EntrySelection.retain(overlay.selection, list.chapters.map { it.id }).selection,
+            isRefreshing = overlay.isRefreshing,
+            isPageLoading = overlay.isPageLoading,
+            seedColor = overlay.seedColor,
+        )
+            ?: failure?.let(NovelDetailsState::Failed)
+            ?: NovelDetailsState.Loading
+    }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), NovelDetailsState.Loading)
 
     init {
+        // Eager, unlike the state: the merge verbs read the group synchronously.
         mergeGroup.observe(viewModelScope)
-        observeChapters()
-        observeDownloadQueue()
-        observeTrackingButton()
-        observeCustomInfo()
         resolveSource()
         healPlaceholderCover()
     }
@@ -349,107 +426,46 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** Mirror the action-row Tracking button into [NovelDetailsState.Loaded], counted by the tracking
-     *  sheet's own offer rule, the one the manga details screen runs too. */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeTrackingButton() {
-        viewModelScope.launchIO {
-            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
-                .map { it?.id }
-                .distinctUntilChanged()
-                .flatMapLatest { novelId ->
-                    if (novelId == null) {
-                        flowOf(TrackingButtonState(count = 0, hasTrackers = false))
-                    } else {
-                        // The port's read spans the merge group, so a track bound on a sibling source counts.
-                        val port = trackPorts.of(EntryId.Novel(novelId))
-                        combine(port.tracks(), trackerManager.loggedInTrackersFlow()) { tracks, loggedIn ->
-                            val offered = offerTrackers(port, loggedIn, autoBindTrackers).offered
-                            trackingButtonState(tracks.map { it.trackerId }, offered)
-                        }
-                    }
-                }
-                .distinctUntilChanged()
-                .collectLatest { button ->
-                    currentTrackingButton = button
-                    state.update {
-                        (it as? NovelDetailsState.Loaded)
-                            ?.copy(trackingCount = button.count, hasLoggedInTrackers = button.hasTrackers)
-                            ?: it
-                    }
-                }
-        }
-    }
-
-    /** Mirror the novel's custom-info overlay into [NovelDetailsState.Loaded.customInfo], so the header,
-     *  description, tags, and cover show the user's edits (the raw novel stays source-accurate). Keyed on
-     *  the anchor id; a write to custom_novel_info re-emits and the display updates on its own. */
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private fun observeCustomInfo() {
-        viewModelScope.launchIO {
-            novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
-                .map { it?.id }
-                .distinctUntilChanged()
-                .flatMapLatest { novelId ->
-                    if (novelId == null) flowOf(null) else getCustomNovelInfo.subscribe(novelId)
-                }
-                .collectLatest { info ->
-                    currentCustomInfo = info
-                    state.update { (it as? NovelDetailsState.Loaded)?.copy(customInfo = info) ?: it }
-                }
-        }
-    }
-
-    /** Mirror the live download queue into [NovelDetailsState.Loaded.downloadStates]. Only the active
-     *  queue states (queued/downloading/error) live here; a finished download is read from
-     *  [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
-    private fun observeDownloadQueue() {
-        viewModelScope.launchIO {
-            downloadManager.queueState.collectLatest { queue ->
-                val map = queue.associate { it.chapterId to it.state.toDownloadState() }
-                currentDownloadStates = map
-                state.update { (it as? NovelDetailsState.Loaded)?.copy(downloadStates = map) ?: it }
-            }
-        }
-    }
-
+    /** Looks the opened novel's plugin up, then makes the first fetch when nothing is stored to show. */
     private fun resolveSource() {
         viewModelScope.launchIO {
             runCatchingCancellable { installer.ensureLoaded() }
-            val resolved = sourceManager.get(sourceId)
-            if (resolved == null) {
-                // Set before the update, so a rebuild racing it reads the flag on its retry.
-                anchorSourceMissing = true
-                if (state.value !is NovelDetailsState.Loaded) {
-                    state.value = NovelDetailsState.Failed(
-                        context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
-                    )
-                }
-                state.update {
-                    (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }
-                        ?.copy(sourceState = EntrySourceState.Missing)
-                        ?: it
-                }
-            } else {
-                source = resolved
-                // Asked of the source before the update, since a plugin answers it through its host.
-                val shown = (state.value as? NovelDetailsState.Loaded)?.displayNovel
-                val shownPage = shown?.webPageIn(resolved)
-                state.update {
-                    // A chip on a sibling already shows that sibling's own source.
-                    (it as? NovelDetailsState.Loaded)?.takeIf { l -> l.displayNovel.id == l.novel.id }?.let { l ->
-                        l.copy(
-                            sourceName = resolved.name,
-                            sourceHasSettings = resolved.settings != null,
-                            browsableSourceId = resolved.id,
-                            webPage = if (l.displayNovel.url == shown?.url) shownPage else l.webPage,
-                        )
-                    } ?: it
-                }
-                val loaded = state.value as? NovelDetailsState.Loaded
-                if (loaded == null || loaded.chapters.isEmpty()) maybeFirstFetch(loaded?.novel)
+            val lookup = sourceManager.get(sourceId)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
+            anchorSource.value = lookup
+            firstFetch(lookup)
+        }
+    }
+
+    /**
+     * Fetches a novel with no stored row (opened from browsing) or no stored chapters, once. Decided from the
+     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again; see
+     * viewmodel-migration.md.
+     */
+    private suspend fun firstFetch(lookup: SourceLookup) {
+        val stored = novelRepo.getByUrlAndSource(novelUrl, sourceId)
+        when (lookup) {
+            SourceLookup.Pending -> Unit
+            SourceLookup.Missing -> if (stored == null) {
+                failure.value = context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId))
+            }
+            is SourceLookup.Resolved -> if (stored == null || chapterRepo.getByNovelId(stored.id).isEmpty()) {
+                runCatchingCancellable { fetchAndSync(lookup.source, stored) }
+                    .onFailure { e -> failure.value = with(context) { e.formattedMessage } }
             }
         }
+    }
+
+    /** The viewed member's source fields: a sibling's own source, the anchor's once its lookup answered. */
+    private suspend fun NovelDetailsState.Loaded.withSource(lookup: SourceLookup): NovelDetailsState.Loaded {
+        val anchorPlugin = (lookup as? SourceLookup.Resolved)?.source
+        val viewSource = viewedNovelSource(displayNovel.id, novel.id, siblingSources.value, anchorPlugin)
+        return copy(
+            sourceName = viewSource?.name ?: sourceManager.nameOf(displayNovel.source),
+            webPage = viewSource?.let { displayNovel.webPageIn(it) },
+            sourceHasSettings = viewSource?.settings != null,
+            browsableSourceId = viewSource?.id,
+            sourceState = novelSourceState(viewSource, displayNovel.id == novel.id, lookup == SourceLookup.Missing),
+        )
     }
 
     private data class ChapterInputs(
@@ -458,36 +474,20 @@ class NovelDetailsViewModel(
         val pageIndex: Int,
     )
 
-    // DB-first: the stored anchor novel + the resolved merge group drive the chapter list. The unified
-    // ("All") view pools every grouped source's chapters into one list (no page bar); a selected source
-    // chip (or a non-merged novel) keeps its own per-page lazy list. A change to
-    // chapterFlags / page / group / selection re-runs this via the combine.
-    private fun observeChapters() {
-        viewModelScope.launchIO {
-            combine(
-                combine(
-                    novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId),
-                    mergeGroup.state,
-                    pageIndex,
-                    // In the combine only to re-emit (re-running rebuildLoaded with the chips) once they resolve.
-                    mergeGroup.chips,
-                ) { anchor, group, idx, _ -> ChapterInputs(anchor, group, idx) },
-                // Re-emit so a hide/unhide or the show-hidden toggle rebuilds the chapter list.
-                hiddenChaptersPref.changes(),
-                showHiddenFlow,
-            ) { inputs, _, _ -> inputs }
-                .collectLatest { (anchor, group, idx) ->
-                    if (anchor == null) {
-                        maybeFirstFetch(null)
-                        return@collectLatest
-                    }
-                    if (group.ids.size > 1 && group.selected == null) {
-                        observeUnifiedChapters(anchor, group)
-                    } else {
-                        observeSingleChapters(anchor, group, idx)
-                    }
-                }
-        }
+    /** What the page lays over the chapter list: written by the verbs, never derived from the rows. */
+    private data class Overlay(
+        val selection: SelectionState<Long>,
+        val dialog: NovelDetailsDialog?,
+        val isRefreshing: Boolean,
+        val isPageLoading: Boolean,
+        val seedColor: Color?,
+    )
+
+    /** The anchor's plugin as the host answered: not asked yet, not installed, or loaded. */
+    private sealed interface SourceLookup {
+        data object Pending : SourceLookup
+        data object Missing : SourceLookup
+        data class Resolved(val source: NovelSource) : SourceLookup
     }
 
     /**
@@ -520,15 +520,15 @@ class NovelDetailsViewModel(
 
     /** Unified ("All") view: pool every grouped source's chapters into one aggregated, reading-ordered
      *  list (no pagination, pages don't align across sources). Each chapter keeps its own novelId. */
-    private suspend fun observeUnifiedChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState) {
+    private fun unifiedChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState): Flow<NovelDetailsState.Loaded> {
         val related = group.ids
         val flows = related.map { id -> chapterRepo.getByNovelIdAsFlow(id).map { id to it } }
         // Fold the download cache's change signal in so a download/delete rebuilds the list (the
         // downloaded state is disk-derived now, not a chapter-row flow).
-        combine(
+        return combine(
             combine(flows) { pairs -> pairs.toMap() },
             novelDownloadCache.changes,
-        ) { byNovel, _ -> byNovel }.collectLatest { byNovel ->
+        ) { byNovel, _ -> byNovel }.mapLatest { byNovel ->
             // Read off the stored stitch, the same rows the library badge counts, rather than
             // stitching again here where the two could come to different answers.
             val pooled = byNovel.values.flatten()
@@ -536,7 +536,7 @@ class NovelDetailsViewModel(
             val ordered = mergedChapterProvider.merged(pooled, stitch)
             val flags = group.novelRowFlags(pooled, ordered, stitch)
             val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
-            rebuildLoaded(
+            buildLoaded(
                 group,
                 anchor,
                 anchor,
@@ -568,16 +568,21 @@ class NovelDetailsViewModel(
     }
 
     /** Single-source view: the anchor (non-merged or its own chip) or a selected sibling, with that
-     *  novel's own per-page lazy list. Auto-fetch only runs for the anchor (its [source] is resolved);
+     *  novel's own per-page lazy list. A page is fetched only for the anchor (its source is resolved);
      *  a selected sibling shows what's stored until a refresh-all fills it. */
-    private suspend fun observeSingleChapters(anchor: Novel, group: EntryMergeGroupHost.GroupState, idx: Int) {
+    private suspend fun singleChapters(
+        anchor: Novel,
+        group: EntryMergeGroupHost.GroupState,
+        idx: Int,
+    ): Flow<NovelDetailsState.Loaded> {
         val selected = group.selected
         val isAnchorView = selected == null || selected == anchor.id
         val viewNovel = if (isAnchorView) anchor else (novelRepo.getById(selected!!) ?: anchor)
         val pages = computePages(viewNovel)
         if (pages.isNotEmpty() && idx >= pages.size) {
+            // Written where the page count is known; the reset re-runs the list on the first page.
             pageIndex.value = 0
-            return
+            return emptyFlow()
         }
         val pageKey = pages.getOrNull(idx)
         val chapterFlow = if (pageKey == null) {
@@ -597,12 +602,12 @@ class NovelDetailsViewModel(
             combine(siblingFlows) { rows -> rows.toList().flatten() }
         }
         // Fold the download cache's change signal in so a download/delete rebuilds the list.
-        combine(chapterFlow, novelDownloadCache.changes, siblingChapters) { chapters, _, siblings ->
+        return combine(chapterFlow, novelDownloadCache.changes, siblingChapters) { chapters, _, siblings ->
             chapters to siblings
-        }.collectLatest { (chapters, siblings) ->
+        }.mapLatest { (chapters, siblings) ->
             val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
             val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
-            rebuildLoaded(
+            buildLoaded(
                 group,
                 anchor,
                 viewNovel,
@@ -614,8 +619,10 @@ class NovelDetailsViewModel(
                 flags.marks,
                 chapters.numberHints(),
             )
-            if (chapters.isEmpty() && isAnchorView) {
-                if (pageKey == null) maybeFirstFetch(viewNovel) else maybeFetchPage(viewNovel, pageKey)
+        }.onEach { loaded ->
+            // Part of the shown list, so a page is fetched only while the page is on screen.
+            if (pageKey != null && isAnchorView && loaded.storedRows.isEmpty()) {
+                maybeFetchPage(viewNovel, pageKey, loaded.chapterFilters)
             }
         }
     }
@@ -627,11 +634,11 @@ class NovelDetailsViewModel(
         else -> chapterRepo.getDistinctPages(novel.id).takeIf { it.size > 1 } ?: emptyList()
     }
 
-    /** Build [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view flags) and
-     *  the [viewNovel] whose metadata + source the header shows (== anchor for the unified view, the
+    /** Build the list's half of [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view
+     *  flags) and the [viewNovel] whose metadata the header shows (== anchor for the unified view, the
      *  selected sibling otherwise). Sort/filter always follow the anchor's flags. The chips and the picked
      *  chip come from [group], the one the rows were built for: the live group may have moved on. */
-    private suspend fun rebuildLoaded(
+    private fun buildLoaded(
         group: EntryMergeGroupHost.GroupState,
         anchor: Novel,
         viewNovel: Novel,
@@ -642,17 +649,14 @@ class NovelDetailsViewModel(
         downloadFolderOwner: Novel?,
         marks: GroupMarks,
         numberHints: Map<Long, ChapterNumberHint.Hint>,
-    ) {
-        viewRows = chapters
+    ): NovelDetailsState.Loaded {
         val hidden = hiddenChaptersPref.get()
         val rows = shownRows(anchor, chapters, hidden, downloadedChapterIds, marks)
         val view = rows.view
-        val hasHiddenChapters = view.hasHidden
-        val showHidden = view.showHidden
         val display = view.visible
         val sortDescending = anchor.effectiveSortDescending(novelPreferences)
         // When showing hidden, mark which displayed rows are hidden (dimmed + drives Hide/Unhide).
-        val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, showHidden, ::hiddenKey) { it.id }
+        val hiddenChapterIds = hiddenChapterIdsIn(display, hidden, view.showHidden, ::hiddenKey) { it.id }
         // Counted against every chapter, filtered out or hidden, so hiding one never makes a gap.
         val present = chapters.gapPresent()
         val isHiddenRow = { chapter: NovelChapter -> chapter.id in hiddenChapterIds }
@@ -664,56 +668,35 @@ class NovelDetailsViewModel(
         } else {
             buildNovelChapterListEntries(display, sortDescending, present, isHiddenRow)
         }
-        val viewSource = viewedNovelSource(viewNovel.id, anchor.id, siblingSources.value, source)
-        val webPage = viewSource?.let { viewNovel.webPageIn(it) }
-        val sourceName = viewSource?.name ?: sourceManager.nameOf(viewNovel.source)
-        state.update { prev ->
-            val loaded = prev as? NovelDetailsState.Loaded
-            NovelDetailsState.Loaded(
-                novel = anchor,
-                displayNovel = viewNovel,
-                chapters = display,
-                chapterListEntries = chapterListEntries,
-                missingChapterCount = missingChapterCount,
-                numberHints = numberHints,
-                showHidden = showHidden,
-                hiddenChapterIds = hiddenChapterIds,
-                hasHiddenChapters = hasHiddenChapters,
-                pages = pages,
-                pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
-                isPageLoading = loaded?.isPageLoading ?: false,
-                isRefreshing = loaded?.isRefreshing ?: false,
-                downloadStates = currentDownloadStates,
-                downloadedChapterIds = downloadedChapterIds,
-                downloadFolderOwner = downloadFolderOwner,
-                marks = marks,
-                trackingCount = currentTrackingButton.count,
-                hasLoggedInTrackers = currentTrackingButton.hasTrackers,
-                customInfo = currentCustomInfo,
-                dialog = loaded?.dialog,
-                selection = retainChapterSelection(display),
-                resumeChapter = rows.resume,
-                hasStarted = chapters.any { marks.isRead(it.id, it.read) },
-                seedColor = loaded?.seedColor,
-                sourceName = sourceName,
-                webPage = webPage,
-                sourceHasSettings = viewSource?.settings != null,
-                browsableSourceId = viewSource?.id,
-                // Read in here, so a lookup landing mid-rebuild is seen when the update retries.
-                sourceState = novelSourceState(viewSource, viewNovel.id == anchor.id, anchorSourceMissing),
-                sorting = anchor.effectiveSorting(novelPreferences),
-                sortDescending = sortDescending,
-                readFilter = anchor.effectiveReadFilter(novelPreferences),
-                bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
-                downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
-                downloadedFilterLocked = basePreferences.downloadedOnly.get(),
-                hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
-                mergeSources = mergeGroup.chipsOf(group),
-                selectedSourceNovelId = group.selected,
-                chapterSwipeActions = libraryPreferences.chapterSwipeActions(),
-            )
-        }
-        updateSeedColor(viewNovel)
+        return NovelDetailsState.Loaded(
+            novel = anchor,
+            displayNovel = viewNovel,
+            chapters = display,
+            chapterListEntries = chapterListEntries,
+            missingChapterCount = missingChapterCount,
+            numberHints = numberHints,
+            showHidden = view.showHidden,
+            hiddenChapterIds = hiddenChapterIds,
+            hasHiddenChapters = view.hasHidden,
+            pages = pages,
+            pageIndex = if (pages.isEmpty()) 0 else pageIndex.coerceIn(0, pages.lastIndex),
+            downloadedChapterIds = downloadedChapterIds,
+            downloadFolderOwner = downloadFolderOwner,
+            marks = marks,
+            resumeChapter = rows.resume,
+            hasStarted = chapters.any { marks.isRead(it.id, it.read) },
+            sorting = anchor.effectiveSorting(novelPreferences),
+            sortDescending = sortDescending,
+            readFilter = anchor.effectiveReadFilter(novelPreferences),
+            bookmarkedFilter = anchor.effectiveBookmarkedFilter(novelPreferences),
+            downloadedFilter = anchor.effectiveDownloadedFilter(novelPreferences),
+            downloadedFilterLocked = basePreferences.downloadedOnly.get(),
+            hideChapterTitles = anchor.effectiveHideChapterTitles(novelPreferences),
+            mergeSources = mergeGroup.chipsOf(group),
+            selectedSourceNovelId = group.selected,
+            chapterSwipeActions = libraryPreferences.chapterSwipeActions(),
+            storedRows = chapters,
+        )
     }
 
     /** Whether the screen takes its tint from the cover. Read once, like manga's. */
@@ -731,20 +714,7 @@ class NovelDetailsViewModel(
         val cover = novel.asNovelCover(url)
         viewModelScope.launchIO {
             val color = EntryId.Novel(novel.id).seedColor { context.extractCoverColor(cover) } ?: return@launchIO
-            state.update { (it as? NovelDetailsState.Loaded)?.copy(seedColor = Color(color)) ?: it }
-        }
-    }
-
-    private fun maybeFirstFetch(existing: Novel?) {
-        if (firstFetchTried) return
-        val src = source ?: return // defer until resolveSource sets it
-        firstFetchTried = true
-        viewModelScope.launchIO {
-            runCatchingCancellable { fetchAndSync(src, existing) }.onFailure { e ->
-                if (state.value !is NovelDetailsState.Loaded) {
-                    state.value = NovelDetailsState.Failed(with(context) { e.formattedMessage })
-                }
-            }
+            seedColor.value = Color(color)
         }
     }
 
@@ -782,13 +752,12 @@ class NovelDetailsViewModel(
     /** Lazily fetch a paged source's page when it has no stored rows yet. Skipped while a filter is
      *  active (0 rows may just mean the filter hid them, not that the page is unfetched) and once a
      *  page has been tried (an empty page must not re-fetch on every emission). */
-    private fun maybeFetchPage(novel: Novel, pageKey: String) {
-        val src = source ?: return
-        val loaded = state.value as? NovelDetailsState.Loaded
-        if (loaded?.chapterFilters?.isActive == true) return
+    private fun maybeFetchPage(novel: Novel, pageKey: String, filters: ChapterListFilters) {
+        val src = resolvedSource ?: return
+        if (filters.isActive) return
         if (!triedPages.add(pageKey)) return
         viewModelScope.launchIO {
-            state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = true) ?: it }
+            isPageLoading.value = true
             try {
                 src.parsePage(novel.url, pageKey)?.chapters?.takeIf { it.isNotEmpty() }?.let {
                     syncChaptersWithNovelSource(
@@ -806,7 +775,7 @@ class NovelDetailsViewModel(
                 throw e
             } catch (_: Throwable) {
             } finally {
-                state.update { (it as? NovelDetailsState.Loaded)?.copy(isPageLoading = false) ?: it }
+                isPageLoading.value = false
             }
         }
     }
@@ -819,7 +788,7 @@ class NovelDetailsViewModel(
         dismissDialog()
     }
 
-    fun showPageSelectorDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.PageSelector) }
+    fun showPageSelectorDialog() = showDialog(NovelDetailsDialog.PageSelector)
 
     /** The download directory the details overflow's Open folder opens. */
     fun viewedDownloadDir() = (state.value as? NovelDetailsState.Loaded)
@@ -832,9 +801,8 @@ class NovelDetailsViewModel(
 
     /** Clears downloads for what the screen shows ([EntryMergeGroupHost.clearDownloadsTarget]). */
     fun showClearDownloadsDialog() {
-        updateLoaded {
-            it.copy(dialog = NovelDetailsDialog.ClearDownloads(mergeGroup.clearDownloadsTarget(it.novel.id)))
-        }
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        showDialog(NovelDetailsDialog.ClearDownloads(mergeGroup.clearDownloadsTarget(loaded.novel.id)))
     }
 
     fun clearDownloads(novelIds: List<Long>) {
@@ -846,9 +814,10 @@ class NovelDetailsViewModel(
     /** Opens the viewed source's settings: the selected chip's source on a merged novel, else its own. */
     fun showSourceSettings() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val viewed = viewedNovelSource(loaded.displayNovel.id, loaded.novel.id, siblingSources.value, source) ?: return
+        val viewed =
+            viewedNovelSource(loaded.displayNovel.id, loaded.novel.id, siblingSources.value, resolvedSource) ?: return
         if (viewed.settings == null) return
-        updateLoaded { it.copy(dialog = NovelDetailsDialog.SourceSettings(viewed)) }
+        showDialog(NovelDetailsDialog.SourceSettings(viewed))
     }
 
     // Shared split / remove / reorder actions. showManageSourcesDialog stays below: its body genuinely
@@ -906,9 +875,7 @@ class NovelDetailsViewModel(
                 memberRanking,
             )
             val orderedSources = ranked.mapNotNull { withCounts[it] }
-            updateLoaded {
-                it.copy(dialog = NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
-            }
+            showDialog(NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
         }
     }
 
@@ -932,11 +899,11 @@ class NovelDetailsViewModel(
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         if (refreshJob?.isActive == true) return
         refreshJob = viewModelScope.launchIO {
-            state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
+            isRefreshing.value = true
             try {
                 val toDownload = mutableListOf<NovelChapter>()
                 // The anchor's refreshed novel drives the viewed-page fix below.
-                var anchorSrc = source
+                var anchorSrc = resolvedSource
                 var anchorUpdated: Novel? = null
                 val firstError = refreshMergeGroup(
                     anchor = {
@@ -967,7 +934,7 @@ class NovelDetailsViewModel(
                     viewModelScope.launchUI { snackbarHostState.showSnackbar(message) }
                 }
             } finally {
-                state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = false) ?: it }
+                isRefreshing.value = false
             }
         }
     }
@@ -1017,14 +984,14 @@ class NovelDetailsViewModel(
             if (!novel.favorite) {
                 // Warn on a similarly-named library novel before adding (mirrors MangaViewModel).
                 novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { prompt ->
-                    updateLoaded { it.copy(dialog = NovelDetailsDialog.DuplicateNovel(prompt)) }
+                    showDialog(NovelDetailsDialog.DuplicateNovel(prompt))
                     return@launchIO
                 }
                 addToLibrary(novel)
             } else {
                 val removal = mergeGroup.removal(novel.id)
                 if (removal.asksForGroup) {
-                    updateLoaded { it.copy(dialog = NovelDetailsDialog.RemoveFromLibrary(removal)) }
+                    showDialog(NovelDetailsDialog.RemoveFromLibrary(removal))
                 } else {
                     removeFromLibrary(removal.targets(removeGrouped = false))
                 }
@@ -1072,7 +1039,7 @@ class NovelDetailsViewModel(
 
     private fun showPickerIfAsked(result: AddFavoriteResult, joinGroup: List<Long>) {
         if (result !is AddFavoriteResult.NeedsCategoryChoice) return
-        updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(result.initialSelection, joinGroup)) }
+        showDialog(NovelDetailsDialog.ChangeCategory(result.initialSelection, joinGroup))
     }
 
     fun showChangeCategoryDialog() {
@@ -1081,7 +1048,7 @@ class NovelDetailsViewModel(
             // No early return on an empty list: the shared picker answers that case with the prompt to
             // go and make one, where bailing here left the action doing nothing at all.
             val selection = novelLibraryAdder.categoryPickerPrompt(novel.id)
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChangeCategory(selection)) }
+            showDialog(NovelDetailsDialog.ChangeCategory(selection))
         }
     }
 
@@ -1103,7 +1070,7 @@ class NovelDetailsViewModel(
     }
 
     fun showEditNovelInfoDialog() {
-        updateLoaded { it.copy(dialog = NovelDetailsDialog.EditInfo) }
+        showDialog(NovelDetailsDialog.EditInfo)
     }
 
     /** Apply Edit-info as a non-destructive overlay: store a value only when it differs from the source
@@ -1174,9 +1141,9 @@ class NovelDetailsViewModel(
         }
     }
 
-    fun showChapterSettingsDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterSettings) }
+    fun showChapterSettingsDialog() = showDialog(NovelDetailsDialog.ChapterSettings)
 
-    fun showSetFetchIntervalDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.SetFetchInterval) }
+    fun showSetFetchIntervalDialog() = showDialog(NovelDetailsDialog.SetFetchInterval)
 
     /** Whether the interval can be chosen, which manga ties to the release-period restriction being on.
      *  Read once, as manga's is, rather than on every recomposition that builds the dialog. */
@@ -1195,37 +1162,36 @@ class NovelDetailsViewModel(
         }
     }
 
-    fun showCoverDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.FullCover) }
+    fun showCoverDialog() = showDialog(NovelDetailsDialog.FullCover)
 
-    /** A rebuilt chapter list drops whatever it no longer holds, the range anchor included. */
-    private fun retainChapterSelection(chapters: List<NovelChapter>): Set<Long> {
-        chapterSelection = EntrySelection.retain(chapterSelection, chapters.map { it.id })
-        return chapterSelection.selection
+    /** A rebuilt chapter list drops whatever it no longer holds, the range anchor included, so a write
+     *  starts from the selection retained to the rows the page shows. */
+    private inline fun updateSelection(
+        crossinline transform: (SelectionState<Long>, List<Long>) -> SelectionState<Long>,
+    ) {
+        val shown = (state.value as? NovelDetailsState.Loaded)?.chapters?.map { it.id } ?: return
+        chapterSelection.update { transform(EntrySelection.retain(it, shown), shown) }
     }
 
-    fun toggleSelection(chapterId: Long, fromLongPress: Boolean) = updateLoaded { loaded ->
-        chapterSelection = if (fromLongPress) {
-            EntrySelection.rangeOrToggle(chapterSelection, chapterId, loaded.chapters.map { it.id })
+    fun toggleSelection(chapterId: Long, fromLongPress: Boolean) = updateSelection { selection, shown ->
+        if (fromLongPress) {
+            EntrySelection.rangeOrToggle(selection, chapterId, shown)
         } else {
-            EntrySelection.toggle(chapterSelection, chapterId)
+            EntrySelection.toggle(selection, chapterId)
         }
-        loaded.copy(selection = chapterSelection.selection)
     }
 
-    fun selectAll() = updateLoaded { loaded ->
-        chapterSelection = EntrySelection.selectAll(chapterSelection, loaded.chapters.map { it.id })
-        loaded.copy(selection = chapterSelection.selection)
-    }
+    fun selectAll() = updateSelection { selection, shown -> EntrySelection.selectAll(selection, shown) }
 
-    fun invertSelection() = updateLoaded { loaded ->
-        chapterSelection = EntrySelection.invert(chapterSelection, loaded.chapters.map { it.id })
-        loaded.copy(selection = chapterSelection.selection)
-    }
+    fun invertSelection() = updateSelection { selection, shown -> EntrySelection.invert(selection, shown) }
 
     fun clearSelection() {
-        chapterSelection = EntrySelection.clear()
-        updateLoaded { it.copy(selection = chapterSelection.selection) }
+        chapterSelection.value = EntrySelection.clear()
     }
+
+    // Read from the selection itself, since the state catches up with a selection only after it is made.
+    private fun NovelDetailsState.Loaded.selectedRows(): List<NovelChapter> =
+        chapterSelection.value.let { held -> chapters.filter { it.id in held } }
 
     /** A merged chapter is keyed by its own novel's stored source, an unmerged one by the anchor's. */
     private fun hiddenKey(chapter: NovelChapter): String =
@@ -1261,7 +1227,7 @@ class NovelDetailsViewModel(
     /** The one selected chapter's number dialog, by the rule manga shares ([EditChapterNumber]). */
     fun showChapterNumberDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        loaded.chapters.filter { it.id in loaded.selection }.singleOrNull()?.let { showChapterNumberDialog(it.id) }
+        loaded.selectedRows().singleOrNull()?.let { showChapterNumberDialog(it.id) }
     }
 
     /** A marked chapter's dialog opens on its hint's suggestion. */
@@ -1277,7 +1243,7 @@ class NovelDetailsViewModel(
                 chapter.chapterNumber,
                 loaded.numberHints[chapterId]?.suggestion,
             )
-            updateLoaded { it.copy(dialog = NovelDetailsDialog.ChapterNumber(edit)) }
+            showDialog(NovelDetailsDialog.ChapterNumber(edit))
         }
     }
 
@@ -1298,9 +1264,8 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
             val shown = if (loaded.pages.isEmpty()) loaded.chapters else shownAcrossPages(loaded)
-            val previous = ReadingOrder.before(ReadingOrder.of(shown, loaded.sortDescending)) {
-                it.id in loaded.selection
-            }
+            val selected = loaded.selectedRows().mapTo(HashSet()) { it.id }
+            val previous = ReadingOrder.before(ReadingOrder.of(shown, loaded.sortDescending)) { it.id in selected }
             if (previous.isNotEmpty()) setRead(previous, read = true)
             clearSelection()
         }
@@ -1360,7 +1325,7 @@ class NovelDetailsViewModel(
     private suspend fun groupChaptersIn(ids: Set<Long>): List<NovelChapter> =
         mergeGroup.relatedIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
 
-    fun showTrackDialog() = updateLoaded { it.copy(dialog = NovelDetailsDialog.TrackSheet) }
+    fun showTrackDialog() = showDialog(NovelDetailsDialog.TrackSheet)
 
     /**
      * Marks [chapters] read or unread across the merge group, then pushes a read to bound trackers, through
@@ -1407,7 +1372,7 @@ class NovelDetailsViewModel(
     private inline fun withSelection(crossinline block: suspend (List<NovelChapter>) -> Unit) {
         viewModelScope.launchIO {
             val loaded = state.value as? NovelDetailsState.Loaded ?: return@launchIO
-            val chapters = loaded.chapters.filter { it.id in loaded.selection }
+            val chapters = loaded.selectedRows()
             if (chapters.isNotEmpty()) block(chapters)
             clearSelection()
         }
@@ -1441,7 +1406,7 @@ class NovelDetailsViewModel(
      * page, so its own stored rows stand in for every page; an unpaged view already holds them all.
      */
     private suspend fun storedViewRows(loaded: NovelDetailsState.Loaded): List<NovelChapter> {
-        val rows = if (loaded.pages.isEmpty()) viewRows else chapterRepo.getByNovelId(loaded.displayNovel.id)
+        val rows = if (loaded.pages.isEmpty()) loaded.storedRows else chapterRepo.getByNovelId(loaded.displayNovel.id)
         val ascending = rows.sortedWith(readingOrderComparator(loaded.novel, novelPreferences))
         return if (loaded.sortDescending) ascending.asReversed() else ascending
     }
@@ -1481,8 +1446,8 @@ class NovelDetailsViewModel(
      *  [deleteChapters]. */
     fun deleteSelected() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
-        val chapters = loaded.chapters.filter { it.id in loaded.selection }
-        if (chapters.isNotEmpty()) updateLoaded { it.copy(dialog = NovelDetailsDialog.DeleteChapters(chapters)) }
+        val chapters = loaded.selectedRows()
+        if (chapters.isNotEmpty()) showDialog(NovelDetailsDialog.DeleteChapters(chapters))
     }
 
     fun deleteChapters(chapters: List<NovelChapter>) {
@@ -1495,7 +1460,7 @@ class NovelDetailsViewModel(
 
     fun dismissDialog() {
         wordCountJob?.cancel()
-        updateLoaded { it.copy(dialog = null) }
+        dialog.value = null
     }
 
     private var wordCountJob: Job? = null
@@ -1507,7 +1472,7 @@ class NovelDetailsViewModel(
     fun showWordCountDialog() {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         wordCountJob?.cancel()
-        updateLoaded { it.copy(dialog = NovelDetailsDialog.WordCount(checkedChapters = 0, chaptersToCount = null)) }
+        showDialog(NovelDetailsDialog.WordCount(checkedChapters = 0, chaptersToCount = null))
         wordCountJob = viewModelScope.launchIO {
             val scope = downloadedTexts.chaptersOf(
                 loaded.selectedSourceNovelId ?: loaded.novel.id,
@@ -1535,18 +1500,18 @@ class NovelDetailsViewModel(
 
     private inline fun updateWordCount(
         crossinline transform: (NovelDetailsDialog.WordCount) -> NovelDetailsDialog.WordCount,
-    ) = updateLoaded { loaded ->
-        (loaded.dialog as? NovelDetailsDialog.WordCount)?.let { loaded.copy(dialog = transform(it)) } ?: loaded
-    }
+    ) = dialog.update { (it as? NovelDetailsDialog.WordCount)?.let(transform) ?: it }
 
     /** Raise the migrate dialog for the duplicate the user picked, onto this novel. Both rows already
      *  exist, so there is nothing to materialize first. */
-    fun startMigrate(duplicateId: Long) = updateLoaded {
-        it.copy(dialog = NovelDetailsDialog.Migrate(currentId = duplicateId, targetId = it.novel.id))
+    fun startMigrate(duplicateId: Long) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        showDialog(NovelDetailsDialog.Migrate(currentId = duplicateId, targetId = loaded.novel.id))
     }
 
-    private inline fun updateLoaded(crossinline transform: (NovelDetailsState.Loaded) -> NovelDetailsState.Loaded) {
-        state.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
+    /** A dialog opens over a loaded page only, which every verb raising one assumes. */
+    private fun showDialog(next: NovelDetailsDialog) {
+        if (state.value is NovelDetailsState.Loaded) dialog.value = next
     }
 }
 
@@ -1643,6 +1608,9 @@ sealed interface NovelDetailsState {
         /** The selected source chip's novelId; null = the unified ("All") view. */
         val selectedSourceNovelId: Long? = null,
         val chapterSwipeActions: ChapterSwipeActions = ChapterSwipeActions.DISABLED,
+        /** The viewed list's rows before hiding, filters and sort (one page on a paged source). Not drawn:
+         *  the download action reads it. */
+        val storedRows: List<NovelChapter> = emptyList(),
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
 

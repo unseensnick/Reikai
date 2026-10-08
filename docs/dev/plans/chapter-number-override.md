@@ -26,7 +26,7 @@ A backup writes the corrected number where Mihon writes a chapter's number and t
 - [chapter_number_override.sq](../../../data/src/main/sqldelight/tachiyomi/data/chapter_number_override.sq) and [ChapterNumberOverrideRepositoryImpl.kt](../../../data/src/main/java/reikai/data/chapter/ChapterNumberOverrideRepositoryImpl.kt).
 - [EditChapterNumber.kt](../../../app/src/main/java/reikai/domain/chapter/EditChapterNumber.kt) and [ChapterNumberDialog.kt](../../../app/src/main/java/reikai/presentation/details/ChapterNumberDialog.kt).
 - [SyncChaptersWithSource.kt](../../../app/src/main/java/eu/kanade/domain/chapter/interactor/SyncChaptersWithSource.kt) (`// RK` island) and [NovelChapterSync.kt](../../../app/src/main/java/reikai/data/novel/NovelChapterSync.kt) (`syncChaptersWithNovelSource`).
-- [ChapterNumberHint.kt](../../../domain/src/main/java/reikai/domain/chapter/ChapterNumberHint.kt): `forOwners`, the out-of-line mark and its suggestion; each details model computes it where it still has every source's own list (`MangaViewModel.MergedChapters`, `NovelDetailsViewModel.rebuildLoaded`).
+- [ChapterNumberHint.kt](../../../domain/src/main/java/reikai/domain/chapter/ChapterNumberHint.kt): `forOwners`, the out-of-line mark and its suggestion; each details model computes it where it still has every source's own list (`MangaViewModel.MergedChapters`, `NovelDetailsViewModel.unifiedChapters` and `singleChapters`).
 - Tests: `ChapterNumberOverrideConformanceTest` (both syncs and the editor), `ChapterNumberOverrideBackupTest` (both backups and restores), `ChapterNumberDialogTest`, `ChapterNumberHintTest` (the rule, on real rows), `NovelDetailsNumberHintTest` (the novel page's marks and dialog).
 
 ## Status

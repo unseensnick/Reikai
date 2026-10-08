@@ -19,9 +19,12 @@ import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.onCompletion
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
@@ -41,6 +44,7 @@ import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelMergedChapterProvider
@@ -256,6 +260,24 @@ class NovelReaderViewModelHarness private constructor(
     /** Whether [chapter] is marked read. */
     suspend fun isRead(chapter: SeededChapter): Boolean? = chapterRepo.getById(chapter.id)?.read
 
+    /** Marks [chapter] read, as reading it elsewhere does. */
+    suspend fun markRead(chapter: SeededChapter) {
+        chapterRepo.setReadBulk(listOf(chapter.id), true)
+    }
+
+    /** Live collectors of the chapter queries details screens hold open while they are shown. */
+    val chapterQueries = AtomicInteger()
+
+    private val detailsChapters = object : NovelChapterRepository by chapterRepo {
+        override fun getByNovelIdAsFlow(novelId: Long) = chapterRepo.getByNovelIdAsFlow(novelId).counted()
+
+        override fun getByNovelIdAndPageAsFlow(novelId: Long, page: String) =
+            chapterRepo.getByNovelIdAndPageAsFlow(novelId, page).counted()
+
+        private fun <T> Flow<T>.counted() =
+            onStart { chapterQueries.incrementAndGet() }.onCompletion { chapterQueries.decrementAndGet() }
+    }
+
     /** Groups [novelIds] into one merged novel, as the merge dialog does. */
     suspend fun merge(vararg novelIds: Long) {
         groups.createGroup(ContentType.NOVELS, novelIds.toList())
@@ -344,16 +366,16 @@ class NovelReaderViewModelHarness private constructor(
      * The novel details screen of [novelId], over the same database and merge machinery. It launches on
      * the real IO dispatcher rather than [dispatcher], so a test waits on its state in real time.
      */
-    suspend fun openDetails(novelId: Long): NovelDetailsViewModel {
+    suspend fun openDetails(novelId: Long, shown: Boolean = true): NovelDetailsViewModel {
         val novel = novelRepo.getById(novelId)!!
-        return openDetails(novel.source, novel.url)
+        return openDetails(novel.source, novel.url, shown)
     }
 
     /**
      * The details screen of [url] on [sourceId], which need not be stored yet, as when opened from Browse.
-     * Its state is collected for as long as the model lives, as a screen showing it collects it.
+     * While [shown], its state is collected for as long as the model lives, as a screen showing it collects it.
      */
-    fun openDetails(sourceId: String, url: String): NovelDetailsViewModel {
+    fun openDetails(sourceId: String, url: String, shown: Boolean = true): NovelDetailsViewModel {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
@@ -368,7 +390,7 @@ class NovelReaderViewModelHarness private constructor(
             coverCache = mockk(relaxed = true),
             resetEntryInfo = mockk(relaxed = true),
             setNovelChapterFlags = mockk(relaxed = true),
-            chapterRepo = chapterRepo,
+            chapterRepo = detailsChapters,
             downloadManagerProvider = { downloadManager },
             novelDownloadCache = downloadCache,
             sourceManager = sourceManager,
@@ -406,7 +428,7 @@ class NovelReaderViewModelHarness private constructor(
             downloadedTexts = mockk(relaxed = true),
         ).also { model ->
             track(model)
-            model.viewModelScope.launch { model.state.collect {} }
+            if (shown) model.viewModelScope.launch { model.state.collect {} }
         }
     }
 

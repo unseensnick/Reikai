@@ -62,7 +62,7 @@ leave half of it unselected. A fully selected block is dropped instead.
   under one lock, for the two engines whose prune runs off the main thread.
 - `eu/kanade/tachiyomi/ui/manga/MangaViewModel.kt` (`chapterSelection`): the RK island.
 - `reikai/presentation/novel/details/NovelDetailsViewModel.kt` (`chapterSelection`,
-  `retainChapterSelection`): the novel half, plus the prune that drops a vanished anchor.
+  `updateSelection`): the novel half, plus the prune that drops a vanished anchor.
 - `reikai/presentation/library/LibraryEngine.kt`, `reikai/presentation/recents/RecentsEngine.kt`: the
   two engines, whose existing suites are the regression net for the whole migration.
 - `reikai/presentation/details/EntryDetailsBehavior.kt` (`toggleSelection`): the shared seam both
