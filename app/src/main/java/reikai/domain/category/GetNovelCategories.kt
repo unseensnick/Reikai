@@ -7,8 +7,9 @@ import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
  * Reads novel-visible categories (content_type 2 plus the universal row 0) over the shared
- * [CategoryRepository], the novel twin of Mihon's [tachiyomi.domain.category.interactor.GetCategories].
- * Returns the shared [Category] type so novel screens flow through the same category UI/views as manga.
+ * [CategoryRepository], the novel twin of Mihon's [tachiyomi.domain.category.interactor.GetCategories],
+ * pinned by CategoryListConformanceTest. Returns the shared [Category] type so novel screens flow
+ * through the same category UI/views as manga.
  */
 @Inject
 class GetNovelCategories(
