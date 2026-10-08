@@ -129,7 +129,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
 import kotlin.math.roundToInt
@@ -1064,7 +1063,7 @@ class ReaderActivity : BaseActivity() {
         }
 
         // RK: tint the initial loading spinner from the cover color
-        loadingIndicator = ReaderProgressIndicator(this, seedColor = viewModel.manga?.asMangaCover()?.vibrantCoverColor)
+        loadingIndicator = ReaderProgressIndicator(this, seedColor = viewModel.coverSeedColor)
         binding.readerContainer.addView(loadingIndicator)
 
         startPostponedEnterTransition()

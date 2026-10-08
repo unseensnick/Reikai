@@ -132,6 +132,7 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.asMangaCover
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal
@@ -218,6 +219,10 @@ class ReaderViewModel(
     /** RK: [manga] carrying the chapter settings its merge group shares, the lead's (GroupChapterSettings). */
     val chapterSettings: Manga?
         get() = manga?.let { mergedGroup.chapterSettingsOf(it) }
+
+    /** RK: the cover color the viewers and the loading spinner tint from; they gate on the pref themselves. */
+    val coverSeedColor: Int?
+        get() = manga?.asMangaCover()?.vibrantCoverColor
 
     /**
      * The chapter id of the currently loaded chapter. Used to restore from process kill.

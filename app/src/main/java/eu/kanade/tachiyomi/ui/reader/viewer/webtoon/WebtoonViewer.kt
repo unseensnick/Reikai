@@ -22,7 +22,6 @@ import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
 import reikai.presentation.reader.holdsStripAutoScroll
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.manga.model.asMangaCover
 import kotlin.math.max
 import kotlin.math.min
 
@@ -36,7 +35,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     val readerPreferences by lazy { graph.readerPreferences }
 
     // RK: cover seed color for per-page theming; leaf views gate on the pref themselves
-    val seedColor: Int? get() = activity.viewModel.manga?.asMangaCover()?.vibrantCoverColor
+    val seedColor: Int? get() = activity.viewModel.coverSeedColor
 
     private val scope = MainScope()
 
