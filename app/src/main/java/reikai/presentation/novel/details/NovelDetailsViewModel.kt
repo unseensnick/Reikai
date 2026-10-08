@@ -60,8 +60,8 @@ import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
-import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ChapterSwipeActions
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -184,7 +184,7 @@ class NovelDetailsViewModel(
     private val updateNovel: UpdateNovel,
     private val sourceTracker: SourceTrackerDispatcher,
     private val coverCache: CoverCache,
-    private val clearCustomCover: ClearCustomCover,
+    private val resetEntryInfo: ResetEntryInfo,
     private val setNovelChapterFlags: SetNovelChapterFlags,
     private val chapterRepo: NovelChapterRepository,
     private val downloadManagerProvider: () -> NovelDownloadManager,
@@ -1123,12 +1123,7 @@ class NovelDetailsViewModel(
     fun resetNovelInfo() {
         val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         // Non-cancellable, as the save and manga's reset are, so leaving the screen cannot stop it halfway.
-        viewModelScope.launchNonCancellable {
-            setCustomNovelInfo.set(CustomNovelInfo(novelId = n.id))
-            // A cover set from the picker is a cached file, not a row field, so clearing the row
-            // alone leaves it in place and winning (NovelCoverKeyer).
-            clearCustomCover.await(EntryId.Novel(n.id))
-        }
+        viewModelScope.launchNonCancellable { resetEntryInfo.await(EntryId.Novel(n.id)) }
         dismissDialog()
     }
 

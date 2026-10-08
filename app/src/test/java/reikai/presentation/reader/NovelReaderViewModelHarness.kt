@@ -334,7 +334,7 @@ class NovelReaderViewModelHarness private constructor(
             updateNovel = mockk(relaxed = true),
             sourceTracker = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
-            clearCustomCover = mockk(relaxed = true),
+            resetEntryInfo = mockk(relaxed = true),
             setNovelChapterFlags = mockk(relaxed = true),
             chapterRepo = chapterRepo,
             downloadManagerProvider = { downloadManager },

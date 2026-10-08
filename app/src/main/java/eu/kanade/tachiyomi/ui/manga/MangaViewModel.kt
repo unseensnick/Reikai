@@ -97,8 +97,8 @@ import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.downloadStateOf
-import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.GetTracksInGroup
@@ -218,8 +218,8 @@ class MangaViewModel(
     private val setReadStatus: SetReadStatus,
     private val updateChapter: UpdateChapter,
     private val updateManga: UpdateManga,
-    // RK: coverCache moved out, the heart's covers to RemoveMangaFromLibrary and Reset all's to ClearCustomCover
-    private val clearCustomCover: ClearCustomCover,
+    // RK: coverCache moved out, the heart's covers to RemoveMangaFromLibrary and Reset all's to ResetEntryInfo
+    private val resetEntryInfo: ResetEntryInfo,
     // RK --> a tracker bound on one source of a merged series counts for the whole group, so every read
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
     private val getTracksInGroup: GetTracksInGroup,
@@ -1688,12 +1688,7 @@ class MangaViewModel(
 
     /** Clear every override, so all fields track the source again. */
     fun resetMangaInfo(manga: Manga) {
-        viewModelScope.launchNonCancellable {
-            setCustomMangaInfo.set(CustomMangaInfo(mangaId = manga.id))
-            // RK: a cover set from the picker or the reader is a cached file, not a row field, so
-            // clearing the row alone leaves it in place and winning (MangaCoverKeyer).
-            clearCustomCover.await(EntryId.Manga(manga.id))
-        }
+        viewModelScope.launchNonCancellable { resetEntryInfo.await(EntryId.Manga(manga.id)) }
         dismissDialog()
     }
 

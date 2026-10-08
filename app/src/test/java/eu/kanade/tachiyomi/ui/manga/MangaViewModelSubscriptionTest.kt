@@ -244,7 +244,7 @@ class MangaViewModelSubscriptionTest {
             setReadStatus = mockk(relaxed = true),
             updateChapter = mockk(relaxed = true),
             updateManga = mockk(relaxed = true),
-            clearCustomCover = mockk(relaxed = true),
+            resetEntryInfo = mockk(relaxed = true),
             getTracksInGroup = mockk(relaxed = true),
             filterChaptersForDownload = mockk(relaxed = true),
             updateMangaFromRemote = mockk(relaxed = true),
