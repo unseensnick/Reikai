@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track.ranobedb
 
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
@@ -13,9 +12,10 @@ import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeriesListEntry
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBStaff
 import reikai.data.track.MetadataAccess
+import reikai.data.track.NovelStatusTracker
+import reikai.data.track.NovelTrackerStatuses
 import reikai.data.track.TenPointScore
 import reikai.data.track.storeCheckedCredential
-import tachiyomi.i18n.MR
 import java.time.Instant
 import java.time.ZoneId
 import tachiyomi.domain.track.model.Track as DomainTrack
@@ -35,14 +35,15 @@ class RanobeDb(id: Long) :
     BaseTracker(id, "RanobeDB"),
     DeletableTracker,
     CookieLoginTracker,
-    ReplacingWriteTracker {
+    ReplacingWriteTracker,
+    NovelStatusTracker {
 
     companion object {
-        const val READING = 1L
-        const val COMPLETED = 2L
-        const val ON_HOLD = 3L
-        const val DROPPED = 4L
-        const val PLAN_TO_READ = 5L
+        const val READING = NovelTrackerStatuses.READING
+        const val COMPLETED = NovelTrackerStatuses.COMPLETED
+        const val ON_HOLD = NovelTrackerStatuses.ON_HOLD
+        const val DROPPED = NovelTrackerStatuses.DROPPED
+        const val PLAN_TO_READ = NovelTrackerStatuses.PLAN_TO_READ
 
         /**
          * Marks a stored credential as a session cookie rather than a token, so the interceptor
@@ -87,25 +88,6 @@ class RanobeDb(id: Long) :
 
     override val supportsReadingDates = true
 
-    override fun getStatusList(): List<Long> =
-        listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
-
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        ON_HOLD -> MR.strings.on_hold
-        DROPPED -> MR.strings.dropped
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        else -> null
-    }
-
-    override fun getReadingStatus(): Long = READING
-
-    // RanobeDB has no reread state, so a reread stays "Reading" rather than inventing one.
-    override fun getRereadingStatus(): Long = READING
-
-    override fun getCompletionStatus(): Long = COMPLETED
-
     // Index 0, unset, goes out as null.
     override fun getScoreList(): List<String> = TenPointScore.list
 
@@ -123,7 +105,7 @@ class RanobeDb(id: Long) :
     }
 
     override suspend fun bind(track: Track, hasReadChapters: Boolean): Track {
-        track.status = if (hasReadChapters) READING else PLAN_TO_READ
+        track.status = NovelTrackerStatuses.unlisted(hasReadChapters)
         // A search result carries score -1 as its "unset" marker, which would persist as a real
         // score and render as -1. Every other tracker zeroes it here for the same reason.
         track.score = 0.0

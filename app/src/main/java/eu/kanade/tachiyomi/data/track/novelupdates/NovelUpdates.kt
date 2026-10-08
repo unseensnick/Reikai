@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
@@ -12,6 +11,8 @@ import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import reikai.data.track.MetadataAccess
+import reikai.data.track.NovelStatusTracker
+import reikai.data.track.NovelTrackerStatuses
 import reikai.data.track.TrackerSignedOutException
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.UnreadPushTracker
@@ -21,7 +22,6 @@ import reikai.domain.track.site.OwnedSites
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.service.ChapterRecognition
-import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import java.io.IOException
 import tachiyomi.domain.track.model.Track as DomainTrack
@@ -38,14 +38,15 @@ class NovelUpdates(id: Long) :
     DeletableTracker,
     CookieLoginTracker,
     AutoBindTracker,
-    UnreadPushTracker {
+    UnreadPushTracker,
+    NovelStatusTracker {
 
     companion object {
-        const val READING = 1L
-        const val COMPLETED = 2L
-        const val ON_HOLD = 3L
-        const val DROPPED = 4L
-        const val PLAN_TO_READ = 5L
+        const val READING = NovelTrackerStatuses.READING
+        const val COMPLETED = NovelTrackerStatuses.COMPLETED
+        const val ON_HOLD = NovelTrackerStatuses.ON_HOLD
+        const val DROPPED = NovelTrackerStatuses.DROPPED
+        const val PLAN_TO_READ = NovelTrackerStatuses.PLAN_TO_READ
 
         /**
          * On a list of the user's own that the list mapping does not cover. Not offered as a choice:
@@ -54,7 +55,7 @@ class NovelUpdates(id: Long) :
          */
         const val OTHER_LIST = 0L
 
-        val STATUSES = listOf(READING, COMPLETED, ON_HOLD, DROPPED, PLAN_TO_READ)
+        val STATUSES = NovelTrackerStatuses.ALL
 
         const val SESSION_COOKIE_PREFIX = "wordpress_logged_in"
 
@@ -86,23 +87,6 @@ class NovelUpdates(id: Long) :
     override fun indexToScore(index: Int): Double = 0.0
 
     override fun displayScore(track: DomainTrack): String = ""
-
-    override fun getStatusList(): List<Long> = STATUSES
-
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        ON_HOLD -> MR.strings.on_hold
-        DROPPED -> MR.strings.dropped
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        else -> null
-    }
-
-    override fun getReadingStatus(): Long = READING
-
-    override fun getRereadingStatus(): Long = READING
-
-    override fun getCompletionStatus(): Long = COMPLETED
 
     override suspend fun search(query: String): List<TrackSearch> = searchNovel(query)
 

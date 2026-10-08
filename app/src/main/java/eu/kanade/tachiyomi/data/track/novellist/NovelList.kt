@@ -1,7 +1,6 @@
 package eu.kanade.tachiyomi.data.track.novellist
 
 import android.util.Base64
-import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
@@ -14,10 +13,11 @@ import eu.kanade.tachiyomi.data.track.novellist.dto.NLReadingListEntry
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
 import eu.kanade.tachiyomi.network.HttpException
 import reikai.data.track.MetadataAccess
+import reikai.data.track.NovelStatusTracker
+import reikai.data.track.NovelTrackerStatuses
 import reikai.data.track.TenPointScore
 import reikai.data.track.storeCheckedCredential
 import reikai.domain.track.TrackFieldMutations
-import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 /**
@@ -28,13 +28,17 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  *
  * Every write carries the chapter count, because a body omitting it resets progress to zero.
  */
-class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, CookieLoginTracker {
+class NovelList(id: Long) :
+    BaseTracker(id, "NovelList"),
+    DeletableTracker,
+    CookieLoginTracker,
+    NovelStatusTracker {
 
     companion object {
-        const val READING = 1L
-        const val COMPLETED = 2L
-        const val DROPPED = 4L
-        const val PLAN_TO_READ = 5L
+        const val READING = NovelTrackerStatuses.READING
+        const val COMPLETED = NovelTrackerStatuses.COMPLETED
+        const val DROPPED = NovelTrackerStatuses.DROPPED
+        const val PLAN_TO_READ = NovelTrackerStatuses.PLAN_TO_READ
 
         private val SESSION_CHUNK = Regex("novellist(?:\\.(\\d+))?=([^;]+)")
         private val BASE64_BLOB = Regex("base64-([A-Za-z0-9+/=_-]+)")
@@ -64,21 +68,6 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     // On-hold is deliberately absent: the remote enum has no equivalent, and the reference fork's
     // mapping onto "planned" reads back as plan-to-read, a silent no-op the capability rule forbids.
     override fun getStatusList(): List<Long> = listOf(READING, COMPLETED, DROPPED, PLAN_TO_READ)
-
-    override fun getStatus(status: Long): StringResource? = when (status) {
-        READING -> MR.strings.reading
-        COMPLETED -> MR.strings.completed
-        DROPPED -> MR.strings.dropped
-        PLAN_TO_READ -> MR.strings.plan_to_read
-        else -> null
-    }
-
-    override fun getReadingStatus(): Long = READING
-
-    // No reread state remotely, so a reread stays "Reading" rather than inventing one.
-    override fun getRereadingStatus(): Long = READING
-
-    override fun getCompletionStatus(): Long = COMPLETED
 
     // Index 0, unset, goes out as an omitted field, which the route takes as no score.
     override fun getScoreList(): List<String> = TenPointScore.list
@@ -238,7 +227,7 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
  * it is not Completed, which moves it to Reading; with no remote reread state, Dropped reopens.
  */
 internal fun statusOnBind(siteStatus: Long?, hasReadChapters: Boolean): Long = when {
-    siteStatus == null -> if (hasReadChapters) NovelList.READING else NovelList.PLAN_TO_READ
+    siteStatus == null -> NovelTrackerStatuses.unlisted(hasReadChapters)
     hasReadChapters && siteStatus != NovelList.COMPLETED -> NovelList.READING
     else -> siteStatus
 }

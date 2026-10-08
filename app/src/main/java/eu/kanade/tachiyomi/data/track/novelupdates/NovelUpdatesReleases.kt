@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
 import org.jsoup.nodes.Document
+import reikai.data.track.NovelTrackerStatuses
 
 /** One release of a series on the site: a translation group's post of one chapter, bookmarked by [id]. */
 data class NovelUpdatesRelease(val id: String, val name: String)
@@ -99,7 +100,7 @@ internal sealed interface BindOnSite {
  * do, and otherwise stays where the user put it, a list of their own included.
  */
 internal fun bindOnSite(siteStatus: Long?, hasReadChapters: Boolean): BindOnSite = when {
-    siteStatus == null -> BindOnSite.File(if (hasReadChapters) NovelUpdates.READING else NovelUpdates.PLAN_TO_READ)
+    siteStatus == null -> BindOnSite.File(NovelTrackerStatuses.unlisted(hasReadChapters))
     hasReadChapters && siteStatus == NovelUpdates.PLAN_TO_READ -> BindOnSite.Keep(NovelUpdates.READING)
     else -> BindOnSite.Keep(moveTo = null)
 }
