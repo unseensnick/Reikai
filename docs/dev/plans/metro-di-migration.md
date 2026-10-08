@@ -35,13 +35,14 @@ Metro resolves the graph in the compiler and ships only `-assumenosideeffects` r
 (`META-INF/proguard/metro-runtime.pro` inside `dev.zacsweers.metro:runtime-jvm:1.4.2`, inspected
 2026-08-16), so the hazard goes away with the last `Injekt.get<T>()` in those packages.
 
-**None of the five keeps goes, and this was overstated twice.** `source-api` and `source-local` hold
-Injekt permanently, because they are the contract installed extensions compile against, and they live
-under `eu.kanade.**`, `exh.**` and `tachiyomi.**`. **`mihon.**` stays too**: it is upstream's own
-package, and `MetroInjektRegistrar` lives in `mihon.app.di.injekt`. **`reikai.**` stays but is
-retirable**: `Novel.hasCustomCover` was its last reflective read, and its `Injekt.get<Context>()`
-default, which no caller used, has been dropped, so no `reikai.*` code calls Injekt at all; the keep remains only because nothing has verified that no other reflection depends on it
-(`.claude/rules/architecture.md`). So the keep list is not part of this port's tail at all.
+**All five package keeps are gone, though not through this port** (2026-10-08). `source-api` and
+`source-local` still hold Injekt permanently, because they are the contract installed extensions
+compile against, so a package keep could never leave on Metro's account. What retired them is mihon
+`06d612811`, taken in full with `reikai.**` and `exh.**`: it keeps every `FullTypeReference` subclass
+with its `Signature` by type, which covers the surviving Injekt reads wherever they sit. A dexdump of
+the minified nightly confirmed every token keeps its generic signature; the record is the 2026-10-08
+row of [upstream-sync.md](../upstream-sync.md), and the current keep list is in
+`.claude/rules/architecture.md`.
 
 ## Status
 
@@ -70,7 +71,7 @@ the registrar's binding map.
 installed extensions compile against. The table below is the landed record and the original phase
 shape; where the two disagree, this note wins.
 
-**The baseline profiles are not part of this, and neither is `proguard-rules.pro`** (established 2026-08-20). Our `baseline-prof.txt` is byte-identical to upstream's at mihon `b3e190c62`, the one commit that ever touched it here; upstream has since regenerated twice (`91e967128`, `4296d056b`), which is the whole of the difference. So there is nothing local to regenerate: picking up those two is ordinary sync work, recorded as pending in `docs/dev/upstream-sync.md`. Upstream also still ships 229 `injekt` lines and two `MigrationsKt` lines at HEAD, having never regenerated after its own Metro commit, so those entries are not debt this port created. For proguard, upstream on Metro keeps `eu.kanade.**`, `tachiyomi.**`, `mihon.**` and `uy.kohesive.injekt.**` itself; only `reikai.**` and `exh.**` are Reikai's, and both are already ruled to stay.
+**The baseline profiles are not part of this, and neither is `proguard-rules.pro`** (established 2026-08-20). Our `baseline-prof.txt` is byte-identical to upstream's at mihon `b3e190c62`, the one commit that ever touched it here; upstream has since regenerated twice (`91e967128`, `4296d056b`), which is the whole of the difference. So there is nothing local to regenerate: picking up those two is ordinary sync work, recorded as pending in `docs/dev/upstream-sync.md`. Upstream also still ships 229 `injekt` lines and two `MigrationsKt` lines at HEAD, having never regenerated after its own Metro commit, so those entries are not debt this port created. For proguard, upstream on Metro kept `eu.kanade.**`, `tachiyomi.**`, `mihon.**` and `uy.kohesive.injekt.**` itself, and Reikai added `reikai.**` and `exh.**`; mihon `06d612811` later dropped all five package keeps, see Why.
 
 **Fresh install is now exercised** (2026-08-20): the preview install was wiped, walked through
 onboarding and restored from its own backup. **Upgrade from a shipped build is still untested.**
@@ -388,7 +389,7 @@ Phase 7 remains, with one correction found by the 2026-08-17 audit and amended s
   of its own (a `PreferenceStore`, not a fourth `DelegateSourcePreferences`).
   `reikai.**` is permanent because `Novel.hasCustomCover` keeps a reified `Injekt.get()` default that
   is itself ruled to stay, for twin parity with the manga side. Phase 7 keeps the baseline profiles
-  and the rules files only. (That reason for `reikai.**` has since gone, see Why.)
+  and the rules files only. (Superseded: all five package keeps went with mihon `06d612811`, see Why.)
 
 **The interop module's floor is the novel reader's subgraph**, which phase 6 did not shrink and could
 not: keeping `NovelReaderScreenModel` on Injekt means everything it resolves must be handed back. It
@@ -500,7 +501,8 @@ Two scope rulings, both 2026-08-20:
 - **`DownloadPageLoader` keeps its Injekt read**, as upstream does. The argument for converting it was
   dropping the R8 keeps, and that payoff is not reachable anyway: `source-api` and `source-local` hold
   Injekt permanently under `eu.kanade.**`, `exh.**` and `tachiyomi.**`, because they are the contract
-  installed extensions compile against. Only the `mihon.**` and `reikai.**` keeps can ever go.
+  installed extensions compile against. (Superseded: all five package keeps went with mihon
+  `06d612811`, which keeps Injekt's type tokens by type instead, see Why.)
 
 Owner rulings, 2026-08-16:
 

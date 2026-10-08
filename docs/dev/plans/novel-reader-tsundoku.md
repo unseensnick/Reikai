@@ -51,8 +51,9 @@ reader. Separately, `MainActivity` implements the reader package's `NovelVolumeK
 compile-level dependency of a Mihon file on the reader and is not listed in the DI tail.
 
 Also worth knowing before the scout: the `reikai.**` and `exh.**` proguard keeps do NOT leave with this
-migration, contrary to what the DI plan said until 2026-08-21. Both are permanent for reasons that have
-nothing to do with the reader.
+migration, contrary to what the DI plan said until 2026-08-21. (Both later went with the other three
+package keeps in the mihon `06d612811` sync, for reasons unrelated to the reader; see
+`.claude/rules/architecture.md`.)
 
 ## Decisions & tradeoffs
 

@@ -1,17 +1,11 @@
 -dontobfuscate
 
--keep,allowoptimization class eu.kanade.**
--keep,allowoptimization class tachiyomi.**
--keep,allowoptimization class mihon.**
-# RK: Reikai's own package. Nothing resolves a reikai.* type through Injekt any more, so the keep is
-# retirable, and stays only until a reflection audit clears it. See .claude/rules/architecture.md and
-# docs/dev/plans/metro-di-migration.md.
--keep,allowoptimization class reikai.**
-# RK: ported adult/EXH subsystem (Komikku lineage). R8 strips the generic signatures Injekt's
-# FullTypeReference needs, and exh types are still read through Injekt: source-api's
-# DelegateSourcePreferences reads, and ExhPreferences / EHentaiUpdateHelper in the built-in E-Hentai
-# source. Minified builds only, so it is invisible in debug.
--keep,allowoptimization class exh.**
+# Injekt reads the injected type from the generic superclass of its type tokens
+-keepattributes Signature
+-keep,allowshrinking class * extends uy.kohesive.injekt.api.FullTypeReference
+
+# RK: no app package is kept whole, so code only reflection, JS or another class loader reaches needs
+# a targeted keep like the ones below. See .claude/rules/architecture.md, Minification.
 # RK: the debug menu lists and calls these by reflection, so nothing else reaches them (as Komikku keeps them).
 -keep,allowoptimization class exh.debug.DebugFunctions { public *; }
 
