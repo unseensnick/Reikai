@@ -235,7 +235,7 @@ interface CatalogueSource : Source {
 private const val MIN_KEYWORD_LENGTH = 2
 
 /**
- * Keyword searches issued per details open, on top of the full-title search. Four is enough to
+ * Keyword searches issued per details open, on top of the full-title search. Three are enough to
  * surface a series' siblings while keeping the burst small enough not to starve the chapter list
  * on a source that rate-limits itself.
  */
