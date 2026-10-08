@@ -119,9 +119,10 @@ class ReikaiSourcePreferences(
 
     /**
      * Ordered novel source ids picked in the migration pre-step. Novel twin of
-     * [eu.kanade.domain.source.service.SourcePreferences.migrationSources]: the selection and its
-     * priority order drive which sources a migration searches (and so which match it suggests first).
-     * Order matters, so it is a string list.
+     * [eu.kanade.domain.source.service.SourcePreferences.migrationSources], pinned by
+     * MigrationFlowAdapter.savedSelection, which both adapters answer for the shared migrate engine: the
+     * selection and its priority order drive which sources a migration searches (and so which match it
+     * suggests first). Order matters, so it is a string list.
      */
     val novelMigrationSources: Preference<List<String>> = preferenceStore.getStringList("ln_migration_sources")
 
@@ -219,8 +220,8 @@ class ReikaiSourcePreferences(
 
     /**
      * Which enabled MangaDex language source the enhanced-source settings and sync actions target when
-     * several are enabled, stored as the source id string ("0" = first enabled). Reikai twin of
-     * Komikku's SourcePreferences.preferredMangaDexId.
+     * several are enabled, stored as the source id string ("0" = first enabled). Ported from Komikku's
+     * SourcePreferences.preferredMangaDexId.
      */
     val preferredMangaDexId: Preference<String> =
         preferenceStore.getString("preferred_mangadex_id", "0")
@@ -228,7 +229,7 @@ class ReikaiSourcePreferences(
     /**
      * Follow statuses the "Sync Follows to Library" action imports, stored as FollowStatus int values
      * (0..6). Defaults to reading + re-reading, matching Komikku's "only add reading or rereading"
-     * intent. Reikai twin of Komikku's SourcePreferences.mangadexSyncToLibraryIndexes.
+     * intent. Ported from Komikku's SourcePreferences.mangadexSyncToLibraryIndexes.
      */
     val mangadexSyncToLibraryIndexes: Preference<Set<String>> =
         preferenceStore.getStringSet("mangadex_sync_to_library_indexes", setOf("1", "6"))

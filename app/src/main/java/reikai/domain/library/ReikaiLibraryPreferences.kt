@@ -188,7 +188,8 @@ class ReikaiLibraryPreferences(
     )
 
     /** Whether adding a same-titled novel offers to group it with the match (the novel twin of
-     *  [autoMergeSameTitle]). Repurposed from silent auto-merge: grouping is now an explicit choice. */
+     *  [autoMergeSameTitle], pinned by EntryMergeManagerTest over the shared `suggestGroupingOnAdd`).
+     *  Repurposed from silent auto-merge: grouping is now an explicit choice. */
     val novelAutoMergeSameTitle: Preference<Boolean> = preferenceStore.getBoolean("novel_auto_merge_same_title", true)
 
     /** Read only by the one-time pref-to-group migration, which honors it when reconstructing the groups

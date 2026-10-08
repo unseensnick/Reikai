@@ -189,7 +189,8 @@ class NovelPreferences(
     fun readerKeepScreenOn() = preferenceStore.getBoolean("ln_reader_keep_screen_on", false)
 
     /** Default reader orientation for novels with no per-novel override, the novel twin of the manga
-     *  reader's `defaultOrientationType`. Stores a [ReaderOrientation] `flagValue`. */
+     *  reader's `defaultOrientationType`, pinned by ReaderProviderConformanceTest. Stores a
+     *  [ReaderOrientation] `flagValue`. */
     fun readerDefaultOrientation() =
         preferenceStore.getInt("ln_reader_default_orientation", ReaderOrientation.FREE.flagValue)
 
@@ -252,7 +253,7 @@ class NovelPreferences(
     fun readerRailHeight() = preferenceStore.getInt("ln_reader_rail_height", 65)
 
     /** When on, tapping "next" marks the chapter you skipped away from as read (forward only), the novel
-     *  twin of the manga reader's mark-read-on-skip. Opt-in. */
+     *  twin of the manga reader's mark-read-on-skip, pinned by MarkReadOnSkipConformanceTest. Opt-in. */
     fun readerMarkReadOnSkip() = preferenceStore.getBoolean("ln_reader_mark_read_on_skip", false)
 
     // Text-to-speech, read by ReadAloudController and the settings screen.
@@ -323,7 +324,8 @@ class NovelPreferences(
     fun readerRemoveExtraSpacing() = preferenceStore.getBoolean("ln_reader_remove_extra_spacing", false)
 
     /** Show the always-on reading percentage while reading (chrome hidden), the novel twin of the manga
-     *  reader's "Show page number". Native Compose overlay; on by default (matches manga and LNReader). */
+     *  reader's "Show page number", pinned by [reikai.presentation.reader.ReaderProvider.showProgress],
+     *  which the shared engine draws for both. On by default (matches manga and LNReader). */
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
 
     /** How far into a chapter, as a whole percent, a novel counts it as read. */
@@ -338,7 +340,8 @@ class NovelPreferences(
     /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */
     fun readerTapLayout() = preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
 
-    /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`. */
+    /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
+     *  pinned by `ReaderNavigationOverlayView.setNavigation`, which both readers hand it to. */
     fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)
 
     fun readerTapInvert() = preferenceStore.getEnum("ln_reader_tap_invert", TappingInvertMode.NONE)
@@ -384,7 +387,9 @@ class NovelPreferences(
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
 
     /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
-     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. */
+     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. No pin: manga's half
+     *  is upstream's key handling inside its View-based viewers, which a JVM test cannot drive; this side's
+     *  rule is NovelVolumeKeysTest. */
     fun readerUseVolumeButtons() = preferenceStore.getBoolean("ln_reader_use_volume_buttons", false)
 
     /** Swap which volume key scrolls forward vs back, mirroring `readWithVolumeKeysInverted`. */
@@ -395,7 +400,8 @@ class NovelPreferences(
     fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
 
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
-     *  `readerHideThreshold`. */
+     *  `readerHideThreshold`. Both read the distance off the shared [ReaderHideThreshold]. No pin: manga's
+     *  half is upstream's scroll listener in `WebtoonViewer`, a View a JVM test cannot drive. */
     fun readerHideThreshold() = preferenceStore.getEnum("ln_reader_hide_threshold", ReaderHideThreshold.LOW)
 
     /** Reopen a read chapter where it was left rather than at its start, as the manga reader's
@@ -403,7 +409,8 @@ class NovelPreferences(
     fun readerPreserveReadingPosition() = preferenceStore.getBoolean("ln_reader_preserve_reading_position", false)
 
     /** User-selected bottom-bar buttons for the novel reader (the novel twin of the manga
-     *  [ReaderPreferences.readerBottomButtons]). Values are [ReaderBottomButton.value] codes. */
+     *  [ReaderPreferences.readerBottomButtons], pinned by [ReaderBottomButton.orderedChanges], which both
+     *  readers draw their bar from). Values are [ReaderBottomButton.value] codes. */
     fun readerBottomButtons() =
         preferenceStore.getStringSet("ln_reader_bottom_buttons", ReaderBottomButton.NOVEL_BUTTONS_DEFAULTS)
 
@@ -493,7 +500,8 @@ class NovelPreferences(
     // Library.
 
     /** Category a newly favorited novel auto-lands in, the novel twin of manga's
-     *  [LibraryPreferences.defaultCategory]. -1 = prompt for a category when the user has any. */
+     *  [LibraryPreferences.defaultCategory], pinned by the `resolveDefaultCategoryIds` kernel both adders
+     *  call. -1 = prompt for a category when the user has any. */
     fun defaultNovelCategory() = preferenceStore.getInt("default_novel_category", -1)
 
     /** Hide the inline "N missing chapters" separators in the details chapter list, the novel twin of
@@ -513,22 +521,25 @@ class NovelPreferences(
     )
 
     /** Keep only the last N chapters finished in the reader downloaded (a rolling buffer), deleted on
-     *  leaving it; the novel twin of manga's `removeAfterReadSlots`. -1 = off; 0 = delete the just-read
-     *  chapter; 1 = keep 1 back, etc. Independent of [removeAfterMarkedAsRead], which is for marking by hand. */
+     *  leaving it; the novel twin of manga's `removeAfterReadSlots`, pinned by the `chapterToDeleteBehind`
+     *  kernel both readers call. -1 = off; 0 = delete the just-read chapter; 1 = keep 1 back, etc.
+     *  Independent of [removeAfterMarkedAsRead], which is for marking by hand. */
     fun removeAfterReadSlots() = preferenceStore.getInt(
         "novel_remove_after_read_slots",
         mangaDownloadDefaults.removeAfterReadSlots.defaultValue(),
     )
 
     /** When false (default), never auto-delete a bookmarked chapter on read. Twin of manga's
-     *  `removeBookmarkedChapters`. */
+     *  `removeBookmarkedChapters`, pinned by MarkReadDeleteConformanceTest over the `removableDownloads`
+     *  kernel both removal paths call. */
     fun removeBookmarkedChapters() = preferenceStore.getBoolean(
         "novel_remove_bookmarked",
         mangaDownloadDefaults.removeBookmarkedChapters.defaultValue(),
     )
 
     /** Category ids whose novels' chapters are never auto-deleted on read. Twin of manga's
-     *  `removeExcludeCategories`. */
+     *  `removeExcludeCategories`, pinned by MarkReadDeleteConformanceTest over the `removableDownloads`
+     *  kernel both removal paths call. */
     fun removeExcludeCategories() = preferenceStore.getStringSet(
         "novel_remove_exclude_categories",
         mangaDownloadDefaults.removeExcludeCategories.defaultValue(),
@@ -563,7 +574,8 @@ class NovelPreferences(
         mangaDownloadDefaults.downloadNewUnreadChaptersOnly.defaultValue(),
     )
 
-    /** Restrict auto-download to novels in these categories (empty = all). Mirrors the manga keys. */
+    /** Restrict auto-download to novels in these categories (empty = all). Mirrors the manga keys,
+     *  pinned by DownloadNewChaptersConformanceTest. */
     fun downloadNewChapterCategories() = preferenceStore.getStringSet(
         "novel_download_new_categories",
         mangaDownloadDefaults.downloadNewChapterCategories.defaultValue(),
@@ -598,7 +610,8 @@ class NovelPreferences(
         mangaUpdateDefaults.autoUpdateMangaRestrictions.defaultValue(),
     )
 
-    /** Categories to include / exclude from the background update (mirrors the manga update categories). */
+    /** Categories to include / exclude from the background update (mirrors the manga update categories,
+     *  pinned by the `isUpdateScope` kernel both update jobs call). */
     fun novelUpdateCategories() = preferenceStore.getStringSet("novel_library_update_categories", emptySet())
     fun novelUpdateCategoriesExclude() =
         preferenceStore.getStringSet("novel_library_update_categories_exclude", emptySet())
@@ -608,14 +621,17 @@ class NovelPreferences(
     /** Last selection in the migrate dialog, as a [NovelMigrationFlag] bitmask. Defaults to all on. */
     fun novelMigrationFlags() = preferenceStore.getInt("novel_migration_flags", NovelMigrationFlag.DEFAULT_BITS)
 
-    /** Search a migration with Mihon's deep search. Twin of the manga migration pref. */
+    // The search and filter prefs below are twins of the manga migration prefs, pinned by
+    // MigrationFlowAdapter.readTuning, which both adapters answer and the shared migrate engine applies.
+
+    /** Search a migration with Mihon's deep search. */
     fun novelMigrationDeepSearch() = preferenceStore.getBoolean("novel_migration_deep_search", false)
 
-    /** Rank a migration's matches by chapter count. Twin of the manga migration pref. */
+    /** Rank a migration's matches by chapter count. */
     fun novelMigrationPrioritizeByChapters() =
         preferenceStore.getBoolean("novel_migration_prioritize_by_chapters", false)
 
-    /** Hide rows whose search found nothing. Twin of the manga migration pref. */
+    /** Hide rows whose search found nothing. */
     fun novelMigrationHideUnmatched() = preferenceStore.getBoolean("novel_migration_hide_unmatched", false)
 
     /** Hide rows whose match is no further ahead than the entry already is. */
