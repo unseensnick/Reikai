@@ -1062,12 +1062,7 @@ class MangaViewModel(
         group: EntryMergeGroupHost.GroupState,
     ): Flow<MergedChapters> {
         val sourceManager = sourceManager
-        val perSibling = group.ids.map { id ->
-            getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
-                .distinctUntilChanged()
-                .map { (manga, chapters) -> Triple(id, manga, chapters) }
-        }
-        return combine(perSibling) { siblings ->
+        return combineSiblings(group) { siblings ->
             val chaptersBySource = siblings.associate { (id, _, chapters) -> id to chapters }
             val sourceManga = siblings.first { (id, _, _) -> id == sourceMangaId }.second
             val ownChapters = chaptersBySource[sourceMangaId].orEmpty()
@@ -1089,6 +1084,19 @@ class MangaViewModel(
                 numberHints = { ownChapters.numberHints(emptyMap(), sourceManga) },
             )
         }
+    }
+
+    /** Every grouped source's manga and chapters, one (id, manga, chapters) per member in group order. */
+    private suspend fun combineSiblings(
+        group: EntryMergeGroupHost.GroupState,
+        transform: suspend (Array<Triple<Long, Manga, List<Chapter>>>) -> MergedChapters,
+    ): Flow<MergedChapters> {
+        val perSibling = group.ids.map { id ->
+            getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
+                .distinctUntilChanged()
+                .map { (manga, chapters) -> Triple(id, manga, chapters) }
+        }
+        return combine(perSibling, transform)
     }
 
     /** Resolved once per emission over every copy, since the same probe answers three questions here. */
@@ -1144,13 +1152,7 @@ class MangaViewModel(
         displayManga: Manga,
         group: EntryMergeGroupHost.GroupState,
     ): Flow<MergedChapters> {
-        val perSibling = mutableListOf<Flow<Triple<Long, Manga, List<Chapter>>>>()
-        for (id in group.ids) {
-            perSibling += getMangaAndChapters.subscribe(id, applyScanlatorFilter = true)
-                .distinctUntilChanged()
-                .map { (manga, chapters) -> Triple(id, manga, chapters) }
-        }
-        return combine(perSibling) { siblings ->
+        return combineSiblings(group) { siblings ->
             val mangaBySource = siblings.associate { (id, manga, _) -> id to manga }
             val chaptersBySource = siblings.associate { (id, _, chapters) -> id to chapters }
             // Read off the stored stitch, the same rows the library badge counts.
