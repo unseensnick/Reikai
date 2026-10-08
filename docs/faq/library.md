@@ -84,6 +84,9 @@ Enable **Downloaded only** via <nav to="downloaded-only">.
 ## Why can't I disable the Downloaded filter?
 Disable **Downloaded only** via <nav to="downloaded-only">.
 
+## What does the Lewd filter count as adult?
+The **Lewd** filter on the **Filter** tab of <nav to="main_library"> treats a series as adult when its extension is marked 18+, or when one of its tags is plainly adult (such as "Smut" or "Erotica"). An extension that only may contain adult content does not count, and neither does a "Mature" tag, which mainstream series carry too. A merged series counts as adult if any of its sources does. It works the same for manga and light novels.
+
 ## I edited an entry's title (or author). Why does sorting ignore the new name?
 
 That is intentional. When you use Edit info to change a title, author, cover, or other

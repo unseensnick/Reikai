@@ -133,7 +133,7 @@ Skips over already read chapters while reading.
 Skips over filtered chapters while reading.
 
 #### Skip duplicate chapters <Badge type="info" text="Off" />
-Skips over chapters detected as duplicates.
+Skips over chapters detected as duplicates. With **Downloaded only** on, the copy on your device is the one kept.
 
 #### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
@@ -389,7 +389,7 @@ Skips over already read chapters while reading.
 Skips over filtered chapters while reading.
 
 #### Skip duplicate chapters <Badge type="info" text="Off" />
-Skips over chapters detected as duplicates, which a merged novel produces when two sources number the same chapter.
+Skips over chapters detected as duplicates, which a merged novel produces when two sources number the same chapter. With **Downloaded only** on, the copy on your device is the one kept.
 
 #### Mark chapter read at <Badge type="info" text="97%" />
 How far into a chapter you have to get before it counts as read.

@@ -53,7 +53,7 @@ Three of the services are built for novels rather than manga. They work like eve
 * Statuses and a 1 to 10 score sync. There is **no On hold status** and there are **no reading dates**, because the service stores neither.
 * **NovelList server address** in <nav to="tracking"> exists only for the day NovelList moves its server. Leave it alone until then: a wrong address stops tracking. **Reset NovelList server address** puts the built-in address back.
 ==NovelUpdates
-* **Signing in**: tap the row and sign in through the browser.
+* **Signing in**: tap the row and sign in through the browser. The session expires after a while, and Reikai then asks you to log in again.
 * All five statuses sync. There is **no score and there are no reading dates**, because the site stores neither.
 * **Your progress lives in the note on your NovelUpdates list entry**, written as `total chapters read: 12`, because the site keeps no reading position of its own. Reikai rewrites that one line and leaves the rest of your note alone, and if it cannot read the note it writes nothing rather than risk replacing it.
 * **Use my own NovelUpdates lists** in <nav to="tracking"> sends each status to one of your own reading lists instead of the five NovelUpdates starts with. Pick the list for each status under **Match statuses to lists**.

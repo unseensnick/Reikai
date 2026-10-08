@@ -49,7 +49,7 @@ Turn those off with **Show source icons on merged covers** in the library displa
 Open a grouped series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
 
 Tap another chip to read that source's version.
-Chapters, progress and library state stay with the group, so switching source does not restart anything.
+Chapters, progress, library state and the chapter list's sort, filter and display settings stay with the group, so switching source does not restart anything and every chip lists chapters the same way.
 
 The row refreshes on its own whenever you come back to the details screen, so a source you just added through global search appears without backing out to the library first.
 
@@ -71,7 +71,7 @@ To change it, switch to **All** and tap the cover there.
 A merged series reads as one.
 The chapter list in the reader holds every source's chapters together, each labelled with where it came from, and the previous and next controls run across the whole group: the end of one source's chapters flows into the next without leaving the reader.
 
-Reading or bookmarking a chapter marks that same chapter on every source in the group, and each chapter downloads once: a downloaded copy from any source opens without going online. Trackers work the same way, with one binding for the whole group rather than one per source; [Tracking](/docs/guides/tracking) explains how it behaves when you merge or split.
+Reading or bookmarking a chapter marks that same chapter on every source in the group, and each chapter downloads once: a downloaded copy from any source opens without going online. If a chapter's copy comes from a source you have uninstalled, downloading or reading it uses an installed source's copy instead, and a chapter only an uninstalled source has shows no download button. Trackers work the same way, with one binding for the whole group rather than one per source; [Tracking](/docs/guides/tracking) explains how it behaves when you merge or split.
 
 ## Merging entries yourself
 
