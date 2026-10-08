@@ -22,6 +22,7 @@ import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -501,26 +502,44 @@ class NovelPreferences(
 
     // Downloads. Renaming a key needs a migration that moves the value (see the class KDoc).
 
+    // The defaults are manga's own, read off Mihon's declarations as the update defaults below are.
+    private val mangaDownloadDefaults by lazy { DownloadPreferences(preferenceStore) }
+
     /** Delete a downloaded chapter's offline copy once it's marked read by hand, not by finishing it in the reader. */
-    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean("novel_remove_after_marked_as_read", false)
+    fun removeAfterMarkedAsRead() = preferenceStore.getBoolean(
+        "novel_remove_after_marked_as_read",
+        mangaDownloadDefaults.removeAfterMarkedAsRead.defaultValue(),
+    )
 
     /** Keep only the last N chapters finished in the reader downloaded (a rolling buffer), deleted on
      *  leaving it; the novel twin of manga's `removeAfterReadSlots`. -1 = off; 0 = delete the just-read
      *  chapter; 1 = keep 1 back, etc. Independent of [removeAfterMarkedAsRead], which is for marking by hand. */
-    fun removeAfterReadSlots() = preferenceStore.getInt("novel_remove_after_read_slots", -1)
+    fun removeAfterReadSlots() = preferenceStore.getInt(
+        "novel_remove_after_read_slots",
+        mangaDownloadDefaults.removeAfterReadSlots.defaultValue(),
+    )
 
     /** When false (default), never auto-delete a bookmarked chapter on read. Twin of manga's
      *  `removeBookmarkedChapters`. */
-    fun removeBookmarkedChapters() = preferenceStore.getBoolean("novel_remove_bookmarked", false)
+    fun removeBookmarkedChapters() = preferenceStore.getBoolean(
+        "novel_remove_bookmarked",
+        mangaDownloadDefaults.removeBookmarkedChapters.defaultValue(),
+    )
 
     /** Category ids whose novels' chapters are never auto-deleted on read. Twin of manga's
      *  `removeExcludeCategories`. */
-    fun removeExcludeCategories() = preferenceStore.getStringSet("novel_remove_exclude_categories", emptySet())
+    fun removeExcludeCategories() = preferenceStore.getStringSet(
+        "novel_remove_exclude_categories",
+        mangaDownloadDefaults.removeExcludeCategories.defaultValue(),
+    )
 
     /** Download the next N unread, un-downloaded chapters as you read (download-ahead). 0 = off. Twin
      *  of manga's `autoDownloadWhileReading`, pinned by the kernel both readers call,
      *  `chaptersToDownloadAhead` in `reikai/domain/reader/ChapterNeighbours.kt`. */
-    fun autoDownloadWhileReading() = preferenceStore.getInt("novel_auto_download_while_reading", 0)
+    fun autoDownloadWhileReading() = preferenceStore.getInt(
+        "novel_auto_download_while_reading",
+        mangaDownloadDefaults.autoDownloadWhileReading.defaultValue(),
+    )
 
     /** The shortest wait between two downloaded chapters from one source; see `NovelDownloadPacing`. */
     fun downloadChapterDelayMs() = preferenceStore.getLong("novel_download_chapter_delay_ms", 500L)
@@ -531,18 +550,28 @@ class NovelPreferences(
     /** Auto-download newly fetched chapters when an update is detected. The pref + download-manager
      *  plumbing exist; the update-detection trigger that consumes it is wired into the background
      *  update job. */
-    fun downloadNewChapters() = preferenceStore.getBoolean("novel_download_new_chapters", false)
+    fun downloadNewChapters() = preferenceStore.getBoolean(
+        "novel_download_new_chapters",
+        mangaDownloadDefaults.downloadNewChapters.defaultValue(),
+    )
 
     /** When auto-downloading, skip a new chapter whose number matches one already read (avoids
      *  re-downloading a source's duplicate listing of a chapter you've finished). */
-    fun downloadNewUnreadChaptersOnly() =
-        preferenceStore.getBoolean("novel_download_new_unread_chapters_only", false)
+    fun downloadNewUnreadChaptersOnly() = preferenceStore.getBoolean(
+        "novel_download_new_unread_chapters_only",
+        mangaDownloadDefaults.downloadNewUnreadChaptersOnly.defaultValue(),
+    )
 
     /** Restrict auto-download to novels in these categories (empty = all). Mirrors the manga keys. */
-    fun downloadNewChapterCategories() = preferenceStore.getStringSet("novel_download_new_categories", emptySet())
+    fun downloadNewChapterCategories() = preferenceStore.getStringSet(
+        "novel_download_new_categories",
+        mangaDownloadDefaults.downloadNewChapterCategories.defaultValue(),
+    )
 
-    fun downloadNewChapterCategoriesExclude() =
-        preferenceStore.getStringSet("novel_download_new_categories_exclude", emptySet())
+    fun downloadNewChapterCategoriesExclude() = preferenceStore.getStringSet(
+        "novel_download_new_categories_exclude",
+        mangaDownloadDefaults.downloadNewChapterCategoriesExclude.defaultValue(),
+    )
 
     // Background chapter updates.
 
