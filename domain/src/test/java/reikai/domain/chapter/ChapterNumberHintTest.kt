@@ -8,7 +8,14 @@ import org.junit.jupiter.params.provider.ValueSource
 /** Fixtures are real rows from the owner's library, in the source's own order. */
 class ChapterNumberHintTest {
 
-    private data class Row(val id: Long, val owner: Long, val order: Long, val number: Double, val name: String)
+    private data class Row(
+        val id: Long,
+        val owner: Long,
+        val order: Long,
+        val number: Double,
+        val name: String,
+        val hidden: Boolean = false,
+    )
 
     /** One owner's rows in source order, ids counting from 0. */
     private fun list(vararg rows: Pair<Double, String>, owner: Long = 1L) =
@@ -16,8 +23,15 @@ class ChapterNumberHintTest {
 
     private fun numbered(vararg numbers: Double) = list(*numbers.map { it to "Chapter $it" }.toTypedArray())
 
-    private fun hints(rows: List<Row>) =
-        ChapterNumberHint.forOwners(rows, { it.id }, { it.owner }, { it.order }, { it.number }, { it.name })
+    private fun hints(rows: List<Row>) = ChapterNumberHint.forOwners(
+        rows,
+        id = { it.id },
+        owner = { it.owner },
+        sourceOrder = { it.order },
+        number = { it.number },
+        name = { it.name },
+        isHidden = { it.hidden },
+    )
 
     private fun hint(suggestion: Double?) = ChapterNumberHint.Hint(suggestion)
 
@@ -86,6 +100,19 @@ class ChapterNumberHintTest {
     @Test
     fun `six rows out of line are a numbering of their own`() {
         hints(numbered(395.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 396.0)) shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a stray the user hid is not marked`() {
+        val rows = numbered(1658.0, 1659.0, 497.0, 1660.0, 1661.0).map { it.copy(hidden = it.number == 497.0) }
+        hints(rows) shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a hidden row does not count toward a run of its own numbering`() {
+        // Six out of line would be a numbering of their own; with one hidden, the five drawn are strays.
+        val rows = numbered(395.0, 1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 396.0).map { it.copy(hidden = it.number == 6.0) }
+        hints(rows) shouldBe (1L..5L).associateWith { hint(null) }
     }
 
     @Test

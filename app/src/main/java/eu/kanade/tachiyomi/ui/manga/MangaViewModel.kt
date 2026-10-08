@@ -382,7 +382,7 @@ class MangaViewModel(
                                     chapters = ownChapters,
                                     mangaBySource = emptyMap(),
                                     flags = { ownFlags(ownChapters, manga) },
-                                    numberHints = ownChapters.numberHints(),
+                                    numberHints = { ownChapters.numberHints(emptyMap(), manga) },
                                 ),
                             )
                         else ->
@@ -400,7 +400,7 @@ class MangaViewModel(
                             hasHiddenChapters = hidden.hasHiddenChapters,
                             hiddenChapterIds = hidden.hiddenChapterIds,
                             gapPresent = hidden.gapPresent,
-                            numberHints = mc.numberHints,
+                            numberHints = mc.numberHints(),
                             resumeChapter = hidden.resumeChapter,
                             mergedMangaById = mc.mangaBySource,
                             mergeDisplayManga = mc.displayManga,
@@ -537,7 +537,7 @@ class MangaViewModel(
                     hasHiddenChapters = hidden.hasHiddenChapters,
                     hiddenChapterIds = hidden.hiddenChapterIds,
                     gapPresent = hidden.gapPresent,
-                    numberHints = ownChapters.numberHints(), // RK
+                    numberHints = ownChapters.numberHints(emptyMap(), manga), // RK
                     resumeChapter = hidden.resumeChapter,
                     availableScanlators = getAvailableScanlators.await(mangaId),
                     excludedScanlators = getExcludedScanlators.await(mangaId),
@@ -991,7 +991,8 @@ class MangaViewModel(
         // render, since the flags cache their disk probe and a download tick re-renders without reloading.
         val flags: () -> GroupChapterFlags<Chapter>,
         // RK: the out-of-line markers, read off each source's own list: a merged [chapters] is restamped.
-        val numberHints: Map<Long, ChapterNumberHint.Hint>,
+        // Built per render, since a hide re-renders without reloading and hidden rows are not judged.
+        val numberHints: () -> Map<Long, ChapterNumberHint.Hint>,
         // RK: per-source metadata shown in the info box when a source chip is active (null = unified).
         // Kept separate from [manga] so favorite / tracking / chapter-flag actions stay on the primary.
         val displayManga: Manga? = null,
@@ -1032,7 +1033,7 @@ class MangaViewModel(
                         downloadedIdsOf(pooled, mangaBySource, sourceManga)
                     }
                 },
-                numberHints = ownChapters.numberHints(),
+                numberHints = { ownChapters.numberHints(emptyMap(), sourceManga) },
             )
         }
     }
@@ -1118,7 +1119,7 @@ class MangaViewModel(
                         downloadedIdsOf(pooled, mangaBySource, displayManga)
                     }
                 },
-                numberHints = pooled.numberHints(),
+                numberHints = { pooled.numberHints(mangaBySource, displayManga) },
             )
         }
     }
@@ -1208,14 +1209,21 @@ class MangaViewModel(
         }
     }
 
-    private fun List<Chapter>.numberHints() = ChapterNumberHint.forOwners(
-        this,
-        id = { it.id },
-        owner = { it.mangaId },
-        sourceOrder = { it.sourceOrder },
-        number = { it.chapterNumber },
-        name = { it.name },
-    )
+    private fun List<Chapter>.numberHints(
+        mangaBySource: Map<Long, Manga>,
+        manga: Manga,
+    ): Map<Long, ChapterNumberHint.Hint> {
+        val hidden = hiddenChaptersPref.get()
+        return ChapterNumberHint.forOwners(
+            this,
+            id = { it.id },
+            owner = { it.mangaId },
+            sourceOrder = { it.sourceOrder },
+            number = { it.chapterNumber },
+            name = { it.name },
+            isHidden = { it.hiddenKey(mangaBySource[it.mangaId] ?: manga) in hidden },
+        )
+    }
 
     fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
         viewModelScope.launchNonCancellable { editChapterNumber.save(edit, number) }

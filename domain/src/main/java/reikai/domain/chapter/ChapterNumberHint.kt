@@ -16,7 +16,8 @@ object ChapterNumberHint {
 
     /**
      * Hints for [rows] by [id]. Each owner is judged on its own list in [sourceOrder], either direction: a
-     * merged list restamps the order and keeps one copy per chapter, so it cannot be judged as one.
+     * merged list restamps the order and keeps one copy per chapter, so it cannot be judged as one. A row
+     * the user hid ([isHidden]) is left out, so it is never marked and never shapes a drawn row's run.
      */
     fun <T> forOwners(
         rows: Iterable<T>,
@@ -25,10 +26,11 @@ object ChapterNumberHint {
         sourceOrder: (T) -> Long,
         number: (T) -> Double,
         name: (T) -> String,
+        isHidden: (T) -> Boolean,
     ): Map<Long, Hint> {
         val hints = HashMap<Long, Hint>()
         for (own in rows.groupBy(owner).values) {
-            val ordered = own.sortedBy(sourceOrder)
+            val ordered = own.filterNot(isHidden).sortedBy(sourceOrder)
             val counted = countedRows(ordered, name).filter { isRecognizedChapterNumber(number(it)) }
             outOfLine(counted, number) { row, hint -> hints[id(row)] = hint }
         }

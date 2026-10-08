@@ -1237,6 +1237,19 @@ class NovelDetailsViewModel(
     private fun hiddenKey(chapter: NovelChapter): String =
         chapter.hiddenKey(memberSources) ?: hiddenChapterKey(sourceId, chapter.url)
 
+    private fun List<NovelChapter>.numberHints(): Map<Long, ChapterNumberHint.Hint> {
+        val hidden = hiddenChaptersPref.get()
+        return ChapterNumberHint.forOwners(
+            this,
+            id = { it.id },
+            owner = { it.novelId },
+            sourceOrder = { it.sourceOrder },
+            number = { it.chapterNumber },
+            name = { it.name },
+            isHidden = { hiddenKey(it) in hidden },
+        )
+    }
+
     fun hideSelected() = withSelection { chapters ->
         hiddenChaptersPref.set(hiddenChaptersPref.get() + chapters.map { hiddenKey(it) })
     }
@@ -1541,15 +1554,6 @@ class NovelDetailsViewModel(
         state.update { (it as? NovelDetailsState.Loaded)?.let(transform) ?: it }
     }
 }
-
-private fun List<NovelChapter>.numberHints() = ChapterNumberHint.forOwners(
-    this,
-    id = { it.id },
-    owner = { it.novelId },
-    sourceOrder = { it.sourceOrder },
-    number = { it.chapterNumber },
-    name = { it.name },
-)
 
 private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
     overridesOver(source.toEntryEditInfoUi(), NovelStatusCode.UNKNOWN.toLong()).let {

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.ChapterNumberHint
+import reikai.domain.chapter.hiddenChapterKey
 import reikai.presentation.reader.NovelReaderViewModelHarness
 import reikai.presentation.reader.SeededChapter
 
@@ -33,6 +34,16 @@ class NovelDetailsNumberHintTest {
             val stray = seed(harness, novelId)
             harness.openDetails(novelId).awaitLoaded { it.chapters.size == 5 }.numberHints shouldBe
                 mapOf(stray.id to ChapterNumberHint.Hint(1135.0))
+        }
+    }
+
+    @Test
+    fun `a stray the user hid is not marked`() = runTest {
+        NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novelId = harness.novel(harness.source("alpha"))
+            val stray = seed(harness, novelId)
+            harness.novelPreferences.hiddenChapters().set(setOf(hiddenChapterKey("alpha", stray.url)))
+            harness.openDetails(novelId).awaitLoaded { it.chapters.size == 4 }.numberHints shouldBe emptyMap()
         }
     }
 
