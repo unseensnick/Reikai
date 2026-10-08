@@ -14,10 +14,15 @@ class NavigableChaptersTest {
         val eligible: Boolean = true,
     )
 
-    private fun List<Ch>.navigable(current: Ch, skipDuplicates: Boolean = true) = navigableChapters(
+    private fun List<Ch>.navigable(
+        current: Ch,
+        skipDuplicates: Boolean = true,
+        downloadedOnlyIds: Set<Long>? = null,
+    ) = navigableChapters(
         current,
         isHidden = { it.hidden },
         isForwardEligible = { it.eligible },
+        downloadedOnlyIds = downloadedOnlyIds,
         skipDuplicates = skipDuplicates,
         numberOf = { it.number },
         idOf = { it.id },
@@ -80,5 +85,14 @@ class NavigableChaptersTest {
         val fiveUnread = Ch(id = 51, number = 5.0)
         val six = Ch(id = 60, number = 6.0)
         listOf(four, fiveRead, fiveUnread, six).nextAfter(four) shouldBe fiveUnread
+    }
+
+    /** Under Downloaded only a copy off disk leaves the list, so one on disk wins even over a copy a step may land on. */
+    @Test
+    fun `with Downloaded only the copy on disk wins a duplicate group`() {
+        val fiveEligible = Ch(id = 50, number = 5.0, origin = "x")
+        val fiveOnDisk = Ch(id = 51, number = 5.0, origin = "y", eligible = false)
+        listOf(one, fiveEligible, fiveOnDisk).navigable(one, downloadedOnlyIds = setOf(1L, 51L)).map { it.id } shouldBe
+            listOf(1L, 51L)
     }
 }

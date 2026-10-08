@@ -20,7 +20,7 @@ class DuplicateChaptersTest {
 
     private fun List<Ch>.dedup(current: Ch) = removeDuplicateChapters(
         current,
-        prefer = { it.eligible },
+        rank = { if (it.eligible) 0 else 1 },
         numberOf = { it.number },
         idOf = { it.id },
         originOf = { it.origin },

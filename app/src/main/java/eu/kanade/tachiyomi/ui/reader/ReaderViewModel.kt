@@ -280,7 +280,7 @@ class ReaderViewModel(
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
     // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping
-    // a copy [isForwardEligible] lets a forward step land on.
+    // a copy on disk under Downloaded only, then one [isForwardEligible] lets a forward step land on.
     private fun navigable(
         chapters: List<Chapter>,
         current: Chapter,
@@ -291,6 +291,7 @@ class ReaderViewModel(
             current,
             isHidden = { hidden.isNotEmpty() && it.hiddenKey(mangaForChapterId(it.mangaId)) in hidden },
             isForwardEligible = isForwardEligible,
+            downloadedOnlyIds = if (basePreferences.downloadedOnly.get()) onDiskIds(chapters) else null,
             skipDuplicates = readerPreferences.skipDupe.get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },
@@ -298,6 +299,10 @@ class ReaderViewModel(
             ownerOf = { it.mangaId },
         )
     }
+
+    // RK: which of [chapters] are on disk, each asked of its own merged source
+    private fun onDiskIds(chapters: List<Chapter>): Set<Long> =
+        chapters.filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }.mapTo(HashSet()) { it.id }
 
     /** RK: read, bookmarked and on disk as the group answers them, for the rows in [shown]. Resolved
      *  against [shown] rather than reused from the group, whose own set names the rows the merged list
@@ -440,8 +445,7 @@ class ReaderViewModel(
             .run {
                 if (basePreferences.downloadedOnly.get()) {
                     // RK: by the rule the novel reader shares, which keeps the chapter being read
-                    val onDisk = filterDownloaded(downloadCache) { mangaForChapterId(it.mangaId) }
-                    downloadedOrCurrent(selectedChapter, { it.id }, onDisk.mapTo(HashSet()) { it.id })
+                    downloadedOrCurrent(selectedChapter, { it.id }, onDiskIds(this))
                 } else {
                     this
                 }

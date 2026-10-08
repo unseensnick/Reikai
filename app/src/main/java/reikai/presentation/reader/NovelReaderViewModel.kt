@@ -1153,13 +1153,16 @@ class NovelReaderViewModel(
         // Every copy is asked before duplicates go, so the copy a group keeps is one a forward step may land on.
         val eligible = resolveForwardEligible(sorted, groupFlags(members, sorted, novelRepo.ownersOf(members)))
         gapPresent = sorted.gapPresent()
-        val inOrder = navigable(sorted) { it.id in eligible }
+        val onDisk = if (basePreferences.downloadedOnly.get()) {
+            novelDownloadCache.downloadedChapterIds(sorted, novelRepo.ownersOf(sorted))
+        } else {
+            null
+        }
+        val inOrder = navigable(sorted, onDisk) { it.id in eligible }
         aheadIds = inOrder.map { it.id }
         val current = inOrder.find { it.id == currentChapterId }
-        val visible = if (basePreferences.downloadedOnly.get() && current != null) {
-            inOrder.downloadedOrCurrent(current, {
-                it.id
-            }, novelDownloadCache.downloadedChapterIds(inOrder, novelRepo.ownersOf(inOrder)))
+        val visible = if (onDisk != null && current != null) {
+            inOrder.downloadedOrCurrent(current, { it.id }, onDisk)
         } else {
             inOrder
         }
@@ -1170,10 +1173,11 @@ class NovelReaderViewModel(
     /**
      * The chapters paging steps through, by the rule the manga reader runs ([navigableChapters]). A novel
      * has no origin to break a duplicate tie with: every chapter of one has the same source. Hidden is
-     * the details screen's and the resume's rule.
+     * the details screen's and the resume's rule. [onDisk] is what is on disk under Downloaded only.
      */
     private suspend fun navigable(
         chapters: List<NovelChapter>,
+        onDisk: Set<Long>?,
         isForwardEligible: (NovelChapter) -> Boolean,
     ): List<NovelChapter> {
         val isHidden = getNextNovelChapter.hiddenAmong(chapters)
@@ -1182,6 +1186,7 @@ class NovelReaderViewModel(
             current,
             isHidden = isHidden,
             isForwardEligible = isForwardEligible,
+            downloadedOnlyIds = onDisk,
             skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
             numberOf = { it.chapterNumber },
             idOf = { it.id },

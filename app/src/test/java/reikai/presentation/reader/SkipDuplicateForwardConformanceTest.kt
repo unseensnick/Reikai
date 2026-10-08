@@ -27,6 +27,9 @@ class SkipDuplicateForwardConformanceTest {
 
         /** Of chapter 5's copies from groups y (listed first) and x, whether the step from 4 (x) reaches x's. */
         suspend fun nextIsTheSameGroupsCopy(scope: TestScope): Boolean
+
+        /** Under Downloaded only, of chapter 5's copies only the second on disk, whether the step from 4 reaches it. */
+        suspend fun nextIsTheCopyOnDisk(scope: TestScope, skipFiltered: Boolean): Boolean
     }
 
     @BeforeEach
@@ -45,6 +48,19 @@ class SkipDuplicateForwardConformanceTest {
     @MethodSource("probes")
     fun `a forward step keeps to the current chapter's group`(probe: Probe) = runTest {
         probe.nextIsTheSameGroupsCopy(this) shouldBe true
+    }
+
+    /** Keeping the copy off disk let Downloaded only drop it, and chapter 5 with it. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `with Downloaded only a forward step reaches the copy on disk`(probe: Probe) = runTest {
+        probe.nextIsTheCopyOnDisk(this, skipFiltered = false) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `with Downloaded only and Skip filtered a forward step reaches the copy on disk`(probe: Probe) = runTest {
+        probe.nextIsTheCopyOnDisk(this, skipFiltered = true) shouldBe true
     }
 
     companion object {
@@ -80,6 +96,25 @@ class SkipDuplicateForwardConformanceTest {
                     state.viewerChapters?.nextChapter?.chapter?.id == same.id
                 }
             }
+
+        /** The copy off disk is the current chapter's own scanlator's, so origin alone would keep it. */
+        override suspend fun nextIsTheCopyOnDisk(scope: TestScope, skipFiltered: Boolean): Boolean =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                harness.chapter(40L, manga, 4.0, scanlator = "x")
+                harness.chapter(50L, manga, 5.0, scanlator = "x", order = 951L)
+                val onDisk = harness.chapter(51L, manga, 5.0, scanlator = "y", order = 950L)
+                harness.chapter(60L, manga, 6.0, scanlator = "x")
+                harness.open(
+                    manga,
+                    chapterId = 40L,
+                    preferences = mapOf("skip_dupe" to true, "skip_filtered" to skipFiltered),
+                    onDisk = setOf(40L, 51L, 60L),
+                    downloadedOnly = true,
+                ) { _, state ->
+                    state.viewerChapters?.nextChapter?.chapter?.id == onDisk.id
+                }
+            }
     }
 
     class NovelProbe : Probe {
@@ -112,6 +147,23 @@ class SkipDuplicateForwardConformanceTest {
                 scope.advanceUntilIdle()
 
                 model.chapterNeighbours.value.next == same.id
+            }
+
+        override suspend fun nextIsTheCopyOnDisk(scope: TestScope, skipFiltered: Boolean): Boolean =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val novel = harness.novel(harness.source("alpha"))
+                val four = harness.chapter(novel, 4.0)
+                harness.chapter(novel, 5.0)
+                val onDisk = harness.chapter(novel, 5.0, url = "/chapter/$novel/5-again", sourceOrder = 6L)
+                val six = harness.chapter(novel, 6.0, sourceOrder = 7L)
+                listOf(four, onDisk, six).forEach { harness.download(it, "text") }
+                harness.downloadedOnly.set(true)
+                harness.novelPreferences.readerSkipFiltered().set(skipFiltered)
+                harness.novelPreferences.readerSkipDuplicateChapters().set(true)
+                val model = harness.open(novel, four.id)
+                scope.advanceUntilIdle()
+
+                model.chapterNeighbours.value.next == onDisk.id
             }
     }
 }

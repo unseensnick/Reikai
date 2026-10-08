@@ -312,6 +312,7 @@ agent under Settings -> Advanced.
 - **Read chapters no longer vanish from the manga reader's chapter list, and swiping back from a chapter you just finished reaches the previous one, read or not.** Tapping a read chapter in the list opens it.
 - **Download ahead in both readers now fetches only the chapters the reader will actually reach next.** It took read chapters on novels, hidden chapters and skipped duplicates on manga, and on a grouped manga the order its sources were stitched in rather than your chapter sort.
 - **Skip duplicate chapters now removes duplicates from a novel's chapter list as it does for manga, and no longer folds chapters with no number, like a prologue and an afterword, into one in either reader.**
+- **With Downloaded only and Skip duplicate chapters on, both readers now keep the downloaded copy of a chapter instead of skipping that chapter.**
 - **Each chapter you open in the manga reader now starts where you left that chapter, not where you left the one before it.** Most visible right after jumping in from a page preview.
 - **The manga reader now names the chapter you are actually on while you scroll across a chapter boundary.**
 - **Novel read-aloud now carries on from the paragraph it was on when you rotate the screen or change a text setting.**
