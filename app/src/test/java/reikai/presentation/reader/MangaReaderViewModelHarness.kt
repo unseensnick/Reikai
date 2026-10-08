@@ -4,7 +4,6 @@ import android.content.Context
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.track.service.TrackPreferences
@@ -59,13 +58,13 @@ import java.io.IOException
  * [create] it, seed [manga] and [chapter] rows, then [open] a model and ask it things.
  */
 class MangaReaderViewModelHarness private constructor(
-    private val driver: JdbcSqliteDriver,
+    private val driver: SerialSqliteDriver,
     database: Database,
 ) : AutoCloseable {
 
     companion object {
         suspend fun create(): MangaReaderViewModelHarness {
-            val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+            val driver = SerialSqliteDriver()
             Database.Schema.create(driver).await()
             return MangaReaderViewModelHarness(driver, DatabaseBindings.providesDatabase(driver))
         }

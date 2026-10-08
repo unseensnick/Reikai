@@ -6,7 +6,6 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
-import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
@@ -92,12 +91,12 @@ import java.util.concurrent.atomic.AtomicInteger
  */
 class NovelReaderViewModelHarness private constructor(
     scheduler: TestCoroutineScheduler,
-    private val driver: JdbcSqliteDriver,
+    private val driver: SerialSqliteDriver,
 ) {
 
     companion object {
         suspend fun create(scheduler: TestCoroutineScheduler): NovelReaderViewModelHarness {
-            val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+            val driver = SerialSqliteDriver()
             Database.Schema.create(driver).await()
             return NovelReaderViewModelHarness(scheduler, driver)
         }
