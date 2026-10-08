@@ -8,6 +8,7 @@ import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.NovelPreferences
+import reikai.util.carryIfSet
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -28,11 +29,8 @@ class NovelTapLayoutMigration(
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         runCatching {
-            val tapToScroll = preferenceStore.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false)
-            if (!tapToScroll.isSet()) return@runCatching
-
-            novelPreferences.carryReaderTapToScroll(tapToScroll.get())
-            tapToScroll.delete()
+            preferenceStore.getBoolean(DEAD_READER_TAP_TO_SCROLL_KEY, false)
+                .carryIfSet(novelPreferences::carryReaderTapToScroll)
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to carry the novel tap-to-scroll switch into a tap layout" }
         }

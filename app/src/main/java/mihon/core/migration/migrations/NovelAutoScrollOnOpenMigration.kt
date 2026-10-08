@@ -8,6 +8,7 @@ import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.novel.DEAD_READER_AUTO_SCROLL_KEY
 import reikai.domain.novel.NovelPreferences
+import reikai.util.carryIfSet
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -27,11 +28,8 @@ class NovelAutoScrollOnOpenMigration(
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         runCatching {
-            val running = preferenceStore.getBoolean(DEAD_READER_AUTO_SCROLL_KEY, false)
-            if (!running.isSet()) return@runCatching
-
-            novelPreferences.carryReaderAutoScroll(running.get())
-            running.delete()
+            preferenceStore.getBoolean(DEAD_READER_AUTO_SCROLL_KEY, false)
+                .carryIfSet(novelPreferences::carryReaderAutoScroll)
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to carry the novel auto-scroll switch into start-on-open" }
         }

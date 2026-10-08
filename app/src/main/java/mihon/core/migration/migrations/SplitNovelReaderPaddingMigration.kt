@@ -8,6 +8,7 @@ import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
 import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.NovelPreferences
+import reikai.util.carryIfSet
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -30,13 +31,8 @@ class SplitNovelReaderPaddingMigration(
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         runCatching {
-            // An untouched slider stored nothing, so it is left to the new defaults rather than
-            // being written back as an explicit value.
-            val padding = preferenceStore.getInt(DEAD_READER_PADDING_KEY, 0)
-            if (!padding.isSet()) return@runCatching
-
-            novelPreferences.carryReaderPaddingToMargins(padding.get())
-            padding.delete()
+            preferenceStore.getInt(DEAD_READER_PADDING_KEY, 0)
+                .carryIfSet(novelPreferences::carryReaderPaddingToMargins)
         }.onFailure {
             logcat(LogPriority.ERROR, it) { "Failed to split the novel reader padding into margins" }
         }
