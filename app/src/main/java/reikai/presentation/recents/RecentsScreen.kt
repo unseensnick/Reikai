@@ -62,6 +62,7 @@ import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
+import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ChapterSwipeActions
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -577,7 +578,7 @@ private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapte
     is RecentsChapterUi.Named -> chapter.name
     is RecentsChapterUi.Number ->
         chapter.value
-            .takeIf { it > -1 }
+            .takeIf(::isRecognizedChapterNumber)
             ?.let { stringResource(MR.strings.recents_row_chapter, formatChapterNumber(it)) }
     null -> null
 }
