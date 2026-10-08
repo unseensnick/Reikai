@@ -165,7 +165,11 @@ private fun MigrateSourcesList(
                 icon = {
                     when (row.key) {
                         is SourceKey.Manga -> SourceIcon(source = row.source as Source, modifier = Modifier.size(48.dp))
-                        is SourceKey.Novel -> NovelSourceIcon((row.source as NovelMigrateSource).iconUrl, size = 48.dp)
+                        is SourceKey.Novel -> NovelSourceIcon(
+                            (row.source as NovelMigrateSource).iconUrl,
+                            size = 48.dp,
+                            missing = row.isStub,
+                        )
                     }
                 },
             )

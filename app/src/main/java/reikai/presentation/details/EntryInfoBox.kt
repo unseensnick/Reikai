@@ -48,10 +48,10 @@ import exh.debug.LocalCoverImagesHidden
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.Person
-import mihon.icons.materialsymbols.rounded.Warning
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.asNovelCover
+import reikai.presentation.browse.components.MissingSourceIcon
 import reikai.presentation.components.entryStatusIcon
 import reikai.presentation.components.entryStatusRes
 import tachiyomi.domain.manga.model.Manga
@@ -391,13 +391,10 @@ private fun ColumnScope.EntryContentInfo(
             )
             DotSeparatorText()
             if (header.sourceState == EntrySourceState.Missing) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.Warning,
-                    contentDescription = null,
-                    modifier = Modifier
+                MissingSourceIcon(
+                    Modifier
                         .padding(end = 4.dp)
                         .size(16.dp),
-                    tint = MaterialTheme.colorScheme.error,
                 )
             }
             Text(

@@ -63,7 +63,6 @@ import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.SelectAll
-import mihon.icons.materialsymbols.rounded.Warning
 import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.components.entryStatusIcon
 import reikai.presentation.components.entryStatusRes
@@ -423,12 +422,7 @@ private fun EntryDuplicateCard(
             horizontalArrangement = Arrangement.Center,
         ) {
             if (ui.source is EntrySourceLabel.Missing) {
-                Icon(
-                    imageVector = MaterialSymbols.Rounded.Warning,
-                    contentDescription = null,
-                    modifier = Modifier.size(EntryDetailsIconWidth),
-                    tint = MaterialTheme.colorScheme.error,
-                )
+                MissingSourceIcon(Modifier.size(EntryDetailsIconWidth))
             }
             Text(
                 text = ui.source.name,

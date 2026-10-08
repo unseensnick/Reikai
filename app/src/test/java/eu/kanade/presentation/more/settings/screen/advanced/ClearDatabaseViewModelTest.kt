@@ -79,6 +79,27 @@ class ClearDatabaseViewModelTest {
         ready.novelItems.single().iconUrl shouldBe "https://i/p1.png"
     }
 
+    /** Its remembered icon stays in the state; the row draws the missing-source icon over it, as for a manga stub. */
+    @Test
+    fun `an uninstalled plugin is marked not installed`() = runTest {
+        val model = ClearDatabaseViewModel(
+            mangaRepository = mockk(),
+            historyRepository = mockk(),
+            getSourcesWithNonLibraryManga = mockk { every { subscribe() } returns flowOf(emptyList()) },
+            novelRepository = mockk<NovelRepository> {
+                every { getSourcesWithNonLibraryNovelAsFlow() } returns flowOf(listOf("p1" to 2L))
+            },
+            novelSourceManager = manager(
+                seen = mapOf("p1" to LnSourceIdentity(name = "Old Site", iconUrl = "https://i/p1.png")),
+            ),
+        )
+
+        val ready = model.state.filterIsInstance<ClearDatabaseViewModel.State.Ready>().first()
+        model.viewModelScope.cancel()
+
+        ready.novelItems.single().isInstalled shouldBe false
+    }
+
     @Test
     fun `an uninstalled plugin keeps the language it was last seen with`() = runTest {
         val model = ClearDatabaseViewModel(

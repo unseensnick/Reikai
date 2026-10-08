@@ -51,6 +51,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.novel.NovelRepository
+import reikai.domain.source.isInstalled
 import reikai.domain.source.sourceVisualName
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.components.NovelSourceIcon
@@ -210,7 +211,9 @@ class ClearDatabaseScreen : Screen() {
                             items(s.novelItems) { novelSource ->
                                 ClearDatabaseItem(
                                     name = sourceVisualName(novelSource.name, novelSource.lang),
-                                    icon = { NovelSourceIcon(iconUrl = novelSource.iconUrl) },
+                                    icon = {
+                                        NovelSourceIcon(iconUrl = novelSource.iconUrl, missing = !novelSource.isInstalled)
+                                    },
                                     count = novelSource.count,
                                     isSelected = s.novelSelection.contains(novelSource.id),
                                     onClickSelect = { viewModel.toggleNovelSelection(novelSource.id) },
@@ -309,6 +312,7 @@ class ClearDatabaseViewModel(
                                 iconUrl = identity.iconUrl,
                                 lang = identity.lang.orEmpty(),
                                 count = count,
+                                isInstalled = novelSourceManager.isInstalled(sourceId),
                             )
                         }
                         .sortedBy { it.name }
@@ -417,7 +421,7 @@ class ClearDatabaseViewModel(
     }
 
     // RK --> display row for a novel source with its non-favorite count; an uninstalled source keeps
-    // the identity it was last seen with (NovelSourceManager.identityOf)
+    // the name it was last seen with (NovelSourceManager.identityOf) and shows the missing-source icon
     @Immutable
     data class NovelSourceWithCount(
         val id: String,
@@ -425,6 +429,7 @@ class ClearDatabaseViewModel(
         val iconUrl: String?,
         val lang: String,
         val count: Long,
+        val isInstalled: Boolean,
     )
     // RK <--
 }

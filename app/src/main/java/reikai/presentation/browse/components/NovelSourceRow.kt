@@ -83,7 +83,7 @@ fun BrowseSectionHeader(
 val NovelIconInset = 4.dp
 
 /**
- * Shared with the Clear-database screen's novel rows; renders a placeholder when the URL is absent.
+ * A placeholder when the URL is absent; the [MissingSourceIcon] when the source is [missing].
  *
  * The [NovelIconInset] is what keeps a novel row lined up with a manga one. Both icons occupy the
  * same [size] box, but a manga source icon is an Android app icon carrying its own transparent margin,
@@ -91,7 +91,11 @@ val NovelIconInset = 4.dp
  * read as noticeably larger next to it.
  */
 @Composable
-fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp) {
+fun NovelSourceIcon(iconUrl: String?, size: Dp = 40.dp, missing: Boolean = false) {
+    if (missing) {
+        MissingSourceIcon(Modifier.size(size))
+        return
+    }
     val modifier = Modifier
         .size(size)
         .padding(NovelIconInset)
