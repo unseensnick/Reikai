@@ -6,6 +6,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelHistoryRepositoryImpl
@@ -52,6 +53,16 @@ class LastReadSortConformanceTest {
         type.clearHistory(database)
 
         type.lastRead(database) shouldBe 0L
+    }
+
+    // Novels offer no scanlator filter, so there is no novel case.
+    @Test
+    fun `a manga chapter from an excluded scanlator does not count for Last read`() = runTest {
+        Type.MANGA.seed(driver)
+        driver.execute(null, "UPDATE chapter SET remote_scanlator = 'x' WHERE id = 2", 0).await()
+        driver.execute(null, "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (1, 'x')", 0).await()
+
+        Type.MANGA.lastRead(database) shouldBe 300L
     }
 
     /** One library entry with two chapters, read at 300 and 500. */

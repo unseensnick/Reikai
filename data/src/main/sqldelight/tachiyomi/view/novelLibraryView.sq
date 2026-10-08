@@ -12,7 +12,18 @@ SELECT
     coalesce(C.readCount, 0) AS readCount,
     coalesce(C.latestUpload, 0) AS latestUpload,
     coalesce(C.fetchedAt, 0) AS chapterFetchedAt,
-    coalesce(C.lastRead, 0) AS lastRead,
+    -- Read per novel rather than joined to every chapter, as libraryView does; novel_history has no
+    -- novel id, so the subquery reaches it through the novel's chapters
+    coalesce(
+        (
+            SELECT max(novel_history.last_read)
+            FROM novel_chapters
+            JOIN novel_history
+            ON novel_history.chapter_id = novel_chapters._id
+            WHERE novel_chapters.novel_id = N._id
+        ),
+        0
+    ) AS lastRead,
     coalesce(C.bookmarkCount, 0) AS bookmarkCount,
     coalesce(NC.categories, '0') AS categories
 FROM novels N
@@ -22,12 +33,9 @@ LEFT JOIN (
         count(*) AS total,
         sum(read) AS readCount,
         coalesce(max(novel_chapters.date_upload), 0) AS latestUpload,
-        coalesce(max(novel_history.last_read), 0) AS lastRead,
         coalesce(max(novel_chapters.date_fetch), 0) AS fetchedAt,
         sum(novel_chapters.bookmark) AS bookmarkCount
     FROM novel_chapters
-    LEFT JOIN novel_history
-    ON novel_chapters._id = novel_history.chapter_id
     WHERE novel_chapters.novel_id IN (SELECT _id FROM novels WHERE favorite_at IS NOT NULL)
     GROUP BY novel_chapters.novel_id
 ) AS C

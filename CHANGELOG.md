@@ -722,6 +722,7 @@ agent under Settings -> Advanced.
 - Under the hood, synced from Mihon: screens hold state in AndroidX ViewModels (mihonapp/mihon#3594, mihonapp/mihon#3763), and components are wired together at build time, closing a class of release-only crash (mihonapp/mihon#3608, mihonapp/mihon#3965).
 - Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy.
 - Synced from Mihon: the database uses WAL on every device, with one reader instead of four on low-memory ones (mihon 61cd786e7).
+- The manga and novel libraries read each entry's last read time without joining history to every chapter, so they refresh faster (partly from Mihon, mihon 5df78e305).
 - Under the hood, synced from Mihon: cancelling an extension install no longer goes through a local broadcast (mihonapp/mihon#3226), and tracker internals were tidied up (mihonapp/mihon#3900, mihonapp/mihon#3908).
 
 ## [0.3.2]
