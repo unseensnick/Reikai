@@ -20,6 +20,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.download.swipeDownloadAction
+import reikai.domain.download.whereDownloadOffered
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.progressWhileUnread
@@ -90,10 +91,11 @@ fun ReaderChapterListDialog(
                     bookmark = bookmark,
                     selected = false,
                     downloadIndicatorEnabled = true,
+                    downloadIndicatorShown = row.offersDownload,
                     downloadStateProvider = { downloadState },
                     downloadProgressProvider = { row.downloadProgress },
-                    chapterSwipeStartAction = chapterSwipeStartAction,
-                    chapterSwipeEndAction = chapterSwipeEndAction,
+                    chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(row.offersDownload),
+                    chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(row.offersDownload),
                     onLongClick = {},
                     onClick = { onClickChapter(row.id) },
                     onDownloadClick = { action -> runDownloadAction(row.id, action) },

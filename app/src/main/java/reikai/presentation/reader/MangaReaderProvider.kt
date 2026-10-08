@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.onStart
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.offersDownload
 import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DownloadTargets
@@ -343,6 +344,7 @@ internal fun ReaderChapterItem.toReaderChapterRow(
 ): ReaderChapterRow {
     // A row whose download fetches another source's copy follows that copy through the queue.
     val active = targets.queuedFor(chapter.id, queued::get)
+    val downloadState = downloadStateOf(active?.status) { flags.isDownloaded(chapter) }
     return ReaderChapterRow(
         id = chapter.id,
         title = chapterRowTitle(chapter.name, chapter.chapterNumber, numberOnly, words),
@@ -353,7 +355,8 @@ internal fun ReaderChapterItem.toReaderChapterRow(
             ?.let { (resource, args) -> words.pageProgress(resource, args) },
         read = flags.isRead(chapter),
         bookmark = flags.isBookmarked(chapter),
-        downloadState = downloadStateOf(active?.status) { flags.isDownloaded(chapter) },
+        downloadState = downloadState,
         downloadProgress = active?.progress ?: 0,
+        offersDownload = targets.offersDownload(chapter.id, downloadState),
     )
 }

@@ -34,6 +34,7 @@ import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ExpandMore
+import reikai.domain.download.whereDownloadOffered
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
@@ -454,10 +455,6 @@ private fun LazyListScope.entryChapterItems(
                 val titleWords = remember(context) { context.chapterTitleWords() }
                 val isSelected = chapter.id in state.selection
                 val offersDownload = state.rowOffersDownload(chapter.id, chapter.downloadState)
-                val swipeOf = { action: LibraryPreferences.ChapterSwipeAction ->
-                    action.takeIf { offersDownload || it != LibraryPreferences.ChapterSwipeAction.Download }
-                        ?: LibraryPreferences.ChapterSwipeAction.Disabled
-                }
                 MangaChapterListItem(
                     modifier = Modifier.alpha(
                         if (chapter.id in state.chapters.hiddenChapterIds) HIDDEN_CHAPTER_ALPHA else 1f,
@@ -477,8 +474,8 @@ private fun LazyListScope.entryChapterItems(
                     downloadIndicatorEnabled = !selectionMode && chaptersDownloadable,
                     downloadStateProvider = { chapter.downloadState },
                     downloadProgressProvider = { chapter.downloadProgress },
-                    chapterSwipeStartAction = swipeOf(chapterSwipeStartAction),
-                    chapterSwipeEndAction = swipeOf(chapterSwipeEndAction),
+                    chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(offersDownload),
+                    chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(offersDownload),
                     onLongClick = {
                         behavior.toggleSelection(chapter.id, true)
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)

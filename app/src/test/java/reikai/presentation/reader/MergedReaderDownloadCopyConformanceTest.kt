@@ -1,12 +1,14 @@
 package reikai.presentation.reader
 
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.tachiyomi.ui.reader.chapter.ReaderChapterItem
 import eu.kanade.tachiyomi.ui.reader.loader.DownloadPageLoader
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -62,6 +64,20 @@ class MergedReaderDownloadCopyConformanceTest {
         probe.downloadAhead(this) shouldBe setOf(ReaderCopy.A3)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the sheet offers no download for a chapter only a missing source holds`(probe: ReaderDownloadProbe) =
+        runTest {
+            probe.sheetOffersDownload(this, ReaderCopy.M4) shouldBe false
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the sheet offers a download for a chapter an installed source also holds`(probe: ReaderDownloadProbe) =
+        runTest {
+            probe.sheetOffersDownload(this, ReaderCopy.M3) shouldBe true
+        }
+
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaDownloadProbe(), NovelDownloadProbe())
@@ -80,6 +96,9 @@ interface ReaderDownloadProbe {
     /** The copies download-ahead hands the downloader from chapter 1, three chapters ahead. Chapter 2 is
      *  on disk, which the downloader drops for itself; only what it is handed beyond that is returned. */
     suspend fun downloadAhead(scope: TestScope): Set<ReaderCopy>
+
+    /** Whether the chapter sheet draws [row]'s download control. */
+    suspend fun sheetOffersDownload(scope: TestScope, row: ReaderCopy): Boolean
 }
 
 class MangaDownloadProbe : ReaderDownloadProbe {
@@ -124,6 +143,19 @@ class MangaDownloadProbe : ReaderDownloadProbe {
         current.pageLoader = mockk<DownloadPageLoader>(relaxed = true)
         model.onPageSelected(pages[1])
         settle(queued) - ReaderCopy.A2
+    }
+
+    override suspend fun sheetOffersDownload(scope: TestScope, row: ReaderCopy): Boolean = open { model, _, group, _ ->
+        val chapter = group.pooledChapters.first { it.id == ids.getValue(row) }
+        ReaderChapterItem(chapter, sourceName = null)
+            .toReaderChapterRow(
+                emptyMap(),
+                model.sheetFlags(listOf(chapter)),
+                false,
+                EnglishChapterTitleWords,
+                model.downloadTargets,
+            )
+            .offersDownload
     }
 
     private suspend fun settle(queued: Set<Long>): Set<ReaderCopy> = withContext(Dispatchers.Default) {
@@ -210,12 +242,22 @@ class NovelDownloadProbe : ReaderDownloadProbe {
         queued - ReaderCopy.A2
     }
 
+    override suspend fun sheetOffersDownload(scope: TestScope, row: ReaderCopy): Boolean = open(scope) {
+            harness,
+            ids,
+            _,
+        ->
+        val model = harness.open(ids.getValue(ReaderCopy.A1).novel, ids.getValue(ReaderCopy.A1).id)
+        scope.advanceUntilIdle()
+        model.chapterRows(EnglishChapterTitleWords).first().single { it.id == ids.getValue(row).id }.offersDownload
+    }
+
     private class Seeded(val novel: Long, val id: Long)
 
-    private suspend fun open(
+    private suspend fun <T> open(
         scope: TestScope,
-        probe: suspend (NovelReaderViewModelHarness, Map<ReaderCopy, Seeded>, Set<ReaderCopy>) -> Set<ReaderCopy>,
-    ): Set<ReaderCopy> = NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+        probe: suspend (NovelReaderViewModelHarness, Map<ReaderCopy, Seeded>, Set<ReaderCopy>) -> T,
+    ): T = NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
         val m = harness.novel(FakeNovelSource("gone", "unregistered"))
         val a = harness.novel(harness.source("alpha"))
         val names = listOf("Opening", "Second", "Third", "Only gone has this")

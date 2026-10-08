@@ -43,6 +43,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
 import reikai.domain.manga.AdultContentChecker
@@ -1422,21 +1423,25 @@ internal fun NovelChapter.toReaderChapterRow(
     numberOnly: Boolean,
     words: ChapterTitleWords,
     targets: DownloadTargets = DownloadTargets.OWN,
-) = ReaderChapterRow(
-    id = id,
-    title = chapterRowTitle(name, chapterNumber, numberOnly, words),
-    subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
-    dateUpload = dateUpload,
-    readProgress = percentProgressLabel(lastTextProgress),
-    read = flags.isRead(this),
-    bookmark = flags.isBookmarked(this),
+): ReaderChapterRow {
     // A row whose download fetches another source's copy follows that copy through the queue.
-    downloadState = downloadStateOf(targets.queuedFor(id, queued::get)?.state?.toDownloadState()) {
+    val downloadState = downloadStateOf(targets.queuedFor(id, queued::get)?.state?.toDownloadState()) {
         flags.isDownloaded(this)
-    },
-    // A novel chapter is one request, so there is no percentage to report while it runs.
-    downloadProgress = 0,
-)
+    }
+    return ReaderChapterRow(
+        id = id,
+        title = chapterRowTitle(name, chapterNumber, numberOnly, words),
+        subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
+        dateUpload = dateUpload,
+        readProgress = percentProgressLabel(lastTextProgress),
+        read = flags.isRead(this),
+        bookmark = flags.isBookmarked(this),
+        downloadState = downloadState,
+        // A novel chapter is one request, so there is no percentage to report while it runs.
+        downloadProgress = 0,
+        offersDownload = targets.offersDownload(id, downloadState),
+    )
+}
 
 /** Where the chapter being read is kept for a process kill. Its own key, not the launch extra the
  *  intent carries: a restored Activity is handed that same intent, naming the chapter it opened on. */

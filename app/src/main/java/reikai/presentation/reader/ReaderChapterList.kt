@@ -27,6 +27,8 @@ data class ReaderChapterRow(
     val downloadState: Download.State,
     /** Live percent for the spinner; 0 where the type reports no per-chapter progress. */
     val downloadProgress: Int,
+    /** Whether the row draws its download control and takes a download swipe (offersDownload). */
+    val offersDownload: Boolean,
 )
 
 /**

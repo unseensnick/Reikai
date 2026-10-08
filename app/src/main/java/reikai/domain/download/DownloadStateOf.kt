@@ -2,6 +2,8 @@ package reikai.domain.download
 
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.merge.DownloadTargets
+import tachiyomi.domain.library.service.LibraryPreferences.ChapterSwipeAction
 
 /**
  * A chapter's download state as every row Reikai draws reads it, for both content types: a queued
@@ -23,3 +25,16 @@ fun Download.State.swipeDownloadAction(): ChapterDownloadAction = when (this) {
     Download.State.QUEUE, Download.State.DOWNLOADING -> ChapterDownloadAction.CANCEL
     Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
 }
+
+/**
+ * Whether a row in [downloadState] draws its download control and takes a download swipe, for every
+ * Reikai row of both content types: one on disk or queued always does, an idle one only when its
+ * download can fetch a copy, so a chapter only an uninstalled source holds offers no control that
+ * would do nothing.
+ */
+fun DownloadTargets.offersDownload(chapterId: Long, downloadState: Download.State): Boolean =
+    downloadState != Download.State.NOT_DOWNLOADED || idOf(chapterId) != null
+
+/** This swipe as a row that offers no download takes it: a Download swipe goes with the control. */
+fun ChapterSwipeAction.whereDownloadOffered(offersDownload: Boolean): ChapterSwipeAction =
+    if (offersDownload || this != ChapterSwipeAction.Download) this else ChapterSwipeAction.Disabled
