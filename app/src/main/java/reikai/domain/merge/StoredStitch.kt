@@ -13,11 +13,16 @@ fun <T> renderStoredStitch(chapters: List<T>, stitch: List<ChapterUnit>, id: (T)
     val available = chapters.associateBy(id)
     return stitch.asSequence()
         .filter { it.chapterId in available }
-        .groupBy { it.unit }
+        .bestCopyByUnit()
         .toSortedMap()
         .values
-        .mapNotNull { copies -> available[copies.minBy { it.copyOrder }.chapterId] }
+        .mapNotNull(available::get)
 }
+
+/** Each merged chapter's highest-ranked copy among these, by unit: the one rule for which copy stands
+ *  for the others, whether the list renders it, the reader opens it or an update announces it. */
+private fun Sequence<ChapterUnit>.bestCopyByUnit(): Map<Int, Long> =
+    groupBy { it.unit }.mapValues { (_, copies) -> copies.minBy { it.copyOrder }.chapterId }
 
 /**
  * [renderStoredStitch] as a reading order: a grouped list takes its merged positions as source order,
@@ -95,8 +100,7 @@ class CopyToOpen<T>(
     private val unitOf = scope.copiesIn(stitch).associate { it.chapterId to it.unit }
     private val bestOnDisk = scope.copiesIn(stitch).asSequence()
         .filter { it.chapterId in onDisk && it.chapterId in byId }
-        .groupBy { it.unit }
-        .mapValues { (_, copies) -> copies.minBy { it.copyOrder }.chapterId }
+        .bestCopyByUnit()
 
     fun idOf(chapterId: Long): Long =
         if (chapterId in onDisk) chapterId else unitOf[chapterId]?.let(bestOnDisk::get) ?: chapterId
@@ -158,11 +162,10 @@ fun <T> collapseNewChapters(
         stitch.forEach { if (it.chapterId in arrived) keyOf[it.chapterId] = MergedChapterKey(groupId, it.unit) }
         val alreadyHad = stitch.asSequence().filter { it.chapterId !in arrived }.mapTo(HashSet()) { it.unit }
         arrived.filterTo(announced) { it !in keyOf }
-        stitch.asSequence()
+        announced += stitch.asSequence()
             .filter { it.chapterId in arrived && it.unit !in alreadyHad }
-            .groupBy { it.unit }
+            .bestCopyByUnit()
             .values
-            .forEach { copies -> announced += copies.minBy { it.copyOrder }.chapterId }
     }
     return CollapsedArrivals(announced, keyOf)
 }
