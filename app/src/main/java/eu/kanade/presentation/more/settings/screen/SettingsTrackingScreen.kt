@@ -62,6 +62,7 @@ import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdates
 import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdatesListMapping
 import eu.kanade.tachiyomi.data.track.shikimori.ShikimoriApi
 import eu.kanade.tachiyomi.ui.setting.track.TrackerWebViewLoginActivity
+import eu.kanade.tachiyomi.util.system.isOnline
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toast
 import exh.md.utils.MdConstants
@@ -74,6 +75,8 @@ import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.rounded.VisibilityOff
 import reikai.presentation.components.RevealableSecureTextField
 import reikai.presentation.settings.resetToDefaultPreference
+import reikai.presentation.track.TrackerError
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -694,7 +697,7 @@ private fun NovelUpdatesListMappingDialogContent(
     LaunchedEffect(Unit) {
         runCatching { tracker.readingLists() }
             .onSuccess { lists = it }
-            .onFailure { withUIContext { context.toast(MR.strings.pref_novelupdates_lists_failed) } }
+            .onFailure { withUIContext { context.toastListsFailed(tracker.name, it) } }
         loading = false
     }
 
@@ -725,7 +728,7 @@ private fun NovelUpdatesListMappingDialogContent(
                                 withUIContext {
                                     fetched
                                         .onSuccess { lists = it }
-                                        .onFailure { context.toast(MR.strings.pref_novelupdates_lists_failed) }
+                                        .onFailure { context.toastListsFailed(tracker.name, it) }
                                     loading = false
                                 }
                             }
@@ -793,4 +796,13 @@ private fun NovelUpdatesListMappingDialogContent(
             }
         },
     )
+}
+
+// RK: a lapsed NovelUpdates session asks for a new sign-in, as every other tracker failure does.
+private fun Context.toastListsFailed(name: String, error: Throwable) {
+    if (TrackerError.of(error, isOnline()) == TrackerError.SignedOut) {
+        toast(trackerErrorMessage(name, error))
+    } else {
+        toast(MR.strings.pref_novelupdates_lists_failed)
+    }
 }

@@ -35,6 +35,12 @@ internal fun parseNotesPayload(body: String, json: Json): NovelUpdatesNotes? {
     return runCatching { json.decodeFromString<NovelUpdatesNotes>(objectText) }.getOrNull()
 }
 
+/**
+ * WordPress's reply to an ajax action with no handler for the caller: a 400 whose body is `0`. The
+ * notes read answers an anonymous call with it, so here it means the session has lapsed.
+ */
+internal fun isAnonymousAjaxReply(code: Int, body: String): Boolean = code == 400 && body.trim() == "0"
+
 internal fun progressFrom(notes: String): Int? =
     PROGRESS.find(notes)?.groupValues?.get(1)?.toIntOrNull()
 

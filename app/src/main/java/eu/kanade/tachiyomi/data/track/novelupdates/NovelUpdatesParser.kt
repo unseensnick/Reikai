@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.novelupdates
 
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
+import reikai.data.track.TrackerSignedOutException
 
 // Every parse NovelUpdates needs, kept apart from the requests so each one is testable against a
 // fixture. Selectors sit in NuSelector so a site redesign has one place to fix rather than a hunt
@@ -90,9 +91,15 @@ internal fun parseNovelId(document: Document): String? {
     return document.select(NuSelector.POST_ID).attr("value").ifBlank { null }
 }
 
-/** The list the novel sits on, or null when it is on none, which the add button marks. */
+/**
+ * The list the novel sits on, or null when it is on none, which the add button marks. A series page
+ * with no list panel at all is the anonymous one a lapsed session gets.
+ */
 internal fun parseListId(document: Document): Long? {
     val panel = document.select(NuSelector.LIST_PANEL)
+    if (panel.isEmpty() && document.selectFirst(NuSelector.DETAILS_TITLE) != null) {
+        throw TrackerSignedOutException(NovelUpdatesApi.NAME)
+    }
     if (panel.select(NuSelector.ADD_ME).isNotEmpty()) return null
     return LIST_ID.find(panel.select(NuSelector.LIST_LINK).attr("href"))
         ?.groupValues

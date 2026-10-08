@@ -34,7 +34,7 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * hidden rather than doing nothing.
  */
 class NovelUpdates(id: Long) :
-    BaseTracker(id, "NovelUpdates"),
+    BaseTracker(id, NovelUpdatesApi.NAME),
     DeletableTracker,
     CookieLoginTracker,
     AutoBindTracker,
@@ -246,7 +246,7 @@ class NovelUpdates(id: Long) :
         saveDisplayUsername(signedInAccount().username.orEmpty())
     }
 
-    // A logged-out page still loads, so an account with no reading lists is the only sign of a dead session.
+    // A logged-out page still loads, so an account page with no reading lists is what a dead session shows.
     private suspend fun signedInAccount(): NovelUpdatesAccount {
         val account = api.account()
         if (account.lists.isEmpty()) {
@@ -324,7 +324,7 @@ class NovelUpdates(id: Long) :
             NovelUpdatesListMapping.Default
         }
 
-    suspend fun readingLists(): List<Pair<String, String>> = api.readingLists()
+    suspend fun readingLists(): List<Pair<String, String>> = signedInAccount().lists
 
     private fun NovelUpdatesSeries.toTrackSearch(): TrackSearch = TrackSearch.create(this@NovelUpdates.id).also {
         it.remote_id = id?.toLongOrNull() ?: 0L

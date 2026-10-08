@@ -1,7 +1,9 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.POST
+import eu.kanade.tachiyomi.network.await
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimit
 import eu.kanade.tachiyomi.util.asJsoup
@@ -12,6 +14,7 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
+import reikai.data.track.TrackerSignedOutException
 import tachiyomi.core.common.util.lang.withIOContext
 import uy.kohesive.injekt.injectLazy
 import java.net.URLEncoder
@@ -46,22 +49,27 @@ class NovelUpdatesApi(client: OkHttpClient) {
 
     suspend fun findListId(novelId: String): Long? = get("$BASE_URL/series/?p=$novelId", ::parseListId)
 
-    suspend fun readingLists(): List<Pair<String, String>> = get("$BASE_URL/reading-list/", ::parseReadingLists)
-
     /** Both come off the reading-list page, so signing in costs one request rather than two. */
     suspend fun account(): NovelUpdatesAccount = get("$BASE_URL/reading-list/") { page ->
         NovelUpdatesAccount(username = parseUsername(page), lists = parseReadingLists(page))
     }
 
-    /** Null when the response does not parse, which the caller must treat as "do not write". */
+    /**
+     * Null when the response does not parse, which the caller must treat as "do not write". The
+     * anonymous reply a lapsed session gets throws as signed out rather than as a bare HTTP 400.
+     */
     suspend fun readNotes(novelId: String): NovelUpdatesNotes? {
         val body = FormBody.Builder()
             .add("action", "wi_notestagsfic")
             .add("strSID", novelId)
             .build()
         return withIOContext {
-            val text = client.newCall(POST(AJAX_URL, headers, body)).awaitSuccess().body.string()
-            parseNotesPayload(text, json)
+            client.newCall(POST(AJAX_URL, headers, body)).await().use { response ->
+                val text = response.body.string()
+                if (isAnonymousAjaxReply(response.code, text)) throw TrackerSignedOutException(NAME)
+                if (!response.isSuccessful) throw HttpException(response.code)
+                parseNotesPayload(text, json)
+            }
         }
     }
 
@@ -117,6 +125,8 @@ class NovelUpdatesApi(client: OkHttpClient) {
     }
 
     companion object {
+        const val NAME = "NovelUpdates"
+
         const val BASE_URL = "https://www.novelupdates.com"
 
         private const val AJAX_URL = "$BASE_URL/wp-admin/admin-ajax.php"
