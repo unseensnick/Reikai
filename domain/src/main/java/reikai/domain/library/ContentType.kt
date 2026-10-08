@@ -13,3 +13,6 @@ enum class ContentType {
 
 /** Whether this chip shows entries of [type]: its own type, or every type under [ContentType.ALL]. */
 fun ContentType.includes(type: ContentType): Boolean = this == ContentType.ALL || this == type
+
+/** Whether a list holding [types] mixes content types, the one case where a row names its own type. */
+fun mixesContentTypes(types: Iterable<ContentType>): Boolean = types.distinct().size > 1

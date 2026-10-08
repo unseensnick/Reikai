@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.update
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.mixesContentTypes
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Duration.Companion.seconds
@@ -191,7 +192,7 @@ class EntryDownloadQueueViewModel(
     @Immutable
     data class State(val cards: List<EntryDownloadCardUi> = emptyList()) {
         /** The type badge only matters while both content types are queued. */
-        val showTypeBadge: Boolean get() = cards.distinctBy { it.contentType }.size > 1
+        val showTypeBadge: Boolean get() = mixesContentTypes(cards.map { it.contentType })
     }
 
     @Immutable
