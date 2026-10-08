@@ -12,8 +12,9 @@ import reikai.domain.novel.NovelChapterRepository
 
 /**
  * Persists the active novel-download queue across process restarts (mirrors the manga
- * [eu.kanade.tachiyomi.data.download.DownloadStore]). Only `{novelId, chapterId, order}` is stored;
- * the chapter url is re-read from the DB on [restore] so an interrupted batch resumes.
+ * [eu.kanade.tachiyomi.data.download.DownloadStore], pinned by SavedQueueRestoreOrderTest). Only
+ * `{novelId, chapterId, order}` is stored; the chapter url is re-read from the DB on [restore] so an
+ * interrupted batch resumes.
  */
 class NovelDownloadStore(
     context: Context,
