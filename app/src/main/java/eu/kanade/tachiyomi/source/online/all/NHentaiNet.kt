@@ -28,6 +28,7 @@ import exh.source.fillFrom
 import exh.source.nhJson
 import exh.source.nhPagePreviews
 import exh.source.nhPreferredTitle
+import exh.source.singleChapterGalleryUpdate
 import exh.util.SourceTagsUtil
 import exh.util.urlImportFetchSearchMangaSuspend
 import kotlinx.serialization.SerialName
@@ -121,26 +122,8 @@ class NHentaiNet(private val context: Context) :
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response)
-        } else {
-            manga
-        }
-        // An nhentai gallery is a single chapter; reading happens through the gallery's pages.
-        val updatedChapters = if (fetchChapters) {
-            listOf(
-                SChapter.create().apply {
-                    url = manga.url
-                    name = "Chapter"
-                    chapter_number = 1f
-                },
-            )
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = singleChapterGalleryUpdate(manga, chapters, fetchDetails, fetchChapters) {
+        parseToManga(manga, client.newCall(mangaDetailsRequest(manga)).awaitSuccess())
     }
 
     override fun pageListRequest(chapter: SChapter): Request =

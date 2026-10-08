@@ -21,6 +21,7 @@ import exh.metadata.metadata.PururinSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
 import exh.source.PURURIN_SOURCE_ID
+import exh.source.singleChapterGalleryUpdate
 import exh.util.urlImportFetchSearchMangaSuspend
 import okhttp3.Request
 import okhttp3.Response
@@ -103,26 +104,8 @@ class Pururin(private val context: Context) :
         chapters: List<SChapter>,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
-    ): SMangaUpdate {
-        val updatedManga = if (fetchDetails) {
-            val response = client.newCall(mangaDetailsRequest(manga)).awaitSuccess()
-            parseToManga(manga, response.asJsoup())
-        } else {
-            manga
-        }
-        // A Pururin gallery is a single chapter; reading happens through the gallery page.
-        val updatedChapters = if (fetchChapters) {
-            listOf(
-                SChapter.create().apply {
-                    url = manga.url
-                    name = "Chapter"
-                    chapter_number = 1f
-                },
-            )
-        } else {
-            chapters
-        }
-        return SMangaUpdate(updatedManga, updatedChapters)
+    ): SMangaUpdate = singleChapterGalleryUpdate(manga, chapters, fetchDetails, fetchChapters) {
+        parseToManga(manga, client.newCall(mangaDetailsRequest(manga)).awaitSuccess().asJsoup())
     }
 
     override fun pageListParse(response: Response): List<Page> {
