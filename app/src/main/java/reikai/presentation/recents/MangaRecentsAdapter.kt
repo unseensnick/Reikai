@@ -50,6 +50,8 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Adapts Mihon's two live models to the neutral [RecentsProvider]. Both stay live and upstream-tracked
@@ -72,6 +74,7 @@ class MangaRecentsAdapter(
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val downloadManager: DownloadManager,
     private val downloadCache: DownloadCache,
+    private val sourceManager: SourceManager,
     // Read from the preference rather than off the model, whose copy is a Compose State the engine
     // cannot collect.
     private val libraryPreferences: LibraryPreferences,
@@ -122,7 +125,9 @@ class MangaRecentsAdapter(
                 loaded = state.list != null,
             )
         }
-        readCopies.lane(rows, membership) { ids -> mergedChapterUnits.getCopiesAsFlow(ContentType.MANGA, ids) }
+        readCopies.lane(rows, membership, ::missingSourcesAmong) { ids ->
+            mergedChapterUnits.getCopiesAsFlow(ContentType.MANGA, ids)
+        }
     }
 
     /** The read lane's grouped rows' copies, which their download state is drawn over. */
@@ -181,6 +186,7 @@ class MangaRecentsAdapter(
 
     override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
         val (resolved, mangaById) = resolveTarget(item) ?: return null
+        val missing = missingSourcesAmong(mangaById.values.mapTo(HashSet()) { it.source.toString() })
         return resolved.toTargetRow(
             item.lane,
             id = { it.id },
@@ -201,8 +207,12 @@ class MangaRecentsAdapter(
                     )
                 }.toMap()
             },
-        ) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) }
+        ) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) { it.ownerSource !in missing } }
     }
+
+    /** Which of [sources], manga source ids as text, are not installed. */
+    private suspend fun missingSourcesAmong(sources: Set<String>): Set<String> =
+        sources.filterTo(HashSet()) { sourceManager.getOrStub(it.toLong()) is StubSource }
 
     /**
      * The lane's target over the group, with the group's members by id, which a copy's download is looked
@@ -314,30 +324,33 @@ class MangaRecentsAdapter(
      * on each download tick. The Downloaded filter asks this same state.
      */
     private fun historyDownloadUi(lane: RecentsLane, payload: HistoryWithRelations) =
-        copiesDownloadUi(lane, payload.chapterId) {
+        copiesDownloadUi(lane, payload.chapterId, copies = {
             with(payload) {
                 readCopies.copiesOf(chapterId, storedTitle, sourceId.toString(), chapterName, scanlator, chapterUrl)
             }
-        }
+        }, isInstalled = readCopies::isInstalled)
 
-    private fun copiesDownloadUi(lane: RecentsLane, chapterId: Long, copies: () -> List<ChapterCopyRow>) =
-        recentsCopiesDownloadUi(
-            lane,
-            chapterId,
-            copies,
-            queued = { downloadManager.getQueuedDownloadOrNull(chapterId)?.status },
-            progress = RecentsDownloadProgress.Live {
-                downloadManager.getQueuedDownloadOrNull(chapterId)?.progress ?: 0
-            },
-        ) { copy ->
-            downloadManager.isChapterDownloaded(
-                copy.chapterName,
-                copy.scanlator,
-                copy.chapterUrl,
-                copy.ownerTitle,
-                copy.ownerSource.toLong(),
-            )
-        }
+    private fun copiesDownloadUi(
+        lane: RecentsLane,
+        chapterId: Long,
+        copies: () -> List<ChapterCopyRow>,
+        isInstalled: (ChapterCopyRow) -> Boolean,
+    ) = recentsCopiesDownloadUi(
+        lane,
+        chapterId,
+        copies,
+        queued = { id -> downloadManager.getQueuedDownloadOrNull(id)?.status },
+        progress = { id -> downloadManager.getQueuedDownloadOrNull(id)?.progress },
+        isInstalled = isInstalled,
+    ) { copy ->
+        downloadManager.isChapterDownloaded(
+            copy.chapterName,
+            copy.scanlator,
+            copy.chapterUrl,
+            copy.ownerTitle,
+            copy.ownerSource.toLong(),
+        )
+    }
 }
 
 /** The updates model already builds both providers per row, so this only hands them over. */

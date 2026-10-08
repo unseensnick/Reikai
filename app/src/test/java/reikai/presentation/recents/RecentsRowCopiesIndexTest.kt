@@ -36,6 +36,55 @@ class RecentsRowCopiesIndexTest {
         flowOf(ids.associateWith { listOf(copy(it, it, 0), copy(it, it + 10, 1)) })
     }
 
+    private val noneMissing: suspend (Set<String>) -> Set<String> = { emptySet() }
+
+    /**
+     * Entry 1's row download control, whose named copy (10) is on source "1", which is not installed;
+     * [shared] puts copy 20 of the same chapter on source "2", which is.
+     */
+    private suspend fun missingSourceRow(
+        shared: Boolean,
+        queued: Map<Long, Download.State> = emptyMap(),
+    ): RecentsDownloadUi {
+        val index = RecentsRowCopiesIndex()
+        index.lane(lane, flowOf(mapOf(merged to 7L)), { it intersect setOf("1") }) { ids ->
+            flowOf(
+                ids.associateWith {
+                    listOf(copy(it, it, 0)) +
+                        listOfNotNull(
+                            ChapterCopyRow(it, ChapterUnit(it + 10, 0, 1), "t", "2", "c", null, "/").takeIf {
+                                shared
+                            },
+                        )
+                },
+            )
+        }.first()
+        return recentsCopiesDownloadUi(
+            mergedRow.lane,
+            10L,
+            { index.copiesOf(10L, "t", "1", "c10", null, "/10") },
+            queued = queued::get,
+            progress = null,
+            isInstalled = index::isInstalled,
+        ) { false }
+    }
+
+    @Test
+    fun `a History row from a missing source follows its installed copy through the queue`() = runTest {
+        missingSourceRow(shared = true, queued = mapOf(20L to Download.State.QUEUE)).state() shouldBe
+            Download.State.QUEUE
+    }
+
+    @Test
+    fun `a History row from a missing source offers the installed copy's download`() = runTest {
+        missingSourceRow(shared = true).offered() shouldBe true
+    }
+
+    @Test
+    fun `a History row only a missing source holds offers no download`() = runTest {
+        missingSourceRow(shared = false).offered() shouldBe false
+    }
+
     private fun stateOf(index: RecentsRowCopiesIndex, chapterId: Long, onDisk: Set<Long>): Download.State {
         val copies = index.copiesOf(chapterId, "t", "1", "c$chapterId", null, "/$chapterId")
         return recentsRowDownloadState(mergedRow.lane, chapterId, copies, null) { it.copy.chapterId in onDisk }
@@ -44,7 +93,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `a History row whose only copy on disk is another source's reads as downloaded`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(mapOf(merged to 7L)), query).first()
+        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).first()
 
         stateOf(index, 10L, onDisk = setOf(20L)) shouldBe Download.State.DOWNLOADED
     }
@@ -52,7 +101,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `a row on an entry in no group answers for its own copy`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(mapOf(merged to 7L)), query).first()
+        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).first()
 
         stateOf(index, 40L, onDisk = setOf(50L)) shouldBe Download.State.NOT_DOWNLOADED
     }
@@ -60,7 +109,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `with merging off a row answers for its own copy`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(emptyMap()), query).first()
+        index.lane(lane, flowOf(emptyMap()), noneMissing, query).first()
 
         stateOf(index, 10L, onDisk = setOf(20L)) shouldBe Download.State.NOT_DOWNLOADED
     }
@@ -72,7 +121,7 @@ class RecentsRowCopiesIndexTest {
         var ticks = 0
         backgroundScope.launch { index.changes.collect { ticks++ } }
         backgroundScope.launch {
-            index.lane(lane, flowOf(mapOf(merged to 7L))) { ids ->
+            index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing) { ids ->
                 stitched.map { done -> if (done) ids.associateWith { listOf(copy(it, it, 0)) } else emptyMap() }
             }.collect {}
         }

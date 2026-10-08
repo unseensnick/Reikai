@@ -1374,7 +1374,7 @@ class ReaderViewModel(
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
         manga ?: return
         viewModelScope.launchIO {
-            val chapters = rowDownloadChapters(action, chapter, downloadCopiesOf(listOf(chapter))) { it.id }
+            val chapters = rowDownloadChapters(action, listOf(chapter), downloadCopiesOf(listOf(chapter))) { it.id }
             chapterDownloadActions.run(action, chapters) {
                 // The copies this session's rows count as downloaded: every source's in group scope,
                 // the chapter's own in source scope.

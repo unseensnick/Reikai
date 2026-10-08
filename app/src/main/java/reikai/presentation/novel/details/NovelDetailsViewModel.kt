@@ -1425,7 +1425,7 @@ class NovelDetailsViewModel(
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
-            val chapters = rowDownloadChapters(action, chapter, downloadCopiesOf(listOf(chapter))) { it.id }
+            val chapters = rowDownloadChapters(action, listOf(chapter), downloadCopiesOf(listOf(chapter))) { it.id }
             downloadManager.runChapterAction(action, chapters) { expandForDelete(listOf(chapter)) }
             if (action == ChapterDownloadAction.START || action == ChapterDownloadAction.START_NOW) {
                 promptAddToLibraryOnFirstDownload()

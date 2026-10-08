@@ -2,14 +2,18 @@ package reikai.presentation.recents
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergedChapterProvider
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.ownersOf
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.withIOContext
 
 /**
@@ -24,6 +28,8 @@ class NovelRecentsChapterActions(
     // Deferred: building the manager restores the persisted queue and can start the download worker,
     // and this class is built with every recents adapter, whether or not a verb ever runs.
     private val downloadManager: () -> NovelDownloadManager,
+    private val novelRepository: NovelRepository,
+    private val sourceManager: NovelSourceManager,
 ) : RecentsChapterActions {
 
     // Through the read interactor, so delete-after-read fires here as on every other novel path.
@@ -35,12 +41,23 @@ class NovelRecentsChapterActions(
         withIOContext { chapterRepository.setBookmarkBulk(chapters.groupIds(MergeScope.Group), bookmarked) }
     }
 
-    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope) {
+    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, scope: MergeScope) {
         withIOContext {
-            downloadManager().runChapterAction(action, chaptersOf(chapters.ownChapterIds<EntryId.Novel>())) {
-                chaptersOf(chapters.groupIds(deleteScope))
+            val rows = chaptersOf(chapters.ownChapterIds<EntryId.Novel>())
+            val fetched =
+                fetchedCopies(rows, scope, { it.id }, { it.novelId }, mergedChapterProvider::stitchOf, ::chaptersOf) {
+                    installedAmong(it)
+                }
+            downloadManager().runChapterAction(action, rowDownloadChapters(action, rows, fetched) { it.id }) {
+                chaptersOf(chapters.groupIds(scope))
             }
         }
+    }
+
+    /** The chapters of [chapters] whose own novel's source is installed. */
+    private suspend fun installedAmong(chapters: List<NovelChapter>): Set<Long> {
+        val installed = novelRepository.ownersOf(chapters).filterValues { sourceManager.get(it.source) != null }.keys
+        return chapters.filter { it.novelId in installed }.mapTo(HashSet()) { it.id }
     }
 
     override suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope) {

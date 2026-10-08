@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeScope
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -27,11 +28,12 @@ interface RecentsChapterActions {
     /**
      * Queues, expedites, cancels or deletes, per the action the row's own indicator raised. One verb
      * with the action rather than one per action: the indicator already speaks in these four cases,
-     * and a bulk download is the same call with [ChapterDownloadAction.START]. Acts on the named
-     * chapters alone, since downloading each grouped copy would fetch it once per source; a delete
-     * goes to [deleteDownloads] with [deleteScope], the scope the row was shown in.
+     * and a bulk download is the same call with [ChapterDownloadAction.START]. Fetches one copy per
+     * named chapter, since downloading each grouped copy would fetch it once per source: its own, or in
+     * [scope], the scope the row was shown in, an installed source's in place of one that is gone
+     * ([fetchedCopies]). A delete goes to [deleteDownloads] with [scope].
      */
-    suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope)
+    suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, scope: MergeScope)
 
     /** Deletes the copies [scope] reaches: every source's for a History row, the named copy alone for
      *  an Updates row, which is what each row shows as downloaded. */
@@ -55,6 +57,28 @@ internal suspend inline fun <reified T : EntryId> Set<ChapterRef>.groupChapterId
         .groupBy { it.entryId.rawId }
         .flatMap { (entryId, refs) -> scope.copiesOf(refs.mapTo(HashSet()) { it.chapterId }, stitchOf(entryId)) }
         .distinct()
+
+/**
+ * [rows] as the copies their downloads fetch in [scope], the scope each row was shown in, through
+ * [DownloadTargets]: a row whose source is gone fetches an installed source's copy of its merged
+ * chapter, or nothing. One kernel for both types' actions; [chaptersOf] loads chapters by id and
+ * [installedAmong] answers which of the given chapters an installed source holds, by id.
+ */
+internal suspend fun <T> fetchedCopies(
+    rows: List<T>,
+    scope: MergeScope,
+    id: (T) -> Long,
+    ownerOf: (T) -> Long,
+    stitchOf: suspend (entryId: Long) -> List<ChapterUnit>,
+    chaptersOf: suspend (List<Long>) -> List<T>,
+    installedAmong: suspend (List<T>) -> Set<Long>,
+): List<T> = rows.groupBy(ownerOf).flatMap { (owner, owned) ->
+    val stitch = stitchOf(owner)
+    val ownIds = owned.mapTo(HashSet(), id)
+    val pooled = owned + chaptersOf((scope.copiesOf(ownIds, stitch) - ownIds).toList())
+    val installed = installedAmong(pooled)
+    DownloadTargets.of(scope, pooled, owned, stitch, id) { id(it) in installed }.of(owned, pooled, id)
+}.distinctBy(id)
 
 /**
  * One content type's action verbs on recent activity, keyed neutrally so a mixed selection dispatches

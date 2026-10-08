@@ -1111,7 +1111,7 @@ class NovelReaderViewModel(
             val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
             val fetched = downloadTargets(pooled).of(listOf(chapter), pooled + chapter) { it.id }
             // The copies the row counts as downloaded, which follow this session's scope.
-            downloadManager.runChapterAction(action, rowDownloadChapters(action, chapter, fetched) { it.id }) {
+            downloadManager.runChapterAction(action, rowDownloadChapters(action, listOf(chapter), fetched) { it.id }) {
                 mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
             }
         }

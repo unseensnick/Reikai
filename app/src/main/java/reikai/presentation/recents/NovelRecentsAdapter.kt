@@ -42,6 +42,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
+import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.components.toDuplicateCard
@@ -78,6 +79,7 @@ class NovelRecentsAdapter(
     // renders its download badge, which is where the previous lazy delegates built them too.
     private val novelDownloadManagerProvider: () -> NovelDownloadManager,
     private val novelDownloadCacheProvider: () -> NovelDownloadCache,
+    private val sourceManager: NovelSourceManager,
     private val application: Context,
     override val chapterActions: NovelRecentsChapterActions,
 ) : RecentsProvider {
@@ -113,7 +115,9 @@ class NovelRecentsAdapter(
                 loaded = state.list != null,
             )
         }
-        readCopies.lane(rows, membership) { ids -> mergedChapterUnits.getCopiesAsFlow(ContentType.NOVELS, ids) }
+        readCopies.lane(rows, membership, ::missingSourcesAmong) { ids ->
+            mergedChapterUnits.getCopiesAsFlow(ContentType.NOVELS, ids)
+        }
     }
 
     /** The read lane's grouped rows' copies, which their download state is drawn over. */
@@ -177,10 +181,11 @@ class NovelRecentsAdapter(
     override suspend fun targetChapter(item: RecentsItem): ChapterRef? =
         resolveTarget(item)?.let { ChapterRef(item.entryId, it.chapterId) }
 
-    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? = resolveTarget(item)?.toTargetRow(
-        item.lane,
-        id = { it.id },
-        project = { copies ->
+    override suspend fun targetRow(item: RecentsItem): RecentsTargetRow? {
+        val resolved = resolveTarget(item) ?: return null
+        val missing =
+            missingSourcesAmong(novelRepository.ownersOf(resolved.pooled).values.mapTo(HashSet()) { it.source })
+        return resolved.toTargetRow(item.lane, id = { it.id }, project = { copies ->
             val ownerOf = novelRepository.ownersOf(copies)
             copies.mapNotNull { copy ->
                 val owner = ownerOf[copy.novelId] ?: return@mapNotNull null
@@ -197,8 +202,12 @@ class NovelRecentsAdapter(
                     progress = ChapterProgress.Percent(copy.lastTextProgress),
                 )
             }.toMap()
-        },
-    ) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) }
+        }) { chapterId, copies -> copiesDownloadUi(item.lane, chapterId, copies) { it.ownerSource !in missing } }
+    }
+
+    /** Which of [sources] are not installed, which a lookup answers after the first plugin load. */
+    private suspend fun missingSourcesAmong(sources: Set<String>): Set<String> =
+        sources.filterTo(HashSet()) { sourceManager.get(it) == null }
 
     /** Only the chapter reads are this type's; the lane rules are [resolveRecentsTarget]'s. */
     private suspend fun resolveTarget(item: RecentsItem): RecentsTarget<NovelChapter>? {
@@ -293,30 +302,34 @@ class NovelRecentsAdapter(
 
     /** Over the row's copies loaded with the lane ([readCopies]); the Downloaded filter asks this too. */
     private fun historyDownloadUi(lane: RecentsLane, payload: NovelHistoryWithRelations) =
-        copiesDownloadUi(lane, payload.chapterId) {
+        copiesDownloadUi(lane, payload.chapterId, copies = {
             with(payload) { readCopies.copiesOf(chapterId, storedTitle, source, chapterName, null, chapterUrl) }
-        }
+        }, isInstalled = readCopies::isInstalled)
 
-    private fun copiesDownloadUi(lane: RecentsLane, chapterId: Long, copies: () -> List<ChapterCopyRow>) =
-        recentsCopiesDownloadUi(
-            lane,
-            chapterId,
-            copies,
-            queued = {
-                novelDownloadManagerProvider().queueState.value.find { it.chapterId == chapterId }
-                    ?.state?.toDownloadState()
-            },
-            // Same declaration the updated lane makes: the novel downloader tracks no per-chapter
-            // progress, and a zero would read as a download that has genuinely stalled.
-            progress = RecentsDownloadProgress.Unsupported,
-        ) { copy ->
-            novelDownloadCacheProvider().isChapterDownloaded(
-                copy.ownerSource,
-                copy.ownerTitle,
-                copy.chapterName,
-                copy.chapterUrl,
-            )
-        }
+    private fun copiesDownloadUi(
+        lane: RecentsLane,
+        chapterId: Long,
+        copies: () -> List<ChapterCopyRow>,
+        isInstalled: (ChapterCopyRow) -> Boolean,
+    ) = recentsCopiesDownloadUi(
+        lane,
+        chapterId,
+        copies,
+        queued = { id ->
+            novelDownloadManagerProvider().queueState.value.find { it.chapterId == id }?.state?.toDownloadState()
+        },
+        // Same declaration the updated lane makes: the novel downloader tracks no per-chapter
+        // progress, and a zero would read as a download that has genuinely stalled.
+        progress = null,
+        isInstalled = isInstalled,
+    ) { copy ->
+        novelDownloadCacheProvider().isChapterDownloaded(
+            copy.ownerSource,
+            copy.ownerTitle,
+            copy.chapterName,
+            copy.chapterUrl,
+        )
+    }
 }
 
 /**

@@ -34,6 +34,8 @@ val EMPTY_RECENTS_ROW =
 data class RecentsDownloadUi(
     val state: () -> Download.State,
     val progress: RecentsDownloadProgress,
+    /** Whether the row draws its control at all: not for a chapter no installed source holds. */
+    val offered: () -> Boolean = { true },
 )
 
 /**

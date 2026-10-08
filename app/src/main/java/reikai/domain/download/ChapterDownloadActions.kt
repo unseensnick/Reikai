@@ -51,15 +51,15 @@ class MangaChapterDownloadActions(
 }
 
 /**
- * The chapters a row's download [action] acts on, where [fetched] is the copy its download fetches
- * (`DownloadTargets`, empty when no installed source holds it): that copy to start, the row and that
- * copy to cancel since either may be the one queued, and the row itself to delete.
+ * The chapters a download [action] on [rows] acts on, where [fetched] is the copies their downloads
+ * fetch (`DownloadTargets`, none for a row no installed source holds): those copies to start, the rows
+ * and those copies to cancel since either may be the one queued, and the rows themselves to delete.
  */
-fun <T> rowDownloadChapters(action: ChapterDownloadAction, row: T, fetched: List<T>, id: (T) -> Long): List<T> =
+fun <T> rowDownloadChapters(action: ChapterDownloadAction, rows: List<T>, fetched: List<T>, id: (T) -> Long): List<T> =
     when (action) {
         ChapterDownloadAction.START, ChapterDownloadAction.START_NOW -> fetched
-        ChapterDownloadAction.CANCEL -> (listOf(row) + fetched).distinctBy(id)
-        ChapterDownloadAction.DELETE -> listOf(row)
+        ChapterDownloadAction.CANCEL -> (rows + fetched).distinctBy(id)
+        ChapterDownloadAction.DELETE -> rows
     }
 
 /**

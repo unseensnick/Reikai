@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import reikai.domain.download.MangaChapterDownloadActions
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.entry.EntryId
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.MergeScope
@@ -12,6 +13,9 @@ import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
+import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * Manga's chapter verbs on recent activity, keyed by chapter id: a read-lane row has no updates row to
@@ -24,6 +28,8 @@ class MangaRecentsChapterActions(
     private val updateChapter: UpdateChapter,
     private val mergedChapterProvider: MergedChapterProvider,
     private val downloadActions: MangaChapterDownloadActions,
+    private val getManga: GetManga,
+    private val sourceManager: SourceManager,
 ) : RecentsChapterActions {
 
     override suspend fun markRead(chapters: Set<ChapterRef>, read: Boolean) {
@@ -40,12 +46,27 @@ class MangaRecentsChapterActions(
         }
     }
 
-    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, deleteScope: MergeScope) {
+    override suspend fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, scope: MergeScope) {
         val chapterIds = chapters.ownChapterIds<EntryId.Manga>()
         if (chapterIds.isEmpty()) return
         withIOContext {
-            downloadActions.run(action, chaptersOf(chapterIds)) { chaptersOf(chapters.groupIds(deleteScope)) }
+            val rows = chaptersOf(chapterIds)
+            val fetched =
+                fetchedCopies(rows, scope, { it.id }, { it.mangaId }, mergedChapterProvider::stitchOf, ::chaptersOf) {
+                    installedAmong(it)
+                }
+            downloadActions.run(action, rowDownloadChapters(action, rows, fetched) { it.id }) {
+                chaptersOf(chapters.groupIds(scope))
+            }
         }
+    }
+
+    /** The chapters of [chapters] whose own manga's source is installed. */
+    private suspend fun installedAmong(chapters: List<Chapter>): Set<Long> {
+        val installed = chapters.mapTo(HashSet()) { it.mangaId }.filterTo(HashSet()) { mangaId ->
+            getManga.await(mangaId)?.let { sourceManager.getOrStub(it.source) !is StubSource } == true
+        }
+        return chapters.filter { it.mangaId in installed }.mapTo(HashSet()) { it.id }
     }
 
     override suspend fun deleteDownloads(chapters: Set<ChapterRef>, scope: MergeScope) {

@@ -63,6 +63,7 @@ import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.domain.chapter.isRecognizedChapterNumber
+import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ChapterSwipeActions
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -228,6 +229,13 @@ fun Screen.RecentsScreen(
                 engine = engine,
                 selected = selectedItems,
                 onAct = { action -> actOnSelection(selectedItems, action) },
+                // By the scope each row was shown in, which decides the copy its download fetches.
+                onDownload = {
+                    scope.launchIO {
+                        val chapters = engine.actingChaptersByScope(selectedItems, mode, membership)
+                        withUIContext { engine.downloadSelection(chapters) }
+                    }
+                },
                 // The dialog carries the resolved chapters, decided when it is raised rather than when
                 // it is confirmed, so the confirm cannot act on a row the list has since dropped.
                 onDeleteDownloads = {
@@ -508,8 +516,9 @@ private fun RecentsMixedLaneRow(
         onClick = { onPress(item) },
         onLongClick = { onLongPress(item) },
         onClickCover = { onOpenDetails(item.entryId) }.takeIf { !selectionActive },
-        chapterSwipeStartAction = swipe.start,
-        chapterSwipeEndAction = swipe.end,
+        // A Download swipe goes with the control on a chapter nothing could fetch.
+        chapterSwipeStartAction = swipe.start.whereDownloadOffered(download?.offered?.invoke() != false),
+        chapterSwipeEndAction = swipe.end.whereDownloadOffered(download?.offered?.invoke() != false),
         onChapterSwipe = { action ->
             if (state != null && actingRef != null) {
                 engine.runChapterSwipe(actingRef, item.lane, state, { downloadState }, action)
@@ -895,13 +904,17 @@ private fun ReadRowTrailing(
     }
 }
 
-/** A row's own download control, drawn even where the engine behind it cannot report a state. */
+/**
+ * A row's own download control, drawn even where the engine behind it cannot report a state, and left
+ * out only where nothing could fetch the chapter, rather than drawn doing nothing.
+ */
 @Composable
 private fun RowDownloadIndicator(
     download: RecentsDownloadUi?,
     enabled: Boolean,
     onClick: (ChapterDownloadAction) -> Unit,
 ) {
+    if (download?.offered?.invoke() == false) return
     ChapterDownloadIndicator(
         enabled = enabled,
         modifier = Modifier.padding(start = 4.dp),
@@ -921,6 +934,7 @@ private fun RecentsBottomBar(
     engine: RecentsEngine,
     selected: List<RecentsItem>,
     onAct: ((Set<ChapterRef>) -> Unit) -> Unit,
+    onDownload: () -> Unit,
     onDeleteDownloads: () -> Unit,
 ) {
     val targets by engine.targets.collectAsState()
@@ -929,7 +943,7 @@ private fun RecentsBottomBar(
     val perRow = selected.map { item ->
         val target = targets[item.lane]
         val state = target?.state ?: engine.rowUi(item).state
-        state to engine.downloadUi(item, target)?.state?.invoke()
+        state to engine.downloadUi(item, target)?.takeIf { it.offered() }?.state?.invoke()
     }
     val offers = chapterSelectionOffers(perRow.mapNotNull { it.first }, perRow.map { it.second })
     MangaBottomActionMenu(
@@ -940,7 +954,7 @@ private fun RecentsBottomBar(
             .takeIf { offers.removeBookmark },
         onMarkAsReadClicked = { onAct { engine.markReadSelection(it, true) } }.takeIf { offers.markRead },
         onMarkAsUnreadClicked = { onAct { engine.markReadSelection(it, false) } }.takeIf { offers.markUnread },
-        onDownloadClicked = { onAct { engine.downloadSelection(it) } }.takeIf { offers.download },
+        onDownloadClicked = onDownload.takeIf { offers.download },
         onDeleteClicked = onDeleteDownloads.takeIf { offers.delete },
     )
 }

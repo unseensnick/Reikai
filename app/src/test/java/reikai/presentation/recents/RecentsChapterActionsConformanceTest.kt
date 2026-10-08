@@ -18,14 +18,18 @@ import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergedChapterProvider
 import reikai.domain.novel.interactor.SetNovelReadStatus
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.source.NovelSource
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -88,8 +92,27 @@ class RecentsChapterActionsConformanceTest {
         harness.deleted shouldBe setOf(SELECTED, COPY)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("missingSourceHarnesses")
+    fun `a History row from a missing source downloads the installed source's copy`(harness: ActionsHarness) = runTest {
+        harness.actions.download(setOf(harness.ref(SELECTED)), ChapterDownloadAction.START, MergeScope.Group)
+
+        harness.queued shouldBe listOf(COPY)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("missingSourceHarnesses")
+    fun `a History row only a missing source holds downloads nothing`(harness: ActionsHarness) = runTest {
+        harness.actions.download(setOf(harness.ref(NEIGHBOUR)), ChapterDownloadAction.START, MergeScope.Group)
+
+        harness.queued shouldBe emptyList()
+    }
+
     companion object {
         const val ENTRY = 1L
+
+        /** The entry [COPY] belongs to, whose source is always installed. */
+        const val INSTALLED_ENTRY = 2L
         const val SELECTED = 10L
 
         /** The same chapter on another source of the group. */
@@ -107,6 +130,15 @@ class RecentsChapterActionsConformanceTest {
 
         @JvmStatic
         fun harnesses() = listOf(MangaActionsHarness(), NovelActionsHarness())
+
+        /** [ENTRY]'s source is not installed. */
+        @JvmStatic
+        fun missingSourceHarnesses() = listOf(
+            MangaActionsHarness(entryMissing = true),
+            NovelActionsHarness(entryMissing = true),
+        )
+
+        fun ownerOf(chapterId: Long) = if (chapterId == COPY) INSTALLED_ENTRY else ENTRY
     }
 }
 
@@ -123,7 +155,7 @@ interface ActionsHarness {
     fun foreignRef(chapterId: Long): ChapterRef
 }
 
-class MangaActionsHarness : ActionsHarness {
+class MangaActionsHarness(private val entryMissing: Boolean = false) : ActionsHarness {
     override fun toString() = "manga"
 
     override val markedRead = mutableSetOf<Long>()
@@ -131,7 +163,10 @@ class MangaActionsHarness : ActionsHarness {
     override val queued = mutableListOf<Long>()
     override val deleted = mutableSetOf<Long>()
 
-    private fun chapter(id: Long) = Chapter.create().copy(id = id, mangaId = RecentsChapterActionsConformanceTest.ENTRY)
+    private fun chapter(id: Long) = Chapter.create().copy(
+        id = id,
+        mangaId = RecentsChapterActionsConformanceTest.ownerOf(id),
+    )
 
     private val setReadStatus = mockk<SetReadStatus> {
         coEvery { await(any<Boolean>(), *anyVararg<Chapter>()) } answers {
@@ -160,10 +195,18 @@ class MangaActionsHarness : ActionsHarness {
         coEvery { await(any<Long>()) } answers { chapter(firstArg()) }
     }
     private val getManga = mockk<GetManga> {
-        coEvery { await(any<Long>()) } answers { Manga.create().copy(id = firstArg(), source = 1L) }
+        coEvery { await(any<Long>()) } answers { Manga.create().copy(id = firstArg(), source = firstArg()) }
     }
+
+    // A manga's source id is its own id here.
     private val sourceManager = mockk<SourceManager> {
-        coEvery { getOrStub(any()) } returns mockk()
+        coEvery { getOrStub(any()) } answers {
+            if (entryMissing && firstArg<Long>() == RecentsChapterActionsConformanceTest.ENTRY) {
+                StubSource(firstArg(), "en", "gone")
+            } else {
+                mockk()
+            }
+        }
     }
     private val mergedChapterProvider = mockk<MergedChapterProvider> {
         coEvery { stitchOf(RecentsChapterActionsConformanceTest.ENTRY) } returns
@@ -176,6 +219,8 @@ class MangaActionsHarness : ActionsHarness {
         updateChapter = updateChapter,
         mergedChapterProvider = mergedChapterProvider,
         downloadActions = MangaChapterDownloadActions(downloadManager, getManga, sourceManager),
+        getManga = getManga,
+        sourceManager = sourceManager,
     )
 
     override fun ref(chapterId: Long) = ChapterRef(EntryId.Manga(RecentsChapterActionsConformanceTest.ENTRY), chapterId)
@@ -184,7 +229,7 @@ class MangaActionsHarness : ActionsHarness {
         ChapterRef(EntryId.Novel(RecentsChapterActionsConformanceTest.ENTRY), chapterId)
 }
 
-class NovelActionsHarness : ActionsHarness {
+class NovelActionsHarness(private val entryMissing: Boolean = false) : ActionsHarness {
     override fun toString() = "novel"
 
     override val markedRead = mutableSetOf<Long>()
@@ -193,7 +238,7 @@ class NovelActionsHarness : ActionsHarness {
     override val deleted = mutableSetOf<Long>()
 
     private fun chapter(id: Long) = NovelChapter(
-        id = id, novelId = RecentsChapterActionsConformanceTest.ENTRY, url = "", name = "", read = false,
+        id = id, novelId = RecentsChapterActionsConformanceTest.ownerOf(id), url = "", name = "", read = false,
         bookmark = false, lastTextProgress = 0L, chapterNumber = id.toDouble(), sourceOrder = id,
         dateFetch = 0L, dateUpload = 0L, page = "",
     )
@@ -220,11 +265,24 @@ class NovelActionsHarness : ActionsHarness {
             RecentsChapterActionsConformanceTest.STITCH
     }
 
+    // A novel's source is named after its id here.
+    private val sources = mockk<NovelSourceManager>().also { sources ->
+        coEvery { sources.get(any()) } answers {
+            val missing = "src${RecentsChapterActionsConformanceTest.ENTRY}"
+            if (entryMissing && firstArg<String>() == missing) null else mockk<NovelSource>()
+        }
+    }
+
     override val actions: RecentsChapterActions = NovelRecentsChapterActions(
         chapterRepository = chapterRepository,
         setNovelReadStatus = setNovelReadStatus,
         mergedChapterProvider = mergedChapterProvider,
         downloadManager = { downloadManager },
+        novelRepository = mockk {
+            coEvery { getById(any()) } answers
+                { Novel.create().copy(id = firstArg(), source = "src${firstArg<Long>()}") }
+        },
+        sourceManager = sources,
     )
 
     override fun ref(chapterId: Long) = ChapterRef(EntryId.Novel(RecentsChapterActionsConformanceTest.ENTRY), chapterId)

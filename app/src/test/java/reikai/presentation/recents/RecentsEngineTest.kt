@@ -1816,7 +1816,7 @@ private class FakeRecentsProvider(
         override suspend fun download(
             chapters: Set<ChapterRef>,
             action: ChapterDownloadAction,
-            deleteScope: MergeScope,
+            scope: MergeScope,
         ) {
             downloaded = chapters to action
         }

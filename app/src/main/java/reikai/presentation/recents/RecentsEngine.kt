@@ -422,13 +422,15 @@ class RecentsEngine(
     fun setBookmarkSelection(chapters: Set<ChapterRef>, bookmarked: Boolean) =
         dispatchAndClear { it.setBookmark(chapters, bookmarked) }
 
-    fun downloadSelection(chapters: Set<ChapterRef>) =
-        dispatchAndClear { it.download(chapters, ChapterDownloadAction.START, MergeScope.Source) }
+    /** Each scope's chapters fetch the copies that scope reaches, see [actingChaptersByScope]. */
+    fun downloadSelection(chaptersByScope: Map<MergeScope, Set<ChapterRef>>) = dispatchAndClear { actions ->
+        chaptersByScope.forEach { (scope, chapters) -> actions.download(chapters, ChapterDownloadAction.START, scope) }
+    }
 
     /**
      * One row's own download control, which does not touch the selection: it is not a bulk action and
      * the indicator is only reachable while nothing is selected. [lane] is the row's, whose scope a
-     * delete follows.
+     * delete and the copy a download fetches follow.
      */
     fun download(chapters: Set<ChapterRef>, action: ChapterDownloadAction, lane: RecentsLane) =
         dispatch { it.download(chapters, action, lane.mergeScope) }
@@ -611,10 +613,15 @@ class RecentsEngine(
 
     private fun RecentsDownloadUi.observed(): RecentsDownloadUi {
         val poll = state
+        val offeredPoll = offered
         return RecentsDownloadUi(
             state = {
                 downloadRevision.longValue
                 poll()
+            },
+            offered = {
+                downloadRevision.longValue
+                offeredPoll()
             },
             progress = when (val progress = progress) {
                 is RecentsDownloadProgress.Live -> RecentsDownloadProgress.Live {

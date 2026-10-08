@@ -63,7 +63,7 @@ class RecentsTargetRowTest {
             }
         },
     ) { chapterId, copies ->
-        recentsCopiesDownloadUi(lane, chapterId, copies, { null }, RecentsDownloadProgress.Unsupported) {
+        recentsCopiesDownloadUi(lane, chapterId, copies, { null }, null, { true }) {
             it.copy.chapterId in onDisk
         }
     }
