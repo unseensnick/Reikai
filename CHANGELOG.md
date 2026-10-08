@@ -214,6 +214,7 @@ agent under Settings -> Advanced.
 - **History and Updates now stay at the top when new rows arrive, if that is where you were.**
 - **Moving a series to another category now updates a category-filtered Updates feed straight away.**
 - **The combined Updates widget now drops a novel once you have read its new chapters.**
+- **The home screen updates widgets now show their empty and locked text instead of nothing (from Mihon).** Upstream: mihon 76b146f3d.
 - **Deleting a manga chapter's download from Updates or History now works after its extension is uninstalled.**
 - **With Group by series on, an Updates group you expanded now stays open when the screen rotates.**
 - **A new-chapter notification for an adult series that gained a newer version now opens that chapter, and its Mark as read and Download actions work.**
@@ -332,6 +333,7 @@ agent under Settings -> Advanced.
 - **The novel reader's vertical chapter navigator now takes its side and height from Settings -> Novel reader, not from the manga reader's settings.**
 - **A novel chapter that fails to load no longer shows in History as the one you read last.**
 - **Grayscale and inverted colours now also apply in the novel reader, set from its Filters tab beside its own brightness and colour filter.**
+- **Tap navigation in the manga reader now works again after a press on a reader button turns into a scroll (from Mihon).** Upstream: mihonapp/mihon#3655.
 
 ### Light novels
 
@@ -624,6 +626,7 @@ agent under Settings -> Advanced.
 - **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
 - **Manga download badges now notice chapters you delete outside the app.**
 - **Manga chapters from a group with "/" in its name now stay found after downloading (from Mihon).** Upstream: mihon a5d584eeb.
+- **Below Android 17, a damaged compiled copy of an extension can no longer crash the app on every launch (from Mihon).** Upstream: mihon 6d4ed6cb2.
 
 ### Backup & restore
 
