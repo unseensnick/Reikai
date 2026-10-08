@@ -2,7 +2,7 @@ package reikai.domain.manga
 
 import dev.zacsweers.metro.Inject
 import reikai.domain.merge.GroupChapterSettings
-import reikai.domain.merge.withLeadChapterFlags
+import reikai.domain.merge.withOwnerChapterFlags
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -18,7 +18,7 @@ class MangaChapterSettings(mangaRepository: MangaRepository) : GroupChapterSetti
 
 /** [this] carrying its merge group's chapter settings, given the group's members in order. */
 fun Manga.withGroupChapterFlags(members: Collection<Manga>): Manga =
-    withLeadChapterFlags(members, { it.chapterFlags }) { copy(chapterFlags = it) }
+    withOwnerChapterFlags(members, { it.chapterFlags }) { copy(chapterFlags = it) }
 
 /** [opened] carrying this group's chapter settings; [opened] itself outside a group. */
 fun MergedChapterProvider.Group?.chapterSettingsOf(opened: Manga): Manga =

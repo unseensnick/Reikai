@@ -43,10 +43,10 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 
 /**
- * A merged series shows one chapter setting, its lead's, whichever member its details page is opened
- * through, through each type's real details model and adapter. The setting here is the chapter-number
- * display, the one the neutral state carries. [LEAD] leads the group and shows numbers; [SIBLING] is
- * second and stores its own, names.
+ * A merged series shows one chapter setting, its settings owner's, whichever member its details page is
+ * opened through, through each type's real details model and adapter. The setting here is the
+ * chapter-number display, the one the neutral state carries. [OWNER] is first in the group and shows
+ * numbers; [SIBLING] is second and stores its own, names.
  */
 class MergedChapterSettingsConformanceTest {
 
@@ -71,28 +71,28 @@ class MergedChapterSettingsConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `opened through a sibling, All shows the lead's setting`(type: ContentType) = runTest {
+    fun `opened through a sibling, All shows the owner's setting`(type: ContentType) = runTest {
         group(type) { open -> open(SIBLING).settled().showChapterNumberOnly } shouldBe true
     }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a source chip shows the lead's setting, not the opened member's`(type: ContentType) = runTest {
+    fun `a source chip shows the owner's setting, not the opened member's`(type: ContentType) = runTest {
         group(type) { open ->
             // A chip is picked from the switcher the merged page shows.
             val page = open(SIBLING).apply { settled() }
-            page.selectSource(LEAD)
-            page.settled(chip = LEAD).showChapterNumberOnly
+            page.selectSource(OWNER)
+            page.settled(chip = OWNER).showChapterNumberOnly
         } shouldBe true
     }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a setting changed through a sibling is what opening through the lead shows`(type: ContentType) = runTest {
-        group(type, leadShowsNumbers = false) { open ->
+    fun `a setting changed through a sibling is what opening through the owner shows`(type: ContentType) = runTest {
+        group(type, ownerShowsNumbers = false) { open ->
             // A page changes its setting once it has loaded one.
             open(SIBLING).apply { settled() }.showNumbers()
-            open(LEAD).settled { it.showChapterNumberOnly }.showChapterNumberOnly
+            open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly
         } shouldBe true
     }
 
@@ -129,29 +129,29 @@ class MergedChapterSettingsConformanceTest {
         }
     }
 
-    /** [block] over the group [LEAD], [SIBLING], with a way to open its details page through a member. */
+    /** [block] over the group [OWNER], [SIBLING], with a way to open its details page through a member. */
     private suspend fun <T> TestScope.group(
         type: ContentType,
-        leadShowsNumbers: Boolean = true,
+        ownerShowsNumbers: Boolean = true,
         block: suspend (open: suspend (Long) -> Page) -> T,
     ): T = when (type) {
-        ContentType.MANGA -> mangaGroup(leadShowsNumbers, block)
-        else -> novelGroup(leadShowsNumbers, block)
+        ContentType.MANGA -> mangaGroup(ownerShowsNumbers, block)
+        else -> novelGroup(ownerShowsNumbers, block)
     }
 
-    private suspend fun <T> mangaGroup(leadShowsNumbers: Boolean, block: suspend (suspend (Long) -> Page) -> T): T {
+    private suspend fun <T> mangaGroup(ownerShowsNumbers: Boolean, block: suspend (suspend (Long) -> Page) -> T): T {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
         val mangas = MangaRepositoryImpl(database)
-        listOf(LEAD, SIBLING).forEach { driver.seedManga(it, chapterId = it * 10, sourceId = it) }
-        val display = if (leadShowsNumbers) Manga.CHAPTER_DISPLAY_NUMBER else Manga.CHAPTER_DISPLAY_NAME
-        mangas.update(MangaUpdate(LEAD) { chapterFlags = display })
+        listOf(OWNER, SIBLING).forEach { driver.seedManga(it, chapterId = it * 10, sourceId = it) }
+        val display = if (ownerShowsNumbers) Manga.CHAPTER_DISPLAY_NUMBER else Manga.CHAPTER_DISPLAY_NAME
+        mangas.update(MangaUpdate(OWNER) { chapterFlags = display })
         val store = ViewModelStore()
         val models = mutableListOf<MangaViewModel>()
         try {
             return block { id ->
-                val model = mangaDetailsModel(id, mangas, ChapterRepositoryImpl(database), longArrayOf(LEAD, SIBLING))
+                val model = mangaDetailsModel(id, mangas, ChapterRepositoryImpl(database), longArrayOf(OWNER, SIBLING))
                 store.put("manga$id", model)
                 models += model
                 MangaPage(model)
@@ -166,23 +166,23 @@ class MergedChapterSettingsConformanceTest {
     }
 
     private suspend fun <T> TestScope.novelGroup(
-        leadShowsNumbers: Boolean,
+        ownerShowsNumbers: Boolean,
         block: suspend (suspend (Long) -> Page) -> T,
     ): T = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
-        val ids = listOf(LEAD, SIBLING).map { harness.novel(harness.source("src$it")) }
-        ids shouldBe listOf(LEAD, SIBLING)
+        val ids = listOf(OWNER, SIBLING).map { harness.novel(harness.source("src$it")) }
+        ids shouldBe listOf(OWNER, SIBLING)
         ids.forEach { harness.chapter(it, 1.0) }
-        val display = if (leadShowsNumbers) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
-        harness.updateNovel(LEAD) { chapterFlags = display or NovelChapterFlags.DISPLAY_LOCAL }
+        val display = if (ownerShowsNumbers) NovelChapterFlags.DISPLAY_NUMBER else NovelChapterFlags.DISPLAY_NAME
+        harness.updateNovel(OWNER) { chapterFlags = display or NovelChapterFlags.DISPLAY_LOCAL }
         harness.updateNovel(SIBLING) {
             chapterFlags = NovelChapterFlags.DISPLAY_NAME or NovelChapterFlags.DISPLAY_LOCAL
         }
-        harness.merge(LEAD, SIBLING)
+        harness.merge(OWNER, SIBLING)
         block { id -> NovelPage(harness.openDetails(id)) }
     }
 
     private companion object {
-        const val LEAD = 1L
+        const val OWNER = 1L
         const val SIBLING = 2L
         const val DOWNLOADED_FILTER_FILE = "eu.kanade.domain.manga.model.MangaKt"
         const val SOURCE_EXTENSIONS_FILE = "eu.kanade.tachiyomi.source.SourceExtensionsKt"

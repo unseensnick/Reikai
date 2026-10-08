@@ -169,8 +169,8 @@ class EntryMergeManagerTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a merge hands the group's library members, lead first, to the merged hook`(type: ContentType) = runTest {
-        // The hook is how the members joining take the lead's chapter settings.
+    fun `a merge hands the group's library members, owner first, to the merged hook`(type: ContentType) = runTest {
+        // The hook is how the members joining take the settings owner's chapter settings.
         val repo = mockk<MergeGroupRepository> {
             coEvery { merge(type, listOf(3L, 1L)) } returns 7L
             coEvery { getFavoriteMembers(type, 7L) } returns listOf(1L, 2L, 3L)

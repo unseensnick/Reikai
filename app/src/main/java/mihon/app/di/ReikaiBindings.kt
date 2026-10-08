@@ -35,7 +35,7 @@ object ReikaiBindings {
         propagate: PropagateTrackerLinks,
         chapterSettings: MangaChapterSettings,
     ): MangaMergeManager =
-        MangaMergeManager(repository, preferences, chapterSettings::adoptLead) { propagate.distribute(it) }
+        MangaMergeManager(repository, preferences, chapterSettings::adoptOwnerSetting) { propagate.distribute(it) }
 
     // The novel propagator arrives deferred because it reads tracks through GetNovelTracks, which
     // takes this manager, and Metro rejects the cycle. The lambda only ever runs inside a suspend
@@ -48,7 +48,7 @@ object ReikaiBindings {
         propagate: () -> PropagateNovelTrackerLinks,
         chapterSettings: NovelChapterSettings,
     ): NovelMergeManager =
-        NovelMergeManager(repository, preferences, chapterSettings::adoptLead) { propagate().distribute(it) }
+        NovelMergeManager(repository, preferences, chapterSettings::adoptOwnerSetting) { propagate().distribute(it) }
 
     // Each fetcher wants a concrete tracker, and those are properties of the TrackerManager
     // singleton rather than bindings of their own. Binding them separately would build second

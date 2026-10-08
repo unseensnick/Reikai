@@ -26,9 +26,9 @@ import java.util.concurrent.ConcurrentHashMap
 
 /**
  * A reader opened through one source of a merged series (a source chip, Updates) downloads ahead in the
- * group's shared chapter order, its lead's, as it pages. The group is LEAD, sorted by chapter number,
- * then SIBLING, sorted by source order, which lists chapters 1, 3, 4, 2, 5. Reading SIBLING's chapter 1
- * with chapter 2 on disk and two chapters ahead, the one left to fetch is chapter 3.
+ * group's shared chapter order, its settings owner's, as it pages. The group is OWNER, sorted by chapter
+ * number, then SIBLING, sorted by source order, which lists chapters 1, 3, 4, 2, 5. Reading SIBLING's
+ * chapter 1 with chapter 2 on disk and two chapters ahead, the one left to fetch is chapter 3.
  */
 class SourceScopedDownloadAheadConformanceTest {
 
@@ -40,7 +40,7 @@ class SourceScopedDownloadAheadConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `a source-scoped reader on a sibling downloads ahead in the lead's chapter order`(
+    fun `a source-scoped reader on a sibling downloads ahead in the owner's chapter order`(
         probe: SourceScopedAheadProbe,
     ) = runTest {
         probe.fetchedAhead(this) shouldBe setOf(3.0)
@@ -66,7 +66,7 @@ class MangaSourceScopedAhead : SourceScopedAheadProbe {
     override fun toString() = "manga"
 
     override suspend fun fetchedAhead(scope: TestScope) = MangaReaderViewModelHarness.create().use { harness ->
-        val lead = harness.manga(1L, 100L, "Lead", chapterFlags = Manga.CHAPTER_SORTING_NUMBER)
+        val owner = harness.manga(1L, 100L, "Owner", chapterFlags = Manga.CHAPTER_SORTING_NUMBER)
         val sibling = harness.manga(2L, 200L, "Sibling", chapterFlags = Manga.CHAPTER_SORTING_SOURCE)
         // A manga source lists newest first, so the chapter its order reads first carries the highest.
         val chapters = SIBLING_ORDER.map { (number, listed) ->
@@ -74,9 +74,9 @@ class MangaSourceScopedAhead : SourceScopedAheadProbe {
         }
         val numberOf = chapters.associate { it.id to it.chapterNumber }
         val group = MergedChapterProvider.Group(
-            mangaById = mapOf(lead.id to lead, sibling.id to sibling),
+            mangaById = mapOf(owner.id to owner, sibling.id to sibling),
             chapters = chapters,
-            sourceNameByMangaId = mapOf(lead.id to "Lead", sibling.id to "Sibling"),
+            sourceNameByMangaId = mapOf(owner.id to "Owner", sibling.id to "Sibling"),
         )
         val queued = ConcurrentHashMap.newKeySet<Long>()
         harness.open(
@@ -109,9 +109,9 @@ class NovelSourceScopedAhead : SourceScopedAheadProbe {
 
     override suspend fun fetchedAhead(scope: TestScope): Set<Double> =
         NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
-            val lead = harness.novel(harness.source("lead"))
+            val owner = harness.novel(harness.source("owner"))
             val sibling = harness.novel(harness.source("sibling"))
-            harness.updateNovel(lead) {
+            harness.updateNovel(owner) {
                 chapterFlags = NovelChapterFlags.SORTING_NUMBER or NovelChapterFlags.SORT_LOCAL
             }
             harness.updateNovel(sibling) {
@@ -121,7 +121,7 @@ class NovelSourceScopedAhead : SourceScopedAheadProbe {
                 number to harness.chapter(sibling, number, sourceOrder = listed)
             }
             harness.download(chapters.getValue(2.0), "<p>On disk</p>")
-            harness.merge(lead, sibling)
+            harness.merge(owner, sibling)
             val numberOf = chapters.entries.associate { (number, seeded) -> seeded.id to number }
             val queued = ConcurrentHashMap.newKeySet<Double>()
             coEvery { harness.downloadManager.downloadChapters(any()) } answers {

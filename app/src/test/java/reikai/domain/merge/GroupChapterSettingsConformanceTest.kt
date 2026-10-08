@@ -26,9 +26,9 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 
 /**
- * A merged series shares one chapter setting, its lead's, whichever member it is opened through. One
- * suite over both content types, each through its own [GroupChapterSettings] and the real setter its
- * details screen calls, over a real database. [LEAD] is first in the group's order, [SIBLING] second.
+ * A merged series shares one chapter setting, its settings owner's, whichever member it is opened
+ * through. One suite over both content types, each through its own [GroupChapterSettings] and the real
+ * setter its details screen calls, over a real database. [OWNER] is first in the group's order, [SIBLING] second.
  */
 class GroupChapterSettingsConformanceTest {
 
@@ -40,7 +40,7 @@ class GroupChapterSettingsConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `opening through a sibling shows the lead's sort`(type: ContentType) = runTest {
+    fun `opening through a sibling shows the owner's sort`(type: ContentType) = runTest {
         val side = side(type)
 
         side.shownDescending(SIBLING, GROUP) shouldBe true
@@ -48,32 +48,32 @@ class GroupChapterSettingsConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a sort changed through a sibling is what opening through the lead shows`(type: ContentType) = runTest {
+    fun `a sort changed through a sibling is what opening through the owner shows`(type: ContentType) = runTest {
         val side = side(type)
 
         side.flipSortThrough(SIBLING, GROUP)
 
-        side.shownDescending(LEAD, GROUP) shouldBe false
+        side.shownDescending(OWNER, GROUP) shouldBe false
     }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a sort changed through the lead is stored on every member`(type: ContentType) = runTest {
+    fun `a sort changed through the owner is stored on every member`(type: ContentType) = runTest {
         val side = side(type)
 
         // Flipped back to descending, so the sibling's own stored ascending sort cannot pass for it.
-        side.flipSortThrough(LEAD, GROUP)
-        side.flipSortThrough(LEAD, GROUP)
+        side.flipSortThrough(OWNER, GROUP)
+        side.flipSortThrough(OWNER, GROUP)
 
         side.shownDescending(SIBLING, listOf(SIBLING)) shouldBe true
     }
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a merge gives the members joining the lead's sort`(type: ContentType) = runTest {
+    fun `a merge gives the members joining the owner's sort`(type: ContentType) = runTest {
         val side = side(type)
 
-        side.settings.adoptLead(GROUP)
+        side.settings.adoptOwnerSetting(GROUP)
 
         side.shownDescending(SIBLING, listOf(SIBLING)) shouldBe true
     }
@@ -88,18 +88,18 @@ class GroupChapterSettingsConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `reordering the sources moves the lead`(type: ContentType) = runTest {
+    fun `reordering the sources moves the owner`(type: ContentType) = runTest {
         val side = side(type)
 
-        side.shownDescending(LEAD, listOf(SIBLING, LEAD)) shouldBe false
+        side.shownDescending(OWNER, listOf(SIBLING, OWNER)) shouldBe false
     }
 
-    /** [LEAD] sorted descending and [SIBLING] ascending, each with its own setting. */
+    /** [OWNER] sorted descending and [SIBLING] ascending, each with its own setting. */
     private suspend fun side(type: ContentType): Side {
         Database.Schema.create(driver).await()
         return when (type) {
-            ContentType.MANGA -> MangaSide().apply { seed(LEAD, descending = true) }.apply { seed(SIBLING, false) }
-            else -> NovelSide().apply { seed(LEAD, descending = true) }.apply { seed(SIBLING, false) }
+            ContentType.MANGA -> MangaSide().apply { seed(OWNER, descending = true) }.apply { seed(SIBLING, false) }
+            else -> NovelSide().apply { seed(OWNER, descending = true) }.apply { seed(SIBLING, false) }
         }
     }
 
@@ -169,8 +169,8 @@ class GroupChapterSettingsConformanceTest {
     }
 
     private companion object {
-        const val LEAD = 1L
+        const val OWNER = 1L
         const val SIBLING = 2L
-        val GROUP = listOf(LEAD, SIBLING)
+        val GROUP = listOf(OWNER, SIBLING)
     }
 }

@@ -186,8 +186,8 @@ class GetNextNovelChapter(
         return readingOrderComparator(novel, novelPreferences)
     }
 
-    /** [novelId] carrying the chapter settings its merge group shares, the lead's, whichever member it is
-     *  opened through (GroupChapterSettings). Null for a novel that is no longer stored. */
+    /** [novelId] carrying the chapter settings its merge group shares, the settings owner's, whichever
+     *  member it is opened through (GroupChapterSettings). Null for a novel that is no longer stored. */
     suspend fun chapterSettings(novelId: Long): Novel? {
         val novel = novelRepository.getById(novelId) ?: return null
         return groupSettings.shown(novel, mergeManager.computeRelatedIds(novelId).asList())

@@ -457,7 +457,7 @@ class LibraryViewModel(
         //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
         //     source. Falls through to the plain per-manga list when the entry is not merged.
         val group = mergedChapterProvider.load(manga)
-        //     The filters and order are the group's shared chapter settings, the lead's.
+        //     The filters and order are the group's shared chapter settings, the settings owner's.
         val settings = group.chapterSettingsOf(manga)
         return group.chapters.getNextUnread(settings, downloadManager, group, mangaPreferences.hiddenChapters().get())
     }

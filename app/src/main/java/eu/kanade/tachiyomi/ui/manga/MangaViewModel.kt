@@ -1625,7 +1625,7 @@ class MangaViewModel(
     }
 
     // RK --> a merged series shares one chapter setting, so [change] writes the opened manga from the
-    // setting it shows, the lead's, and every other member takes the result (GroupChapterSettings)
+    // setting it shows, the settings owner's, and every other member takes the result (GroupChapterSettings)
     private fun changeChapterSettings(manga: Manga, change: suspend () -> Unit) {
         viewModelScope.launchNonCancellable {
             chapterSettings.change(manga.id, mergeGroup.relatedIds.asList(), change)

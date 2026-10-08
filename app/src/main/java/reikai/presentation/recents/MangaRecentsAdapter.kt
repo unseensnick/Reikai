@@ -224,7 +224,7 @@ class MangaRecentsAdapter(
         val mangaId = item.entryId.rawId
         val manga = getManga.await(mangaId)
         val group = manga?.let { mergedChapterProvider.load(it) }
-        // The order is the group's shared chapter settings, the lead's, in either scope.
+        // The order is the group's shared chapter settings, the settings owner's, in either scope.
         val settings = manga?.let { group.chapterSettingsOf(it) }
         val hidden = mangaPreferences.hiddenChapters().get()
         val target = resolveRecentsTarget(

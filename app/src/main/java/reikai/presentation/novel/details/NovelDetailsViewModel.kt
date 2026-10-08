@@ -350,7 +350,7 @@ class NovelDetailsViewModel(
         showHiddenFlow,
     ) { inputs, _, _ -> inputs }
         .flatMapLatest { (stored, group, idx) ->
-            // Sort, filter and display are the group's shared settings, the lead's (GroupChapterSettings).
+            // Sort, filter and display are the group's shared settings, the settings owner's (GroupChapterSettings).
             val anchor = stored?.let { chapterSettings.shown(it, group.ids.asList()) }
             when {
                 anchor == null -> flowOf(null)
@@ -684,7 +684,7 @@ class NovelDetailsViewModel(
 
     /** Build the list's half of [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view
      *  flags) and the [viewNovel] whose metadata the header shows (== anchor for the unified view, the
-     *  selected sibling otherwise). Sort/filter follow the anchor's flags, which carry the group's lead's.
+     *  selected sibling otherwise). Sort/filter follow the anchor's flags, which carry the group's owner's.
      *  The chips and the picked chip come from [group], the one the rows were built for: the live group may
      *  have moved on. */
     private fun buildLoaded(

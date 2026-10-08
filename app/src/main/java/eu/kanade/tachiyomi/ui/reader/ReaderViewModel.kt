@@ -216,7 +216,7 @@ class ReaderViewModel(
     val manga: Manga?
         get() = state.value.manga
 
-    /** RK: [manga] carrying the chapter settings its merge group shares, the lead's (GroupChapterSettings). */
+    /** RK: [manga] carrying the chapter settings its merge group shares, its owner's (GroupChapterSettings). */
     val chapterSettings: Manga?
         get() = manga?.let { mergedGroup.chapterSettingsOf(it) }
 
@@ -859,7 +859,7 @@ class ReaderViewModel(
                     isRead = groupFlags(opened)::isRead,
                 )
             } else {
-                // RK --> ordered by the group's shared chapter settings, the lead's, as the reader pages, not
+                // RK --> ordered by the group's shared chapter settings, the settings owner's, as the reader pages, not
                 // the member's own sort GetNextChapters reads. From the next chapter on, as upstream slices.
                 getNextChapters.await(nextChapterManga.id)
                     .inReadingOrder(mergedGroup.chapterSettingsOf(nextChapterManga))

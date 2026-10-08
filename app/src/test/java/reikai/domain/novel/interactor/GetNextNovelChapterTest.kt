@@ -127,7 +127,7 @@ class GetNextNovelChapterTest {
     }
 
     @Test
-    fun `a merged novel resumed through a sibling follows the lead's chapter sort`() = runTest {
+    fun `a merged novel resumed through a sibling follows the settings owner's chapter sort`() = runTest {
         // As above, but resumed through novel 2, whose own sort is source order and would say Gamma (10).
         merged(listOf(ChapterUnit(10, 0, 0), ChapterUnit(20, 1, 0), ChapterUnit(11, 2, 0)))
         coEvery { novelRepository.getById(1L) } returns Novel.create()
