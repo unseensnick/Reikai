@@ -1,9 +1,9 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.library.mangaLibraryLead
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
-import reikai.domain.merge.libraryLead
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -69,15 +69,9 @@ object MangaMergeCollapse {
         badgePrefs: LibraryBadgePrefs,
         recognizedChapterCounts: Map<Long, Long>,
     ): LibraryItem {
-        // Ranked on the distinct recognized-number count the stitch ranks on.
-        val primary = libraryLead(
-            subGroup,
-            overrideOrder,
-            preferredSourceIds,
-            id = { it.libraryManga.manga.id },
-            sourceId = { it.libraryManga.manga.source },
-            chapterCount = { recognizedChapterCounts[it.libraryManga.manga.id] ?: 0L },
-        )
+        val primary = mangaLibraryLead(subGroup, overrideOrder, preferredSourceIds, recognizedChapterCounts) {
+            it.libraryManga.manga
+        }
         return primary.stampMergedGroup(
             members = subGroup.map {
                 MergedRowMember(it.id, it.libraryManga.manga.source, it.libraryManga.lastRead, it.downloadCount)

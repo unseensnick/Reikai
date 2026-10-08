@@ -82,6 +82,14 @@ class LibraryExportRowsTest {
         exportOf(mergingOn = false).size shouldBe 4
     }
 
+    /** Manga counts distinct recognized numbers and novels count rows, as each library collapse ranks. */
+    @Test
+    fun `a merged series is written as the member with the most chapters, counted as its collapse counts`() =
+        runTest {
+            exportOf(mergingOn = true, secondSourcesLonger = true).map { it.title } shouldBe
+                listOf("Second source", "Novel two")
+        }
+
     @Test
     fun `the export reads every Edit info override`() = runTest {
         val custom = mapOf<EntryId, EntryCustomInfo>(EntryId.Novel(1) to CustomNovelInfo(novelId = 1, title = "Mine"))
@@ -93,6 +101,7 @@ class LibraryExportRowsTest {
         mergingOn: Boolean,
         customInfo: Map<EntryId, EntryCustomInfo> = emptyMap(),
         preferSecondSources: Boolean = false,
+        secondSourcesLonger: Boolean = false,
     ): List<LibraryExportRow> {
         val managers = TestMergeManagers(
             memberships = mapOf(
@@ -118,7 +127,10 @@ class LibraryExportRowsTest {
             novelRepository = mockk<NovelRepository> {
                 every { getLibraryNovelAsFlow() } returns flowOf(
                     listOf(
-                        libraryNovel(novel(2, "Novel two").copy(source = SECOND_NOVEL_SOURCE)),
+                        libraryNovel(
+                            novel(2, "Novel two").copy(source = SECOND_NOVEL_SOURCE),
+                            totalChapters = if (secondSourcesLonger) 5L else 1L,
+                        ),
                         libraryNovel(novel(1, "Novel one")),
                     ),
                 )
@@ -126,17 +138,18 @@ class LibraryExportRowsTest {
             mangaMergeManager = managers.manga,
             novelMergeManager = managers.novel,
             mergedChapterUnitRepository = mockk {
-                every { getRecognizedChapterCountsAsFlow() } returns flowOf(emptyMap())
+                every { getRecognizedChapterCountsAsFlow() } returns
+                    flowOf(if (secondSourcesLonger) mapOf(2L to 5L) else emptyMap())
             },
             reikaiLibraryPreferences = preferences,
             getEntryCustomInfo = mockk { coEvery { awaitAll() } returns customInfo },
         ).await()
     }
 
-    private fun libraryNovel(novel: Novel) = LibraryNovel(
+    private fun libraryNovel(novel: Novel, totalChapters: Long = 1L) = LibraryNovel(
         novel = novel,
         categories = emptyList(),
-        totalChapters = 1L,
+        totalChapters = totalChapters,
         readCount = 0L,
         bookmarkCount = 0L,
         downloadCount = 0L,
