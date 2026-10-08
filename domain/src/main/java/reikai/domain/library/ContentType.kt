@@ -16,3 +16,6 @@ fun ContentType.includes(type: ContentType): Boolean = this == ContentType.ALL |
 
 /** Whether a list holding [types] mixes content types, the one case where a row names its own type. */
 fun mixesContentTypes(types: Iterable<ContentType>): Boolean = types.distinct().size > 1
+
+/** The one type [types] all share, or null when empty or mixed: a per-type action needs exactly one. */
+fun singleContentType(types: Iterable<ContentType>): ContentType? = types.distinct().singleOrNull()

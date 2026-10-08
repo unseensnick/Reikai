@@ -68,6 +68,7 @@ import mihon.icons.materialsymbols.rounded.TravelExplore
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
@@ -515,7 +516,7 @@ data object LibraryTab : Tab {
                         .takeIf {
                             display.reikai.seriesMergingEnabled &&
                                 activeSelection.size >= 2 &&
-                                activeSelection.mapTo(mutableSetOf()) { it.contentType }.size == 1
+                                singleContentType(activeSelection.map { it.contentType }) != null
                         },
                     onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }
                         .takeIf { engine.selectionContainsMerged(libraryContentType) },

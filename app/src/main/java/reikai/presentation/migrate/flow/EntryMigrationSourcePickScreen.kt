@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.singleContentType
 import reikai.presentation.migrate.MigrationSourcePickContent
 import reikai.presentation.migrate.PickMember
 import tachiyomi.core.common.util.lang.launchIO
@@ -46,7 +47,7 @@ class EntryMigrationSourcePickScreen(
          * caller hides the action rather than greying it out.
          */
         fun forSelection(selection: Collection<EntryId>): EntryMigrationSourcePickScreen? {
-            val type = selection.mapTo(HashSet()) { it.contentType }.singleOrNull() ?: return null
+            val type = singleContentType(selection.map { it.contentType }) ?: return null
             return EntryMigrationSourcePickScreen(type, selection.map { it.rawId })
         }
     }
