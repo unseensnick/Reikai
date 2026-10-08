@@ -43,7 +43,6 @@ import reikai.domain.chapter.hiddenKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
-import reikai.domain.manga.AdultWarnings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -298,7 +297,7 @@ class LibraryViewModel(
             .distinct()
             .associateWith { sourceManager.getOrStub(it).name }
         val adultSources = if (prefs.lewd != TriState.DISABLED) {
-            adultContentChecker.adultMangaSources(sourceNames.keys, AdultWarnings.NSFW_ONLY)
+            adultContentChecker.libraryAdultMangaSources(sourceNames.keys)
         } else {
             emptySet()
         }

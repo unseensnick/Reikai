@@ -30,7 +30,6 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
-import reikai.domain.manga.AdultWarnings
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -321,10 +320,7 @@ class NovelLibraryViewModel(
         }
         // The one filter binding both libraries use; the adult rule's source-name list is manga sites.
         val adultSources = if (filterPrefs.lewd != TriState.DISABLED) {
-            adultContentChecker.adultNovelSources(
-                novelById.values.mapTo(mutableSetOf()) { it.novel.source },
-                AdultWarnings.NSFW_ONLY,
-            )
+            adultContentChecker.libraryAdultNovelSources(novelById.values.mapTo(mutableSetOf()) { it.novel.source })
         } else {
             emptySet()
         }

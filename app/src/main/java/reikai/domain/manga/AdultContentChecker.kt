@@ -47,40 +47,61 @@ class AdultContentChecker(
         isAdult = { novel, adultSources -> isAdultEntry(novel.source in adultSources, null, novel.genre) },
     )
 
-    /** The sources among [sourceIds] an extension warns as one of [warnings], or that are a built-in gallery. */
-    suspend fun adultMangaSources(sourceIds: Set<Long>, warnings: AdultWarnings): Set<Long> {
-        val warned = extensionManager.loadedExtensionsFlow.first()
-            .filter { it.contentWarning in warnings.counted }
-            .flatMapTo(mutableSetOf()) { extension -> extension.sources.map { it.id } }
-        return sourceIds.filterTo(mutableSetOf()) { it in warned || GallerySources.isGallerySource(it, sourceManager) }
-    }
+    /**
+     * The library Lewd filter's adult manga sources. A scan that outlasts the wait counts no source, so
+     * tags and names still decide and the library never hangs on it.
+     */
+    suspend fun libraryAdultMangaSources(sourceIds: Set<Long>): Set<Long> =
+        adultMangaSources(sourceIds, AdultWarnings.NSFW_ONLY).orEmpty()
 
-    /** The novel sources among [sourceIds] whose installing app warns as one of [warnings]. */
-    suspend fun adultNovelSources(sourceIds: Set<String>, warnings: AdultWarnings): Set<String> =
-        sourceIds.filterTo(mutableSetOf()) { id ->
-            novelSourceManager.getWithoutPlugins(id)?.contentWarning in warnings.counted
+    /** The library's adult novel sources, by the same rule as [libraryAdultMangaSources]. */
+    suspend fun libraryAdultNovelSources(sourceIds: Set<String>): Set<String> =
+        adultNovelSources(sourceIds, AdultWarnings.NSFW_ONLY).orEmpty()
+
+    /**
+     * The sources among [sourceIds] an extension warns as one of [warnings], or that are a built-in gallery;
+     * null when the extension scan outlasts [withinScanWait].
+     */
+    private suspend fun adultMangaSources(sourceIds: Set<Long>, warnings: AdultWarnings): Set<Long>? =
+        withinScanWait {
+            val warned = extensionManager.loadedExtensionsFlow.first()
+                .filter { it.contentWarning in warnings.counted }
+                .flatMapTo(mutableSetOf()) { extension -> extension.sources.map { it.id } }
+            sourceIds.filterTo(mutableSetOf()) { it in warned || GallerySources.isGallerySource(it, sourceManager) }
+        }
+
+    /** The novel sources among [sourceIds] whose installing app warns as one of [warnings], or null as above. */
+    private suspend fun adultNovelSources(sourceIds: Set<String>, warnings: AdultWarnings): Set<String>? =
+        withinScanWait {
+            sourceIds.filterTo(mutableSetOf()) { id ->
+                novelSourceManager.getWithoutPlugins(id)?.contentWarning in warnings.counted
+            }
         }
 
     /**
-     * Suspends because the extension signal reads the installed apps, which stay silent until the
-     * extension scan finishes. The wait is capped: nothing flips that gate if the scan throws, so an
-     * unbounded one would hold the notification forever. An expired wait calls every entry adult,
-     * because the caller is a privacy switch and a generic notification beats a leaked title.
+     * An expired source wait calls every entry adult, because the caller is a privacy switch and a generic
+     * notification beats a leaked title.
      */
     private suspend fun <E, S> adultAmong(
         entries: List<E>,
         id: (E) -> Long,
-        adultSources: suspend () -> Set<S>,
+        adultSources: suspend () -> Set<S>?,
         isAdult: suspend (E, Set<S>) -> Boolean,
     ): Set<Long> {
-        val adult =
-            withTimeoutOrNull(EXTENSION_SCAN_WAIT) { adultSources() } ?: return entries.mapTo(mutableSetOf(), id)
+        val adult = adultSources() ?: return entries.mapTo(mutableSetOf(), id)
         return entries.filter { isAdult(it, adult) }.mapTo(mutableSetOf(), id)
     }
 }
 
+/**
+ * The source signal reads the installed apps, which stay silent until the extension scan finishes. The wait
+ * is capped because nothing flips that gate if the scan throws, so an unbounded one would hold its caller
+ * forever; null means it expired.
+ */
+private suspend fun <T> withinScanWait(block: suspend () -> T): T? = withTimeoutOrNull(EXTENSION_SCAN_WAIT) { block() }
+
 /** Which extension content warnings make a source adult: the one way the two adult rules differ. */
-enum class AdultWarnings(val counted: Set<ContentWarning>) {
+private enum class AdultWarnings(val counted: Set<ContentWarning>) {
     /** The library's Lewd filter. Mixed covers most mainstream extensions, so counting it hid most of a library. */
     NSFW_ONLY(setOf(ContentWarning.NSFW)),
 
