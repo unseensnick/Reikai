@@ -1,5 +1,6 @@
 package reikai.domain.novel.track
 
+import eu.kanade.domain.track.model.toDomainTrack
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.model.NovelTrack
@@ -37,6 +38,13 @@ class NovelTrackConversionsTest {
     fun `round-trips through DbTrack without loss`() {
         val original = novelTrack()
         original.toDbTrack().toNovelTrack() shouldBe original
+    }
+
+    @Test
+    fun `an id-less track converts only where no id is required, as a manga track does`() {
+        val idless = novelTrack().toDbTrack().apply { id = null }
+        listOf(idless.toNovelTrack()?.id, idless.toNovelTrack(idRequired = false)?.id) shouldBe
+            listOf(idless.toDomainTrack()?.id, idless.toDomainTrack(idRequired = false)?.id)
     }
 
     @Test
