@@ -2,6 +2,7 @@ package reikai.domain.extension
 
 import eu.kanade.tachiyomi.extension.model.Extension
 import reikai.novel.registry.LnRepoResult
+import reikai.util.messageOrName
 
 /**
  * What the last fetch of one repo gave, for an extension store and an LN plugin repo alike. The
@@ -20,7 +21,7 @@ fun Result<List<Extension.Available>>.toRepoStatus(): RepoStatus = fold(
         val novels = listing.count { it.kind != Extension.Kind.MANGA }
         RepoStatus.Reached(manga = listing.size - novels, novels = novels)
     },
-    onFailure = { RepoStatus.Unreachable(it.message ?: it::class.simpleName.orEmpty()) },
+    onFailure = { RepoStatus.Unreachable(it.messageOrName) },
 )
 
 /** Every LN plugin is a novel source. */

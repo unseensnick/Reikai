@@ -17,3 +17,7 @@ val Throwable.rootMessage: String
         val root = generateSequence(this) { it.cause }.last()
         return listOfNotNull(root::class.simpleName, root.message).joinToString(": ")
     }
+
+/** What a failed repo fetch shows: the failure's own message, or its type where it carries none. */
+val Throwable.messageOrName: String
+    get() = message ?: this::class.simpleName.orEmpty()

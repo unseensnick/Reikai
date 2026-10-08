@@ -18,6 +18,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.canonicalizePluginUrl
+import reikai.util.messageOrName
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
@@ -44,7 +45,7 @@ suspend fun LnRegistryFetcher.fetchEach(repos: Collection<String>): Map<String, 
                 onSuccess = { LnRepoResult.Reached(it) },
                 onFailure = {
                     logcat(LogPriority.WARN, it) { "LN repo fetch failed: $repo" }
-                    LnRepoResult.Unreachable(it.message ?: it::class.simpleName.orEmpty())
+                    LnRepoResult.Unreachable(it.messageOrName)
                 },
             )
             repo to result
