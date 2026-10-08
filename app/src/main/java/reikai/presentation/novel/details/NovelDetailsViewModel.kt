@@ -313,6 +313,7 @@ class NovelDetailsViewModel(
     /** User-hidden chapters, keyed `"<source>|<chapterUrl>"` (restore-stable). Filtered out of the
      *  list unless [showHiddenFlow] is on (then shown dimmed). */
     private val hiddenChaptersPref = novelPreferences.hiddenChapters()
+    private val numberHintMemo = ChapterNumberHint.Memo<NovelChapter>()
 
     /** Whether hidden chapters are temporarily shown (dimmed) so they can be unhidden. */
     private val showHiddenFlow = MutableStateFlow(false)
@@ -1253,16 +1254,18 @@ class NovelDetailsViewModel(
 
     private fun List<NovelChapter>.numberHints(): Map<Long, ChapterNumberHint.Hint> {
         val hidden = hiddenChaptersPref.get()
-        return ChapterNumberHint.forOwners(
-            this,
-            id = { it.id },
-            owner = { it.novelId },
-            sourceOrder = { it.sourceOrder },
-            number = { it.chapterNumber },
-            name = { it.name },
-            dateUpload = { it.dateUpload },
-            isHidden = { hiddenKey(it) in hidden },
-        )
+        return numberHintMemo.get(this, hidden) {
+            ChapterNumberHint.forOwners(
+                this,
+                id = { it.id },
+                owner = { it.novelId },
+                sourceOrder = { it.sourceOrder },
+                number = { it.chapterNumber },
+                name = { it.name },
+                dateUpload = { it.dateUpload },
+                isHidden = { hiddenKey(it) in hidden },
+            )
+        }
     }
 
     fun hideSelected() = withSelection { chapters ->

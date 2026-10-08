@@ -331,6 +331,7 @@ class MangaViewModel(
     // Hide/unhide chapters (twin of the novel mechanism). The pref is the persisted/backed-up set of
     // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
     private val hiddenChaptersPref = mangaPreferences.hiddenChapters()
+    private val numberHintMemo = ChapterNumberHint.Memo<Chapter>()
     private val showHiddenFlow = MutableStateFlow(false)
 
     // The page-preview subscription the seed starts, replaced when a refresh loads the previews again.
@@ -1268,16 +1269,18 @@ class MangaViewModel(
         manga: Manga,
     ): Map<Long, ChapterNumberHint.Hint> {
         val hidden = hiddenChaptersPref.get()
-        return ChapterNumberHint.forOwners(
-            this,
-            id = { it.id },
-            owner = { it.mangaId },
-            sourceOrder = { it.sourceOrder },
-            number = { it.chapterNumber },
-            name = { it.name },
-            dateUpload = { it.dateUpload },
-            isHidden = { it.hiddenKey(mangaBySource[it.mangaId] ?: manga) in hidden },
-        )
+        return numberHintMemo.get(this, hidden) {
+            ChapterNumberHint.forOwners(
+                this,
+                id = { it.id },
+                owner = { it.mangaId },
+                sourceOrder = { it.sourceOrder },
+                number = { it.chapterNumber },
+                name = { it.name },
+                dateUpload = { it.dateUpload },
+                isHidden = { it.hiddenKey(mangaBySource[it.mangaId] ?: manga) in hidden },
+            )
+        }
     }
 
     fun saveChapterNumber(edit: ChapterNumberEdit, number: Double?) {
