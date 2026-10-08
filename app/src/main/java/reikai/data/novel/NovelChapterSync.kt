@@ -120,7 +120,8 @@ suspend fun syncChaptersWithNovelSource(
     novelRepository.update(NovelUpdate(novel.id) { lastUpdate = System.currentTimeMillis() })
 
     // Relocate any downloaded file whose chapter was re-titled, so recognition follows the new name
-    // (mirrors the manga rename-on-sync). No-op when the chapter isn't downloaded.
+    // (mirrors the manga rename-on-sync, pinned by RenameOnSyncConformanceTest). No-op when the chapter
+    // isn't downloaded.
     downloadRenames.forEach { (old, new) -> novelDownloadManager?.renameChapter(novel, old, new) }
 
     return NovelChapterSyncResult(insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls }, changed = true)

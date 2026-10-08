@@ -153,7 +153,8 @@ class NovelDownloadProvider(
 
     /**
      * Rename a downloaded chapter's file when its title changes, so the stable-name path follows the new
-     * title (mirrors the manga [eu.kanade.tachiyomi.data.download.DownloadManager] rename-on-sync).
+     * title (mirrors the manga [eu.kanade.tachiyomi.data.download.DownloadManager] rename-on-sync, pinned by
+     * RenameOnSyncConformanceTest, and named by the manga provider's getChapterDirName on both sides).
      * No-op when nothing is downloaded or the name is unchanged; returns true only when a file was
      * actually renamed.
      */
