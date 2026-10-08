@@ -48,7 +48,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import kotlin.coroutines.resume
-import kotlin.math.roundToInt
 
 /**
  * The light-novel adapter under [ReaderViewport], rendering chapters into a document that is
@@ -636,7 +635,7 @@ class NovelWebViewport(
         runOrQueue("rkReader.setBoundaryFailure($atStart, ${json ?: "null"});")
     }
 
-    private fun Double.toPercent(): Int = (this * 100).roundToInt().coerceIn(0, 100)
+    private fun Double.toPercent(): Int = ChapterProgress.Percent.wholeOf(this)
 }
 
 /** How much of a script error a toast shows, which is enough to find it in the inspector. */

@@ -212,4 +212,17 @@ class ReaderPositionTest {
     fun `a stored position reads as the whole percent below it`() {
         ChapterProgress.Percent(hundredths = 4299).wholePercent shouldBe 42L
     }
+
+    // Both novel renderers report a scroll fraction through this one rounding, which decides when the
+    // completion threshold is reached.
+
+    @Test
+    fun `a scroll fraction reports the nearest whole percent`() {
+        ChapterProgress.Percent.wholeOf(0.966) shouldBe 97
+    }
+
+    @Test
+    fun `a scroll fraction past either end reports the end`() {
+        listOf(ChapterProgress.Percent.wholeOf(-0.2), ChapterProgress.Percent.wholeOf(1.3)) shouldBe listOf(0, 100)
+    }
 }

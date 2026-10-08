@@ -1181,7 +1181,7 @@ class NovelTextViewport(
         }
     }
 
-    private fun percentOf(slot: ChapterSlot): Int = (fractionOf(slot) * 100f).roundToInt().coerceIn(0, 100)
+    private fun percentOf(slot: ChapterSlot): Int = ChapterProgress.Percent.wholeOf(fractionOf(slot).toDouble())
 
     /**
      * Zero rather than a whole while the chapter has no measured height. Reporting completion there
