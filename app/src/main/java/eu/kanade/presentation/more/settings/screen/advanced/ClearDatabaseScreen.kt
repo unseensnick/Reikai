@@ -212,7 +212,10 @@ class ClearDatabaseScreen : Screen() {
                                 ClearDatabaseItem(
                                     name = sourceVisualName(novelSource.name, novelSource.lang),
                                     icon = {
-                                        NovelSourceIcon(iconUrl = novelSource.iconUrl, missing = !novelSource.isInstalled)
+                                        NovelSourceIcon(
+                                            iconUrl = novelSource.iconUrl,
+                                            missing = !novelSource.isInstalled,
+                                        )
                                     },
                                     count = novelSource.count,
                                     isSelected = s.novelSelection.contains(novelSource.id),
