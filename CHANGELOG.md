@@ -627,7 +627,6 @@ agent under Settings -> Advanced.
 - **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
 - **Manga download badges now notice chapters you delete outside the app.**
 - **Manga chapters from a group with "/" in its name now stay found after downloading (from Mihon).** Upstream: mihon a5d584eeb.
-- **Below Android 17, a damaged compiled copy of an extension can no longer crash the app on every launch (from Mihon).** Upstream: mihon 6d4ed6cb2.
 - **Pausing and resuming manga downloads no longer leaves duplicate "(1)" pages or failed chapters (from Mihon).** Upstream: mihon 6490c41e6.
 
 ### Backup & restore
@@ -729,7 +728,7 @@ agent under Settings -> Advanced.
 - Synced from Mihon: settings sliders redraw only their own row while dragged instead of the whole settings screen (mihonapp/mihon#3958), the flag that shows or hides a settings row is renamed to say what it does, and background jobs are renamed to workers, with work queued before an upgrade still running.
 - Synced from Mihon: global search no longer leaves threads behind each time it is opened (mihonapp/mihon#4036).
 - Under the hood, synced from Mihon: screens hold state in AndroidX ViewModels (mihonapp/mihon#3594, mihonapp/mihon#3763), and components are wired together at build time, closing a class of release-only crash (mihonapp/mihon#3608, mihonapp/mihon#3965).
-- Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy.
+- Under the hood, synced from Mihon: extensions load via the platform class loader (mihonapp/mihon#3874, with its fix for Android before 17 from mihon 6d4ed6cb2), dates use kotlinx-datetime (mihonapp/mihon#3001), category edits write only their column (mihonapp/mihon#3693), and the database waits briefly when busy.
 - Synced from Mihon: the database uses WAL on every device, with one reader instead of four on low-memory ones (mihon 61cd786e7).
 - The manga and novel libraries read each entry's last read time without joining history to every chapter, so they refresh faster (partly from Mihon, mihon 5df78e305).
 - Manga chapter lists and Updates look up queued and downloaded chapters once per list instead of once per chapter, and download progress no longer polls for a chapter's pages (from Mihon, mihon fb8e640d6, mihon 9a6dea804).
