@@ -252,7 +252,7 @@ agent under Settings -> Advanced.
 - **Reset all in Edit info now also clears a cover you set by hand, on manga and novels.**
 - **Pulling down to refresh a novel's page now downloads its cover again, fixing a broken one, as it already did for manga.**
 - **A novel's page now shows its artist, copies its link when you long-press WebView, and shares through the same titled share sheet, as a manga's does.**
-- **Page previews on an adult source's details page no longer go blank over time.**
+- **Page previews on an adult source's details page no longer go blank over time.** Expired previews now load again while the page is open, and pulling down to refresh reloads them.
 - **Tapping a tag on a series from an adult source or an enhanced source now searches that source in its own tag format, so the search finds results.**
 - **Removing an adult-source series from your library and your account favorites now keeps it in the library if the account removal fails.** A message says why, so you can try again.
 - **The Related row on a manga you don't track no longer shows a light novel's recommendations from AniList, MyAnimeList or MangaUpdates.**

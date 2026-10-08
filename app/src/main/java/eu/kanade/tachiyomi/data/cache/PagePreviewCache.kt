@@ -9,6 +9,9 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import eu.kanade.tachiyomi.util.storage.saveTo
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -215,13 +218,19 @@ class PagePreviewCache(
         return "${manga.id}_${chapterIds.joinToString(separator = "-")}_$page"
     }
 
+    /** Keys of the page lists [removePageList] dropped, so a screen still showing one can fetch it again. */
+    val removedPageLists: SharedFlow<String>
+        field = MutableSharedFlow<String>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
     /** Drops a cached page list so the next read refetches it. Returns whether anything was removed. */
     fun removePageList(pageListKey: String): Boolean {
-        return try {
+        val removed = try {
             diskCache.remove(DiskUtil.hashKeyForDisk(pageListKey))
         } catch (e: Exception) {
             logcat(LogPriority.WARN, e) { "Failed to remove page list from cache" }
             false
         }
+        if (removed) removedPageLists.tryEmit(pageListKey)
+        return removed
     }
 }

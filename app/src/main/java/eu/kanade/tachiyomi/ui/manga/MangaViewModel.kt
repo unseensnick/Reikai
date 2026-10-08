@@ -59,6 +59,7 @@ import exh.source.getMainSource
 import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -324,6 +325,9 @@ class MangaViewModel(
     // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
     private val hiddenChaptersPref = mangaPreferences.hiddenChapters()
     private val showHiddenFlow = MutableStateFlow(false)
+
+    // The page-preview subscription the seed starts, replaced when a refresh loads the previews again.
+    private var pagePreviewsJob: Job? = null
     // RK <--
 
     private val dialog = MutableStateFlow<Dialog?>(null)
@@ -612,15 +616,20 @@ class MangaViewModel(
         }
     }
 
-    // RK --> load the first page of gallery page previews for sources that support it.
+    // RK --> load the first page of gallery page previews for sources that support it, and again when expired
+    // links drop the cached list. Synchronized because the seed starts it on IO and a refresh restarts it.
+    @Synchronized
     private fun getPagePreviews(manga: Manga, source: Source) {
-        viewModelScope.launchIO {
-            val previews = when (val result = getPagePreviews.await(manga, source, 1)) {
-                is GetPagePreviews.Result.Error -> PagePreviewState.Error(result.error)
-                is GetPagePreviews.Result.Success -> PagePreviewState.Success(result.pagePreviews)
-                GetPagePreviews.Result.Unused -> PagePreviewState.Unused
+        pagePreviewsJob?.cancel()
+        pagePreviewsJob = viewModelScope.launchIO {
+            getPagePreviews.subscribe(manga, source, 1).collect { result ->
+                val previews = when (result) {
+                    is GetPagePreviews.Result.Error -> PagePreviewState.Error(result.error)
+                    is GetPagePreviews.Result.Success -> PagePreviewState.Success(result.pagePreviews)
+                    GetPagePreviews.Result.Unused -> PagePreviewState.Unused
+                }
+                extras.update { it.copy(pagePreviewsState = previews) }
             }
-            extras.update { it.copy(pagePreviewsState = previews) }
         }
     }
     // RK <--
@@ -635,6 +644,10 @@ class MangaViewModel(
                 fetchChapters = true,
             )
             isRefreshingData.value = false
+            // RK --> previews too, after the chapter fetch whose ids key the cached list
+            val manga = getMangaAndChapters.awaitManga(mangaId)
+            getPagePreviews(manga, sourceManager.getOrStub(manga.source))
+            // RK <--
         }
     }
 

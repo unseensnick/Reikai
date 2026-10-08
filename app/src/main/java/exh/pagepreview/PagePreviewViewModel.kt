@@ -19,6 +19,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import tachiyomi.core.common.util.lang.launchIO
@@ -63,10 +65,9 @@ class PagePreviewViewModel(
             }
             val source = sourceManager.getOrStub(manga.source)
             page
-                .onEach { page ->
-                    when (
-                        val previews = getPagePreviews.await(manga, source, page)
-                    ) {
+                .flatMapLatest { page -> getPagePreviews.subscribe(manga, source, page).map { page to it } }
+                .onEach { (page, previews) ->
+                    when (previews) {
                         is GetPagePreviews.Result.Error -> state.update {
                             PagePreviewState.Error(previews.error)
                         }
