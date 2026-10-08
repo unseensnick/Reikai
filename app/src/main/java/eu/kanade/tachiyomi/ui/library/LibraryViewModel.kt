@@ -69,6 +69,7 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergeCollapseInputsFlow
@@ -162,6 +163,16 @@ class LibraryViewModel(
 
     private val hasActiveFilters = filterSettings.map { it.isActive }
         .distinctUntilChanged()
+
+    // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
+    // novel library asks too
+    private val tracks = libraryTracksFlow(
+        filterSettings,
+        getCategories.subscribe(),
+        libraryPreferences,
+        reikaiLibraryPreferences,
+        getTracksPerManga::subscribe,
+    )
     // RK <--
 
     // RK: upstream's second pipeline (bucket favorites into categories, then sort each) is gone, so this
@@ -179,7 +190,7 @@ class LibraryViewModel(
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            combine(getTracksPerManga.subscribe(), filterSettings, ::Pair), // RK: filterSettings
+            combine(tracks, filterSettings, ::Pair), // RK: filterSettings
         ) {
                 (searchQuery, chapterMatches),
                 (favorites, customInfo),

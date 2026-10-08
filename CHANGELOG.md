@@ -100,7 +100,7 @@ agent under Settings -> Advanced.
 - **A category you collapse now stays collapsed on both the Manga and Novels chips, and after a restart.** In the novel library it used to spring back open whenever you left.
 - **Pulling down to update the Library or Updates now keeps the spinner until the update finishes.** The spinner also shows while a scheduled update runs.
 - **Selected cards in Settings -> Library -> Edit categories now use the same highlight as every other selection.**
-- **Large libraries and Statistics load faster (from Mihon).** Upstream: mihon f027de8c2, mihon 179bfaca7.
+- **Large manga and novel libraries and Statistics load faster (partly from Mihon).** Upstream: mihon f027de8c2, mihon 179bfaca7, mihon 940272f75.
 
 #### Fixed
 

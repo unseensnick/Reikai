@@ -73,6 +73,7 @@ import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
+import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.mergedGroupTracks
@@ -129,6 +130,15 @@ class NovelLibraryViewModel(
 
     private val searchQuery = MutableStateFlow<String?>(null)
 
+    // The novel update restrictions gate the custom-interval axis, as the manga ones do for manga.
+    private val filterSettings = libraryFilterSettingsFlow(
+        libraryPreferences,
+        reikaiLibraryPreferences,
+        basePreferences,
+        trackerManager,
+        updateRestrictions = novelPreferences.novelUpdateRestrictions().changes(),
+    )
+
     /** Null until the first build answers, which the derived state reads as still loading. */
     private val built: StateFlow<State?> =
         combine(
@@ -143,8 +153,14 @@ class NovelLibraryViewModel(
                     .combine(novelDownloadCache.changes) { library, _ -> library },
                 getCustomNovelInfo.subscribeAll(),
                 // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
-                // re-sinks the tracker filter/sort/group.
-                getNovelTracks.subscribeAll(),
+                // re-sinks the tracker filter/sort/group, read only while one of those uses them.
+                libraryTracksFlow(
+                    filterSettings,
+                    getNovelCategories.subscribe(),
+                    libraryPreferences,
+                    reikaiLibraryPreferences,
+                    getNovelTracks::subscribeAll,
+                ),
                 ::Triple,
             ),
             // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
@@ -193,14 +209,6 @@ class NovelLibraryViewModel(
     /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
      *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
     private fun settingsFlow(): Flow<LibrarySettings> {
-        // The novel update restrictions gate the custom-interval axis, as the manga ones do for manga.
-        val filterFlow = libraryFilterSettingsFlow(
-            libraryPreferences,
-            reikaiLibraryPreferences,
-            basePreferences,
-            trackerManager,
-            updateRestrictions = novelPreferences.novelUpdateRestrictions().changes(),
-        )
         val mergeFlow = mergeCollapseInputsFlow(
             ContentType.NOVELS,
             reikaiLibraryPreferences.preferredNovelSources.changes(),
@@ -213,7 +221,7 @@ class NovelLibraryViewModel(
         return combine(
             libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
             libraryPreferences.showContinueReadingButton.changes(),
-            filterFlow,
+            filterSettings,
             mergeFlow,
         ) { badges, showContinue, filter, merge -> LibrarySettings(badges, showContinue, filter, merge) }
     }
