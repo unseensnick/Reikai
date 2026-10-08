@@ -109,7 +109,8 @@ private fun counts(total: Long, read: Long = 0, bookmarked: Long = 0) = MergedGr
 /** The lead has nothing read or bookmarked; its sibling carries one read and one bookmarked chapter. */
 private val readAndBookmarkedOnSibling = counts(total = 11, read = 1, bookmarked = 1)
 
-private val filterFields = libraryItemFilterFields(lewdSourceName = { null }, trackerIds = { emptyList() })
+private val filterFields =
+    libraryItemFilterFields(adultSource = { false }, lewdSourceName = { null }, trackerIds = { emptyList() })
 private val queryFields = libraryItemQueryFields(sourceKey = { "" })
 private val sortFields = libraryItemSortFields(trackerMean = { 0.0 })
 

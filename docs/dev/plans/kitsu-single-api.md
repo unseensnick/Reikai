@@ -120,8 +120,8 @@ class ordinary seinen as adult and does not match how the app's existing Lewd fi
 
 The app's existing notion of adult content is the shared library filter, and the plan plugs into it
 rather than inventing a parallel one. `libraryItemFilterFields` binds one `isLewd` seam used by both
-content types, with manga supplying a source name and novels passing `null` so the heuristic falls
-through to its genre half. Kitsu's flag is a fourth input alongside the extension NSFW flag, the
+content types over the `isAdultEntry` kernel, with manga supplying a source name and novels passing
+`null`, since the name list is manga sites. Kitsu's flag is a fourth input alongside the extension NSFW flag, the
 gallery-source check and the genre heuristic that `AdultContentChecker` already combines.
 
 ## Steps
@@ -266,9 +266,5 @@ the library id, so this was accepted. [unified-content-ui.md](unified-content-ui
 authenticated client is unverified, and the device check for this fix settles it. A 403 there makes
 the lookup return nothing, which leaves the row behaving as it did before.
 
-**Found while inventorying, not fixed here:** `Novel.isLewd()` in
-`app/src/main/java/reikai/domain/novel/NovelLewd.kt` has no callers anywhere in main or test. The
-novel library reaches the same genre-only result through the shared `libraryItemFilterFields` seam
-with a null source name, so the function is dead code whose KDoc still describes it as the live novel
-twin. Left out of this plan's diff on blast-radius grounds; it belongs to whoever next touches the
-lewd filter, which step 6 may well be.
+**Found while inventorying:** a `Novel.isLewd()` twin, since deleted when the library Lewd filter and
+`AdultContentChecker` moved onto one kernel, `isAdultEntry`.

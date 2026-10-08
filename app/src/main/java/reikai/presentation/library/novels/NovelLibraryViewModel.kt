@@ -29,6 +29,8 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.AdultContentChecker
+import reikai.domain.manga.AdultWarnings
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -80,6 +82,7 @@ import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
 import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.model.Category
@@ -124,6 +127,7 @@ class NovelLibraryViewModel(
     private val getNovelTracks: GetNovelTracks,
     private val getNextNovelChapter: GetNextNovelChapter,
     private val novelPreferences: NovelPreferences,
+    private val adultContentChecker: AdultContentChecker,
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow<String?>(null)
@@ -296,8 +300,7 @@ class NovelLibraryViewModel(
             trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
-        // novels at once. The per-type seams live in the accessors: novels have no local-source concept,
-        // and their lewd check is genre-only.
+        // novels at once. The per-type seams live in the accessors: novels have no local-source concept.
         val filterPrefs = settings.filter.resolve()
         val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
@@ -316,9 +319,17 @@ class NovelLibraryViewModel(
                 novelSourceBadge(sourceManager.get(it), iconsBySite)
             }
         }
-        // The one filter binding both libraries use. The lewd heuristic's source-name half is manga-only,
-        // so novels pass null and fall through to its genre half, which is their whole check.
+        // The one filter binding both libraries use; the adult rule's source-name list is manga sites.
+        val adultSources = if (filterPrefs.lewd != TriState.DISABLED) {
+            adultContentChecker.adultNovelSources(
+                novelById.values.mapTo(mutableSetOf()) { it.novel.source },
+                AdultWarnings.NSFW_ONLY,
+            )
+        } else {
+            emptySet()
+        }
         val filterFields = libraryItemFilterFields(
+            adultSource = { novelById[it.id]?.novel?.source in adultSources },
             lewdSourceName = { null },
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
         )

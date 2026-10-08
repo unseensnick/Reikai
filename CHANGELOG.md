@@ -140,7 +140,7 @@ agent under Settings -> Advanced.
 - **The library filter icon no longer lights up for a custom-interval filter whose update restriction is off.**
 - **A category you set back to the global sort now stays that way if the app is closed partway through updating from an older version.**
 - **Switching between All, Manga and Novels in the library no longer shows the previous list's count on a category header for a moment.**
-- **The library's adult-content filter now also covers novels, which it used to skip, though it can only judge them by genre tags, so it is less reliable than on manga.**
+- **The library's adult-content filter now covers novels too, and on manga and novels it counts every entry from an extension marked 18+, not only ones tagged adult.** Extensions marked mixed still need an adult tag, and novel plugins, which carry no rating, go by tags alone.
 - **Turning off "Show number of items" now hides category counts under the Novels chip too, which always showed them.**
 - **With "Show number of items" off, a library search now shows each category's matches in the single-list headers and the jump-to-category sheet, as the tabs already did.**
 - **Novels whose source has no icon now show a same-site source's icon or the generic source badge, as manga do.**
