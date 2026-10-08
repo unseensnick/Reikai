@@ -174,12 +174,7 @@ class MangaMigrationFlowAdapter(
         // source. That top-up belongs to resolve, which runs once, on the target being committed.
         runCatchingCancellable { updateMangaFromRemote(local, fetchChapters = true).getOrThrow() }
         val chapters = getChaptersByMangaId.await(local.id)
-        return local.toCandidate(sourceKey).copy(
-            // Null, not 0, when the fetch produced nothing: 0 reads as a settled count and blocks
-            // the display peek from retrying, while null leaves the count honestly unknown.
-            chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-        )
+        return local.toCandidate(sourceKey).withChapterCounts(chapters) { it.chapterNumber }
     }
 
     override suspend fun candidates(
@@ -211,10 +206,7 @@ class MangaMigrationFlowAdapter(
         }
         val refreshed = getManga.await(manga.id) ?: manga
         return ResolvedTarget(
-            candidate = refreshed.toCandidate(candidate.sourceKey).copy(
-                chapterCount = chapters.size.takeIf { it > 0 },
-                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-            ),
+            candidate = refreshed.toCandidate(candidate.sourceKey).withChapterCounts(chapters) { it.chapterNumber },
             // A fetch that produced nothing is not a sync: claiming it would make the engine skip
             // its compensating refresh and migrate onto an empty row when the source flaked here.
             syncedNow = fetched && chapters.isNotEmpty(),
@@ -228,12 +220,7 @@ class MangaMigrationFlowAdapter(
         // cost two network round trips AND permanently write chapter rows for an entry the user had
         // not committed to; on a bulk accept that multiplied by the row count.
         val stored = getChaptersByMangaId.await(manga.id)
-        if (stored.isNotEmpty()) {
-            return candidate.copy(
-                chapterCount = stored.size,
-                latestChapter = stored.latestChapterNumber { it.chapterNumber },
-            )
-        }
+        if (stored.isNotEmpty()) return candidate.withChapterCounts(stored) { it.chapterNumber }
         // Nothing stored yet: read the source's chapter list and count it, without writing any of it
         // back. The commit's own resolve() still does the fetch that has to persist.
         val source = catalogueSource(candidate.sourceKey) ?: return null
@@ -242,19 +229,13 @@ class MangaMigrationFlowAdapter(
         }.getOrNull()
         val listed = fetched?.toSourceChapters(manga, source)
         if (listed.isNullOrEmpty()) return null
-        return candidate.copy(
-            chapterCount = listed.size,
-            latestChapter = listed.latestChapterNumber { it.chapterNumber },
-        )
+        return candidate.withChapterCounts(listed) { it.chapterNumber }
     }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val manga = getManga.await(id) ?: return null
         val chapters = getChaptersByMangaId.await(id)
-        return manga.toCandidate("${manga.source}").copy(
-            chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
-        )
+        return manga.toCandidate("${manga.source}").withChapterCounts(chapters) { it.chapterNumber }
     }
 
     override fun savedFlags(): Set<MigrationDataFlag> {

@@ -262,12 +262,9 @@ class NovelMigrationFlowAdapter(
         return ResolvedTarget(
             candidate = candidate.copy(
                 title = resolved.title,
-                // Null, not 0, for an empty list, matching every other candidate builder.
-                chapterCount = chapters.size.takeIf { it > 0 },
-                latestChapter = chapters.latestChapterNumber { it.chapterNumber },
                 cover = resolved.asNovelCover(),
                 handle = handle.copy(stored = resolved),
-            ),
+            ).withChapterCounts(chapters) { it.chapterNumber },
             // A refresh that stored nothing is not a sync (a soft-error page can parse as an empty
             // chapter list without throwing); claiming it would make the engine skip its
             // compensating refresh and migrate onto an empty row.
@@ -283,12 +280,7 @@ class NovelMigrationFlowAdapter(
         val stored = novelRepository.getByUrlAndSource(handle.item.path, candidate.sourceKey)
             ?.let { chapterRepository.getByNovelId(it.id) }
             .orEmpty()
-        if (stored.isNotEmpty()) {
-            return candidate.copy(
-                chapterCount = stored.size,
-                latestChapter = stored.latestChapterNumber { it.chapterNumber },
-            )
-        }
+        if (stored.isNotEmpty()) return candidate.withChapterCounts(stored) { it.chapterNumber }
         val source = sourceManager.get(candidate.sourceKey) ?: return null
         val parsed = source.parseNovel(handle.item.path)
         // A paged source's first page undercounts; unknown is more honest than a floor.
@@ -298,12 +290,8 @@ class NovelMigrationFlowAdapter(
         return candidate.withCounts(handle.item, chapters)
     }
 
-    /** Null counts for an empty list, matching every other candidate builder. */
-    private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate {
-        val stored = chapters.toSourceChapters(novelId = -1L, novelTitle = item.name)
-        if (stored.isEmpty()) return copy(chapterCount = null, latestChapter = null)
-        return copy(chapterCount = stored.size, latestChapter = stored.latestChapterNumber { it.chapterNumber })
-    }
+    private fun MigrationCandidate.withCounts(item: NovelItem, chapters: List<ChapterItem>): MigrationCandidate =
+        withChapterCounts(chapters.toSourceChapters(novelId = -1L, novelTitle = item.name)) { it.chapterNumber }
 
     override suspend fun storedCandidate(id: Long): MigrationCandidate? {
         val novel = novelRepository.getById(id) ?: return null
@@ -311,10 +299,7 @@ class NovelMigrationFlowAdapter(
         return MigrationCandidate(
             sourceKey = novel.source,
             title = novel.title,
-            // A browsed row may be stored without a chapter sync; null rather than 0, so the compare
-            // line reads unknown instead of a full shortfall. The engine refreshes it at migrate.
-            chapterCount = chapters.size.takeIf { it > 0 },
-            latestChapter = chapters.latestChapterNumber { it.chapterNumber },
+            chapterCount = null,
             key = "${novel.source}:${novel.url}",
             cover = novel.asNovelCover(),
             inLibrary = novel.favorite,
@@ -322,7 +307,8 @@ class NovelMigrationFlowAdapter(
                 item = NovelItem(name = novel.title, path = novel.url, cover = novel.thumbnailUrl),
                 stored = novel,
             ),
-        )
+            // A browsed row may be stored without a chapter sync; the engine refreshes it at migrate.
+        ).withChapterCounts(chapters) { it.chapterNumber }
     }
 
     override fun savedFlags(): Set<MigrationDataFlag> {

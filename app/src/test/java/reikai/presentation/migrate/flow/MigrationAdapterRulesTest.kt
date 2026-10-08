@@ -43,6 +43,26 @@ class MigrationAdapterRulesTest {
         entry(MigrationPayload.OfNovel(Novel.create().copy(url = "/a"))).isOwnListing("src", "/a") shouldBe true
     }
 
+    private val candidate = MigrationCandidate(
+        sourceKey = "src",
+        title = "Title",
+        chapterCount = 7,
+        latestChapter = 7.0,
+        key = "src:/a",
+        handle = MangaCandidateHandle(Manga.create()),
+    )
+
+    @Test
+    fun `a candidate counted from no chapters has an unknown count, not zero`() {
+        candidate.withChapterCounts(emptyList<Double>()) { it }.chapterCount shouldBe null
+    }
+
+    @Test
+    fun `a candidate counted from chapters carries their count and highest number`() {
+        candidate.withChapterCounts(listOf(1.0, 3.0, 2.0)) { it }.let { it.chapterCount to it.latestChapter } shouldBe
+            (3 to 3.0)
+    }
+
     @Test
     fun `merge members are listed once each, in the order the groups were met`() = runTest {
         val groups = mapOf(1L to longArrayOf(2L, 1L), 3L to longArrayOf(1L, 3L))

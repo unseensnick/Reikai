@@ -101,7 +101,17 @@ data class MigrationCandidate(
      * stored row may never have been synced.
      */
     val handle: MigrationHandle,
-)
+) {
+    /**
+     * This candidate counted from [chapters]: how many, and the highest number. Both null, not 0, for an
+     * empty list: 0 reads as a settled count and blocks the display peek from retrying, while null leaves
+     * the count honestly unknown. Every candidate builder of both adapters counts through here.
+     */
+    fun <T> withChapterCounts(chapters: List<T>, number: (T) -> Double): MigrationCandidate = copy(
+        chapterCount = chapters.size.takeIf { it > 0 },
+        latestChapter = chapters.latestChapterNumber(number),
+    )
+}
 
 /**
  * What [MigrationFlowAdapter.resolve] produced: the commit-ready [candidate], and whether this call
