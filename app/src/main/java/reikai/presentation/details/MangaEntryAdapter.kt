@@ -129,6 +129,7 @@ class MangaEntryAdapter(
             // Resolved by the model: asking the extension here would run on every tick and blink the
             // WebView button whenever the adapter is rebuilt.
             webPage = webPage,
+            downloadTargets = downloadTargets,
         )
     }
 

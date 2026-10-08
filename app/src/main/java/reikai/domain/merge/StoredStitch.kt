@@ -20,7 +20,8 @@ fun <T> renderStoredStitch(chapters: List<T>, stitch: List<ChapterUnit>, id: (T)
 }
 
 /** Each merged chapter's highest-ranked copy among these, by unit: the one rule for which copy stands
- *  for the others, whether the list renders it, the reader opens it or an update announces it. */
+ *  for the others, whether the list renders it, the reader opens it, an update announces it or a
+ *  download fetches it in place of a copy whose source is gone. */
 private fun Sequence<ChapterUnit>.bestCopyByUnit(): Map<Int, Long> =
     groupBy { it.unit }.mapValues { (_, copies) -> copies.minBy { it.copyOrder }.chapterId }
 
@@ -111,6 +112,55 @@ class CopyToOpen<T>(
     fun inPlaceOf(shown: List<T>, keepPlace: (copy: T, row: T) -> T): List<T> = shown.map { row ->
         val copyId = idOf(id(row))
         if (copyId == id(row)) row else keepPlace(byId.getValue(copyId), row)
+    }
+}
+
+/**
+ * The copy a download of each row fetches, as plain ids so a screen state can carry it: the row's own
+ * while its source is installed, else the highest-ranked copy of it on an installed source that the
+ * scope reaches, else none. Only fetching moves: the row shown and the copy opened stay the stitch's.
+ */
+data class DownloadTargets(
+    private val moved: Map<Long, Long> = emptyMap(),
+    private val unavailable: Set<Long> = emptySet(),
+) {
+    /** The copy a download of [chapterId] fetches, or null when no installed source holds it. */
+    fun idOf(chapterId: Long): Long? = if (chapterId in unavailable) null else moved[chapterId] ?: chapterId
+
+    /** [rows] as the copies a download fetches, once each; [load] returns the given ids' chapters. */
+    suspend fun <T> of(rows: List<T>, id: (T) -> Long, load: suspend (Set<Long>) -> List<T>): List<T> {
+        val held = rows.associateBy(id)
+        val wanted = rows.mapNotNull { idOf(id(it)) }.distinct()
+        val missing = wanted.filterNotTo(HashSet()) { it in held }
+        val loaded = if (missing.isEmpty()) emptyMap() else load(missing).associateBy(id)
+        return wanted.mapNotNull { held[it] ?: loaded[it] }
+    }
+
+    companion object {
+        /** Every row fetches its own copy: a view with nothing to move to. */
+        val OWN = DownloadTargets()
+
+        /** The targets of [shown]'s rows, from [pooled], every member's chapters, under [stitch]. */
+        fun <T> of(
+            scope: MergeScope,
+            pooled: List<T>,
+            shown: List<T>,
+            stitch: List<ChapterUnit>,
+            id: (T) -> Long,
+            isInstalled: (T) -> Boolean,
+        ): DownloadTargets {
+            val installed = pooled.asSequence().filter(isInstalled).mapTo(HashSet(), id)
+            val copies = scope.copiesIn(stitch)
+            val unitOf = copies.associate { it.chapterId to it.unit }
+            val bestInstalled = copies.asSequence().filter { it.chapterId in installed }.bestCopyByUnit()
+            val moved = HashMap<Long, Long>()
+            val unavailable = HashSet<Long>()
+            shown.asSequence().map(id).filterNot { it in installed }.forEach { rowId ->
+                val copy = unitOf[rowId]?.let(bestInstalled::get)
+                if (copy == null) unavailable += rowId else moved[rowId] = copy
+            }
+            return DownloadTargets(moved, unavailable)
+        }
     }
 }
 

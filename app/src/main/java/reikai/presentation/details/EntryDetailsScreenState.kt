@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import eu.kanade.tachiyomi.data.download.model.Download
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.selection.ChapterMarks
@@ -51,6 +52,8 @@ sealed interface EntryDetailsScreenState {
         val seedColor: Color?,
         /** The viewed member's page, which each model resolves off the render path; null hides the web actions. */
         val webPage: EntryWebPage?,
+        /** The copy each row's download fetches, which the All view moves off a member whose source is gone. */
+        val downloadTargets: DownloadTargets,
     ) : EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
         val isMerged: Boolean get() = mergeSources.size > 1
@@ -60,11 +63,13 @@ sealed interface EntryDetailsScreenState {
 
         /**
          * Whether a chapter row in [downloadState] draws its download indicator and takes a download swipe.
-         * A missing source can start nothing, so a row with nothing on disk or queued offers neither, where
-         * Mihon draws an indicator that does nothing. A local row keeps Mihon's disabled one.
+         * A missing source can start nothing, and neither can a merged row no installed source holds, so a
+         * row with nothing on disk or queued offers neither, where Mihon draws an indicator that does
+         * nothing. A local row keeps Mihon's disabled one.
          */
-        fun rowOffersDownload(downloadState: Download.State): Boolean =
-            details.header.sourceState != EntrySourceState.Missing || downloadState != Download.State.NOT_DOWNLOADED
+        fun rowOffersDownload(chapterId: Long, downloadState: Download.State): Boolean =
+            downloadState != Download.State.NOT_DOWNLOADED ||
+                (details.header.sourceState != EntrySourceState.Missing && downloadTargets.idOf(chapterId) != null)
 
         /** A custom cover lands on the entry the library renders, so only the anchor's may be edited. */
         val isCoverAnchored: Boolean get() = viewedEntryId == entryId.rawId

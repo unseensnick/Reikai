@@ -215,6 +215,7 @@ class NovelReaderViewModelHarness private constructor(
     /**
      * [progressPercent] is where the reader last was in it, stored as the reader stores it. A second copy
      * of one [number] needs its own [url], and a [sourceOrder] to say which copy the source lists first.
+     * A [name] with a title is what the stitch pairs sources on; a bare number pairs nothing.
      */
     suspend fun chapter(
         novelId: Long,
@@ -226,12 +227,13 @@ class NovelReaderViewModelHarness private constructor(
         url: String = "/chapter/$novelId/$number",
         sourceOrder: Long = number.toLong(),
         scanlator: String? = null,
+        name: String = "Chapter $number",
     ): SeededChapter {
         val chapter = NovelChapter(
             id = -1L,
             novelId = novelId,
             url = url,
-            name = "Chapter $number",
+            name = name,
             read = read,
             bookmark = bookmark,
             lastTextProgress = progressPercent * 100L,

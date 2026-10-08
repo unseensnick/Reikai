@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.DownloadTargets
 import reikai.presentation.components.UndatedChapterDate
 
 /** The page's download gate and cover anchoring derive from the one viewed member, for both types. */
@@ -26,17 +27,18 @@ class EntryDetailsScreenStateTest {
 
     @Test
     fun `a missing source's row with nothing downloaded offers no download control`() {
-        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(Download.State.NOT_DOWNLOADED) shouldBe false
+        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(ROW, Download.State.NOT_DOWNLOADED) shouldBe
+            false
     }
 
     @Test
     fun `a missing source's downloaded row keeps its download control`() {
-        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(Download.State.DOWNLOADED) shouldBe true
+        loaded(sourceState = EntrySourceState.Missing).rowOffersDownload(ROW, Download.State.DOWNLOADED) shouldBe true
     }
 
     @Test
     fun `a local source's row keeps Mihon's disabled download control`() {
-        loaded(sourceState = EntrySourceState.Local).rowOffersDownload(Download.State.NOT_DOWNLOADED) shouldBe true
+        loaded(sourceState = EntrySourceState.Local).rowOffersDownload(ROW, Download.State.NOT_DOWNLOADED) shouldBe true
     }
 
     @Test
@@ -95,10 +97,12 @@ class EntryDetailsScreenStateTest {
         showChapterNumberOnly = false,
         seedColor = null,
         webPage = null,
+        downloadTargets = DownloadTargets.OWN,
     )
 
     private companion object {
         const val ANCHOR = 1L
         const val SIBLING = 2L
+        const val ROW = 10L
     }
 }

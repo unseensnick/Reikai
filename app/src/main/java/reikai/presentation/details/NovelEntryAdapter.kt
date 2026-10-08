@@ -133,6 +133,7 @@ class NovelEntryAdapter(
             showChapterNumberOnly = hideChapterTitles,
             seedColor = seedColor,
             webPage = webPage,
+            downloadTargets = downloadTargets,
         )
     }
 

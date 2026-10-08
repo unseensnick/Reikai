@@ -453,7 +453,7 @@ private fun LazyListScope.entryChapterItems(
                 val context = LocalContext.current
                 val titleWords = remember(context) { context.chapterTitleWords() }
                 val isSelected = chapter.id in state.selection
-                val offersDownload = state.rowOffersDownload(chapter.downloadState)
+                val offersDownload = state.rowOffersDownload(chapter.id, chapter.downloadState)
                 val swipeOf = { action: LibraryPreferences.ChapterSwipeAction ->
                     action.takeIf { offersDownload || it != LibraryPreferences.ChapterSwipeAction.Download }
                         ?: LibraryPreferences.ChapterSwipeAction.Disabled

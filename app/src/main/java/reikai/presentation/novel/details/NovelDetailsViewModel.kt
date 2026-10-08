@@ -77,6 +77,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DetailsRemoval
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.refreshMergeGroup
@@ -567,6 +568,8 @@ class NovelDetailsViewModel(
             val ordered = mergedChapterProvider.merged(pooled, stitch)
             val flags = group.novelRowFlags(pooled, ordered, stitch)
             val members = related.toList().mapNotNull { id -> if (id == anchor.id) anchor else novelRepo.getById(id) }
+            // The chips resolve the plugins before this list is rebuilt for them, so the map is current here.
+            val installed = siblingSources.value
             buildLoaded(
                 group,
                 anchor,
@@ -579,6 +582,10 @@ class NovelDetailsViewModel(
                 flags.marks,
                 // Off each source's own list: [ordered] is restamped and keeps one copy per chapter.
                 pooled.numberHints(),
+            ).copy(
+                downloadTargets = DownloadTargets.of(group.mergeScope, pooled, ordered, stitch, { it.id }) {
+                    it.novelId in installed
+                },
             )
         }
     }
@@ -1417,7 +1424,15 @@ class NovelDetailsViewModel(
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
-            downloadManager.runChapterAction(action, listOf(chapter)) { expandForDelete(listOf(chapter)) }
+            val chapters = when (action) {
+                ChapterDownloadAction.START, ChapterDownloadAction.START_NOW -> downloadCopiesOf(listOf(chapter))
+                // The row shows its own queue state first, else that of the copy its download fetches.
+                ChapterDownloadAction.CANCEL -> (listOf(chapter) + downloadCopiesOf(listOf(chapter))).distinctBy {
+                    it.id
+                }
+                ChapterDownloadAction.DELETE -> listOf(chapter)
+            }
+            downloadManager.runChapterAction(action, chapters) { expandForDelete(listOf(chapter)) }
             if (action == ChapterDownloadAction.START || action == ChapterDownloadAction.START_NOW) {
                 promptAddToLibraryOnFirstDownload()
             }
@@ -1425,7 +1440,7 @@ class NovelDetailsViewModel(
     }
 
     fun downloadSelected() = withSelection {
-        downloadManager.downloadChapters(it)
+        downloadManager.downloadChapters(downloadCopiesOf(it))
         promptAddToLibraryOnFirstDownload()
     }
 
@@ -1473,10 +1488,16 @@ class NovelDetailsViewModel(
                 loaded.marks,
             ) { hiddenKey(it) in hidden }
             if (targets.isNotEmpty()) {
-                downloadManager.downloadChapters(targets)
+                downloadManager.downloadChapters(downloadCopiesOf(targets))
                 promptAddToLibraryOnFirstDownload()
             }
         }
+    }
+
+    /** [chapters] as the copies a download fetches: a row whose plugin is gone takes an installed one's copy. */
+    private suspend fun downloadCopiesOf(chapters: List<NovelChapter>): List<NovelChapter> {
+        val targets = (state.value as? NovelDetailsState.Loaded)?.downloadTargets ?: DownloadTargets.OWN
+        return targets.of(chapters, { it.id }, ::groupChaptersIn)
     }
 
     /** Confirm before bulk-deleting the selected downloads (parity with manga); confirm calls
@@ -1634,6 +1655,8 @@ sealed interface NovelDetailsState {
         /** The installed member the All view serves in place of an anchor whose plugin is gone, else null;
          *  see [unifiedViewMember]. */
         val servedNovel: Novel? = null,
+        /** The copy each row's download fetches; only the All view moves one off a missing plugin. */
+        val downloadTargets: DownloadTargets = DownloadTargets.OWN,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
@@ -1663,8 +1686,11 @@ sealed interface NovelDetailsState {
 
         /** A chapter's download state: a live queue state if present, else DOWNLOADED / NOT_DOWNLOADED
          *  from the on-disk cache. */
-        fun downloadStateOf(chapterId: Long): Download.State =
-            downloadStateOf(downloadStates[chapterId]) { chapterId in downloadedChapterIds }
+        fun downloadStateOf(chapterId: Long): Download.State {
+            // A row whose download fetches another source's copy follows that copy through the queue.
+            val queued = downloadStates[chapterId] ?: downloadTargets.idOf(chapterId)?.let(downloadStates::get)
+            return downloadStateOf(queued) { chapterId in downloadedChapterIds }
+        }
     }
 }
 

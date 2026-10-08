@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.flowOf
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.renderStoredStitch
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
@@ -36,7 +38,7 @@ import tachiyomi.domain.source.service.SourceManager
 
 /**
  * A real [MangaViewModel] opened on [mangaId] over [mangas] and [chapters], grouped with [group] in that
- * order, every other dependency inert. The stitch is empty, so a merged list is every member's rows.
+ * order, every other dependency inert. A merged list renders [stitch]; empty, it is every member's rows.
  */
 internal fun mangaDetailsModel(
     mangaId: Long,
@@ -45,6 +47,7 @@ internal fun mangaDetailsModel(
     group: LongArray,
     downloadManager: DownloadManager = detailsDownloadManager(),
     sourceManager: SourceManager = mockk(relaxed = true),
+    stitch: List<ChapterUnit> = emptyList(),
 ): MangaViewModel {
     val prefs = InMemoryPreferenceStore()
     return MangaViewModel(
@@ -81,8 +84,8 @@ internal fun mangaDetailsModel(
         mangaLibraryAdder = mockk(relaxed = true),
         removeMangaFromLibrary = mockk(relaxed = true),
         mergedChapterProvider = mockk<MergedChapterProvider> {
-            coEvery { stitchOf(any()) } returns emptyList()
-            every { merged(any(), any()) } answers { firstArg() }
+            coEvery { stitchOf(any()) } returns stitch
+            every { merged(any(), any()) } answers { renderStoredStitch(firstArg(), secondArg()) { it.id } }
         },
         mangaPreferences = MangaPreferences(prefs),
         relatedMangasLoader = mockk(relaxed = true),

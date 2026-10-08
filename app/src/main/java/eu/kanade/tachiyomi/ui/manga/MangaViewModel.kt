@@ -111,6 +111,7 @@ import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.DetailsRemoval
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.gapPresent
@@ -416,7 +417,7 @@ class MangaViewModel(
             }
         }
         .map { mc ->
-            val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource)
+            val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource, mc.downloadTargets)
             ChapterView(
                 merged = mc,
                 source = sourceManager.getOrStub(mc.manga.source),
@@ -514,7 +515,10 @@ class MangaViewModel(
         val mc = view.merged
         // RK --> a rebuilt list drops selected rows its filters no longer show, as novels do
         val withDownloads = view.hidden.chapters.map { item ->
-            val download = downloads[item.id] ?: return@map item
+            // A row whose download fetches another source's copy follows that copy through the queue.
+            val download = downloads[item.id]
+                ?: mc.downloadTargets.idOf(item.id)?.let(downloads::get)
+                ?: return@map item
             item.copy(downloadState = download.status, downloadProgress = download.progress)
         }
         val selectedIds = if (selection.isEmpty) {
@@ -540,6 +544,7 @@ class MangaViewModel(
             mergeDisplaySource = mc.displaySource,
             mergeServedManga = mc.servedManga,
             mergeServedSource = mc.servedSource,
+            downloadTargets = mc.downloadTargets,
             downloadFolderOwner = view.downloadFolderOwner,
             galleryMetadata = merge.galleryMetadata,
             relatedItems = extras.relatedItems,
@@ -956,6 +961,8 @@ class MangaViewModel(
         // RK: for merged groups, each chapter's own source-manga, so download status resolves
         // against the source it actually came from (key: mangaId). Empty for non-merged manga.
         mangaBySource: Map<Long, Manga> = emptyMap(),
+        // RK: the copy each row's download fetches, whose queue state the row shows
+        downloadTargets: DownloadTargets,
     ): List<ChapterList.Item> {
         val queuedDownloads = downloadManager.getQueuedDownloadsByChapterId()
         return map { chapter ->
@@ -963,7 +970,7 @@ class MangaViewModel(
             val activeDownload = if (owner.isLocal()) {
                 null
             } else {
-                queuedDownloads[chapter.id]
+                queuedDownloads[chapter.id] ?: downloadTargets.idOf(chapter.id)?.let(queuedDownloads::get)
             }
             // The rule every Reikai row reads, novels' details list included.
             val downloadState = downloadStateOf(activeDownload?.status) { flags.isDownloaded(chapter) }
@@ -1039,6 +1046,8 @@ class MangaViewModel(
         // (unifiedViewMember), null otherwise. Downloads, the web page and the interval follow it.
         val servedManga: Manga? = null,
         val servedSource: Source? = null,
+        // RK: the copy each row's download fetches; only the All view moves one off a missing source
+        val downloadTargets: DownloadTargets = DownloadTargets.OWN,
     )
 
     /** Chapters of a single grouped source (chip selection), keyed for download by its own manga.
@@ -1147,15 +1156,17 @@ class MangaViewModel(
             val stitch = mergedChapterProvider.stitchOf(displayManga.id)
             val merged = mergedChapterProvider.merged(pooled, stitch)
             val sources = mangaBySource.values.associate { it.id to sourceManager.getOrStub(it.source) }
-            val served = unifiedViewMember(displayManga.id, group.ids.asList()) { id ->
-                sources[id].let { it != null && it !is StubSource }
-            }
+            val isInstalled = { mangaId: Long -> sources[mangaId].let { it != null && it !is StubSource } }
+            val served = unifiedViewMember(displayManga.id, group.ids.asList(), isInstalled)
             MergedChapters(
                 manga = displayManga,
                 chapters = merged,
                 mangaBySource = mangaBySource,
                 servedManga = mangaBySource[served]?.takeIf { served != displayManga.id },
                 servedSource = sources[served]?.takeIf { served != displayManga.id },
+                downloadTargets = DownloadTargets.of(group.mergeScope, pooled, merged, stitch, { it.id }) {
+                    isInstalled(it.mangaId)
+                },
                 flags = {
                     group.rowFlags(pooled, merged, stitch, { it.id }, { it.read }, { it.bookmark }) {
                         downloadedIdsOf(pooled, mangaBySource, displayManga)
@@ -1336,14 +1347,16 @@ class MangaViewModel(
         chapters: List<Chapter>,
         startNow: Boolean,
     ) {
-        successState ?: return // RK
+        val state = successState ?: return // RK
 
         viewModelScope.launchNonCancellable {
+            // RK: a row whose source is gone fetches an installed source's copy of it, or nothing
+            val copies = state.downloadTargets.of(chapters, { it.id }, ::groupChaptersIn)
             if (startNow) {
-                val chapterId = chapters.singleOrNull()?.id ?: return@launchNonCancellable
+                val chapterId = copies.singleOrNull()?.id ?: return@launchNonCancellable // RK
                 downloadManager.startDownloadNow(chapterId)
             } else {
-                downloadChapters(chapters)
+                downloadChapters(copies) // RK
             }
 
             // RK: the prompt and its once-per-screen rule are written once with novels
@@ -1398,7 +1411,10 @@ class MangaViewModel(
     }
 
     private fun cancelDownload(chapterId: Long) {
-        val activeDownload = downloadManager.getQueuedDownloadOrNull(chapterId) ?: return
+        val activeDownload = downloadManager.getQueuedDownloadOrNull(chapterId)
+            // RK: the row shows the queue state of the copy its download fetches
+            ?: successState?.downloadTargets?.idOf(chapterId)?.let(downloadManager::getQueuedDownloadOrNull)
+            ?: return
         downloadManager.cancelQueuedDownloads(listOf(activeDownload))
         updateDownloadState(activeDownload.apply { status = Download.State.NOT_DOWNLOADED })
     }
@@ -1927,6 +1943,8 @@ class MangaViewModel(
             // RK: the All view's installed stand-in for an anchor whose source is gone (MergedChapters.servedManga)
             val mergeServedManga: Manga? = null,
             val mergeServedSource: Source? = null,
+            // RK: the copy each row's download fetches (MergedChapters.downloadTargets)
+            val downloadTargets: DownloadTargets = DownloadTargets.OWN,
             // RK: whose folder Open folder opens, null hiding it and Clear downloads (downloadFolderOwner).
             val downloadFolderOwner: Manga? = null,
             // RK: the active source's raised gallery metadata (adult/metadata sources), drives the
