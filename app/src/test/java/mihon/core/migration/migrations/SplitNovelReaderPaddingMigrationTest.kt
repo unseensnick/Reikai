@@ -44,6 +44,6 @@ class SplitNovelReaderPaddingMigrationTest {
     fun untouchedPaddingWritesNothing() = runTest {
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 190))
 
-        novelPreferences.readerMarginTop().isSet() shouldBe false
+        novelPreferences.readerMarginLeft().isSet() shouldBe false
     }
 }
