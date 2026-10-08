@@ -1,15 +1,24 @@
 package reikai.util
 
-/**
- * The one "is this adult content?" rule, for the library's Lewd filter and the notification check on manga
- * and novels: a source known to be adult ([adultSource], an extension warned as mixed or 18+ or a built-in
- * gallery), an adult source name, or an adult genre tag. The name and tag heuristic is ported from Komikku's
- * `LewdMangaChecker`, without its delegated-source branches. The name list is manga sites, so novels pass null.
- */
-fun isAdultEntry(adultSource: Boolean, sourceName: String?, genres: List<String>?): Boolean =
-    adultSource || (sourceName != null && isHentaiSource(sourceName)) || hasLewdGenre(genres)
+import tachiyomi.domain.manga.model.Manga
 
-private fun hasLewdGenre(genres: List<String>?): Boolean = genres.orEmpty().any(::isHentaiTag)
+/**
+ * Heuristic "is this adult content?" check for the library lewd filter, ported from Komikku's
+ * `LewdMangaChecker` and re-typed onto Mihon's immutable [Manga]. The original's delegated-source
+ * branches are deliberately omitted; what remains is the portable genre-tag and source-name core,
+ * which already recognizes the common adult sources by name when installed as extensions. Pure: the
+ * caller resolves [sourceName], so this stays unit-testable.
+ */
+fun Manga.isLewd(sourceName: String?): Boolean {
+    return (sourceName != null && isHentaiSource(sourceName)) ||
+        hasLewdGenre(genre)
+}
+
+/**
+ * The genre-tag half of the lewd heuristic, shared with novels, where it is the whole library check. The
+ * source-name half stays manga-only.
+ */
+fun hasLewdGenre(genres: List<String>?): Boolean = genres.orEmpty().any(::isHentaiTag)
 
 private fun isHentaiTag(tag: String): Boolean {
     return tag.contains("hentai", true) ||

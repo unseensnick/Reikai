@@ -266,5 +266,9 @@ the library id, so this was accepted. [unified-content-ui.md](unified-content-ui
 authenticated client is unverified, and the device check for this fix settles it. A 403 there makes
 the lookup return nothing, which leaves the row behaving as it did before.
 
-**Found while inventorying:** a dead `Novel.isLewd()` twin, since deleted when the library Lewd
-filter and `AdultContentChecker` moved onto one rule, `isAdultEntry`.
+**Found while inventorying, not fixed here:** `Novel.isLewd()` in
+`app/src/main/java/reikai/domain/novel/NovelLewd.kt` has no callers anywhere in main or test. The
+novel library reaches the same genre-only result through the shared `libraryItemFilterFields` seam
+with a null source name, so the function is dead code whose KDoc still describes it as the live novel
+twin. Left out of this plan's diff on blast-radius grounds; it belongs to whoever next touches the
+lewd filter, which step 6 may well be.

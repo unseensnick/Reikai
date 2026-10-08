@@ -117,7 +117,7 @@ class ReikaiLibraryPreferences(
 
     // region Filters (net-new dims Mihon lacks; ported from Komikku, re-typed onto Mihon)
 
-    /** Adult-content filter. Komikku's `filterLewd`; lewdness by reikai.util.isAdultEntry. */
+    /** Adult-content filter. Komikku's `filterLewd`; lewdness derived heuristically (see reikai.util.isLewd). */
     val filterLewd: Preference<TriState> = preferenceStore.getEnum("pref_filter_library_lewd", TriState.DISABLED)
 
     /** Master switch for the include/exclude category filter. */

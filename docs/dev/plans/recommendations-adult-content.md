@@ -192,8 +192,8 @@ permanent for two trackers will keep meeting vocabulary nobody enumerated.
 
 ### The sexual-content keyword list is new, and deliberately not the existing one
 
-The app already has a genre-tag check inside `isAdultEntry` in `reikai/util/MangaLewd.kt`, used by the
-library Lewd filter and by notification hiding through `AdultContentChecker`. It cannot be reused here as it stands, because
+The app already has `hasLewdGenre` in `reikai/util/MangaLewd.kt`, used by the library Lewd filter and
+by notification hiding through `AdultContentChecker`. It cannot be reused here as it stands, because
 its keyword set includes `mature`, matched by substring, so "Mature Themes" trips it. That is correct
 for its own job, which is a broad "might not want this on a lock screen" test, and wrong for this one,
 which is sex-only by the owner's definition.

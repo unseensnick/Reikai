@@ -86,11 +86,7 @@ class LibraryRowScheduleConformanceTest {
         val NEXT_UPDATE = Instant.parse("2030-06-15T12:00:00Z").toEpochMilliseconds()
 
         val queryFields = libraryItemQueryFields(sourceKey = { "" })
-        val filterFields = libraryItemFilterFields(
-            adultSource = { false },
-            lewdSourceName = { null },
-            trackerIds = { emptyList() },
-        )
+        val filterFields = libraryItemFilterFields(lewdSourceName = { null }, trackerIds = { emptyList() })
 
         fun matches(query: String, row: LibraryItem) = libraryQueryMatches(QueryNode.from(query), row, queryFields)
 

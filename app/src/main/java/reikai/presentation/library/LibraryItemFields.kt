@@ -5,7 +5,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
-import reikai.util.isAdultEntry
+import reikai.util.isLewd
 
 /**
  * The one binding of the shared filter and sort kernels onto the library's row type, used by both
@@ -16,9 +16,11 @@ import reikai.util.isAdultEntry
  * seams.
  */
 fun libraryItemFilterFields(
-    /** Whether the row's source is adult, by AdultContentChecker's source sets. */
-    adultSource: (LibraryItem) -> Boolean,
-    /** The adult rule's source-name list is manga sites, so novels pass null. */
+    /**
+     * The lewd heuristic's source-name half is manga-only (a novel source carries no adult flag and its
+     * name is not in the hentai-source list), so novels pass null and fall through to the genre half,
+     * which is their whole check.
+     */
     lewdSourceName: (LibraryItem) -> String?,
     /** The two content types keep separate track tables, so each resolves its own, already unioned. */
     trackerIds: (LibraryItem) -> List<Long>,
@@ -31,7 +33,7 @@ fun libraryItemFilterFields(
     hasBookmarks = { it.libraryManga.hasBookmarks },
     isCompleted = { it.libraryManga.manga.status.toInt() == SManga.COMPLETED },
     matchesIntervalCustom = { it.libraryManga.manga.fetchInterval < 0 },
-    isLewd = { isAdultEntry(adultSource(it), lewdSourceName(it), it.libraryManga.manga.genre) },
+    isLewd = { it.libraryManga.manga.isLewd(lewdSourceName(it)) },
     trackerIds = trackerIds,
     categoryIds = { it.libraryManga.categories },
 )

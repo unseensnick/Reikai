@@ -42,7 +42,6 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.manga.AdultContentChecker
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -76,7 +75,6 @@ import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
-import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.launchNonCancellable
 import tachiyomi.domain.category.interactor.GetCategories
@@ -141,7 +139,6 @@ class LibraryViewModel(
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val mangaPreferences: MangaPreferences,
-    private val adultContentChecker: AdultContentChecker,
     // RK <--
 ) : ViewModel() {
 
@@ -286,13 +283,7 @@ class LibraryViewModel(
         val sourceNames = map { it.libraryManga.manga.source }
             .distinct()
             .associateWith { sourceManager.getOrStub(it).name }
-        val adultSources = if (prefs.lewd != TriState.DISABLED) {
-            adultContentChecker.adultMangaSources(sourceNames.keys)
-        } else {
-            emptySet()
-        }
         val fields = libraryItemFilterFields(
-            adultSource = { it.libraryManga.manga.source in adultSources },
             lewdSourceName = { sourceNames[it.libraryManga.manga.source] },
             trackerIds = { item -> mergedGroupTracks(item.memberIds(), trackMap).map { it.trackerId } },
         )
