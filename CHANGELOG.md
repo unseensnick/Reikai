@@ -10,21 +10,22 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Highlights
 
-Manga and light novels stop being two apps in one. A new All chip shows your whole library as a
+Manga and light novels now share much more of the app. A new All chip shows your whole library as a
 single list, a category can hold both kinds, and one search grammar, sort, filter and grouping
-covers everything. Browse, global search, Extensions, Migrate and the download queue each became one
+covers both. Browse, global search, Extensions, Migrate and the download queue each became one
 list too, and Updates and History can merge into one Recents tab, off until you turn it on under
 Settings -> Appearance.
 
-Merged series got the fix that mattered most. A chapter is now identified by the group's own
-stitching instead of by chapter number, which two sources of one series rarely agree on, so reading,
-bookmarking, downloading, counting and notifying all land on the right chapter.
+Merged series now pair each source's chapters into one list instead of matching them by chapter
+number, which two sources of one series often disagree on, so reading, bookmarking, downloading and
+counting follow the same chapter across sources. The pairing is automatic and can still miss
+chapters two sources name very differently.
 
 Migration was rebuilt. Manga and novels share one flow, matches are offered rather than assumed,
 failures are named and can be retried, and you choose what carries across at the moment you confirm.
 
 Novels now open in the same reader manga uses, drawn as real text or as a web page, with a font
-picker spanning the whole Google Fonts library, chapter clean-up rules and find and replace. Light
+picker that can search Google Fonts, chapter clean-up rules and find and replace. Light
 novels also gained three trackers built for novels, and novel extensions from Tsundoku and IReader
 now install beside the LNReader plugins.
 
