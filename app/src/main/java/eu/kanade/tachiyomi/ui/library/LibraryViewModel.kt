@@ -50,8 +50,10 @@ import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.groupFlags
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
@@ -498,7 +500,8 @@ class LibraryViewModel(
 
     /** Queue what [action] picks from [chapters], each from the source it came from, skipping what the
      *  group already holds: a chapter downloaded on any member is on disk, whichever copy the stitch
-     *  shows. Hidden keys go by the owning member's source, as the details list keys them. */
+     *  shows. A pick shown from a source that is gone fetches an installed source's copy, or nothing.
+     *  Hidden keys go by the owning member's source, as the details list keys them. */
     private suspend fun enqueueDownloads(
         group: MergedChapterProvider.Group?,
         anchor: Manga,
@@ -508,12 +511,23 @@ class LibraryViewModel(
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
         val flags = group.groupFlags(chapters) { downloadManager.downloadedChapterIds(it, ownerOf) }
+        val targets = group?.takeIf { it.stitch.isNotEmpty() }?.let { merged ->
+            val installed = merged.mangaById.values
+                .filter { sourceManager.getOrStub(it.source) !is StubSource }
+                .mapTo(HashSet()) { it.id }
+            DownloadTargets.of(MergeScope.Group, merged.pooledChapters, chapters, merged.stitch, { it.id }) {
+                it.mangaId in installed
+            }
+        } ?: DownloadTargets.OWN
         DownloadCandidates.forGroup(
             chapters,
             action,
             flags,
+            targets,
+            group?.pooledChapters ?: chapters,
+            { it.id },
             isHidden = { it.hiddenKey(ownerOf(it)) in hidden },
-            isQueued = { downloadManager.getQueuedDownloadOrNull(it.id) != null },
+            isQueued = { downloadManager.getQueuedDownloadOrNull(it) != null },
         )
             .groupBy { it.mangaId }
             .forEach { (mangaId, owned) ->

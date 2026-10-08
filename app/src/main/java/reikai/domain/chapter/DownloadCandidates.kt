@@ -1,6 +1,7 @@
 package reikai.domain.chapter
 
 import eu.kanade.presentation.manga.DownloadAction
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 
 /**
@@ -44,15 +45,22 @@ object DownloadCandidates {
     /**
      * [forAction] as a merge group answers it, for the library's multi-select on both content types:
      * read and bookmarked are the group's, and a chapter is skipped when the copy it opens is on disk,
-     * whichever source holds it, or [isQueued] already holds it.
+     * whichever source holds it, or the copy its download fetches is already queued ([isQueued], by id).
+     * Each pick is returned as the copy [targets] fetches, out of [pooled], every member's chapters.
      */
     fun <T> forGroup(
         inReadingOrder: List<T>,
         action: DownloadAction,
         flags: GroupChapterFlags<T>,
+        targets: DownloadTargets,
+        pooled: List<T>,
+        id: (T) -> Long,
         isHidden: (T) -> Boolean,
-        isQueued: (T) -> Boolean,
-    ): List<T> = forAction(inReadingOrder, action, flags::isRead, flags::isBookmarked, isHidden) {
-        isQueued(it) || flags.isDownloaded(it)
+        isQueued: (Long) -> Boolean,
+    ): List<T> {
+        val picks = forAction(inReadingOrder, action, flags::isRead, flags::isBookmarked, isHidden) {
+            flags.isDownloaded(it) || targets.queuedFor(id(it)) { chapterId -> chapterId.takeIf(isQueued) } != null
+        }
+        return targets.of(picks, pooled, id)
     }
 }

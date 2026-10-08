@@ -74,6 +74,7 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.chapterSwipeActions
@@ -82,6 +83,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.CopyToOpen
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
@@ -128,6 +130,7 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.isLocal
@@ -264,6 +267,11 @@ class ReaderViewModel(
     // RK: which copy of a merged chapter an open reads, one on disk over the one online. Resolved in
     // init with the group and null in source scope, which reads only the opened source's chapters.
     private var copiesToOpen: CopyToOpen<Chapter>? = null
+
+    // RK: the copy a download of each chapter fetches, an installed source's in place of one whose source
+    // is gone. Resolved in init with the group and left fetching each chapter's own in source scope.
+    var downloadTargets: DownloadTargets = DownloadTargets.OWN
+        private set
 
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
@@ -551,6 +559,12 @@ class ReaderViewModel(
                     val copies = CopyToOpen(mergeScope, pooled, group.stitch, { it.id }, onDisk)
                     copiesToOpen = copies
                     chapterId = copies.idOf(chapterId)
+                    val installed = group.mangaById.values
+                        .filter { sourceManager.getOrStub(it.source) !is StubSource }
+                        .mapTo(HashSet()) { it.id }
+                    downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
+                        it.mangaId in installed
+                    }
                 }
                 loader = MergedChapterLoader(
                     context,
@@ -841,7 +855,8 @@ class ReaderViewModel(
                     .let { own -> chaptersToDownloadAhead(own, 0, downloadAheadAmount, groupFlags(own)::isRead) }
             }
 
-            chaptersToDownload.groupBy { it.mangaId }.forEach { (ownerId, owned) ->
+            // RK: a chapter whose source is gone fetches an installed source's copy, or nothing
+            downloadCopiesOf(chaptersToDownload).groupBy { it.mangaId }.forEach { (ownerId, owned) ->
                 downloadManager.downloadChapters(mangaForChapterId(ownerId), owned)
             }
         }
@@ -1359,7 +1374,8 @@ class ReaderViewModel(
     fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
         manga ?: return
         viewModelScope.launchIO {
-            chapterDownloadActions.run(action, listOf(chapter)) {
+            val chapters = rowDownloadChapters(action, chapter, downloadCopiesOf(listOf(chapter))) { it.id }
+            chapterDownloadActions.run(action, chapters) {
                 // The copies this session's rows count as downloaded: every source's in group scope,
                 // the chapter's own in source scope.
                 val copies = mergeScope.copiesOf(setOf(chapter.id), mergedGroup?.stitch.orEmpty())
@@ -1367,6 +1383,10 @@ class ReaderViewModel(
             }
         }
     }
+
+    /** [chapters] as the copies a download fetches ([downloadTargets]), out of the group's chapters. */
+    private fun downloadCopiesOf(chapters: List<Chapter>): List<Chapter> =
+        downloadTargets.of(chapters, mergedGroup?.pooledChapters.orEmpty() + chapters) { it.id }
     // RK <--
 
     fun setBrightnessOverlayValue(value: Int) {

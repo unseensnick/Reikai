@@ -28,6 +28,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.Test
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReaderPosition
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -156,6 +157,7 @@ class MangaReaderProviderTest {
         }
         val viewModel = mockk<ReaderViewModel>(relaxed = true) {
             every { getChapters() } returns listOf(ReaderChapterItem(chapter, sourceName = null))
+            every { downloadTargets } returns DownloadTargets.OWN
         }
         val rows = provider(ReaderViewModel.State(), viewModel, downloadManager).chapterList.rows
         // The rows are built on the IO dispatcher, so they are awaited in real time, bounded.

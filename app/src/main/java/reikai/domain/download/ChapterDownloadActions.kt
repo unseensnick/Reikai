@@ -51,6 +51,18 @@ class MangaChapterDownloadActions(
 }
 
 /**
+ * The chapters a row's download [action] acts on, where [fetched] is the copy its download fetches
+ * (`DownloadTargets`, empty when no installed source holds it): that copy to start, the row and that
+ * copy to cancel since either may be the one queued, and the row itself to delete.
+ */
+fun <T> rowDownloadChapters(action: ChapterDownloadAction, row: T, fetched: List<T>, id: (T) -> Long): List<T> =
+    when (action) {
+        ChapterDownloadAction.START, ChapterDownloadAction.START_NOW -> fetched
+        ChapterDownloadAction.CANCEL -> (listOf(row) + fetched).distinctBy(id)
+        ChapterDownloadAction.DELETE -> listOf(row)
+    }
+
+/**
  * Novels' twin of [MangaChapterDownloadActions.run], pinned by ChapterDownloadActionsConformanceTest.
  */
 suspend fun NovelDownloadManager.runChapterAction(

@@ -30,8 +30,10 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.DownloadUnitRow
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
@@ -424,13 +426,25 @@ class NovelLibraryViewModel(
                 val novelsById = novelRepository.ownersOf(group.pooledChapters)
                 val flags = group.groupFlags { novelDownloadCache.downloadedChapterIds(it, novelsById) }
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
+                // A pick shown from a plugin that is gone fetches an installed one's copy, or nothing.
+                val copies = if (group.stitch.isEmpty()) {
+                    DownloadTargets.OWN
+                } else {
+                    val installed = novelsById.filterValues { sourceManager.get(it.source) != null }.keys
+                    DownloadTargets.of(MergeScope.Group, group.pooledChapters, group.chapters, group.stitch, {
+                        it.id
+                    }) { it.novelId in installed }
+                }
                 // The interactor already hands them over in reading order.
                 val targets = DownloadCandidates.forGroup(
                     group.chapters,
                     action,
                     flags,
+                    copies,
+                    group.pooledChapters,
+                    { it.id },
                     getNextNovelChapter.hiddenAmong(group.pooledChapters),
-                ) { it.id in queuedIds }
+                ) { it in queuedIds }
                 if (targets.isNotEmpty()) downloadManager.downloadChapters(targets)
             }
         }

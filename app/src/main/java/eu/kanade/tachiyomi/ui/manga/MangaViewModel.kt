@@ -516,9 +516,7 @@ class MangaViewModel(
         // RK --> a rebuilt list drops selected rows its filters no longer show, as novels do
         val withDownloads = view.hidden.chapters.map { item ->
             // A row whose download fetches another source's copy follows that copy through the queue.
-            val download = downloads[item.id]
-                ?: mc.downloadTargets.idOf(item.id)?.let(downloads::get)
-                ?: return@map item
+            val download = mc.downloadTargets.queuedFor(item.id, downloads::get) ?: return@map item
             item.copy(downloadState = download.status, downloadProgress = download.progress)
         }
         val selectedIds = if (selection.isEmpty) {
@@ -970,7 +968,7 @@ class MangaViewModel(
             val activeDownload = if (owner.isLocal()) {
                 null
             } else {
-                queuedDownloads[chapter.id] ?: downloadTargets.idOf(chapter.id)?.let(queuedDownloads::get)
+                downloadTargets.queuedFor(chapter.id, queuedDownloads::get)
             }
             // The rule every Reikai row reads, novels' details list included.
             val downloadState = downloadStateOf(activeDownload?.status) { flags.isDownloaded(chapter) }
@@ -1411,10 +1409,9 @@ class MangaViewModel(
     }
 
     private fun cancelDownload(chapterId: Long) {
-        val activeDownload = downloadManager.getQueuedDownloadOrNull(chapterId)
-            // RK: the row shows the queue state of the copy its download fetches
-            ?: successState?.downloadTargets?.idOf(chapterId)?.let(downloadManager::getQueuedDownloadOrNull)
-            ?: return
+        // RK: the row shows the queue state of the copy its download fetches
+        val activeDownload = (successState?.downloadTargets ?: DownloadTargets.OWN)
+            .queuedFor(chapterId, downloadManager::getQueuedDownloadOrNull) ?: return
         downloadManager.cancelQueuedDownloads(listOf(activeDownload))
         updateDownloadState(activeDownload.apply { status = Download.State.NOT_DOWNLOADED })
     }

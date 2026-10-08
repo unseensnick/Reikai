@@ -33,6 +33,7 @@ import reikai.data.coil.seedColor
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.reader.pageIndex
 import reikai.presentation.components.UndatedChapterDate
@@ -223,7 +224,8 @@ class MangaReaderProvider(
                 val queued = queue.associateBy { it.chapter.id }
                 val flags = viewModel.sheetFlags(chapters.map { it.chapter })
                 val numberOnly = viewModel.manga?.displayMode == Manga.CHAPTER_DISPLAY_NUMBER
-                val build = { chapters.map { it.toReaderChapterRow(queued, flags, numberOnly, titleWords) } }
+                val targets = viewModel.downloadTargets
+                val build = { chapters.map { it.toReaderChapterRow(queued, flags, numberOnly, titleWords, targets) } }
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
@@ -337,8 +339,10 @@ internal fun ReaderChapterItem.toReaderChapterRow(
     flags: GroupChapterFlags<Chapter>,
     numberOnly: Boolean,
     words: ChapterTitleWords,
+    targets: DownloadTargets = DownloadTargets.OWN,
 ): ReaderChapterRow {
-    val active = queued[chapter.id]
+    // A row whose download fetches another source's copy follows that copy through the queue.
+    val active = targets.queuedFor(chapter.id, queued::get)
     return ReaderChapterRow(
         id = chapter.id,
         title = chapterRowTitle(chapter.name, chapter.chapterNumber, numberOnly, words),

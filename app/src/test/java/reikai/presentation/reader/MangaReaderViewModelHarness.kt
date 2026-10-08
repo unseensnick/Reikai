@@ -8,6 +8,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.loader.ChapterLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -46,6 +47,7 @@ import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import java.io.IOException
 
@@ -125,7 +127,8 @@ class MangaReaderViewModelHarness private constructor(
     /**
      * Opens [chapterId] of [manga], waits for the first chapter to land, then asks [probe]. [preferences]
      * seeds the store the reader, download and library settings read, by key. The page loader throws for
-     * a chapter in [failing], as a dropped connection does, and [incognito] answers for every source.
+     * a chapter in [failing], as a dropped connection does, and [incognito] answers for every source. A
+     * source in [missingSources] resolves to a stub, as an uninstalled extension's does.
      */
     suspend fun <T> open(
         manga: Manga,
@@ -137,6 +140,7 @@ class MangaReaderViewModelHarness private constructor(
         sourceScoped: Boolean = false,
         failing: Set<Long> = emptySet(),
         incognito: Boolean = false,
+        missingSources: Set<Long> = emptySet(),
         onDownload: (List<Chapter>) -> Unit = {},
         onDelete: (List<Chapter>) -> Unit = {},
         probe: suspend (ReaderViewModel, ReaderViewModel.State) -> T,
@@ -167,6 +171,12 @@ class MangaReaderViewModelHarness private constructor(
             }
             val getManga = GetManga(mangas)
             val sourceManager = mockk<SourceManager>(relaxed = true)
+            if (missingSources.isNotEmpty()) {
+                coEvery { sourceManager.getOrStub(any()) } answers {
+                    val id = firstArg<Long>()
+                    if (id in missingSources) StubSource(id, "en", "gone") else mockk<Source>(relaxed = true)
+                }
+            }
             val prefs = InMemoryPreferenceStore(
                 preferences.asSequence().map { (key, value) ->
                     InMemoryPreferenceStore.InMemoryPreference(key, value, value)

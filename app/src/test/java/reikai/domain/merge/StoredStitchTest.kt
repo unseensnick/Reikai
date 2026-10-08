@@ -113,4 +113,25 @@ class StoredStitchTest {
     fun expandLeavesAnUnknownChapterAlone() {
         expandToUnits(setOf(99L), stitch) shouldBe setOf(99L)
     }
+
+    /** The first source (10, 11) is gone: its rows fetch the second source's copies. */
+    private val fetchingFromSecond = DownloadTargets.of(
+        MergeScope.Group,
+        listOf(Row(10), Row(20), Row(11), Row(21)),
+        listOf(Row(10), Row(11)),
+        stitch,
+        { it.id },
+    ) { it.id >= 20 }
+
+    @Test
+    @DisplayName("a row shows the queue entry of the copy its download fetches")
+    fun rowFollowsTheFetchedCopyThroughTheQueue() {
+        fetchingFromSecond.queuedFor(10L, mapOf(20L to "queued")::get) shouldBe "queued"
+    }
+
+    @Test
+    @DisplayName("a row's own queue entry comes before the fetched copy's")
+    fun rowsOwnQueueEntryComesFirst() {
+        fetchingFromSecond.queuedFor(10L, mapOf(10L to "own", 20L to "fetched")::get) shouldBe "own"
+    }
 }

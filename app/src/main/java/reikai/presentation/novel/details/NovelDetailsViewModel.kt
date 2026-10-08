@@ -67,6 +67,7 @@ import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
@@ -1424,14 +1425,7 @@ class NovelDetailsViewModel(
 
     fun onChapterDownloadAction(chapter: NovelChapter, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
-            val chapters = when (action) {
-                ChapterDownloadAction.START, ChapterDownloadAction.START_NOW -> downloadCopiesOf(listOf(chapter))
-                // The row shows its own queue state first, else that of the copy its download fetches.
-                ChapterDownloadAction.CANCEL -> (listOf(chapter) + downloadCopiesOf(listOf(chapter))).distinctBy {
-                    it.id
-                }
-                ChapterDownloadAction.DELETE -> listOf(chapter)
-            }
+            val chapters = rowDownloadChapters(action, chapter, downloadCopiesOf(listOf(chapter))) { it.id }
             downloadManager.runChapterAction(action, chapters) { expandForDelete(listOf(chapter)) }
             if (action == ChapterDownloadAction.START || action == ChapterDownloadAction.START_NOW) {
                 promptAddToLibraryOnFirstDownload()
@@ -1688,7 +1682,7 @@ sealed interface NovelDetailsState {
          *  from the on-disk cache. */
         fun downloadStateOf(chapterId: Long): Download.State {
             // A row whose download fetches another source's copy follows that copy through the queue.
-            val queued = downloadStates[chapterId] ?: downloadTargets.idOf(chapterId)?.let(downloadStates::get)
+            val queued = downloadTargets.queuedFor(chapterId, downloadStates::get)
             return downloadStateOf(queued) { chapterId in downloadedChapterIds }
         }
     }

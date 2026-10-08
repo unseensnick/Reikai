@@ -127,13 +127,21 @@ data class DownloadTargets(
     /** The copy a download of [chapterId] fetches, or null when no installed source holds it. */
     fun idOf(chapterId: Long): Long? = if (chapterId in unavailable) null else moved[chapterId] ?: chapterId
 
+    /** [chapterId]'s own queue entry, else that of the copy its download fetches: what its row shows
+     *  and a cancel reaches. */
+    fun <D : Any> queuedFor(chapterId: Long, queued: (Long) -> D?): D? =
+        queued(chapterId) ?: idOf(chapterId)?.let(queued)
+
     /** [rows] as the copies a download fetches, once each; [load] returns the given ids' chapters. */
     suspend fun <T> of(rows: List<T>, id: (T) -> Long, load: suspend (Set<Long>) -> List<T>): List<T> {
-        val held = rows.associateBy(id)
-        val wanted = rows.mapNotNull { idOf(id(it)) }.distinct()
-        val missing = wanted.filterNotTo(HashSet()) { it in held }
-        val loaded = if (missing.isEmpty()) emptyMap() else load(missing).associateBy(id)
-        return wanted.mapNotNull { held[it] ?: loaded[it] }
+        val missing = rows.mapNotNullTo(HashSet()) { idOf(id(it)) } - rows.mapTo(HashSet(), id)
+        return of(rows, if (missing.isEmpty()) rows else rows + load(missing), id)
+    }
+
+    /** [rows] as the copies a download fetches, once each, picked out of [copies]. */
+    fun <T> of(rows: List<T>, copies: List<T>, id: (T) -> Long): List<T> {
+        val byId = copies.associateBy(id)
+        return rows.mapNotNull { idOf(id(it)) }.distinct().mapNotNull(byId::get)
     }
 
     companion object {

@@ -43,11 +43,13 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
@@ -1035,11 +1037,12 @@ class NovelReaderViewModel(
         val sourceNames = chapterSourceNames()
         val novels = novelRepo.ownersOf(pooled + chapters)
         val numberOnly = novelRepo.getById(novelId)?.effectiveHideChapterTitles(novelPreferences) == true
+        val targets = downloadTargets(pooled)
         emitAll(
             combine(downloadManager.queueState, chapter) { queue, _ ->
                 val flags = groupFlags(pooled, chapters, novels)
                 val queued = queue.associateBy { it.chapterId }
-                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words) }
+                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, targets) }
             },
         )
     }.flowOn(io)
@@ -1104,8 +1107,10 @@ class NovelReaderViewModel(
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
         viewModelScope.launchIO {
             val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
+            val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
+            val fetched = downloadTargets(pooled).of(listOf(chapter), pooled + chapter) { it.id }
             // The copies the row counts as downloaded, which follow this session's scope.
-            downloadManager.runChapterAction(action, listOf(chapter)) {
+            downloadManager.runChapterAction(action, rowDownloadChapters(action, chapter, fetched) { it.id }) {
                 mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
             }
         }
@@ -1372,8 +1377,19 @@ class NovelReaderViewModel(
         val candidates = aheadIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
         val flags = groupFlags(pooled, candidates, novelRepo.ownersOf(pooled + candidates))
         // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
-        val toDownload = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
+        val picked = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
+        val toDownload = downloadTargets(pooled).of(picked, pooled + picked) { it.id }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
+    }
+
+    /**
+     * The copy a download of each of [pooled] fetches: in group scope, an installed source's copy of a
+     * chapter whose plugin is gone, or none. Source scope fetches each chapter's own, as manga's does.
+     */
+    private suspend fun downloadTargets(pooled: List<NovelChapter>): DownloadTargets {
+        if (mergeScope != MergeScope.Group || groupStitch.isEmpty()) return DownloadTargets.OWN
+        val installed = novelRepo.ownersOf(pooled).filterValues { sourceManager.get(it.source) != null }.keys
+        return DownloadTargets.of(mergeScope, pooled, pooled, groupStitch, { it.id }) { it.novelId in installed }
     }
 
     /** Marks the chapter the user skipped away from as read, forward only, when the setting is on.
@@ -1405,6 +1421,7 @@ internal fun NovelChapter.toReaderChapterRow(
     flags: GroupChapterFlags<NovelChapter>,
     numberOnly: Boolean,
     words: ChapterTitleWords,
+    targets: DownloadTargets = DownloadTargets.OWN,
 ) = ReaderChapterRow(
     id = id,
     title = chapterRowTitle(name, chapterNumber, numberOnly, words),
@@ -1413,7 +1430,10 @@ internal fun NovelChapter.toReaderChapterRow(
     readProgress = percentProgressLabel(lastTextProgress),
     read = flags.isRead(this),
     bookmark = flags.isBookmarked(this),
-    downloadState = downloadStateOf(queued[id]?.state?.toDownloadState()) { flags.isDownloaded(this) },
+    // A row whose download fetches another source's copy follows that copy through the queue.
+    downloadState = downloadStateOf(targets.queuedFor(id, queued::get)?.state?.toDownloadState()) {
+        flags.isDownloaded(this)
+    },
     // A novel chapter is one request, so there is no percentage to report while it runs.
     downloadProgress = 0,
 )
