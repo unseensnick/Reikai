@@ -20,7 +20,7 @@ Sources being slow could stem from site slowness, your internet, or source-impos
 * Use sources with smaller images.
 
 ### App not installed
-Refer to "[Unable to install the app or extensions](/docs/guides/troubleshooting/#app-or-extension-installation-issues)" section.
+Refer to the "[App or extension installation issues](/docs/guides/troubleshooting/#app-or-extension-installation-issues)" section.
 
 ## Storage access issues
 
@@ -48,12 +48,12 @@ See the [Scoped Storage](/docs/faq/storage#scoped-storage) portion of the FAQ to
 
 ## Advanced errors
 
-### `Java.lang Exception: Failed to bypass Cloudflare`
+### `Failed to bypass Cloudflare`
 This error indicates the selected source is protected by **Cloudflare**.
 
 Consult the [Cloudflare guide](/docs/guides/troubleshooting/#cloudflare) for solutions.
 
-If it keeps happening on a source you want to keep, the protection is beyond what the in-app WebView can clear, and the answer is a [Cloudflare bypass proxy](/docs/flaresolverr) running on your own machine.
+If it keeps happening on a source you want to keep, turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">, which ticks a **Verify you are human** box for you instead of giving up on it; for library updates, also turn on **Solve with the app closed**. If it still fails, the protection is beyond what the in-app WebView can clear, and the answer is a [Cloudflare bypass proxy](/docs/flaresolverr) running on your own machine.
 
 ### `Unable to resolve host` / `Connection failed` / `Failed to connect to` / `timeout` / `connection reset`
 These errors indicate personal connection issues. Possible causes include:

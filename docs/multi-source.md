@@ -15,17 +15,19 @@ Grouping works the same way for manga and for light novels.
 
 ::: info Grouping only happens when you ask for it
 Nothing is grouped behind your back.
-An entry joins a group when you accept the prompt shown as you add it, or when you merge entries yourself.
+An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a grouped entry: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
 :::
 
 ## Grouping series
 
-Turn grouping on with **Group series across sources**, in <nav to="library"> under **Merged series**, or in the library display sheet.
+Grouping is on by default.
+Turn it off or back on with **Group series across sources**, in <nav to="library"> under **Merged series**, or in the library display sheet.
 
 With it on, every group renders as one card.
 Turning it off expands each group back into its per-source entries and keeps the groups, so turning it on again collapses them exactly as they were.
 
-Grouping is per-category, so a series filed in two categories still shows once in each.
+A merged card is filed under the categories of the source that leads it, and shows once in each of them.
+Changing its categories changes them for every source in the group.
 
 ### Joining a group as you add a series
 
@@ -56,8 +58,9 @@ The row refreshes on its own whenever you come back to the details screen, so a 
 ### Changing the cover
 
 Tapping the cover shows the cover of whichever source you have selected, so it matches the
-page you are looking at. Edit cover and Delete custom cover are only offered on the group
-itself, which is the **All** chip.
+page you are looking at. Edit cover and Delete custom cover are offered on the **All** chip and
+on the chip of the source the series was opened from, since both show the group's own cover.
+Other sources' chips hide them.
 
 The reason is that your library shows the group's cover, not each source's. If you could set
 a custom cover while viewing one source, it would land on that source's copy and your library
@@ -100,7 +103,7 @@ Long-press the source's chip on the details screen and confirm **Split**.
 
 Quickest when you are already looking at the chip row. Shows an undo snackbar.
 == From Manage sources
-On the details screen, open <nav to="overflow"> and tap **Manage sources**, then pick the source and tap **Split**.
+On the details screen, open <nav to="overflow"> and tap **Manage sources**, then tap the split icon on that source's row.
 
 Easier than a long-press on a small screen. Shows an undo snackbar.
 == From the library

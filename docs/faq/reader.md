@@ -39,7 +39,8 @@ Three things cause that:
 - **The genres also say "Manga".** That one is checked before anything else and stops the
   guess dead, which is what keeps a mixed-content source from webtooning its whole
   catalogue. A series tagged both "Manga" and "Manhwa" is treated as manga. A "Comic" tag
-  is weaker: it beats "Manhwa" and "Manhua" but loses to "Webtoon" and "Long strip".
+  is weaker: it beats "Manhwa" and "Manhua" but loses to "Webtoon" and "Long strip". In a
+  merged series each source is checked on its own, and one that reads as long strip is enough.
 - **You already picked a mode for that series.** Your own choice always wins. To check,
   open the reader settings sheet and look at **Reading mode** under **For this series**:
   if anything other than **Default** is selected, that is your pick overriding

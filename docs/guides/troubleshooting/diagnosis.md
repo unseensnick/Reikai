@@ -20,7 +20,7 @@ Follow these steps to troubleshoot and find solutions.
 1. **Change Connection**: Switch networks (Wi-Fi, mobile data, VPN) and confirm IP change.
 1. **Collaborative Check**: Get others to replicate the error.
 1. **Source Status**: Verify the source's status in a browser.
-1. **Retry Button**: Look for a retry button on the series page.
+1. **Retry Button**: If a source's list or a chapter fails to load, tap the **Retry** button it offers.
 1. **Advanced Settings**: Under <nav to="advanced">, try these options:
    - Clear cookies
    - Clear WebView data

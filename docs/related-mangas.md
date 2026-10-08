@@ -28,14 +28,14 @@ Prefer it out of the way?
 **Related manga placement** <Badge type="info" text="On the details page" /> in <nav to="recommendations">, under **Sources**, moves it into the three-dot menu instead.
 
 Results are kept for about half an hour.
-Switching source with the chip row fetches again for the new source.
+On a grouped series the row is fetched for the entry you opened; switching source with the chip row does not fetch it again.
 
 ## Where the suggestions come from
 
 ::: tip Sources
 **The source itself.** Sources that publish a "related" list contribute it directly. Ones that do not simply add nothing.
 
-**A search on the title.** The title is broken into keywords and each is searched on the current source, so the row fills in as results arrive.
+**A search on the title.** The full title and up to three of its longest keywords (short and common words are skipped) are each searched on the current source, so the row fills in as results arrive.
 
 **Public tracker recommendations**, from AniList, MyAnimeList, MangaUpdates and Shikimori. No sign-in needed, and no account of yours is read.
 :::
@@ -43,8 +43,8 @@ Switching source with the chip row fetches again for the new source.
 Two more streams need you signed in to AniList, MyAnimeList, MangaUpdates or Shikimori, and only fire on a manga that is itself tracked there.
 Both live in <nav to="recommendations">, under **Suggestions from your tracking**, a section that appears once you are signed in to one of those four, with both **Tracker recommendations** and **Show related manga** left on.
 
-- **Because you're reading…** <Badge type="info" text="On" /> takes titles you rated highly, keeps the ones your tracker also links to the manga you have open, and pulls in what those are compared to. Narrow, and usually the best of the bunch.
-- **Matching your taste** <Badge type="info" text="On" /> searches the current source for the genres you read most. It needs a source that supports genre search; on a title-only source it adds nothing.
+- **Because you're reading…** <Badge type="info" text="On" /> takes titles you rated highly (Completed or Reading) on the tracker the open manga is tracked on, keeps the ones that tracker also links to the manga you have open, and pulls in what those are compared to. It reads them from that tracker's taste profile pull (below), so it adds nothing until that pull is on. MangaUpdates has no pull, so it never feeds this one. Narrow, and usually the best of the bunch.
+- **Matching your taste** <Badge type="info" text="On" /> searches the current source for up to three of this manga's own genres that your taste profile favours. It is a plain text search for the genre name, so on a source whose search only matches titles the results are hit and miss.
 
 Turn off **Tracker recommendations** <Badge type="info" text="On" /> in **Sources** and every tracker-backed stream stops, leaving the source's own suggestions.
 Each of the four trackers also has its own switch under it.
@@ -63,11 +63,11 @@ Building it needs your tracker library, which is private, so nothing is pulled u
 :::
 
 Your library is then cached locally, so the row does not call out to every tracker each time you open a page.
-It updates in place when you add or change a track entry in the app, and **Auto-refresh library** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
+It is pulled again in the background when you open a manga's details with the related row turned on and a tracker's cached copy is more than six hours old, and **Auto-refresh library** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
 **Refresh now** shows when each tracker was last pulled, and has a short cooldown between presses.
 
 The cache is not included in your backups. After a restore it rebuilds itself from your trackers on the next pull, so nothing is lost beyond the wait.
-Turning a tracker's pull off drops its cached entries, so it stops shaping the row straight away; turning it back on rebuilds them on the next pull.
+Turning a tracker's pull off drops its cached entries the next time the cache refreshes (opening a manga's details page is enough), so it stops shaping the row from then on; turning it back on rebuilds them on the next pull.
 
 ## Reordering the row
 
@@ -109,7 +109,7 @@ Tracker links do not belong to any extension, so opening one directly would leav
 The row shows a slice.
 Several sources plus tracker fan-out routinely produce far more, and when there is more than the row can hold, **See all (N)** appears beside the **Related** heading.
 
-That opens a full grid with the same ordering and filters and no cap, on as many columns as the screen fits.
+That opens a full grid with the same ordering and filters and no cap, using the same number of columns as your library grid (as many as fit, by default).
 
 Three icons sit in its toolbar. **Select** is always there; the other two appear only when they have something to do:
 

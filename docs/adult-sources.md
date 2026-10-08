@@ -9,7 +9,7 @@ description: Built-in gallery sources that carry real tags, uploader and page co
 _Dev records: [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md), [md-enhanced-source.md](dev/plans/md-enhanced-source.md). Doc map: [README.md](README.md)._
 
 **Reikai** has built-in support for E-Hentai and ExHentai, with richer handling than an ordinary extension gives you.
-Galleries carry their real tags into your library, uploader and page count show on the details screen, and your favorites can sync with the account.
+Galleries carry their real tags into your library, uploader and page count show on the details screen, and your favorites can be backed up to the account.
 
 ::: warning Off by default
 Nothing here appears until you turn it on.
@@ -65,7 +65,8 @@ Removing a gallery from your library leaves it on the account unless you tick **
 
 ### Gallery update checker
 
-Re-checks saved galleries for new pages, because galleries get revised in place rather than gaining chapters the way a series does.
+Re-checks saved E-Hentai galleries for a newer version, which then shows up as new chapters.
+These galleries are left out of the normal library update, so this is the only thing that updates them.
 It can be limited to Wi-Fi and to while charging, and it keeps statistics so you can see whether it is finding anything.
 
 ## Adding many galleries at once

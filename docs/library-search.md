@@ -51,7 +51,7 @@ A plain word never searches `language:`, `srcid:` or `chapter:`, so those only a
 :::
 
 **`source:` matches the source's display name**, so `source:mangadex` and `src:manga` both work on a partial name.
-**`srcid:` matches its exact identity** instead: a number for manga sources, a plugin name for light-novel plugins, and a prefixed number such as `tachiyomi:42` or `ireader:42` for novel [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins).
+**`srcid:` matches its exact identity** instead: a number for manga sources, the plugin's id (such as `novelupdates`) for light-novel plugins, and a prefixed number such as `tachiyomi:42` or `ireader:42` for novel [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins).
 Reach for `srcid:` when two sources have similar names.
 On manga, `source:local` finds entries from your local source.
 A merged series answers for every source it reads from, so `source:`, `srcid:` and `lang:` find it through any of them, not only the one leading it.

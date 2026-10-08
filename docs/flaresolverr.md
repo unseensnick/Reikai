@@ -54,7 +54,7 @@ Pick Byparr or FlareSolverr only if you already run one and it works for your so
 
 ::: tip How to set it up
 1. Run one of the proxies on a machine your device can reach, using the commands below.
-1. Check it is reachable: open `http://<host>:8191` in a browser on the same network. Solverr and FlareSolverr answer with a welcome page, Byparr serves its API docs at `/docs`.
+1. Check it is reachable: open `http://<host>:8191` in a browser on the same network. Solverr and FlareSolverr answer with a short JSON reply reading `FlareSolverr is ready!`, and Byparr sends you on to its API docs at `/docs`.
 1. Go to <nav to="advanced"> and, under **Networking**, turn on **Enable FlareSolverr**.
 1. Enter `http://<host>:8191` in **FlareSolverr URL**. That field and the test below it are not on the screen at all until the switch is on, so turn it on first.
 1. Open **FlareSolverr sign-in** and fill it in only if something in front of the server asks for a password. Leave it alone otherwise.
@@ -159,7 +159,7 @@ If the password has characters outside plain ASCII and `curl` works where the ap
 Reikai will not send a password unencrypted across the internet. Use the proxy's `https://` address, or reach the server over your network or a mesh VPN.
 
 **The test says the server sends you to another address.**
-Usually `http://` in front of a proxy that forces https. Open the failure's details, which show where it points, and put that address in **FlareSolverr URL**.
+Usually `http://` in front of a proxy that forces https. The dialog that opens when the test fails shows where it points: put that address in **FlareSolverr URL**.
 
 **The test says the proxy answered but the solver behind it is down.**
 The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this for its first twenty seconds or so, so wait and test again before changing anything.

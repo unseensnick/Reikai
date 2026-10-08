@@ -57,10 +57,10 @@ Open the series and its <nav to="overflow">. Two entries show there while the se
 * **Open folder** opens the series' download folder in a file manager app.
 * **Clear downloads** deletes every downloaded chapter of the series. Your progress, bookmarks and history stay.
 
-On a [merged series](/docs/multi-source), both follow the source you are viewing; on **All** they cover the whole group. If you opened a merged series through a source you have since uninstalled, **All** uses the first installed source in the group instead.
+On a [merged series](/docs/multi-source), both follow the source you are viewing. On **All**, **Clear downloads** covers the whole group, while **Open folder** opens one folder: the series you opened if it has downloads, otherwise the first source in the group that does. If you opened a merged series through a source you have since uninstalled, **All** uses the first installed source in the group instead.
 
 ## Can I search the text of a downloaded novel?
-Yes. On a novel's page, open <nav to="overflow"> and tap **Search downloaded chapters**. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched.
+Yes. On a novel's page, open <nav to="overflow"> and tap **Search downloaded chapters**, which shows there while the novel has downloaded chapters and its source is installed. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched.
 
 **Word count** in the same menu counts the words in the downloaded chapters: the total, the words per chapter, and a density from 1 to 10 for how long the chapters run.
 
@@ -96,7 +96,7 @@ Because the local source reads comic metadata files, if present, its functioning
 
 If you change that setting after downloading anything, you may need to do some manual work so Reikai can still find those downloads.
 Chapter filenames do not need to be changed, as Reikai is able to check multiple options for a chapter filename, and will find the already-downloaded chapters.
-Manga and source directory names, however, need to be updated manually if they contain non-ASCII characters.
+Series and source directory names, for manga and light novels alike, however, need to be updated manually if they contain non-ASCII characters.
 Here is an example:
 
 ```text

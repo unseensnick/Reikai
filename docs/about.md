@@ -31,8 +31,9 @@ Reikai as they land, and my time goes into what Reikai adds rather than into mai
   tracker logins come along, install 0.3.2 and pick the same storage folder, restore the backup, then
   uninstall the old app. Covers you set by hand do not carry over, so set those again.
 - **0.1.0 and 0.1.1**, the first releases on Mihon, crashed on launch when installed over Yōkai-Y2K.
-  0.1.2 fixed that: installing over Yōkai-Y2K now recovers your library on first launch, though merged
-  series come back unmerged.
+  0.1.2 to 0.3.1 fixed that by recovering your library on first launch, though merged series came back
+  unmerged. From 0.3.2 Reikai installs as a separate app, so coming from Yōkai-Y2K now means backing up
+  there and restoring that backup in Reikai.
 :::
 
 ## Does the UI follow Mihon or Yōkai?
@@ -40,7 +41,8 @@ Reikai as they land, and my time goes into what Reikai adds rather than into mai
 Mostly Mihon, so nothing looks out of place, with the Yōkai touches I liked carried
 over: the single-list library view with the floating category hopper, dynamic grouping
 (by source, language, tag, and so on), and the cover-color accent on the details
-screen. [Library layout](library-layout.md) covers how to turn them on. Suggestions are welcome,
+screen. [Library layout](library-layout.md) covers how to turn on the first two; the cover color is
+**Theme based on cover** in <nav to="appearance">, on by default. Suggestions are welcome,
 but additions will still follow Mihon's design.
 
 ## How do I get updates? Is it on an app store?

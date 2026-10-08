@@ -47,11 +47,11 @@ If you need more help regarding this, read [this post](https://nerdschalk.com/ho
 :::
 
 ## What does the Not loaded section mean?
-<nav to="extensions"> lists installed extensions and plugins that failed to load under **Not loaded**, so none of their sources show in Browse. Tap one to see why. The dialog gives the reason, any error message, and **Copy stack trace** for a bug report, with **Uninstall** beside **OK**. The usual reasons:
+<nav to="extensions"> lists installed extensions and plugins that failed to load under **Not loaded**, so none of their sources show in Browse. Tap one to see why. The dialog gives the reason, any error message, and, for one that threw an error, **Copy stack trace** for a bug report, with **Uninstall** beside **OK**. The usual reasons:
 
 * Its content warning is not one you allow (the row says **Filtered**). The [Browse FAQ](/docs/faq/browse/) covers changing that.
 * It is not trusted yet (the row says **Untrusted**). Tapping it asks whether to trust or uninstall it.
-* It is not signed, was built for an extension library this version of the app cannot load, or is missing information the app needs. Updating the app or the extension may help, and if an update is offered the row's button installs it.
+* It is not signed, was built for an extension library this version of the app cannot load, or is missing information the app needs. Updating the app or the extension may help. One that failed to load but has an update waiting is listed under **Updates pending** instead, where its button installs the update.
 * It threw an error while loading.
 
 For a plugin whose script is missing, the dialog offers **Reinstall** instead.

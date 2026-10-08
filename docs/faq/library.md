@@ -25,7 +25,7 @@ To see when each entry is next expected to update, check the [Upcoming Calendar]
 **Reikai** provides a reminder when updating multiple titles or bulk downloading chapters, since excessive requests may trigger a source's anti-bot measures.
 This can lead to stalled updates and downloads, extending the time needed to complete your requests, which also impacts your device's battery life.
 ### To mitigate these concerns
-* In <nav to="downloads">, set "**Auto download while reading**" to how many chapters ahead you want fetched. It starts on **Disabled**, and the other choices are the next 2, 3, 5 or 10 chapters.
+* In <nav to="downloads">, set "**Auto download while reading**" to how many chapters ahead you want fetched. It starts on **Disabled**, and the other choices are the next 2, 3, 5 or 10 unread chapters. It is set separately under **Auto-download · Manga** and **Auto-download · Novels**.
 * If possible, download in small batches at a time to avoid excessive requests to avoid slow or incomplete downloads.
 
 #### Splitting up your Library into categories
@@ -52,7 +52,7 @@ Dealing with series translated by multiple groups that result in duplicate chapt
 Bookmark or mark as read the undesired chapters, then open the **Filter** menu, ensure you're on the **Filter** tab, then double-tap **Bookmarked** or single-tap **Unread**.
 
 This hides bookmarked or read chapters, enabling you to skip them as you read.
-Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="manga-reader"> under **Reading**.
+Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="manga-reader"> under **Reading**, or for light novels, [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters-1) at <nav to="novel-reader"> under **Reading**.
 
 Alternatively, migrate to a source without duplicates.
 Refer to the [migration guide](/docs/guides/source-migration) for detailed instructions.
@@ -69,9 +69,9 @@ If certain series chapters are marked as unread without your interaction, it cou
 **Reikai** detects these changes and interprets the chapters as new.
 
 ## A chapter has the wrong number. Can I fix it?
-Yes, on manga and light novels. A chapter whose number is out of line with the chapters around it gets a red warning mark before its title on the series' page. Tap the mark to correct it: the dialog opens on a suggested number that fits between its neighbours, and you can type any other.
+Yes, on manga and light novels. A chapter whose number is out of line with the chapters around it gets a red warning mark before its title on the series' page. Tap the mark to correct it: the dialog opens on a suggested number that fits between its neighbours when one does (otherwise on the chapter's current number), and you can type any other.
 
-To correct a chapter that is not marked, select just that chapter and choose **Correct chapter number** from the selection's overflow. A corrected chapter shows **The source says** with the original number, and **Reset** puts that back. Corrections survive refreshes and backups.
+To correct a chapter that is not marked, select just that chapter and choose **Correct chapter number** from the selection's overflow. Opening the dialog again on a corrected chapter shows **The source says** with the original number, and **Reset** puts that back. Corrections survive refreshes and backups.
 
 Side stories, extras, specials and other bonus chapters are never marked, and hidden chapters are left out of the check. On a [merged series](/docs/multi-source), each source's chapters are checked against that source's own list.
 
@@ -85,7 +85,7 @@ Enable **Downloaded only** via <nav to="downloaded-only">.
 Disable **Downloaded only** via <nav to="downloaded-only">.
 
 ## What does the Lewd filter count as adult?
-The **Lewd** filter on the **Filter** tab of <nav to="main_library"> treats a series as adult when its extension is marked 18+, or when one of its tags is plainly adult (such as "Smut" or "Erotica"). An extension that only may contain adult content does not count, and neither does a "Mature" tag, which mainstream series carry too. A merged series counts as adult if any of its sources does. It works the same for manga and light novels.
+The **Lewd** filter on the **Filter** tab of <nav to="main_library"> treats a series as adult when its extension is marked 18+, when one of its tags is plainly adult (such as "Smut" or "Erotica"), or, for manga, when it comes from one of the gallery sources Reikai enhances (a self-hosted LANraragi server included) or from a source whose name marks it as an adult site. An extension that only may contain adult content does not count, and neither does a "Mature" tag, which mainstream series carry too. A merged series counts as adult if any of its sources does. The extension and tag rules work the same for manga and light novels.
 
 ## I edited an entry's title (or author). Why does sorting ignore the new name?
 
@@ -98,4 +98,5 @@ info.
 So a renamed entry is findable under your name for it, but stays where its original title
 sorts and still groups with its other sources. This is deliberate: it keeps a rename from
 silently reshuffling your library or splitting a merged series. The edit is stored separately
-and never overwrites the source, so Reset restores the original cleanly.
+and never overwrites the source, so **Reset all** in Edit info restores the original cleanly (**Reset info** and
+**Reset tags** put back just those fields, applied when you save).

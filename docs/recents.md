@@ -25,7 +25,7 @@ Recents has four modes along the top, and remembers the one you last used:
 
 Grouped and Feed leave out series with nothing unread. Turn on **Show caught-up series** in the filter sheet to see them too. Newly added series always show.
 
-Search works in every mode. **Update library** and **Upcoming Updates** are in the overflow in the modes that show updates, and **Clear history** in the modes that show history. Pull down to update the library in the same modes that show updates.
+Search works in every mode. **Update library** and **Upcoming Updates** are in the overflow in the modes that show updates (**Upcoming Updates** not on the **Novels** chip), and **Clear history** in the modes that show history. Pull down to update the library in the same modes that show updates.
 
 The unread count from **Show unread count on Updates icon** in <nav to="library"> sits on the Recents icon. Opening a mode that shows updates clears it; History mode leaves it alone.
 
@@ -35,9 +35,9 @@ Tapping the Recents icon again while you are on it opens your most recently read
 
 Tap **Filter** in the toolbar. The icon is highlighted while a filter is on. The sheet has three tabs:
 
-* **General**: tick **Categories** and tap **Edit** to pick the categories to include or exclude. Unticking it keeps your picks but ignores them. The row is hidden if you have no categories. On Recents, **Show caught-up series** is here too.
+* **General**: tick **Categories** and tap **Edit** to pick the categories to include or exclude. Unticking it keeps your picks but ignores them. The row is hidden if you have no categories. **Show caught-up series** is here too, and only changes Recents' Grouped and Feed modes.
 * **Chapters**: **Downloaded**, **Unread**, **Started** and **Bookmarked**, each of which can include or exclude, plus **Filter excluded scanlators** for manga. These apply to Grouped, Feed and Updates, not to History.
-* **Updates**: **Group by series** folds a series' new chapters into one row you can expand.
+* **Updates**: **Group by series** folds a series' new chapters from the same day into one row you can expand.
 
 Updates, History and Recents each keep their own category selection, so filtering History does not change Updates. The **All** / **Manga** / **Novels** chip in the **Edit** dialog only narrows which categories it lists.
 

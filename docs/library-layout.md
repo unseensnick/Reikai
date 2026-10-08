@@ -75,9 +75,9 @@ These options are under **Categories** at the bottom of the **Display** tab:
 
 - **Hide category hopper** removes the button.
 - **Hide hopper while scrolling** tucks it away while the one-list view scrolls.
-- **Always show current category** replaces "Library" in the toolbar with the name of the category you are in (in the one-list view, the one you have scrolled to) and its count. With **Show category tabs** off, the paged view does this anyway; the one-list view keeps "Library" and the whole library's count.
+- **Always show current category** replaces "Library" in the toolbar with the name of the category you are in (in the one-list view, the one you have scrolled to). With **Show number of items** on, the one-list view counts that category, while the paged view with tabs keeps the whole library's count. With **Show category tabs** off, the paged view does this anyway; the one-list view keeps "Library" and the whole library's count.
 - **Category sort order** sorts the categories themselves. See [category sort order](guides/categories.md#category-sort-order).
-- **Show hidden categories** brings back the categories you hid there.
+- **Show hidden categories** brings back the categories you hid with the eye button on their row in <nav to="categories">.
 
 ## Grouping
 

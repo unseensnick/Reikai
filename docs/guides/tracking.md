@@ -88,7 +88,7 @@ These three NovelUpdates rows show in <nav to="tracking"> only while you are sig
 
 When an entry is part of a [multi-source group](/docs/multi-source), you do not set tracker links per source. One binding covers the whole group, and the setting that governs this is **Share trackers across merged sources** in <nav to="tracking">, on by default.
 
-**Adding** a tracker binds it to the source you are viewing and counts for every source in the group: the chip shows on each one, reading a chapter from any of them advances it, and the library's tracker filter, score sort and status grouping all see it. There is one binding while the group is merged, never a copy per source, so the progress shown is always the group's.
+**Adding** a tracker binds it to the source the page was opened on, whichever source chip is selected, and counts for every source in the group: the chip shows on each one, reading a chapter from any of them advances it, and the library's tracker filter, score sort and status grouping all see it. There is one binding while the group is merged, never a copy per source, so the progress shown is always the group's.
 
 **Merging** needs no tracker step. The moment entries are one group, a tracker bound on any member counts for all of them. If two members were already tracked with different remote entries on the same service, both bindings stay and the furthest-read one counts.
 
@@ -118,7 +118,7 @@ It visits only entries carrying a tracker you are signed into, so an untracked l
 
 Which login you get depends on the service: most open your browser, a few ask for a username and password in the app, and RanobeDB takes a token you paste (or the browser, if you prefer). NovelList and NovelUpdates only sign in through the browser, because neither issues a token.
 
-Each tracker you are signed in to with an account has a refresh button in its row, **Refresh tracker profile**. It reloads your account details, such as a changed nickname or score format, without signing out. It does not touch your tracked entries.
+Each tracker you are signed in to with an account, except MDList, has a refresh button in its row, **Refresh tracker profile**. It reloads your account details, such as a changed nickname or score format, without signing out. It does not touch your tracked entries.
 
 ### What does Tell source sites about migrations do?
 Some extensions sync your reading to their own site once their own tracking setting is on. **Tell source sites about migrations** in <nav to="tracking">, on by default, also tells those extensions when you migrate an entry, so the site follows the move. It has no effect on any other source.

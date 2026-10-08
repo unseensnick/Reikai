@@ -87,7 +87,7 @@ Reikai will see three chapters in a single series.
 The path to the folder with images must contain both the series title and the chapter name (as seen above).
 
 Note that this is the same folder structure used by downloads of non-local sources.
-However, the filename format is not required to be the same; for example, Reikai adds a disambiguating hash based on the chapter URL when downloading chapters, but you do not need to do this.
+However, the filename format is not required to be the same; for example, Reikai can add a disambiguating hash based on the chapter URL when downloading chapters (the **Enable chapter name hash suffix** setting in <nav to="advanced">), but you do not need to do this.
 
 ### Archive files
 

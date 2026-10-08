@@ -51,7 +51,7 @@ A saved search belongs to one source and lives on that source's page.
 
 Saved searches show as chips after **Popular**, **Latest** and **Filter** on the source's page. Tap one to run it again, or long-press it to delete it. There is no rename: delete it and save it again under the new name.
 
-On a light-novel source, a saved search that holds only filters, with no search text, runs as the source's popular list with those filters. One with search text keeps its filters only where the source allows filters and a search together.
+On a light-novel plugin, whose filters cannot be combined with a search, a saved search that holds only filters runs as the source's popular list with those filters, and one with search text runs the search without them. Light-novel extension apps run saved searches the way manga sources do.
 
 ## Backups
 

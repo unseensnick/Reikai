@@ -44,7 +44,7 @@ One backup covers both libraries: everything below applies to manga and light no
 
 #### Library data
 - **Library entries**
-- **Manga** and **Novels** - Back up one library without the other, which also halves the file
+- **Manga** and **Novels** - Back up one library without the other, which also makes the file smaller
 - **Chapters** - Chapter data for saved entries
 - **Tracking** - Trackers added to individual saved entries
 - **History** - Read history for saved entries
@@ -59,7 +59,7 @@ The sources you grouped together under one entry are saved as source-and-address
 - **Extension stores** - Your extension repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel
 - **Source settings**
 - **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them
-- **Include sensitive settings** - Tracker login tokens (not included by default)
+- **Include sensitive settings** - Saved sign-ins: tracker logins, the FlareSolverr sign-in, and source and plugin site sign-ins. Not included by default, and only offered while App settings or Source settings is ticked
 
 ### What is not included in a backup?
 - **Extension files**. Only the list of installed extension apps and the addresses of your plugins are saved
@@ -85,8 +85,8 @@ The Restore screen lists the extensions to install, any missing sources and any 
 :::
 
 Entries from an extension you have not installed yet reappear in your library but cannot fetch
-chapters until you install it. Your novel repos ride along in **App settings**, so leave it included
-to get them back.
+chapters until you install it. Your plugin repos ride along in **App settings** and your extension
+app repos, manga and novel, in **Extension stores**, so leave both included to get them back.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:

@@ -100,7 +100,7 @@ Automatically sets the color based on the content of your page.
 Allows app elements to extend to the edges of the screen, including the status and navigation bars.
 
 #### Show content in cutout area <Badge type="info" text="On" />
-Displays reader content in the camera cutout area, maximizing the use of the entire screen.
+Displays reader content in the camera cutout area, maximizing the use of the entire screen. Only available on a device with a cutout, while **Fullscreen** is on.
 
 #### Keep screen on <Badge type="info" text="Off" />
 Keeps the screen from going to sleep.
@@ -139,7 +139,7 @@ Skips over chapters detected as duplicates. With **Downloaded only** on, the cop
 When you jump to the next chapter, marks the one you skipped as read.
 
 #### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
-Starts auto-scroll each time you open the reader. The **Auto-scroll** button on the bottom bar and in the reader's Controls tab start or stop it for the chapter you are reading without changing this setting. It pauses while the menu is open and while your finger is on the screen.
+Starts auto-scroll each time you open the reader. **Auto-scroll** in the reader's Controls tab starts or stops it until you leave the reader, without changing this setting, and so does its bottom bar button once you add it under **Bottom bar buttons**. It pauses while the menu is open and while your finger is on the screen.
 
 #### Page turn interval <Badge type="info" text="5 s" />
 Paged modes only. How long a page stays on screen before auto-scroll turns it, counted from when the page has loaded, so it never turns past a page that is still loading.
@@ -148,9 +148,9 @@ Paged modes only. How long a page stays on screen before auto-scroll turns it, c
 Long strip modes only. How fast auto-scroll moves the strip. It waits at a page that is still loading and scrolls on past one that failed, so its Retry button comes into view.
 
 #### Auto webtoon mode <Badge type="info" text="On" />
-Opens manhwa, manhua and webtoons in webtoon mode without you setting it per series.
+Opens manhwa, manhua and webtoons in **Long strip** without you setting it per series.
 
-It goes by what the source says, not by the pictures: a "Manhwa", "Manhua", "Webtoon" or "Long strip" genre tag, or a source name that gives it away. A mode you picked for a series always wins.
+It goes by what the source says, not by the pictures: a "Manhwa", "Manhua", "Webtoon" or "Long strip" genre tag, or a source name that gives it away. A "Manga" genre tag rules it out, and a "Comic" tag or comic source rules out a Manhwa or Manhua guess. Genres you changed with **Edit info** count instead of the source's, and in a merged series one source saying it is enough. A mode you picked for a series always wins.
 
 #### Bottom bar buttons
 Which buttons sit in the reader's bottom bar, and in what order. Rotation, reading mode, view chapters and crop borders are on by default. The settings gear can be moved like the others but not switched off.
@@ -264,30 +264,20 @@ Adds the specified padding to the left and right of the screen. Shown while **Us
 How wide the strip is drawn, as a share of the screen. Shown in place of **Side padding** while **Use high quality renderer** is on.
 
 #### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-
-::: tabs
-== Highest
-TBA
-== High
-TBA
-== Low
-TBA
-== Lowest
-TBA
-:::
+How far you have to scroll a long strip before the menu hides: **Highest** hides it after the smallest scroll, **Lowest** after the largest. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 #### Double tap to zoom <Badge type="info" text="On" />
 Zooms into the image on double tap.
 
 #### Disable zoom out <Badge type="info" text="Off" />
-TBA
+Stops a pinch from zooming a long strip out smaller than its normal width.
 
 ### High quality renderer
 
 **Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own, which are not on the settings screen.
 
 #### Dual page view <Badge type="info" text="Never" />
-On the **Reading** tab, paged modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
+On the **Reading** tab, for **Paged (left to right)** and **Paged (right to left)** only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
 
 #### Gap <Badge type="info" text="10%" />
 On the **Reading** tab, for **Long strip with gaps** only. The space between pages, as a share of the screen.
@@ -332,7 +322,7 @@ Shows the following options on long tap while the reader is open.
 - Save
 
 #### Save pages into separate folders <Badge type="info" text="Off" />
-TBA
+Saves each page you save from the reader into its own folder named after the series, inside Pictures/Reikai, instead of putting every page directly in Pictures/Reikai.
 
 ## Novel reader
 
@@ -389,7 +379,7 @@ Skips over already read chapters while reading.
 Skips over filtered chapters while reading.
 
 #### Skip duplicate chapters <Badge type="info" text="Off" />
-Skips over chapters detected as duplicates, which a merged novel produces when two sources number the same chapter. With **Downloaded only** on, the copy on your device is the one kept.
+Skips over chapters detected as duplicates: a chapter number one source lists more than once. In a merged novel, chapters from different sources are never treated as duplicates. With **Downloaded only** on, the copy on your device is the one kept.
 
 #### Mark chapter read at <Badge type="info" text="97%" />
 How far into a chapter you have to get before it counts as read.
@@ -398,7 +388,7 @@ How far into a chapter you have to get before it counts as read.
 When you jump to the next chapter, marks the one you skipped as read.
 
 #### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
-Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** button on the bottom bar and in the reader's Controls tab start or stop it for the chapter you are reading without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
+Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** checkbox in the reader's Controls tab, and the **Auto-scroll** button once you add it under **Bottom bar buttons**, start or stop it until you leave the reader without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
 
 #### Scroll speed <Badge type="info" text="1.0x" />
 How fast auto-scroll moves the text.

@@ -14,8 +14,8 @@ Always make sure to have a backup in case anything unexpected occurs.
 ::: danger
 Downloaded chapter(s) do not transfer with migrations.
 
-Migrations with downloaded chapter(s) may leave the download behind.
-You will need to remove these manually with a file manager.
+Migrations leave the old entry's downloads behind unless you tick **Delete downloaded** when confirming. For manga, that only works while the old source is still installed.
+Anything left behind has to be removed with a file manager.
 :::
 
 ## Migration guide
@@ -36,7 +36,7 @@ Best when a source has died and you want everything off it.
 :::
 
 ::: tip From one series
-1. Open the series.
+1. Open a series in your library.
 1. Open <nav to="overflow"> and tap **Migrate**.
 :::
 
@@ -49,7 +49,7 @@ Best when a source has died and you want everything off it.
 Select entries of one type at a time: the migrate action disappears entirely on a selection mixing manga and novels, since one migration moves entries of a single type.
 
 ::: info Grouped entries ask which source to move first
-If what you picked is a [merged group](/docs/multi-source), a **Migrate** screen lists its sources with their chapter counts so you can choose the one to move. Everything else is left where it is. Entries that are not grouped skip this step, as does the whole-source route above.
+If what you picked is a [merged group](/docs/multi-source), a **Migrate** screen lists its sources with their chapter counts so you can tap the ones to move (what you picked starts selected). Anything left unselected stays where it is. Entries that are not grouped skip this step, as does the whole-source route above.
 :::
 
 ### Choosing where to search
@@ -57,7 +57,7 @@ If what you picked is a [merged group](/docs/multi-source), a **Migrate** screen
 The **Migrate** screen lists your sources under **Selected** and **Available**. Only the selected ones are searched, and dragging reorders which is tried first.
 
 * **Select all** and **Select none** are in the toolbar, and **Select pinned sources** is in its overflow.
-* The sliders icon opens **Search options**.
+* The filter icon opens **Search options**.
 
 ::: details Search options
 * **Additional keywords (optional)** narrows the search when a title alone finds too much.
@@ -76,11 +76,13 @@ One entry goes straight to a search screen: tap the result you want.
 
 Several entries open the **Migration** list, which searches in the background and counts up as it goes. Each row names the entry, the move it found (`current source → match`), and how the chapter counts compare (`Latest: 68 → 201`), so you can see at a glance whether a match is worth taking.
 
-Tap the double-check icon in the toolbar to accept every match at once, or use a row's overflow:
+Each match starts as a suggestion. Tap the check button on a row to accept it, or tap the double-check icon in the toolbar to accept every match at once. A row's overflow has more:
 
-* **Search manually** opens a search you drive yourself, for when the automatic match is wrong. Tapping a source's header there browses that one source with its own filters.
-* **Migrate now** moves that one entry, and **Copy now** adds the new source while leaving the old entry in place.
+* **Search manually** opens a search you drive yourself, for when the automatic match is wrong. Picking a result there accepts it for that row, and tapping a source's header browses that one source with its own filters.
+* Once a row is accepted, **Migrate now** moves that one entry, and **Copy now** adds the new source while leaving the old entry in place. Both go ahead straight away with your saved data choices.
 * **Don't migrate** skips the row.
+
+When every row has been searched, the **Migrate** and **Copy** buttons at the bottom of the screen act on all the accepted rows.
 
 Backing out asks **Stop migrating?** first, so nothing is half-done by accident.
 
@@ -133,7 +135,7 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
     > If a series is not found, or is wrong you can manually search it by pressing **Overflow** -> **Search manually**.
 
 ==TachiyomiAZ
-### Instructions {instructions-az}
+### Instructions {#instructions-az}
 
 1. Tap into **Library**.
 1. Tap **Overflow** -> **Source migration**.
