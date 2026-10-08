@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import mihon.core.migration.MigrationContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.data.cache.legacyNovelCustomCoverFile
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -24,7 +25,7 @@ class MigrateNovelCustomCoverKeysMigrationTest {
         val legacy = File(dir, "legacy").apply { writeText("the whole cover") }
         val target = File(dir, "target").apply { writeText("the wh") }
         val coverCache = mockk<CoverCache> {
-            every { getCustomCoverFile(-NOVEL_ID) } returns legacy
+            every { legacyNovelCustomCoverFile(NOVEL_ID) } returns legacy
             every { getCustomCoverFile(EntryId.Novel(NOVEL_ID)) } returns target
         }
         val novels = mockk<NovelRepository> {

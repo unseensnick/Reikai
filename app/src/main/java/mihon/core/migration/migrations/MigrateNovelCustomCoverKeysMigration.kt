@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.data.cache.legacyNovelCustomCoverFile
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.util.lang.withIOContext
@@ -42,8 +43,7 @@ class MigrateNovelCustomCoverKeysMigration(
             ?: return@withIOContext false
 
         novels.forEach { novel ->
-            // The retired name: the Long-keyed overload over the negated id.
-            val legacyFile = coverCache.getCustomCoverFile(-novel.id)
+            val legacyFile = coverCache.legacyNovelCustomCoverFile(novel.id)
             if (!legacyFile.exists()) return@forEach
 
             val targetFile = coverCache.getCustomCoverFile(EntryId.Novel(novel.id))

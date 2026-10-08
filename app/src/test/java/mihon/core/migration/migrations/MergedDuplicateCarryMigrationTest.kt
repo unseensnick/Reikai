@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.cache.legacyNovelCustomCoverFile
 import reikai.data.dedupe.MergedDuplicateDownloads
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateChapter
@@ -73,7 +74,7 @@ class MergedDuplicateCarryMigrationTest {
     @Test
     fun `a merged-away novel's cover still under its pre-186 name moves to the survivor`() = runTest {
         // MigrateNovelCustomCoverKeysMigration re-keys only the novels still in the table after the merge
-        coverCache.getCustomCoverFile(-DISCARDED).writeText("discarded")
+        coverCache.legacyNovelCustomCoverFile(DISCARDED).writeText("discarded")
 
         run(FakeRecord(MergedDuplicate(ContentType.NOVELS, DISCARDED, SURVIVOR, TITLE)))
 

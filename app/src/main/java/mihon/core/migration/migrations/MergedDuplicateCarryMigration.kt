@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
+import reikai.data.cache.legacyNovelCustomCoverFile
 import reikai.data.dedupe.MergedDuplicateDownloads
 import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateRepository
@@ -79,13 +80,13 @@ class MergedDuplicateCarryMigration(
         }
     }
 
-    // A novel may still sit under its pre-186 name, the negated id: MigrateNovelCustomCoverKeysMigration
-    // re-keys only the novels in the table, and on an upgrade from before it the dedupe has already run.
+    // A novel may still sit under its pre-186 name: MigrateNovelCustomCoverKeysMigration re-keys only the
+    // novels in the table, and on an upgrade from before it the dedupe has already run.
     private fun customCoverFiles(entryId: EntryId): List<File> = when (entryId) {
         is EntryId.Manga -> listOf(coverCache.getCustomCoverFile(entryId))
         is EntryId.Novel -> listOf(
             coverCache.getCustomCoverFile(entryId),
-            coverCache.getCustomCoverFile(-entryId.rawId),
+            coverCache.legacyNovelCustomCoverFile(entryId.rawId),
         )
     }
 
