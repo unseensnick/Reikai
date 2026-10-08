@@ -171,7 +171,8 @@ class NovelMigrationFlowAdapter(
         // Score the raw hit list, then drop the entry's own listing from the winner, exactly as manga
         // does. Filtering first would be worse than not filtering: the engine skips title scoring
         // altogether when a source returns a single candidate, so a plugin repeating one wrong
-        // listing would dedupe down to that one hit and have it accepted unscored.
+        // listing would dedupe down to that one hit and have it accepted unscored. Pinned by
+        // BaseSmartSearchEngine for the extra query and MigrationAdapterConformanceTest for the own listing.
         val match = SmartNovelSearchEngine(tuning.extraQuery).bestMatch(entry.title, tuning.deepSearch) { query ->
             source.search(query, 1, filters = null).items
         } ?: return null

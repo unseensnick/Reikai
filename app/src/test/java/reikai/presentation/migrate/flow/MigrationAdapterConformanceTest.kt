@@ -64,6 +64,24 @@ class MigrationAdapterConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a suggestion is never the entry's own listing on its own source`(probe: Probe) = runTest {
+        val adapter = probe.adapter(listing = listOf(OWN_URL))
+
+        adapter.suggest(probe.entry(onSource = probe.target), probe.target, MigrationTuning()) shouldBe null
+    }
+
+    // The source's whole answer is scored with the own listing still in it. Dropping it first would leave
+    // one hit, which the search engine accepts without scoring, so an unrelated title would be suggested.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a suggestion is scored before the own listing is dropped`(probe: Probe) = runTest {
+        val adapter = probe.adapter(listing = listOf(OWN_URL, "/other"))
+
+        adapter.suggest(probe.entry(onSource = probe.target), probe.target, MigrationTuning()) shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `resolving a target that already has chapters is not a fresh sync`(probe: Probe) = runTest {
         val adapter = probe.adapter(listing = listOf("/t"), chapters = 3)
         val hit = adapter.candidates(probe.entry(onSource = probe.oldSource), "q", probe.target).single()
