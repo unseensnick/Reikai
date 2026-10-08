@@ -141,6 +141,7 @@ agent under Settings -> Advanced.
 - **Switching between All, Manga and Novels in the library no longer shows the previous list's count on a category header for a moment.**
 - **The library's adult-content filter now covers novels too, and on manga and novels it counts every entry from an extension marked 18+, not only ones tagged adult.** It is the same check that hides adult titles in notifications.
 - **Turning off "Show number of items" now hides category counts under the Novels chip too, which always showed them.**
+- **With "Show number of items" off, a library search now shows each category's matches in the single-list headers and the jump-to-category sheet, as the tabs already did.**
 - **Novels whose source has no icon now show a same-site source's icon or the generic source badge, as manga do.**
 - **An empty novel library now links to the getting-started guide, as an empty manga library does.**
 

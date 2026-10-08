@@ -34,7 +34,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 fun ReikaiCategoryPickerSheet(
     buckets: List<LibraryBucket>,
     getItemCount: (LibraryBucket) -> Int?,
-    showItemCounts: Boolean,
     activeIndex: Int,
     onSelect: (Int) -> Unit,
     onDismiss: () -> Unit,
@@ -69,7 +68,7 @@ fun ReikaiCategoryPickerSheet(
             itemsIndexed(buckets, key = { _, bucket -> bucket.key }) { index, bucket ->
                 CategoryPickerRow(
                     name = bucket.visualLabel,
-                    count = if (showItemCounts) getItemCount(bucket) else null,
+                    count = getItemCount(bucket),
                     isActive = index == activeIndex,
                     onClick = { onSelect(index) },
                 )

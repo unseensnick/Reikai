@@ -27,7 +27,6 @@ fun BoxScope.ReikaiLibraryHopperOverlay(
     settings: ReikaiLibraryState,
     buckets: List<LibraryBucket>,
     getItemCount: (LibraryBucket) -> Int?,
-    showItemCounts: Boolean,
     isListScrolling: () -> Boolean,
     bottomPadding: Dp,
     currentIndex: () -> Int,
@@ -101,7 +100,6 @@ fun BoxScope.ReikaiLibraryHopperOverlay(
         ReikaiCategoryPickerSheet(
             buckets = buckets,
             getItemCount = getItemCount,
-            showItemCounts = showItemCounts,
             activeIndex = currentIndex(),
             onSelect = { index ->
                 onJumpTo(index)

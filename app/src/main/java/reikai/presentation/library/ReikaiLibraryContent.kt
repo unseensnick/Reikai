@@ -111,7 +111,8 @@ fun ReikaiLibraryContent(
     getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
     collapsedCategories: Set<String>,
     collapsedDynamicCategories: Set<String>,
-    showItemCounts: Boolean,
+    // The assembly's count rule (null hides it), so a header follows the pager tabs while searching.
+    getItemCount: (LibraryBucket) -> Int?,
     displayMode: LibraryDisplayMode,
     columns: Int,
     selection: Set<EntryId>,
@@ -200,6 +201,7 @@ fun ReikaiLibraryContent(
                     val category = bucket.realCategory
                     val collapsed = reikaiIsCollapsed(bucket, collapsedCategories, collapsedDynamicCategories)
                     val items = getItemsForCategory(bucket)
+                    val itemCount = getItemCount(bucket)
 
                     item(
                         span = { GridItemSpan(maxLineSpan) },
@@ -208,8 +210,8 @@ fun ReikaiLibraryContent(
                     ) {
                         ReikaiLibraryCategoryHeader(
                             name = bucket.visualLabel,
-                            itemCount = items.size,
-                            showItemCount = showItemCounts,
+                            itemCount = itemCount ?: 0,
+                            showItemCount = itemCount != null,
                             isCollapsed = collapsed,
                             onClick = {
                                 if (category != null) {
