@@ -24,6 +24,15 @@ internal object FakeRecsServer : Interceptor {
     private fun muSeries(rec: String) =
         """{"recommendations":[{"series_name":"$rec","series_url":"https://mu/9"}]}"""
 
+    // Shikimori's `kind` takes a comma list where a leading ! excludes that kind.
+    private fun String?.excludedKinds(): Set<String> =
+        this?.split(',')?.filter { it.startsWith("!") }?.mapTo(mutableSetOf()) { it.drop(1) }.orEmpty()
+
+    private fun shikimoriSearch(excludedKinds: Set<String>) = listOf(
+        """{"id":2,"name":"Overlord","url":"/ranobe/2","kind":"light_novel"}""",
+        """{"id":1,"name":"Overlord","url":"/mangas/1","kind":"manga"}""",
+    ).filterNot { entry -> excludedKinds.any { "\"kind\":\"$it\"" in entry } }.joinToString(",", "[", "]")
+
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val body = when (request.url.encodedPath) {
@@ -36,7 +45,9 @@ internal object FakeRecsServer : Interceptor {
                     """{"record":{"series_id":1,"type":"Manga"}}]}"""
             "/v1/series/1" -> muSeries("Manga rec")
             "/v1/series/2" -> muSeries("Novel rec")
+            "/api/mangas" -> shikimoriSearch(excludedKinds = request.url.queryParameter("kind").excludedKinds())
             "/api/mangas/1/similar" -> """[{"id":9,"name":"Manga rec","url":"/mangas/9"}]"""
+            "/api/mangas/2/similar" -> """[{"id":9,"name":"Novel rec","url":"/mangas/9"}]"""
             else -> error("unexpected ${request.url}")
         }
         return Response.Builder().request(request).protocol(Protocol.HTTP_1_1).code(200).message("OK")

@@ -30,6 +30,7 @@ class RecommendationSearchKindTest {
             RecsKindCase("AniList") { AnilistRecommendations(FakeRecsServer.client, fakeTracker(), json) },
             RecsKindCase("MyAnimeList") { MyAnimeListRecommendations(FakeRecsServer.client, fakeTracker(), json) },
             RecsKindCase("MangaUpdates") { MangaUpdatesRecommendations(FakeRecsServer.client, fakeTracker(), json) },
+            RecsKindCase("Shikimori") { ShikimoriRecommendations(FakeRecsServer.client, fakeTracker(), json) },
         )
     }
 }

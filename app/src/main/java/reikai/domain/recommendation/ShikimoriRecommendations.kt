@@ -50,6 +50,9 @@ class ShikimoriRecommendations(
     override suspend fun getRecsBySearch(title: String): List<RelatedMangaCandidate> {
         val url = "$API_URL/mangas".toHttpUrl().newBuilder()
             .addQueryParameter("search", title)
+            // Light novels sit under /api/ranobe today, so this excludes nothing yet; it pins the manga
+            // kind as the other three providers do, with the exclusion upstream's GraphQL search sends.
+            .addQueryParameter("kind", "!light_novel,!novel")
             .addQueryParameter("limit", "1")
             .build()
 
