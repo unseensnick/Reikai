@@ -337,6 +337,14 @@ if found SECRET; then
   emit_deny "Blocked: that reads a secret file (signing keystore, google-services.json, or a .env). Open it yourself if you need its contents."
 fi
 
+# ── App preferences are read through the masking helper ────────────────
+# The main SharedPreferences file of a debug build holds tracker tokens, proxy passwords and source
+# cookies under __PRIVATE_ keys, so `run-as ... cat` of it prints them whenever a filter is broader
+# than meant. scripts/dump-prefs.ps1 prints the same file with those values masked to their length.
+if contains_icmd 'run-as[^|;&]*[[:space:]](cat|head|tail|more|less|grep|type|gc|get-content)[[:space:]][^|;&]*shared_prefs/[^[:space:]|;&]*_preferences\.xml'; then
+  emit_deny "Blocked: that prints the app's preferences file, which holds tracker tokens. Use pwsh scripts/dump-prefs.ps1 -Match <key regex>, which masks secret values."
+fi
+
 # ── Protected paths are never written through the shell ────────────────
 # The same argument as the secret reads: protect-files.sh guards only the Edit and Write tools, so a
 # sed -i or a redirect walked past it. Both read one table, so a path protected for one is protected

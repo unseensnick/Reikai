@@ -1,0 +1,6 @@
+{
+  "name": "block printing the main prefs file by absolute path",
+  "stdin": { "tool_input": { "command": "& $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/${pkg}_preferences.xml | Select-String pref_filter" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "dump-prefs.ps1"]
+}

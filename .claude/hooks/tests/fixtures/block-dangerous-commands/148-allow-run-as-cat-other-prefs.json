@@ -1,0 +1,5 @@
+{
+  "name": "allow reading a feature prefs file that holds no secrets",
+  "stdin": { "tool_input": { "command": "adb shell run-as app.reikai.dev cat shared_prefs/active_novel_downloads.xml" } },
+  "expect_exit": 0
+}

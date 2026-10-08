@@ -1,0 +1,6 @@
+{
+  "name": "block printing the main prefs file over run-as",
+  "stdin": { "tool_input": { "command": "adb -s emulator-5554 exec-out run-as app.reikai.dev cat shared_prefs/app.reikai.dev_preferences.xml | grep -i hidden" } },
+  "expect_exit": 2,
+  "expect_stdout_contains": ["deny", "dump-prefs.ps1"]
+}

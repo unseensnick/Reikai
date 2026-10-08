@@ -1,0 +1,5 @@
+{
+  "name": "allow the masking prefs helper",
+  "stdin": { "tool_input": { "command": "pwsh -NoProfile -File scripts/dump-prefs.ps1 -Match hidden_chapters" } },
+  "expect_exit": 0
+}
