@@ -621,6 +621,7 @@ agent under Settings -> Advanced.
 - **The first tap on a download queue sort now sorts ascending.**
 - **The Settings -> Downloads note that download-ahead needs the current and next chapter downloaded now sits under Manga, where it is true, instead of Novels.**
 - **Manga download badges now notice chapters you delete outside the app.**
+- **Manga chapters from a group with "/" in its name now stay found after downloading (from Mihon).** Upstream: mihon a5d584eeb.
 
 ### Backup & restore
 
