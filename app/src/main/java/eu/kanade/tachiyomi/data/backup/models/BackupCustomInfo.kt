@@ -101,7 +101,17 @@ class LegacyCustomInfo(
 }
 
 private fun BackupCustomMangaInfo.toCustomInfo() =
-    BackupCustomInfo(title, author, artist, description, genre.takeIf { it.isNotEmpty() }, status, thumbnailUrl)
+    legacyCustomInfo(title, author, artist, description, genre, status, thumbnailUrl)
 
 private fun BackupCustomNovelInfo.toCustomInfo() =
-    BackupCustomInfo(title, author, artist, description, genre.takeIf { it.isNotEmpty() }, status, thumbnailUrl)
+    legacyCustomInfo(title, author, artist, description, genre, status, thumbnailUrl)
+
+private fun legacyCustomInfo(
+    title: String?,
+    author: String?,
+    artist: String?,
+    description: String?,
+    genre: List<String>,
+    status: Long?,
+    thumbnailUrl: String?,
+) = BackupCustomInfo(title, author, artist, description, genre.takeIf { it.isNotEmpty() }, status, thumbnailUrl)
