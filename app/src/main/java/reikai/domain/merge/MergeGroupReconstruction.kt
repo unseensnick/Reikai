@@ -95,8 +95,8 @@ object MergeGroupReconstruction {
             .sortedBy { it.first() }
     }
 
-    // Mirrors the live same-title key: title alone, or title + author when the guard is on and the
-    // author is non-blank; a blank title (or guarded blank author) never auto-groups.
+    // The same-title key 0.3.x grouped by on its own: title alone, or title + author when the guard is
+    // on and the author is non-blank; a blank title (or guarded blank author) never auto-groups.
     private fun autoKey(candidate: Candidate, requireAuthor: Boolean): String? {
         val title = candidate.title.lowercase().trim()
         if (title.isEmpty()) return null
