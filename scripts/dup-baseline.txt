@@ -24,7 +24,6 @@ app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f8fd4931f292a0fc
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
-app/src/main/java/mihon/core/migration/migrations/NovelAutoScrollOnOpenMigration.kt	app/src/main/java/mihon/core/migration/migrations/NovelTapLayoutMigration.kt	a1cfba7518f6cdca
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee
 app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main/java/reikai/domain/recommendation/ReikaiRecommendationPreferences.kt	09165fda2d9f7232
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
