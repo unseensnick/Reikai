@@ -14,6 +14,7 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.source.siteHost
 import reikai.novel.source.AppNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.isNovelAppSourceId
@@ -55,7 +56,7 @@ private val NO_STORE = CacheControl.Builder().noStore().build()
  */
 internal fun isSameSite(url: String, site: String?): Boolean {
     val picture = url.toHttpUrlOrNull()?.host ?: return false
-    val own = site?.toHttpUrlOrNull()?.host?.removePrefix("www.") ?: return false
+    val own = siteHost(site) ?: return false
     return picture == own || picture.endsWith(".$own")
 }
 
