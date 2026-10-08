@@ -733,6 +733,7 @@ agent under Settings -> Advanced.
 - Synced from Mihon: the database uses WAL on every device, with one reader instead of four on low-memory ones (mihon 61cd786e7).
 - The manga and novel libraries read each entry's last read time without joining history to every chapter, so they refresh faster (partly from Mihon, mihon 5df78e305).
 - Manga chapter lists and Updates look up queued and downloaded chapters once per list instead of once per chapter, and download progress no longer polls for a chapter's pages (from Mihon, mihon fb8e640d6, mihon 9a6dea804).
+- Rows that show the same manga or novel cover at once now share one load and decode of it (partly from Mihon, mihon 1f85a5a8d).
 - Under the hood, synced from Mihon: cancelling an extension install no longer goes through a local broadcast (mihonapp/mihon#3226), and tracker internals were tidied up (mihonapp/mihon#3900, mihonapp/mihon#3908).
 
 ## [0.3.2]

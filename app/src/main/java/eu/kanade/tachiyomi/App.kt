@@ -34,6 +34,7 @@ import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
 import eu.kanade.tachiyomi.data.coil.BufferedSourceFetcher
+import eu.kanade.tachiyomi.data.coil.CoverRequestInterceptor
 import eu.kanade.tachiyomi.data.coil.ImageDecoder
 import eu.kanade.tachiyomi.data.coil.MangaCoverFetcher
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
@@ -330,6 +331,8 @@ class App :
                 add(NovelImageKeyer()) // RK
                 add(PagePreviewKeyer()) // RK
                 add(MangaDexTrackCoverKeyer()) // RK
+                // Interceptor
+                add(CoverRequestInterceptor())
             }
 
             memoryCache(
