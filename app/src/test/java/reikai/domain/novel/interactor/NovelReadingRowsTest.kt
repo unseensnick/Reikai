@@ -8,6 +8,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.DownloadTargets
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
@@ -90,5 +91,21 @@ class NovelReadingRowsTest {
         coEvery { mergeManager.computeRelatedIds(any()) } returns longArrayOf(1L)
 
         rows(sourceScoped = false, onDisk = emptySet()) shouldBe listOf(10L)
+    }
+
+    private suspend fun targetsWithoutNovelOne() =
+        interactor.readingRows(1L, sourceScoped = false, isInstalled = { it.id != 1L }) { _, _ -> emptySet() }
+            .downloadTargets
+
+    @Test
+    fun `a merged chapter whose source is gone downloads another source's copy`() = runTest {
+        targetsWithoutNovelOne().idOf(10L) shouldBe 20L
+    }
+
+    @Test
+    fun `a group with no stored stitch downloads each chapter's own copy`() = runTest {
+        coEvery { mergedChapterProvider.stitchOf(any()) } returns emptyList()
+
+        targetsWithoutNovelOne() shouldBe DownloadTargets.OWN
     }
 }

@@ -596,6 +596,11 @@ class NovelReaderViewModel(
     @Volatile
     private var copiesToOpen: CopyToOpen<NovelChapter>? = null
 
+    /** The copy a download of each chapter fetches, resolved with [orderedIds]: an installed source's in
+     *  place of one whose plugin is gone. Each chapter's own when ungrouped, source-scoped or unstitched. */
+    @Volatile
+    private var downloadTargets: DownloadTargets = DownloadTargets.OWN
+
     private val mergeScope = MergeScope.of(sourceScoped)
 
     /** What the navigator's chapter buttons enable on. */
@@ -1040,12 +1045,11 @@ class NovelReaderViewModel(
         val novels = novelRepo.ownersOf(pooled + chapters)
         val settings = getNextNovelChapter.chapterSettings(novelId)
         val numberOnly = settings?.effectiveHideChapterTitles(novelPreferences) == true
-        val targets = downloadTargets(pooled)
         emitAll(
             combine(downloadManager.queueState, chapter) { queue, _ ->
                 val flags = groupFlags(pooled, chapters, novels)
                 val queued = queue.associateBy { it.chapterId }
-                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, targets) }
+                chapters.map { it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, downloadTargets) }
             },
         )
     }.flowOn(io)
@@ -1111,7 +1115,7 @@ class NovelReaderViewModel(
         viewModelScope.launchIO {
             val chapter = chapterRepo.getById(chapterId) ?: return@launchIO
             val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
-            val fetched = downloadTargets(pooled).of(listOf(chapter), pooled + chapter) { it.id }
+            val fetched = downloadTargets.of(listOf(chapter), pooled + chapter) { it.id }
             // The copies the row counts as downloaded, which follow this session's scope.
             downloadManager.runChapterAction(action, rowDownloadChapters(action, listOf(chapter), fetched) { it.id }) {
                 mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
@@ -1134,6 +1138,7 @@ class NovelReaderViewModel(
         val stitch = reading.stitch
         memberIds = reading.memberIds
         groupStitch = stitch
+        downloadTargets = reading.downloadTargets
         // The chapters stay chapters through both filters. Reducing to ids here meant re-reading every
         // one of them back out of the database a row at a time, before the first page could be drawn.
         val chapters = if (sourceScoped) {
@@ -1381,18 +1386,8 @@ class NovelReaderViewModel(
         val flags = groupFlags(pooled, candidates, novelRepo.ownersOf(pooled + candidates))
         // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
         val picked = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
-        val toDownload = downloadTargets(pooled).of(picked, pooled + picked) { it.id }
+        val toDownload = downloadTargets.of(picked, pooled + picked) { it.id }
         if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
-    }
-
-    /**
-     * The copy a download of each of [pooled] fetches: in group scope, an installed source's copy of a
-     * chapter whose plugin is gone, or none. Source scope fetches each chapter's own, as manga's does.
-     */
-    private suspend fun downloadTargets(pooled: List<NovelChapter>): DownloadTargets {
-        if (mergeScope != MergeScope.Group || groupStitch.isEmpty()) return DownloadTargets.OWN
-        val installed = novelRepo.ownersOf(pooled).filterValues { isInstalled(it) }.keys
-        return DownloadTargets.of(mergeScope, pooled, pooled, groupStitch, { it.id }) { it.novelId in installed }
     }
 
     // The first open already waits on the plugin host to read the chapter's stylesheet, so this adds no wait.

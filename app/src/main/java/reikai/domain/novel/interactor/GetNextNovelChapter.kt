@@ -43,7 +43,8 @@ data class NovelGroupChapters(
 
 /**
  * [GetNextNovelChapter.readingRows]: [rows] in the reader's scope, plus the group behind them. [pooled] is
- * empty and [copies] null for a novel in no group; [copies] is null in source scope too.
+ * empty and [copies] null for a novel in no group; [copies] is null in source scope too. [downloadTargets]
+ * is the copy each row's download fetches, every row's own wherever [copies] is null or [stitch] empty.
  */
 data class NovelReadingRows(
     val rows: List<NovelChapter>,
@@ -51,6 +52,7 @@ data class NovelReadingRows(
     val pooled: List<NovelChapter>,
     val stitch: List<ChapterUnit>,
     val copies: CopyToOpen<NovelChapter>?,
+    val downloadTargets: DownloadTargets,
 )
 
 /**
@@ -109,18 +111,23 @@ class GetNextNovelChapter(
         val stitch = if (pooled.isEmpty()) emptyList() else mergedChapterProvider.stitchOf(novelId)
         val memberIds = ids.ifEmpty { listOf(novelId) }
         if (sourceScoped || pooled.isEmpty()) {
-            return NovelReadingRows(chapterRepository.getByNovelId(novelId), memberIds, pooled, stitch, copies = null)
+            val own = chapterRepository.getByNovelId(novelId)
+            return NovelReadingRows(own, memberIds, pooled, stitch, copies = null, DownloadTargets.OWN)
         }
         val owners = novelRepository.ownersOf(pooled)
-        val installed = owners.filterValues { isInstalled(it) }.keys
-        val fetched = DownloadTargets.of(MergeScope.Group, pooled, pooled, stitch, {
-            it.id
-        }) { it.novelId in installed }
+        // Gated as manga's reader gates it: with no stitch there is no other copy, so each row fetches its
+        // own rather than none.
+        val fetched = if (stitch.isEmpty()) {
+            DownloadTargets.OWN
+        } else {
+            val installed = owners.filterValues { isInstalled(it) }.keys
+            DownloadTargets.of(MergeScope.Group, pooled, pooled, stitch, { it.id }) { it.novelId in installed }
+        }
         val copies = CopyToOpen(MergeScope.Group, pooled, stitch, { it.id }, downloadedIds(pooled, owners), fetched)
         val rows = copies.inPlaceOf(mergedChapterProvider.merged(pooled, stitch)) { copy, row ->
             copy.copy(sourceOrder = row.sourceOrder)
         }
-        return NovelReadingRows(rows, memberIds, pooled, stitch, copies)
+        return NovelReadingRows(rows, memberIds, pooled, stitch, copies, fetched)
     }
 
     /** One novel's own chapters, in the order its reader pages through them. The group's list above
