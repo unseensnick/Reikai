@@ -112,27 +112,31 @@ class NovelRepositoryImpl(
         return if (healed) stored.copy(thumbnailUrl = cover) else stored
     }
 
+    // A RETURNING insert announces itself before the device driver runs it; a transaction holds that
+    // notice until the commit, so watchers re-read a row that exists
     override suspend fun insert(novel: Novel): Long? = try {
-        database.novelsQueries.insert(
-            source = novel.source,
-            url = novel.url,
-            title = novel.title,
-            author = novel.author,
-            artist = novel.artist,
-            description = novel.description,
-            genre = novel.genre,
-            status = novel.status,
-            thumbnailUrl = novel.thumbnailUrl,
-            favoriteAt = novel.favoriteAt,
-            lastUpdate = novel.lastUpdate,
-            initialized = novel.initialized,
-            chapterFlags = novel.chapterFlags,
-            updateStrategy = novel.updateStrategy,
-            coverLastModified = novel.coverLastModified,
-            totalPages = novel.totalPages,
-            notes = novel.notes,
-            viewerFlags = novel.viewerFlags,
-        ).awaitAsOneOrNull()
+        database.transactionWithResult {
+            database.novelsQueries.insert(
+                source = novel.source,
+                url = novel.url,
+                title = novel.title,
+                author = novel.author,
+                artist = novel.artist,
+                description = novel.description,
+                genre = novel.genre,
+                status = novel.status,
+                thumbnailUrl = novel.thumbnailUrl,
+                favoriteAt = novel.favoriteAt,
+                lastUpdate = novel.lastUpdate,
+                initialized = novel.initialized,
+                chapterFlags = novel.chapterFlags,
+                updateStrategy = novel.updateStrategy,
+                coverLastModified = novel.coverLastModified,
+                totalPages = novel.totalPages,
+                notes = novel.notes,
+                viewerFlags = novel.viewerFlags,
+            ).awaitAsOneOrNull()
+        }
     } catch (e: Exception) {
         logcat(LogPriority.ERROR, e) { "Failed to insert novel '${novel.url}' (source=${novel.source})" }
         null
