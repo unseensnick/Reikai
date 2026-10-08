@@ -351,7 +351,7 @@ class BackupRestorer(
         options: RestoreOptions,
     ) = launch {
         // Mirrors the manga stream's gate: with Categories off, novels must not be assigned to
-        // same-named pre-existing categories either.
+        // same-named pre-existing categories either. Pinned by RestoreCategoryGateConformanceTest.
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
