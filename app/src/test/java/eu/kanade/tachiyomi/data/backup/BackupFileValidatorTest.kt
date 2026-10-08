@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
+import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
@@ -37,6 +38,8 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.source.service.SourceManager
 import java.io.ByteArrayOutputStream
 import java.util.zip.GZIPOutputStream
 
@@ -50,11 +53,12 @@ class BackupFileValidatorTest {
         vararg fields: Pair<Int, ByteArray>,
         trackerManager: TrackerManager = mockk(),
         extensions: ExtensionManager = mockk(),
+        sourceManager: SourceManager = mockk(),
     ): BackupFileValidator {
         val novelSources = mockk<NovelSourceManager>()
         coEvery { novelSources.ensureLoaded() } just runs
         coEvery { novelSources.get(any()) } returns null
-        return validator(novelSources, fields.asList(), trackerManager, extensions)
+        return validator(novelSources, fields.asList(), trackerManager, extensions, sourceManager)
     }
 
     // Strict mocks: touching a source, tracker or extension manager that is not stubbed fails the test.
@@ -63,6 +67,7 @@ class BackupFileValidatorTest {
         fields: List<Pair<Int, ByteArray>>,
         trackerManager: TrackerManager = mockk(),
         extensions: ExtensionManager = mockk(),
+        sourceManager: SourceManager = mockk(),
     ) = validatorOver(
         ByteArrayOutputStream().also { out ->
             GZIPOutputStream(out).use { gzip ->
@@ -72,6 +77,7 @@ class BackupFileValidatorTest {
         novelSources,
         trackerManager,
         extensions,
+        sourceManager,
     )
 
     private fun validatorOver(
@@ -79,11 +85,12 @@ class BackupFileValidatorTest {
         novelSources: NovelSourceManager,
         trackerManager: TrackerManager = mockk(),
         extensions: ExtensionManager = mockk(),
+        sourceManager: SourceManager = mockk(),
     ) = BackupFileValidator(
         context = mockk<Context> {
             every { contentResolver.openInputStream(any()) } returns file.inputStream()
         },
-        sourceManager = mockk(),
+        sourceManager = sourceManager,
         trackerManager = trackerManager,
         novelSourceManager = novelSources,
         parser = ProtoBuf,
@@ -122,6 +129,20 @@ class BackupFileValidatorTest {
         )
 
         validator(novel, name).validate(mockk<Uri>()).missingSources shouldBe listOf("Foo")
+    }
+
+    @Test
+    fun `a missing manga source backed up with no name is named by its stub`() = runTest {
+        val source =
+            101 to ProtoBuf.encodeToByteArray(BackupSource.serializer(), BackupSource(name = "", sourceId = 5L))
+        val stub = StubSource(id = 5L, lang = "en", name = "Stored")
+        val sources = mockk<SourceManager> {
+            coEvery { get(5L) } returns null
+            coEvery { getOrStub(5L) } returns stub
+        }
+
+        validator(source, sourceManager = sources).validate(mockk<Uri>()).missingSources shouldBe
+            listOf(stub.toString())
     }
 
     @Test

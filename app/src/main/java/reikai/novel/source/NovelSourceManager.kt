@@ -163,6 +163,21 @@ class NovelSourceManager(
         }
     }
 
+    /**
+     * The names a restored backup recorded, for sources this device has no record of, so a novel whose
+     * source is not installed shows that name, as a restored manga's stub source does. A record already
+     * here is left alone, since it carries more than a name.
+     */
+    suspend fun rememberBackedUpNames(names: Map<String, String>) {
+        seenMutex.withLock {
+            val current = prefs.seenNovelSources().get()
+            val absent = names.filter { (id, name) -> name.isNotBlank() && id !in current }
+            if (absent.isNotEmpty()) {
+                prefs.seenNovelSources().set(current + absent.mapValues { LnSourceIdentity(it.value) })
+            }
+        }
+    }
+
     /** The loaded apps' catalogues replace the ones registered before, keeping any that did not change. */
     private suspend fun registerApps(extensions: List<Extension.Loaded>) {
         val registered = sourcesFlow.value.values.filterIsInstance<AppNovelSource>().associateBy { it.id }

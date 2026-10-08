@@ -15,7 +15,10 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.source.repository.StubSourceRepository
+import tachiyomi.domain.source.service.SourceManager
 
 /** Runs the real [BackupRestorer] over [backup] encoded as a file, every collaborator relaxed but those passed. */
 suspend fun restoreEncoded(
@@ -24,6 +27,9 @@ suspend fun restoreEncoded(
     categoriesRestorer: CategoriesRestorer = mockk(relaxed = true),
     mangaRestorer: MangaRestorer = mockk(relaxed = true),
     novelRestorer: NovelRestorer = mockk(relaxed = true),
+    sourceManager: SourceManager = mockk(relaxed = true),
+    stubSourceRepository: StubSourceRepository = mockk(relaxed = true),
+    novelSourceManager: NovelSourceManager = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -41,6 +47,9 @@ suspend fun restoreEncoded(
         extensionStoreRestorer = mockk(relaxed = true),
         mangaRestorer = mangaRestorer,
         parser = ProtoBuf,
+        sourceManager = sourceManager,
+        stubSourceRepository = stubSourceRepository,
+        novelSourceManager = novelSourceManager,
         novelRestorer = novelRestorer,
         feedRestorer = mockk(relaxed = true),
         reconcileMergedChapters = mockk<ReconcileMergedChapters> {

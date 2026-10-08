@@ -57,7 +57,7 @@ class NovelPreferences(
      * Last-known display identity (name, icon, lang) per plugin id, kept so the Browse migration list
      * can render a source whose plugin is no longer installed (manga-stub parity). Written on every
      * source load/install and deliberately NOT pruned on uninstall, so the row survives removal. A
-     * source never seen on this device (e.g. a backup restore) is absent and falls back to its raw id.
+     * restore adds the name the backup recorded for a source it lacks; one never seen falls back to its raw id.
      */
     fun seenNovelSources() = preferenceStore.getObjectFromString(
         key = "ln_seen_novel_sources",

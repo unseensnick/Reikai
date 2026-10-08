@@ -48,9 +48,12 @@ import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.download.NovelDownloadCache
+import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.source.repository.StubSourceRepository
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import java.io.File
 import java.text.SimpleDateFormat
@@ -73,7 +76,10 @@ class BackupRestorer(
     private val extensionStoreRestorer: ExtensionStoreRestorer,
     private val mangaRestorer: MangaRestorer,
     private val parser: ProtoBuf, // RK: the streaming restore decodes field by field, no BackupDecoder
+    private val sourceManager: SourceManager,
+    private val stubSourceRepository: StubSourceRepository,
     // RK -->
+    private val novelSourceManager: NovelSourceManager,
     private val novelRestorer: NovelRestorer,
     private val feedRestorer: FeedRestorer,
     private val reconcileMergedChapters: ReconcileMergedChapters,
@@ -142,6 +148,8 @@ class BackupRestorer(
         sourceMapping = summary.backupSources.associate { it.sourceId to it.name }
 
         if (options.libraryEntries) {
+            restoreSourceNames(summary.backupSources)
+            novelSourceManager.rememberBackedUpNames(summary.novelSourceNames) // RK
             restoreAmount += summary.mangaCount + summary.novelCount
         }
         if (options.categories) {
@@ -372,6 +380,16 @@ class BackupRestorer(
                 )
             }
         }
+    }
+
+    // Without a stub, a source that isn't installed has no name for the next backup to write
+    private suspend fun restoreSourceNames(backupSources: List<BackupSource>) {
+        backupSources
+            .filter { it.name.isNotBlank() }
+            .filter {
+                sourceManager.get(it.sourceId) == null && stubSourceRepository.getStubSource(it.sourceId) == null
+            }
+            .forEach { stubSourceRepository.upsertStubSource(it.sourceId, lang = "", name = it.name) }
     }
 
     private fun CoroutineScope.restoreCategories(
