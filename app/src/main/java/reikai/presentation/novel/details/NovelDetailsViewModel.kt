@@ -70,6 +70,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.GroupMarks
+import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.NovelChapterRepository
@@ -933,35 +934,33 @@ class NovelDetailsViewModel(
         refreshJob = viewModelScope.launchIO {
             state.update { (it as? NovelDetailsState.Loaded)?.copy(isRefreshing = true) ?: it }
             try {
-                // Every source is refreshed even after one fails, and the first failure is shown, as on manga.
-                var firstError: Throwable? = null
                 val toDownload = mutableListOf<NovelChapter>()
-                suspend fun refreshOrKeep(novel: Novel, src: suspend () -> NovelSource): Novel? =
-                    runCatchingCancellable { refreshNovel(src(), novel, toDownload) }
-                        .onFailure { if (firstError == null) firstError = it }
-                        .getOrNull()
-                // Refresh the anchor first (its refreshed novel drives the viewed-page fix below), then
-                // every other grouped source so the unified list picks up new chapters everywhere. A missing
-                // anchor source is reported as manga's stub is; a sibling's is skipped, or an unrelated
-                // uninstalled source would fail every refresh.
+                // The anchor's refreshed novel drives the viewed-page fix below.
                 var anchorSrc = source
-                val anchorUpdated = refreshOrKeep(loaded.novel) {
-                    (anchorSrc ?: sourceManager.getOrThrow(loaded.novel.source)).also { anchorSrc = it }
-                }
-                for (id in mergeGroup.relatedIds) {
-                    if (id == loaded.novel.id) continue
-                    val novel = novelRepo.getById(id) ?: continue
-                    val src = siblingSources.value[id] ?: continue
-                    refreshOrKeep(novel) { src }
-                }
+                var anchorUpdated: Novel? = null
+                val firstError = refreshMergeGroup(
+                    anchor = {
+                        runCatchingCancellable {
+                            val src = anchorSrc ?: sourceManager.getOrThrow(loaded.novel.source)
+                            anchorSrc = src
+                            refreshNovel(src, loaded.novel, toDownload).also { anchorUpdated = it }
+                        }
+                    },
+                    siblings = mergeGroup.relatedIds
+                        .filter { it != loaded.novel.id }
+                        .mapNotNull { novelRepo.getById(it) },
+                    sourceOf = { siblingSources.value[it.id] },
+                    refresh = { novel, src -> runCatchingCancellable { refreshNovel(src, novel, toDownload) } },
+                )
                 if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
                 // Force-refresh the viewed page when viewing the anchor's own (paged) list and the walk
                 // skipped it (a middle page); the unified view has no pages so this is a no-op there.
                 val viewedAnchor = anchorSrc
-                if (viewedAnchor != null && anchorUpdated != null &&
+                val updatedAnchor = anchorUpdated
+                if (viewedAnchor != null && updatedAnchor != null &&
                     (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id)
                 ) {
-                    forceRefreshViewedPage(loaded, anchorUpdated, viewedAnchor)
+                    forceRefreshViewedPage(loaded, updatedAnchor, viewedAnchor)
                 }
                 firstError?.let { e ->
                     val message = with(context) { e.refreshFailureMessage() }

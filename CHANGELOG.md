@@ -168,6 +168,7 @@ agent under Settings -> Advanced.
 - **Marking a merged series read from the library, or changing its categories, now applies to every source in the group.** A category only some of its sources are in shows as partly ticked and is left alone unless you change it.
 - **A merged series now downloads each chapter once and opens a downloaded copy from any of its sources instead of going online.** Deleting a chapter from the All list removes every source's copy.
 - **A merged series whose top-ranked source has no chapters now lists its other sources' chapters in full.**
+- **Refreshing a merged manga no longer fails every time one of its sources' extensions is uninstalled.** That source is skipped and the rest refresh, as on a merged novel.
 - **A merged series now counts once in new-chapter notifications and the Updates widget, instead of once per source.**
 - **Merged rows in Updates and History now show and change read, bookmark and download state for every source, and Continue reading from History opens the chapter the library would.** An Updates row's download is its own source's copy, since that is the copy it opens.
 - **Selecting a source chip on a merged series now switches the synopsis and tags to it, and Share, Open in WebView, link copies, the assistant's link and manga's download controls follow it.** A chip on a missing extension offers none of them, Migrate moves the selected chip's source, and your custom title stays.

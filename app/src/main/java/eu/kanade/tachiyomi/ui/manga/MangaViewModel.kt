@@ -106,6 +106,7 @@ import reikai.domain.merge.DetailsRemoval
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.gapPresent
+import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.PrepareRecommendationAssembly
 import reikai.domain.recommendation.RecommendationAssembly
@@ -626,31 +627,22 @@ class MangaViewModel(
         val groupIds = mergeGroup.relatedIds
         try {
             withUIContext {
-                // RK --> one fetch per grouped source; the first failure is rethrown once all have run
+                // RK --> one fetch per grouped source by the rule novels share; the first failure is rethrown
+                // once all have run
                 val newChapters = mutableListOf<Chapter>()
-                var firstError: Exception? = null
-                for (id in groupIds) {
-                    val result = if (id == state.manga.id) {
-                        updateMangaFromRemote(
-                            source = state.source,
-                            manga = state.manga,
-                            fetchDetails = fetchDetails,
-                            fetchChapters = fetchChapters,
-                            manualFetch = manualFetch,
-                        )
-                    } else {
-                        updateMangaFromRemote(
-                            manga = getMangaAndChapters.awaitManga(id),
-                            fetchDetails = fetchDetails,
-                            fetchChapters = fetchChapters,
-                            manualFetch = manualFetch,
-                        )
-                    }
-                    result.fold(
-                        onSuccess = { newChapters += it.newChapters },
-                        onFailure = { if (firstError == null && it is Exception) firstError = it },
-                    )
-                }
+                suspend fun fetch(source: Source, manga: Manga) = updateMangaFromRemote(
+                    source = source,
+                    manga = manga,
+                    fetchDetails = fetchDetails,
+                    fetchChapters = fetchChapters,
+                    manualFetch = manualFetch,
+                ).onSuccess { newChapters += it.newChapters }
+                val firstError = refreshMergeGroup(
+                    anchor = { fetch(state.source, state.manga) },
+                    siblings = groupIds.filter { it != state.manga.id }.map { getMangaAndChapters.awaitManga(it) },
+                    sourceOf = { sourceManager.get(it.source) },
+                    refresh = { manga, source -> fetch(source, manga) },
+                )
 
                 if (manualFetch) {
                     downloadNewChapters(newChapters)
