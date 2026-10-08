@@ -15,6 +15,7 @@ class ChapterNumberHintTest {
         val number: Double,
         val name: String,
         val hidden: Boolean = false,
+        val date: Long = 0L,
     )
 
     /** One owner's rows in source order, ids counting from 0. */
@@ -30,10 +31,55 @@ class ChapterNumberHintTest {
         sourceOrder = { it.order },
         number = { it.number },
         name = { it.name },
+        dateUpload = { it.date },
         isHidden = { it.hidden },
     )
 
     private fun hint(suggestion: Double?) = ChapterNumberHint.Hint(suggestion)
+
+    /**
+     * The Legendary Mechanic's shape: chapters 179 down to 1, one a week, and a copy of chapter 177 that the
+     * site lists between chapters 3 and 2. Ids are the source order: the twin is 2, the copy 177.
+     */
+    private fun misplacedCopy(copyDate: Long = START + 177 * WEEK + 2 * HOUR): List<Row> {
+        val rows = numbered(*(179 downTo 1).map { it.toDouble() }.toDoubleArray())
+            .map { it.copy(date = START + it.number.toLong() * WEEK) }
+        val copy = Row(0L, 1L, 0L, 177.0, "Chapte 177", date = copyDate)
+        return (rows.take(177) + copy + rows.drop(177)).mapIndexed { i, row ->
+            row.copy(id = i.toLong(), order = i.toLong())
+        }
+    }
+
+    private fun List<Row>.undated(vararg ids: Long) = map { if (it.id in ids) it.copy(date = 0L) else it }
+
+    @Test
+    fun `a copy listed out of place beside its same-day twin is not marked`() {
+        hints(misplacedCopy()) shouldBe emptyMap()
+    }
+
+    @Test
+    fun `a copy dated beside the chapters around its number but not its twin stays marked`() {
+        // Martial Peak's "Chapter497": a day from 496 and 498, two years from the "Chapter 497" the list also has.
+        hints(misplacedCopy(copyDate = START + 176 * WEEK + DAY)) shouldBe mapOf(177L to hint(null))
+    }
+
+    @Test
+    fun `a misnumbered row in a list uploaded all at once stays marked`() {
+        // The real chapter 1335 sits at the end, past a run too long to be judged a stray itself.
+        val rows = numbered(1133.0, 1134.0, 1335.0, 1136.0, 1137.0, 1138.0, 1139.0, 1140.0, 1141.0, 1335.0)
+            .map { it.copy(date = START) }
+        hints(rows) shouldBe mapOf(2L to hint(1135.0))
+    }
+
+    @Test
+    fun `an undated copy and twin leave the copy marked`() {
+        hints(misplacedCopy().undated(2L, 177L)) shouldBe mapOf(177L to hint(null))
+    }
+
+    @Test
+    fun `an undated neighbour leaves a misplaced copy marked`() {
+        hints(misplacedCopy().undated(176L)) shouldBe mapOf(177L to hint(null))
+    }
 
     @Test
     fun `two unnumbered parts between 395-2 and 397 are marked and offered 396`() {
@@ -181,5 +227,12 @@ class ChapterNumberHintTest {
             5.0 to "Chapter 5",
         )
         hints(rows) shouldBe mapOf(3L to hint(4.0))
+    }
+
+    private companion object {
+        const val HOUR = 3_600_000L
+        const val DAY = 24 * HOUR
+        const val WEEK = 7 * DAY
+        const val START = 1_600_000_000_000L
     }
 }

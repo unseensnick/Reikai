@@ -1246,6 +1246,7 @@ class NovelDetailsViewModel(
             sourceOrder = { it.sourceOrder },
             number = { it.chapterNumber },
             name = { it.name },
+            dateUpload = { it.dateUpload },
             isHidden = { hiddenKey(it) in hidden },
         )
     }

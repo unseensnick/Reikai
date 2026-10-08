@@ -1221,6 +1221,7 @@ class MangaViewModel(
             sourceOrder = { it.sourceOrder },
             number = { it.chapterNumber },
             name = { it.name },
+            dateUpload = { it.dateUpload },
             isHidden = { it.hiddenKey(mangaBySource[it.mangaId] ?: manga) in hidden },
         )
     }
