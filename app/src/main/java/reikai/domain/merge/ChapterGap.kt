@@ -88,14 +88,17 @@ object ChapterGap {
      * The count at a reader's boundary between two chapters. There a missing neighbour is the start or
      * end of what can be read, which the marker names itself, not chapters missing below the list.
      */
-    fun atSeam(higher: Neighbour?, lower: Neighbour?, present: Present): Int =
-        if (higher == null || lower == null) 0 else between(higher, lower, present)
+    fun atSeam(higher: Neighbour?, lower: Neighbour?, present: Present): Int = present.count(seamSpanOf(higher, lower))
+
+    private fun seamSpanOf(higher: Neighbour?, lower: Neighbour?): Span? =
+        if (higher == null || lower == null) null else spanOf(higher, lower)
 
     /**
      * [rows] as displayed with a marker wherever one is due, [before] above [after], null past either
      * end. The sort decides which side is the higher chapter. A hidden row, shown only while the user
      * reveals them, is never a side: the marker spans the shown rows around it and sits directly above
-     * the one it leads into, so revealing hidden rows never changes a count.
+     * the one it leads into, so revealing hidden rows never changes a count. When [paged], [rows] are one
+     * page of a longer list, so its ends are page boundaries, counted as a reader's seam is.
      */
     fun <T, R> withMarkers(
         rows: List<T>,
@@ -104,10 +107,11 @@ object ChapterGap {
         present: Present,
         descending: Boolean,
         row: (T) -> R,
+        paged: Boolean = false,
         marker: (before: T?, after: T?, count: Int) -> R,
     ): List<R> {
         val out = ArrayList<R>(rows.size + 1)
-        walk(rows, neighbourOf, isHidden, descending, onRow = { out += row(it) }) { before, after, span ->
+        walk(rows, neighbourOf, isHidden, descending, paged, onRow = { out += row(it) }) { before, after, span ->
             present.count(span).takeIf { it > 0 }?.let { out += marker(before, after, it) }
         }
         return out
@@ -115,7 +119,8 @@ object ChapterGap {
 
     /**
      * The header's count: every number the markers of [rows] cover, each owner's number once, so two
-     * markers over the same stretch of a list the source orders oddly are not added twice.
+     * markers over the same stretch of a list the source orders oddly are not added twice. [paged] as in
+     * [withMarkers].
      */
     fun <T> total(
         rows: List<T>,
@@ -123,9 +128,10 @@ object ChapterGap {
         isHidden: (T) -> Boolean,
         present: Present,
         descending: Boolean,
+        paged: Boolean = false,
     ): Int {
         val spans = mutableListOf<Span>()
-        walk(rows, neighbourOf, isHidden, descending, onRow = {}) { _, _, span ->
+        walk(rows, neighbourOf, isHidden, descending, paged, onRow = {}) { _, _, span ->
             if (span != null && span.hi - span.lo > 1) spans += span
         }
         return spans.groupBy { it.owner }.entries.sumOf { (owner, own) ->
@@ -152,6 +158,7 @@ object ChapterGap {
         neighbourOf: (T) -> Neighbour,
         isHidden: (T) -> Boolean,
         descending: Boolean,
+        paged: Boolean,
         onRow: (T) -> Unit,
         onGap: (before: T?, after: T?, span: Span?) -> Unit,
     ) {
@@ -164,16 +171,18 @@ object ChapterGap {
                 continue
             }
             val currentNeighbour = neighbourOf(current)
-            onGap(before, current, spanAcross(beforeNeighbour, currentNeighbour, descending))
+            onGap(before, current, spanAcross(beforeNeighbour, currentNeighbour, descending, paged))
             onRow(current)
             before = current
             beforeNeighbour = currentNeighbour
         }
-        onGap(before, null, spanAcross(beforeNeighbour, null, descending))
+        onGap(before, null, spanAcross(beforeNeighbour, null, descending, paged))
     }
 
-    private fun spanAcross(before: Neighbour?, after: Neighbour?, descending: Boolean): Span? =
-        if (descending) spanOf(before, after) else spanOf(after, before)
+    private fun spanAcross(before: Neighbour?, after: Neighbour?, descending: Boolean, paged: Boolean): Span? {
+        val (higher, lower) = if (descending) before to after else after to before
+        return if (paged) seamSpanOf(higher, lower) else spanOf(higher, lower)
+    }
 
     /**
      * Whether the recognized number can be believed, which it can only be when the name labels the

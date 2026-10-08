@@ -674,13 +674,15 @@ class NovelDetailsViewModel(
         // Counted against every chapter, filtered out or hidden, so hiding one never makes a gap.
         val present = chapters.gapPresent()
         val isHiddenRow = { chapter: NovelChapter -> chapter.id in hiddenChapterIds }
+        // A paged list holds one page, so its ends border the other pages, not chapters that are missing.
+        val paged = pages.isNotEmpty()
         // The header total covers what the list itself would mark, so the two can never disagree.
         // Always shown when > 0; the inline rows are pref-gated.
-        val missingChapterCount = novelMissingChapterCount(display, sortDescending, present, isHiddenRow)
+        val missingChapterCount = novelMissingChapterCount(display, sortDescending, present, paged, isHiddenRow)
         val chapterListEntries = if (novelPreferences.hideMissingChapters().get()) {
             display.map { NovelChapterListEntry.Item(it) }
         } else {
-            buildNovelChapterListEntries(display, sortDescending, present, isHiddenRow)
+            buildNovelChapterListEntries(display, sortDescending, present, paged, isHiddenRow)
         }
         return NovelDetailsState.Loaded(
             novel = anchor,

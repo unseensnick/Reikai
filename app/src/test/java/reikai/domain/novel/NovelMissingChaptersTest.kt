@@ -25,7 +25,7 @@ class NovelMissingChaptersTest {
         )
 
     private fun entries(chapters: List<NovelChapter>, sortDescending: Boolean) =
-        buildNovelChapterListEntries(chapters, sortDescending, chapters.gapPresent()) { false }
+        buildNovelChapterListEntries(chapters, sortDescending, chapters.gapPresent(), paged = false) { false }
 
     private fun List<NovelChapterListEntry>.numbers(): List<Double> =
         filterIsInstance<NovelChapterListEntry.Item>().map { it.chapter.chapterNumber }

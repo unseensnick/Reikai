@@ -17,6 +17,7 @@ fun buildNovelChapterListEntries(
     chapters: List<NovelChapter>,
     sortDescending: Boolean,
     present: ChapterGap.Present,
+    paged: Boolean,
     isHidden: (NovelChapter) -> Boolean,
 ): List<NovelChapterListEntry> =
     ChapterGap.withMarkers(
@@ -26,6 +27,7 @@ fun buildNovelChapterListEntries(
         present = present,
         descending = sortDescending,
         row = NovelChapterListEntry::Item,
+        paged = paged,
     ) { before, after, count -> NovelChapterListEntry.Missing(id = "${before?.id}-${after?.id}", count = count) }
 
 /** A merged list's neighbours can come from different sources, so the owning novel travels with the
@@ -41,5 +43,6 @@ fun novelMissingChapterCount(
     chapters: List<NovelChapter>,
     sortDescending: Boolean,
     present: ChapterGap.Present,
+    paged: Boolean,
     isHidden: (NovelChapter) -> Boolean,
-): Int = ChapterGap.total(chapters, { it.toGapNeighbour() }, isHidden, present, sortDescending)
+): Int = ChapterGap.total(chapters, { it.toGapNeighbour() }, isHidden, present, sortDescending, paged)

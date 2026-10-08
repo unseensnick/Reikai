@@ -252,6 +252,38 @@ class ChapterGapTest {
         }.sum() shouldBe expected
     }
 
+    /** Page 4 of a paged list, chapters 301 to 390 with 350 absent, in display order. */
+    private fun page(descending: Boolean): List<ChapterGap.Neighbour> {
+        val rows = (301..390).filter { it != 350 }.map { at(it.toDouble()) }
+        return if (descending) rows.reversed() else rows
+    }
+
+    @ParameterizedTest(name = "descending {0}")
+    @CsvSource("false", "true")
+    @DisplayName("a page of a paged list marks the gaps inside it, not the earlier pages")
+    fun pagedMarkersSkipThePageEnds(descending: Boolean) {
+        val rows = page(descending)
+
+        ChapterGap.withMarkers(
+            rows,
+            neighbourOf = { it },
+            isHidden = { false },
+            present = presentOf(*rows.toTypedArray()),
+            descending = descending,
+            row = { 0 },
+            paged = true,
+        ) { _, _, count -> count }.filter { it > 0 } shouldBe listOf(1)
+    }
+
+    @ParameterizedTest(name = "descending {0}")
+    @CsvSource("false", "true")
+    @DisplayName("a page of a paged list counts the gaps inside it, not the earlier pages")
+    fun pagedTotalSkipsThePageEnds(descending: Boolean) {
+        val rows = page(descending)
+
+        ChapterGap.total(rows, { it }, { false }, presentOf(*rows.toTypedArray()), descending, paged = true) shouldBe 1
+    }
+
     @ParameterizedTest(name = "descending {0}")
     @CsvSource("false", "true")
     @DisplayName("the header total adds the inline markers and the oldest end in either order")
