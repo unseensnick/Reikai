@@ -137,8 +137,9 @@ Ground-truth via app state (text over stdout, sandbox-safe, no local write):
 ```powershell
 $adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
 $pkg = "app.reikai.dev"
-# a pref actually persisted (e.g. a filter toggle / include-exclude set):
-& $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/${pkg}_preferences.xml | Select-String 'pref_filter_library_categories'
+# a pref actually persisted (e.g. a filter toggle / include-exclude set). The main prefs file holds
+# tracker tokens and other secrets, so read it only through the masking helper, never by cat:
+pwsh scripts/dump-prefs.ps1 -Match 'pref_filter_library_categories'
 # a download actually enqueued (the queue store gains entries; it drains as the job runs):
 & $adb shell run-as $pkg cat /data/data/$pkg/shared_prefs/active_novel_downloads.xml
 ```

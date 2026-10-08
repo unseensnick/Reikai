@@ -686,6 +686,7 @@ agent under Settings -> Advanced.
 - **With Hide adult content in notifications on, manga update notifications no longer come out blank for ordinary series from a source that carries extra metadata.**
 - **Statistics now counts a merged series once instead of once per source, and its Downloaded figure includes novel chapters.**
 - **Showing the crash screen no longer runs the app's startup work, such as your data migrations, a second time.**
+- **With Verbose logging on, logs and crash dumps no longer include your Hikka sign-in token.**
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **The Reikai icon on a notification is now the same size as the other notification icons.**
 - **Reikai's notification categories in Android's settings no longer repeat Mihon's names, so novel updates, novel downloads and each background sync can be told apart.**

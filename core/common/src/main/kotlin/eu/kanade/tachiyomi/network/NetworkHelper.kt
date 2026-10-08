@@ -54,6 +54,8 @@ class NetworkHelper(
                 redactHeader("Authorization")
                 redactHeader("Cookie")
                 redactHeader("Set-Cookie")
+                //     Hikka sends its OAuth token in a header of its own name.
+                redactHeader("auth")
             }
             builder.addNetworkInterceptor(httpLoggingInterceptor)
         }
