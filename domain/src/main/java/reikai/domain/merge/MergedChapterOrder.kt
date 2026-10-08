@@ -17,8 +17,18 @@ fun <T> stampedReadingOrder(merged: List<T>, restamp: (T, Long) -> T): List<T> =
  * counted, often a position, and its source order indexes its own list. So the order is built as the
  * sources are stitched rather than by sorting the pooled result. Each source is walked in its own
  * order: a chapter an earlier one already placed moves the cursor to it, a new one lands after it.
+ *
+ * @property isTitle whether an identity is a chapter's own title, which no run pairing may fold into a
+ *   different title. Only novels key on titles; manga keys numbers only and defers nothing.
+ * @property boundsBackwardMatch whether a title match behind the cursor that this source already
+ *   supplied is refused, as a source repeating a title cannot be a second copy of its own chapter. A
+ *   repeated number still collapses, as a manga scanlator variant does.
  */
-class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
+class MergedChapterOrder<T>(
+    private val isTitle: (key: Any) -> Boolean = { false },
+    private val boundsBackwardMatch: Boolean = false,
+    private val keyOf: (T) -> Any?,
+) {
 
     /** A chapter with the identity it was placed under. Held rather than recomputed: [keyOf]
      *  normalizes a chapter title, and the search below would otherwise redo that for every placed
@@ -39,7 +49,11 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
 
     private var anchored = false
 
-    /** Chapters this source offered that carry no identity, waiting on the next one that does. */
+    /** The placed chapters this source placed or matched by identity. A run paired by count is left
+     *  out: it is a guess from position, which a real title match behind it must still be able to win. */
+    private val supplied = HashSet<Placed<T>>()
+
+    /** Chapters this source offered that match nothing yet, waiting on the next one that does. */
     private val deferred = mutableListOf<T>()
 
     /** Each source's own copy of a chapter another source already placed, paired with that chapter.
@@ -52,6 +66,7 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
         cursor = -1
         placedBySource = 0
         anchored = false
+        supplied.clear()
     }
 
     /**
@@ -64,22 +79,23 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
     fun positionOf(item: T): Int {
         val key = keyOf(item) ?: return -1
         if (key !in placedKeys) return -1
-        return (cursor + 1 until order.size).firstOrNull { order[it].key == key }
-            ?: (cursor downTo 0).first { order[it].key == key }
+        (cursor + 1 until order.size).firstOrNull { order[it].key == key }?.let { return it }
+        val behind = (cursor downTo 0).first { order[it].key == key }
+        return if (boundsBackwardMatch && titled(key) && order[behind] in supplied) -1 else behind
     }
 
     /**
      * [item] is this source's copy of the chapter already sitting at [index], which [positionOf]
-     * found, so the walk continues from there. That closes any run of unidentifiable chapters since
-     * the last one: when this source offered exactly as many as the order already holds between the
-     * two, they are the same chapters seen twice, so they become copies too. Any other count means
-     * the runs do not correspond and every one is kept.
+     * found, so the walk continues from there. That closes any run of deferred chapters since the
+     * last one: when this source offered exactly as many as the order already holds between the two,
+     * and no pair is two different titles, they are the same chapters seen twice, so they become
+     * copies too. Anything else means the runs do not correspond and every one is kept.
      */
     fun followTo(index: Int, item: T) {
         // A match inside this source's own head run is a repeated identity of its own, no anchor.
         if (index >= placedBySource) anchored = true
         val between = index - cursor - 1
-        if (deferred.size == between) {
+        if (deferredRunMatches(between)) {
             deferred.forEachIndexed { offset, held -> copies += held to order[cursor + 1 + offset].item }
             deferred.clear()
             cursor = index
@@ -91,10 +107,11 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
             cursor = index + shift
         }
         copies += item to order[cursor].item
+        supplied += order[cursor]
     }
 
-    /** A chapter with no identity of its own. Where it belongs is only knowable once the next
-     *  identifiable one arrives, so the decision waits for [followTo]. */
+    /** A chapter no identity places: none of its own, or one nothing placed yet shares. Where it
+     *  belongs is only knowable once the next matched one arrives, so the decision waits for [followTo]. */
     fun defer(item: T) {
         deferred.add(item)
     }
@@ -103,9 +120,17 @@ class MergedChapterOrder<T>(private val keyOf: (T) -> Any?) {
         cursor += 1
         placedBySource += 1
         val key = keyOf(item)
-        order.add(cursor, Placed(key, item))
+        val placed = Placed(key, item)
+        order.add(cursor, placed)
+        supplied += placed
         if (key != null) placedKeys.add(key)
     }
+
+    /** The deferred run is the [between] chapters already placed past the cursor, seen again. */
+    private fun deferredRunMatches(between: Int): Boolean = deferred.size == between &&
+        deferred.indices.none { titled(keyOf(deferred[it])) && titled(order[cursor + 1 + it].key) }
+
+    private fun titled(key: Any?): Boolean = key != null && isTitle(key)
 
     fun result(): Stitched<T> {
         finishSource()

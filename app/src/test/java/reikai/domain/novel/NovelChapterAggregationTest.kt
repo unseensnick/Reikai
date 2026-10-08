@@ -418,4 +418,91 @@ class NovelChapterAggregationTest {
             "Vol 3 Ch 1 End",
         )
     }
+
+    /** The merged chapter each of [chapters] landed in, trunk-first ranking. */
+    private fun unitsOf(
+        trunk: List<NovelChapter>,
+        other: List<NovelChapter>,
+        chapters: List<NovelChapter>,
+    ): List<Int?> {
+        val unitOf = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other), memberRanking = listOf(1L, 2L))
+            .units.associate { it.chapterId to it.unit }
+        return chapters.map { unitOf[it.id] }
+    }
+
+    @Test
+    fun `a titled run pairs with the trunk's run of number-only names between the same chapters`() {
+        // One site names a chapter "685 Chapter 685", which carries no title text, the other titles it.
+        val trunk = listOf(
+            chapter(1L, 684.0, "Alpha"),
+            chapter(1L, 685.0, "685 Chapter 685"),
+            chapter(1L, 686.0, "686 Chapter 686"),
+            chapter(1L, 687.0, "Bravo"),
+        )
+        val other = listOf(
+            chapter(2L, 684.0, "Alpha"),
+            chapter(2L, 685.0, "CH.685 Lessons at the Spire"),
+            chapter(2L, 686.0, "CH.686 Departure"),
+            chapter(2L, 687.0, "Bravo"),
+        )
+
+        unitsOf(trunk, other, other) shouldBe unitsOf(trunk, other, trunk)
+    }
+
+    @Test
+    fun `a title repeated inside such a run does not pair with its earlier namesake`() {
+        // The sibling already supplied the earlier "Infiltration", so its later one is a new chapter
+        // of the run, never a second copy of chapter 2.
+        val trunk = listOf(
+            chapter(1L, 1.0, "Alpha"),
+            chapter(1L, 2.0, "Infiltration"),
+            chapter(1L, 3.0, "Bravo"),
+            chapter(1L, 685.0, "685 Chapter 685"),
+            chapter(1L, 686.0, "686 Chapter 686"),
+            chapter(1L, 687.0, "687 Chapter 687"),
+            chapter(1L, 688.0, "Omega"),
+        )
+        val other = listOf(
+            chapter(2L, 1.0, "Alpha"),
+            chapter(2L, 2.0, "Infiltration"),
+            chapter(2L, 3.0, "Bravo"),
+            chapter(2L, 685.0, "CH.685 Lessons at the Spire"),
+            chapter(2L, 686.0, "CH.686 Infiltration"),
+            chapter(2L, 687.0, "CH.687 Departure"),
+            chapter(2L, 688.0, "Omega"),
+        )
+
+        unitsOf(trunk, other, other) shouldBe unitsOf(trunk, other, trunk)
+    }
+
+    @Test
+    fun `a title still matches a chapter its source only paired by position`() {
+        // The sibling numbers two ahead, so its "Chapter 1" pairs with "Echoes" by position first.
+        val trunk = listOf(
+            chapter(1L, 1.0, "Alpha"),
+            chapter(1L, 2.0, "Echoes"),
+            chapter(1L, 3.0, "Chapter 3"),
+            chapter(1L, 4.0, "Bravo"),
+        )
+        val other = listOf(
+            chapter(2L, 1.0, "Alpha"),
+            chapter(2L, 9.0, "Chapter 1"),
+            chapter(2L, 3.0, "Chapter 3"),
+            chapter(2L, 4.0, "Echoes"),
+            chapter(2L, 5.0, "Bravo"),
+        )
+
+        unitsOf(trunk, other, other.filter { it.name == "Echoes" }) shouldBe
+            unitsOf(trunk, other, trunk.filter { it.name == "Echoes" })
+    }
+
+    @Test
+    fun `two different titles between the same chapters never pair`() {
+        val trunk = listOf(chapter(1L, 1.0, "Alpha"), chapter(1L, 2.0, "Interlude"), chapter(1L, 3.0, "Bravo"))
+        val other = listOf(chapter(2L, 1.0, "Alpha"), chapter(2L, 2.0, "Side Story"), chapter(2L, 3.0, "Bravo"))
+
+        val unified = NovelChapterAggregation.merge(mapOf(1L to trunk, 2L to other), memberRanking = listOf(1L, 2L))
+
+        unified.chapters.map { it.name } shouldBe listOf("Alpha", "Side Story", "Interlude", "Bravo")
+    }
 }

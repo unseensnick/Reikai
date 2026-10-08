@@ -1,0 +1,6 @@
+-- The novel stitch rules changed: a sibling's titled chapters now pair by position with a run the
+-- trunk names by number only, and a title this source already supplied no longer matches backward. A
+-- group with no ranking recorded reads as stale, so clearing the novel groups' stamps restitches each
+-- once on the next reconciliation. The units stay until then, so counts keep showing meanwhile.
+DELETE FROM merged_group_ranking
+WHERE group_id IN (SELECT group_id FROM merge_group_novel);

@@ -52,7 +52,11 @@ object NovelChapterAggregation {
         val trunk = ranked.first()
         if (trunk.chapters.none { matchKey(it) != null }) return unstitchedChapters(trunk.chapters) { it.id }
 
-        val order = MergedChapterOrder(::matchKey)
+        val order = MergedChapterOrder(
+            isTitle = { (it as String).startsWith(TITLE_KEY_PREFIX) },
+            boundsBackwardMatch = true,
+            keyOf = ::matchKey,
+        )
         ranked.forEachIndexed { index, source ->
             order.startSource()
             val isTrunk = index == 0
@@ -69,16 +73,11 @@ object NovelChapterAggregation {
                     order.followTo(existing, chapter)
                     continue
                 }
-                val key = matchKey(chapter)
-                when {
-                    // Unkeyable siblings drop: nothing identifies them and nothing places them.
-                    key == null -> {}
-                    // A title is an identity, so a new one is a chapter this source alone has.
-                    key.startsWith(TITLE_KEY_PREFIX) -> order.place(chapter)
-                    // Only a number, which the other source counts differently, so it identifies
-                    // nothing across the group. Its position decides instead.
-                    else -> order.defer(chapter)
-                }
+                // Unkeyable siblings drop: nothing identifies them and nothing places them. A new
+                // title may be a chapter this source alone has, or one the trunk names by number
+                // only ("685 Chapter 685"), and a number is counted differently per source, so
+                // position decides both: a run matching the one already there is the same chapters.
+                if (matchKey(chapter) != null) order.defer(chapter)
             }
         }
         val stitched = order.result()

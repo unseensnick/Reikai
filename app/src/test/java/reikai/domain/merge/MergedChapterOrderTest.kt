@@ -214,6 +214,18 @@ class MergedChapterOrderTest {
     }
 
     @Test
+    @DisplayName("by default a match behind the walk pairs even where this source already supplied it")
+    fun backwardMatchIsUnboundedByDefault() {
+        // Manga's shape: a scanlator variant repeats the number this source just supplied.
+        val order = order()
+
+        order.addTrunk("a:1", "b:1")
+        order.addSource("a:2", "b:2", "b:3")
+
+        order.result().copies shouldBe listOf("a:2" to "a:1", "b:2" to "b:1", "b:3" to "b:1")
+    }
+
+    @Test
     @DisplayName("a match behind the walk after an unidentifiable run pairs with the chapter it matched")
     fun matchBehindTheWalkKeepsItsPair() {
         val order = order()
