@@ -12,7 +12,8 @@ Some sources sit behind Cloudflare protection the in-app WebView cannot get thro
 For those, **Reikai** can hand the request to a bypass proxy running on your own machine, which solves the challenge in a real browser and returns the page.
 
 This is optional and off by default.
-WebView stays the primary solver: most challenges never reach the proxy.
+WebView still tries first on each site, and only a challenge it cannot clear goes to the proxy.
+Once a site has needed the proxy, its later challenges go straight there until the app restarts.
 
 ::: tip Try the in-app solver first
 A challenge that shows a **Verify you are human** box can often be cleared without a proxy at all.
@@ -30,21 +31,22 @@ Three tools speak the same API on the same port, so switching between them means
 
 ::::tabs
 == Solverr (recommended)
-[Solverr](https://github.com/unseensnick/Solverr) carries both browser engines and picks per challenge, and it keeps sessions.
+[Solverr](https://github.com/unseensnick/Solverr) carries both browser engines, switches to the other when one fails and remembers which works for each site, and it keeps sessions.
 
-That means it clears the newer challenges the others struggle with, while follow-up requests still come back in a second or two.
+In our tests that clears the newer challenges FlareSolverr cannot, and because Reikai keeps a session open with it, follow-up requests skip the challenge instead of paying a full solve each time.
 == Byparr
 [Byparr](https://github.com/ThePhaseless/Byparr) runs Camoufox, an anti-detect Firefox, and does clear the newer challenges.
 
-It is sessionless, so every request pays a full solve of 15 to 20 seconds. There is no fast follow-up path.
+It is sessionless, so every request sent to it pays a full solve, 15 to 20 seconds in our tests. There is no fast follow-up path.
 == FlareSolverr
 [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) runs headless Chromium and keeps sessions, so it is the lightest of the three.
 
-It can no longer solve Cloudflare's newer managed and Turnstile challenges.
+At the time of writing it often fails Cloudflare's newer managed and Turnstile challenges.
 ::::
 
 ::: warning FlareSolverr fails quietly on newer challenges
-It returns the unsolved "Just a moment..." page while reporting success, so an affected source shows no results or a parse error rather than an obvious failure.
+It can hand back a challenge page while reporting success: it stops waiting as soon as the challenge page's title and markers disappear, and in our tests Cloudflare often issues another round after that.
+An affected source then shows no results or a parse error rather than an obvious failure.
 If you see that, switch to Solverr or Byparr.
 :::
 
@@ -90,9 +92,9 @@ A mesh VPN such as [Tailscale](https://tailscale.com/), [Headscale](https://gith
 1. Find the machine's VPN address. On Tailscale that is a `100.x.y.z` address or a name like `unraid.tail-scale.ts.net`.
 1. Put `http://<vpn-address>:8191` in **FlareSolverr URL** instead of the LAN address.
 
-Nothing is opened on your router, and the proxy answers only devices signed in to your mesh.
+Nothing is opened on your router, so the proxy is reachable from your home network and your mesh, not from the internet.
 
-A sign-in in front of the server works over plain `http://` here too. Reikai counts a mesh VPN's `100.x.y.z` addresses, Tailscale's `.ts.net` names and NetBird's `.netbird.cloud` and `.netbird.selfhosted` names as your own network. A `.ts.net` name needs a port other than 80, 443, 8443 or 10000, because Tailscale Funnel can publish the same name on the internet on those. For a Headscale name on a domain of your own, or a ZeroTier network, use the device's VPN address.
+A sign-in in front of the server works over plain `http://` here too. Reikai counts addresses from `100.64.0.0` to `100.127.255.255` (the range Tailscale uses, and Headscale by default), Tailscale's `.ts.net` names and NetBird's `.netbird.cloud` and `.netbird.selfhosted` names as your own network. A `.ts.net` name needs a port other than 80, 443, 8443 or 10000: Tailscale Funnel can publish the same name on the internet on 443, 8443 and 10000, and Reikai treats 80 the same way to be safe. For a Headscale name on a domain of your own, or a ZeroTier network, use the device's VPN address.
 == Public domain
 If you already run a reverse proxy (Caddy, nginx, Traefik), point a subdomain at port `8191` and set **FlareSolverr URL** to `https://flaresolverr.example.com`.
 
@@ -100,7 +102,7 @@ Put TLS and authentication in front of it. See the warning below.
 
 Basic auth goes under **FlareSolverr sign-in**, which asks for a username and password. A proxy that checks only a password works too: leave the username empty and the row reads **Password only**. Do not put `user:password@` in the address itself: the app will not accept it there, and an address is not a private setting, so it would travel in your backups in clear text.
 
-Raise the proxy's read timeout to at least 180 seconds. A hard solve takes longer than the 60 seconds nginx allows by default, and the proxy cuts the request off before the solver answers.
+Raise the proxy's read timeout to at least 120 seconds. Reikai asks the solver to give up after 60 seconds and waits up to 90 for its answer, so a proxy that cuts off at 60 seconds (nginx's default) turns a slow solve into a gateway error.
 ::::
 
 ::: danger An exposed bypass proxy is an open proxy
@@ -134,10 +136,10 @@ A solver on a rented server browses from a datacenter address, and some sites re
 
 ## What to expect
 
-| Situation | Typical wait |
+| Situation | Typical wait in our tests |
 |---|---|
 | A source WebView can solve | 5 to 8 seconds, then follow-ups are instant. The proxy never runs. |
-| First request to a hard source after opening the app | About 42 seconds: WebView tries for 30, then the proxy solves in around 12. |
+| First request to a hard source after opening the app | Up to about 42 seconds: WebView tries for up to 30, then the proxy solves in around 12. |
 | Anything after that, same app session | 1 to 3 seconds. The proxy holds the cleared session, and the app stops waiting on WebView for that source. |
 | The proxy restarts | The next request quietly makes a new session, about 12 seconds, then back to 1 to 3. No error. |
 | Reopening the app | Which sources needed the proxy is not remembered across restarts, so the first request pays the 42 seconds again. |
@@ -147,9 +149,10 @@ The fast rows need sessions, so they apply to Solverr and FlareSolverr.
 
 ## Troubleshooting
 
-**A connection error, or `FlareSolverr returned HTTP 5xx`.**
-The proxy is unreachable or has crashed.
+**A connection error, or `FlareSolverr returned HTTP 502`, `503` or `504`.**
+The proxy is unreachable, or a reverse proxy in front of it is up while the solver behind it is down.
 Check it is running, the URL is right, and your device can reach it.
+A `500` is different: the solver was reached but could not get through the challenge, so retry or check the solver's own log.
 
 **The test says the server rejected the username and password.**
 The credentials did not satisfy whatever guards the server. Check them with `curl -su 'user:password' https://your.server/v1` first, so you know whether the app or the server is the problem.
@@ -162,22 +165,21 @@ Reikai will not send a password unencrypted across the internet. Use the proxy's
 Usually `http://` in front of a proxy that forces https. The dialog that opens when the test fails shows where it points: put that address in **FlareSolverr URL**.
 
 **The test says the proxy answered but the solver behind it is down.**
-The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this for its first twenty seconds or so, so wait and test again before changing anything.
+The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this until it has finished starting (about twenty seconds in our tests), so wait and test again before changing anything.
 
 **You once put the password in the address field.**
 Reikai moves it into the password field on upgrade, and does the same to an address restored from a backup, so nothing is left to do in the app. It cannot reach backups you already made: those hold the address as you typed it, password included. Rotate that password if any of them left your machine.
 
-**`FlareSolverr error: Captcha detected.`**
-The proxy hit a CAPTCHA it cannot solve.
-Rare on manga sources, but Cloudflare does escalate.
-There is no automatic fix: open the source in <nav to="webview">, solve it by hand, then come back.
+**`FlareSolverr returned HTTP 500` (Byparr answers 408 when it runs out of time).**
+The solver was reached but could not get through the page: it timed out, or the challenge beat it.
+The solver's own log says why.
+Opening the source in <nav to="webview"> and solving it by hand may get you through.
 
 **Every request is slow, follow-ups never get fast.**
 Sessions are not being reused.
-Either the app is being killed between requests, or the proxy is destroying its session each time.
+Either the app is being killed between requests, the proxy is destroying its session each time, or the app could not open a session the first time it reached the proxy (for example while the proxy was still starting) and runs without one until the app restarts or the proxy login changes.
 Expected on Byparr, which has no sessions at all.
 
 **A source returns nothing, but the proxy's log says `Challenge not detected!` with a 200.**
-FlareSolverr loaded the page, failed to recognise a newer managed or Turnstile challenge, and returned the unsolved page as a success.
-There is no fix on its side.
+FlareSolverr recognises a challenge only by a fixed list of page titles and elements, so a challenge missing from that list (newer managed and Turnstile pages, in our tests) passes as no challenge, and it returns the unsolved page as a success.
 Switch to Solverr or Byparr.

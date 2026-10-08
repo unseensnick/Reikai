@@ -61,7 +61,7 @@ It's best to use the standard [Android System WebView](https://play.google.com/s
 ## Cloudflare
 
 **Cloudflare**, an anti-bot mechanism, is used by some sources.
-Some sources intentionally have higher **Cloudflare** protection to deter apps like **Reikai**.
+Some sources use stronger **Cloudflare** protection, which can block apps like **Reikai**.
 
 ### Routing the source through a bypass proxy
 
@@ -160,7 +160,7 @@ Seeing this error while installing means the `.apk` already exists on the device
 :::
 
 ::: details `DISPLAY_NAME column is null`
-Seeing this error points to a corrupted `.apk` file.
+This error can mean the `.apk` file is corrupted or did not download completely.
 * Try re-downloading the `.apk`.
 :::
 

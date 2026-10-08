@@ -11,7 +11,7 @@ Reikai manages several things within a selected storage location, including auto
 ::: tip Selecting a storage location
 Keep the following in mind when setting up your Storage location:
 * Create a "Reikai" folder at the top-level of your storage (ex. `/Internal Storage/Reikai/`).
-* Do not use your device's system folders (such as "**Documents**" or "**Downloads**"), they are restricted by Android and will cause issues when Reikai tries to access them.
+* Do not pick your device's **Download** folder or the top level of your storage or SD card. On Android 11 and newer, the folder picker does not allow these, so pick the "Reikai" folder you made instead.
 * When selecting your storage location during the setup process, give access to the "Reikai" folder, not the folders within.
 :::
 

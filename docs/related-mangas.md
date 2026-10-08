@@ -10,7 +10,7 @@ _Dev record: [recommendations.md](dev/plans/recommendations.md). Doc map: [READM
 
 A row of similar titles on the manga details page, so finishing something leads somewhere.
 
-Suggestions come from the source you are reading, from public tracker recommendations, and, once you are signed in to a tracker, from what you have already read.
+Suggestions come from the source you are reading, from public tracker recommendations, and, once you let Reikai pull your tracker library, from what you have already read.
 The row is then reordered toward your taste, and can hide things you have already seen.
 
 Base feature ported from [Komikku](https://github.com/komikku-app/komikku); the taste profile, the extra suggestion streams and the reordering are Reikai's.
@@ -21,13 +21,14 @@ Light novels have no equivalent yet.
 
 ## Where it appears
 
-By default the row sits on the details page, below the description.
+By default the row sits on the details page, below the description (on a wide screen, above the chapter list).
 While it loads, a placeholder holds its place so the page does not jump; if nothing comes back, the row hides itself rather than sitting empty.
 
 Prefer it out of the way?
 **Related manga placement** <Badge type="info" text="On the details page" /> in <nav to="recommendations">, under **Sources**, moves it into the three-dot menu instead.
 
-Results are kept for about half an hour.
+Results are reused for about half an hour; after that they show straight away while a fresh set loads in the background.
+They are held in memory only, so they are gone once Android closes the app.
 On a grouped series the row is fetched for the entry you opened; switching source with the chip row does not fetch it again.
 
 ## Where the suggestions come from
@@ -43,18 +44,18 @@ On a grouped series the row is fetched for the entry you opened; switching sourc
 Two more streams need you signed in to AniList, MyAnimeList, MangaUpdates or Shikimori, and only fire on a manga that is itself tracked there.
 Both live in <nav to="recommendations">, under **Suggestions from your tracking**, a section that appears once you are signed in to one of those four, with both **Tracker recommendations** and **Show related manga** left on.
 
-- **Because you're reading…** <Badge type="info" text="On" /> takes titles you rated highly (Completed or Reading) on the tracker the open manga is tracked on, keeps the ones that tracker also links to the manga you have open, and pulls in what those are compared to. It reads them from that tracker's taste profile pull (below), so it adds nothing until that pull is on. MangaUpdates has no pull, so it never feeds this one. Narrow, and usually the best of the bunch.
+- **Because you're reading…** <Badge type="info" text="On" /> takes titles you rated highly (Completed or Reading) on the tracker the open manga is tracked on, keeps the ones that tracker also links to the manga you have open, and pulls in what those are compared to. It reads them from that tracker's taste profile pull (below), so it adds nothing until that tracker's library has been pulled. MangaUpdates has no pull, so it never feeds this one. Narrow, since it only fires when one of your highly rated titles is linked to the open manga.
 - **Matching your taste** <Badge type="info" text="On" /> searches the current source for up to three of this manga's own genres that your taste profile favours. It is a plain text search for the genre name, so on a source whose search only matches titles the results are hit and miss.
 
 Turn off **Tracker recommendations** <Badge type="info" text="On" /> in **Sources** and every tracker-backed stream stops, leaving the source's own suggestions.
-Each of the four trackers also has its own switch under it.
+Each of the four trackers also has its own switch under it, which stops only that tracker's own recommendations; the two streams above keep using any of the four the manga is tracked on.
 
 ## Your taste profile
 
 The two streams above, and the reordering below, read a taste profile: the genres you read, weighted by how you rated and what you did with each series.
 Completed counts most for a genre, then Reading, then On-hold. Dropped counts against it, and Plan to read counts for nothing either way.
 
-Building it needs your tracker library, which is private, so nothing is pulled until you opt in per tracker.
+Building it reads your tracker library through your sign-in, so nothing is pulled until you opt in per tracker.
 
 ::: tip How to build a taste profile
 1. Go to <nav to="recommendations"> and find **Taste profile**.
@@ -66,23 +67,23 @@ Your library is then cached locally, so the row does not call out to every track
 It is pulled again in the background when you open a manga's details with the related row turned on and a tracker's cached copy is more than six hours old, and **Auto-refresh library** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
 **Refresh now** shows when each tracker was last pulled, and has a short cooldown between presses.
 
-The cache is not included in your backups. After a restore it rebuilds itself from your trackers on the next pull, so nothing is lost beyond the wait.
+The cache is not included in your backups. After a restore it rebuilds from your trackers on the next pull. Tracker sign-ins come back only if the backup was made with **Include sensitive settings** ticked; otherwise sign in to each tracker again first.
 Turning a tracker's pull off drops its cached entries the next time the cache refreshes (opening a manga's details page is enough), so it stops shaping the row from then on; turning it back on rebuilds them on the next pull.
 
 ## Reordering the row
 
 With **Rerank by taste** <Badge type="info" text="On" /> the source's suggestions are reordered toward your taste.
-Tracker recommendations keep the order they arrived in, since they are already personal.
+Tracker recommendations keep the order they arrived in.
 The row holds 30, and up to 12 of those places are kept for tracker recommendations, taken in turn from each tracker, so a source with plenty of its own suggestions cannot crowd them out.
 
 Two sliders shape it, and both are hidden while reranking is off.
 
-- **Recommendation style** <Badge type="info" text="25%" /> weighs your taste against plain popularity. At 0% your taste stops counting, though titles several sources agree on still rise and the serendipity share below still applies; at 100% it is ordered almost entirely by taste.
-- **Serendipity** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and reserves a share of the row that keeps popularity order no matter what. That reservation is what stops a high style setting from showing you the same five genres forever.
+- **Recommendation style** <Badge type="info" text="25%" /> weighs your taste against the order the suggestions arrived in. At 0% your taste no longer scores titles, though titles that turn up in more than one search or tracker still rise, and the serendipity share and the genre limit below still apply; at 100% it is ordered almost entirely by taste.
+- **Serendipity** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and keeps that share of the source's suggestions at the top of the list in the order they arrived. That reservation is what stops a high style setting from showing you the same five genres forever. On a long list it can take up the whole row, so the taste-ranked picks then start further along, in **See all**.
 
-No more than two of the taste-ranked picks may share a dominant genre; the rest are pushed to the end, so one genre cannot take over the row.
+No more than two of the taste-ranked picks may share a dominant genre; the rest are pushed further down, so one genre cannot take over the taste-ranked picks.
 
-With no taste profile built, the taste half of the reordering is skipped; titles that several sources agree on are still pulled forward.
+With no taste profile built, the taste half of the reordering is skipped; titles that turn up in more than one of the row's searches or suggestion lists are still pulled forward.
 
 ## Hiding things you have seen
 

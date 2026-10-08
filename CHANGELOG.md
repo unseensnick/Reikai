@@ -46,8 +46,8 @@ reader, and a chapter you have already read opens at its start unless Resume rea
 A backup made by this version restores in 0.3.2 without the details you edited.
 
 Novels an earlier build saved with another novel's title and cover, or wrongly as Completed, stay that
-way until you refresh them. Settings -> Advanced -> Repair novel details fixes the titles and covers
-all at once.
+way until you refresh them. Settings -> Advanced -> Repair novel details finds the library novels showing
+another novel's title and cover and re-fetches them in one pass; refresh any it misses by hand.
 
 ### Library
 

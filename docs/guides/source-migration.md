@@ -15,14 +15,14 @@ Always make sure to have a backup in case anything unexpected occurs.
 Downloaded chapter(s) do not transfer with migrations.
 
 Migrations leave the old entry's downloads behind unless you tick **Delete downloaded** when confirming. For manga, that only works while the old source is still installed.
-Anything left behind has to be removed with a file manager.
+Anything left behind stays on your device until you delete it: from the old entry's own page (open <nav to="overflow"> and tap **Clear downloads**) while its source is still installed, or otherwise with a file manager.
 :::
 
 ## Migration guide
 
 ::::tabs
 ==Reikai
-However you start it, migration runs the same three steps: pick where to search, look over what was found, then confirm. Manga and light novels both go through it, with the same screens and search options.
+From any of the routes below, migration runs the same three steps: pick where to search, look over what was found, then confirm. Manga and light novels both go through it, with the same screens and search options.
 
 ### Starting a migration
 
@@ -65,16 +65,16 @@ The **Migrate** screen lists your sources under **Selected** and **Available**. 
 * **Advanced search mode** breaks the title into keywords for a wider search.
 * **Match based on chapter number** picks the match that is furthest ahead, rather than the first by source order.
 
-The app warns you about the last two, and means it: both are slow and hit sources hard enough to get you rate-limited or blocked.
+The app warns about these two, and the warning is worth taking seriously: both send many more searches per entry, which is slow and can get you rate-limited or blocked by a source.
 :::
 
 Tap **Continue** when you are happy.
 
 ### Looking over the matches
 
-One entry goes straight to a search screen: tap the result you want.
+One entry goes straight to a search screen across your selected sources: tap the result you want. Of the search options, only **Additional keywords** applies here; the others shape the **Migration** list below.
 
-Several entries open the **Migration** list, which searches in the background and counts up as it goes. Each row names the entry, the move it found (`current source → match`), and how the chapter counts compare (`Latest: 68 → 201`), so you can see at a glance whether a match is worth taking.
+Several entries open the **Migration** list, which searches in the background and counts up as it goes. Each row names the entry, the match it found with the move it makes (`current source → new source`), and the latest chapter number on each side (`Latest: 68 → 201`), with the gap shown in red when the match is behind, so you can see at a glance whether a match is worth taking.
 
 Each match starts as a suggestion. Tap the check button on a row to accept it, or tap the double-check icon in the toolbar to accept every match at once. A row's overflow has more:
 
@@ -84,16 +84,16 @@ Each match starts as a suggestion. Tap the check button on a row to accept it, o
 
 When every row has been searched, the **Migrate** and **Copy** buttons at the bottom of the screen act on all the accepted rows.
 
-Backing out asks **Stop migrating?** first, so nothing is half-done by accident.
+Backing out asks **Stop migrating?** first, so you do not leave the list by accident.
 
 ### Confirming
 
-Confirming asks which data to carry over. Tracking always carries; the rest is up to you, and there is an option to delete the old entry's downloads afterwards.
+Confirming asks which data to carry over. Tracking always carries; the rest is up to you, and when the old entry has downloads there is an option to delete them afterwards.
 
 ==TachiyomiJ2K
 ### Migrating multiple Series {#migrating-multiple-series-j2k}
 
-1. Tap **Settings** -> **Sources** -> **Source migration**.
+1. Tap **Settings** -> **Browse** -> **Source migration** (versions before 1.4.0 call it **Sources** instead of **Browse**).
 1. Select the **Source** you'd like to migrate _from_ and select **All**.
 1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow at the bottom right.
 1. Choose which data you want to transfer over.
@@ -111,14 +111,16 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
     > If a series is not found, or is wrong you can manually search it by pressing Overflow -> **Search manually**
 
 ==TachiyomiSY
+These steps follow TachiyomiSY's code at the time of writing and may differ in your version.
+
 ### Migrating from Library {#migrating-from-library-sy}
 
 1. Tap into **Library**.
-1. Tap **Overflow** -> **Source migration**.
-1. Select the **Source** you'd like to migrate _from_ and select **All**.
-1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow labeled Migrate at the bottom right.
-1. Choose which data you want to transfer over.
-1. Wait until all your **Series** is found and hit the done at the top and you're done.
+1. Long-press a **Series** to start selecting, then tap any others you want.
+1. Tap **More** in the bottom bar, then tap **Migrate**.
+1. Select the **Sources** that you'd like to migrate _to_ and search by and tap **Continue** at the bottom right.
+1. Choose which data you want to transfer over, then tap **Continue**.
+1. Wait until all your **Series** are found, tap **Migrate** at the top, then confirm with **Migrate**, and you're done.
 
     > If a series is not found, or is wrong you can manually search it by pressing **Overflow** -> **Search manually**.
 
@@ -126,11 +128,10 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
 
 1. Tap into Browse on the bottom navbar.
 1. Press the Migrate tab at the top next to Extensions.
-1. Select the **Source** that you'd like to migrate _from_.
-1. Select the **Source** you'd like to migrate _from_ and select **All**.
-1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow labeled Migrate at the bottom right.
-1. Choose which data you want to transfer over.
-1. Wait until all your **Series** is found and hit the done at the top and you're done.
+1. Tap **All** next to the **Source** you'd like to migrate _from_, or tap the **Source**, select the **Series** you want and tap **Continue**.
+1. Select the **Sources** that you'd like to migrate _to_ and search by and tap **Continue** at the bottom right.
+1. Choose which data you want to transfer over, then tap **Continue**.
+1. Wait until all your **Series** are found, tap the **Migrate** (checkmark) icon at the top, then **Migrate** to confirm, and you're done.
 
     > If a series is not found, or is wrong you can manually search it by pressing **Overflow** -> **Search manually**.
 
@@ -149,7 +150,7 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
 ==Yokai
 ### Migrating multiple Series {#migrating-multiple-series-yokai}
 
-1. Tap **Settings** -> **Sources** -> **Source migration**.
+1. Tap **Settings** -> **Browse** -> **Source migration**.
 1. Select the **Source** you'd like to migrate _from_ and select **All**.
 1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow at the bottom right.
 1. Choose which data you want to transfer over.
@@ -167,14 +168,16 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
     > If a series is not found, or is wrong you can manually search it by pressing Overflow -> **Search manually**
 
 ==Komikku
+These steps follow Komikku's code at the time of writing and may differ in your version.
+
 ### Migrating from Library {#migrating-from-library-komikku}
 
 1. Tap into **Library**.
-1. Tap **Overflow** -> **Source migration**.
-1. Select the **Source** you'd like to migrate _from_ and select **All**.
-1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow labeled Migrate at the bottom right.
-1. Choose which data you want to transfer over.
-1. Wait until all your **Series** is found and hit the done at the top and you're done.
+1. Long-press a **Series** to start selecting, then tap any others you want.
+1. Tap **Migrate** in the bottom bar, or under **More** in the bottom bar.
+1. Select the **Sources** that you'd like to migrate _to_ and search by and tap **Continue** at the bottom right.
+1. Choose which data you want to transfer over, then tap **Continue**.
+1. Wait until all your **Series** are found, tap **Migrate** at the top, then confirm with **Migrate**, and you're done.
 
     > If a series is not found, or is wrong you can manually search it by pressing **Overflow** -> **Search manually**.
 
@@ -182,11 +185,11 @@ Confirming asks which data to carry over. Tracking always carries; the rest is u
 
 1. Tap into Browse on the bottom navbar.
 1. Press the Migrate tab at the top next to Extensions.
-1. Select the **Source** that you'd like to migrate _from_.
-1. Select the **Source** you'd like to migrate _from_ and select **All**.
-1. Select the **Sources** that you'd like to migrate _to_ and search by and tap the arrow labeled Migrate at the bottom right.
-1. Choose which data you want to transfer over.
-1. Wait until all your **Series** is found and hit the done at the top and you're done.
+1. Tap the **Source** you'd like to migrate _from_.
+1. Long-press a **Series** to start selecting, or use **Select all** in the toolbar, then tap **Migrate** in the bottom bar.
+1. Select the **Sources** that you'd like to migrate _to_ and search by and tap **Continue** at the bottom right.
+1. Choose which data you want to transfer over, then tap **Continue**.
+1. Wait until all your **Series** are found, tap **Migrate** at the top and confirm, and you're done.
 
     > If a series is not found, or is wrong you can manually search it by pressing **Overflow** -> **Search manually**.
 ::::

@@ -59,17 +59,17 @@ The sources you grouped together under one entry are saved as source-and-address
 - **Extension stores** - Your extension repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel
 - **Source settings**
 - **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them
-- **Include sensitive settings** - Saved sign-ins: tracker logins, the FlareSolverr sign-in, and source and plugin site sign-ins. Not included by default, and only offered while App settings or Source settings is ticked
+- **Include sensitive settings** - Saved sign-ins: tracker logins, the FlareSolverr sign-in, and source and plugin site sign-ins. Not included by default, and can only be ticked while App settings or Source settings is ticked
 
 ### What is not included in a backup?
 - **Extension files**. Only the list of installed extension apps and the addresses of your plugins are saved
 - **Downloaded chapter files** including [local source](/docs/guides/local-source/) chapters
-- **Custom covers** applied to entries
+- **Custom cover images** you picked from your device. A cover URL you typed in Edit info is kept, under **Custom entry info**
 - **Cached cover images**, which are re-downloaded on demand
 - **Android permissions** granted to the app, which you re-grant on the new install
 
 ::: tip
-To convert your backups to JSON or to view and edit the information outside of the app, you can use [Mihon Backup Viewer](https://github.com/Animeboynz/Mihon-Backup-Viewer).
+To convert your backups to JSON or to view and edit the information outside of the app, you can try [Mihon Backup Viewer](https://github.com/Animeboynz/Mihon-Backup-Viewer), a third-party tool built for Mihon's format. It may not show or keep data only Reikai stores, such as your light novels, so keep the original file before restoring one it edited.
 :::
 
 ## Restoring a backup
@@ -101,7 +101,7 @@ It is highly recommended to enable automatic backups to ensure you can recover i
 
 ::: tip How to enable automatic backups
 1. Go to <nav to="data-and-storage">.
-1. Set a **backup frequency** to schedule automatic backups.
+1. Check **Automatic backup frequency**. It is on by default, every 12 hours, and you can change how often it runs or turn it off.
 - Automatic backup files can be found in your specified [Storage location](/docs/faq/storage)'s "autobackup" folder.
 - In case of an error or issue, this allows you to retain a recent copy of your library data.
 
@@ -150,8 +150,10 @@ Pick the columns, **Title**, **Author** and **Artist** (all ticked to start), ta
 [Mihon](https://mihon.app) itself and the forks it endorses, which are
 [TachiyomiJ2K](https://mihon.app/forks/TachiyomiJ2K/), [TachiyomiSY](https://mihon.app/forks/TachiyomiSY/),
 [TachiyomiAZ](https://mihon.app/forks/TachiyomiAZ/), [Yōkai](https://mihon.app/forks/Yokai/) and
-[Komikku](https://mihon.app/forks/Komikku/). A backup from any of them restores here with your
-library, categories, reading history and tracking links, and a backup made here restores in them.
+[Komikku](https://mihon.app/forks/Komikku/). A `.tachibk` or `.proto.gz` backup from any of them restores here with your
+library, categories, reading history and tracking links. An old `.json` backup from TachiyomiAZ does not. A backup made here
+can carry only your manga to them, since your light novels are saved in a part of the file those apps do not read. We have not
+tested every fork, so check that app's own docs.
 
 Older Yōkai-based **Reikai** builds are covered as well. Reikai grew out of Yōkai before moving onto
 Mihon, and the backup format did not change with it.

@@ -25,7 +25,7 @@ To see when each entry is next expected to update, check the [Upcoming Calendar]
 **Reikai** provides a reminder when updating multiple titles or bulk downloading chapters, since excessive requests may trigger a source's anti-bot measures.
 This can lead to stalled updates and downloads, extending the time needed to complete your requests, which also impacts your device's battery life.
 ### To mitigate these concerns
-* In <nav to="downloads">, set "**Auto download while reading**" to how many chapters ahead you want fetched. It starts on **Disabled**, and the other choices are the next 2, 3, 5 or 10 unread chapters. It is set separately under **Auto-download · Manga** and **Auto-download · Novels**.
+* In <nav to="downloads">, set "**Auto download while reading**" to how many chapters ahead you want fetched. It starts on **Disabled**, and the other choices are the next 2, 3, 5 or 10 unread chapters. It is set separately under **Auto-download · Manga** and **Auto-download · Novels**. For manga it only starts once the chapter you are reading and the next one are already downloaded.
 * If possible, download in small batches at a time to avoid excessive requests to avoid slow or incomplete downloads.
 
 #### Splitting up your Library into categories

@@ -170,6 +170,7 @@ Shows chapter transitions regardless of whether the next chapter is loaded or no
 
 ::: tabs
 == Default
+Right and Left in **Paged (left to right)** and **Paged (right to left)**. L shaped in **Paged (vertical)** and the long strip modes.
 <img src="/docs/guides/reader-settings/tap-zones_right-and-left.webp" alt="Right and Left" width="247" height="600" loading="lazy" decoding="async" />
 == L shaped
 <img src="/docs/guides/reader-settings/tap-zones_l-shaped.webp" alt="L shaped" width="247" height="600" loading="lazy" decoding="async" />
@@ -187,7 +188,7 @@ No tap zones to assist with navigation will be active.
 
 ::: tabs
 == None
-Keeps the default zap zones.
+Keeps the default tap zones.
 == Horizontal
 Changes so that the tap zones are flipped horizontally.
 == Vertical
@@ -238,7 +239,7 @@ Rotates those pages the other way round. Only useful once **Rotate wide pages to
 
 ::: tabs
 == Automatic
-<img src="/docs/guides/reader-settings/zoom-start-position_center.webp" alt="Center (TBA Default Image)" width="512" height="788" loading="lazy" decoding="async" />
+Starts at the left of the page in **Paged (left to right)**, at the right in **Paged (right to left)**, and in the center in **Paged (vertical)**. With the **High quality renderer** on, **Paged (vertical)** starts at the left instead.
 == Left
 <img src="/docs/guides/reader-settings/zoom-start-position_left.webp" alt="Left" width="512" height="788" loading="lazy" decoding="async" />
 == Right
@@ -264,7 +265,7 @@ Adds the specified padding to the left and right of the screen. Shown while **Us
 How wide the strip is drawn, as a share of the screen. Shown in place of **Side padding** while **Use high quality renderer** is on.
 
 #### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-How far you have to scroll a long strip before the menu hides: **Highest** hides it after the smallest scroll, **Lowest** after the largest. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
+How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 #### Double tap to zoom <Badge type="info" text="On" />
 Zooms into the image on double tap.
@@ -303,7 +304,7 @@ How much of the screen one press moves. It applies to the long strip modes only,
 Shows the slider for moving through the chapter. With it off, neither the slider nor the vertical navigator is drawn, and the previous and next chapter buttons move to the two ends of the button bar. The settings below it only appear while it is on.
 
 #### Use vertical chapter navigator in <Badge type="info" text="None" />
-Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked on a fresh install, so the two settings below it stay hidden until you choose a mode here. Upgrading from an older version starts you on the long strip modes instead.
+Shows a vertical progress slider instead of the horizontal one, in the reading modes you pick. Nothing is picked by default, so the two settings below it stay hidden until you choose a mode here.
 
 #### Place vertical navigator on the left side <Badge type="info" text="Off" />
 Moves that slider to the left edge, for left-handed reading.

@@ -16,6 +16,7 @@ Grouping works the same way for manga and for light novels.
 ::: info Grouping only happens when you ask for it
 Nothing is grouped behind your back.
 An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a grouped entry: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
+A source you remove with the heart or from the library keeps its place in the group, so adding it back puts it straight back in. **Remove from library** in Manage sources splits it out first, so it comes back on its own.
 :::
 
 ## Grouping series
@@ -27,7 +28,8 @@ With it on, every group renders as one card.
 Turning it off expands each group back into its per-source entries and keeps the groups, so turning it on again collapses them exactly as they were.
 
 A merged card is filed under the categories of the source that leads it, and shows once in each of them.
-Changing its categories changes them for every source in the group.
+Changing a merged card's categories from the library changes them for every source in the group.
+Changing them from the details screen changes only the source the page was opened through.
 
 ### Joining a group as you add a series
 
@@ -38,12 +40,13 @@ Pick the entry it belongs with, and the new copy is added to your library and jo
 Adding from Browse, global search, a series' own details page, History or Updates, or MangaDex Follows.
 :::
 
-That prompt is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**.
+The **Add to existing group** option is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**, and is also hidden while **Group series across sources** is off.
 With it off, adding a matching series never offers to group it.
 
 ### Reading a merged card
 
-A merged card carries the icons of its grouped sources in the corner, up to three, then a `+N` for the rest.
+A merged card carries the icons of its grouped sources in the corner, one per source, up to three, then a `+N` for the rest.
+When the corner is short of room (a narrow cover, or a long unread count beside it), it shows fewer icons, or just the count.
 Turn those off with **Show source icons on merged covers** in the library display sheet, and the card falls back to a plain count.
 
 ## Switching source
@@ -51,34 +54,45 @@ Turn those off with **Show source icons on merged covers** in the library displa
 Open a grouped series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
 
 Tap another chip to read that source's version.
-Chapters, progress, library state and the chapter list's sort, filter and display settings stay with the group, so switching source does not restart anything and every chip lists chapters the same way.
+Read and bookmark marks, and the chapter list's sort, filter and display settings, are shared by the whole group, so switching source does not restart anything and every chip lists chapters the same way.
 
-The row refreshes on its own whenever you come back to the details screen, so a source you just added through global search appears without backing out to the library first.
+The row keeps up with the group on its own, so a source you add through global search appears without backing out to the library first.
+
+If the source you opened the series through is no longer installed, the **All** view opens WebView and shares from the first installed source in the group's order, and each chapter downloads from an installed source that has it.
 
 ### Changing the cover
 
 Tapping the cover shows the cover of whichever source you have selected, so it matches the
 page you are looking at. Edit cover and Delete custom cover are offered on the **All** chip and
-on the chip of the source the series was opened from, since both show the group's own cover.
+on the chip of the source the series was opened through, since both show that source's cover.
 Other sources' chips hide them.
 
-The reason is that your library shows the group's cover, not each source's. If you could set
-a custom cover while viewing one source, it would land on that source's copy and your library
-would carry on showing the old one, which looks like the change failed. Restricting the edit
-to the group means the cover you are looking at is always the cover a change would replace.
+Your library card shows the cover of the source that leads the group. Opening the series from
+the library opens it through that source, so a custom cover set there is the one your library
+shows. If you open the series from somewhere else, such as History, the page can belong to
+another source, and a custom cover set there stays on that source instead of reaching your
+library card.
 
 To change it, switch to **All** and tap the cover there.
 
 ## Reading a group
 
-A merged series reads as one.
-The chapter list in the reader holds every source's chapters together, each labelled with where it came from, and the previous and next controls run across the whole group: the end of one source's chapters flows into the next without leaving the reader.
+A merged series reads as one list.
+The chapter list in the reader is the group's merged list: each chapter once, labelled with the source it comes from. Previous and next follow that list across sources without leaving the reader.
+Opened from a source chip, from Updates or from a notification, the reader stays on that one source's chapters.
+Manga chapters are paired across sources by chapter number. Novel chapters are paired by title, or by number when a chapter has no title. A chapter the sources name or number differently can show twice, and a manga source's unnumbered extras show only when that source leads the group.
 
-Reading or bookmarking a chapter marks that same chapter on every source in the group, and each chapter downloads once: a downloaded copy from any source opens without going online. If a chapter's copy comes from a source you have uninstalled, downloading or reading it uses an installed source's copy instead, and a chapter only an uninstalled source has shows no download button. Trackers work the same way, with one binding for the whole group rather than one per source; [Tracking](/docs/guides/tracking) explains how it behaves when you merge or split.
+Reading or bookmarking a chapter marks that same chapter on every source in the group.
+
+From the **All** list, the library and History, and in a reader opened from them, each chapter downloads once: a downloaded copy from any source opens without going online. If its copy comes from a source you have uninstalled, downloading or reading it uses another installed source's copy, when one has that chapter. Under a source chip and in Updates, only that row's own copy counts.
+
+A chapter that no installed source can fetch in that view shows no download button.
+
+While **Share trackers across merged sources** is on in <nav to="tracking">, which it is by default, the group has one tracker binding rather than one per source; [Tracking](/docs/guides/tracking) explains how it behaves when you merge or split.
 
 ## Merging entries yourself
 
-The add-time prompt matches on title, so two romanizations of one series ("Kaijuu 8-gou" and "Kaiju No. 8") never meet.
+The add-time prompt matches on title, or on a tracker entry the series you are adding is already bound to. A series you have not tracked yet has no binding when you add it, so two romanizations of one series ("Kaijuu 8-gou" and "Kaiju No. 8") usually never meet.
 Merge those by hand.
 
 ::: tip How to merge
@@ -91,7 +105,7 @@ The selection bar draws its actions as icons with no text beside them, so look f
 The merge icon only appears once you have selected two or more entries **of the same type**, since a group is either manga or novels, never a mix.
 It is also hidden while **Group series across sources** is off.
 
-The selected entries become one card and share a chapter list, progress and library state from then on.
+The selected entries become one card and share one chapter list, read and bookmark marks, and chapter settings from then on. Moving the card to another category moves every source in it.
 
 ## Splitting a group up
 
@@ -111,7 +125,7 @@ Long-press a merged entry in <nav to="main_library"> and tap <icon name="unmerge
 
 The icon appears whenever your selection includes a merged entry. No undo.
 == Every group at once
-**Clear all merges** in <nav to="advanced">, once for manga and once for novels, splits every group you have back into separate entries.
+**Clear all merges** in <nav to="advanced">, once for manga and once for novels, splits every group you have back into separate entries as soon as you tap it, with no confirmation.
 ::::
 
 ::: danger Two of these cannot be undone
@@ -147,5 +161,5 @@ When the selection includes a merged card, the Remove dialog has the same **All 
 
 ::: warning That checkbox starts ticked
 Removing a merged series removes every source behind it unless you untick it first.
-The alternative was worse: removing only the leading source leaves the others in your library but collapsed out of sight, so the entry looks half-deleted.
+The alternative was worse: removing only one source leaves the series in your library under the sources that remain, so it can look as if the removal did nothing.
 :::

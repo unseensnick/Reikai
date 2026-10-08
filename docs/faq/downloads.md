@@ -57,7 +57,7 @@ Open the series and its <nav to="overflow">. Two entries show there while the se
 * **Open folder** opens the series' download folder in a file manager app.
 * **Clear downloads** deletes every downloaded chapter of the series. Your progress, bookmarks and history stay.
 
-On a [merged series](/docs/multi-source), both follow the source you are viewing. On **All**, **Clear downloads** covers the whole group, while **Open folder** opens one folder: the series you opened if it has downloads, otherwise the first source in the group that does. If you opened a merged series through a source you have since uninstalled, **All** uses the first installed source in the group instead.
+On a [merged series](/docs/multi-source), both follow the source you are viewing. On **All**, **Clear downloads** covers the whole group, while **Open folder** opens one folder: the series you opened if it has downloads, otherwise the first source in the group that does. If you opened a merged series through a source you have since uninstalled, both still show on **All** as long as another source in the group is installed.
 
 ## Can I search the text of a downloaded novel?
 Yes. On a novel's page, open <nav to="overflow"> and tap **Search downloaded chapters**, which shows there while the novel has downloaded chapters and its source is installed. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched.
