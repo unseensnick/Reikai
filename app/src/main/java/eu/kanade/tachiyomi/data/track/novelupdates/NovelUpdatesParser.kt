@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.track.novelupdates
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import reikai.data.track.TrackerSignedOutException
+import java.io.IOException
 
 // Every parse NovelUpdates needs, kept apart from the requests so each one is testable against a
 // fixture. Selectors sit in NuSelector so a site redesign has one place to fix rather than a hunt
@@ -43,6 +44,9 @@ internal object NuSelector {
     const val RESULT_HIDDEN_TEXT = ".testhide"
     const val RESULT_GENRES = "div.search_genre, .search_genre"
 
+    // The finder's empty-result line carries no class or id, so its own text is the marker.
+    const val NO_RESULTS = "div:containsOwn(No results. Adjust your filters)"
+
     const val SHORTLINK = "link[rel=shortlink]"
     const val ACTIVITY_LINK = "a[href*=activity-stats]"
     const val POST_ID = "input#mypostid"
@@ -79,8 +83,12 @@ private val PROFILE_NAME = Regex("""/user/\d+/([^/]+)""")
 // Where the CJK blocks begin: kana, Han and Hangul all sit above it, Latin and its accents below.
 private const val CJK_BLOCK_START = 0x2E80
 
-internal fun parseSearch(document: Document): List<NovelUpdatesSeries> =
-    document.select(NuSelector.SEARCH_ROW).map { it.toSeries() }
+/** Empty only on the finder's own no-results line; any other page without rows is one this does not know. */
+internal fun parseSearch(document: Document): List<NovelUpdatesSeries> {
+    val rows = document.select(NuSelector.SEARCH_ROW)
+    if (rows.isEmpty() && document.selectFirst(NuSelector.NO_RESULTS) == null) unrecognisedPage()
+    return rows.map { it.toSeries() }
+}
 
 /** The numeric post id, which search rows do not always carry. Null when the page shows none. */
 internal fun parseNovelId(document: Document): String? {
@@ -92,8 +100,8 @@ internal fun parseNovelId(document: Document): String? {
 }
 
 /**
- * The list the novel sits on, or null when it is on none, which the add button marks. A series page
- * with no list panel at all is the anonymous one a lapsed session gets.
+ * The list the novel sits on, or null when it is on none, which only the add button marks. A series
+ * page with no list panel at all is the anonymous one a lapsed session gets.
  */
 internal fun parseListId(document: Document): Long? {
     val panel = document.select(NuSelector.LIST_PANEL)
@@ -105,7 +113,12 @@ internal fun parseListId(document: Document): Long? {
         ?.groupValues
         ?.get(1)
         ?.toLongOrNull()
+        ?: unrecognisedPage()
 }
+
+// A page without the markup a parse expects is a failure, never an empty answer: reading it as "no
+// results" or "on no list" would hide a site change or a challenge page behind a plausible state.
+private fun unrecognisedPage(): Nothing = throw IOException("NovelUpdates sent a page Reikai does not recognise")
 
 /** The user's own lists as id to name. The menu is authoritative; the dropdown is the fallback. */
 internal fun parseReadingLists(document: Document): List<Pair<String, String>> {
@@ -135,9 +148,9 @@ internal fun parseUsername(document: Document): String? {
         ?.ifBlank { null }
 }
 
-/** What "Fill from tracker" takes off a series page. */
+/** What "Fill from tracker" takes off a series page, which every series page titles. */
 internal fun parseDetails(document: Document): NovelUpdatesDetails = NovelUpdatesDetails(
-    title = document.selectFirst(NuSelector.DETAILS_TITLE)?.text()?.trim()?.ifBlank { null },
+    title = (document.selectFirst(NuSelector.DETAILS_TITLE) ?: unrecognisedPage()).text().trim().ifBlank { null },
     coverUrl = document.selectFirst(NuSelector.DETAILS_COVER)?.attr("src")?.ifBlank { null },
     description = document.selectFirst(NuSelector.DETAILS_DESCRIPTION)?.text()?.trim()?.ifBlank { null },
     authors = preferLatinNames(document.select(NuSelector.DETAILS_AUTHORS).map { it.text().trim() }),

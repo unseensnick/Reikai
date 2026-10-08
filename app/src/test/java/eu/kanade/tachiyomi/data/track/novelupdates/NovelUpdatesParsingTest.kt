@@ -1,12 +1,15 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
+import io.kotest.assertions.throwables.shouldThrowExactly
 import io.kotest.matchers.shouldBe
 import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
+import java.io.IOException
 
 /**
  * The selectors are the whole maintenance surface of a scraped tracker, and nothing else in the app
- * would notice one going stale: a changed class name yields an empty list, not an error. These
+ * would notice one going stale: outside search and the list panel, which check for their own
+ * markers, a changed class name yields an empty value, not an error. These
  * fixtures are trimmed from the shapes tsundoku's selectors target.
  *
  * They pin our reading of the markup, not the live site. Only a device pass proves the site matches.
@@ -113,6 +116,33 @@ class NovelUpdatesParsingTest {
         parseListId(page) shouldBe null
     }
 
+    /** The series finder's own words for an empty search, copied from the live page. */
+    @Test
+    fun `the finder's no-results line reads as an empty search`() {
+        val page = Jsoup.parse(
+            """<form></form><div style="margin-top: -10px;">No results. Adjust your filters and try again.</div>""",
+        )
+
+        parseSearch(page) shouldBe emptyList()
+    }
+
+    @Test
+    fun `a page with neither results nor the no-results line is not read as an empty search`() {
+        shouldThrowExactly<IOException> { parseSearch(Jsoup.parse("<p>Something else</p>")) }
+    }
+
+    @Test
+    fun `a list panel showing neither the add button nor a list is not read as on no list`() {
+        val page = Jsoup.parse("<div class='seriestitlenu'>X</div><div class='sticon'><span>?</span></div>")
+
+        shouldThrowExactly<IOException> { parseListId(page) }
+    }
+
+    @Test
+    fun `a page that is not a series page is not read as on no list`() {
+        shouldThrowExactly<IOException> { parseListId(Jsoup.parse("<p>Something else</p>")) }
+    }
+
     @Test
     fun `an existing list shows its id`() {
         val page = Jsoup.parse(
@@ -201,6 +231,11 @@ class NovelUpdatesParsingTest {
             description shouldBe null
             genres shouldBe emptyList()
         }
+    }
+
+    @Test
+    fun `a page that is not a series page is not read as a series with no details`() {
+        shouldThrowExactly<IOException> { parseDetails(Jsoup.parse("<p>Something else</p>")) }
     }
 
     @Test
