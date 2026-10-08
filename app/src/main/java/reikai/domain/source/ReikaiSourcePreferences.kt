@@ -91,27 +91,28 @@ class ReikaiSourcePreferences(
 
     /**
      * Pinned light-novel source ids. Novel twin of
-     * [eu.kanade.domain.source.service.SourcePreferences.pinnedSources]: pinned sources rise to a
-     * "Pinned" section on the Sources list and back the global-search Pinned filter.
+     * [eu.kanade.domain.source.service.SourcePreferences.pinnedSources], pinned by
+     * SourceListConformanceTest on the Sources list: pinned sources rise to a "Pinned" section there and
+     * back the global-search Pinned filter.
      */
     val pinnedNovelSources: Preference<Set<String>> =
         preferenceStore.getStringSet("ln_pinned_sources", emptySet())
 
     /**
      * Disabled (hidden) light-novel source ids. Novel twin of
-     * [eu.kanade.domain.source.service.SourcePreferences.disabledSources]: a disabled source is hidden
-     * from the Sources list and global search but stays installed and auto-updating.
+     * [eu.kanade.domain.source.service.SourcePreferences.disabledSources], pinned by
+     * SourceListConformanceTest on the Sources list: a disabled source is hidden from that list and global
+     * search but stays installed and auto-updating.
      */
     val disabledNovelSources: Preference<Set<String>> =
         preferenceStore.getStringSet("ln_disabled_sources", emptySet())
 
     /**
      * Disabled light-novel source LANGUAGES. Novel twin of
-     * [eu.kanade.domain.source.service.SourcePreferences.enabledLanguages], inverted: manga stores the enabled set
-     * because its language universe is known up front, while novel languages arrive with whatever plugins the user
-     * installs, so a deny-list keeps every language on by default and a newly appearing language visible without a
-     * migration. A disabled language hides its sources from the Sources list and global search; they stay installed
-     * and re-enable from the filter screen.
+     * [eu.kanade.domain.source.service.SourcePreferences.enabledLanguages], pinned by SourceListConformanceTest
+     * on the Sources list. Inverted, because novel languages arrive with whatever plugins the user installs: a
+     * deny-list keeps every language on by default, a newly appearing one included, without a migration. A disabled
+     * language hides its sources from the Sources list and global search until re-enabled on the filter screen.
      */
     val disabledNovelLanguages: Preference<Set<String>> =
         preferenceStore.getStringSet("ln_disabled_languages", emptySet())
