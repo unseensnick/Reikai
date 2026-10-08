@@ -101,8 +101,11 @@
 
 # RK: IReader novel extensions are compiled against IReader's API and the libraries it exposes, and
 #     call them by name from another class loader, so R8 must not rename or drop them. Koin is left
-#     out of the build, and only IReader's unused bypass module refers to it.
--keep,allowoptimization class ireader.** { public protected *; }
+#     out of the build, and only IReader's unused bypass module refers to it. The API itself is kept
+#     without allowoptimization, like source-api's extended types: extensions subclass HttpSource and
+#     ParsedHttpSource, and an optimized build makes methods nothing in the app overrides final, so
+#     every extension failed to load with a LinkageError.
+-keep class ireader.** { public protected *; }
 -keep,allowoptimization class io.ktor.** { public protected *; }
 -keep,allowoptimization class kotlinx.io.** { public protected *; }
 -keep,allowoptimization class com.fleeksoft.ksoup.** { public protected *; }
