@@ -206,6 +206,14 @@ data object LibraryTab : Tab {
         val entriesOf: (LibraryBucket?) -> List<EntryId> = { bucket ->
             bucket?.let { activeGetItems(it).map(LibraryItem::entryId) }.orEmpty()
         }
+        // Shared by the no-results action and both library views.
+        val onGlobalSearch = {
+            navigator.push(EntryGlobalSearchScreen(activeSearchQuery ?: "", scopedContentType = libraryContentType))
+        }
+        val onRangeSelect: (LibraryBucket, LibraryItem) -> Unit = { bucket, item ->
+            engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
         // RK <--
 
         val snackbarHostState = remember { SnackbarHostState() }
@@ -544,16 +552,12 @@ data object LibraryTab : Tab {
                     EmptyScreen(
                         stringRes = MR.strings.no_results_found,
                         modifier = Modifier.padding(contentPadding),
-                        actions = activeSearchQuery?.takeIf { it.isNotEmpty() }?.let { query ->
+                        actions = activeSearchQuery?.takeIf { it.isNotEmpty() }?.let {
                             listOf(
                                 EmptyScreenAction(
                                     stringRes = MR.strings.action_global_search,
                                     icon = MaterialSymbols.Rounded.TravelExplore,
-                                    onClick = {
-                                        navigator.push(
-                                            EntryGlobalSearchScreen(query, scopedContentType = libraryContentType),
-                                        )
-                                    },
+                                    onClick = onGlobalSearch,
                                 ),
                             )
                         },
@@ -600,22 +604,12 @@ data object LibraryTab : Tab {
                                             openEntry(item.entryId)
                                         }
                                     },
-                                    onLongClickManga = { bucket, item ->
-                                        // RK: range-select (incl. the in-between) like the tabbed view,
-                                        // instead of toggling only the long-pressed manga.
-                                        engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    },
+                                    // RK: range-select (incl. the in-between) like the tabbed view,
+                                    // instead of toggling only the long-pressed manga.
+                                    onLongClickManga = onRangeSelect,
                                     onToggleDefaultCollapse = engine::toggleDefaultCategoryCollapse,
                                     onToggleDynamicCollapse = engine::toggleDynamicCategoryCollapse,
-                                    onGlobalSearchClicked = {
-                                        navigator.push(
-                                            EntryGlobalSearchScreen(
-                                                activeSearchQuery ?: "",
-                                                scopedContentType = libraryContentType,
-                                            ),
-                                        )
-                                    },
+                                    onGlobalSearchClicked = onGlobalSearch,
                                     // RK: pull-to-refresh on the single-list updates the whole library (= overflow Update library).
                                     onRefresh = { onClickRefresh(null) },
                                     refreshing = refreshing,
@@ -657,20 +651,10 @@ data object LibraryTab : Tab {
                                     onToggleSelection = { bucket, item ->
                                         engine.toggleSelection(bucket.key, item.entryId)
                                     },
-                                    onToggleRangeSelection = { bucket, item ->
-                                        engine.toggleRangeSelection(bucket.key, item.entryId, entriesOf(bucket))
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    },
+                                    onToggleRangeSelection = onRangeSelect,
                                     onRefresh = { onClickRefresh(currentRealCategory()) },
                                     refreshing = refreshing,
-                                    onGlobalSearchClicked = {
-                                        navigator.push(
-                                            EntryGlobalSearchScreen(
-                                                activeSearchQuery ?: "",
-                                                scopedContentType = libraryContentType,
-                                            ),
-                                        )
-                                    },
+                                    onGlobalSearchClicked = onGlobalSearch,
                                     getItemCountForCategory = activeGetItemCount,
                                     getDisplayMode = { engine.displayMode() },
                                     getColumnsForOrientation = { engine.columnsForOrientation(it) },
