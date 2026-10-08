@@ -9,6 +9,9 @@ import reikai.domain.source.model.FeedSavedSearch
  */
 const val MAX_FEED_ROWS = 20
 
+/** Whether the Browse feed holds every row it may, so neither an add nor a restore puts in one more. */
+suspend fun FeedSavedSearchRepository.isGlobalFeedFull(): Boolean = countGlobal() >= MAX_FEED_ROWS
+
 /**
  * Storage for feed rows, of both content types. Rows carry a `global` flag, but only the Browse feed
  * is read today, so everything below reads that scope. Unreadable source keys are skipped for the

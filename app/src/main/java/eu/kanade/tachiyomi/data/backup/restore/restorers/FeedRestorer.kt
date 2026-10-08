@@ -4,9 +4,9 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
 import reikai.domain.source.FeedSavedSearchRepository
-import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.SavedSearchRepository
 import reikai.domain.source.SourceKey
+import reikai.domain.source.isGlobalFeedFull
 import reikai.domain.source.model.SavedSearch
 
 /**
@@ -37,7 +37,7 @@ class FeedRestorer(
             val sourceKey = SourceKey.parse(row.sourceKey) ?: return@forEach
             // A backup is untrusted input and every row costs a source round trip on each open, so an
             // over-long feed is refused rather than rendered. Our own backups can never exceed it.
-            if (row.global && feedRepository.countGlobal() >= MAX_FEED_ROWS) return@forEach
+            if (row.global && feedRepository.isGlobalFeedFull()) return@forEach
             val savedSearchId = row.savedSearch?.let { resolve(it) }
             // The repository returns the existing row rather than adding a second one like it, so a
             // file restored twice, or one carrying the same row twice, lands it once.

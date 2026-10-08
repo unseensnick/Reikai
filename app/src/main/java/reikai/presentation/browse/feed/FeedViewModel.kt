@@ -19,10 +19,10 @@ import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.FeedSavedSearchRepository
 import reikai.domain.source.GetEnabledNovelSources
-import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SavedSearchRepository
 import reikai.domain.source.SourceKey
+import reikai.domain.source.isGlobalFeedFull
 import reikai.domain.source.model.FeedSavedSearch
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.source.NovelExtensionFormat
@@ -166,7 +166,7 @@ class FeedViewModel(
 
     fun openAddDialog() {
         viewModelScope.launchIO {
-            if (feedRepository.countGlobal() >= MAX_FEED_ROWS) {
+            if (feedRepository.isGlobalFeedFull()) {
                 state.update { it.copy(dialog = FeedDialog.TooManyRows) }
                 return@launchIO
             }
