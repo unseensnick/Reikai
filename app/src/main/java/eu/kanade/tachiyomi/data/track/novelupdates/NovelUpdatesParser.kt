@@ -118,7 +118,7 @@ internal fun parseListId(document: Document): Long? {
 
 // A page without the markup a parse expects is a failure, never an empty answer: reading it as "no
 // results" or "on no list" would hide a site change or a challenge page behind a plausible state.
-private fun unrecognisedPage(): Nothing = throw IOException("NovelUpdates sent a page Reikai does not recognise")
+internal fun unrecognisedPage(): Nothing = throw IOException("NovelUpdates sent a page Reikai does not recognise")
 
 /** The user's own lists as id to name. The menu is authoritative; the dropdown is the fallback. */
 internal fun parseReadingLists(document: Document): List<Pair<String, String>> {

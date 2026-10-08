@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.data.track.novelupdates
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.NetworkHelper
+import io.kotest.assertions.throwables.shouldThrowExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -28,6 +29,7 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
+import java.io.IOException
 
 /**
  * A NovelUpdates push against a fake site. Source A (chapters 1 to 4) and source B (1 to 10) are one
@@ -41,6 +43,9 @@ class NovelUpdatesPushTest {
 
     /** The note read answers 400, as the site did on device for a series being bound. */
     private var notesRefused = false
+
+    /** The note read succeeds but answers something that is not a note. */
+    private var notesUnreadable = false
 
     private fun chapter(novelId: Long, number: Int) = NovelChapter(
         id = novelId * 1000 + number, novelId = novelId, url = "", name = "", read = true, bookmark = false,
@@ -60,7 +65,7 @@ class NovelUpdatesPushTest {
         askedFor += action ?: request.url.encodedPath
         val refused = action == "wi_notestagsfic" && notesRefused
         val body = when (action) {
-            "wi_notestagsfic" -> """{"notes":"total chapters read: 5","tags":""}0"""
+            "wi_notestagsfic" -> if (notesUnreadable) "<html>not a note</html>" else NOTE
             "nd_getchapters" -> "<ol>${releaseRow(6)}${releaseRow(7)}</ol>"
             else -> ""
         }
@@ -134,8 +139,28 @@ class NovelUpdatesPushTest {
         askedFor.none { it == "/updatelist.php" } shouldBe true
     }
 
+    @Test
+    fun `a note that does not parse leaves the series where it was`() = runTest {
+        notesUnreadable = true
+
+        runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false) }
+
+        askedFor.none { it == "/updatelist.php" } shouldBe true
+    }
+
+    /** Counted as done, the update would never be retried, and the site would keep its old progress. */
+    @Test
+    fun `a note that does not parse fails the update`() = runTest {
+        notesUnreadable = true
+
+        shouldThrowExactly<IOException> {
+            NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false)
+        }
+    }
+
     private companion object {
         const val SOURCE_A = 1L
         const val SOURCE_B = 2L
+        const val NOTE = """{"notes":"total chapters read: 5","tags":""}0"""
     }
 }
