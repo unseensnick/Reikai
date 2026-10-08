@@ -4,22 +4,19 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.RecentsSurface
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -28,15 +25,10 @@ import tachiyomi.domain.updates.service.UpdatesPreferences
 /** The filter sheet's Reikai switches are the model's state, so a flip shows without reading a preference. */
 class UpdatesSettingsViewModelTest {
 
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(StandardTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    // Every model is tracked, so its category list's sharing is cancelled before Main is reset.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension { StandardTestDispatcher() }
 
     private val store = EmittingPreferenceStore()
     private val system = Category(0, "", -1, 0L, CategoryContentType.UNIVERSAL)
@@ -44,15 +36,17 @@ class UpdatesSettingsViewModelTest {
     private val alpha = Category(2, "Alpha", 2, 0L, CategoryContentType.NOVEL)
     private val table = MutableStateFlow(listOf(system, zeta, alpha))
 
-    private fun viewModel(): UpdatesSettingsViewModel = UpdatesSettingsViewModel(
-        updatesPreferences = UpdatesPreferences(store),
-        surface = RecentsSurface.UPDATES,
-        reikaiSourcePreferences = ReikaiSourcePreferences(store),
-        categoryRepository = mockk<CategoryRepository> {
-            every { getUnfilteredAsFlow() } returns table
-            coEvery { getUnfiltered() } answers { table.value }
-        },
-        reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
+    private fun viewModel(): UpdatesSettingsViewModel = main.track(
+        UpdatesSettingsViewModel(
+            updatesPreferences = UpdatesPreferences(store),
+            surface = RecentsSurface.UPDATES,
+            reikaiSourcePreferences = ReikaiSourcePreferences(store),
+            categoryRepository = mockk<CategoryRepository> {
+                every { getUnfilteredAsFlow() } returns table
+                coEvery { getUnfiltered() } answers { table.value }
+            },
+            reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
+        ),
     )
 
     @Test

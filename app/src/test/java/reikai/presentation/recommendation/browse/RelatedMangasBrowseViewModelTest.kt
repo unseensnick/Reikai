@@ -14,15 +14,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.EnabledRecommendationStreams
@@ -38,6 +36,7 @@ import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.domain.recommendation.RelatedPool
 import reikai.domain.recommendation.TitleNormalizer
 import reikai.domain.recommendation.taste.TasteProfile
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.FakeMangaLibrary
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.i18n.stringResource
@@ -50,9 +49,13 @@ import kotlin.time.Duration.Companion.seconds
 
 class RelatedMangasBrowseViewModelTest {
 
+    // Every model is tracked: its load collects the pool and the library on IO for as long as it lives.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
+
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
         // Spied, not stubbed: unstubbed lookups run as before, and a case can check the message it asked for.
         mockkStatic(LOCALIZE)
     }
@@ -60,7 +63,6 @@ class RelatedMangasBrowseViewModelTest {
     @AfterEach
     fun tearDown() {
         unmockkStatic(LOCALIZE)
-        Dispatchers.resetMain()
     }
 
     /** Tracker-origin, so an add skips it without resolving anything and goes straight to finishing. */
@@ -139,20 +141,22 @@ class RelatedMangasBrowseViewModelTest {
             put(MANGA_ID, RelatedPool(listOf(candidate("a"), candidate("b")), emptyMap()))
         },
         assembly: PrepareRecommendationAssembly = hiding(emptySet()),
-    ): RelatedMangasBrowseViewModel = RelatedMangasBrowseViewModel(
-        mangaId = MANGA_ID,
-        context = mockk(relaxed = true),
-        relatedMangaCache = cache,
-        getFavorites = getFavorites,
-        libraryAdder = library.adder,
-        networkToLocalManga = mockk {
-            coEvery { this@mockk.invoke(any<Manga>()) } answers {
-                val manga = firstArg<Manga>()
-                library.insert(manga.copy(id = localIds.getOrPut(manga.url) { 10L + localIds.size }))
-            }
-        },
-        libraryPreferences = LibraryPreferences(store),
-        prepareRecommendationAssembly = assembly,
+    ): RelatedMangasBrowseViewModel = main.track(
+        RelatedMangasBrowseViewModel(
+            mangaId = MANGA_ID,
+            context = mockk(relaxed = true),
+            relatedMangaCache = cache,
+            getFavorites = getFavorites,
+            libraryAdder = library.adder,
+            networkToLocalManga = mockk {
+                coEvery { this@mockk.invoke(any<Manga>()) } answers {
+                    val manga = firstArg<Manga>()
+                    library.insert(manga.copy(id = localIds.getOrPut(manga.url) { 10L + localIds.size }))
+                }
+            },
+            libraryPreferences = LibraryPreferences(store),
+            prepareRecommendationAssembly = assembly,
+        ),
     )
 
     // The model loads on the IO dispatcher, so waits run in real time rather than the test clock.
@@ -189,7 +193,9 @@ class RelatedMangasBrowseViewModelTest {
         settle { viewModel.state.first { it.items.isNotEmpty() } }
         viewModel.toggleSelection("a")
         viewModel.addSelectedToLibrary()
-        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+        // The favourite write reaches the grid through the library's own subscription, on IO, so the
+        // cleared selection can land first. Updating the pool before the mark lands races the two.
+        settle { viewModel.state.first { it.selectedUrls.isEmpty() && it.items.single().inLibrary } }
 
         cache.put(MANGA_ID, RelatedPool(listOf(candidate("a", SOURCE_ID), candidate("b", SOURCE_ID)), emptyMap()))
 

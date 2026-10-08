@@ -8,7 +8,6 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.job
@@ -16,12 +15,10 @@ import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginInstaller
@@ -30,6 +27,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -46,17 +44,17 @@ class LnPluginManagerViewModelTest {
     private val manager = mockk<NovelSourceManager> { every { loadedSources() } returns flowOf(emptyList()) }
     private val registries = LnRepoRegistries(installer, prefs)
 
-    private fun model() = LnPluginManagerViewModel(manager, installer, registries, prefs, mockk(relaxed = true))
+    // Every model is tracked: its fetches run on IO under a stop timeout and otherwise outlive the test.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension { dispatcher }
+
+    private fun model() =
+        main.track(LnPluginManagerViewModel(manager, installer, registries, prefs, mockk(relaxed = true)))
 
     @BeforeEach
     fun setUp() {
-        Dispatchers.setMain(dispatcher)
         prefs.addedRepoUrls().set(setOf(REPO))
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
     }
 
     @Test

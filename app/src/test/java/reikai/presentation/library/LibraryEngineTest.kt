@@ -13,7 +13,6 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import io.mockk.verify
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,12 +24,9 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
@@ -38,6 +34,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
@@ -50,6 +47,12 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
 
 class LibraryEngineTest {
+
+    // Declared before the engine field below, which tracks through it. Every engine is tracked: its
+    // assembly runs on Dispatchers.Default under a stop timeout and otherwise outlives the test.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     private fun provider(type: ContentType, rows: List<LibraryItem> = emptyList()): LibraryProvider {
         val provider = mockk<LibraryProvider>(relaxed = true)
@@ -81,15 +84,17 @@ class LibraryEngineTest {
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
         val libraryPreferences = LibraryPreferences(store).also { it.sortingMode.set(sort) }
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store).also { it.groupLibraryBy.set(groupBy) }
-        return LibraryEngine(
-            providers = providers,
-            reikaiLibraryPreferences = reikaiLibraryPreferences,
-            libraryPreferences = libraryPreferences,
-            categoryRepository = repository,
-            setSortModeForCategory = mockk(relaxed = true),
-            // Only the dynamic-grouping assembly reaches these, which no case here exercises.
-            context = mockk(relaxed = true),
-            trackerManager = mockk(relaxed = true),
+        return main.track(
+            LibraryEngine(
+                providers = providers,
+                reikaiLibraryPreferences = reikaiLibraryPreferences,
+                libraryPreferences = libraryPreferences,
+                categoryRepository = repository,
+                setSortModeForCategory = mockk(relaxed = true),
+                // Only the dynamic-grouping assembly reaches these, which no case here exercises.
+                context = mockk(relaxed = true),
+                trackerManager = mockk(relaxed = true),
+            ),
         )
     }
 
@@ -110,16 +115,6 @@ class LibraryEngineTest {
     private val n1 = EntryId.Novel(1)
 
     private val bucket = "7"
-
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
 
     private fun row(id: Long, categories: List<Long>): LibraryItem = LibraryItem(
         libraryManga = LibraryManga(

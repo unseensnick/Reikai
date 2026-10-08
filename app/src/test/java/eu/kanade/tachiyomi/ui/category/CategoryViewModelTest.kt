@@ -4,23 +4,20 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.model.Category
@@ -60,19 +57,14 @@ class CategoryViewModelTest {
         renameCategory = mockk(),
     )
 
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher())
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Dispatchers.resetMain()
-    }
+    // Every model is tracked, so its state's stop timeout is cancelled before Main is reset.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension()
 
     /** A model whose state and events are collected, as the screen collects them. */
     private fun TestScope.model(events: MutableList<CategoryEvent> = mutableListOf()): CategoryViewModel {
-        val model = CategoryViewModel(actions, reikaiLibraryPreferences)
+        val model = main.track(CategoryViewModel(actions, reikaiLibraryPreferences))
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.collect {} }
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.events.collect { events += it } }
         return model
