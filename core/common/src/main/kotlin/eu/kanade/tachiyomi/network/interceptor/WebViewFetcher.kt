@@ -49,7 +49,7 @@ import java.util.concurrent.atomic.AtomicReference
  * WebView live in WebViewFetch.kt; the design and its security review are in
  * docs/dev/plans/webview-fetch.md.
  */
-class WebViewFetcher(private val context: Context) {
+class WebViewFetcher(private val context: Context, private val verboseLogging: () -> Boolean) {
 
     sealed interface Outcome {
         data class Served(val response: Response) : Outcome
@@ -143,7 +143,10 @@ class WebViewFetcher(private val context: Context) {
         is Answer.Done -> when {
             challenged -> Outcome.Challenged
             response == null -> Outcome.Failed(IOException("WebView fetch returned no status"))
-            else -> Outcome.Served(response)
+            else -> {
+                logBypassServed(response, "solved in WebView", verboseLogging())
+                Outcome.Served(response)
+            }
         }
         is Answer.Redirect -> Outcome.Failed(IOException("Unexpected redirect"))
         is Answer.Error -> Outcome.Failed(IOException("WebView fetch of ${request.url.host} failed: $message"))

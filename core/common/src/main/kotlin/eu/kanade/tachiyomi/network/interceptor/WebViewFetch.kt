@@ -14,6 +14,7 @@ import okhttp3.Protocol
 import okhttp3.Request
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.asResponseBody
+import okhttp3.logging.HttpLoggingInterceptor
 import okio.Buffer
 import java.util.Base64
 
@@ -116,6 +117,22 @@ internal fun decodedBodyHeaders(headers: Iterable<Pair<String, String>>): Header
         if (name.lowercase() !in BROWSER_HANDLED_HEADERS) runCatching { add(name, value) }
     }
 }.build()
+
+/**
+ * Logs an answer the Cloudflare bypass served, which never passes the network logging interceptor, so
+ * verbose logs would otherwise end at the challenge's 403. HttpLoggingInterceptor's shape and sink; the
+ * status line only, since the headers carry cookies.
+ */
+internal fun logBypassServed(
+    response: Response,
+    via: String,
+    verbose: Boolean,
+    logger: HttpLoggingInterceptor.Logger = HttpLoggingInterceptor.Logger.DEFAULT,
+) {
+    if (!verbose) return
+    val status = listOf(response.code.toString(), response.message).filter { it.isNotEmpty() }.joinToString(" ")
+    logger.log("<-- $status ($via) ${response.request.url}")
+}
 
 /**
  * The other site a followed fetch landed on, or null when it stayed on the request's own origin. The

@@ -722,6 +722,7 @@ agent under Settings -> Advanced.
 - The library reads gallery tags and alt-titles only while a search is active, instead of on every library refresh.
 - The combined updates widget no longer watches for new chapters while none is placed on the home screen.
 - The in-app browser, the Cloudflare bypass and the tracker sign-in browser now present one browser identity (from Mihon, mihonapp/mihon#3678), and Shikimori recommendations identify as Reikai like the other Shikimori calls.
+- Verbose logs now show the result of requests answered through the Cloudflare bypass.
 - Kitsu tracking, the taste profile and Fill from tracker now use only Kitsu's newer API (partly from Mihon, mihonapp/mihon#3792), and Shikimori progress goes through its own update endpoint (from Mihon, mihonapp/mihon#3810).
 - The arm64 download is about 30 MB instead of 44 MB, because native libraries are now compressed inside it. The installed app takes a little more space.
 - Release builds are smaller, about 0.7 MB off the arm64 download, because unused app code is now removed when they are built (partly from Mihon, mihon 06d612811).

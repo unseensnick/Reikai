@@ -149,7 +149,9 @@ class FlareSolverrClient(
      */
     fun resolve(flareSolverrUrl: String, request: Request): Response {
         cookieManager.remove(request.url, listOf(CF_CLEARANCE), 0)
-        return resolveWithFlareSolverr(flareSolverrUrl, request)
+        return resolveWithFlareSolverr(flareSolverrUrl, request).also {
+            logBypassServed(it, "solved by FlareSolverr", networkPreferences.verboseLogging.get())
+        }
     }
 
     /**

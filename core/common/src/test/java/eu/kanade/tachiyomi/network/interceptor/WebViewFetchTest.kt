@@ -244,6 +244,29 @@ class WebViewFetchTest {
         webViewFetchFollowUp(get().build(), "/next", followRedirects = false, followSslRedirects = true).shouldBeNull()
     }
 
+    private fun servedLog(verbose: Boolean): List<String> {
+        val answer = Response.Builder()
+            .request(get().build())
+            .protocol(Protocol.HTTP_1_1)
+            .code(200)
+            .message("OK")
+            .header("Set-Cookie", "session=secret")
+            .build()
+        val lines = mutableListOf<String>()
+        logBypassServed(answer, "solved in WebView", verbose) { lines += it }
+        return lines
+    }
+
+    @Test
+    fun `a served answer logs its own status line and no headers`() {
+        servedLog(verbose = true) shouldBe listOf("<-- 200 OK (solved in WebView) https://www.example.com/page")
+    }
+
+    @Test
+    fun `a served answer logs nothing without verbose logging`() {
+        servedLog(verbose = false) shouldBe emptyList()
+    }
+
     @Test
     fun `a custom port is a different page`() {
         webViewFetchOrigin("https://h.example.com:8443/x".toHttpUrl()) shouldBe "https://h.example.com:8443"

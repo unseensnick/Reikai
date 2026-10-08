@@ -40,7 +40,7 @@ class CloudflareInterceptor(
     private val executor = ContextCompat.getMainExecutor(context)
 
     // RK: answers requests from inside a WebView where Cloudflare lets it in but issues no clearance.
-    private val webViewFetcher = WebViewFetcher(context)
+    private val webViewFetcher = WebViewFetcher(context, networkPreferences.verboseLogging::get)
 
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
