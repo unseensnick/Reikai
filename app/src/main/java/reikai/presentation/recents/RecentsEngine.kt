@@ -381,6 +381,10 @@ class RecentsEngine(
         selectionStore.update { EntrySelection.selectAll(it, ordered) }
     }
 
+    fun toggleBlockSelection(block: List<ChapterRef>) {
+        selectionStore.update { EntrySelection.toggleBlock(it, block) }
+    }
+
     fun invertSelection(ordered: List<ChapterRef>) {
         selectionStore.update { EntrySelection.invert(it, ordered) }
     }

@@ -523,13 +523,7 @@ class LibraryEngine(
     fun selectAll(ordered: List<EntryId>) = select { EntrySelection.selectAll(it, ordered) }
 
     /** Select every entry in one category, or deselect them when all are already selected. */
-    fun selectAllInCategory(ordered: List<EntryId>) = select { current ->
-        if (ordered.isNotEmpty() && ordered.all { it in current }) {
-            SelectionState(current.selection - ordered.toSet())
-        } else {
-            EntrySelection.selectAll(current, ordered)
-        }
-    }
+    fun selectAllInCategory(ordered: List<EntryId>) = select { EntrySelection.toggleBlock(it, ordered) }
 
     fun invertSelection(ordered: List<EntryId>) = select { EntrySelection.invert(it, ordered) }
 

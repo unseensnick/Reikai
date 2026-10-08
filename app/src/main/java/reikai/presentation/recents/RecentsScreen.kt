@@ -674,9 +674,7 @@ private fun LazyListScope.recentsRows(
                 val ui = engine.rowUi(first)
                 val refs = row.members.mapNotNull { it.lane.chapterRef }
                 val allSelected = refs.isNotEmpty() && refs.all { it in selection }
-                val toggleAll = {
-                    if (allSelected) refs.forEach(engine::toggleSelection) else engine.selectAll(refs)
-                }
+                val toggleAll = { engine.toggleBlockSelection(refs) }
                 RecentsGroupRow(
                     cover = ui.cover,
                     title = ui.title,

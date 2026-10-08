@@ -89,6 +89,17 @@ object EntrySelection {
         SelectionState(state.selection + visible, null)
 
     /**
+     * A tap on a block's select-all control: select every row of [block], or drop them all when the
+     * whole block is already selected. Either way it is a bulk verb, so the anchor goes, as [selectAll].
+     */
+    fun <T> toggleBlock(state: SelectionState<T>, block: List<T>): SelectionState<T> =
+        if (block.isNotEmpty() && block.all { it in state.selection }) {
+            SelectionState(state.selection - block.toSet(), null)
+        } else {
+            selectAll(state, block)
+        }
+
+    /**
      * Flip the visible rows, and leave anything selected outside [visible] alone. That matters where
      * the visible list is a slice: inverting one library category must not silently drop what is
      * picked in the others.

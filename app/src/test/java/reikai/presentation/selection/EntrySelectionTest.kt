@@ -202,6 +202,29 @@ class EntrySelectionTest {
     }
 
     @Test
+    fun `a block toggle on a partly selected block selects the rest`() {
+        EntrySelection.toggleBlock(state(6L, 9L, anchor = 6L), listOf(5L, 6L, 7L)).selection shouldBe
+            setOf(5L, 6L, 7L, 9L)
+    }
+
+    @Test
+    fun `a block toggle on a fully selected block drops only that block`() {
+        EntrySelection.toggleBlock(state(5L, 6L, 7L, 9L, anchor = 9L), listOf(5L, 6L, 7L)).selection shouldBe
+            setOf(9L)
+    }
+
+    /** Library categories and Recents groups used to leave three different anchors behind here. */
+    @Test
+    fun `dropping a block by toggle drops the anchor, as every bulk verb does`() {
+        EntrySelection.toggleBlock(state(5L, 6L, 7L, 9L, anchor = 9L), listOf(5L, 6L, 7L)).anchor shouldBe null
+    }
+
+    @Test
+    fun `a block toggle on an empty block selects nothing`() {
+        EntrySelection.toggleBlock(state(1L, anchor = 1L), emptyList()).selection shouldBe setOf(1L)
+    }
+
+    @Test
     fun `retain drops selected rows the list no longer contains`() {
         EntrySelection.retain(state(1L, 5L, 9L), listOf(1L, 2L, 5L)).selection shouldBe setOf(1L, 5L)
     }
