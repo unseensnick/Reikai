@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
+import reikai.domain.source.filter.genreSearch
 import reikai.domain.source.filter.selectGenre
 import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
@@ -231,15 +232,12 @@ open class BrowseSourceViewModel(
 
     fun searchGenre(genreName: String) {
         val defaultFilters = source?.getFilterList() ?: return
-        // RK: the matcher moved to reikai.domain.source.filter.selectGenre, shared with novel sources
-        val genreExists = defaultFilters.selectGenre(genreName)
+        // RK --> the rule and its matcher moved to reikai.domain.source.filter, shared with novel sources
+        val search = genreSearch(genreName, defaultFilters) { filters -> filters.takeIf { it.selectGenre(genreName) } }
 
         state.update {
-            val listing = if (genreExists) {
-                Listing.Search(query = null, filters = defaultFilters)
-            } else {
-                Listing.Search(query = genreName, filters = defaultFilters)
-            }
+            val listing = Listing.Search(query = search.query, filters = search.filters)
+            // RK <--
             it.copy(
                 filters = defaultFilters,
                 listing = listing,

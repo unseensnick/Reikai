@@ -144,7 +144,7 @@ class NovelBrowseAdapter(
 
     override fun searchGenre(genre: String) {
         // A matched genre searches with an empty field, as manga's does; otherwise it is the text.
-        if (model.searchGenre(genre)) toolbarText.value = ToolbarText.Typed(null) else search(genre)
+        toolbarText.value = ToolbarText.Typed(if (model.searchGenre(genre)) null else genre)
     }
 
     override fun setDisplayMode(mode: LibraryDisplayMode) = model.setDisplayMode(mode)

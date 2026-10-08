@@ -178,13 +178,23 @@ class NovelBrowseFilterRoutingTest {
     }
 
     @Test
-    fun `a genre the source does not offer leaves the search as it was`() = runTest {
+    fun `a genre the source does not offer searches its name`() = runTest {
         val model = open(GENRE_FILTERS)
         model.search("shadow")
 
         model.searchGenre("Horror")
 
-        model.state.value.query shouldBe "shadow"
+        model.state.value.query shouldBe "Horror"
+    }
+
+    @Test
+    fun `a genre the source does not offer drops the filters applied before`() = runTest {
+        val model = open(GENRE_FILTERS)
+        model.searchGenre("Action")
+
+        model.searchGenre("Horror")
+
+        model.state.value.appliedFilters shouldBe null
     }
 
     private suspend fun open(filters: NovelFilters): NovelBrowseViewModel {

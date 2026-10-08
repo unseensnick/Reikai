@@ -33,6 +33,7 @@ import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
+import reikai.domain.source.filter.genreSearch
 import reikai.novel.host.NovelItem
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelFilterState
@@ -188,14 +189,26 @@ class NovelBrowseViewModel(
     }
 
     /**
-     * Search [genre] through the source's own filters, over its defaults and with no query, as manga's
-     * catalogue does. Returns false, changing nothing, when the source offers no filter of that name.
+     * Search [genre] by the rule manga's catalogue shares ([genreSearch]): through the source's filter of
+     * that name with no query, or as the text over the defaults. Returns whether the filter matched.
      */
     fun searchGenre(genre: String): Boolean {
-        val withGenre = state.value.source?.filters?.defaultsWithGenre(genre) ?: return false
-        state.update { it.copy(query = "", filterDraft = withGenre) }
-        applyFilters()
-        return true
+        val filters = state.value.source?.filters
+        val search = genreSearch(genre, filters?.defaultState()) { filters?.defaultsWithGenre(genre) }
+        if (search.query == null) {
+            state.update { it.copy(query = "", filterDraft = search.filters) }
+            applyFilters()
+        } else {
+            state.update {
+                it.copy(
+                    query = search.query,
+                    filterDraft = search.filters,
+                    appliedFilters = null,
+                    filtersApplied = false,
+                )
+            }
+        }
+        return search.query == null
     }
 
     /**
