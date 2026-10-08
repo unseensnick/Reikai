@@ -80,7 +80,9 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
     val row = representative.toLibraryItem(badgePrefs, own.language.orEmpty(), sourceBadge(source), own.name)
     if (members.size == 1) return row
     return row.stampMergedGroup(
-        members = members.map { MergedRowMember(it.novel.id, it.novel.source, it.lastRead, it.downloadCount.toInt()) },
+        members = members.map {
+            MergedRowMember(it.novel.id, it.novel.source, it.lastRead, it.downloadCount.toInt(), it.novel.genre)
+        },
         counts = mergedCounts,
         mergedDownloads = mergedDownloads,
         badgePrefs = badgePrefs,

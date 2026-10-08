@@ -10,6 +10,7 @@ data class MergedRowMember<S>(
     val source: S,
     val lastRead: Long,
     val downloadCount: Int,
+    val genre: List<String>?,
 )
 
 /**
@@ -38,6 +39,7 @@ suspend fun <S> LibraryItem.stampMergedGroup(
         libraryManga = libraryManga.copy(lastRead = members.maxOf { it.lastRead }).withGroupCounts(counts),
         relatedMangaIds = members.map { it.id },
         memberSources = sources.map { querySource(it) },
+        memberGenres = members.flatMap { it.genre.orEmpty() }.distinct(),
         badges = badges.copy(
             downloadCount = badgePrefs.downloadBadge(downloads),
             unreadCount = badgePrefs.unreadBadge(unread),

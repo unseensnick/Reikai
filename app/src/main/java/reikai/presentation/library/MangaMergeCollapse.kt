@@ -74,7 +74,13 @@ object MangaMergeCollapse {
         }
         return primary.stampMergedGroup(
             members = subGroup.map {
-                MergedRowMember(it.id, it.libraryManga.manga.source, it.libraryManga.lastRead, it.downloadCount)
+                MergedRowMember(
+                    it.id,
+                    it.libraryManga.manga.source,
+                    it.libraryManga.lastRead,
+                    it.downloadCount,
+                    it.libraryManga.manga.genre,
+                )
             },
             counts = mergedCounts,
             mergedDownloads = mergedDownloads,

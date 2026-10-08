@@ -30,6 +30,8 @@ data class LibraryItem(
     // RK: every member's source on a merged series, for the source search terms. Empty when not merged,
     // where the row's own source fields answer instead.
     val memberSources: List<LibraryQuerySource> = emptyList(),
+    // RK: every member's genres on a merged series, for the Lewd filter. Empty when not merged.
+    val memberGenres: List<String> = emptyList(),
 ) {
     val id: Long = libraryManga.id
 

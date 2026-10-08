@@ -16,10 +16,12 @@ import reikai.util.isAdultEntry
  * seams.
  */
 fun libraryItemFilterFields(
-    /** Whether the row's source is adult, by AdultContentChecker's source sets. */
-    adultSource: (LibraryItem) -> Boolean,
+    /** The row's own source key, as [LibraryQuerySource.key] spells it. */
+    sourceKey: (LibraryItem) -> String,
+    /** Whether a source key is adult, by AdultContentChecker's library sets over [adultLookupKeys]. */
+    adultSource: (String) -> Boolean,
     /** The adult rule's source-name list is manga sites, so novels pass null. */
-    lewdSourceName: (LibraryItem) -> String?,
+    lewdSourceName: (LibraryQuerySource) -> String?,
     /** The two content types keep separate track tables, so each resolves its own, already unioned. */
     trackerIds: (LibraryItem) -> List<Long>,
 ) = LibraryFilterFields<LibraryItem>(
@@ -31,10 +33,18 @@ fun libraryItemFilterFields(
     hasBookmarks = { it.libraryManga.hasBookmarks },
     isCompleted = { it.libraryManga.manga.status.toInt() == SManga.COMPLETED },
     matchesIntervalCustom = { it.libraryManga.manga.fetchInterval < 0 },
-    isLewd = { isAdultEntry(adultSource(it), lewdSourceName(it), it.libraryManga.manga.genre) },
+    // A merged series is adult when any member is: every member's source, against all their tags.
+    isLewd = { item ->
+        val genres = item.libraryManga.manga.genre.orEmpty() + item.memberGenres
+        item.allSources(sourceKey(item)).any { isAdultEntry(adultSource(it.key), lewdSourceName(it), genres) }
+    },
     trackerIds = trackerIds,
     categoryIds = { it.libraryManga.categories },
 )
+
+/** Every source key [rows] stand for, members included, which the adult-source lookup must cover. */
+fun adultLookupKeys(rows: List<LibraryItem>, sourceKey: (LibraryItem) -> String): Set<String> =
+    rows.flatMapTo(mutableSetOf()) { row -> row.allSources(sourceKey(row)).map { it.key } }
 
 /**
  * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
@@ -56,7 +66,7 @@ fun libraryItemQueryFields(
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     notes = { it.libraryManga.manga.notes },
     genre = { overlay[it.id]?.genre ?: it.libraryManga.manga.genre },
-    sources = { item -> item.memberSources.ifEmpty { listOf(item.querySource(sourceKey(item))) } },
+    sources = { item -> item.allSources(sourceKey(item)) },
     // The deduplicated group counts, matching what the badges and the sort read.
     unreadCount = { it.unreadCount },
     readCount = { it.libraryManga.readCount },
@@ -75,6 +85,9 @@ fun libraryItemQueryFields(
 
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */
 fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)
+
+/** Every source this row stands for: a merged series' distinct member sources, else its own under [ownKey]. */
+private fun LibraryItem.allSources(ownKey: String) = memberSources.ifEmpty { listOf(querySource(ownKey)) }
 
 /** Maps onto the neutral overlay here rather than either content type learning about the query kernel. */
 fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)

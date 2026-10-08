@@ -87,6 +87,7 @@ class LibraryRowScheduleConformanceTest {
 
         val queryFields = libraryItemQueryFields(sourceKey = { "" })
         val filterFields = libraryItemFilterFields(
+            sourceKey = { "" },
             adultSource = { false },
             lewdSourceName = { null },
             trackerIds = { emptyList() },

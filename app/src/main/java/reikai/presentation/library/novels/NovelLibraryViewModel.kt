@@ -62,6 +62,7 @@ import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryFilterSettings
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.MergeCollapseInputs
+import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.installedIconsBySite
@@ -319,13 +320,15 @@ class NovelLibraryViewModel(
             }
         }
         // The one filter binding both libraries use; the adult rule's source-name list is manga sites.
+        val sourceKey = { item: LibraryItem -> novelById[item.id]?.novel?.source.orEmpty() }
         val adultSources = if (filterPrefs.lewd != TriState.DISABLED) {
-            adultContentChecker.libraryAdultNovelSources(novelById.values.mapTo(mutableSetOf()) { it.novel.source })
+            adultContentChecker.libraryAdultNovelSources(adultLookupKeys(allItems, sourceKey))
         } else {
             emptySet()
         }
         val filterFields = libraryItemFilterFields(
-            adultSource = { novelById[it.id]?.novel?.source in adultSources },
+            sourceKey = sourceKey,
+            adultSource = { it in adultSources },
             lewdSourceName = { null },
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
         )
@@ -334,7 +337,7 @@ class NovelLibraryViewModel(
         // plugin slug (manga supply a numeric id).
         val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val queryFields = libraryItemQueryFields(
-            sourceKey = { item -> novelById[item.id]?.novel?.source.orEmpty() },
+            sourceKey = sourceKey,
             chapterMatches = chapterMatches,
             // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.

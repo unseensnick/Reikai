@@ -60,6 +60,7 @@ import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
+import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.gallerySearchIndexFor
@@ -293,17 +294,17 @@ class LibraryViewModel(
         trackMap: Map<Long, List<Track>>,
         prefs: LibraryFilterPrefs,
     ): List<LibraryItem> {
-        val sourceNames = map { it.libraryManga.manga.source }
-            .distinct()
-            .associateWith { sourceManager.getOrStub(it).name }
+        val sourceKey = { item: LibraryItem -> item.libraryManga.manga.source.toString() }
         val adultSources = if (prefs.lewd != TriState.DISABLED) {
-            adultContentChecker.libraryAdultMangaSources(sourceNames.keys)
+            val ids = adultLookupKeys(this, sourceKey).mapTo(mutableSetOf()) { it.toLong() }
+            adultContentChecker.libraryAdultMangaSources(ids).mapTo(mutableSetOf()) { it.toString() }
         } else {
             emptySet()
         }
         val fields = libraryItemFilterFields(
-            adultSource = { it.libraryManga.manga.source in adultSources },
-            lewdSourceName = { sourceNames[it.libraryManga.manga.source] },
+            sourceKey = sourceKey,
+            adultSource = { it in adultSources },
+            lewdSourceName = { it.name },
             trackerIds = { item -> mergedGroupTracks(item.memberIds(), trackMap).map { it.trackerId } },
         )
         return fastFilter { libraryFilterMatches(it, prefs, fields) }
