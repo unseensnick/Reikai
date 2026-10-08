@@ -57,7 +57,9 @@ data class NovelReadingRows(
 
 /**
  * Novel twin of [tachiyomi.domain.history.interactor.GetNextChapters]: where a novel starts reading,
- * over its own source or across its merge group. Resuming from a recorded chapter is not here, because
+ * over its own source or across its merge group. Its first unread is pinned by
+ * HiddenChapterResumeConformanceTest and MergedResumeDownloadedConformanceTest against manga's library
+ * resume, over the shared [ReadingOrder.resumeAt]. Resuming from a recorded chapter is not here, because
  * that rule is shared with manga and lives on the recents surface.
  */
 @Inject

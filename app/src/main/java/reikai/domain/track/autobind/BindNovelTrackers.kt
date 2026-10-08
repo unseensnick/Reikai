@@ -10,7 +10,7 @@ import tachiyomi.core.common.util.lang.withNonCancellableContext
 
 /**
  * Binds a novel just added to the library to the trackers that know its source. Twin of
- * `AddTracks.bindEnhancedTrackers`; both run [bindOnAdd].
+ * `AddTracks.bindEnhancedTrackers`, pinned by [bindOnAdd], which both run (AutoBindTest).
  */
 @Inject
 class BindNovelTrackers(

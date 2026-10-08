@@ -14,8 +14,8 @@ import reikai.domain.merge.storedUnitsOf
 
 /**
  * The novel half of keeping a merge group's stored stitch current. Twin of
- * [reikai.domain.manga.MangaGroupStitcher], pinned to it by the shared [MergedGroupStitcher] contract
- * and the one reconciliation that drives both; the novel stitch reads no scanlator filter and has no
+ * [reikai.domain.manga.MangaGroupStitcher], pinned by MergedTrunkConformanceTest, the shared
+ * [MergedGroupStitcher] contract and the one reconciliation that drives both; the novel stitch reads no scanlator filter and has no
  * gallery notion, so this side only differs in where the chapters and the source ranking come from.
  */
 @Inject

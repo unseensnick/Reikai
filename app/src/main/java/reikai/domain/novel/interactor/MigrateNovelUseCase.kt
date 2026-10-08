@@ -31,7 +31,7 @@ import kotlin.time.Clock
 
 /**
  * Move a favorited novel's state onto a [target] novel from another source, the novel twin of
- * [mihon.domain.migration.usecases.MigrateMangaUseCase], pinned to it by MigrateEngineConformanceTest.
+ * [mihon.domain.migration.usecases.MigrateMangaUseCase], pinned by MigrateEngineConformanceTest.
  * Mostly DB work: per-chapter read, bookmark and progress matched by chapter number, categories, the
  * custom cover and notes when their flags are set, favoriting, tracker links re-pointed to the target,
  * and the merge group kept consistent (the target takes the source's place on [replace], or joins it
@@ -108,7 +108,8 @@ class MigrateNovelUseCase(
                 val targetChapters = novelChapterRepository.getByNovelId(target.id)
                 val carried = computeChapterMigration(currentChapters, targetChapters)
                 // One transaction, the twin of the manga carry's repository write, and checked: a
-                // half-carried read state is exactly what the Failed row + retry exist to prevent.
+                // half-carried read state is exactly what the Failed row + retry exist to prevent. The
+                // check is pinned by MigrateEngineConformanceTest's failed-carry case.
                 if (carried.isNotEmpty()) {
                     check(novelChapterRepository.updateAll(carried)) {
                         "Chapter-state carry failed (${current.id} -> ${target.id})"
