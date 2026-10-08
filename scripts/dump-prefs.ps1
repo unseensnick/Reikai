@@ -5,7 +5,8 @@ Print a debug build's SharedPreferences with every secret masked.
 .DESCRIPTION
 Reads a preferences file from the device over `run-as` and prints one line per entry: the key, the
 type and the value. Keys holding credentials (the `__PRIVATE_` prefix PreferenceStore gives tracker,
-proxy and source secrets, and LN plugin `webview:` sign-ins) print only their value's length, so a
+proxy and source secrets, everything LN plugins and IReader extensions store, and every value in a
+source's own `source_<id>.xml`) print only their value's length, so a
 dump never puts a token or cookie on screen or in a transcript. Use this instead of `cat`-ing the
 file and filtering it, which prints a secret whenever the filter is broader than intended.
 
@@ -34,8 +35,11 @@ if ($LASTEXITCODE -ne 0 -or -not $raw -or ($raw -join '') -like 'run-as:*') {
 }
 [xml]$xml = ($raw -join "`n")
 
+# A source's own prefs file (source_<id>.xml) and plugin storage keys are named by third-party code,
+# so nothing says which of their values is a credential: all of them are masked.
+$maskAll = $File -like 'source_*'
 function Test-Secret([string]$key) {
-    $key.StartsWith('__PRIVATE_') -or $key -match '(^|::)webview:'
+    $maskAll -or $key.StartsWith('__PRIVATE_') -or $key -match '^(ln|ireader)_storage::'
 }
 
 foreach ($node in $xml.map.ChildNodes) {
