@@ -166,7 +166,7 @@ class FlareSolverrClient(
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(jsonMime)
         // A restored address skipped the settings field's check, so it may not parse at all.
-        val address = "${flareSolverrUrl.trimEnd('/')}/v1".toHttpUrlOrNull()
+        val address = flareSolverrEndpoint(flareSolverrUrl).toHttpUrlOrNull()
             ?: return@withContext FlareSolverrTestResult.Failure(FlareSolverrTestFailure.UNREACHABLE, "not an address")
         val req = Request.Builder()
             .url(address)
@@ -255,7 +255,7 @@ class FlareSolverrClient(
             val body = """{"cmd":"sessions.create","session":"$newId"}"""
                 .toRequestBody(jsonMime)
             val req = Request.Builder()
-                .url("${flareSolverrUrl.trimEnd('/')}/v1")
+                .url(flareSolverrEndpoint(flareSolverrUrl))
                 .post(body)
                 .build()
             val created = runCatching {
@@ -318,7 +318,7 @@ class FlareSolverrClient(
             .toRequestBody(jsonMime)
 
         val fsRequest = Request.Builder()
-            .url("${flareSolverrUrl.trimEnd('/')}/v1")
+            .url(flareSolverrEndpoint(flareSolverrUrl))
             .post(body)
             .build()
 
@@ -445,6 +445,9 @@ enum class FlareSolverrTestFailure {
         }
     }
 }
+
+/** Where every command to the solver at [flareSolverrUrl] is posted, a trailing slash on the address or not. */
+internal fun flareSolverrEndpoint(flareSolverrUrl: String): String = "${flareSolverrUrl.trimEnd('/')}/v1"
 
 /**
  * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear
