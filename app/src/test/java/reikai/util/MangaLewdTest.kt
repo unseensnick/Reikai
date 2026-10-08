@@ -45,6 +45,21 @@ class MangaLewdTest {
         isAdultEntry(adultSource = true, sourceName = null, genres = listOf("Comedy")) shouldBe true
     }
 
+    @Test
+    fun `a manga tagged only Mature is not adult`() {
+        isLewd(genre = listOf("Action", "Mature"), sourceName = "MangaDex") shouldBe false
+    }
+
+    @Test
+    fun `a novel tagged only Mature is not adult`() {
+        isLewd(genre = listOf("Fantasy", "Mature"), sourceName = null) shouldBe false
+    }
+
+    @Test
+    fun `a novel tagged Smut is adult`() {
+        isLewd(genre = listOf("Mature", "Smut"), sourceName = null) shouldBe true
+    }
+
     private fun isLewd(genre: List<String>?, sourceName: String?) =
         isAdultEntry(adultSource = false, sourceName = sourceName, genres = genre)
 }

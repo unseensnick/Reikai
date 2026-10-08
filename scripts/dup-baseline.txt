@@ -19,10 +19,10 @@ app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/no
 app/src/main/java/exh/eh/EHentaiUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	1730026bbb3617ab
 app/src/main/java/exh/md/MangaDexSyncWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2c29e37627a0b44e
-app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	641ac41df85d3292
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c09e819292482f9
-app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	7c15383f860befb5
+app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	ab7a4a180d52c1ff
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	abfb0aee4c193079
+app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f8fd4931f292a0fc
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
 app/src/main/java/mihon/core/migration/migrations/NovelAutoScrollOnOpenMigration.kt	app/src/main/java/mihon/core/migration/migrations/NovelTapLayoutMigration.kt	a1cfba7518f6cdca
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee

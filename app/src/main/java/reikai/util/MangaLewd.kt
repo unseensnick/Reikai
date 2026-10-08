@@ -4,8 +4,8 @@ package reikai.util
  * The "is this adult content?" rule both the library's Lewd filter and the notification check run, on manga
  * and novels: a source known to be adult ([adultSource], whose warning tiers differ per caller, see
  * AdultWarnings), an adult source name, or an adult genre tag. The name and tag heuristic is ported from
- * Komikku's `LewdMangaChecker`, without its delegated-source branches. The name list is manga sites, so
- * novels pass null.
+ * Komikku's `LewdMangaChecker`, without its delegated-source branches or its "mature" tag, which
+ * mainstream sources put on series that are not adult. The name list is manga sites, so novels pass null.
  */
 fun isAdultEntry(adultSource: Boolean, sourceName: String?, genres: List<String>?): Boolean =
     adultSource || (sourceName != null && isHentaiSource(sourceName)) || hasLewdGenre(genres)
@@ -20,7 +20,6 @@ private fun isHentaiTag(tag: String): Boolean {
         tag.contains("nsfw", true) ||
         tag.contains("erotica", true) ||
         tag.contains("pornographic", true) ||
-        tag.contains("mature", true) ||
         tag.contains("18+", true)
 }
 
