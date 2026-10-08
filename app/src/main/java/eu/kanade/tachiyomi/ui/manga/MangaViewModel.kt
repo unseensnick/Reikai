@@ -158,6 +158,7 @@ import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorWrites
+import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -488,8 +489,11 @@ class MangaViewModel(
         .distinctUntilChanged()
         .onStart { emit(TrackingButtonState(count = 0, hasTrackers = false)) }
 
-    // The shown member's web page, asked of the extension only when that member changes.
-    private val shownWebPage = ShownWebPage()
+    // The shown member's web page, asked of the extension only when that member changes. The extension
+    // answers without suspending, so the page is in hand on the pass that first shows the member.
+    private val shownWebPage = ShownWebPage<Pair<Manga, Source>>(viewModelScope) { (manga, source) ->
+        manga.webPageIn(source)
+    }
     // RK <--
 
     val state: StateFlow<State> = combine(
@@ -556,7 +560,7 @@ class MangaViewModel(
             seedColor = extras.seedColor,
             pagePreviewsState = extras.pagePreviewsState,
             previewsRowCount = extras.previewsRowCount,
-            webPage = shownWebPage.of(mc.displayManga ?: mc.manga, mc.displaySource ?: view.source),
+            webPage = shownWebPage.of((mc.displayManga ?: mc.manga) to (mc.displaySource ?: view.source)),
             // RK <--
         )
     }

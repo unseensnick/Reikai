@@ -13,13 +13,21 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId
-import reikai.domain.novel.model.Novel
 import reikai.domain.source.SourceKey
 import reikai.domain.source.mangaUrlOrNull
 import reikai.novel.source.NovelSource
 import reikai.presentation.webview.toWebViewScreen
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.manga.model.Manga
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The web page of the member the details screen shows (the selected chip's, else the anchor's), which the
@@ -40,24 +48,33 @@ fun Manga.webPageIn(source: Source): EntryWebPage? {
     return EntryWebPage.of(http.mangaUrlOrNull(toSManga()), SourceKey.Manga(source.id), EntryId.Manga(id))
 }
 
-suspend fun Novel.webPageIn(source: NovelSource): EntryWebPage? =
-    EntryWebPage.of(source.webUrl(url, isNovel = true), SourceKey.Novel(source.id), EntryId.Novel(id))
+suspend fun NovelSource.webPageOf(novelId: Long, url: String): EntryWebPage? =
+    EntryWebPage.of(webUrl(url, isNovel = true), SourceKey.Novel(id), EntryId.Novel(novelId))
 
 /**
- * The shown manga member's page, asked of its extension only when that member changes, not per download.
- * Held by one state derivation, which never runs two collections at once.
+ * The shown member's page per [K], asked of its source once per key and never on the render path: [of]
+ * answers from [pages], starting the ask on a key's first sight. An ask that suspends (an LN plugin
+ * queues every call behind one lock) answers null until it lands, so a derivation reading [of] takes
+ * [pages] as an input. One that never suspends lands before [of] returns.
  */
-internal class ShownWebPage {
-    private var shown: Pair<Manga, Source>? = null
-    private var page: EntryWebPage? = null
+internal class ShownWebPage<K : Any>(
+    private val scope: CoroutineScope,
+    private val resolve: suspend (K) -> EntryWebPage?,
+) {
+    private val asked = ConcurrentHashMap.newKeySet<K>()
 
-    fun of(manga: Manga, source: Source): EntryWebPage? {
-        val next = manga to source
-        if (next != shown) {
-            shown = next
-            page = manga.webPageIn(source)
+    val pages: StateFlow<Map<K, EntryWebPage?>>
+        field = MutableStateFlow(emptyMap())
+
+    fun of(key: K): EntryWebPage? {
+        if (asked.add(key)) {
+            scope.launch(Dispatchers.IO, start = CoroutineStart.UNDISPATCHED) {
+                // A source that cannot address the member has no page, as one with no address rule.
+                val page = runCatchingCancellable { resolve(key) }.getOrNull()
+                pages.update { it + (key to page) }
+            }
         }
-        return page
+        return pages.value[key]
     }
 }
 

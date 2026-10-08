@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.filterIsInstance
@@ -92,6 +93,69 @@ class NovelDetailsFetchTest {
             model.awaitLoaded { it.novel.title == "Renamed" }
             withContext(Dispatchers.Default) {
                 withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
+            }
+            source.pagesAsked.toList()
+        }
+
+        asked shouldContainExactly listOf("2")
+    }
+
+    @Test
+    fun `a paged novel shows its pages while its source is still busy with its web address`() = runTest {
+        val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val busy = CompletableDeferred<Unit>()
+            val source = harness.source("alpha")
+            source.resolve = {
+                busy.await()
+                null
+            }
+            source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
+            val model = harness.openDetails("alpha", NEW_URL)
+            try {
+                withContext(Dispatchers.Default) {
+                    withTimeoutOrNull(10_000) {
+                        model.state.filterIsInstance<NovelDetailsState.Loaded>().first { it.pages.size == 4 }
+                    }
+                }
+            } finally {
+                busy.complete(Unit)
+            }
+        }
+
+        loaded?.pages?.size shouldBe 4
+    }
+
+    @Test
+    fun `a paged novel opened from browsing asks for its first page once`() = runTest {
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source("alpha")
+            source.details = { SourceNovel(path = NEW_URL, name = "New", totalPages = 4) }
+            harness.openDetails("alpha", NEW_URL).awaitLoaded { it.pages.size == 4 }
+            withContext(Dispatchers.Default) {
+                withTimeout(10_000) { while ("1" !in source.pagesAsked) delay(20) }
+                withTimeoutOrNull(REFETCH_WINDOW_MS) { while (source.pagesAsked.size < 2) delay(20) }
+            }
+            source.pagesAsked.toList()
+        }
+
+        asked shouldContainExactly listOf("1")
+    }
+
+    @Test
+    fun `a page picked before the plugin loaded is asked for once it has`() = runTest {
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val gate = harness.holdPluginLoads()
+            val source = harness.source("alpha")
+            val novel = harness.novel(source, totalPages = 2)
+            harness.chapter(novel, 1.0, page = "1")
+            val model = harness.openDetails(novel)
+            model.awaitLoaded { it.pages.size == 2 }
+            model.selectPage(1)
+            model.awaitLoaded { it.pageIndex == 1 }
+            gate.complete(Unit)
+            model.awaitLoaded { it.sourceName == "alpha" }
+            withContext(Dispatchers.Default) {
+                withTimeoutOrNull(REFETCH_WINDOW_MS) { while ("2" !in source.pagesAsked) delay(20) }
             }
             source.pagesAsked.toList()
         }

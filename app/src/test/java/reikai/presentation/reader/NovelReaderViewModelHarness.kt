@@ -503,6 +503,10 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     val detailsAsked = AtomicInteger()
 
+    /** What asking for a path's web address does; by default the source defines no rule of its own. */
+    @Volatile
+    var resolve: suspend (String) -> String? = { null }
+
     /** Every page key asked for, in order. A page answers with no chapters. */
     val pagesAsked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -528,6 +532,8 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
         detailsAsked.incrementAndGet()
         return details()
     }
+
+    override suspend fun resolveUrl(path: String, isNovel: Boolean): String? = resolve(path)
 
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? {
         pagesAsked += page

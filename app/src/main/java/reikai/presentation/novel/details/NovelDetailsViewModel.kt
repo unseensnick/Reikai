@@ -151,13 +151,14 @@ import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.EntrySourceState
 import reikai.presentation.details.EntryWebPage
+import reikai.presentation.details.ShownWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
-import reikai.presentation.details.webPageIn
+import reikai.presentation.details.webPageOf
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.presentation.novel.selectChaptersForDownloadAction
@@ -351,8 +352,17 @@ class NovelDetailsViewModel(
         }
         .onEach { it?.let { list -> updateSeedColor(list.displayNovel) } }
 
-    // Kept apart from the rows, so a plugin lookup landing after the page shows marks it without a rebuild.
-    private val sourcedChapterList = combine(chapterList, anchorSource) { list, lookup -> list?.withSource(lookup) }
+    /** The viewed member's page, keyed by (novel id, url, source). Never awaited by the list: a plugin
+     *  answers every call behind one lock, so another call holding it would hold the whole page back. */
+    private val webPages = ShownWebPage<Triple<Long, String, NovelSource>>(viewModelScope) { (id, url, source) ->
+        source.webPageOf(id, url)
+    }
+
+    // Kept apart from the rows, so a plugin lookup or a page address landing after the page shows marks it
+    // without a rebuild.
+    private val sourcedChapterList = combine(chapterList, anchorSource, webPages.pages) { list, lookup, _ ->
+        list?.withSource(lookup)
+    }
 
     /** The live queue's states. Only the active ones (queued/downloading/error) live here; a finished download
      *  is read from [NovelDetailsState.Loaded.downloadedChapterIds] (disk-derived) instead. */
@@ -461,7 +471,7 @@ class NovelDetailsViewModel(
         val viewSource = viewedNovelSource(displayNovel.id, novel.id, siblingSources.value, anchorPlugin)
         return copy(
             sourceName = viewSource?.name ?: sourceManager.nameOf(displayNovel.source),
-            webPage = viewSource?.let { displayNovel.webPageIn(it) },
+            webPage = viewSource?.let { webPages.of(Triple(displayNovel.id, displayNovel.url, it)) },
             sourceHasSettings = viewSource?.settings != null,
             browsableSourceId = viewSource?.id,
             sourceState = novelSourceState(viewSource, displayNovel.id == novel.id, lookup == SourceLookup.Missing),
@@ -601,10 +611,14 @@ class NovelDetailsViewModel(
         } else {
             combine(siblingFlows) { rows -> rows.toList().flatten() }
         }
-        // Fold the download cache's change signal in so a download/delete rebuilds the list.
-        return combine(chapterFlow, novelDownloadCache.changes, siblingChapters) { chapters, _, siblings ->
-            chapters to siblings
-        }.mapLatest { (chapters, siblings) ->
+        // Fold the download cache's change signal in so a download/delete rebuilds the list, and the plugin's
+        // answer so a page shown before it loaded is still fetched once it has.
+        return combine(
+            chapterFlow,
+            novelDownloadCache.changes,
+            siblingChapters,
+            anchorSource,
+        ) { chapters, _, siblings, _ -> chapters to siblings }.mapLatest { (chapters, siblings) ->
             val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
             val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
             buildLoaded(

@@ -7,6 +7,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -57,13 +64,13 @@ class EntryWebPageTest {
     }
 
     @Test
-    fun `a merged manga's page follows the chip`() {
+    fun `a merged manga's page follows the chip`() = runTest {
         val anchorSource = http(7L)
         val siblingSource = http(8L)
-        val page = ShownWebPage()
+        val page = shownMangaPage()
 
         val pages = listOf(anchor to anchorSource, sibling to siblingSource, anchor to anchorSource)
-            .map { (manga, source) -> page.of(manga, source) }
+            .map { page.of(it) }
 
         pages shouldBe listOf(
             EntryWebPage("$PAGE/1", SourceKey.Manga(7L), EntryId.Manga(1L)),
@@ -73,14 +80,32 @@ class EntryWebPageTest {
     }
 
     @Test
-    fun `a re-render of the same member does not ask its extension again`() {
+    fun `a re-render of the same member does not ask its extension again`() = runTest {
         val source = http(7L)
-        val page = ShownWebPage()
+        val page = shownMangaPage()
 
-        repeat(3) { page.of(anchor, source) }
+        repeat(3) { page.of(anchor to source) }
 
         verify(exactly = 1) { source.getMangaUrl(any()) }
     }
+
+    @Test
+    fun `a page whose source is busy answers once it lands, without holding the render back`() = runTest {
+        val busy = CompletableDeferred<Unit>()
+        val page = ShownWebPage<String>(backgroundScope) {
+            busy.await()
+            EntryWebPage(it, NOVEL, VIEWED)
+        }
+
+        val first = page.of(PAGE)
+        busy.complete(Unit)
+        val landed = withContext(Dispatchers.Default) { withTimeout(5_000) { page.pages.first { PAGE in it } } }
+
+        (first to landed[PAGE]) shouldBe (null to EntryWebPage(PAGE, NOVEL, VIEWED))
+    }
+
+    private fun TestScope.shownMangaPage() =
+        ShownWebPage<Pair<Manga, Source>>(backgroundScope) { (manga, source) -> manga.webPageIn(source) }
 
     private fun http(sourceId: Long) = mockk<HttpSource> {
         every { id } returns sourceId
@@ -91,6 +116,8 @@ class EntryWebPageTest {
         private const val PAGE = "https://example.org/series"
         private val anchor = Manga.create().copy(id = 1L, url = "/1")
         private val sibling = Manga.create().copy(id = 2L, url = "/2")
+        private val NOVEL = SourceKey.Novel("novelfire")
+        private val VIEWED = EntryId.Novel(34L)
 
         @JvmStatic
         fun members() = listOf(
