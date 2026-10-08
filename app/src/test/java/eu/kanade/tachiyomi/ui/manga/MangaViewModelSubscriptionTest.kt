@@ -1,21 +1,11 @@
 package eu.kanade.tachiyomi.ui.manga
 
-import android.content.Context
 import androidx.lifecycle.ViewModelStore
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
-import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.model.downloadedFilter
-import eu.kanade.domain.track.service.TrackPreferences
-import eu.kanade.domain.ui.UiPreferences
-import eu.kanade.tachiyomi.data.download.DownloadCache
-import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
-import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import exh.debug.DebugToggles
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkObject
@@ -25,9 +15,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.emptyFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.launch
@@ -42,13 +30,6 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import reikai.domain.manga.MangaMergeManager
-import reikai.domain.manga.MangaPreferences
-import reikai.domain.manga.MergedChapterProvider
-import reikai.domain.recommendation.ReikaiRecommendationPreferences
-import reikai.domain.track.EntryTrackPort
-import reikai.domain.track.EntryTrackPorts
-import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -56,12 +37,7 @@ import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
-import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.GetFlatMetadataById
-import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.service.SourceManager
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration.Companion.seconds
 
@@ -174,117 +150,20 @@ class MangaViewModelSubscriptionTest {
         val database = DatabaseBindings.providesDatabase(driver)
         val mangas = MangaRepositoryImpl(database)
         val chapters = CountingChapters(ChapterRepositoryImpl(database), watched = MANGA_ID)
-        listOf(MANGA_ID to 10L, SIBLING_ID to SIBLING_CHAPTER).forEach { (mangaId, chapterId) ->
-            driver.execute(
-                null,
-                "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
-                    "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
-                    "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
-                    "($mangaId, 1, '/manga$mangaId', 'Title', 0, 1, 0, 0, 0, 1, 0, 0, '', '{}')",
-                0,
-            ).await()
-            driver.execute(
-                null,
-                "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, user_read, " +
-                    "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
-                    "remote_date_upload, remote_memo) VALUES ($chapterId, $mangaId, '/$chapterId', '1', NULL, 0, " +
-                    "0, 0, 1.0, 1, 0, 0, '{}')",
-                0,
-            ).await()
-        }
+        driver.seedManga(MANGA_ID, chapterId = 10L)
+        driver.seedManga(SIBLING_ID, SIBLING_CHAPTER)
         val group = if (merged) longArrayOf(MANGA_ID, SIBLING_ID) else longArrayOf(MANGA_ID)
 
         val store = ViewModelStore()
         try {
-            val model = model(mangas, chapters, group, progress).also { store.put("manga", it) }
+            val downloads = detailsDownloadManager(queue = listOf(siblingDownload), progress = progress)
+            val model = mangaDetailsModel(MANGA_ID, mangas, chapters, group, downloads).also { store.put("manga", it) }
             block(model, chapters)
         } finally {
             store.clear()
             advanceUntilIdle()
             driver.close()
         }
-    }
-
-    private fun model(
-        mangas: MangaRepositoryImpl,
-        chapters: ChapterRepository,
-        group: LongArray,
-        progress: Flow<Download>,
-    ): MangaViewModel {
-        val prefs = InMemoryPreferenceStore()
-        return MangaViewModel(
-            context = mockk<Context>(relaxed = true),
-            mangaId = MANGA_ID,
-            isFromSource = false,
-            libraryPreferences = LibraryPreferences(prefs),
-            trackPreferences = TrackPreferences(prefs),
-            readerPreferences = ReaderPreferences(prefs),
-            trackerManager = mockk<TrackerManager>(relaxed = true) {
-                every { loggedInTrackersFlow() } returns flowOf(emptyList())
-            },
-            trackChapter = mockk(relaxed = true),
-            refreshTracks = mockk(relaxed = true),
-            downloadManager = mockk<DownloadManager>(relaxed = true) {
-                every { queueState } returns MutableStateFlow(listOf(siblingDownload))
-                every { statusFlow() } returns emptyFlow()
-                every { progressFlow() } returns progress
-                every { getQueuedDownloadOrNull(any()) } returns null
-                every { getQueuedDownloadsByChapterId() } returns emptyMap()
-                every { getDownloadedChapterIds(any(), any()) } returns emptySet()
-                every { isChapterDownloaded(any(), any(), any(), any(), any()) } returns false
-                every { getDownloadCount(any()) } returns 0
-            },
-            downloadCache = mockk<DownloadCache>(relaxed = true) { every { changes } returns MutableSharedFlow() },
-            getMangaAndChapters = GetMangaWithChapters(mangas, chapters),
-            getAvailableScanlators = GetAvailableScanlators(chapters),
-            getExcludedScanlators = GetExcludedScanlators(mangas),
-            setExcludedScanlators = mockk(relaxed = true),
-            setMangaChapterFlags = mockk(relaxed = true),
-            setMangaDefaultChapterFlags = mockk(relaxed = true),
-            setReadStatus = mockk(relaxed = true),
-            updateChapter = mockk(relaxed = true),
-            updateManga = mockk(relaxed = true),
-            resetEntryInfo = mockk(relaxed = true),
-            getTracksInGroup = mockk(relaxed = true),
-            filterChaptersForDownload = mockk(relaxed = true),
-            updateMangaFromRemote = mockk(relaxed = true),
-            mergeManager = mockk<MangaMergeManager> {
-                coEvery { computeRelatedIds(any()) } returns group
-                every { relatedIdsChanges() } returns flowOf(Unit)
-            },
-            mangaLibraryAdder = mockk(relaxed = true),
-            removeMangaFromLibrary = mockk(relaxed = true),
-            mergedChapterProvider = mockk<MergedChapterProvider> {
-                coEvery { stitchOf(any()) } returns emptyList()
-                every { merged(any(), any()) } answers { firstArg() }
-            },
-            mangaPreferences = MangaPreferences(prefs),
-            relatedMangasLoader = mockk(relaxed = true),
-            recommendationPreferences = ReikaiRecommendationPreferences(prefs),
-            relatedMangaCache = mockk(relaxed = true),
-            refreshTrackerLibrary = mockk(relaxed = true),
-            prepareRecommendationAssembly = mockk(relaxed = true),
-            networkToLocalManga = mockk(relaxed = true),
-            uiPreferences = UiPreferences(prefs),
-            getFlatMetadataById = mockk<GetFlatMetadataById> {
-                every { subscribe(any()) } returns flowOf(null)
-                coEvery { await(any()) } returns null
-            },
-            getPagePreviews = mockk(relaxed = true),
-            getCustomMangaInfo = mockk<GetCustomMangaInfo> { every { subscribe(any()) } returns flowOf(null) },
-            setCustomMangaInfo = mockk(relaxed = true),
-            sourceManager = mockk<SourceManager>(relaxed = true),
-            exhPreferences = mockk(relaxed = true),
-            updateHelper = mockk(relaxed = true),
-            trackPorts = mockk<EntryTrackPorts> {
-                every { of(any()) } returns mockk<EntryTrackPort>(relaxed = true) {
-                    every { tracks() } returns flowOf(emptyList())
-                }
-            },
-            autoBindTrackers = mockk(relaxed = true),
-            remoteFirstRemoval = mockk(relaxed = true),
-            editChapterNumber = mockk(relaxed = true),
-        )
     }
 
     /** Counts live collectors of [watched]'s chapter flow, the query the details list holds open. */

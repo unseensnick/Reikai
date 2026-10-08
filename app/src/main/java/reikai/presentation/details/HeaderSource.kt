@@ -15,3 +15,11 @@ fun headerNamesWholeGroup(sourceCount: Int, selectedSource: Long?): Boolean = so
  */
 fun <T> shownEntry(anchor: T, sibling: T?, overlay: (T) -> T, ownCover: (shown: T, sibling: T) -> T): T =
     sibling?.let { ownCover(overlay(it), it) } ?: overlay(anchor)
+
+/**
+ * The member a merged entry's All view downloads through, opens on the web and takes its update interval
+ * from: the [anchor] while its source is installed, else the first installed member in [group] order.
+ * With none installed it stays the [anchor], whose source the page then reports as missing.
+ */
+fun <T> unifiedViewMember(anchor: T, group: List<T>, isInstalled: (T) -> Boolean): T =
+    if (isInstalled(anchor)) anchor else group.firstOrNull(isInstalled) ?: anchor

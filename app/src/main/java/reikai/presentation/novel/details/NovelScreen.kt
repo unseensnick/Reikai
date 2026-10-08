@@ -284,8 +284,8 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
 private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
         NovelDetailsDialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
-            interval = novel.fetchInterval,
-            nextUpdate = novel.expectedNextUpdate(),
+            interval = intervalNovel.fetchInterval,
+            nextUpdate = intervalNovel.expectedNextUpdate(),
             editable = isUpdateIntervalEnabled,
         )
         NovelDetailsDialog.EditInfo -> EntryDetailsDialog.EditInfo(

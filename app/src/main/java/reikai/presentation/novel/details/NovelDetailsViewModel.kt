@@ -158,6 +158,7 @@ import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.offerToDeleteDownloads
 import reikai.presentation.details.overridesOver
+import reikai.presentation.details.unifiedViewMember
 import reikai.presentation.details.webPageOf
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -465,17 +466,37 @@ class NovelDetailsViewModel(
         }
     }
 
-    /** The viewed member's source fields: a sibling's own source, the anchor's once its lookup answered. */
+    /**
+     * The viewed member's source fields: a sibling's own source, the anchor's once its lookup answered. The
+     * All view downloads and opens its page through [servedNovelOf] instead, while the anchor's plugin is gone.
+     */
     private suspend fun NovelDetailsState.Loaded.withSource(lookup: SourceLookup): NovelDetailsState.Loaded {
         val anchorPlugin = (lookup as? SourceLookup.Resolved)?.source
-        val viewSource = viewedNovelSource(displayNovel.id, novel.id, siblingSources.value, anchorPlugin)
+        val siblings = siblingSources.value
+        val viewSource = viewedNovelSource(displayNovel.id, novel.id, siblings, anchorPlugin)
+        val served = servedNovelOf(siblings, anchorPlugin)
+        val serving = served ?: displayNovel
+        val servingSource = served?.let { siblings[it.id] } ?: viewSource
         return copy(
             sourceName = viewSource?.name ?: sourceManager.nameOf(displayNovel.source),
-            webPage = viewSource?.let { webPages.of(Triple(displayNovel.id, displayNovel.url, it)) },
+            webPage = servingSource?.let { webPages.of(Triple(serving.id, serving.url, it)) },
             sourceHasSettings = viewSource?.settings != null,
             browsableSourceId = viewSource?.id,
-            sourceState = novelSourceState(viewSource, displayNovel.id == novel.id, lookup == SourceLookup.Missing),
+            sourceState = novelSourceState(servingSource, serving.id == novel.id, lookup == SourceLookup.Missing),
+            servedNovel = served,
         )
+    }
+
+    /** The All view's [unifiedViewMember] when it is not the anchor, in the chips' order, which is the group's. */
+    private suspend fun NovelDetailsState.Loaded.servedNovelOf(
+        siblings: Map<Long, NovelSource>,
+        anchorPlugin: NovelSource?,
+    ): Novel? {
+        if (!headerNamesWholeGroup(mergeSources.size, selectedSourceNovelId)) return null
+        val servedId = unifiedViewMember(novel.id, mergeSources.map { it.id }) { id ->
+            id in siblings || (id == novel.id && anchorPlugin != null)
+        }
+        return if (servedId == novel.id) null else novelRepo.getById(servedId)
     }
 
     private data class ChapterInputs(
@@ -1168,7 +1189,7 @@ class NovelDetailsViewModel(
 
     /** A user-set interval is stored negative, as manga's; [days] 0 hands it back to the prediction. */
     fun setFetchInterval(days: Int) {
-        val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        val novel = (state.value as? NovelDetailsState.Loaded)?.intervalNovel ?: return
         viewModelScope.launchIO {
             updateNovelFetchInterval(
                 novel.copy(fetchInterval = -days),
@@ -1610,6 +1631,9 @@ sealed interface NovelDetailsState {
         val browsableSourceId: String? = null,
         /** Whether the viewed member's plugin is installed; see [novelSourceState]. */
         val sourceState: EntrySourceState = EntrySourceState.Installed,
+        /** The installed member the All view serves in place of an anchor whose plugin is gone, else null;
+         *  see [unifiedViewMember]. */
+        val servedNovel: Novel? = null,
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,
@@ -1629,6 +1653,9 @@ sealed interface NovelDetailsState {
         val storedRows: List<NovelChapter> = emptyList(),
     ) : NovelDetailsState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
+
+        /** Whose update interval the page shows and sets: the All view's served member, else the anchor. */
+        val intervalNovel: Novel get() = servedNovel ?: novel
 
         /** The filters the list applies, with the Downloaded only switch folded in. */
         val chapterFilters: ChapterListFilters

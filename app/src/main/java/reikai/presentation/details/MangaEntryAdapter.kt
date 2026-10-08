@@ -73,13 +73,13 @@ class MangaEntryAdapter(
             details = EntryDetailsUiState(
                 header = shown.toEntryHeader(
                     sourceName = model.headerSourceName(this),
-                    sourceState = shownSource.entrySourceState(),
+                    sourceState = servingSource.entrySourceState(),
                     sourceQuery = model.headerSourceQuery(this),
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,
-                nextUpdate = manga.expectedNextUpdate,
-                isUserIntervalMode = manga.fetchInterval < 0,
+                nextUpdate = intervalManga.expectedNextUpdate,
+                isUserIntervalMode = intervalManga.fetchInterval < 0,
                 description = shown.description,
                 tags = shown.genre,
                 notes = manga.notes,
@@ -294,7 +294,7 @@ class MangaEntryAdapter(
     }
 
     override fun setFetchInterval(days: Int) {
-        val manga = (model.state.value as? MangaViewModel.State.Success)?.manga ?: return
+        val manga = successState()?.intervalManga ?: return
         model.setFetchInterval(manga, days)
     }
 

@@ -158,6 +158,7 @@ import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorWrites
+import reikai.presentation.details.unifiedViewMember
 import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
@@ -186,6 +187,7 @@ import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.asMangaCover
+import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
@@ -536,6 +538,8 @@ class MangaViewModel(
             selectedSourceMangaId = merge.selectedSource,
             mergeDisplayManga = mc.displayManga,
             mergeDisplaySource = mc.displaySource,
+            mergeServedManga = mc.servedManga,
+            mergeServedSource = mc.servedSource,
             downloadFolderOwner = view.downloadFolderOwner,
             galleryMetadata = merge.galleryMetadata,
             relatedItems = extras.relatedItems,
@@ -560,7 +564,9 @@ class MangaViewModel(
             seedColor = extras.seedColor,
             pagePreviewsState = extras.pagePreviewsState,
             previewsRowCount = extras.previewsRowCount,
-            webPage = shownWebPage.of((mc.displayManga ?: mc.manga) to (mc.displaySource ?: view.source)),
+            webPage = shownWebPage.of(
+                (mc.displayManga ?: mc.servedManga ?: mc.manga) to (mc.displaySource ?: mc.servedSource ?: view.source),
+            ),
             // RK <--
         )
     }
@@ -862,7 +868,7 @@ class MangaViewModel(
     }
 
     fun showSetFetchIntervalDialog() {
-        val manga = successState?.manga ?: return
+        val manga = successState?.intervalManga ?: return // RK: the All view's served member
         dialog.value = Dialog.SetFetchInterval(manga)
     }
 
@@ -1029,6 +1035,10 @@ class MangaViewModel(
         // Kept separate from [manga] so favorite / tracking / chapter-flag actions stay on the primary.
         val displayManga: Manga? = null,
         val displaySource: Source? = null,
+        // RK: the installed member the All view serves in place of an anchor whose source is gone
+        // (unifiedViewMember), null otherwise. Downloads, the web page and the interval follow it.
+        val servedManga: Manga? = null,
+        val servedSource: Source? = null,
     )
 
     /** Chapters of a single grouped source (chip selection), keyed for download by its own manga.
@@ -1136,10 +1146,16 @@ class MangaViewModel(
             val pooled = chaptersBySource.values.flatten()
             val stitch = mergedChapterProvider.stitchOf(displayManga.id)
             val merged = mergedChapterProvider.merged(pooled, stitch)
+            val sources = mangaBySource.values.associate { it.id to sourceManager.getOrStub(it.source) }
+            val served = unifiedViewMember(displayManga.id, group.ids.asList()) { id ->
+                sources[id].let { it != null && it !is StubSource }
+            }
             MergedChapters(
                 manga = displayManga,
                 chapters = merged,
                 mangaBySource = mangaBySource,
+                servedManga = mangaBySource[served]?.takeIf { served != displayManga.id },
+                servedSource = sources[served]?.takeIf { served != displayManga.id },
                 flags = {
                     group.rowFlags(pooled, merged, stitch, { it.id }, { it.read }, { it.bookmark }) {
                         downloadedIdsOf(pooled, mangaBySource, displayManga)
@@ -1908,6 +1924,9 @@ class MangaViewModel(
             // RK: per-source metadata for the info box when a chip is active (null = unified -> primary).
             val mergeDisplayManga: Manga? = null,
             val mergeDisplaySource: Source? = null,
+            // RK: the All view's installed stand-in for an anchor whose source is gone (MergedChapters.servedManga)
+            val mergeServedManga: Manga? = null,
+            val mergeServedSource: Source? = null,
             // RK: whose folder Open folder opens, null hiding it and Clear downloads (downloadFolderOwner).
             val downloadFolderOwner: Manga? = null,
             // RK: the active source's raised gallery metadata (adult/metadata sources), drives the
@@ -1966,6 +1985,11 @@ class MangaViewModel(
             // (favourite, tracking, migrate) stay on [manga].
             val shownManga: Manga get() = mergeDisplayManga ?: manga
             val shownSource: Source get() = mergeDisplaySource ?: source
+
+            // What downloads and opens the web page go through, and whose interval the page shows and sets:
+            // the shown member, except that the All view serves an installed one for a missing anchor.
+            val servingSource: Source get() = mergeDisplaySource ?: mergeServedSource ?: source
+            val intervalManga: Manga get() = mergeServedManga ?: manga
             // RK <--
 
             val processedChapters by lazy {
