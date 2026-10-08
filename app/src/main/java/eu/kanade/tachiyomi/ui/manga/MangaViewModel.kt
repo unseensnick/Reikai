@@ -328,8 +328,9 @@ class MangaViewModel(
         resolveSources = { ids -> buildMergeSources(ids) },
     )
 
-    // Hide/unhide chapters (twin of the novel mechanism). The pref is the persisted/backed-up set of
-    // hidden chapter keys; showHiddenFlow is the transient "temporarily reveal hidden chapters" toggle.
+    // Hide/unhide chapters (twin of the novel mechanism, pinned by resolveHiddenChapterView; full list at
+    // applyHiddenChapters). The pref is the persisted/backed-up set of hidden chapter keys; showHiddenFlow
+    // is the transient "temporarily reveal hidden chapters" toggle.
     private val hiddenChaptersPref = mangaPreferences.hiddenChapters()
     private val numberHintMemo = ChapterNumberHint.Memo<Chapter>()
     private val showHiddenFlow = MutableStateFlow(false)
@@ -1181,10 +1182,12 @@ class MangaViewModel(
         }
     }
 
-    // Hide/unhide chapters (manga twin of the novel details mechanism). The hidden set is a pref of
-    // restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters at assembly, so hidden
-    // chapters also drop from download-all, and Resume opens one only when nothing else is unread. The
-    // in-app manga reader excludes them too (ReaderViewModel.chapterList), so next/prev skips hidden.
+    // Hide/unhide chapters (manga twin of the novel details mechanism, pinned by hiddenChapterKey,
+    // resolveHiddenChapterView and hiddenChapterIdsIn, which both call, and HiddenChapterResumeConformanceTest).
+    // The hidden set is a pref of restore-stable "<source>|<chapterUrl>" keys; it filters Success.chapters
+    // at assembly, so hidden chapters also drop from download-all, and Resume opens one only when nothing
+    // else is unread. The in-app manga reader excludes them too (ReaderViewModel.chapterList), so
+    // next/prev skips hidden.
 
     private data class HiddenChapters(
         val chapters: List<ChapterList.Item>,
@@ -1769,7 +1772,8 @@ class MangaViewModel(
 
     /** Header source label: the localized unified ("All") label for the merged all-view, else the active
      *  source's display name. Resolved here (the model has the context) so MangaEntryAdapter's neutral-state
-     *  mapping needs no composable. Mirrors NovelDetailsViewModel.headerSourceName. */
+     *  mapping needs no composable. Mirrors NovelDetailsViewModel.headerSourceName, pinned by
+     *  headerNamesWholeGroup (HeaderSourceTest), which both call. */
     fun headerSourceName(state: State.Success): String =
         if (headerNamesWholeGroup(state.mergeSources.size, state.selectedSourceMangaId)) {
             context.stringResource(MR.strings.merge_unified)

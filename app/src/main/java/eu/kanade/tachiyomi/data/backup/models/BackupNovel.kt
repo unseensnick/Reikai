@@ -1,4 +1,4 @@
-// Novel backup. Net-new Reikai file: the light-novel twin of BackupManga, re-typed
+// Novel backup. Net-new Reikai file: the light-novel twin of BackupManga, type only, re-typed
 // to the novel domain model (String source id, text-reader fields, no viewer/scanlator fields).
 package eu.kanade.tachiyomi.data.backup.models
 

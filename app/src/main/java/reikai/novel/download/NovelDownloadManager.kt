@@ -100,7 +100,8 @@ class NovelDownloadManager(
     val downloadingNovelId: StateFlow<Long?> = _downloadingNovelId.asStateFlow()
 
     /** True while the drain worker is running (drives the queue FAB's Pause/Resume); false when the
-     *  user paused or the queue is idle. Mirrors the manga DownloadManager.isDownloaderRunning. */
+     *  user paused or the queue is idle. Mirrors the manga DownloadManager.isDownloaderRunning, pinned by
+     *  DownloadQueueProvider.isRunning, which both queue adapters answer from their worker. */
     val isDownloaderRunning: Flow<Boolean> get() = NovelDownloadWorker.isRunningFlow(context)
 
     /** Chapters finished per novel while it stayed queued, read by the download queue's cards. */
@@ -315,7 +316,7 @@ class NovelDownloadManager(
 
     /**
      * Drop the whole novel: everything it has queued, then its folder. The manga twin of this is
-     * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga].
+     * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga], pinned by EmptiedPausedQueueConformanceTest.
      *
      * Chapter-by-chapter deletion cannot do this job. It only reaches what the disk cache already
      * reports, and a queued chapter is by definition not downloaded yet, so migrating away with

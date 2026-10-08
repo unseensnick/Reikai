@@ -284,8 +284,8 @@ object SettingsLibraryScreen : SearchableSettings {
     @Composable
     private fun getBehaviorGroup(
         libraryPreferences: LibraryPreferences,
-        // RK: the novel twin of the missing-chapter toggle sits here too, so the pair reads as one
-        // setting per content type rather than a row that looks duplicated.
+        // RK: novels' own missing-chapter toggle sits here too, so the pair reads as one setting per
+        // content type rather than a row that looks duplicated.
         novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(

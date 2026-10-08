@@ -1,4 +1,4 @@
-// Novel backup. Net-new Reikai file: novel-chapter twin of BackupChapter.
+// Novel backup. Net-new Reikai file: novel-chapter twin of BackupChapter, type only.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable

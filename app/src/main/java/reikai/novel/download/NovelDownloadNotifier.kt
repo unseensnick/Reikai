@@ -112,7 +112,8 @@ class NovelDownloadNotifier(
     /**
      * Post a persistent failure notification when a chapter download gives up after all retries.
      * Without this a failed novel download was completely silent (only an ERROR row in the queue,
-     * gone on restart). Mirrors the manga downloader's error notification; tapping opens the queue.
+     * gone on restart). Mirrors the manga downloader's error notification, pinned by downloadErrorTitle
+     * (DownloadErrorTitleTest), which both title it through; tapping opens the queue.
      */
     fun onError(novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) {
         val title = downloadErrorTitle(

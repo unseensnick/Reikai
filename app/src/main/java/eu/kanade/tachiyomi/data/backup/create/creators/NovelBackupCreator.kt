@@ -1,4 +1,5 @@
-// Novel backup. Net-new Reikai file: the light-novel twin of MangaBackupCreator,
+// Novel backup. Net-new Reikai file: the light-novel twin of MangaBackupCreator, pinned by
+// backupEntries (BackupEntryDriverTest, GroupMemberBackupConformanceTest), the driver both run through,
 // plus the novel categories and the merge groups (serialized from the merge_group tables as stable
 // {url, source} refs so they survive restore). Gated by the same BackupOptions toggles as manga
 // (novels are first-class library content, no separate UI toggle).

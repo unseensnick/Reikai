@@ -1,4 +1,4 @@
-// Novel backup. Net-new Reikai file: novel-track twin of BackupTracking. Uses the
+// Novel backup. Net-new Reikai file: novel-track twin of BackupTracking, type only. Uses the
 // novel domain types directly (Long ids, Double progress/score).
 package eu.kanade.tachiyomi.data.backup.models
 

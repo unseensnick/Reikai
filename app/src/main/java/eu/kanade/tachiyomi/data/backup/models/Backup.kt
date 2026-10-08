@@ -36,7 +36,7 @@ data class Backup(
     // than by row id, which is what lets a restore match them against what is already here.
     @ProtoNumber(715) var backupSavedSearches: List<BackupSavedSearch> = emptyList(),
     @ProtoNumber(716) var backupFeedRows: List<BackupFeedRow> = emptyList(),
-    // RK: the name of each novel source the backup's novels use, the twin of backupSources at 101.
+    // RK: the name of each novel source the backup's novels use, the twin of backupSources at 101, type only.
     @ProtoNumber(717) var backupNovelSources: List<BackupNovelSource> = emptyList(),
     // RK: present when 711 and 702 hold every merge group; without it the backup is 0.3.x's, whose
     // same-title groups restore rebuilds from its favourites, 712 / 703 and its auto-merge settings.

@@ -4,8 +4,8 @@ import eu.kanade.tachiyomi.data.download.model.Download
 
 /**
  * One queued or active novel chapter download. Text-only, so there is no page model or byte progress
- * and the chip renders an indeterminate spinner while queued or downloading. Mirrors the manga
- * [eu.kanade.tachiyomi.data.download.model.Download] state machine minus everything image-related. A
+ * and the chip renders an indeterminate spinner while queued or downloading. Mirrors the manga [Download]
+ * state machine minus everything image-related, type only ([toDownloadState] maps one onto the other). A
  * completed download leaves the queue entirely, and the on-disk file indexed by [NovelDownloadCache]
  * is what then signals "downloaded" to the UI. Only the fields the engine needs are kept: [url] for
  * `parseChapter`, [novelId] to resolve the owning source, [chapterId] to look the chapter up.

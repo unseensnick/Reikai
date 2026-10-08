@@ -96,7 +96,8 @@ class NovelRestorer(
         backupNovel.lastReadAt?.takeIf { it > 0 }?.let { lastRead ->
             novelHistoryRepository.seedLastRead(novelId, lastRead)
         }
-        // An entry without custom info leaves the device's own alone, as manga does.
+        // An entry without custom info leaves the device's own alone, as manga does, pinned by
+        // BackupCustomInfoConformanceTest.
         backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
     }
 
