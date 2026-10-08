@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 
@@ -77,15 +78,12 @@ class TrackerWebViewLoginActivity : BaseActivity() {
 
         captured = true
         lifecycleScope.launch {
-            try {
-                cookieLogin.loginWithCookie(credential)
+            val failure = cookieLoginFailure(tracker, cookieLogin, credential)
+            if (failure == null) {
                 toast(MR.strings.login_success)
                 finish()
-            } catch (e: Throwable) {
-                // The message is the service's, never the credential.
-                logcat { "${tracker.name} cookie login rejected: ${e.message}" }
-                tracker.logout()
-                toast(e.message)
+            } else {
+                toast(failure)
                 captured = false
             }
         }
@@ -103,4 +101,22 @@ class TrackerWebViewLoginActivity : BaseActivity() {
                 addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
             }
     }
+}
+
+/**
+ * Signs [tracker] in with [credential], or signs it back out and says why the service refused, in the
+ * words a failed bind or refresh uses. Null when the sign-in took.
+ */
+internal suspend fun Context.cookieLoginFailure(
+    tracker: Tracker,
+    cookieLogin: CookieLoginTracker,
+    credential: String,
+): String? = try {
+    cookieLogin.loginWithCookie(credential)
+    null
+} catch (e: Throwable) {
+    // The message is the service's, never the credential.
+    logcat { "${tracker.name} cookie login rejected: ${e.message}" }
+    tracker.logout()
+    trackerErrorMessage(tracker.name, e)
 }
