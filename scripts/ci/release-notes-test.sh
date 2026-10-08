@@ -34,7 +34,7 @@ Prose describing the whole release.
 - An old internal change.
 EOF
 
-# Reader carries one entry over the per-area cap, Before you upgrade one bullet over it.
+# Reader carries one entry over the per-list cap in Added and in Fixed, Before you upgrade one bullet over it.
 {
   cat <<'EOF'
 ### Highlights
@@ -70,12 +70,14 @@ EOF
 
 #### Added
 
-- **A new reader feature.**
+EOF
+  for i in $(seq 1 6); do echo "- **Reader feature $i.**"; done
+  cat <<'EOF'
 
 #### Fixed
 
 EOF
-  for i in $(seq 1 10); do echo "- **Reader fix $i.** Its detail."; done
+  for i in $(seq 1 6); do echo "- **Reader fix $i.** Its detail."; done
   cat <<'EOF'
 
 ### Other
@@ -116,8 +118,8 @@ check "an old entry without bold is not listed again"  1 in_nightly "- An old in
 check "Highlights is left out"                         1 in_nightly "### Highlights"
 check "Before you upgrade is left out"                 1 in_nightly "### Before you upgrade"
 check "a heading with no entries under it is left out" 1 in_nightly "#### Changed"
-check "the per-area cap does not apply"                0 in_nightly "- Reader fix 10."
-check "no more line is added"                          1 in_nightly "+1 more in the [full changelog](https://example.com/0.4.0)."
+check "the per-list cap does not apply"                0 in_nightly "- Reader fix 6."
+check "no more line is added"                          1 in_nightly "+2 more in the [full changelog](https://example.com/0.4.0)."
 
 expected_nightly="### Library
 
@@ -129,11 +131,11 @@ expected_nightly="### Library
 
 #### Added
 
-- A new reader feature.
+$(for i in $(seq 1 6); do echo "- Reader feature $i."; done)
 
 #### Fixed
 
-$(for i in $(seq 1 10); do echo "- Reader fix $i."; done)
+$(for i in $(seq 1 6); do echo "- Reader fix $i."; done)
 
 ### Other
 
@@ -146,9 +148,10 @@ check "a heading with no entries under it is left out" 1 in_stable "#### Changed
 check "a wrapped paragraph is joined onto one line"    0 in_stable "Prose describing the whole release, wrapped over two lines."
 check "Other is left out"                              1 in_stable "### Other"
 check "an Other entry is left out"                     1 in_stable "- A new internal change."
-check "an area lists its first ten entries"            0 in_stable "- Reader fix 9."
-check "the eleventh entry of an area is not listed"    1 in_stable "- Reader fix 10."
-check "a capped area says how many it left out"        0 in_stable "+1 more in the [full changelog](https://example.com/0.4.0)."
+check "a list shows its first five entries"            0 in_stable "- Reader fix 5."
+check "the sixth entry of a list is not listed"        1 in_stable "- Reader fix 6."
+check "a full Added list leaves Fixed its own five"    1 in_stable "- Reader feature 6."
+check "a capped area says how many it left out"        0 in_stable "+2 more in the [full changelog](https://example.com/0.4.0)."
 check "an area under the cap gets no more line"        0 stable_count "more in the [full changelog]" 1
 check "Before you upgrade prose is passed through"     0 in_stable "Back up first, since this release migrates your library."
 check "Before you upgrade bullets are kept whole"      0 in_stable "- **Caution 1.** Kept whole."
@@ -181,13 +184,13 @@ $(for i in $(seq 1 11); do echo "- **Caution $i.** Kept whole."; done)
 
 #### Added
 
-- A new reader feature.
+$(for i in $(seq 1 5); do echo "- Reader feature $i."; done)
 
 #### Fixed
 
-$(for i in $(seq 1 9); do echo "- Reader fix $i."; done)
+$(for i in $(seq 1 5); do echo "- Reader fix $i."; done)
 
-+1 more in the [full changelog](https://example.com/0.4.0)."
++2 more in the [full changelog](https://example.com/0.4.0)."
 check "blocks are separated by one blank line"         0 test "$stable" = "$expected_stable"
 
 echo "full changelog link"
@@ -197,7 +200,7 @@ script="$(cd "$(dirname "$0")" && pwd)/release-notes.sh"
 body=$(cd "$work/rel" && VERSION_TAG=v0.4.0 REPO_URL=https://github.com/o/r GITHUB_ENV=/dev/stdout bash "$script")
 in_body() { printf '%s\n' "$body" | grep -qxF -- "$1"; }
 check "the body links the release's page on the site"  0 in_body "**Full changelog:** https://reikai.app/changelogs/0.4.0"
-check "the more line links the same page"              0 in_body "+1 more in the [full changelog](https://reikai.app/changelogs/0.4.0)."
+check "the more line links the same page"              0 in_body "+2 more in the [full changelog](https://reikai.app/changelogs/0.4.0)."
 
 echo "nightly after a changelog rewrite"
 # The previous nightly, a code commit adding an entry, a Markdown-only rewrite rewording the oldest

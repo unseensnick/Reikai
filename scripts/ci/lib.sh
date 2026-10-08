@@ -9,8 +9,9 @@
 #   release_notes stable <section> <url>        the GitHub release, which the in-app update screen
 #       also shows. Highlights and Before you upgrade pass through whole, each paragraph joined onto
 #       one line so GitHub does not render the file's hard wraps as line breaks. Every other area
-#       lists its first ten headlines in file order, which authors keep in order of importance, then
-#       "+M more" linking <url>, the release's uncapped page. Other is left out: it has no
+#       lists the first five headlines of each of its Added, Changed and Fixed lists in file order,
+#       which authors keep in order of importance, then "+M more" linking <url>, the release's
+#       uncapped page. The cap is per list so a long Added list cannot push every fix out. Other is left out: it has no
 #       user-facing effect, and that page carries it.
 #   release_notes nightly <section> <previous>  only entries whose headline <previous> lacks, so
 #       editing an entry's detail sentence does not republish it. An entry with no bold (Other) is
@@ -57,13 +58,13 @@ release_notes() {
       next
     }
     skip { next }
-    /^#### / { flush(); cat = $0; next }
+    /^#### / { flush(); cat = $0; shown = 0; next }
     whole && /^- / { flush(); para = $0; item = 1; next }
     /^- / {
       flush()
       k = key($0)
       if (k in seen) next
-      if (!has_prev && shown == 10) { hidden++; next }
+      if (!has_prev && shown == 5) { hidden++; next }
       shown++
       headings()
       if (last != "entry" && printed) print ""
