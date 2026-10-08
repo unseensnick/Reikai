@@ -68,6 +68,30 @@ class StatsSeriesTest {
         completedCount(type, status = ONGOING, readCount = 3) shouldBe 0
     }
 
+    /** In global update beside In library: each source is updated, but the series is one title. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series the global update reaches counts as one title in it`(type: ContentType) = runTest {
+        globalUpdateCount(type, updatedIds = setOf(1L, 2L)) shouldBe 1
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series counts in the global update when only a later member is updated`(type: ContentType) =
+        runTest {
+            globalUpdateCount(type, updatedIds = setOf(2L)) shouldBe 1
+        }
+
+    private suspend fun globalUpdateCount(type: ContentType, updatedIds: Set<Long>): Int {
+        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 9L, 2L to 9L)), mergingOn = true)
+        return when (type) {
+            ContentType.MANGA -> managers.manga.statsSeries(listOf(manga(2L), manga(1L))) { it.id }
+                .globalUpdateCount { it.id in updatedIds }
+            else -> managers.novel.statsSeries(listOf(novel(2L), novel(1L))) { it.id }
+                .globalUpdateCount { it.id in updatedIds }
+        }
+    }
+
     private val tracksOnSecondMember = mapOf(2L to listOf(track(entryId = 2L, score = 7.0)))
 
     private val trackers = mapOf(

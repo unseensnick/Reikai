@@ -26,6 +26,10 @@ class StatsSeries<T>(private val buckets: List<MergeBucket<T>>, private val id: 
     fun completedCount(facts: (T) -> SmartUpdateFacts): Int =
         titles.count { title -> facts(title).let { it.isCompleted && it.unreadCount == 0L } }
 
+    /** Titles the global update reaches. Each source of a merged series is updated on its own, so the
+     *  series counts once when [isUpdated] holds for any of them. */
+    fun globalUpdateCount(isUpdated: (T) -> Boolean): Int = buckets.count { it.members.any(isUpdated) }
+
     fun trackedCount(tracksById: Map<Long, List<Track>>): Int =
         membersByTitle.values.count { mergedGroupTracks(it, tracksById).isNotEmpty() }
 

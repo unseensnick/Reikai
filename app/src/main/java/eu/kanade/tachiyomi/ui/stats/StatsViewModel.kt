@@ -8,7 +8,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import eu.kanade.core.util.fastCountNot
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -91,7 +90,6 @@ class StatsViewModel(
             val novels = novelMergeManager.statsSeries(novelRepository.getLibraryNovelAsFlow().first()) { it.id }
 
             val ingredients = StatsIngredients(
-                mangaListRaw = libraryManga,
                 manga = manga,
                 novels = novels,
                 // Every member's tracks, so a tracker bound on any source of a merged series counts.
@@ -133,8 +131,8 @@ class StatsViewModel(
 
         val titles = StatsData.Titles(
             globalUpdateItemCount =
-            (if (mangaPart) getGlobalUpdateItemCount(i.mangaListRaw) else 0) +
-                (if (novelPart) getNovelGlobalUpdateItemCount(i.novels.titles) else 0),
+            (if (mangaPart) getGlobalUpdateItemCount(i.manga) else 0) +
+                (if (novelPart) getNovelGlobalUpdateItemCount(i.novels) else 0),
             startedMangaCount =
             (if (mangaPart) i.manga.titles.count { it.hasStarted } else 0) +
                 (if (novelPart) i.novels.titles.count { it.hasStarted } else 0),
@@ -177,28 +175,34 @@ class StatsViewModel(
     }
     // RK <--
 
-    private fun getGlobalUpdateItemCount(libraryManga: List<LibraryManga>): Int {
+    // RK: series, not rows, so a merged series counts once as In library counts it (StatsSeries.globalUpdateCount)
+    private fun getGlobalUpdateItemCount(libraryManga: StatsSeries<LibraryManga>): Int {
         // RK --> the category rule is the kernel both update jobs scope by
         val includedCategories = preferences.updateCategories.get().mapTo(mutableSetOf()) { it.toLong() }
         val excludedCategories = preferences.updateCategoriesExclude.get().mapTo(mutableSetOf()) { it.toLong() }
         // RK <--
         val updateRestrictions = preferences.autoUpdateMangaRestrictions.get()
 
-        return libraryManga
-            .filter { matchesCategoryFilter(it.categories, includedCategories, excludedCategories) } // RK
-            .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null } // RK
+        // RK --> merged series counted once through the shared kernel
+        return libraryManga.globalUpdateCount {
+            matchesCategoryFilter(it.categories, includedCategories, excludedCategories) &&
+                smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) == null
+        }
+        // RK <--
     }
 
     // RK --> the novel global-update count, over the novel update categories + restrictions and the
     // category rule both update jobs scope by
-    private fun getNovelGlobalUpdateItemCount(libraryNovels: List<LibraryNovel>): Int {
+    private fun getNovelGlobalUpdateItemCount(libraryNovels: StatsSeries<LibraryNovel>): Int {
         val includedCategories = novelPreferences.novelUpdateCategories().get().mapTo(mutableSetOf()) { it.toLong() }
         val excludedCategories =
             novelPreferences.novelUpdateCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() }
         val updateRestrictions = novelPreferences.novelUpdateRestrictions().get()
 
-        return libraryNovels.filter { matchesCategoryFilter(it.categories, includedCategories, excludedCategories) }
-            .fastCountNot { smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) != null }
+        return libraryNovels.globalUpdateCount {
+            matchesCategoryFilter(it.categories, includedCategories, excludedCategories) &&
+                smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) == null
+        }
     }
     // RK <--
 
@@ -236,15 +240,12 @@ class StatsViewModel(
     // StatsSeries.meanScores, the library's per-series mean (libraryTrackerMeans)
 
     // RK --> precomputed manga + novel stat ingredients, folded per content-type chip selection.
-    // mangaListRaw keeps category-membership duplicates (the global-update count matches upstream over it).
-    //
     // A merged series is one title, represented by its lowest-id member. That member's own status,
     // started state and local-ness are what the status stats read, so they can differ from the library
     // card, which leads on the ranked trunk. Re-deriving that ranking here would be a third copy of it.
     // The chapter totals sum every member's rows, so a merged series counts its shared chapters once
     // per source there; deduplicating those needs the match-key identities, not a group count.
     private data class StatsIngredients(
-        val mangaListRaw: List<LibraryManga>,
         val manga: StatsSeries<LibraryManga>,
         val novels: StatsSeries<LibraryNovel>,
         val mangaTrackMap: Map<Long, List<Track>>,
