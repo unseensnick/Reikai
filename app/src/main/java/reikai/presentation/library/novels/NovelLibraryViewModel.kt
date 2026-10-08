@@ -30,9 +30,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.DownloadUnitRow
-import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
@@ -414,15 +412,7 @@ class NovelLibraryViewModel(
                 // Probed over every member's chapters: a chapter downloaded on any of them is on disk,
                 // whichever copy the stitch shows.
                 val novelsById = novelRepository.ownersOf(group.pooledChapters)
-                val flags = GroupChapterFlags(
-                    MergeScope.Group,
-                    group.pooledChapters,
-                    group.chapters,
-                    group.stitch,
-                    { it.id },
-                    { it.read },
-                    { it.bookmark },
-                ) { novelDownloadCache.downloadedChapterIds(group.pooledChapters, novelsById) }
+                val flags = group.groupFlags { novelDownloadCache.downloadedChapterIds(it, novelsById) }
                 val queuedIds = downloadManager.queueState.value.mapTo(HashSet()) { it.chapterId }
                 // The interactor already hands them over in reading order.
                 val targets = DownloadCandidates.forGroup(

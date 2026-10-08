@@ -6,6 +6,8 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterUnit
+import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.MergeScope
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.renderMergedReadingOrder
 import tachiyomi.domain.chapter.model.Chapter
@@ -96,4 +98,23 @@ class MergedChapterProvider(
         reikaiLibraryPreferences.preferredMangaSources.get(),
         memberRanking,
     )
+}
+
+/** [shown]'s flags across the whole group, as the library's resume and download ask them; a null group
+ *  answers each row for itself. Twin of `NovelGroupChapters.groupFlags`, pinned by
+ *  MergedResumeDownloadedConformanceTest. */
+fun MergedChapterProvider.Group?.groupFlags(
+    shown: List<Chapter>,
+    onDisk: (pooled: List<Chapter>) -> Set<Long>,
+): GroupChapterFlags<Chapter> {
+    val pooled = this?.pooledChapters ?: shown
+    return GroupChapterFlags(
+        MergeScope.Group,
+        pooled,
+        shown,
+        this?.stitch.orEmpty(),
+        { it.id },
+        { it.read },
+        { it.bookmark },
+    ) { onDisk(pooled) }
 }

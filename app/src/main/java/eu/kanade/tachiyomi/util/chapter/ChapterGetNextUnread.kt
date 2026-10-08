@@ -7,9 +7,8 @@ import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.manga.groupFlags
 import reikai.domain.manga.inReadingOrder
-import reikai.domain.merge.GroupChapterFlags
-import reikai.domain.merge.MergeScope
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 
@@ -28,16 +27,7 @@ fun List<Chapter>.getNextUnread(
 ): Chapter? {
     val mangaById = group?.mangaById.orEmpty()
     val ownerOf = { chapter: Chapter -> mangaById[chapter.mangaId] ?: manga }
-    val pooled = group?.pooledChapters ?: this
-    val flags = GroupChapterFlags(
-        MergeScope.Group,
-        pooled,
-        this,
-        group?.stitch.orEmpty(),
-        { it.id },
-        { it.read },
-        { it.bookmark },
-    ) { downloadManager.downloadedChapterIds(pooled, ownerOf) }
+    val flags = group.groupFlags(this) { downloadManager.downloadedChapterIds(it, ownerOf) }
     val shown = applyFilters(manga, flags)
     // RK <--
     // RK: the order the reader pages in, asked the question novels resume by, hidden chapters last.

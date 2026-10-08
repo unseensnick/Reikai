@@ -47,11 +47,10 @@ import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.manga.downloadedChapterIds
+import reikai.domain.manga.groupFlags
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadUnitRow
-import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeGroupRepository
-import reikai.domain.merge.MergeScope
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
@@ -498,16 +497,7 @@ class LibraryViewModel(
         hidden: Set<String>,
     ) {
         val ownerOf = { chapter: Chapter -> group?.mangaById?.get(chapter.mangaId) ?: anchor }
-        val pooled = group?.pooledChapters ?: chapters
-        val flags = GroupChapterFlags(
-            MergeScope.Group,
-            pooled,
-            chapters,
-            group?.stitch.orEmpty(),
-            { it.id },
-            { it.read },
-            { it.bookmark },
-        ) { downloadManager.downloadedChapterIds(pooled, ownerOf) }
+        val flags = group.groupFlags(chapters) { downloadManager.downloadedChapterIds(it, ownerOf) }
         DownloadCandidates.forGroup(
             chapters,
             action,

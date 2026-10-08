@@ -25,7 +25,19 @@ data class NovelGroupChapters(
      *  cross-source question (bookmarked anywhere, on disk anywhere) about the copies it stands in for. */
     val stitch: List<ChapterUnit> = emptyList(),
     val pooledChapters: List<NovelChapter> = chapters,
-)
+) {
+    /** [chapters]' flags across the whole group, as the library's resume and download ask them; twin of
+     *  manga's `MergedChapterProvider.Group?.groupFlags`, pinned by MergedResumeDownloadedConformanceTest. */
+    fun groupFlags(onDisk: (pooled: List<NovelChapter>) -> Set<Long>) = GroupChapterFlags(
+        MergeScope.Group,
+        pooledChapters,
+        chapters,
+        stitch,
+        { it.id },
+        { it.read },
+        { it.bookmark },
+    ) { onDisk(pooledChapters) }
+}
 
 /**
  * [GetNextNovelChapter.readingRows]: [rows] in the reader's scope, plus the group behind them. [pooled] is
@@ -123,15 +135,7 @@ class GetNextNovelChapter(
         val group = groupChapters(novelId)
         val pooled = group.pooledChapters
         val novels = novelRepository.ownersOf(pooled)
-        val flags = GroupChapterFlags(
-            MergeScope.Group,
-            pooled,
-            group.chapters,
-            group.stitch,
-            { it.id },
-            { it.read },
-            { it.bookmark },
-        ) { downloadedIds(pooled, novels) }
+        val flags = group.groupFlags { downloadedIds(it, novels) }
         val listed = listedByFilters(novelId, group.chapters, flags, downloadedOnly)
         return ReadingOrder.resumeAt(listed, hiddenAmong(pooled), flags::isRead)
     }
