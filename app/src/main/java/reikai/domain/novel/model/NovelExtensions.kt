@@ -14,7 +14,7 @@ val Novel.readerOrientation: Long
 /**
  * True when the user set a custom cover for this novel. The cover lives in the shared [CoverCache]
  * under the entry's own namespaced name (so it can't collide with a same-id manga); the novel twin of
- * `Manga.hasCustomCover`.
+ * `Manga.hasCustomCover`, pinned by CoverCacheConformanceTest.
  */
 fun Novel.hasCustomCover(coverCache: CoverCache): Boolean =
     coverCache.getCustomCoverFile(EntryId.Novel(id)).exists()
