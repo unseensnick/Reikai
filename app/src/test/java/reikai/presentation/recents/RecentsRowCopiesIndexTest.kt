@@ -2,14 +2,17 @@ package reikai.presentation.recents
 
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.ChapterCopyRow
@@ -58,7 +61,7 @@ class RecentsRowCopiesIndexTest {
                         )
                 },
             )
-        }.first()
+        }.toList()
         return recentsCopiesDownloadUi(
             mergedRow.lane,
             10L,
@@ -67,6 +70,15 @@ class RecentsRowCopiesIndexTest {
             progress = null,
             isInstalled = index::isInstalled,
         ) { false }
+    }
+
+    @Test
+    fun `the rows arrive before the installed lookup answers`() = runTest {
+        val rows = withTimeout(1_000) {
+            RecentsRowCopiesIndex().lane(lane, flowOf(mapOf(merged to 7L)), { awaitCancellation() }, query).first()
+        }
+
+        rows.items shouldBe listOf(mergedRow, aloneRow)
     }
 
     @Test
@@ -93,7 +105,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `a History row whose only copy on disk is another source's reads as downloaded`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).first()
+        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).toList()
 
         stateOf(index, 10L, onDisk = setOf(20L)) shouldBe Download.State.DOWNLOADED
     }
@@ -101,7 +113,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `a row on an entry in no group answers for its own copy`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).first()
+        index.lane(lane, flowOf(mapOf(merged to 7L)), noneMissing, query).toList()
 
         stateOf(index, 40L, onDisk = setOf(50L)) shouldBe Download.State.NOT_DOWNLOADED
     }
@@ -109,7 +121,7 @@ class RecentsRowCopiesIndexTest {
     @Test
     fun `with merging off a row answers for its own copy`() = runTest {
         val index = RecentsRowCopiesIndex()
-        index.lane(lane, flowOf(emptyMap()), noneMissing, query).first()
+        index.lane(lane, flowOf(emptyMap()), noneMissing, query).toList()
 
         stateOf(index, 10L, onDisk = setOf(20L)) shouldBe Download.State.NOT_DOWNLOADED
     }

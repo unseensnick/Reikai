@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.transform
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.entry.EntryId
@@ -143,8 +144,8 @@ internal class RecentsRowCopiesIndex {
     fun isInstalled(copy: ChapterCopyRow): Boolean = copy.ownerSource !in missingSources
 
     /**
-     * [rows] re-emitted once the copies of its rows on a merged entry ([membership]) are in hand, with
-     * which of their sources [missingAmong] says are not installed.
+     * [rows] re-emitted once the copies of its rows on a merged entry ([membership]) are in hand; which of
+     * their sources [missingAmong] says are not installed follows as a [changes] tick.
      */
     fun lane(
         rows: Flow<RecentsLaneRows>,
@@ -161,13 +162,15 @@ internal class RecentsRowCopiesIndex {
                 maps.fold(emptyMap<Long, List<ChapterCopyRow>>()) { a, b -> a + b }
             }
         }
-        copies.map { byId ->
+        copies.transform { byId ->
+            byChapter = byId
+            changes.tryEmit(Unit)
+            // The rows go out first: answering for a novel source can wait on the first plugin load.
+            emit(lane)
             val sources = byId.values.flatten().mapTo(HashSet()) { it.ownerSource }
             // Asked only of a merged row's sources, so a feed of none loads no novel plugin to answer.
             missingSources = if (sources.isEmpty()) emptySet() else missingAmong(sources)
-            byChapter = byId
             changes.tryEmit(Unit)
-            lane
         }
     }
 
