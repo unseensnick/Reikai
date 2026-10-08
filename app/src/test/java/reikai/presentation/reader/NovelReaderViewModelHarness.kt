@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.job
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
@@ -52,6 +53,7 @@ import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
@@ -74,6 +76,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import java.io.IOException
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * A real [NovelReaderViewModel] over an in-memory database, the real repositories, interactors and
@@ -177,12 +180,33 @@ class NovelReaderViewModelHarness private constructor(
     fun source(id: String, name: String = id): FakeNovelSource =
         FakeNovelSource(id, name).also(sourceManager::register)
 
-    suspend fun novel(source: FakeNovelSource, title: String = "Novel", inLibrary: Boolean = true): Long {
+    suspend fun novel(
+        source: FakeNovelSource,
+        title: String = "Novel",
+        inLibrary: Boolean = true,
+        cover: String? = null,
+        totalPages: Long = 1L,
+    ): Long {
         val url = "/novel/${source.id}/$title"
         val favoriteAt = 0L.takeIf { inLibrary }
         return novelRepo.insert(
-            Novel.create().copy(source = source.id, url = url, title = title, favoriteAt = favoriteAt),
+            Novel.create().copy(
+                source = source.id,
+                url = url,
+                title = title,
+                favoriteAt = favoriteAt,
+                thumbnailUrl = cover,
+                totalPages = totalPages,
+            ),
         )!!
+    }
+
+    /** The stored row of [url] on [sourceId], if opening it stored one. */
+    suspend fun storedNovel(sourceId: String, url: String): Novel? = novelRepo.getByUrlAndSource(url, sourceId)
+
+    /** Rewrites [novelId]'s stored row, as a refresh does. */
+    suspend fun updateNovel(novelId: Long, block: NovelUpdate.() -> Unit) {
+        novelRepo.update(NovelUpdate(novelId, block))
     }
 
     /**
@@ -322,12 +346,20 @@ class NovelReaderViewModelHarness private constructor(
      */
     suspend fun openDetails(novelId: Long): NovelDetailsViewModel {
         val novel = novelRepo.getById(novelId)!!
+        return openDetails(novel.source, novel.url)
+    }
+
+    /**
+     * The details screen of [url] on [sourceId], which need not be stored yet, as when opened from Browse.
+     * Its state is collected for as long as the model lives, as a screen showing it collects it.
+     */
+    fun openDetails(sourceId: String, url: String): NovelDetailsViewModel {
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences) {}
         val stitcher = NovelGroupStitcher(groups, novelRepo, chapterRepo, mergeManager, reikaiLibraryPreferences)
         return NovelDetailsViewModel(
-            sourceId = novel.source,
-            novelUrl = novel.url,
+            sourceId = sourceId,
+            novelUrl = url,
             listingCover = null,
             isFromSource = false,
             novelRepo = novelRepo,
@@ -372,7 +404,10 @@ class NovelReaderViewModelHarness private constructor(
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
             downloadedTexts = mockk(relaxed = true),
-        ).also(::track)
+        ).also { model ->
+            track(model)
+            model.viewModelScope.launch { model.state.collect {} }
+        }
     }
 
     private fun track(model: ViewModel) {
@@ -440,6 +475,15 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     val failing = mutableSetOf<String>()
 
+    /** What asking for a novel's details does; by default it throws, as for a source no test meant to ask. */
+    @Volatile
+    var details: () -> SourceNovel = { unused() }
+
+    val detailsAsked = AtomicInteger()
+
+    /** Every page key asked for, in order. A page answers with no chapters. */
+    val pagesAsked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
     override val version = "1.0.0"
     override val site = "https://$id.example"
     override val lang = "en"
@@ -458,7 +502,15 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     override suspend fun search(query: String, page: Int, filters: NovelFilterState?): NovelItemsPage = unused()
 
-    override suspend fun parseNovel(novelPath: String): SourceNovel = unused()
+    override suspend fun parseNovel(novelPath: String): SourceNovel {
+        detailsAsked.incrementAndGet()
+        return details()
+    }
+
+    override suspend fun parsePage(novelPath: String, page: String): SourceNovel? {
+        pagesAsked += page
+        return null
+    }
 
     private fun unused(): Nothing = throw UnsupportedOperationException("Not part of reading a chapter")
 }
