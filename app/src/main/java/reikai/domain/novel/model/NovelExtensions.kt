@@ -5,8 +5,8 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import reikai.domain.entry.EntryId
 
 /**
- * The per-novel reader orientation bits (the novel twin of `Manga.readerOrientation`). 0 = DEFAULT,
- * which the reader resolves to the global default orientation.
+ * The per-novel reader orientation bits, the novel twin of `Manga.readerOrientation`, pinned by
+ * ViewerOrientationConformanceTest. 0 = DEFAULT, which the reader resolves to the global default.
  */
 val Novel.readerOrientation: Long
     get() = viewerFlags and ReaderOrientation.MASK.toLong()
