@@ -10,14 +10,6 @@ All six items that gated the 0.4.0 cut (owner, 2026-10-01) are done; when to cut
 
 Backlog, grouped by area. Unordered within an area.
 
-### Browse & sources
-
-- **One "not installed" signal for a missing source, manga and novels alike** `[S]` - on Clear database and the Migrate list a gone novel source keeps its remembered icon while a manga stub shows the red warning; give both types the same sign that the source is missing.
-
-### Code health
-
-- **Close the duplicate-hunt leftovers** `[S]` - the unchecked Lows of the 2026-10-08 duplicate hunt, the novel reader working out download targets twice, and one name for the member whose chapter settings a merged group uses (today the first by source priority, while the library card picks its lead by ranking).
-
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Plan](docs/dev/plans/unified-content-ui.md).
