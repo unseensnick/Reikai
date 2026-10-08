@@ -497,7 +497,8 @@ class NovelPreferences(
     fun defaultNovelCategory() = preferenceStore.getInt("default_novel_category", -1)
 
     /** Hide the inline "N missing chapters" separators in the details chapter list, the novel twin of
-     *  manga's [LibraryPreferences.hideMissingChapters]. The header warning stays regardless. */
+     *  manga's [LibraryPreferences.hideMissingChapters], pinned by DetailsGapConformanceTest. The header
+     *  warning stays regardless. */
     fun hideMissingChapters() = preferenceStore.getBoolean("novel_hide_missing_chapters", false)
 
     // Downloads. Renaming a key needs a migration that moves the value (see the class KDoc).

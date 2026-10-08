@@ -35,7 +35,8 @@ import tachiyomi.domain.manga.model.Manga
 
 /**
  * What a details list counts its missing-chapter markers against: every chapter of the series, so
- * neither a filter nor hiding a chapter makes a gap, revealed or not. Pinned once over both types.
+ * neither a filter nor hiding a chapter makes a gap, revealed or not; and "Hide missing chapters" drops
+ * only the list's markers, never the header's count. Pinned once over both types.
  */
 class DetailsGapConformanceTest {
 
@@ -47,6 +48,9 @@ class DetailsGapConformanceTest {
 
         /** Chapter 11 hidden, and hidden chapters shown when [revealed]. */
         suspend fun elevenHidden(scope: TestScope, revealed: Boolean): Pair<List<Int>, Int>
+
+        /** Chapter 11 missing from the source, with "Hide missing chapters" on or off as [hideMarkers]. */
+        suspend fun elevenMissing(scope: TestScope, hideMarkers: Boolean): Pair<List<Int>, Int>
     }
 
     @BeforeEach
@@ -79,6 +83,18 @@ class DetailsGapConformanceTest {
     @MethodSource("probes")
     fun `revealing a hidden chapter changes no count`(probe: Probe) = runTest {
         probe.elevenHidden(this, revealed = true) shouldBe (emptyList<Int>() to 0)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a missing chapter is marked in the list`(probe: Probe) = runTest {
+        probe.elevenMissing(this, hideMarkers = false) shouldBe (listOf(1) to 1)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `hiding missing chapters drops the list's marker and keeps the header's count`(probe: Probe) = runTest {
+        probe.elevenMissing(this, hideMarkers = true) shouldBe (emptyList<Int>() to 1)
     }
 
     companion object {
@@ -117,6 +133,7 @@ class DetailsGapConformanceTest {
             shown: List<ChapterList.Item> = all,
             flags: Long = 0L,
             revealed: Set<Long> = emptySet(),
+            hideMarkers: Boolean = false,
         ) = MangaViewModel.State.Success(
             manga = Manga.create().copy(id = 1L, chapterFlags = flags),
             source = mockk(),
@@ -124,6 +141,7 @@ class DetailsGapConformanceTest {
             chapters = shown,
             availableScanlators = emptySet(),
             excludedScanlators = emptySet(),
+            hideMissingChapters = hideMarkers,
             showHidden = revealed.isNotEmpty(),
             hasHiddenChapters = true,
             hiddenChapterIds = revealed,
@@ -141,6 +159,9 @@ class DetailsGapConformanceTest {
                 answer(state(all, shown = all.filterNot { it.id == 11L }))
             }
         }
+
+        override suspend fun elevenMissing(scope: TestScope, hideMarkers: Boolean): Pair<List<Int>, Int> =
+            answer(state((1..12).filterNot { it == 11 }.map { item(it) }, hideMarkers = hideMarkers))
     }
 
     class NovelProbe : Probe {
@@ -164,6 +185,14 @@ class DetailsGapConformanceTest {
                 if (!revealed) return@use answer(hidden)
                 model.toggleShowHidden()
                 answer(loaded(model) { it.showHidden })
+            }
+
+        override suspend fun elevenMissing(scope: TestScope, hideMarkers: Boolean): Pair<List<Int>, Int> =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val novelId = harness.novel(harness.source(SOURCE))
+                (1..12).filterNot { it == 11 }.forEach { harness.chapter(novelId, it.toDouble()) }
+                harness.novelPreferences.hideMissingChapters().set(hideMarkers)
+                answer(loaded(harness.openDetails(novelId)) { it.chapters.size == 11 })
             }
 
         private fun answer(state: NovelDetailsState.Loaded) =
