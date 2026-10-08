@@ -8,8 +8,8 @@ import reikai.novel.host.NovelItem
 /**
  * Covers the novel-specific selection keying. Because a browse result is a bare [NovelItem] with no id,
  * a selection must key on (sourceId, path); the same path under two sources must stay distinct. The
- * add-to-library routing mirrors the manga [reikai.presentation.browse.BulkFavoriteViewModel] and runs
- * on the view-model scope, so it is exercised on-device, not here.
+ * add-to-library routing is the shared [reikai.presentation.browse.EntryBulkFavoriteViewModel], pinned
+ * for both types by BulkAddConformanceTest and BatchCategoriesTest.
  */
 class NovelBulkFavoriteViewModelTest {
 

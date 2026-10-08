@@ -55,7 +55,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
 /**
  * Per-source light-novel browse state holder. The source is pre-picked (the Browse Sources tab is the
  * picker), so this jumps straight to a catalog and mirrors the manga browse's listing model: a
- * Popular / Latest toggle plus a filters draft and a search query, paged through Paging 3 over a
+ * Popular / Latest toggle plus a filters draft and a search query (pinned by
+ * [reikai.presentation.browse.catalogue.EntryBrowseBehavior]), paged through Paging 3 over a
  * [reikai.novel.source.BaseNovelPagingSource]. The screen is a pure renderer over [NovelBrowseState]
  * plus the pager flow.
  */

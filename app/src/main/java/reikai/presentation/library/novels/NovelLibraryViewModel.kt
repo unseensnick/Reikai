@@ -171,7 +171,9 @@ class NovelLibraryViewModel(
             // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
             // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
             // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
-            // change, not on every library, download-cache or track tick (mirrors the manga side).
+            // change, not on every library, download-cache or track tick, as the manga side does.
+            // No pin: manga's 0.25 s is upstream's own literal, kept verbatim for sync, and the
+            // once-per-query scan is a cost choice that changes nothing a user sees.
             searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
             // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
             // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
@@ -240,7 +242,7 @@ class NovelLibraryViewModel(
     /**
      * Merged chapters with a copy on disk, per group. Members that have downloaded nothing are never
      * probed, so a library whose merged novels hold no downloads pays nothing here at all. Twin of the
-     * manga library's, over the same kernel.
+     * manga library's, pinned by [downloadedUnitsByGroup].
      */
     private fun mergedDownloadCounts(
         library: List<LibraryNovel>,
@@ -312,7 +314,8 @@ class NovelLibraryViewModel(
         val novelById = groups.associate { it.representative.novel.id to it.representative }
         // Display-only custom-info overlay, keyed by the real novel id. Carried into the state and applied
         // at the display read (State.withOverlay, via LibraryProvider.overlaid), never here, so collapse,
-        // filter, sort, grouping and search all keep reading the source values. Mirrors the manga library.
+        // filter, sort, grouping and search all keep reading the source values. Mirrors the manga library,
+        // pinned by LibraryProvider.overlaid and withCustomInfo.
         val overlay = customInfo.associateBy { it.novelId }
         // Build the shared library row BEFORE filtering and sorting, so both content types reach the
         // shared kernels at the same point in the type chain (the manga library already builds first).
@@ -335,9 +338,9 @@ class NovelLibraryViewModel(
             lewdSourceName = { null },
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
         )
-        // The search twin of the filter binding above, and the same kernel the manga library runs, so one
-        // typed query means one thing on every row of the All list. The seam: a novel's source key is its
-        // plugin slug (manga supply a numeric id).
+        // The search twin of the filter binding above, pinned by libraryItemQueryFields, the kernel the manga
+        // library runs too, so one typed query means one thing on every row of the All list. The seam: a
+        // novel's source key is its plugin slug (manga supply a numeric id).
         val queryNode = query?.takeUnless { it.isBlank() }?.let(QueryNode::from)
         val queryFields = libraryItemQueryFields(
             sourceKey = sourceKey,
@@ -526,8 +529,8 @@ class NovelLibraryViewModel(
         val hasActiveFilters: Boolean = false,
         val showContinueButton: Boolean = false,
         /** The filtered, merge-collapsed rows before bucketing and sort, in pipeline order; the novel
-         *  split point the provider's row flow reads (the twin of manga's LibraryData.favorites). The
-         *  custom-info overlay is NOT applied here, matching the manga contract. */
+         *  split point the provider's row flow reads (the twin of manga's LibraryData.favorites, pinned by
+         *  LibraryProvider.rows). The custom-info overlay is NOT applied here, matching the manga contract. */
         val favorites: List<LibraryItem> = emptyList(),
         /** Per-rep mean tracker score (0-10, unscored reps absent), for the sort and the provider seam
          *  (LibraryProvider.trackerMeans). */
@@ -548,7 +551,8 @@ class NovelLibraryViewModel(
 
         // These resolve an explicit id set rather than reading the selection, so a bulk action is driven
         // by the ids its caller passes. That is what lets the shared engine own a selection spanning both
-        // content types and hand each provider only its own ids. Mirrors the manga library.
+        // content types and hand each provider only its own ids. Mirrors the manga library, pinned by
+        // LibraryBehavior's EntryId-set verbs and the anyMerged / memberIdsOf kernels below.
 
         /** Any of [ids] is a merge group (drives the bulk Unmerge action). */
         fun containsMerged(ids: Collection<Long>): Boolean = favoritesById.anyMerged(ids)
@@ -559,7 +563,8 @@ class NovelLibraryViewModel(
         /**
          * The one place the overlay is applied, reached through the provider seam
          * (LibraryProvider.overlaid) at the shared assembly's display read, so the overrides never reach
-         * the raw rows that filter, sort and search read. Mirrors the manga library.
+         * the raw rows that filter, sort and search read. Mirrors the manga library, pinned by
+         * [withCustomInfo].
          */
         fun withOverlay(item: LibraryItem): LibraryItem = item.withCustomInfo(customInfo[item.id])
 

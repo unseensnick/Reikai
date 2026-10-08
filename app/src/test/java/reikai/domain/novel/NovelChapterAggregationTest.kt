@@ -93,8 +93,8 @@ class NovelChapterAggregationTest {
         unified.numbers() shouldBe listOf(0.0, 1.0, 2.0, 3.0)
     }
 
-    // Cross-source read carry-over, the twin of MergedChapterProviderTest's manga cases. Run over the
-    // shared kernel, against the units this stitch produced, which is what every surface reads.
+    // Cross-source read carry-over against the units this novel stitch produces, which is what every
+    // surface reads. The rule itself is flaggedOnAnotherSource, pinned once for both types by StoredStitchTest.
 
     private fun readInOtherSources(byNovel: Map<Long, List<NovelChapter>>): Set<Long> {
         val merged = NovelChapterAggregation.merge(byNovel)

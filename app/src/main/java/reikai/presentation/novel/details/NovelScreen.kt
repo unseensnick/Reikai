@@ -60,10 +60,11 @@ import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
 
 /**
- * Light-novel details screen, the novel twin of `MangaScreen`. Builds a [NovelEntryAdapter] over the
- * novel model and delegates the whole body to the shared [EntryDetailsContent], so a details change is
- * written once and reaches both content types. Only novel-specific navigation (the reader, notes, the
- * page selector) and the per-type dialogs live here; the shared dialogs go through [EntryDetailsDialogHost].
+ * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
+ * [NovelEntryAdapter] over the novel model and delegates the whole body to the shared content, so a
+ * details change is written once and reaches both content types. Only novel-specific navigation (the
+ * reader, notes, the page selector) and the per-type dialogs live here; the shared dialogs go through
+ * [EntryDetailsDialogHost].
  */
 class NovelScreen(
     // Public so the migrate flow can identity-check the screen below it before replacing.

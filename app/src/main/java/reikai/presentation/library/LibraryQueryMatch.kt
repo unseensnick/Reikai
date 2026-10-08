@@ -18,7 +18,7 @@ import kotlin.time.Instant
 
 /**
  * Per-entry accessors [libraryQueryMatches] reads, so search never depends on the concrete row type.
- * The twin of [LibraryFilterFields]: each library supplies getters over its own row while the grammar
+ * The search counterpart of [LibraryFilterFields]: each library supplies getters over its own row while the grammar
  * stays upstream and unpatched, so one typed query means one thing on every row of the mixed list.
  */
 class LibraryQueryFields<T>(

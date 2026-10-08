@@ -1033,7 +1033,8 @@ class NovelDetailsViewModel(
         viewModelScope.launchIO {
             val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return@launchIO
             if (!novel.favorite) {
-                // Warn on a similarly-named library novel before adding (mirrors MangaViewModel).
+                // Warn on a similarly-named library novel before adding (mirrors MangaViewModel, pinned by
+                // duplicatePrompt, which both adders' findDuplicates build through).
                 novelLibraryAdder.findDuplicates(novel.id, novel.title)?.let { prompt ->
                     showDialog(NovelDetailsDialog.DuplicateNovel(prompt))
                     return@launchIO
@@ -1128,7 +1129,7 @@ class NovelDetailsViewModel(
      *  row (a blank field, or an Unknown status, stores nothing, so that field tracks the source again).
      *  The novels row is never touched, so Reset restores the source cleanly. Takes the neutral
      *  [EntryEditInfoUi] (as the manga side already does) and runs non-cancellable, so a mid-write screen
-     *  close does not drop the edit (mirrors MangaViewModel.saveMangaInfo). */
+     *  close does not drop the edit (mirrors MangaViewModel.saveMangaInfo, pinned by [overridesOver]). */
     fun saveNovelInfo(edited: EntryEditInfoUi) {
         val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         viewModelScope.launchNonCancellable {
@@ -1370,7 +1371,7 @@ class NovelDetailsViewModel(
 
     /** Expand [chapters] to every grouped source's copy of the same merged chapters, so read /
      *  bookmark applies across the whole group. No-op when not merged. Mirrors
-     *  MangaViewModel.expandToGroup, off the same stored stitch. */
+     *  MangaViewModel.expandToGroup, pinned by EntryMergeGroupHost.expandToGroup over the same stored stitch. */
     private suspend fun expandToGroup(chapters: List<NovelChapter>): List<NovelChapter> =
         mergeGroup.expandToGroup(chapters, { it.id }, ::groupStitch, ::groupChaptersIn)
 
@@ -1408,7 +1409,8 @@ class NovelDetailsViewModel(
     )
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
-     *  manga path's `executeChapterSwipeAction`; the download mapping is [swipeDownloadAction]). */
+     *  manga path's `executeChapterSwipeAction`; the download mapping is [swipeDownloadAction]). No pin:
+     *  the manga dispatch is upstream code, which keeps its own copy of that mapping. */
     fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.

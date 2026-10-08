@@ -31,8 +31,9 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Adapts the Reikai [NovelLibraryViewModel] to the neutral [LibraryBehavior], the novel twin of
- * [MangaLibraryAdapter]. Maps the novel state into [LibraryScreenState] and reconciles the per-type action
- * shapes here (a neutral [EntryId] set narrows to the novel model's raw ids), never in the model.
+ * [MangaLibraryAdapter], pinned by [LibraryProvider]. Maps the novel state into [LibraryScreenState] and
+ * reconciles the per-type action shapes here (a neutral [EntryId] set narrows to the novel model's raw
+ * ids), never in the model.
  */
 @AssistedInject
 class NovelLibraryAdapter(

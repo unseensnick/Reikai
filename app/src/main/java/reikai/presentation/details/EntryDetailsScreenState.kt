@@ -98,7 +98,7 @@ data class EntryMergeSource(val id: Long, val sourceName: String)
 
 /**
  * The chapter region: the rendered rows (chapters interleaved with "N missing" separators) plus the
- * hidden-chapter view. Mirrors the novel's existing shape so the mapping is a rename, not a reshape.
+ * hidden-chapter view. Mirrors the novel's existing shape (type only), so the mapping is a rename, not a reshape.
  */
 @Immutable
 data class EntryChapterListUiState(
@@ -118,7 +118,8 @@ data class EntryChapterListUiState(
 
 /**
  * One row in the neutral chapter list: a chapter or a "N missing chapters" separator. The neutral twin of
- * the manga `ChapterList.Item` / `ChapterList.MissingCount` and the novel [reikai.domain.novel.NovelChapterListEntry].
+ * the manga `ChapterList.Item` / `ChapterList.MissingCount` and the novel [reikai.domain.novel.NovelChapterListEntry],
+ * type only.
  */
 sealed interface EntryChapterListItem {
     @Immutable

@@ -47,7 +47,8 @@ fun adultLookupKeys(rows: List<LibraryItem>, sourceKey: (LibraryItem) -> String)
     rows.flatMapTo(mutableSetOf()) { row -> row.allSources(sourceKey(row)).map { it.key } }
 
 /**
- * The search twin of [libraryItemFilterFields], binding the shared query kernel onto the library row.
+ * The search counterpart of [libraryItemFilterFields], binding the shared query kernel onto the library
+ * row; both libraries call this one function.
  * Four seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
  * [chapterMatches] is the per-term id set each side resolved once; [overlay] supplies custom-info
  * overrides by row id, as a map lookup rather than a copied row, since filter, sort and grouping all read
@@ -99,7 +100,7 @@ fun LibraryItem.withCustomInfo(custom: EntryCustomInfo?): LibraryItem {
 }
 
 /**
- * The sort twin of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker
+ * The sort counterpart of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker
  * mean, which each content type precomputes over its own track table (deduped per tracker, unrated
  * scores dropped) and hands in keyed by the row's own id.
  */
