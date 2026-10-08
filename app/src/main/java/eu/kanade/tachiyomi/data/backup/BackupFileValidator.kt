@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
+import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
@@ -12,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
+import eu.kanade.tachiyomi.data.backup.models.novelSourceName
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -78,7 +80,7 @@ class BackupFileValidator(
         // backup older than that list.
         val missingNovelSources = novelSources
             .filter { novelSourceManager.get(it) == null }
-            .map { novelSourceNames[it]?.ifBlank { null } ?: it }
+            .map(novelSourceNames::novelSourceName)
 
         return Results(
             (missingSources + missingNovelSources).distinct().sorted(),
@@ -137,20 +139,23 @@ class BackupFileValidator(
         try {
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 when (fieldNumber) {
-                    1 -> parser.decodeFromByteArray(BackupManga.serializer(), data)
+                    BackupFields.MANGA -> parser.decodeFromByteArray(BackupManga.serializer(), data)
                         .tracking.forEach { scanned.trackerIds.add(it.syncId.toLong()) }
-                    101 -> scanned.backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
-                    700 -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
+                    BackupFields.SOURCES ->
+                        scanned.backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
+                    BackupFields.NOVELS -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
                         scanned.novelSources.add(novel.source)
                         novel.tracking.forEach { scanned.trackerIds.add(it.trackerId) }
                     }
-                    717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
+                    BackupFields.NOVEL_SOURCES -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                         scanned.novelSourceNames[it.sourceId] = it.name
                     }
-                    710 -> scanned.backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
-                    104 -> parser.decodeFromByteArray(BackupPreference.serializer(), data).let { (key, value) ->
-                        if (key in pluginKeys) scanned.pluginPreferences[key] = value
-                    }
+                    BackupFields.EXTENSIONS ->
+                        scanned.backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
+                    BackupFields.PREFERENCES ->
+                        parser.decodeFromByteArray(BackupPreference.serializer(), data).let { (key, value) ->
+                            if (key in pluginKeys) scanned.pluginPreferences[key] = value
+                        }
                 }
             }
         } catch (e: Exception) {

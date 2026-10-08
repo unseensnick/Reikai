@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
+import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
@@ -138,7 +139,13 @@ class BackupCreator(
                 // Field 1: manga, then field 700 (RK): novels, each streamed through the driver shared
                 // by both types, which decides which series are backed up and what each carries.
                 if (includeManga) {
-                    writeEntries(out, gzipOut, 1, BackupManga.serializer(), options.backupEntries(mangaBackupCreator)) {
+                    writeEntries(
+                        out,
+                        gzipOut,
+                        BackupFields.MANGA,
+                        BackupManga.serializer(),
+                        options.backupEntries(mangaBackupCreator),
+                    ) {
                         sourceIds.add(it.source)
                     }
                 }
@@ -146,7 +153,7 @@ class BackupCreator(
                     writeEntries(
                         out,
                         gzipOut,
-                        700,
+                        BackupFields.NOVELS,
                         BackupNovel.serializer(),
                         options.backupEntries(novelBackupCreator),
                     ) {
@@ -156,36 +163,76 @@ class BackupCreator(
 
                 // Remaining fields are small (no per-entry chapter payload), so they are gathered and
                 // written after the streamed entries. Field order is irrelevant to the decoder.
-                writeEach(out, 2, BackupCategory.serializer(), backupCategories(options))
-                writeEach(out, 101, BackupSource.serializer(), sourcesBackupCreator.forSourceIds(sourceIds))
-                writeEach(out, 104, BackupPreference.serializer(), backupAppPreferences(options))
-                writeEach(out, 105, BackupSourcePreferences.serializer(), backupSourcePreferences(options))
-                writeEach(out, 106, BackupExtensionStore.serializer(), backupExtensionStores(options))
-                writeEach(out, 710, BackupExtension.serializer(), backupExtensions(options))
-                writeEach(out, 717, BackupNovelSource.serializer(), novelBackupCreator.sources(novelSourceIds))
+                writeEach(out, BackupFields.CATEGORIES, BackupCategory.serializer(), backupCategories(options))
+                writeEach(
+                    out,
+                    BackupFields.SOURCES,
+                    BackupSource.serializer(),
+                    sourcesBackupCreator.forSourceIds(sourceIds),
+                )
+                writeEach(out, BackupFields.PREFERENCES, BackupPreference.serializer(), backupAppPreferences(options))
+                writeEach(
+                    out,
+                    BackupFields.SOURCE_PREFERENCES,
+                    BackupSourcePreferences.serializer(),
+                    backupSourcePreferences(options),
+                )
+                writeEach(
+                    out,
+                    BackupFields.EXTENSION_STORES,
+                    BackupExtensionStore.serializer(),
+                    backupExtensionStores(options),
+                )
+                writeEach(out, BackupFields.EXTENSIONS, BackupExtension.serializer(), backupExtensions(options))
+                writeEach(
+                    out,
+                    BackupFields.NOVEL_SOURCES,
+                    BackupNovelSource.serializer(),
+                    novelBackupCreator.sources(novelSourceIds),
+                )
                 if (includeManga) {
-                    writeEach(out, 711, BackupMangaMergeGroup.serializer(), backupMangaMergeGroups(options))
+                    writeEach(
+                        out,
+                        BackupFields.MANGA_MERGES,
+                        BackupMangaMergeGroup.serializer(),
+                        backupMangaMergeGroups(options),
+                    )
                 }
                 // Novel categories ride the Categories option alone, like manga's field 2: a
                 // categories-only backup (Library entries off) must still carry both types' rows,
                 // or restoring it recreates only half the category list.
-                writeEach(out, 701, BackupNovelCategory.serializer(), novelBackupCreator.novelCategories(options))
+                writeEach(
+                    out,
+                    BackupFields.NOVEL_CATEGORIES,
+                    BackupNovelCategory.serializer(),
+                    novelBackupCreator.novelCategories(options),
+                )
                 if (includeNovels) {
-                    writeEach(out, 702, BackupNovelMergeGroup.serializer(), novelBackupCreator.novelMerges(options))
+                    writeEach(
+                        out,
+                        BackupFields.NOVEL_MERGES,
+                        BackupNovelMergeGroup.serializer(),
+                        novelBackupCreator.novelMerges(options),
+                    )
                 }
                 if (options.savedSearches) {
-                    writeEach(out, 715, BackupSavedSearch.serializer(), feedBackupCreator.savedSearches())
-                    writeEach(out, 716, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
+                    writeEach(
+                        out,
+                        BackupFields.SAVED_SEARCHES,
+                        BackupSavedSearch.serializer(),
+                        feedBackupCreator.savedSearches(),
+                    )
+                    writeEach(out, BackupFields.FEED_ROWS, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
                 // Not through writeEach: a marker alone is not content, so the empty-backup guard ignores it.
                 BackupProtoWriter.writeField(
                     out,
-                    718,
+                    BackupFields.MERGE_GROUPS_STORED,
                     parser.encodeToByteArray(BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored()),
                 )
                 BackupProtoWriter.writeField(
                     out,
-                    719,
+                    BackupFields.SORT_OVERRIDES_STORED,
                     parser.encodeToByteArray(BackupSortOverridesStored.serializer(), BackupSortOverridesStored()),
                 )
 

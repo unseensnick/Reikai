@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
+import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
@@ -24,6 +25,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
+import eu.kanade.tachiyomi.data.backup.models.novelSourceName
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
@@ -238,29 +240,41 @@ class BackupRestorer(
 
         BackupProtoReader(context).read(uri) { fieldNumber, data ->
             when (fieldNumber) {
-                1 -> mangaCount++
-                700 -> novelCount++
-                2 -> backupCategories.add(parser.decodeFromByteArray(BackupCategory.serializer(), data))
-                101 -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
-                104 -> backupPreferences.add(parser.decodeFromByteArray(BackupPreference.serializer(), data))
-                105 -> backupSourcePreferences.add(
+                BackupFields.MANGA -> mangaCount++
+                BackupFields.NOVELS -> novelCount++
+                BackupFields.CATEGORIES ->
+                    backupCategories.add(parser.decodeFromByteArray(BackupCategory.serializer(), data))
+                BackupFields.SOURCES -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
+                BackupFields.PREFERENCES ->
+                    backupPreferences.add(parser.decodeFromByteArray(BackupPreference.serializer(), data))
+                BackupFields.SOURCE_PREFERENCES -> backupSourcePreferences.add(
                     parser.decodeFromByteArray(BackupSourcePreferences.serializer(), data),
                 )
-                106 -> backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
-                711 -> backupMangaMerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
-                713 -> backupCustomMangaInfo.add(parser.decodeFromByteArray(BackupCustomMangaInfo.serializer(), data))
-                701 -> backupNovelCategories.add(parser.decodeFromByteArray(BackupNovelCategory.serializer(), data))
-                702 -> backupNovelMerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
-                714 -> backupCustomNovelInfo.add(parser.decodeFromByteArray(BackupCustomNovelInfo.serializer(), data))
-                715 -> backupSavedSearches.add(parser.decodeFromByteArray(BackupSavedSearch.serializer(), data))
-                716 -> backupFeedRows.add(parser.decodeFromByteArray(BackupFeedRow.serializer(), data))
-                717 -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
+                BackupFields.EXTENSION_STORES ->
+                    backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
+                BackupFields.MANGA_MERGES ->
+                    backupMangaMerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
+                BackupFields.CUSTOM_MANGA_INFO ->
+                    backupCustomMangaInfo.add(parser.decodeFromByteArray(BackupCustomMangaInfo.serializer(), data))
+                BackupFields.NOVEL_CATEGORIES ->
+                    backupNovelCategories.add(parser.decodeFromByteArray(BackupNovelCategory.serializer(), data))
+                BackupFields.NOVEL_MERGES ->
+                    backupNovelMerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
+                BackupFields.CUSTOM_NOVEL_INFO ->
+                    backupCustomNovelInfo.add(parser.decodeFromByteArray(BackupCustomNovelInfo.serializer(), data))
+                BackupFields.SAVED_SEARCHES ->
+                    backupSavedSearches.add(parser.decodeFromByteArray(BackupSavedSearch.serializer(), data))
+                BackupFields.FEED_ROWS ->
+                    backupFeedRows.add(parser.decodeFromByteArray(BackupFeedRow.serializer(), data))
+                BackupFields.NOVEL_SOURCES -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                     novelSourceNames[it.sourceId] = it.name
                 }
-                712 -> backupMangaUnmerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
-                703 -> backupNovelUnmerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
-                718 -> mergeGroupsStored = true
-                719 -> sortOverridesStored = true
+                BackupFields.MANGA_UNMERGES ->
+                    backupMangaUnmerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
+                BackupFields.NOVEL_UNMERGES ->
+                    backupNovelUnmerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
+                BackupFields.MERGE_GROUPS_STORED -> mergeGroupsStored = true
+                BackupFields.SORT_OVERRIDES_STORED -> sortOverridesStored = true
             }
         }
 
@@ -343,7 +357,7 @@ class BackupRestorer(
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
             restoreEntryStream(
                 uri,
-                fieldNumber = 700,
+                fieldNumber = BackupFields.NOVELS,
                 decode = {
                     summary.legacyCustomInfo.decodeNovel(parser, it).also { novel ->
                         if (!summary.mergeGroupsStored && novel.favorite) {
@@ -357,7 +371,7 @@ class BackupRestorer(
                 },
                 restore = { novelRestorer.restore(it, membershipCategories) },
                 title = { it.title },
-                sourceName = { summary.novelSourceNames[it.source]?.ifBlank { null } ?: it.source },
+                sourceName = { summary.novelSourceNames.novelSourceName(it.source) },
                 isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
             )
             restoreIsolated("novel custom info") {
@@ -433,7 +447,7 @@ class BackupRestorer(
         val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
         restoreEntryStream(
             uri,
-            fieldNumber = 1,
+            fieldNumber = BackupFields.MANGA,
             decode = {
                 legacyCustomInfo.decodeManga(parser, it).also { manga ->
                     if (!summary.mergeGroupsStored && manga.favorite) {

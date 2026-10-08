@@ -10,3 +10,6 @@ data class BackupNovelSource(
     @ProtoNumber(1) var name: String = "",
     @ProtoNumber(2) var sourceId: String,
 )
+
+/** What a backed-up novel's source is called: the name the backup recorded, or its id in one older than that list. */
+fun Map<String, String>.novelSourceName(sourceId: String): String = this[sourceId]?.ifBlank { null } ?: sourceId
