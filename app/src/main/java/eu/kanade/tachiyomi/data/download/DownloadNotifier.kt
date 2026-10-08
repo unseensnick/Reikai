@@ -16,6 +16,8 @@ import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import reikai.data.notification.downloadErrorTitle
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.isHiddenAdult
@@ -43,6 +45,8 @@ class DownloadNotifier(
 ) {
 
     private val adultChecker by lazy { adultCheckerProvider() } // RK
+
+    private val progressLock = Mutex() // RK: see onProgressChange
 
     // RK: names the entry by its Edit info title; the download folder keeps the source's
     private suspend fun shownTitle(manga: Manga): String =
@@ -84,8 +88,10 @@ class DownloadNotifier(
      *
      * @param download download object containing download information.
      */
-    // RK: suspends for the adult verdict, which keeps adult titles out of this notification too
-    suspend fun onProgressChange(download: Download) {
+    // RK: suspends for the adult verdict, which keeps adult titles out of this notification too, so the pages
+    //     that report from several threads and share the builder take a Mutex where upstream has @Synchronized,
+    //     whose monitor does not hold across a suspension
+    suspend fun onProgressChange(download: Download) = progressLock.withLock {
         // RK -->
         val hidden = hiddenEntryIds(
             listOf(download.manga),

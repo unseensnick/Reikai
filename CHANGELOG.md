@@ -579,6 +579,7 @@ agent under Settings -> Advanced.
 - **Downloaded novel chapters show as downloaded as soon as the app opens.**
 - **Novel plugin repos in Browse -> Extensions now refresh when you pull down, rather than each time you come back or install a plugin.**
 - **A downloaded manga chapter now records its upload date in its ComicInfo.xml, and the local source reads a chapter's date from it (from Mihon).** Move the folder into the local source later and the date comes with it. Upstream: mihonapp/mihon#3967.
+- **Manga downloads start a source's next chapter while the last pages of the current one finish (from Mihon).** Novel chapters still download one at a time, paced per source. Upstream: mihon 730e43fd1.
 
 #### Fixed
 
@@ -627,6 +628,7 @@ agent under Settings -> Advanced.
 - **Manga download badges now notice chapters you delete outside the app.**
 - **Manga chapters from a group with "/" in its name now stay found after downloading (from Mihon).** Upstream: mihon a5d584eeb.
 - **Below Android 17, a damaged compiled copy of an extension can no longer crash the app on every launch (from Mihon).** Upstream: mihon 6d4ed6cb2.
+- **Pausing and resuming manga downloads no longer leaves duplicate "(1)" pages or failed chapters (from Mihon).** Upstream: mihon 6490c41e6.
 
 ### Backup & restore
 
