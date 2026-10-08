@@ -1,6 +1,7 @@
 package reikai.domain.recommendation.taste
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import reikai.util.DisjointSet
 import kotlin.math.abs
 
@@ -13,7 +14,14 @@ import kotlin.math.abs
  * with equal completed and dropped counts cannot divide by zero.
  */
 @Inject
-class ComputeTasteProfile {
+class ComputeTasteProfile(trackerManager: TrackerManager) {
+
+    // AniList carries the richest tags, so its row wins over MyAnimeList's, and MyAnimeList's over Kitsu's.
+    private val trackerPriority = mapOf(
+        trackerManager.aniList.id to 0,
+        trackerManager.myAnimeList.id to 1,
+        trackerManager.kitsu.id to 2,
+    )
 
     operator fun invoke(entries: List<TrackedEntry>): TasteProfile {
         val unique = entries.dedupedAcrossTrackers()
@@ -66,14 +74,11 @@ class ComputeTasteProfile {
             entry.anilistId?.let { sets.union(firstByAnilist.getOrPut(it) { index }, index) }
         }
         return indices.groupBy(sets::find).values.map { series ->
-            this[series.minBy { TRACKER_PRIORITY[this[it].trackerId] ?: Int.MAX_VALUE }]
+            this[series.minBy { trackerPriority[this[it].trackerId] ?: Int.MAX_VALUE }]
         }
     }
 
     companion object {
-        // TrackerManager's persisted ids (MyAnimeList 1, AniList 2, Kitsu 3); AniList carries the richest tags.
-        private val TRACKER_PRIORITY = mapOf(2L to 0, 1L to 1, 3L to 2)
-
         val STATUS_WEIGHTS: Map<TrackStatus, Double> = mapOf(
             TrackStatus.COMPLETED to 1.0,
             TrackStatus.READING to 0.7,
