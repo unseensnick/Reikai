@@ -12,7 +12,6 @@ import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import reikai.domain.novel.NovelPreferences
@@ -53,13 +52,13 @@ class NovelFontsViewModel(
     private val novelPreferences: NovelPreferences,
 ) : ViewModel() {
 
-    private val mutableState = MutableStateFlow(NovelFontsState())
-    val state: StateFlow<NovelFontsState> = mutableState.asStateFlow()
+    val state: StateFlow<NovelFontsState>
+        field = MutableStateFlow(NovelFontsState())
 
     init {
         viewModelScope.launch {
             novelPreferences.readerFontFamily().changes().collect { family ->
-                mutableState.update { it.copy(selected = family) }
+                state.update { it.copy(selected = family) }
             }
         }
         refresh()
@@ -68,22 +67,22 @@ class NovelFontsViewModel(
     fun select(family: String) = novelPreferences.readerFontFamily().set(family)
 
     fun showDialog(dialog: NovelFontDialog) {
-        mutableState.update { it.copy(dialog = dialog) }
+        state.update { it.copy(dialog = dialog) }
         if (dialog is NovelFontDialog.Browse && state.value.catalogue.isEmpty()) loadCatalogue()
     }
 
     /** Left empty on a failure rather than raised: the dialog still takes a name typed by hand. */
     private fun loadCatalogue() {
-        mutableState.update { it.copy(catalogueLoading = true) }
+        state.update { it.copy(catalogueLoading = true) }
         viewModelScope.launch {
             val families = fontManager.googleFontCatalogue()
-            mutableState.update { it.copy(catalogue = families, catalogueLoading = false) }
+            state.update { it.copy(catalogue = families, catalogueLoading = false) }
         }
     }
 
-    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
+    fun dismissDialog() = state.update { it.copy(dialog = null) }
 
-    fun dismissError() = mutableState.update { it.copy(error = null) }
+    fun dismissError() = state.update { it.copy(error = null) }
 
     fun import(uri: Uri) {
         dismissDialog()
@@ -111,11 +110,11 @@ class NovelFontsViewModel(
 
     /** Selecting what just arrived, because adding a font is only ever a step towards reading in it. */
     private fun add(work: suspend () -> Result<NovelFont>) {
-        mutableState.update { it.copy(busy = true, error = null) }
+        state.update { it.copy(busy = true, error = null) }
         viewModelScope.launch {
             val result = work()
             result.getOrNull()?.let { select(it.fileName) }
-            mutableState.update { it.copy(busy = false, error = result.exceptionOrNull()?.messageRes()) }
+            state.update { it.copy(busy = false, error = result.exceptionOrNull()?.messageRes()) }
             refresh()
         }
     }
@@ -126,7 +125,7 @@ class NovelFontsViewModel(
             val files = fonts.mapNotNull { font ->
                 fontManager.localFile(font.fileName)?.let { font.fileName to it }
             }
-            mutableState.update { it.copy(fonts = fonts, fontFiles = files.toMap()) }
+            state.update { it.copy(fonts = fonts, fontFiles = files.toMap()) }
         }
     }
 }

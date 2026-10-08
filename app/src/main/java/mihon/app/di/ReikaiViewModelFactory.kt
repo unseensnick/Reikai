@@ -11,9 +11,8 @@ import dev.zacsweers.metrox.viewmodel.ViewModelAssistedFactory
 import kotlin.reflect.KClass
 
 /**
- * Builds every graph-contributed ViewModel. Only models carrying `@ViewModelKey` (plain) or an
- * assisted-factory key reach these maps; anything still on its own `viewModelFactory` companion is
- * unaffected, which is what lets the conversion land screen by screen.
+ * Builds every graph-contributed ViewModel: models carrying `@ViewModelKey` (plain) or an
+ * assisted-factory key. A model built by hand through its own `viewModelFactory` never reaches it.
  */
 @Inject
 @SingleIn(AppScope::class)

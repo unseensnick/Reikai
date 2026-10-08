@@ -100,7 +100,7 @@ What the audit found, and what this change did about it:
   injected class rather than an object, threaded through `MangaCoverFetcher`'s two factories.
 - **`NovelDownloadManager` arrived plain at five UI entry points** while six other callers deferred
   it. Only `NovelDetailsViewModel` was a port regression; the rest were eager before too, through
-  `= Injekt.get()` defaults, which Kotlin evaluates at construction. All five take a `Provider` now,
+  `= Injekt.get()` defaults, which Kotlin evaluates at construction. All five take a `() -> T` now,
   and `NovelUpdatesViewModel` needed a `flow { emitAll(...) }` besides, because its property
   initializer touched the manager whatever the parameter type said.
 - **Six dead `AppGraph` accessors** deleted, and the comment claiming those interactors were
@@ -209,7 +209,7 @@ three named per-surface entry points as default interface methods, so the invari
 constructor guarded (a caller cannot build an adapter whose models and declared surface disagree)
 survives; only `create` is newly reachable, which Metro gives no way to hide.
 
-**Deferral is a `Provider` now, not a lazy delegate.** Where construction timing was load-bearing it
+**Deferral is a `() -> T` parameter now, not a lazy delegate.** Where construction timing was load-bearing it
 is expressed in the type: `NovelDownloadManager` in `MigrateNovelUseCase`, `RepairNovelDetails` and
 `NovelRecentsAdapter`; `AdultContentChecker` in `LibraryUpdateNotifier`; `GalleryAdder` in
 `BatchAddViewModel`. The manager is the one that matters: constructing it restores the persisted
