@@ -28,6 +28,11 @@ object TrackFieldMutations {
             track.status = tracker.getReadingStatus()
         }
         track.last_chapter_read = chapterNumber.toDouble()
+        completeAtTotal(tracker, track)
+    }
+
+    /** Progress reaching a known total completes the entry; a tracker's own read push calls it too. */
+    fun completeAtTotal(tracker: Tracker, track: Track) {
         if (track.total_chapters != 0L && track.last_chapter_read.toLong() == track.total_chapters) {
             track.status = tracker.getCompletionStatus()
             track.finished_reading_date = System.currentTimeMillis()

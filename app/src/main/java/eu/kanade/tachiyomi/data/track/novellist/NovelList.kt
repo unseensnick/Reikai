@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.network.HttpException
 import reikai.data.track.MetadataAccess
 import reikai.data.track.TenPointScore
 import reikai.data.track.storeCheckedCredential
+import reikai.domain.track.TrackFieldMutations
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -114,9 +115,7 @@ class NovelList(id: Long) : BaseTracker(id, "NovelList"), DeletableTracker, Cook
     }
 
     override suspend fun update(track: Track, didReadChapter: Boolean): Track {
-        if (didReadChapter && track.status != COMPLETED) {
-            track.status = READING
-        }
+        if (didReadChapter) applyReadPush(track)
         write(track)
         return track
     }
@@ -242,6 +241,13 @@ internal fun statusOnBind(siteStatus: Long?, hasReadChapters: Boolean): Long = w
     siteStatus == null -> if (hasReadChapters) NovelList.READING else NovelList.PLAN_TO_READ
     hasReadChapters && siteStatus != NovelList.COMPLETED -> NovelList.READING
     else -> siteStatus
+}
+
+/** A read files the novel under Reading, or Completed once it reaches the total, unless already Completed. */
+internal fun NovelList.applyReadPush(track: Track) {
+    if (track.status == NovelList.COMPLETED) return
+    track.status = NovelList.READING
+    TrackFieldMutations.completeAtTotal(this, track)
 }
 
 /**
