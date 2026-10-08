@@ -71,7 +71,8 @@ class SourceListConformanceTest {
                         preferences.disabledSources.set(disabled)
                         preferences.enabledLanguages.set(if (languageOff) emptySet() else setOf("en"))
                         val source = Source(ID.toLong(), "en", "Site", supportsLatest = false, isStub = false)
-                        val repository = mockk<SourceRepository> { every { getSources() } returns flowOf(listOf(source)) }
+                        val repository =
+                            mockk<SourceRepository> { every { getSources() } returns flowOf(listOf(source)) }
                         GetEnabledSources(repository, preferences, ReikaiSourcePreferences(EmittingPreferenceStore()))
                             .subscribe().first()
                             .associate { "${it.id}" to (Pin.Pinned in it.pin) }
