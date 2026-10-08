@@ -21,7 +21,7 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * The host is the shared merge read wiring both details models compose. Its own responsibility is small:
- * resolve the group id -> chips for the first-render seed, and keep [EntryMergeGroupHost.relatedIds] +
+ * resolve the group from storage on [EntryMergeGroupHost.refresh], and keep [EntryMergeGroupHost.relatedIds] +
  * [EntryMergeGroupHost.chips] live off the injected anchor flow. The per-type source resolution is the
  * caller's closure, so it is stubbed here; the manager math is covered by the *MergeManagerTest classes.
  */
@@ -42,18 +42,11 @@ class EntryMergeGroupHostTest {
     )
 
     @Test
-    fun `seed returns the resolved chips`() = runTest {
-        val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
-
-        host(manager).seed(1L) shouldBe chips
-    }
-
-    @Test
-    fun `seed sets relatedIds to the computed group`() = runTest {
+    fun `refresh sets relatedIds to the computed group`() = runTest {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
 
         val host = host(manager)
-        host.seed(1L)
+        host.refresh(1L)
 
         host.relatedIds.toList() shouldBe listOf(1L, 2L)
     }
@@ -62,7 +55,7 @@ class EntryMergeGroupHostTest {
     fun `a selected source that leaves the group is dropped`() = runTest {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
         val host = host(manager)
-        host.seed(1L)
+        host.refresh(1L)
         host.selectSource(2L)
 
         // Migrating source 2 away seats its replacement in the group; the chip must not survive it,
@@ -76,7 +69,7 @@ class EntryMergeGroupHostTest {
     fun `a selected source that survives a split stays selected`() = runTest {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L) }
         val host = host(manager)
-        host.seed(1L)
+        host.refresh(1L)
         host.selectSource(2L)
 
         host.setRelated(longArrayOf(1L, 2L))
@@ -90,7 +83,7 @@ class EntryMergeGroupHostTest {
             coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L, 3L)
         }
         val host = host(manager)
-        host.seed(1L)
+        host.refresh(1L)
 
         // The anchor is split out of its own group, so the split returns the SURVIVORS, which are the
         // two entries the screen is NOT showing. Re-reading gives the anchor standing alone instead.
@@ -104,7 +97,7 @@ class EntryMergeGroupHostTest {
     fun `selecting a source outside the group is refused`() = runTest {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
         val host = host(manager)
-        host.seed(1L)
+        host.refresh(1L)
 
         host.selectSource(9L)
 
@@ -117,7 +110,7 @@ class EntryMergeGroupHostTest {
     private suspend fun mergedHost(selected: Long?): EntryMergeGroupHost {
         val manager = mockk<EntryMergeManager> { coEvery { computeRelatedIds(1L) } returns longArrayOf(1L, 2L) }
         return host(manager).also {
-            it.seed(1L)
+            it.refresh(1L)
             it.selectSource(selected)
         }
     }

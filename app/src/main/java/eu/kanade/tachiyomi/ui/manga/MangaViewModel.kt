@@ -58,24 +58,31 @@ import exh.source.ExhPreferences
 import exh.source.getMainSource
 import exh.source.isEhBasedManga
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.catch
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapNotNull
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
@@ -121,6 +128,7 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.track.EntryTrackPorts
 import reikai.domain.track.RemoteFirstRemoval
 import reikai.domain.track.autobind.AutoBindTrackers
+import reikai.domain.track.autobind.TrackingButtonState
 import reikai.domain.track.autobind.offerTrackers
 import reikai.domain.track.autobind.trackingButtonState
 import reikai.presentation.browse.AddOutcome
@@ -137,6 +145,8 @@ import reikai.presentation.details.EntryMergeActionHost
 import reikai.presentation.details.EntryMergeGroupHost
 import reikai.presentation.details.EntryMergeSource
 import reikai.presentation.details.EntryWebPage
+import reikai.presentation.details.ScanlatorFilterView
+import reikai.presentation.details.ShownWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
 import reikai.presentation.details.headerNamesWholeGroup
@@ -147,8 +157,6 @@ import reikai.presentation.details.overridesOver
 import reikai.presentation.details.resolveHiddenChapterView
 import reikai.presentation.details.scanlatorFilterView
 import reikai.presentation.details.scanlatorWrites
-import reikai.presentation.details.shownWebPages
-import reikai.presentation.details.webPageIn
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
@@ -176,12 +184,12 @@ import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaWithChapterCount
 import tachiyomi.domain.manga.model.asMangaCover
-import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.isLocal
 import kotlin.math.floor
+import kotlin.time.Duration.Companion.seconds
 
 // RK: max related candidates shown in the details carousel; the full pool is kept in the cache for
 // the "See all" browse grid.
@@ -216,7 +224,6 @@ class MangaViewModel(
     // here goes through GetTracksInGroup instead of Mihon's per-manga GetTracks.
     private val getTracksInGroup: GetTracksInGroup,
     // RK <--
-    private val mangaRepository: MangaRepository,
     private val filterChaptersForDownload: FilterChaptersForDownload,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     // RK -->
@@ -250,9 +257,6 @@ class MangaViewModel(
 
     val snackbarHostState = SnackbarHostState()
     private val addToLibraryOffer = AddToLibraryOffer(snackbarHostState, context) // RK
-
-    val state: StateFlow<State>
-        field = MutableStateFlow<State>(State.Loading)
 
     // RK: a gallery id to open in this screen's place, see observeExhRootRedirect
     private val exhRootRedirect = Channel<Long>(Channel.CONFLATED)
@@ -295,11 +299,15 @@ class MangaViewModel(
     val isUpdateIntervalEnabled =
         LibraryPreferences.MANGA_OUTSIDE_RELEASE_PERIOD in libraryPreferences.autoUpdateMangaRestrictions.get()
 
-    // RK: chapter multi-select, shared with novels through the kernel. It replaces upstream's
-    // first/last index window, which could disagree with the selection it described.
-    private var chapterSelection = SelectionState<Long>()
+    // RK --> every holder sits above the seed and the state: the seed starts running, and the state captures
+    // them, while the constructor is still running, and a holder declared below would still be null then.
 
-    // RK --> shared merge read/observe wiring: the group ids (just this manga when ungrouped), the selected
+    // Chapter multi-select, shared with novels through the kernel. It replaces upstream's first/last
+    // index window, which could disagree with the selection it described. The state shows it retained
+    // to the visible rows; the verbs retain it before they write.
+    private val chapterSelection = MutableStateFlow(SelectionState<Long>())
+
+    // Shared merge read/observe wiring: the group ids (just this manga when ungrouped), the selected
     // source chip, the membership observer, and the switcher chips. Written once in EntryMergeGroupHost so a
     // manga/novel drift like the old missing-refresh bug can't recur; the novel model composes the same host.
     // Manga's anchor is constant, so anchorChanges is mangaId alone and the host re-resolves on group
@@ -308,10 +316,7 @@ class MangaViewModel(
         mergeManager = mergeManager,
         initialIds = longArrayOf(mangaId),
         anchorChanges = flowOf(mangaId),
-        onSourceChange = { from, to ->
-            chapterSelection = EntrySelection.afterChipFlip(chapterSelection, from, to)
-            updateSuccessState { it.withChapterSelection() }
-        },
+        onSourceChange = { from, to -> chapterSelection.update { EntrySelection.afterChipFlip(it, from, to) } },
         resolveSources = { ids -> buildMergeSources(ids) },
     )
 
@@ -321,17 +326,238 @@ class MangaViewModel(
     private val showHiddenFlow = MutableStateFlow(false)
     // RK <--
 
-    /**
-     * Helper function to update the UI state only if it's currently in success state
-     */
-    private inline fun updateSuccessState(func: (State.Success) -> State.Success) {
-        state.update {
-            when (it) {
-                State.Loading -> it
-                is State.Success -> func(it)
+    private val dialog = MutableStateFlow<Dialog?>(null)
+
+    private val isRefreshingData = MutableStateFlow(false)
+
+    private val downloadStates = MutableStateFlow(emptyMap<Long, DownloadProgress>())
+
+    // A finished chapter leaves the queue, and its last status change can be lost with it, so its state is left to
+    // the queried item once it's no longer queued
+    private val queuedDownloadStates = combine(downloadStates, downloadManager.queueState) { states, queue ->
+        val queuedChapterIds = queue.mapTo(HashSet()) { it.chapter.id }
+        states.filterKeys { it in queuedChapterIds }
+    }
+
+    private val hideMissingChapters = libraryPreferences.hideMissingChapters.get()
+
+    // RK: what the page loads on its own rather than reads from the database: the cover tint, the page
+    // previews and the related carousel. previewsRowCount is read once, as before.
+    private val extras = MutableStateFlow(Extras(previewsRowCount = uiPreferences.previewsRowCount.get()))
+
+    // RK --> upstream's defaultChapterFlagsJob, which also seeds what the first state must already show: the
+    // merge group (so a merged series never shows its own source's list first), the refresh flag (which the
+    // related carousel waits on) and the page-preview spinner. Every input of the state waits for it.
+    private val seed = viewModelScope.async(Dispatchers.IO) {
+        val manga = getMangaAndChapters.awaitManga(mangaId)
+        // So an entry outside the library isn't shown with its old chapter settings first
+        if (!manga.favorite) {
+            setMangaDefaultChapterFlags.await(manga)
+        }
+        mergeGroup.refresh(mangaId)
+        val needRefreshInfo = !manga.initialized
+        val needRefreshChapter = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true).isEmpty()
+        isRefreshingData.value = needRefreshInfo || needRefreshChapter
+        val source = sourceManager.getOrStub(manga.source)
+        if (source.getMainSource<PagePreviewSource>() != null) {
+            extras.update { it.copy(pagePreviewsState = PagePreviewState.Loading) }
+            getPagePreviews(manga, source)
+        }
+        FirstFetch(details = needRefreshInfo, chapters = needRefreshChapter)
+    }
+
+    /** [flow] once [seed] has run, so no input reads the unseeded group or flags. */
+    private fun <T> seeded(flow: Flow<T>): Flow<T> = flow {
+        seed.await()
+        emitAll(flow)
+    }
+
+    // When the manga is part of a merge group, the chapter list is the aggregated union of every grouped
+    // source; otherwise it stays the single-source list.
+    private val chapterView = seeded(
+        combine(
+            flow { emitAll(getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true)) }
+                .distinctUntilChanged(),
+            mergeGroup.state,
+        ) { mangaAndChapters, group -> ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, group) },
+    )
+        // A download, the queue or a hide only re-renders the loaded rows, as upstream's combine does.
+        .loadThenRenderOn(
+            merge(
+                downloadCache.changes,
+                downloadManager.queueState,
+                hiddenChaptersPref.changes(),
+                showHiddenFlow,
+            ),
+        ) { (manga, ownChapters, group) ->
+            val selectedSource = group.selected
+            when {
+                selectedSource != null && group.ids.size > 1 ->
+                    singleSourceChaptersFlow(manga, selectedSource, group)
+                group.ids.size <= 1 ->
+                    flowOf(
+                        MergedChapters(
+                            manga = manga,
+                            chapters = ownChapters,
+                            mangaBySource = emptyMap(),
+                            flags = { ownFlags(ownChapters, manga) },
+                            numberHints = { ownChapters.numberHints(emptyMap(), manga) },
+                        ),
+                    )
+                else ->
+                    mergedChaptersFlow(manga, group)
             }
         }
+        .map { mc ->
+            val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource)
+            ChapterView(
+                merged = mc,
+                source = sourceManager.getOrStub(mc.manga.source),
+                hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource),
+                numberHints = mc.numberHints(),
+                downloadFolderOwner = downloadFolderOwnerOf(
+                    mc.displayManga,
+                    mc.mangaBySource.values.ifEmpty { listOf(mc.manga) },
+                ),
+            )
+        }
+
+    // The filter covers the sources on screen: the chip's, or every source of a merged series under All,
+    // whose unified list shows all their chapters (see GroupState.viewedIds).
+    private val scanlators = seeded(mergeGroup.state)
+        .flatMapLatest { group ->
+            val targets = group.viewedIds(mangaId)
+            val perTarget = targets.map { id ->
+                combine(
+                    getAvailableScanlators.subscribe(id),
+                    getExcludedScanlators.subscribe(id),
+                ) { available, excluded -> Triple(id, available, excluded) }
+            }
+            combine(perTarget) { rows ->
+                scanlatorFilterView(
+                    targets,
+                    availableById = rows.associate { (id, available, _) -> id to available },
+                    excludedById = rows.associate { (id, _, excluded) -> id to excluded },
+                )
+            }
+        }
+        .distinctUntilChanged()
+
+    // Resolved from the group's ids by the same resolver the host's own chips use, so the first state
+    // carries the chips of the seeded group rather than waiting on the host's collector.
+    private val mergeChips = seeded(mergeGroup.state)
+        .map { it.ids }
+        .distinctUntilChanged()
+        .map { buildMergeSources(it) }
+
+    // The active source's gallery metadata (primary when unified), so the tag chips and info box follow a
+    // source-chip switch, the first open's fetch storing it, and a gallery update rewriting it.
+    private val galleryMetadata = mergeGroup.selectedSourceChanges
+        .flatMapLatest { selected ->
+            val targetId = selected ?: mangaId
+            getFlatMetadataById.subscribe(targetId).map { flat -> raiseMetadata(flat, targetId) }
+        }
+
+    private val mergeInputs = combine(
+        scanlators,
+        // The overlay is applied at the display layer via Manga.withCustomInfo; the raw manga stays
+        // source-accurate.
+        getCustomMangaInfo.subscribe(mangaId).distinctUntilChanged(),
+        mergeChips,
+        mergeGroup.selectedSourceChanges,
+        galleryMetadata,
+        ::MergeInputs,
+    )
+
+    // Counted by the tracking sheet's own offer rule, the one the novel details screen runs too; the
+    // port's read spans the merge group.
+    private val trackers = flow { emit(trackPorts.of(EntryId.Manga(mangaId))) }
+        .flatMapLatest { port ->
+            combine(
+                port.tracks().catch { logcat(LogPriority.ERROR, it) },
+                trackerManager.loggedInTrackersFlow(),
+            ) { mangaTracks, loggedInTrackers ->
+                val offered = offerTrackers(port, loggedInTrackers, autoBindTrackers).offered
+                trackingButtonState(mangaTracks.map { it.trackerId }, offered)
+            }
+        }
+        .distinctUntilChanged()
+        .onStart { emit(TrackingButtonState(count = 0, hasTrackers = false)) }
+
+    // The shown member's web page, asked of the extension only when that member changes.
+    private val shownWebPage = ShownWebPage()
+    // RK <--
+
+    val state: StateFlow<State> = combine(
+        chapterView,
+        mergeInputs, // RK
+        trackers,
+        combine(chapterSelection, queuedDownloadStates, ::Pair),
+        combine(dialog, isRefreshingData, extras, ::Triple), // RK: extras
+    ) {
+            view,
+            merge,
+            tracking,
+            (selection, downloads),
+            (dialog, isRefreshingData, extras),
+        ->
+        val mc = view.merged
+        // RK --> a rebuilt list drops selected rows its filters no longer show, as novels do
+        val withDownloads = view.hidden.chapters.map { item ->
+            val download = downloads[item.id] ?: return@map item
+            item.copy(downloadState = download.status, downloadProgress = download.progress)
+        }
+        val selectedIds = if (selection.isEmpty) {
+            emptySet()
+        } else {
+            EntrySelection.retain(selection, withDownloads.applyFilters(mc.manga).map { it.id }.toList()).selection
+        }
+        // RK <--
+        State.Success(
+            manga = mc.manga,
+            source = view.source,
+            isFromSource = isFromSource,
+            chapters = if (selectedIds.isEmpty()) {
+                withDownloads
+            } else {
+                withDownloads.map { it.copy(selected = it.id in selectedIds) }
+            },
+            // RK -->
+            mergedMangaById = mc.mangaBySource,
+            mergeSources = merge.chips,
+            selectedSourceMangaId = merge.selectedSource,
+            mergeDisplayManga = mc.displayManga,
+            mergeDisplaySource = mc.displaySource,
+            downloadFolderOwner = view.downloadFolderOwner,
+            galleryMetadata = merge.galleryMetadata,
+            relatedItems = extras.relatedItems,
+            relatedTotalCount = extras.relatedTotalCount,
+            relatedLoading = extras.relatedLoading,
+            // RK <--
+            availableScanlators = merge.scanlators.available,
+            excludedScanlators = merge.scanlators.excluded,
+            trackingCount = tracking.count,
+            hasLoggedInTrackers = tracking.hasTrackers,
+            isRefreshingData = isRefreshingData,
+            dialog = dialog,
+            hideMissingChapters = hideMissingChapters,
+            // RK -->
+            showHidden = view.hidden.showHidden,
+            hasHiddenChapters = view.hidden.hasHiddenChapters,
+            hiddenChapterIds = view.hidden.hiddenChapterIds,
+            gapPresent = view.hidden.gapPresent,
+            numberHints = view.numberHints,
+            resumeChapter = view.hidden.resumeChapter,
+            customInfo = merge.customInfo,
+            seedColor = extras.seedColor,
+            pagePreviewsState = extras.pagePreviewsState,
+            previewsRowCount = extras.previewsRowCount,
+            webPage = shownWebPage.of(mc.displayManga ?: mc.manga, mc.displaySource ?: view.source),
+            // RK <--
+        )
     }
+        .flowOn(Dispatchers.IO)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
 
     // RK --> cover-based theming
     val themeCoverBased = uiPreferences.themeCoverBased.get()
@@ -350,275 +576,74 @@ class MangaViewModel(
         viewModelScope.launchIO {
             val color = EntryId.Manga(manga.id).seedColor { context.extractCoverColor(manga.asMangaCover()) }
                 ?: return@launchIO
-            updateSuccessState { it.copy(seedColor = Color(color)) }
+            extras.update { it.copy(seedColor = Color(color)) }
         }
     }
     // RK <--
 
     init {
         viewModelScope.launchIO {
-            // RK --> when the manga is part of a merge group, the chapter list is the aggregated
-            // union of every grouped source; otherwise it stays the single-source list.
-            combine(
-                getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true).distinctUntilChanged(),
-                mergeGroup.state,
-            ) { mangaAndChapters, group -> ChapterInputs(mangaAndChapters.first, mangaAndChapters.second, group) }
-                // A download, the queue or a hide only re-renders the loaded rows, as upstream's combine does.
-                .loadThenRenderOn(
-                    merge(
-                        downloadCache.changes,
-                        downloadManager.queueState,
-                        hiddenChaptersPref.changes(),
-                        showHiddenFlow,
-                    ),
-                ) { (manga, ownChapters, group) ->
-                    val selectedSource = group.selected
-                    when {
-                        selectedSource != null && group.ids.size > 1 ->
-                            singleSourceChaptersFlow(manga, selectedSource, group)
-                        group.ids.size <= 1 ->
-                            flowOf(
-                                MergedChapters(
-                                    manga = manga,
-                                    chapters = ownChapters,
-                                    mangaBySource = emptyMap(),
-                                    flags = { ownFlags(ownChapters, manga) },
-                                    numberHints = { ownChapters.numberHints(emptyMap(), manga) },
-                                ),
-                            )
-                        else ->
-                            mergedChaptersFlow(manga, group)
-                    }
-                }
-                .collectLatest { mc ->
-                    val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource)
-                    val hidden = applyHiddenChapters(items, mc.manga, mc.mangaBySource)
-                    updateSuccessState {
-                        val next = it.copy(
-                            manga = mc.manga,
-                            chapters = hidden.chapters,
-                            showHidden = hidden.showHidden,
-                            hasHiddenChapters = hidden.hasHiddenChapters,
-                            hiddenChapterIds = hidden.hiddenChapterIds,
-                            gapPresent = hidden.gapPresent,
-                            numberHints = mc.numberHints(),
-                            resumeChapter = hidden.resumeChapter,
-                            mergedMangaById = mc.mangaBySource,
-                            mergeDisplayManga = mc.displayManga,
-                            mergeDisplaySource = mc.displaySource,
-                            downloadFolderOwner = downloadFolderOwnerOf(
-                                mc.displayManga,
-                                mc.mangaBySource.values.ifEmpty { listOf(mc.manga) },
-                            ),
-                        )
-                        // A rebuilt list drops selected rows its filters no longer show, as novels do.
-                        val visibleIds = next.processedChapters.map { item -> item.id }
-                        chapterSelection = EntrySelection.retain(chapterSelection, visibleIds)
-                        next.withChapterSelection()
-                    }
-                }
-            // RK <--
+            // RK: a merged series lists every grouped source's chapters, so their downloads are followed too
+            merge(downloadManager.statusFlow(), downloadManager.progressFlow())
+                .filter { it.manga.id in mergeGroup.relatedIds }
+                .catch { logcat(LogPriority.ERROR, it) }
+                .collect(::updateDownloadState)
         }
 
-        // RK --> the filter covers the sources on screen: the chip's, or every source of a merged series
-        // under All, whose unified list shows all their chapters (see GroupState.viewedIds). Started once the
-        // page has loaded: an earlier value finds no state to land in, and the load's own seed is only the
-        // opened entry's, which the distinct stream would then never correct.
-        viewModelScope.launchIO {
-            state.first { it is State.Success }
-            mergeGroup.state
-                .flatMapLatest { group ->
-                    val targets = group.viewedIds(mangaId)
-                    val perTarget = targets.map { id ->
-                        combine(
-                            getAvailableScanlators.subscribe(id),
-                            getExcludedScanlators.subscribe(id),
-                        ) { available, excluded -> Triple(id, available, excluded) }
-                    }
-                    combine(perTarget) { rows ->
-                        scanlatorFilterView(
-                            targets,
-                            availableById = rows.associate { (id, available, _) -> id to available },
-                            excludedById = rows.associate { (id, _, excluded) -> id to excluded },
-                        )
-                    }
-                }
-                .distinctUntilChanged()
-                .collectLatest { view ->
-                    updateSuccessState {
-                        it.copy(availableScanlators = view.available, excludedScanlators = view.excluded)
-                    }
-                }
-        }
-        // RK <--
-
-        // RK: mirror the manga's custom-info overlay into state; a save re-emits and the display layer
-        // re-applies it via Manga.withCustomInfo (the raw `manga` field stays source-accurate).
-        viewModelScope.launchIO {
-            getCustomMangaInfo.subscribe(mangaId)
-                .distinctUntilChanged()
-                .collectLatest { customInfo ->
-                    updateSuccessState { it.copy(customInfo = customInfo) }
-                }
-        }
-
-        observeDownloads()
-
-        // RK --> start the shared merge read wiring (membership -> relatedIds -> chips), then mirror the
-        // host's chips + selection into state. The eager load below seeds the initial chips into
-        // State.Success; the host handles every later change (a split, or a source added to the group from
-        // global search) with no reopening, and the observer lives in the host so it can't drift per type.
+        // RK --> the host's membership observer stays eager: the merge verbs read its group synchronously.
         mergeGroup.observe(viewModelScope)
-        viewModelScope.launchIO {
-            mergeGroup.chips.collectLatest { chips ->
-                updateSuccessState { it.copy(mergeSources = chips) }
-            }
-        }
-        viewModelScope.launchIO {
-            mergeGroup.selectedSourceChanges.collectLatest { selected ->
-                updateSuccessState { it.copy(selectedSourceMangaId = selected) }
-            }
-        }
-        // Reactively load the active source's gallery metadata (primary when unified) so the tag
-        // chips + info box stay in sync. It matters on a first open: the source fetch stores the
-        // metadata AFTER State.Success is built, and this upgrades the flat view to the rich one
-        // without needing to back out and re-enter. Also refreshes on a source-chip switch or when
-        // a gallery-update rewrites the metadata.
-        viewModelScope.launchIO {
-            mergeGroup.selectedSourceChanges
-                .flatMapLatest { selected ->
-                    val targetId = selected ?: mangaId
-                    getFlatMetadataById.subscribe(targetId).map { flat -> targetId to flat }
-                }
-                .collectLatest { (targetId, flat) ->
-                    updateSuccessState { it.copy(galleryMetadata = raiseMetadata(flat, targetId)) }
-                }
-        }
         observeExhRootRedirect()
-        // The shown member's web page, asked of the extension off the main thread as upstream's assist link was.
-        viewModelScope.launchIO {
-            state.shownWebPages().collectLatest { page -> updateSuccessState { it.copy(webPage = page) } }
-        }
         // RK <--
 
         viewModelScope.launchIO {
-            val manga = getMangaAndChapters.awaitManga(mangaId)
-            // RK --> resolve the merge group so the combined chapter list builds on open
-            val mergeChips = mergeGroup.seed(mangaId)
-            // RK <--
-            val ownChapters = getMangaAndChapters.awaitChapters(mangaId, applyScanlatorFilter = true)
-            val chapterItems = ownChapters.toChapterListItems(manga, ownFlags(ownChapters, manga))
-            // RK: seed the hidden-chapters filter on first render so hidden chapters never flash in.
-            val hidden = applyHiddenChapters(chapterItems, manga, emptyMap())
-
-            if (!manga.favorite) {
-                setMangaDefaultChapterFlags.await(manga)
-            }
-
-            val needRefreshInfo = !manga.initialized
-            val needRefreshChapter = chapterItems.isEmpty() // RK: built from chapterItems
-
-            // Show what we have earlier
-            // RK: seed the primary source's gallery metadata too; same first-render race as the chips.
-            val galleryMetadata = loadGalleryMetadata(mangaId)
-            val source = sourceManager.getOrStub(manga.source)
-            // RK: kick off the page-preview fetch for supporting sources before building state.
-            val supportsPagePreview = source.getMainSource<PagePreviewSource>() != null
-            if (supportsPagePreview) {
-                getPagePreviews(manga, source)
-            }
-            state.update {
-                State.Success(
-                    manga = manga,
-                    source = source, // RK: resolved above for the page-preview check
-                    isFromSource = isFromSource,
-                    chapters = hidden.chapters,
-                    // RK: hide/unhide chapters seed
-                    showHidden = hidden.showHidden,
-                    hasHiddenChapters = hidden.hasHiddenChapters,
-                    hiddenChapterIds = hidden.hiddenChapterIds,
-                    gapPresent = hidden.gapPresent,
-                    numberHints = ownChapters.numberHints(emptyMap(), manga), // RK
-                    resumeChapter = hidden.resumeChapter,
-                    availableScanlators = getAvailableScanlators.await(mangaId),
-                    excludedScanlators = getExcludedScanlators.await(mangaId),
-                    isRefreshingData = needRefreshInfo || needRefreshChapter,
-                    dialog = null,
-                    hideMissingChapters = libraryPreferences.hideMissingChapters.get(),
-                    // RK: seed the merge chips so they show on first render (avoids a race where the
-                    // chip collector fired before State.Success existed)
-                    mergeSources = mergeChips,
-                    // RK: seeded over the entry alone, as the seeded chapters are; the flow widens it.
-                    downloadFolderOwner = downloadFolderOwnerOf(null, listOf(manga)),
-                    galleryMetadata = galleryMetadata,
-                    // RK: page-preview thumbnails + row count (0 = off) for adult sources.
-                    pagePreviewsState = if (supportsPagePreview) {
-                        PagePreviewState.Loading
-                    } else {
-                        PagePreviewState.Unused
-                    },
-                    previewsRowCount = uiPreferences.previewsRowCount.get(),
-                    // RK: seed the custom-info overlay so it shows on first render (before the reactive
-                    // collector fires), same pattern as the scanlator seeds above.
-                    customInfo = getCustomMangaInfo.subscribe(mangaId).first(),
-                    // RK: seeded so the web actions show on first render rather than popping in
-                    webPage = manga.webPageIn(source),
-                )
-            }
-
-            // Start observe tracking since it only needs mangaId
-            observeTrackers()
-
+            // RK: decided by the seed, before the first state, rather than from the loaded state as upstream
+            // does, so the refresh flag the first frame shows is already the right one
+            val fetch = seed.await()
             // Fetch info-chapters when needed
-            if ((needRefreshInfo || needRefreshChapter) && viewModelScope.isActive) {
+            if (fetch.details || fetch.chapters) {
                 fetchAllFromSource(
+                    manga = getMangaAndChapters.awaitManga(mangaId),
                     manualFetch = false,
-                    fetchDetails = needRefreshInfo,
-                    fetchChapters = needRefreshChapter,
+                    fetchDetails = fetch.details,
+                    fetchChapters = fetch.chapters,
                 )
+                isRefreshingData.value = false
             }
-
-            // Initial loading finished
-            updateSuccessState { it.copy(isRefreshingData = false) }
         }
     }
 
     // RK --> load the first page of gallery page previews for sources that support it.
     private fun getPagePreviews(manga: Manga, source: Source) {
         viewModelScope.launchIO {
-            when (val result = getPagePreviews.await(manga, source, 1)) {
-                is GetPagePreviews.Result.Error -> updateSuccessState {
-                    it.copy(pagePreviewsState = PagePreviewState.Error(result.error))
-                }
-                is GetPagePreviews.Result.Success -> updateSuccessState {
-                    it.copy(pagePreviewsState = PagePreviewState.Success(result.pagePreviews))
-                }
-                GetPagePreviews.Result.Unused -> updateSuccessState {
-                    it.copy(pagePreviewsState = PagePreviewState.Unused)
-                }
+            val previews = when (val result = getPagePreviews.await(manga, source, 1)) {
+                is GetPagePreviews.Result.Error -> PagePreviewState.Error(result.error)
+                is GetPagePreviews.Result.Success -> PagePreviewState.Success(result.pagePreviews)
+                GetPagePreviews.Result.Unused -> PagePreviewState.Unused
             }
+            extras.update { it.copy(pagePreviewsState = previews) }
         }
     }
     // RK <--
 
     fun fetchAllFromSource(manualFetch: Boolean = true) {
         viewModelScope.launch {
-            updateSuccessState { it.copy(isRefreshingData = true) }
+            isRefreshingData.value = true
             fetchAllFromSource(
+                manga = getMangaAndChapters.awaitManga(mangaId),
                 manualFetch = manualFetch,
                 fetchDetails = true,
                 fetchChapters = true,
             )
-            updateSuccessState { it.copy(isRefreshingData = false) }
+            isRefreshingData.value = false
         }
     }
 
     private suspend fun fetchAllFromSource(
+        manga: Manga,
         manualFetch: Boolean,
         fetchDetails: Boolean,
         fetchChapters: Boolean,
     ) {
-        val state = successState ?: return
         // RK: refresh every source in a merged group, not just the primary. A source merged in via
         //     long-press "add from another source" never fetched at add time, so without this its
         //     chip stays stale on refresh; each member goes through its own source's fetch (the same
@@ -638,8 +663,8 @@ class MangaViewModel(
                     manualFetch = manualFetch,
                 ).onSuccess { newChapters += it.newChapters }
                 val firstError = refreshMergeGroup(
-                    anchor = { fetch(state.source, state.manga) },
-                    siblings = groupIds.filter { it != state.manga.id }.map { getMangaAndChapters.awaitManga(it) },
+                    anchor = { fetch(sourceManager.getOrStub(manga.source), manga) },
+                    siblings = groupIds.filter { it != manga.id }.map { getMangaAndChapters.awaitManga(it) },
                     sourceOf = { sourceManager.get(it.source) },
                     refresh = { manga, source -> fetch(source, manga) },
                 )
@@ -676,7 +701,7 @@ class MangaViewModel(
             // The account confirm is per gallery, so only a remove of one gallery asks it.
             val gallery = targets.singleOrNull()?.takeIf(::shouldConfirmEhRemoveFromAccount)
             if (gallery != null) {
-                updateSuccessState { it.copy(dialog = Dialog.EhRemoveFavorite(gallery)) }
+                dialog.value = Dialog.EhRemoveFavorite(gallery)
                 return@launchIO
             }
             removeNow(targets)
@@ -715,7 +740,7 @@ class MangaViewModel(
                 // RK --> asks first on a merged entry's All view, and takes a source chip's own entry
                 val removal = mergeGroup.removal(manga.id)
                 if (removal.asksForGroup) {
-                    updateSuccessState { it.copy(dialog = Dialog.RemoveFromLibrary(removal)) }
+                    dialog.value = Dialog.RemoveFromLibrary(removal)
                 } else {
                     removeFromLibrary(removal.targets(removeGrouped = false))
                 }
@@ -728,7 +753,7 @@ class MangaViewModel(
                     val prompt = mangaLibraryAdder.findDuplicates(manga)
 
                     if (prompt != null) {
-                        updateSuccessState { it.copy(dialog = Dialog.DuplicateManga(manga, prompt)) }
+                        dialog.value = Dialog.DuplicateManga(manga, prompt)
                         return@launchIO
                     }
                     // RK <--
@@ -770,6 +795,9 @@ class MangaViewModel(
     private fun observeExhRootRedirect() {
         if (!DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled) return
         viewModelScope.launchIO {
+            // Only a gallery has a version chain; watching any other entry would hold its chapter query open for the
+            // model's whole life.
+            if (!getMangaAndChapters.awaitManga(mangaId).isEhBasedManga()) return@launchIO
             val root = getMangaAndChapters.subscribe(mangaId, applyScanlatorFilter = true)
                 .distinctUntilChanged()
                 .mapNotNull { (manga, chapters) -> favoritedRootOf(manga, chapters) }
@@ -808,36 +836,25 @@ class MangaViewModel(
         viewModelScope.launch {
             // RK: the adder's picker, ordered by the category sort-order pref like the library's pickers.
             val selection = mangaLibraryAdder.categoryPickerSelection(manga.id)
-            updateSuccessState { successState ->
-                successState.copy(
-                    dialog = Dialog.ChangeCategory(
-                        manga = manga,
-                        initialSelection = selection,
-                        joinGroup = joinGroup, // RK
-                    ),
-                )
-            }
+            dialog.value = Dialog.ChangeCategory(
+                manga = manga,
+                initialSelection = selection,
+                joinGroup = joinGroup, // RK
+            )
         }
     }
 
     fun showSetFetchIntervalDialog() {
         val manga = successState?.manga ?: return
-        updateSuccessState {
-            it.copy(dialog = Dialog.SetFetchInterval(manga))
-        }
+        dialog.value = Dialog.SetFetchInterval(manga)
     }
 
     fun setFetchInterval(manga: Manga, interval: Int) {
         viewModelScope.launchIO {
-            if (
-                updateManga.awaitUpdateFetchInterval(
-                    // Custom intervals are negative
-                    manga.copy(fetchInterval = -interval),
-                )
-            ) {
-                val updatedManga = mangaRepository.getMangaById(manga.id)
-                updateSuccessState { it.copy(manga = updatedManga) }
-            }
+            updateManga.awaitUpdateFetchInterval(
+                // Custom intervals are negative
+                manga.copy(fetchInterval = -interval),
+            )
         }
     }
 
@@ -857,7 +874,7 @@ class MangaViewModel(
     // RK --> Clear downloads for what the screen shows (EntryMergeGroupHost.clearDownloadsTarget).
     //        Distinct from promptDeleteDownloadsOnRemoved, which covers the entries a remove took out.
     fun showClearDownloadsDialog() {
-        updateSuccessState { it.copy(dialog = Dialog.ClearDownloads(mergeGroup.clearDownloadsTarget(mangaId))) }
+        dialog.value = Dialog.ClearDownloads(mergeGroup.clearDownloadsTarget(mangaId))
     }
 
     fun clearDownloads(mangaIds: List<Long>) {
@@ -895,41 +912,16 @@ class MangaViewModel(
 
     // Chapters list - start
 
-    private fun observeDownloads() {
-        viewModelScope.launchIO {
-            downloadManager.statusFlow()
-                .filter { successState?.showsChaptersOf(it.manga.id) == true } // RK
-                .catch { error -> logcat(LogPriority.ERROR, error) }
-                .collect {
-                    withUIContext {
-                        updateDownloadState(it)
-                    }
-                }
-        }
-
-        viewModelScope.launchIO {
-            downloadManager.progressFlow()
-                .filter { successState?.showsChaptersOf(it.manga.id) == true } // RK
-                .catch { error -> logcat(LogPriority.ERROR, error) }
-                .collect {
-                    withUIContext {
-                        updateDownloadState(it)
-                    }
-                }
-        }
-    }
-
     private fun updateDownloadState(download: Download) {
-        updateSuccessState { successState ->
-            val modifiedIndex = successState.chapters.indexOfFirst { it.id == download.chapter.id }
-            if (modifiedIndex < 0) return@updateSuccessState successState
-
-            val newChapters = successState.chapters.toMutableList().apply {
-                val item = removeAt(modifiedIndex)
-                    .copy(downloadState = download.status, downloadProgress = download.progress)
-                add(modifiedIndex, item)
+        val chapterId = download.chapter.id
+        downloadStates.update {
+            // Terminal states are derived by the queried item itself, so drop the override instead
+            // of letting it outlive reality, e.g. showing a since deleted chapter as downloaded.
+            if (download.status == Download.State.NOT_DOWNLOADED || download.status == Download.State.DOWNLOADED) {
+                it - chapterId
+            } else {
+                it + (chapterId to DownloadProgress(download.status, download.progress))
             }
-            successState.copy(chapters = newChapters)
         }
     }
 
@@ -958,7 +950,6 @@ class MangaViewModel(
                 chapter = chapter,
                 downloadState = downloadState,
                 downloadProgress = activeDownload?.progress ?: 0,
-                selected = chapter.id in chapterSelection, // RK: was selectedChapterIds
                 isRead = flags.isRead(chapter), // RK
                 isBookmarked = flags.isBookmarked(chapter), // RK
             )
@@ -973,6 +964,37 @@ class MangaViewModel(
         val ownChapters: List<Chapter>,
         val group: EntryMergeGroupHost.GroupState,
     )
+
+    /** The chapter flow's rows, built and hidden, with what the list derives from them. */
+    private data class ChapterView(
+        val merged: MergedChapters,
+        val source: Source,
+        val hidden: HiddenChapters,
+        val numberHints: Map<Long, ChapterNumberHint.Hint>,
+        val downloadFolderOwner: Manga?,
+    )
+
+    private data class MergeInputs(
+        val scanlators: ScanlatorFilterView,
+        val customInfo: CustomMangaInfo?,
+        val chips: List<EntryMergeSource>,
+        val selectedSource: Long?,
+        val galleryMetadata: RaisedSearchMetadata?,
+    )
+
+    private data class Extras(
+        val seedColor: Color? = null,
+        val pagePreviewsState: PagePreviewState = PagePreviewState.Unused,
+        val previewsRowCount: Int,
+        val relatedItems: List<RelatedMangaItem> = emptyList(),
+        val relatedTotalCount: Int = 0,
+        val relatedLoading: Boolean = false,
+    )
+
+    private data class DownloadProgress(val status: Download.State, val progress: Int)
+
+    /** What the first open fetches, decided by the seed. */
+    private data class FirstFetch(val details: Boolean, val chapters: Boolean)
 
     /** Display payload for the chapter flow: the screen manga, the (possibly merged) chapter list,
      *  and the per-source manga for merged groups (empty when not merged). */
@@ -1058,14 +1080,8 @@ class MangaViewModel(
             downloadedIdsOf(chapters, emptyMap(), manga)
         }
 
-    /** Raise the stored gallery metadata for a source's manga, mirroring MetadataViewScreenModel.
-     *  Returns null when the source has no metadata support or nothing is stored. */
-    private suspend fun loadGalleryMetadata(targetMangaId: Long): RaisedSearchMetadata? {
-        return raiseMetadata(getFlatMetadataById.await(targetMangaId), targetMangaId)
-    }
-
     /** Raise a [FlatMetadata] row into its source's typed metadata; null when the source isn't a
-     *  MetadataSource or nothing was stored. Shared by the seed and the reactive metadata flow. */
+     *  MetadataSource or nothing was stored. */
     private suspend fun raiseMetadata(flatMetadata: FlatMetadata?, targetMangaId: Long): RaisedSearchMetadata? {
         if (flatMetadata == null) return null
         val targetManga = getMangaAndChapters.awaitManga(targetMangaId)
@@ -1159,7 +1175,7 @@ class MangaViewModel(
 
     fun hideSelected() {
         val state = successState ?: return
-        val keys = state.processedChapters.filter { it.selected }
+        val keys = state.selectedRows()
             .map { it.chapter.hiddenKey(state.mergedMangaById[it.chapter.mangaId] ?: state.manga) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get() + keys)
@@ -1169,7 +1185,7 @@ class MangaViewModel(
     /** Only reachable while hidden chapters are being shown. */
     fun unhideSelected() {
         val state = successState ?: return
-        val keys = state.processedChapters.filter { it.selected }
+        val keys = state.selectedRows()
             .mapTo(HashSet()) { it.chapter.hiddenKey(state.mergedMangaById[it.chapter.mangaId] ?: state.manga) }
         if (keys.isEmpty()) return
         hiddenChaptersPref.set(hiddenChaptersPref.get().filterNotTo(HashSet()) { it in keys })
@@ -1182,7 +1198,7 @@ class MangaViewModel(
 
     // The one selected chapter's number dialog, by the rule novels share (EditChapterNumber).
     fun showChapterNumberDialog() {
-        successState?.processedChapters?.singleOrNull { it.selected }?.let { showChapterNumberDialog(it.id) }
+        successState?.selectedRows()?.singleOrNull()?.let { showChapterNumberDialog(it.id) }
     }
 
     // A marked chapter's dialog opens on its hint's suggestion.
@@ -1198,7 +1214,7 @@ class MangaViewModel(
                 chapter.chapterNumber,
                 state.numberHints[chapterId]?.suggestion,
             )
-            updateSuccessState { it.copy(dialog = Dialog.ChapterNumber(edit)) }
+            dialog.value = Dialog.ChapterNumber(edit)
         }
     }
 
@@ -1568,70 +1584,39 @@ class MangaViewModel(
 
     // RK --> chapter selection routes through the shared kernel, so manga, novels and every other
     // multi-select surface answer a range the same way. A long press ranges from the last row you
-    // touched; a tap toggles one row.
+    // touched; a tap toggles one row. Each verb starts from the selection the rows show, retained to them.
     fun toggleSelection(item: ChapterList.Item, fromLongPress: Boolean = false) {
-        updateSuccessState { successState ->
-            chapterSelection = if (fromLongPress) {
-                EntrySelection.rangeOrToggle(chapterSelection, item.id, successState.processedChapters.map { it.id })
+        val visible = successState?.processedChapters?.map { it.id } ?: return
+        chapterSelection.update { held ->
+            val shown = EntrySelection.retain(held, visible)
+            if (fromLongPress) {
+                EntrySelection.rangeOrToggle(shown, item.id, visible)
             } else {
-                EntrySelection.toggle(chapterSelection, item.id)
+                EntrySelection.toggle(shown, item.id)
             }
-            successState.withChapterSelection()
         }
     }
 
     fun toggleAllSelection(selected: Boolean) {
-        updateSuccessState { successState ->
-            chapterSelection = if (selected) {
-                EntrySelection.selectAll(chapterSelection, successState.processedChapters.map { it.id })
-            } else {
-                EntrySelection.clear()
-            }
-            successState.withChapterSelection()
+        if (!selected) {
+            chapterSelection.value = EntrySelection.clear()
+            return
         }
+        val visible = successState?.processedChapters?.map { it.id } ?: return
+        chapterSelection.update { EntrySelection.selectAll(EntrySelection.retain(it, visible), visible) }
     }
 
     fun invertSelection() {
-        updateSuccessState { successState ->
-            chapterSelection = EntrySelection.invert(chapterSelection, successState.processedChapters.map { it.id })
-            successState.withChapterSelection()
-        }
+        val visible = successState?.processedChapters?.map { it.id } ?: return
+        chapterSelection.update { EntrySelection.invert(EntrySelection.retain(it, visible), visible) }
     }
 
-    /** Fan the selection back out onto the rows the list renders. */
-    private fun State.Success.withChapterSelection(): State.Success =
-        copy(chapters = chapters.map { it.copy(selected = it.id in chapterSelection) })
+    // Read from the selection, as the state catches up with a selection only after it's been made
+    private fun State.Success.selectedRows(): List<ChapterList.Item> =
+        chapterSelection.value.let { held -> processedChapters.filter { it.id in held } }
     // RK <--
 
     // Chapters list - end
-
-    // Track sheet - start
-
-    private fun observeTrackers() {
-        val manga = successState?.manga ?: return
-        // RK --> counted by the tracking sheet's own offer rule, the one the novel details screen runs too;
-        // the port's read spans the merge group
-        val port = trackPorts.of(EntryId.Manga(manga.id))
-
-        viewModelScope.launchIO {
-            combine(
-                port.tracks().catch { logcat(LogPriority.ERROR, it) },
-                trackerManager.loggedInTrackersFlow(),
-            ) { mangaTracks, loggedInTrackers ->
-                val offered = offerTrackers(port, loggedInTrackers, autoBindTrackers).offered
-                trackingButtonState(mangaTracks.map { it.trackerId }, offered)
-            }
-                .distinctUntilChanged()
-                .collectLatest { button ->
-                    updateSuccessState {
-                        it.copy(trackingCount = button.count, hasLoggedInTrackers = button.hasTrackers)
-                    }
-                }
-        }
-        // RK <--
-    }
-
-    // Track sheet - end
 
     sealed interface Dialog {
         data class ChangeCategory(
@@ -1679,18 +1664,18 @@ class MangaViewModel(
     data class RelatedMangaItem(val candidate: RelatedMangaCandidate, val inLibrary: Boolean)
 
     fun dismissDialog() {
-        updateSuccessState { it.copy(dialog = null) }
+        dialog.value = null
     }
 
     fun showDeleteChapterDialog(chapters: List<Chapter>) {
-        updateSuccessState { it.copy(dialog = Dialog.DeleteChapters(chapters)) }
+        dialog.value = Dialog.DeleteChapters(chapters)
     }
 
     // RK -->
 
     fun showEditMangaInfoDialog() {
         val manga = successState?.manga ?: return
-        updateSuccessState { it.copy(dialog = Dialog.EditMangaInfo(manga)) }
+        dialog.value = Dialog.EditMangaInfo(manga)
     }
 
     /** Persist edits as a non-destructive per-field override against the raw source [manga]. */
@@ -1772,9 +1757,7 @@ class MangaViewModel(
                 state.mergeSources.find { it.id == id }
                     ?.let { EntryManageSourceInfo(it.id, it.sourceName, chaptersBySource[id]?.size ?: 0) }
             }
-            updateSuccessState {
-                it.copy(dialog = Dialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
-            }
+            dialog.value = Dialog.ManageSources(orderedSources, memberRanking.isNotEmpty())
         }
     }
 
@@ -1798,7 +1781,7 @@ class MangaViewModel(
      * failures, so the flag always clears and this cannot stall the carousel.
      */
     private suspend fun awaitOwnDataLoaded() {
-        state.first { it !is State.Success || !it.isRefreshingData }
+        isRefreshingData.first { !it }
     }
 
     /** Load the related carousel once per screen open. Serves a fresh cache hit instantly; otherwise
@@ -1826,7 +1809,7 @@ class MangaViewModel(
                 applyRelated(cached.pool, assembly)
                 if (cached.isComplete && relatedMangaCache.isFresh(cached)) return@launchIO
             } else {
-                updateSuccessState { it.copy(relatedLoading = true) }
+                extras.update { it.copy(relatedLoading = true) }
             }
             // The entry's own details and chapters come first: both hit the same host, and a source
             // that paces its requests would otherwise spend them on suggestions while the reader is
@@ -1847,7 +1830,7 @@ class MangaViewModel(
                 },
             )
             applyRelated(relatedMangaCache.put(mangaId, pool).pool, assembly)
-            updateSuccessState { it.copy(relatedLoading = false) }
+            extras.update { it.copy(relatedLoading = false) }
         }
     }
 
@@ -1856,7 +1839,7 @@ class MangaViewModel(
             .map { RelatedMangaItem(it, assembly.hideFilter.isInLibrary(it)) }
         // The count is of everything "See all" shows, which is the same assembly without the cap.
         val total = pool.candidates.count(assembly::shows)
-        updateSuccessState { it.copy(relatedItems = items, relatedTotalCount = total) }
+        extras.update { it.copy(relatedItems = items, relatedTotalCount = total) }
     }
 
     /** See [localIdOf], which the See-all grid shares. */
@@ -1865,20 +1848,20 @@ class MangaViewModel(
     // RK <--
 
     fun showSettingsDialog() {
-        updateSuccessState { it.copy(dialog = Dialog.SettingsSheet) }
+        dialog.value = Dialog.SettingsSheet
     }
 
     fun showTrackDialog() {
-        updateSuccessState { it.copy(dialog = Dialog.TrackSheet) }
+        dialog.value = Dialog.TrackSheet
     }
 
     fun showCoverDialog() {
-        updateSuccessState { it.copy(dialog = Dialog.FullCover) }
+        dialog.value = Dialog.FullCover
     }
 
     fun showMigrateDialog(duplicate: Manga) {
         val manga = successState?.manga ?: return
-        updateSuccessState { it.copy(dialog = Dialog.Migrate(target = manga, current = duplicate)) }
+        dialog.value = Dialog.Migrate(target = manga, current = duplicate)
     }
 
     fun setExcludedScanlators(excludedScanlators: Set<String>) {
@@ -1954,7 +1937,7 @@ class MangaViewModel(
             // RK: page-preview thumbnails (adult sources) + how many rows to show (0 = off).
             val pagePreviewsState: PagePreviewState = PagePreviewState.Unused,
             val previewsRowCount: Int = 0,
-            // RK: the shown member's web page (shownWebPages), null hiding WebView, Share and Copy link
+            // RK: the shown member's web page (ShownWebPage), null hiding WebView, Share and Copy link
             val webPage: EntryWebPage? = null,
         ) : State {
             // RK -->

@@ -135,12 +135,12 @@ class EntryMergeGroupHost(
         _state.value.let { DetailsRemoval(openedId, it.ids.toList(), it.selected) }
 
     /**
-     * Re-read [anchorId]'s group from storage and publish it: the one way a caller that just changed
-     * the grouping updates this cell, and it reads the same source of truth [observe] does, so an
-     * optimistic update cannot disagree with the membership emission that follows. Callers used to
-     * state the new membership from whatever their operation returned, and a split returns the
-     * SURVIVORS: split the anchor's own source out of a three-member group and the cell became the two
-     * OTHER entries.
+     * Re-read [anchorId]'s group from storage and publish it: how manga's details seed the group on open,
+     * and the one way a caller that just changed the grouping updates this cell. It reads the same source of
+     * truth [observe] does, so an optimistic update cannot disagree with the membership emission that
+     * follows. Callers used to state the new membership from whatever their operation returned, and a split
+     * returns the SURVIVORS: split the anchor's own source out of a three-member group and the cell became
+     * the two OTHER entries.
      */
     suspend fun refresh(anchorId: Long) = setRelated(mergeManager.computeRelatedIds(anchorId))
 
@@ -174,16 +174,5 @@ class EntryMergeGroupHost(
         val held = chapters.mapTo(HashSet(), id)
         val wanted = scope.copiesOf(held, stitch()) - held
         return if (wanted.isEmpty()) chapters else chapters + load(wanted)
-    }
-
-    /**
-     * Resolve the group + chips once for the first-render seed (manga's eager load), setting [relatedIds]
-     * and returning the chips so the caller seeds them into the initial state atomically, before the
-     * reactive collectors fire.
-     */
-    suspend fun seed(anchorId: Long): List<EntryMergeSource> {
-        val ids = mergeManager.computeRelatedIds(anchorId)
-        setRelated(ids)
-        return resolveSources(ids)
     }
 }

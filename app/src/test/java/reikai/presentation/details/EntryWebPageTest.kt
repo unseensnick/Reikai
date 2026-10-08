@@ -3,13 +3,10 @@ package reikai.presentation.details
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import kotlinx.coroutines.flow.flowOf
-import kotlinx.coroutines.flow.toList
-import kotlinx.coroutines.test.runTest
+import io.mockk.verify
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -60,15 +57,13 @@ class EntryWebPageTest {
     }
 
     @Test
-    fun `a merged manga's page follows the chip, asking only when the shown member changes`() = runTest {
+    fun `a merged manga's page follows the chip`() {
         val anchorSource = http(7L)
         val siblingSource = http(8L)
-        val all = state(anchorSource)
-        val chip = all.copy(mergeDisplayManga = sibling, mergeDisplaySource = siblingSource)
+        val page = ShownWebPage()
 
-        val pages = flowOf(MangaViewModel.State.Loading, all, all.copy(isRefreshingData = true), chip, all)
-            .shownWebPages()
-            .toList()
+        val pages = listOf(anchor to anchorSource, sibling to siblingSource, anchor to anchorSource)
+            .map { (manga, source) -> page.of(manga, source) }
 
         pages shouldBe listOf(
             EntryWebPage("$PAGE/1", SourceKey.Manga(7L), EntryId.Manga(1L)),
@@ -77,19 +72,20 @@ class EntryWebPageTest {
         )
     }
 
+    @Test
+    fun `a re-render of the same member does not ask its extension again`() {
+        val source = http(7L)
+        val page = ShownWebPage()
+
+        repeat(3) { page.of(anchor, source) }
+
+        verify(exactly = 1) { source.getMangaUrl(any()) }
+    }
+
     private fun http(sourceId: Long) = mockk<HttpSource> {
         every { id } returns sourceId
         every { getMangaUrl(any()) } answers { PAGE + firstArg<SManga>().url }
     }
-
-    private fun state(source: Source) = MangaViewModel.State.Success(
-        manga = anchor,
-        source = source,
-        isFromSource = false,
-        chapters = emptyList(),
-        availableScanlators = emptySet(),
-        excludedScanlators = emptySet(),
-    )
 
     companion object {
         private const val PAGE = "https://example.org/series"

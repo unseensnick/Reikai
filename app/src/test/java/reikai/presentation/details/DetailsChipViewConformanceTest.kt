@@ -47,7 +47,7 @@ class DetailsChipViewConformanceTest {
                 selectedDuringFlip = host.selectedSource
             },
         ) { ids -> ids.map { EntryMergeSource(it, "src$it") } }
-        if (seed) host.seed(OPENED)
+        if (seed) host.refresh(OPENED)
         return host
     }
 

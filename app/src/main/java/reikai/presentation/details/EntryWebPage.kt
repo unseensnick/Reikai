@@ -10,14 +10,9 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.domain.manga.model.toSManga
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
-import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.mapNotNull
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.Novel
 import reikai.domain.source.SourceKey
@@ -48,11 +43,23 @@ fun Manga.webPageIn(source: Source): EntryWebPage? {
 suspend fun Novel.webPageIn(source: NovelSource): EntryWebPage? =
     EntryWebPage.of(source.webUrl(url, isNovel = true), SourceKey.Novel(source.id), EntryId.Novel(id))
 
-/** The shown manga member's page, asked of its extension only when that member changes, not per download. */
-internal fun Flow<MangaViewModel.State>.shownWebPages(): Flow<EntryWebPage?> =
-    mapNotNull { state -> (state as? MangaViewModel.State.Success)?.let { it.shownManga to it.shownSource } }
-        .distinctUntilChanged()
-        .map { (manga, source) -> manga.webPageIn(source) }
+/**
+ * The shown manga member's page, asked of its extension only when that member changes, not per download.
+ * Held by one state derivation, which never runs two collections at once.
+ */
+internal class ShownWebPage {
+    private var shown: Pair<Manga, Source>? = null
+    private var page: EntryWebPage? = null
+
+    fun of(manga: Manga, source: Source): EntryWebPage? {
+        val next = manga to source
+        if (next != shown) {
+            shown = next
+            page = manga.webPageIn(source)
+        }
+        return page
+    }
+}
 
 /** The details body's actions on [EntryWebPage], plus the tag copy, its other clipboard write. */
 internal class EntryWebActions(
