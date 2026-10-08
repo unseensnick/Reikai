@@ -2,6 +2,8 @@ package reikai.domain.novel
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.merge.flaggedOnAnotherSource
 import reikai.domain.novel.model.NovelChapter
 
@@ -494,6 +496,44 @@ class NovelChapterAggregationTest {
 
         unitsOf(trunk, other, other.filter { it.name == "Echoes" }) shouldBe
             unitsOf(trunk, other, trunk.filter { it.name == "Echoes" })
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["Court's", "Court\u2019s", "Court\u201Cs", "Court\uFFFDs", "Cou\u200Brts"])
+    fun `a title matches across an apostrophe one source drops`(spelling: String) {
+        // One site writes "Heavenly Courts Crisis", another the possessive, which once split into "court s".
+        val trunk = listOf(chapter(1L, 1.0, "Alpha"), chapter(1L, 2.0, "Heavenly Courts Crisis"))
+        val other = listOf(chapter(2L, 1.0, "Alpha"), chapter(2L, 2.0, "2: Heavenly $spelling Crisis"))
+
+        unitsOf(trunk, other, other) shouldBe unitsOf(trunk, other, trunk)
+    }
+
+    @Test
+    fun `a source repeating a title far apart pairs only its nearer copy with the trunk's`() {
+        // The trunk misspells the earlier chapter, so the sibling's early "Into the Storm" has no
+        // counterpart; matching it to the trunk's later one gave that chapter two of the sibling's.
+        val trunk = listOf(
+            chapter(1L, 1.0, "Alpha"),
+            chapter(1L, 2.0, "lnto the Storm"),
+            chapter(1L, 3.0, "Bravo"),
+            chapter(1L, 4.0, "Charlie"),
+            chapter(1L, 5.0, "Delta"),
+            chapter(1L, 6.0, "Into the Storm"),
+            chapter(1L, 7.0, "Echo"),
+        )
+        val other = trunk.map { chapter(2L, it.chapterNumber, it.name.replace("lnto", "Into")) }
+
+        unitsOf(trunk, other, other).distinct().size shouldBe other.size
+    }
+
+    @Test
+    fun `a number-only name pairs by the number it shows, not the one its source stored`() {
+        // One site stores its own list position, two past the chapter its name shows.
+        val names = listOf("Alpha", "Chapter 2", "Chapter 3", "Chapter 4: Bravo", "Chapter 5", "Charlie")
+        val trunk = names.mapIndexed { index, name -> chapter(1L, index + 1.0, name) }
+        val other = names.mapIndexed { index, name -> chapter(2L, index + 3.0, name) }
+
+        unitsOf(trunk, other, other) shouldBe unitsOf(trunk, other, trunk)
     }
 
     @Test

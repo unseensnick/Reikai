@@ -14,7 +14,7 @@ class MergedChapterOrderTest {
     private fun order() = MergedChapterOrder<String> { it.substringBefore(':') }
 
     private fun MergedChapterOrder<String>.addSource(vararg items: String) {
-        startSource()
+        startSource(items.toList())
         for (item in items) {
             val existing = positionOf(item)
             if (existing >= 0) followTo(existing, item) else place(item)
@@ -223,6 +223,44 @@ class MergedChapterOrderTest {
         order.addSource("a:2", "b:2", "b:3")
 
         order.result().copies shouldBe listOf("a:2" to "a:1", "b:2" to "b:1", "b:3" to "b:1")
+    }
+
+    @Test
+    @DisplayName("by default a title far ahead pairs even where this source repeats it nearer")
+    fun forwardMatchIsUnboundedByDefault() {
+        // Manga's shape: it keys numbers and leaves the option off.
+        val order = MergedChapterOrder<String>(isTitle = { true }) { it.substringBefore(':') }
+
+        order.addTrunk("a:1", "b:1", "c:1", "z:1")
+        order.addSource("a:2", "z:2", "b:2", "c:2", "z:4")
+
+        order.result().copies.filter { it.second == "z:1" } shouldBe listOf("z:2" to "z:1", "z:4" to "z:1")
+    }
+
+    @Test
+    @DisplayName("bounded, a title far ahead pairs only with this source's nearer copy of it")
+    fun forwardMatchTakesTheNearerNamesake() {
+        val order =
+            MergedChapterOrder<String>(isTitle = { true }, boundsForwardMatch = true) { it.substringBefore(':') }
+
+        order.addTrunk("a:1", "b:1", "c:1", "z:1")
+        order.addSource("a:2", "z:2", "b:2", "c:2", "z:4")
+
+        order.result().copies.filter { it.second == "z:1" } shouldBe listOf("z:4" to "z:1")
+    }
+
+    @Test
+    @DisplayName("bounded, a title the order repeats ahead still pairs copy by copy")
+    fun forwardBoundKeepsRepeatedTitles() {
+        // A per-volume afterword after a run this source lacks: the trunk repeats it too, so each
+        // copy has its own counterpart and the far jump is the source skipping chapters.
+        val order =
+            MergedChapterOrder<String>(isTitle = { true }, boundsForwardMatch = true) { it.substringBefore(':') }
+
+        order.addTrunk("a:1", "b:1", "c:1", "z:1", "d:1", "z:3")
+        order.addSource("a:2", "z:2", "d:2", "z:4")
+
+        order.result().copies shouldBe listOf("a:2" to "a:1", "z:2" to "z:1", "d:2" to "d:1", "z:4" to "z:3")
     }
 
     @Test

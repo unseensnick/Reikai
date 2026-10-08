@@ -1,0 +1,6 @@
+-- The novel stitch rules changed again: titles match across a dropped apostrophe, a source repeating
+-- a title far apart pairs only its nearer copy, and a number-only name keys on the number it shows.
+-- Clearing the novel groups' ranking stamps restitches each once on the next reconciliation, as
+-- migration 60 did; the units stay until then, so counts keep showing meanwhile.
+DELETE FROM merged_group_ranking
+WHERE group_id IN (SELECT group_id FROM merge_group_novel);

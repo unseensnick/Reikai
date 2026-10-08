@@ -55,10 +55,11 @@ object NovelChapterAggregation {
         val order = MergedChapterOrder(
             isTitle = { (it as String).startsWith(TITLE_KEY_PREFIX) },
             boundsBackwardMatch = true,
+            boundsForwardMatch = true,
             keyOf = ::matchKey,
         )
         ranked.forEachIndexed { index, source ->
-            order.startSource()
+            order.startSource(source.chapters)
             val isTrunk = index == 0
             for (chapter in source.chapters) {
                 // Keep every trunk chapter: the novel stitch collapses no source's own rows, so two
@@ -112,15 +113,20 @@ object NovelChapterAggregation {
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title
      * text (drops "chapter"/"vol" label words, the leading chapter-number tokens, and punctuation);
-     * falls back to the recognized chapter number for numeric-only names. What the stitch pairs sources'
+     * falls back to a number for numeric-only names that have a recognized one. What the stitch pairs sources'
      * chapters on before it places the rest by position.
      */
     fun matchKey(chapter: NovelChapter): String? {
         val title = normalizedTitle(chapter.name)
         if (title.isNotEmpty()) return "$TITLE_KEY_PREFIX$title"
-        if (isRecognizedChapterNumber(chapter.chapterNumber)) return "n:${chapter.chapterNumber}"
-        return null
+        if (!isRecognizedChapterNumber(chapter.chapterNumber)) return null
+        return "n:${shownNumber(chapter.name) ?: chapter.chapterNumber}"
     }
+
+    // A source may store its own list position as the number ("Chapter 320" stored as 322), so the
+    // one number a wordless name shows is the identity; a name showing several keeps the stored one.
+    private fun shownNumber(name: String): Double? =
+        nameNumber.findAll(name).map { it.value.toDouble() }.distinct().singleOrNull()
 
     /** Marks a key built from title text rather than from a number, which is the identity that
      *  survives two sources counting differently. */
@@ -130,7 +136,13 @@ object NovelChapterAggregation {
         "chapter", "ch", "chap", "episode", "ep", "part", "pt", "vol", "volume", "book", "season", "s",
     )
     private val numberToken = Regex("""^[0-9]+(\.[0-9]+)?$""")
+    private val nameNumber = Regex("""[0-9]+(\.[0-9]+)?""")
     private val nonAlphanumeric = Regex("""[^a-z0-9]+""")
+
+    // Removed rather than turned into a space: one site writes "Courts" for "Court's", and the split
+    // "court s" lost its "s" as a label word. Some sites put a double quote or a replacement character
+    // where the apostrophe goes, or zero-width characters inside a word.
+    private val elided = Regex("""['`\u00B4\u2018\u2019\u201C\u201D\uFFFD\p{Cf}]""")
 
     // Drops label words anywhere and only the LEADING chapter-number tokens; a number that follows a
     // title word is kept, so "Pleasureful Repeats 2" stays distinct from "Pleasureful Repeats" (else a
@@ -140,7 +152,7 @@ object NovelChapterAggregation {
     private fun normalizedTitle(name: String): String {
         val out = mutableListOf<String>()
         var seenWord = false
-        for (token in name.lowercase().replace(nonAlphanumeric, " ").trim().split(' ')) {
+        for (token in name.lowercase().replace(elided, "").replace(nonAlphanumeric, " ").trim().split(' ')) {
             when {
                 token.isEmpty() || token in labelWords -> {}
                 numberToken.matches(token) -> if (seenWord) out.add(token)

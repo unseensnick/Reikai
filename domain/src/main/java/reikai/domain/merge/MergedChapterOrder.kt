@@ -1,6 +1,8 @@
 package reikai.domain.merge
 
 import java.util.Collections
+import java.util.IdentityHashMap
+import kotlin.math.abs
 
 /**
  * [merged] with each chapter's source order overwritten by its merged position, the only order
@@ -23,10 +25,13 @@ fun <T> stampedReadingOrder(merged: List<T>, restamp: (T, Long) -> T): List<T> =
  * @property boundsBackwardMatch whether a title match behind the cursor that this source already
  *   supplied is refused, as a source repeating a title cannot be a second copy of its own chapter. A
  *   repeated number still collapses, as a manga scanlator variant does.
+ * @property boundsForwardMatch whether a title match ahead of the cursor is refused when this source
+ *   repeats that title further down its list, nearer to the match. Needs [startSource]'s chapters.
  */
 class MergedChapterOrder<T>(
     private val isTitle: (key: Any) -> Boolean = { false },
     private val boundsBackwardMatch: Boolean = false,
+    private val boundsForwardMatch: Boolean = false,
     private val keyOf: (T) -> Any?,
 ) {
 
@@ -53,6 +58,9 @@ class MergedChapterOrder<T>(
      *  out: it is a guess from position, which a real title match behind it must still be able to win. */
     private val supplied = HashSet<Placed<T>>()
 
+    /** How far down this source's own list each of its titled chapters next repeats its title. */
+    private val nextNamesake = IdentityHashMap<T, Int>()
+
     /** Chapters this source offered that match nothing yet, waiting on the next one that does. */
     private val deferred = mutableListOf<T>()
 
@@ -61,27 +69,50 @@ class MergedChapterOrder<T>(
     private val copies = mutableListOf<Pair<T, T>>()
 
     /** Call before walking each source, so it starts placing from the top again. */
-    fun startSource() {
+    fun startSource(chapters: List<T> = emptyList()) {
         finishSource()
         cursor = -1
         placedBySource = 0
         anchored = false
         supplied.clear()
+        nextNamesake.clear()
+        if (boundsForwardMatch) {
+            val laterIndex = HashMap<Any, Int>()
+            for (index in chapters.indices.reversed()) {
+                val key = keyOf(chapters[index])?.takeIf(::titled) ?: continue
+                laterIndex[key]?.let { nextNamesake[chapters[index]] = it - index }
+                laterIndex[key] = index
+            }
+        }
     }
 
     /**
      * Where an already-placed chapter shares [item]'s identity, or -1 when none does. One identity
      * can sit in the order several times (a per-volume "Afterword" normalizes to one title), so the
-     * copy this source means is the first one past its cursor; only when none lies ahead is it the
-     * nearest one behind. Taking the first in the whole order filed a later volume's copy under the
-     * earliest and dragged the cursor back to it.
+     * copy this source means is the first one past its cursor; only when none lies ahead, or
+     * [laterNamesakeTakes] it, is it the nearest one behind. Taking the first in the whole order
+     * filed a later volume's copy under the earliest and dragged the cursor back to it.
      */
     fun positionOf(item: T): Int {
         val key = keyOf(item) ?: return -1
         if (key !in placedKeys) return -1
-        (cursor + 1 until order.size).firstOrNull { order[it].key == key }?.let { return it }
-        val behind = (cursor downTo 0).first { order[it].key == key }
+        val ahead = (cursor + 1 until order.size).firstOrNull { order[it].key == key }
+        if (ahead != null && !laterNamesakeTakes(item, ahead)) return ahead
+        val behind = (cursor downTo 0).firstOrNull { order[it].key == key } ?: return -1
         return if (boundsBackwardMatch && titled(key) && order[behind] in supplied) -1 else behind
+    }
+
+    /**
+     * Whether this source's own next copy of [item]'s title, further down its list, is the one the
+     * chapter at [ahead] belongs to: the order holds that title only once past the cursor, and the
+     * later copy would land nearer to it than the cursor sits. A source repeating a title hundreds of
+     * chapters apart otherwise filed its early copy under the late chapter.
+     */
+    private fun laterNamesakeTakes(item: T, ahead: Int): Boolean {
+        val gap = nextNamesake[item] ?: return false
+        val key = order[ahead].key
+        return abs(cursor + gap - ahead) < ahead - cursor &&
+            (ahead + 1 until order.size).none { order[it].key == key }
     }
 
     /**
