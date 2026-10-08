@@ -57,6 +57,9 @@ suspend fun predictNovelFetchInterval(
     }
 }
 
-/** When this novel is next due, or null once it is completed, as manga's `Manga.expectedNextUpdate`. */
+/**
+ * When this novel is next due, or null once it is completed: twin of `Manga.expectedNextUpdate`, pinned by
+ * EntryUpdateTwinsConformanceTest.
+ */
 fun Novel.expectedNextUpdate(): Instant? =
     nextUpdate.takeIf { status != NovelStatusCode.COMPLETED.toLong() }?.let(Instant::fromEpochMilliseconds)
