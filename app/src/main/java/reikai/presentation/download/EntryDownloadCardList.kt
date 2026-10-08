@@ -66,7 +66,12 @@ data class EntryDownloadCardUi(
     val currentChapterId: Long? = null,
     val currentChapterName: String? = null,
 ) {
-    val cardKey: String get() = "${contentType.name}-$seriesId"
+    val cardKey: String get() = "${keyPrefix(contentType)}$seriesId"
+
+    companion object {
+        /** What every card key of [type] starts with, which a saved order is told apart by. */
+        fun keyPrefix(type: ContentType): String = "${type.name}-"
+    }
 }
 
 /**

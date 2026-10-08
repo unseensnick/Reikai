@@ -158,8 +158,9 @@ fun prunedOrder(
     restored: Set<ContentType>,
 ): List<String> {
     val present = cardsByType.values.flatten().mapTo(HashSet()) { it.cardKey }
-    // A card key starts with its type's name (EntryDownloadCardUi.cardKey).
-    return savedKeys.filter { key -> key in present || restored.none { key.startsWith("${it.name}-") } }
+    return savedKeys.filter { key ->
+        key in present || restored.none { key.startsWith(EntryDownloadCardUi.keyPrefix(it)) }
+    }
 }
 
 /**
