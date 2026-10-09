@@ -32,6 +32,8 @@ Two artifacts hold the forward plan. Keep them separate: the roadmap is the ters
 
 ## `docs/dev/plans/` (tracked, implementation & decision records)
 
+**Current behaviour lives in [docs/dev/subsystems/](../../docs/dev/subsystems/README.md)**, one reference doc per subsystem, rewritten in place. A plan is for in-flight design: once the work lands, its lasting content moves into the subsystem doc.
+
 A **substantial** feature or initiative gets one markdown here: a developer-facing record of what was built and why. Distinct from the architecture references already in `docs/` and `docs/dev/` (`multi-source.md`, `related-mangas.md`, `guides/tracking.md`, `ln-plugin-host.md`, etc.): cross-link those, do not duplicate them. One doc per feature; fold superseded iterations of the same feature into its single doc.
 
 **Template** (every plan doc follows it):
