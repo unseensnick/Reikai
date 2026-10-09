@@ -1,10 +1,10 @@
 ---
-title: Cloudflare bypass
-titleTemplate: Troubleshooting - Guides
+title: Cloudflare bypass proxy
+titleTemplate: Troubleshooting
 description: Route Cloudflare challenges the in-app WebView cannot solve through a proxy you run yourself.
 ---
 
-# Cloudflare bypass
+# Cloudflare bypass proxy
 
 _Dev record: [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md). Doc map: [README.md](README.md)._
 
@@ -15,10 +15,9 @@ This is optional and off by default.
 WebView still tries first on each site, and only a challenge it cannot clear goes to the proxy.
 Once a site has needed the proxy, its later challenges go straight there until the app restarts.
 
-::: tip Try the in-app solver first
-A challenge that shows a **Verify you are human** box can often be cleared without a proxy at all.
-Turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">, which ticks the box for you. It is off by default.
-With it on, **Solve with the app closed** lets library updates get past a challenge too.
+::: tip Try the simpler fixes first
+A proxy is the last of the [Cloudflare steps](/docs/guides/troubleshooting/#cloudflare) in the troubleshooting guide.
+Try the earlier ones first, since they need nothing running outside the app.
 :::
 
 ::: info Light novels too
@@ -33,19 +32,19 @@ Three tools speak the same API on the same port, so switching between them means
 == Solverr (recommended)
 [Solverr](https://github.com/unseensnick/Solverr) carries both browser engines, switches to the other when one fails and remembers which works for each site, and it keeps sessions.
 
-In our tests that clears the newer challenges FlareSolverr cannot, and because Reikai keeps a session open with it, follow-up requests skip the challenge instead of paying a full solve each time.
+It can usually clear newer challenges that FlareSolverr fails on, though no solver gets through every one. Because Reikai keeps a session open with it, follow-up requests skip the challenge instead of paying a full solve each time.
 == Byparr
-[Byparr](https://github.com/ThePhaseless/Byparr) runs Camoufox, an anti-detect Firefox, and does clear the newer challenges.
+[Byparr](https://github.com/ThePhaseless/Byparr) runs Camoufox, an anti-detect Firefox, and can clear the newer challenges.
 
-It is sessionless, so every request sent to it pays a full solve, 15 to 20 seconds in our tests. There is no fast follow-up path.
+It is sessionless, so every request sent to it pays a full solve, typically about 15 to 20 seconds. There is no fast follow-up path.
 == FlareSolverr
 [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) runs headless Chromium and keeps sessions, so it is the lightest of the three.
 
-At the time of writing it often fails Cloudflare's newer managed and Turnstile challenges.
+It often fails Cloudflare's newer managed and Turnstile challenges.
 ::::
 
 ::: warning FlareSolverr fails quietly on newer challenges
-It can hand back a challenge page while reporting success: it stops waiting as soon as the challenge page's title and markers disappear, and in our tests Cloudflare often issues another round after that.
+It can hand back a challenge page while reporting success: it stops waiting as soon as the challenge page's title and markers disappear, and Cloudflare often issues another round after that.
 An affected source then shows no results or a parse error rather than an obvious failure.
 If you see that, switch to Solverr or Byparr.
 :::
@@ -116,6 +115,7 @@ This is not theoretical. A reader who did this had the hostname appear in Certif
 
 Reikai sends the sign-in only to the address in **FlareSolverr URL**, on the same scheme, host and port, and only over https or to an address on your own network or mesh VPN. It never follows a redirect from that address, so the sign-in cannot be carried somewhere else.
 
+::: details Advanced: removing the sign-in at your reverse proxy
 Most reverse proxies pass the sign-in on to FlareSolverr after checking it. FlareSolverr ignores it and never sends it to the sites it opens, but nothing past your proxy needs to see it, so remove it there:
 
 | Proxy | Setting |
@@ -128,6 +128,8 @@ Most reverse proxies pass the sign-in on to FlareSolverr after checking it. Flar
 | HAProxy | `http-request del-header Authorization` after the `http_auth` check. |
 | Authelia or Authentik | Forward auth does not remove it. Add it to your proxy as above, for Traefik a `headers` middleware with `customRequestHeaders` setting `Authorization: ""`. |
 
+:::
+
 Cloudflare Access is not supported: it expects a service token in its own headers, which Reikai cannot send.
 
 ::: warning A hosted solver is blocked by some sources
@@ -136,16 +138,17 @@ A solver on a rented server browses from a datacenter address, and some sites re
 
 ## What to expect
 
-| Situation | Typical wait in our tests |
+| Situation | Typical wait |
 |---|---|
 | A source WebView can solve | 5 to 8 seconds, then follow-ups are instant. The proxy never runs. |
 | First request to a hard source after opening the app | Up to about 42 seconds: WebView tries for up to 30, then the proxy solves in around 12. |
 | Anything after that, same app session | 1 to 3 seconds. The proxy holds the cleared session, and the app stops waiting on WebView for that source. |
 | The proxy restarts | The next request quietly makes a new session, about 12 seconds, then back to 1 to 3. No error. |
-| Reopening the app | Which sources needed the proxy is not remembered across restarts, so the first request pays the 42 seconds again. |
+| Reopening the app | Which sources needed the proxy is not remembered across restarts, so the first request can take up to about 42 seconds again. |
 
 The fast rows need sessions, so they apply to Solverr and FlareSolverr.
-**Byparr is sessionless**, so every request, including paging and tab switches, pays a full 15 to 20 second solve.
+**Byparr is sessionless**, so every request, including paging and tab switches, pays a full solve, typically 15 to 20 seconds.
+These times vary with the source, your network and the machine running the proxy.
 
 ## Troubleshooting
 
@@ -165,7 +168,7 @@ Reikai will not send a password unencrypted across the internet. Use the proxy's
 Usually `http://` in front of a proxy that forces https. The dialog that opens when the test fails shows where it points: put that address in **FlareSolverr URL**.
 
 **The test says the proxy answered but the solver behind it is down.**
-The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this until it has finished starting (about twenty seconds in our tests), so wait and test again before changing anything.
+The reverse proxy is up and forwarding, and nothing is listening on the other side. A solver that is still starting does this until it has finished starting (typically about twenty seconds), so wait and test again before changing anything.
 
 **You once put the password in the address field.**
 Reikai moves it into the password field on upgrade, and does the same to an address restored from a backup, so nothing is left to do in the app. It cannot reach backups you already made: those hold the address as you typed it, password included. Rotate that password if any of them left your machine.
@@ -181,5 +184,5 @@ Either the app is being killed between requests, the proxy is destroying its ses
 Expected on Byparr, which has no sessions at all.
 
 **A source returns nothing, but the proxy's log says `Challenge not detected!` with a 200.**
-FlareSolverr recognises a challenge only by a fixed list of page titles and elements, so a challenge missing from that list (newer managed and Turnstile pages, in our tests) passes as no challenge, and it returns the unsolved page as a success.
+FlareSolverr recognises a challenge only by a fixed list of page titles and elements, so a challenge missing from that list (often the newer managed and Turnstile pages) passes as no challenge, and it returns the unsolved page as a success.
 Switch to Solverr or Byparr.

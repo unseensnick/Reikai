@@ -60,18 +60,17 @@ It's best to use the standard [Android System WebView](https://play.google.com/s
 
 ## Cloudflare
 
-**Cloudflare**, an anti-bot mechanism, is used by some sources.
-Some sources use stronger **Cloudflare** protection, which can block apps like **Reikai**.
+Some sources sit behind **Cloudflare**, an anti-bot check, and stronger settings of it can block apps like **Reikai**.
+It usually shows up as a `Failed to bypass Cloudflare` error, or as **WebView** reloading the page over and over.
 
-### Routing the source through a bypass proxy
+Work through these in order, and stop at the first one that works:
 
-Some sources sit on protection the in-app WebView cannot clear at all, and no amount of retrying or user-agent swapping helps.
+1. [Open the source in WebView](#accessing-websites-via-webview) and complete the check there, then go back and retry.
+1. If the page stops on a **Verify you are human** box, turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">, which ticks the box for you. It is off by default. To let library updates get past the check too, also turn on **Solve with the app closed**.
+1. [Change your user agent](#changing-your-user-agent), restart the app and try WebView again.
+1. Route the source through a [Cloudflare bypass proxy](/docs/flaresolverr) you run yourself. This is for protection the in-app WebView cannot clear at all, and it needs a computer or server that stays on.
 
-For those, **Reikai** can hand the request to a bypass proxy you run yourself, which solves the challenge in a real browser. See [Cloudflare bypass](/docs/flaresolverr).
-
-### Dealing with Cloudflare looping
-Certain sources may employ more advanced **Cloudflare** protection, leading to **WebView** continuously reloading when you [access the website via WebView](#accessing-websites-via-webview).
-If the page stops on a **Verify you are human** box, turn on **Solve interactive Cloudflare challenges** in <nav to="advanced">. Otherwise, try changing your user agent below, and if that does not help either, route the source through a bypass proxy as described above.
+If none of these work, wait for the source to lower its protection, or switch to a different source.
 
 ### Changing your user agent
 A user agent string shares requester information with websites, potentially affecting **Cloudflare**'s bot detection.
@@ -84,10 +83,6 @@ While some sources have specific user agent strings, most rely on the app's defa
    * You can use any user agent strings available in the reference site or by searching online.
    * You may need to try different user agents from different devices, browsers, and/or operating systems.
 1. After changing the user agent string, remember to restart the app & check WebView to see if it passes verification.
-:::
-
-::: tip Did none of this work?
-Wait for the source to lower its protection, or switch to a different source.
 :::
 
 ## General
