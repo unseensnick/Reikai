@@ -418,7 +418,7 @@ case "$cmd" in
     for file in "${files[@]}"; do
       [ -f "$file" ] || continue
       if hits=$(grep -niE "$SUBSYSTEM_HISTORY" "$file"); then
-        report "$file carries history (a date, a commit SHA, a step, round or phase, an owner ruling, or a Status section); keep it in docs/dev/plans/ and describe what is." "$hits"
+        report "$file carries history (a date, a commit SHA, a step, round or phase, an owner ruling, or a Status section); leave the history to git and describe what is." "$hits"
         fail=1
       fi
       lines=$(awk 'END { print NR }' "$file")
