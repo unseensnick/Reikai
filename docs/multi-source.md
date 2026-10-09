@@ -1,21 +1,22 @@
 ---
-title: Multi-source grouping
-titleTemplate: Guides
+title: Merged series
+titleTemplate: Library
 description: Fold the same series from several sources into one library entry that reads as one.
 ---
 
-# Multi-source grouping
+# Merged series
 
 _Dev records: [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md). Doc map: [README.md](README.md)._
 
 The same series is often available from several sources.
-**Reikai** can fold those into a single library entry that reads as one series, so your library shows what you read rather than how many copies of it you have.
+**Reikai** can fold those into a single library entry that reads as one series, called a merged series, so your library shows what you read rather than how many copies of it you have.
+On this page, a merged series' group means the sources behind it.
 
-Grouping works the same way for manga and for light novels.
+Merged series work the same way for manga and for light novels.
 
-::: info Grouping only happens when you ask for it
-Nothing is grouped behind your back.
-An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a grouped entry: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
+::: info A series is only merged when you ask
+Nothing is merged behind your back.
+An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a merged series: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
 A source you remove with the heart or from the library keeps its place in the group, so adding it back puts it straight back in. **Remove from library** in Manage sources splits it out first, so it comes back on its own.
 :::
 
@@ -51,7 +52,7 @@ Turn those off with **Show source icons on merged covers** in the library displa
 
 ## Switching source
 
-Open a grouped series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
+Open a merged series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
 
 Tap another chip to read that source's version.
 Read and bookmark marks, and the chapter list's sort, filter and display settings, are shared by the whole group, so switching source does not restart anything and every chip lists chapters the same way.
@@ -149,7 +150,7 @@ Long-press a row to select several sources and split or remove them together.
 The global ranking those first two items refer to is **Preferred sources**, in <nav to="library"> under **Merged series**.
 It decides which source leads a merged chapter list when a group has no order of its own.
 
-## Removing a grouped series
+## Removing a merged series
 
 The heart on the details screen removes what the page is showing.
 Under a source chip it removes that one source, and the rest of the group stays in your library.

@@ -92,7 +92,7 @@ The **Lewd** filter on the **Filter** tab of <nav to="main_library"> treats a se
 That is intentional. When you use Edit info to change a title, author, cover, or other
 details, the change affects how the entry looks (its details page and the library, updates,
 and history lists) and library search, which finds it by the name you gave it. Sorting,
-category grouping, and same-title source grouping keep using the entry's original source
+category grouping, and the same-title suggestion for merged series keep using the entry's original source
 info.
 
 So a renamed entry is findable under your name for it, but stays where its original title

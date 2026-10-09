@@ -29,7 +29,7 @@ Prefer it out of the way?
 
 Results are reused for about half an hour; after that they show straight away while a fresh set loads in the background.
 They are held in memory only, so they are gone once Android closes the app.
-On a grouped series the row is fetched for the entry you opened; switching source with the chip row does not fetch it again.
+On a merged series the row is fetched for the entry you opened; switching source with the chip row does not fetch it again.
 
 ## Where the suggestions come from
 

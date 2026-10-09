@@ -48,8 +48,8 @@ Best when a source has died and you want everything off it.
 
 Select entries of one type at a time: the migrate action disappears entirely on a selection mixing manga and novels, since one migration moves entries of a single type.
 
-::: info Grouped entries ask which source to move first
-If what you picked is a [merged group](/docs/multi-source), a **Migrate** screen lists its sources with their chapter counts so you can tap the ones to move (what you picked starts selected). Anything left unselected stays where it is. Entries that are not grouped skip this step, as does the whole-source route above.
+::: info A merged series asks which source to move first
+If what you picked is a [merged series](/docs/multi-source), a **Migrate** screen lists its sources with their chapter counts so you can tap the ones to move (what you picked starts selected). Anything left unselected stays where it is. Entries that are not merged skip this step, as does the whole-source route above.
 :::
 
 ### Choosing where to search

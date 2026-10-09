@@ -116,4 +116,4 @@ See [adult sources](adult-sources.md).
 - **A misspelled field name is searched as plain text.** `titel:solo` looks for the literal text rather than warning you, and finds nothing.
 - **Search uses the details you set, not the source's.** Rename an entry through **Edit info** and search finds it under your name, no longer the source's. The same goes for an author, artist, description or genre you overrode. Sorting and grouping still use the source's values.
 - **`chapter:` only searches chapters already saved on your device**, which for most entries means everything fetched so far rather than the source's full catalogue.
-- **A grouped entry is matched as one card.** For [merged sources](multi-source.md), text fields read the entry you see, while `source:`, `srcid:`, `lang:` and `chapter:` also look through every source behind it.
+- **A [merged series](multi-source.md) is matched as one card.** Text fields read the entry you see, while `source:`, `srcid:`, `lang:` and `chapter:` also look through every source behind it.

@@ -36,7 +36,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 
 ### Reikai's own features
 
-- `Multi-source grouping` (manga + novels): fold same-title entries from different sources into one card, with a per-source switcher. ([docs](https://reikai.app/docs/multi-source))
+- `Merged series` (manga + novels): fold same-title entries from different sources into one card, with a per-source switcher. ([docs](https://reikai.app/docs/multi-source))
 - `Manual merge / unmerge`: group entries by hand when titles differ, or split a group apart. ([docs](https://reikai.app/docs/multi-source))
 - `Merge-aware reading`: read a merged series through every source, one unified chapter list. ([docs](https://reikai.app/docs/multi-source#reading-a-group))
 - `Tracker sync` across grouped sources: a tracker on one source is shared across the group. ([docs](https://reikai.app/docs/guides/tracking))

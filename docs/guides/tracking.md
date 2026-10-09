@@ -86,7 +86,7 @@ These three NovelUpdates rows show in <nav to="tracking"> only while you are sig
 
 ## Trackers on a merged entry
 
-When an entry is part of a [multi-source group](/docs/multi-source), you do not set tracker links per source. One binding covers the whole group, and the setting that governs this is **Share trackers across merged sources** in <nav to="tracking">, on by default.
+On a [merged series](/docs/multi-source), you do not set tracker links per source. One binding covers the whole group, and the setting that governs this is **Share trackers across merged sources** in <nav to="tracking">, on by default.
 
 **Adding** a tracker binds it to the source the page was opened on, whichever source chip is selected, and counts for every source in the group: the chip shows on each one, reading a chapter from any of them advances it, and the library's tracker filter, score sort and status grouping all see it. There is one binding while the group is merged, never a copy per source, so the progress shown is always the group's.
 

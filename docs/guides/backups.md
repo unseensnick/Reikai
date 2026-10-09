@@ -52,7 +52,7 @@ One backup covers both libraries: everything below applies to manga and light no
 - **Custom entry info** - The title, author, cover and tags you edited yourself, kept apart from the source's own values
 - **All read entries** - Keeps data for entries you read but did not save
 
-The sources you grouped together under one entry are saved as source-and-address references, so they rebuild correctly even onto a fresh install. They ride along with **Library entries** and have no checkbox of their own.
+The sources behind each [merged series](/docs/multi-source) are saved as source-and-address references, so they rebuild correctly even onto a fresh install. They ride along with **Library entries** and have no checkbox of their own.
 
 #### Settings data
 - **App settings**
