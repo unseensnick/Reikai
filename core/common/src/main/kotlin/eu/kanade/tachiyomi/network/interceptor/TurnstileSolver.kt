@@ -19,11 +19,11 @@ import kotlin.random.Random
  * Presses the checkbox an interactive Cloudflare Turnstile challenge waits on.
  *
  * Sends Tab then Space, with a window or without one. A WebView that was never attached takes the
- * keys just as well once it has been laid out by hand and handed the focus callbacks; what used to
- * make that look impossible was `View.postDelayed` silently queueing every event after the first.
+ * keys once it has been laid out by hand and handed the focus callbacks, provided nothing is
+ * scheduled through `View.postDelayed`, which a detached view never drains.
  * The page is polled from an isolated world where the WebView has one, and on a WebView too old for
- * that the solve runs on Cloudflare's own events alone rather than declining. What was tried and
- * failed: docs/dev/plans/turnstile-solver.md.
+ * that the solve runs on Cloudflare's own events alone rather than declining. Record:
+ * docs/dev/subsystems/cloudflare.md.
  */
 object TurnstileSolver {
 
@@ -129,7 +129,7 @@ object TurnstileSolver {
      * Whether this solve gets a probe. A poll in the page's own world is what makes Cloudflare
      * reissue the challenge, so without an isolated world there is nothing safe to poll from and the
      * solve runs on Cloudflare's events alone. Read once per solve, never mid-solve: the debug
-     * override can flip under a running one, which used to leave it unable to press.
+     * override can flip under a running one and leave it unable to press.
      */
     private val canWatch: Boolean get() = hasIsolatedWorld && !forceNoWatch
 
@@ -202,10 +202,8 @@ object TurnstileSolver {
         }
 
         return try {
-            // Only the page being solved. A wildcard ran the probe in every frame on the page,
-            // including third-party ones, and every report but the main frame's was discarded here
-            // anyway. The feature check for the world belongs above, not around this call, which
-            // throws when it is missing.
+            // Only the page being solved, so no third-party frame runs the probe. The feature check
+            // for the world belongs above, not around this call, which throws when it is missing.
             val pageOnly = setOf(origin)
             val world = WebViewCompat.getExecutionWorld(webView, WORLD)
 
@@ -355,7 +353,7 @@ private val WATCH = """
   // decide anything need no script in the page's own world. The two that do decide something are
   // reported at once rather than held for the next tick: the page navigates away as soon as the
   // challenge passes, and a `complete` batched into a report that never fires dies with the
-  // document, which cost a measured solve its fast accept. The per-second heartbeat still waits.
+  // document. The per-second heartbeat still waits.
   addEventListener('message', (e) => {
     // The challenge posts from its own frame, which reports this origin on a live managed
     // challenge. Anything else on the page can forge the vocabulary, and a solve is the one thing
@@ -363,8 +361,7 @@ private val WATCH = """
     if (e.origin !== CHALLENGE_ORIGIN && e.origin !== location.origin) return;
     const d = e.data;
     if (!d || d.source !== 'cloudflare-challenge') return;
-    // Only what the solve turns on. The rest of Cloudflare's vocabulary was collected, shipped
-    // across the bridge and dropped unread; the caller's own bridge already logs all of it.
+    // Only what the solve turns on; the caller's own bridge already logs the rest.
     if (DECIDING.indexOf(d.event) === -1) return;
     events.push(d.event);
     report();

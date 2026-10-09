@@ -6,7 +6,7 @@ description: Route Cloudflare challenges the in-app WebView cannot solve through
 
 # Cloudflare bypass proxy
 
-_Dev record: [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md). Doc map: [README.md](README.md)._
+_Dev record: [cloudflare.md](dev/subsystems/cloudflare.md). Doc map: [README.md](README.md)._
 
 Some sources sit behind Cloudflare protection the in-app WebView cannot get through.
 For those, **Reikai** can hand the request to a bypass proxy running on your own machine, which solves the challenge in a real browser and returns the page.

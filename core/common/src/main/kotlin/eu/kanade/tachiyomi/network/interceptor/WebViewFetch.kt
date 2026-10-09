@@ -22,7 +22,7 @@ import java.util.Base64
  * The rules of the WebView fetch fallback that need no WebView, kept apart so they are unit-testable.
  * A request reaches the page only as data (a JSON message the fixed script parses), never as script
  * text: an LN plugin chooses its method and headers, and splicing them into code would let it run
- * script in a site the user is signed in to. Record: docs/dev/plans/webview-fetch.md.
+ * script in a site the user is signed in to. Record: docs/dev/subsystems/cloudflare.md.
  */
 
 private val ALLOWED_METHODS = setOf("GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")

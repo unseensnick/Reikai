@@ -46,8 +46,8 @@ import java.util.concurrent.atomic.AtomicReference
  * challenges OkHttp and never issues a clearance the app could reuse. Each origin gets a detached
  * WebView holding a blank page on that origin, so no site script runs beside the fixed fetch script,
  * and requests reach it only as JSON over an origin-scoped message channel. Rules that need no
- * WebView live in WebViewFetch.kt; the design and its security review are in
- * docs/dev/plans/webview-fetch.md.
+ * WebView live in WebViewFetch.kt; the design and its security rules are in
+ * docs/dev/subsystems/cloudflare.md.
  */
 class WebViewFetcher(private val context: Context, private val verboseLogging: () -> Boolean) {
 
