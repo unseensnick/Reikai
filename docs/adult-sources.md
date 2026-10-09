@@ -108,5 +108,5 @@ The one source the switch touches is the stock E-Hentai extension, which is hidd
 
 ## If something is missing
 
-This support was ported from another Mihon fork, and a feature you used there may not have come across.
-If something you relied on is absent, say so in an issue rather than assuming it is a bug.
+A feature you used in another app may not be here.
+If something you need is missing, ask for it in the [Ideas discussion](https://github.com/unseensnick/Reikai/discussions/categories/ideas).

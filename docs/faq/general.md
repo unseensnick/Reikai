@@ -1,17 +1,17 @@
 ---
 title: General
 titleTemplate: Frequently Asked Questions
-description: Frequently Asked Questions
+description: Common questions about Reikai, such as app stores, iOS, Nightly builds, light novels and forks.
 ---
 
 # General
-Frequently Asked Questions
+Common questions about the app itself.
 
 ## Why isn't Reikai on the Google Play Store?
 **Reikai** won't be on the **Google Play Store**.
 
 APK-based extensions conflict with [Google Play's content policy](https://play.google.com/about/developer-content-policy/).
-**Google** might take down the app due to certain content, which the developers wishes to avoid.
+**Google** might take down the app because of that, which the developer wants to avoid.
 
 ## Is Reikai available for iOS/iPadOS?
 There is no iOS or iPadOS version and neither are there plans for one.
@@ -28,8 +28,8 @@ While it's ideal for users seeking the latest **Reikai** experience, it's essent
 :::
 
 ## Can I read light novels?
-Yes. Light novels sit beside manga in the same library, with their own sources, reader and trackers.
-See the [About Reikai](/docs/about) for how novel sources are added, and [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins) for the two forms they come in.
+Yes. Light novels sit beside manga in the same library, with their own sources and trackers, and open in a reader set up for text.
+See [Getting started](/docs/guides/getting-started#add-sources) for how to add a light novel source, and the [novel reader guide](/docs/novel-reader) for reading them.
 
 ## Can I stream anime?
 **Reikai** isn't designed for anime streaming.

@@ -1,19 +1,18 @@
 ---
-title: Related manga
-titleTemplate: Guides
+title: Recommendations
+titleTemplate: Recommendations
 description: Suggestions for what to read next, drawn from the source, your trackers and your taste.
 ---
 
-# Related manga
+# Recommendations
 
 _Dev record: [recommendations.md](dev/plans/recommendations.md). Doc map: [README.md](README.md)._
 
-A row of similar titles on the manga details page, so finishing something leads somewhere.
+A manga's details page has a **Related** row of similar titles, so finishing something leads somewhere.
+Its settings are in <nav to="recommendations">.
 
 Suggestions come from the source you are reading, from public tracker recommendations, and, once you let Reikai pull your tracker library, from what you have already read.
 The row is then reordered toward your taste, and can hide things you have already seen.
-
-Base feature ported from [Komikku](https://github.com/komikku-app/komikku); the taste profile, the extra suggestion streams and the reordering are Reikai's.
 
 ::: info Manga only
 Light novels have no equivalent yet.

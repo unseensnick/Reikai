@@ -162,5 +162,5 @@ When the selection includes a merged card, the Remove dialog has the same **All 
 
 ::: warning That checkbox starts ticked
 Removing a merged series removes every source behind it unless you untick it first.
-The alternative was worse: removing only one source leaves the series in your library under the sources that remain, so it can look as if the removal did nothing.
+If you untick it, the series stays in your library under the sources that remain.
 :::
