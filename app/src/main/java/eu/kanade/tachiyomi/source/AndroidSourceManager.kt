@@ -291,6 +291,9 @@ class AndroidSourceManager(
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
 
+        // The extensions the delegated-sources switch lists in its summary.
+        val DELEGATED_SOURCE_NAMES = DELEGATED_SOURCES.values.map { it.sourceName }
+
         private data class DelegatedSource(
             val sourceName: String,
             val sourceId: Long,

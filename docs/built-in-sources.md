@@ -15,6 +15,7 @@ A few come from Reikai, and those are the ones whose bugs belong in this reposit
 - **Enhanced** means you install a third-party extension and Reikai wraps it to add metadata, login or other features. How the wrapper behaves is Reikai's; the extension itself belongs to whoever publishes it.
 
 The adult switch treats the two differently. A built-in adult source only appears once [adult sources](adult-sources.md) are switched on, while an enhanced one is wrapped whenever its extension is installed, switch or no switch.
+**Enable delegated sources**, just below it in <nav to="browse">, is the switch for the enhanced ones: on by default, and turning it off leaves each of those extensions as it ships.
 
 ## Reporting a bug in one
 

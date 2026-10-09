@@ -1735,6 +1735,8 @@
     <string name="no_rating">No rating</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also needs a sign-in.</string>
+    <string name="toggle_delegated_sources">Enable delegated sources</string>
+    <string name="toggle_delegated_sources_summary">Apply %1$s enhancements to the following sources if they are installed: %2$s</string>
     <string name="recheck_login_status">Recheck login status</string>
     <string name="alternative_login_page">Alternative login page</string>
     <string name="skip_page_restyling">Skip page restyling</string>

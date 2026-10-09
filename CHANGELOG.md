@@ -397,6 +397,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Source catalogues in Browse now offer the panorama comfortable grid, which shows wide covers whole.**
 - **Settings -> Browse and sources can now hide the Latest button on Browse -> Sources rows.** Latest stays one tap away inside each source.
 - **Where a list mixes kinds of novel source (Browse, global search, the feed and migration), each one is labelled JS, APK or IReader.**
+- **Settings -> Browse and sources -> Enable delegated sources can turn off the tags, sign-in and other extras Reikai adds to a few installed extensions (from Komikku).** It is on by default and needs no restart.
 
 #### Changed
 

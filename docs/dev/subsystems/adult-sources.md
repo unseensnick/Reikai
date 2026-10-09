@@ -8,7 +8,7 @@ The adult-source subsystem (the `exh` packages, ported from Komikku and re-typed
 
 ### Gates
 
-`ExhPreferences.isHentaiEnabled` (`eh_is_hentai_enabled`, off by default, the "Enable adult sources" switch) registers the built-in adult sources. `enableExhentai` additionally registers ExHentai and is set by a successful login. Wrapping an installed extension is not gated by either: an extension is wrapped whenever it is installed, and `DelegateSourcePreferences.delegateSources` decides at fetch time whether the wrapper's metadata path runs.
+`ExhPreferences.isHentaiEnabled` (`eh_is_hentai_enabled`, off by default, the "Enable adult sources" switch) registers the built-in adult sources. `enableExhentai` additionally registers ExHentai and is set by a successful login. Wrapping an installed extension is not gated by either: an extension is wrapped whenever it is installed, and `DelegateSourcePreferences.delegateSources` (`eh_delegate_sources`, on by default, the "Enable delegated sources" switch beside "Enable adult sources" in Browse and sources settings) decides on every call which source the wrapper routes through. Off, `EnhancedHttpSource.source()` and `getMainSource` both return the plain extension, so fetching and every delegate extra (metadata, MangaDex follows and settings, page previews, batch-add import) go together, and the switch needs no restart. Batch add stays gated by the adult-sources switch alone.
 
 ### Built-in and delegated sources
 
@@ -78,6 +78,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 - **Every MangaDex API, auth and cover call carries the extension's headers.** MangaDex answers Reikai's injected browser User-Agent with HTTP 400 (the web app instead of JSON), which silently breaks details, login, token refresh, Random and covers. Never build `MangaDexService` or the login helper on the bare network client; Komikku does, and has these bugs.
 - **E-Hentai paging needs the cursor.** Feeding `next=` a page number returns an empty or malformed page after page 1.
 - **Never let the library update fetch EH, ExH, Pururin or nHentai galleries.** A new built-in gallery source goes into `LIBRARY_UPDATE_EXCLUDED_SOURCES`, or into a derived list like nHentai's when its id is not fixed.
+- **Reach a delegate's extras through `getMainSource`, never `enhancedSource`.** Only `getMainSource` honours the delegated-sources switch, so a direct `enhancedSource` read keeps a delegate feature alive after the user turns delegation off.
 - **The account backup is one way.** Nothing may pull the account's favorites into the library or remove a gallery from the account without the user's tick.
 - **An `apply {}` block on an `SManga` can shadow a model property with a local**, which crashed the port once; use `also {}` or explicit receivers.
 - **A converted gallery's downloads stay under the old source's folder** after the debug EH and ExH conversion, as in Komikku.

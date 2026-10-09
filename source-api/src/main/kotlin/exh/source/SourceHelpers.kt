@@ -4,11 +4,13 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 
 /**
- * Unwraps an [EnhancedHttpSource] to its enhanced delegate (e.g. to reach the [UrlImportableSource]
- * a wrapped adult source implements); returns the source itself when it is not wrapped.
+ * Unwraps an [EnhancedHttpSource] to the source it currently routes through (e.g. to reach the
+ * [UrlImportableSource] a wrapped adult source implements); returns the source itself when it is not
+ * wrapped. With delegated sources off that is the plain extension, so the delegate's extras go with
+ * its fetching, as in Komikku.
  */
 inline fun <reified T : Source> Source.getMainSource(): T? = if (this is EnhancedHttpSource) {
-    enhancedSource as? T
+    source() as? T
 } else {
     this as? T
 }

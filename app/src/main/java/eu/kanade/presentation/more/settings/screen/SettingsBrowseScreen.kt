@@ -12,6 +12,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.more.settings.Preference
+import eu.kanade.tachiyomi.source.AndroidSourceManager
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
@@ -47,9 +48,14 @@ object SettingsBrowseScreen : SearchableSettings {
 
         val adultSourcesEnabled by exhPreferences.isHentaiEnabled().changes()
             .collectAsState(exhPreferences.isHentaiEnabled().get())
+        // RK --> the delegated-sources switch, which also decides whether MangaDex's settings exist
+        val delegateSourcePreferences = remember { context.appGraph.delegateSourcePreferences }
+        val delegateSources by delegateSourcePreferences.delegateSources().changes()
+            .collectAsState(delegateSourcePreferences.delegateSources().get())
+        // RK <--
 
-        // RK: resolved once, since the gate awaits the extension scan.
-        val mangaDexEnabled by produceState(initialValue = false) {
+        // RK: resolved once per delegated-sources flip, since the gate awaits the extension scan.
+        val mangaDexEnabled by produceState(initialValue = false, delegateSources) {
             value = SettingsMangaDexScreen.isEnabled()
         }
 
@@ -169,6 +175,17 @@ object SettingsBrowseScreen : SearchableSettings {
                         title = stringResource(MR.strings.pref_enable_adult_sources),
                         subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
                     ),
+                    // RK --> Komikku's delegated-sources switch, beside the gate for the same subsystem
+                    Preference.PreferenceItem.SwitchPreference(
+                        preference = delegateSourcePreferences.delegateSources(),
+                        title = stringResource(MR.strings.toggle_delegated_sources),
+                        subtitle = stringResource(
+                            MR.strings.toggle_delegated_sources_summary,
+                            stringResource(MR.strings.app_name),
+                            AndroidSourceManager.DELEGATED_SOURCE_NAMES.joinToString(),
+                        ),
+                    ),
+                    // RK <--
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.content_warnings_info)),
                 ),
             ),
