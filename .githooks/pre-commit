@@ -7,9 +7,12 @@
 #   ROADMAP.md, upstream-sync.md, feature-ports.md - no em dash, no bare #N (ROADMAP.md also no
 #     content-source names; the two sync records may name them).
 #   Plan records - every path a staged record's Key files section names exists (working tree).
+#   Subsystem docs - a staged docs/dev/subsystems/ page carries no history and stays under its
+#     line cap (working tree).
 #   DI ownership - scripts/di-interop-check.ps1 when a .kt is staged (needs pwsh).
 #   Code comments - no plan/roadmap codename markers and no calendar dates in added lines; an added
-#     twin/mirrors comment names its pin; under reikai/ or exh/ a comment block is capped at 8 lines.
+#     twin/mirrors comment names its pin; an added [Symbol] names live code; under reikai/ or exh/ a
+#     comment block is capped at 8 lines; a comment narrating history is listed (warn only).
 #   Reuse - no new cross-file clone in Reikai-owned Kotlin or an RK island touches a staged file
 #     (reads refs/mihon, and fails without it); a new top-level name that already exists elsewhere
 #     is listed (warn only).
@@ -65,6 +68,11 @@ done
 plans=$(git diff --cached --name-only --diff-filter=ACMR -- 'docs/dev/plans/*.md')
 [ -n "$plans" ] && lint key-files $plans
 
+# ===== subsystem docs: no history, no overlong page =====
+# Read from the working tree, like the plan records. CI checks every page under the folder.
+subsystems=$(git diff --cached --name-only --diff-filter=ACMR -- 'docs/dev/subsystems/')
+[ -n "$subsystems" ] && lint subsystem-docs $subsystems
+
 # ===== DI ownership: graph-owned, singleton, and every Injekt read bound =====
 # These mistakes are silent at build time: an Injekt read of a type MetroInjektRegistrar does not bind
 # throws only when the read runs, and an unscoped binding hands each caller its own instance. See
@@ -93,6 +101,15 @@ lint codenames --stdin < "$scratch_a"
 # reports those.
 git diff --cached -U0 --diff-filter=ACMR -- '*.kt' '*.kts' > "$scratch_a"
 lint twin-pins --stdin < "$scratch_a"
+
+# ===== code comments: an added [Symbol] names live code =====
+# Same diff as the twin check. The references already in the tree are fixed as their files are next
+# touched; CI only reports those. Skipped without staged Kotlin, since it reads every Kotlin file.
+[ -s "$scratch_a" ] && lint kdoc-links --stdin < "$scratch_a"
+
+# ===== code comments: history narrated in a comment (warn only) =====
+# Under reikai/ or exh/, and on RK lines in Mihon's files. It never blocks.
+bash scripts/lint-docs.sh history-words < "$scratch_a"
 
 # ===== reuse: no new duplicated code (code-quality.md DRY) =====
 # A cross-file clone of 100+ tokens in Reikai-owned Kotlin or an RK island that touches a staged file
