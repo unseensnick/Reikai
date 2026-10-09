@@ -12,8 +12,8 @@ or above the migration's gate.
 1. Add a class under `mihon/core/migration/migrations/` implementing `Migration`
    (`mihon/core/migration/Migration.kt`), annotated `@Inject` and `@ContributesIntoSet(AppScope::class)`,
    and take what it needs as constructor parameters. `ChapterNameSuffixMigration` is the model.
-2. Give it its own gate: `override val version: Float = 200f` (or the next free number). The current top
-   is `ChapterNameSuffixMigration` at `199f`; never reuse a gate another migration holds.
+2. Give it its own gate: `override val version: Float = 201f` (or the next free number). The current top
+   is `MergedGroupCategoriesMigration` at `200f`; never reuse a gate another migration holds.
 3. Raise `versionCode` in `app/build.gradle.kts` to that gate and add the migration to the comment above
    it that lists each gate. This is the one mid-cycle `versionCode` bump allowed; `versionName` waits for
    the release cut.
