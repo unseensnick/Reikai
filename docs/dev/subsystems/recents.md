@@ -28,7 +28,7 @@ Identity is `EntryId` for entries and `ChapterRef` (an `EntryId` plus the raw ch
 ### Assembly and rendering
 
 1. **Collect.** The engine collects every lane its modes need from every provider, always. The Manga / Novels chip only selects which providers' rows enter assembly, so a chip flip never waits on a query.
-2. **Assemble** (`assembled`). Rows from the active providers are ordered by `orderRecents` (newest first, ties broken by lane with Read first, then content type, then entry id), filtered by the search query, and tagged with the chip that produced them, since the flow lags a chip flip by one emission. Loading is derived over the active providers only.
+2. **Assemble** (`assembled`). Rows from the active providers are ordered by `orderRecents` (newest first, ties broken by lane with Read first, then content type, then entry id), filtered by the search query, and tagged with the chip that produced them, since the flow lags a chip flip by one emission. Loading is derived over the active providers only. A grouped entry's row is stamped with its group's other library members' covers (`withGroupCovers` over each provider's `memberCovers`), which the row falls back to when its own cover is missing or fails to load ([merged-series.md](merged-series.md) "The group's cover").
 3. **Render** (`rendered`). `renderRows` filters the assembly to the mode's own lanes, applies the row gate (`showsRow`), then the mode's policy in `RecentsPolicies.kt`:
    - `historyRows`: day headers, merged sources collapsed (SQL already gives one row per entry).
    - `updatesRows`: day headers; with Group by series on, a series' two or more chapters from one day become one expandable group row, merge-aware.

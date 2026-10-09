@@ -78,7 +78,7 @@ class MangaEntryAdapter(
                     sourceQuery = model.headerSourceQuery(this),
                     // Only the All view stands for the group; a chip shows its own source's cover.
                     coverFallbacks = if (mergeDisplayManga == null) {
-                        coverFallbacks(manga, mergedMangaById.values.toList()) { it.id }
+                        coverFallbacks(manga.id, mergedMangaById.values.toList()) { it.id }
                     } else {
                         emptyList()
                     },

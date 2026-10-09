@@ -32,6 +32,7 @@ import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.ChapterCopyRow
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.recents.RecentlyAddedManga
@@ -52,6 +53,7 @@ import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.service.SourceManager
 
 /**
@@ -81,6 +83,7 @@ class MangaRecentsAdapter(
     private val libraryPreferences: LibraryPreferences,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: MangaMergeManager,
+    private val mergeGroups: MergeGroupRepository,
     private val mergedChapterProvider: MergedChapterProvider,
     private val mergedChapterUnits: MergedChapterUnitRepository,
     private val mangaPreferences: MangaPreferences,
@@ -172,6 +175,13 @@ class MangaRecentsAdapter(
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Manga)
+
+    override val memberCovers: Flow<List<RecentsMemberCover>> = mergeGroups.getMangaMemberCoversAsFlow().map { rows ->
+        rows.map {
+            val cover = MangaCover(it.memberId, it.sourceId, isMangaFavorite = true, it.url, it.lastModified)
+            RecentsMemberCover(EntryId.Manga(it.memberId), it.groupId, cover)
+        }
+    }
 
     override val downloadChanges: Flow<Unit> = merge(
         downloadCache.changes,

@@ -128,6 +128,9 @@ interface RecentsProvider : RecentsBehavior {
      */
     val membership: Flow<Map<EntryId, Long>>
 
+    /** Every library member of this type's merge groups with its cover, by group then in member order. */
+    val memberCovers: Flow<List<RecentsMemberCover>>
+
     /**
      * Emits whenever any of this type's chapter download states may have changed: the on-disk index,
      * the queue, or a queued download's status. [downloadUi]'s callbacks are polled, so without this

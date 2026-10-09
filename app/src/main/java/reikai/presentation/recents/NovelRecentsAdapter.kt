@@ -23,6 +23,7 @@ import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ChapterCopyRow
+import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
@@ -32,6 +33,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.ownersOf
 import reikai.domain.reader.ChapterProgress
@@ -73,6 +75,7 @@ class NovelRecentsAdapter(
     private val novelRepository: NovelRepository,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val mergeManager: NovelMergeManager,
+    private val mergeGroups: MergeGroupRepository,
     private val mergedChapterUnits: MergedChapterUnitRepository,
     private val novelLibraryAdder: NovelLibraryAdder,
     // Providers, so building the adapter still does not build the download manager: constructing it
@@ -163,6 +166,13 @@ class NovelRecentsAdapter(
 
     override val membership: Flow<Map<EntryId, Long>> =
         mergeManager.membershipFlow(reikaiLibraryPreferences.seriesMergingEnabled, EntryId::Novel)
+
+    override val memberCovers: Flow<List<RecentsMemberCover>> = mergeGroups.getNovelMemberCoversAsFlow().map { rows ->
+        rows.map {
+            val cover = NovelCover(it.url, it.sourceId, isNovelFavorite = true, it.lastModified, novelId = it.memberId)
+            RecentsMemberCover(EntryId.Novel(it.memberId), it.groupId, cover)
+        }
+    }
 
     // Built on collection, which the engine does only while its chip shows novels, so a surface drawing
     // no novel row never builds the download manager. The queue carries each download's state.

@@ -163,6 +163,24 @@ CROSS JOIN novels N
 ON N._id = MGN.novel_id
 WHERE N.favorite_at IS NOT NULL;
 
+-- The cover fields of every library member of a group, in group order, for the cover a merged
+-- recents row falls back to. Same CROSS JOIN shape as libraryMangaMemberships, for the same reason.
+libraryMangaMemberCovers:
+SELECT MGM.manga_id, MGM.group_id, M.source_id, M.remote_cover, M.state_cover_last_modified
+FROM merge_group_manga MGM
+CROSS JOIN manga M
+ON M.id = MGM.manga_id
+WHERE M.user_favorite_at IS NOT NULL
+ORDER BY MGM.group_id, MGM.source_priority, MGM._id;
+
+libraryNovelMemberCovers:
+SELECT MGN.novel_id, MGN.group_id, N.source, N.thumbnail_url, N.cover_last_modified
+FROM merge_group_novel MGN
+CROSS JOIN novels N
+ON N._id = MGN.novel_id
+WHERE N.favorite_at IS NOT NULL
+ORDER BY MGN.group_id, MGN.source_priority, MGN._id;
+
 -- Per-group source-ranking overrides for the library collapse (group id -> members in trunk order),
 -- only for groups whose override_source_ranking is on. Lets the collapsed library row lead on the same
 -- source the details chapter list trunks on. The JOIN makes the query reactive over BOTH tables, so a

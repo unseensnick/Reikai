@@ -137,7 +137,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 
 - **Reading or bookmarking a chapter on a merged series now marks that same chapter on every source, and Skip chapters marked read and the Unread and Bookmarked filters follow it.** A bookmark set before merging also shows in the combined list.
 - **A merged series now keeps one chapter sort, filter and display setting on manga and novels, whichever source you open it through.** Changing it from any source changes it for all of them, and the reader and the Continue button follow it.
-- **A merged series now shows another source's cover in the library and on its page when its main source has none or that cover fails to load.** Your own custom cover still comes first.
+- **A merged series now shows another source's cover in the library, on its page and in Updates and History when its own source has none or that cover fails to load.** Your own custom cover still comes first.
 - **A merged series' chapter list now reads straight down on manga and novels instead of alternating between its sources, and a merged novel no longer lists a chapter twice when one of its sources names it by number only, drops an apostrophe or repeats its title elsewhere.**
 - **Missing chapter warnings no longer invent gaps on a merged series, in the chapter list or between chapters in the reader, on manga and novels.**
 - **A merged series' library badge now counts each unread chapter once across all its sources, and the Unread, Started and Bookmarked filters, the sorts, search and the Continue button count the whole group too.**

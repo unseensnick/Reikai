@@ -75,7 +75,7 @@ object MangaMergeCollapse {
         }
         val primary = ranked.first()
         return primary.stampMergedGroup(
-            coverFallbacks = coverFallbacks(primary, ranked) { it.id }.map(::libraryCoverModel),
+            coverFallbacks = coverFallbacks(primary.id, ranked) { it.id }.map(::libraryCoverModel),
             members = subGroup.map {
                 MergedRowMember(
                     it.id,

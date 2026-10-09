@@ -64,4 +64,10 @@ data class RecentsItem(
     val timestamp: Long,
     val lane: RecentsLane,
     val payload: Any,
+    /** A merged series' other members' covers, stamped at assembly ([withGroupCovers]); empty otherwise. */
+    val coverFallbacks: List<Any> = emptyList(),
 )
+
+/** One library member of a merge group and its cover model, which a merged row falls back to. */
+@Immutable
+data class RecentsMemberCover(val entryId: EntryId, val groupId: Long, val cover: Any)

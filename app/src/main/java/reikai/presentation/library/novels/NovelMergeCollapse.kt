@@ -64,7 +64,7 @@ object NovelMergeCollapse {
                 members = bucket.members,
                 mergedCounts = groupId?.let { mergedCountsByGroup[it] },
                 mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
-                coverFallbacks = coverFallbacks(ranked.first(), ranked) { it.novel.id },
+                coverFallbacks = coverFallbacks(ranked.first().novel.id, ranked) { it.novel.id },
             )
         }
     }

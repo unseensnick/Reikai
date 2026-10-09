@@ -42,11 +42,11 @@ fun <T, S> libraryRanking(
 )
 
 /**
- * The members whose covers a merged series falls back to, in [members]' order, when [shown]'s own cover
- * is missing or fails to load. [shown]'s cover goes first because it carries the user's custom cover and
- * edited cover address. The fallback is drawn only, never stored.
+ * The members whose covers a merged series falls back to, in [members]' order, when the cover of the
+ * member keyed [shown] is missing or fails to load. Its own cover goes first because it carries the
+ * user's custom cover and edited cover address. The fallback is drawn only, never stored.
  */
-fun <T> coverFallbacks(shown: T, members: List<T>, id: (T) -> Long): List<T> = members.filter { id(it) != id(shown) }
+fun <T, K> coverFallbacks(shown: K, members: List<T>, key: (T) -> K): List<T> = members.filter { key(it) != shown }
 
 /**
  * [ranked] in the order a stitch walks it: a member with no chapters moves last, so the stitch starts

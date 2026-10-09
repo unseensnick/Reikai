@@ -96,7 +96,7 @@ class NovelEntryAdapter(
                     sourceState = sourceState,
                     sourceQuery = model.headerSourceQuery(this),
                     // Filled on the All view only; a chip shows its own source's cover.
-                    coverFallbacks = coverFallbacks(novel, groupNovels) { it.id },
+                    coverFallbacks = coverFallbacks(novel.id, groupNovels) { it.id },
                 ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,

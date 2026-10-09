@@ -315,7 +315,7 @@ private fun <T> collapseToCards(
     .map { (_, members) ->
         val (entry, ui) = members.first()
         // A group's card draws another member's cover when this one's is missing or fails to load.
-        val fallbacks = coverFallbacks(ui, members.map { it.second }) { it.id }.map { it.coverModel }
+        val fallbacks = coverFallbacks(ui.id, members.map { it.second }) { it.id }.map { it.coverModel }
         val groupUi = ui.copy(coverModel = withCoverFallbacks(ui.coverModel, fallbacks))
         DuplicateCard(entry, groupUi, members.map { it.second.id })
     }

@@ -2,6 +2,7 @@ package reikai.domain.merge
 
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.library.ContentType
+import reikai.domain.merge.model.MemberCover
 import reikai.domain.merge.model.MergeGroup
 
 /**
@@ -64,6 +65,12 @@ interface MergeGroupRepository {
 
     /** [getRankedMangaMembers] for novel groups, whose source ids are strings. */
     suspend fun getRankedNovelMembers(): List<RankedMember<String>>
+
+    /** Every library member of every manga group with its cover, by group then in member order. */
+    fun getMangaMemberCoversAsFlow(): Flow<List<MemberCover<Long>>>
+
+    /** [getMangaMemberCoversAsFlow] for novel groups. */
+    fun getNovelMemberCoversAsFlow(): Flow<List<MemberCover<String>>>
 
     /**
      * Merge [ids] into one group, absorbing any groups they already belong to (so merging two

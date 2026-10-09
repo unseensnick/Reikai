@@ -34,6 +34,7 @@ import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.coil.GroupCover
 import reikai.domain.category.RecentsSurface
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -321,6 +322,41 @@ class RecentsEngineTest {
         val flow = mergeManager(mapOf(1L to 7L)).membershipFlow(mergingPreference(false), EntryId::Manga)
 
         flow.first() shouldBe emptyMap()
+    }
+
+    // A merged row's cover: its own, then its group's other library members' in member order.
+
+    private fun coverEngine(type: ContentType, grouped: Boolean): RecentsEngine {
+        val entry = { id: Long -> if (type == ContentType.MANGA) EntryId.Manga(id) else EntryId.Novel(id) }
+        val (own, second, third) = listOf(1L, 2L, 3L).map(entry)
+        val row = item(own, at = 1, lane = RecentsLane.Updated(ref(own, 1)))
+        val provider = provider(
+            type,
+            updated = rows(row),
+            membership = if (grouped) listOf(own, second, third).associateWith { 7L } else emptyMap(),
+            covers = mapOf(own to "own cover"),
+            // Member order puts the third entry ahead of the second, so the row's order cannot pass for it.
+            memberCovers = listOf(third, own, second).map { RecentsMemberCover(it, 7L, "cover ${it.rawId}") },
+        )
+        return engine(listOf(provider))
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("contentTypes")
+    fun `a merged row's cover falls back to its group's other members in member order`(type: ContentType) =
+        runTest {
+            val engine = coverEngine(type, grouped = true)
+
+            engine.rowUi(engine.firstAssembly().items.single()).cover shouldBe
+                GroupCover(listOf("own cover", "cover 3", "cover 2"))
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("contentTypes")
+    fun `a row with merging off draws its own cover alone`(type: ContentType) = runTest {
+        val engine = coverEngine(type, grouped = false)
+
+        engine.rowUi(engine.firstAssembly().items.single()).cover shouldBe "own cover"
     }
 
     // Search, selection and the verbs: the values the two replaced screens each stored twice.
@@ -1593,6 +1629,9 @@ class RecentsEngineTest {
     }
 
     companion object {
+        @JvmStatic
+        fun contentTypes() = listOf(ContentType.MANGA, ContentType.NOVELS)
+
         /** Every view an updated row is drawn in, for both content types. */
         @JvmStatic
         fun updatedRowViews(): List<Arguments> =
@@ -1623,6 +1662,8 @@ private fun provider(
     targetRows: Map<ChapterRef, RecentsTargetRow> = emptyMap(),
     membership: Map<EntryId, Long> = emptyMap(),
     typeCapabilities: Set<RecentsTypeCapability> = emptySet(),
+    covers: Map<EntryId, Any> = emptyMap(),
+    memberCovers: List<RecentsMemberCover> = emptyList(),
 ) = FakeRecentsProvider(
     type,
     read,
@@ -1642,6 +1683,8 @@ private fun provider(
     targetRows,
     membership,
     typeCapabilities,
+    covers,
+    memberCovers,
 )
 
 /** A resolved target row, carrying only what the engine and the bar read off one. */
@@ -1680,6 +1723,8 @@ private class FakeRecentsProvider(
     private val targetRows: Map<ChapterRef, RecentsTargetRow>,
     memberships: Map<EntryId, Long>,
     override val typeCapabilities: Set<RecentsTypeCapability>,
+    private val covers: Map<EntryId, Any>,
+    memberCovers: List<RecentsMemberCover>,
 ) : RecentsProvider {
 
     var historyCleared = false
@@ -1714,6 +1759,7 @@ private class FakeRecentsProvider(
     override val lastUpdated: Flow<Long> = flowOf(updatedAt)
     override val updating: Flow<Boolean> = flowOf(updating).onStart { updatingSubscriptions++ }
     override val membership: Flow<Map<EntryId, Long>> = flowOf(memberships)
+    override val memberCovers: Flow<List<RecentsMemberCover>> = flowOf(memberCovers)
 
     private val downloadedNow = downloadedEntries.toMutableSet()
     private val downloadSignal = MutableSharedFlow<Unit>(extraBufferCapacity = 8)
@@ -1763,7 +1809,11 @@ private class FakeRecentsProvider(
     }
 
     override fun rowUi(item: RecentsItem): RecentsRowUi =
-        EMPTY_RECENTS_ROW.copy(title = titles[item.entryId].orEmpty(), state = states[item.entryId])
+        EMPTY_RECENTS_ROW.copy(
+            cover = covers[item.entryId],
+            title = titles[item.entryId].orEmpty(),
+            state = states[item.entryId],
+        )
 
     override fun downloadUi(item: RecentsItem): RecentsDownloadUi = RecentsDownloadUi(
         state = { if (item.entryId in downloadedNow) Download.State.DOWNLOADED else Download.State.NOT_DOWNLOADED },

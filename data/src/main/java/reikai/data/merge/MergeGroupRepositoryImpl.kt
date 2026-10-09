@@ -14,6 +14,7 @@ import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RankedMember
+import reikai.domain.merge.model.MemberCover
 import reikai.domain.merge.model.MergeGroup
 import tachiyomi.data.Database
 import tachiyomi.data.subscribeToList
@@ -106,6 +107,16 @@ class MergeGroupRepositoryImpl(
         queries.rankedNovelMembers { groupId, novelId, source, override ->
             RankedMember(groupId, novelId, source, override == 1L)
         }.awaitAsList()
+
+    override fun getMangaMemberCoversAsFlow(): Flow<List<MemberCover<Long>>> =
+        queries.libraryMangaMemberCovers { id, groupId, source, url, lastModified ->
+            MemberCover(id, groupId, source, url, lastModified)
+        }.subscribeToList()
+
+    override fun getNovelMemberCoversAsFlow(): Flow<List<MemberCover<String>>> =
+        queries.libraryNovelMemberCovers { id, groupId, source, url, lastModified ->
+            MemberCover(id, groupId, source, url, lastModified)
+        }.subscribeToList()
 
     override suspend fun merge(contentType: ContentType, ids: List<Long>): Long? {
         val distinct = ids.distinct()

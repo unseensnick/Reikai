@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import reikai.data.coil.withCoverFallbacks
 import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.EntryId
@@ -186,10 +187,14 @@ class RecentsEngine(
             // Every provider's, not just the active ones': the keys are EntryIds and group ids are
             // unique across both content types, so one map serves whatever the chip ends up showing.
             combine(providers.map { it.membership }) { maps -> maps.fold(emptyMap<EntryId, Long>()) { a, b -> a + b } },
+            // Group ids are unique across both content types, so one map serves both, as above.
+            combine(providers.map { it.memberCovers }) { lists -> lists.flatMap { it }.groupBy { it.groupId } }
+                .distinctUntilChanged(),
             query,
-        ) { chip, lanesPerProvider, membership, query ->
+        ) { chip, lanesPerProvider, membership, coversByGroup, query ->
             val active = activeIndices(chip).flatMap { lanesPerProvider[it] }
             val rows = orderRecents(active.flatMap { it.items }).filter { matchesQuery(it, query) }
+                .withGroupCovers(membership, coversByGroup)
             RecentsAssembled(
                 chip = chip,
                 items = rows,
@@ -579,8 +584,10 @@ class RecentsEngine(
     // The render projection, forwarded because the providers themselves stay private: a renderer asks
     // the engine about a row and never learns which content type answered.
 
-    fun rowUi(item: RecentsItem): RecentsRowUi =
-        providersByType[item.entryId.contentType]?.rowUi(item) ?: EMPTY_RECENTS_ROW
+    fun rowUi(item: RecentsItem): RecentsRowUi {
+        val ui = providersByType[item.entryId.contentType]?.rowUi(item) ?: return EMPTY_RECENTS_ROW
+        return ui.cover?.let { ui.copy(cover = withCoverFallbacks(it, item.coverFallbacks)) } ?: ui
+    }
 
     /** A row's download state: its continue-reading [target]'s where it has one, else its own. */
     fun downloadUi(item: RecentsItem, target: RecentsTargetRow? = null): RecentsDownloadUi? =

@@ -104,6 +104,22 @@ class MergeGroupRepositoryTest {
         repository.getLibraryMembershipsAsFlow(type).first().keys shouldBe setOf(1L, 3L)
     }
 
+    /** A merged recents row falls back to these covers, so they follow the group's order, library members only. */
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `member covers list the library members in the group's order`(type: ContentType) = runTest {
+        (1L..4L).forEach { insertEntry(type, it) }
+        repository.materializeGroup(type, listOf(3, 1, 4, 2), false)
+        setFavorite(type, 4, false)
+
+        val covers = when (type) {
+            ContentType.MANGA -> repository.getMangaMemberCoversAsFlow().first()
+            else -> repository.getNovelMemberCoversAsFlow().first()
+        }
+
+        covers.map { it.memberId } shouldBe listOf(3L, 1L, 2L)
+    }
+
     @Test
     fun `getMembers still reports the whole group, library or not`() = runTest {
         // The data half: the split undo, a backup and the repository's own rewrites all need the full

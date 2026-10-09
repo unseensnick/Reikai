@@ -1,6 +1,7 @@
 package reikai.presentation.recents
 
 import reikai.domain.entry.EntryId
+import reikai.domain.merge.coverFallbacks
 import reikai.domain.merge.dedupeByMergeGroup
 
 /*
@@ -49,3 +50,16 @@ fun collapseByEntry(items: List<RecentsItem>): List<RecentsItem> =
  */
 fun collapseByGroup(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsItem> =
     collapseByEntry(items).dedupeByMergeGroup(membership) { it.entryId }
+
+/**
+ * Stamps each merged row with the covers it falls back to when its own is missing or fails to load: its
+ * group's other library members' ([coverFallbacks]), in member order. A row outside a group, and every
+ * row while [membership] is empty (merging off), is left as it is.
+ */
+fun List<RecentsItem>.withGroupCovers(
+    membership: Map<EntryId, Long>,
+    coversByGroup: Map<Long, List<RecentsMemberCover>>,
+): List<RecentsItem> = map { item ->
+    val members = membership[item.entryId]?.let(coversByGroup::get) ?: return@map item
+    item.copy(coverFallbacks = coverFallbacks(item.entryId, members) { it.entryId }.map { it.cover })
+}
