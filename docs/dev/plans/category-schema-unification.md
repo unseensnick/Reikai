@@ -67,7 +67,7 @@ both sides, unchanged.
   column is dropped with the table and its read path (`NovelCategory.novelOrder`, the mapper and repo
   references) goes with the novel-stack retirement. Backups never carried it, so nothing round-trips
   through it. The Yokai database import, its last reader, is removed (see
-  [legacy-yokai-import.md](legacy-yokai-import.md)).
+  [data-and-backup.md](../subsystems/data-and-backup.md) "Decisions").
 - **Category default is `content_type = 1` (manga), not tsundoku's 0.** Existing manga categories are
   manga-typed, not universal; tsundoku defaults to universal only because it has one entries table. New
   categories created through the unchanged `insert` inherit the manga default until the novel path gets

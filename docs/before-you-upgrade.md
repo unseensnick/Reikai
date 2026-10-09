@@ -6,7 +6,7 @@ description: What to do before updating Reikai, or before moving to it from an o
 
 # Before you upgrade
 
-_Dev records: [legacy-yokai-import.md](dev/plans/legacy-yokai-import.md), [novel-backup.md](dev/plans/novel-backup.md). Doc map: [README.md](README.md)._
+_Dev record: [data-and-backup.md](dev/subsystems/data-and-backup.md). Doc map: [README.md](README.md)._
 
 Most updates need nothing from you.
 An update installs over the version you have, and your library and settings stay as they are.

@@ -25,7 +25,7 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
  * which a new entry can be handed since neither entry table uses AUTOINCREMENT. The survivor's own cover wins, and
  * the copy's file goes either way. Its download folders merge by copy, which here would hold the main thread that
  * MainActivity blocks on the migrations, so [carryFolders] does them afterwards and then empties the record.
- * Best-effort per file. Rules and inventory: docs/dev/plans/mihon-schema-rewrite.md.
+ * Best-effort per file. Rules: docs/dev/subsystems/data-and-backup.md.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

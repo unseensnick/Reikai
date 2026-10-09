@@ -15,7 +15,7 @@ internal data class FolderCarry(val finished: Boolean, val changed: Boolean)
  * Merges a merged-away copy's download folder into the survivor's, one chapter at a time, by copy and delete, since
  * storage cannot move a file between folders. A chapter the survivor lacks is copied under [COPY_SUFFIX], checked
  * against its source, renamed into place, and only then deleted from the source. A chapter the survivor has is left
- * in both, and nothing is ever overwritten. Rules: docs/dev/plans/mihon-schema-rewrite.md.
+ * in both, and nothing is ever overwritten. Rules: docs/dev/subsystems/data-and-backup.md.
  */
 internal object DownloadFolderMerge {
 

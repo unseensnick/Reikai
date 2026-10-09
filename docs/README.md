@@ -15,8 +15,8 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Feature area | User doc | Dev records |
 |---|---|---|
 | Categories | [guides/categories.md](guides/categories.md) | [novel-categories.md](dev/plans/novel-categories.md), [category-schema-unification.md](dev/plans/category-schema-unification.md), [library-sort-overrides.md](dev/plans/library-sort-overrides.md) |
-| Upgrading and moving from other apps | [before-you-upgrade.md](before-you-upgrade.md) | [legacy-yokai-import.md](dev/plans/legacy-yokai-import.md), [novel-backup.md](dev/plans/novel-backup.md) |
-| Backup & restore | [guides/backups.md](guides/backups.md) | [novel-backup.md](dev/plans/novel-backup.md), [legacy-yokai-import.md](dev/plans/legacy-yokai-import.md); streaming divergence in [upstream-sync.md](dev/upstream-sync.md) |
+| Upgrading and moving from other apps | [before-you-upgrade.md](before-you-upgrade.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md) |
+| Backup & restore | [guides/backups.md](guides/backups.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md); streaming divergence in [upstream-sync.md](dev/upstream-sync.md) |
 | Trackers | [guides/tracking.md](guides/tracking.md) | [novel-tracking.md](dev/plans/novel-tracking.md), [novel-specific-trackers.md](dev/plans/novel-specific-trackers.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md) |
 | Merged series | [multi-source.md](multi-source.md) | [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md) |
 | Recommendations | [related-mangas.md](related-mangas.md) | [recommendations.md](dev/plans/recommendations.md) |

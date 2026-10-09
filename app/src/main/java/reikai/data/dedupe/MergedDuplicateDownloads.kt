@@ -29,7 +29,7 @@ import tachiyomi.domain.source.service.SourceManager
  * for both types: a download folder named by the copy's title takes the survivor's title when the survivor has
  * none and is merged into the survivor's when it has one, and a saved queue row naming the copy or a merged
  * chapter row names the survivor's instead, or goes. Nothing is overwritten, and a file is deleted only once a
- * checked copy stands in its place. Rules: docs/dev/plans/mihon-schema-rewrite.md.
+ * checked copy stands in its place. Rules: docs/dev/subsystems/data-and-backup.md.
  */
 @Inject
 class MergedDuplicateDownloads(

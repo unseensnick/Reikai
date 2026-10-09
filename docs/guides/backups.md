@@ -5,7 +5,7 @@ description: Backups helps you prevent losing your library if something happens.
 
 # Backups
 
-_Dev records: [novel-backup.md](../dev/plans/novel-backup.md), [legacy-yokai-import.md](../dev/plans/legacy-yokai-import.md); the streaming divergence in [upstream-sync.md](../dev/upstream-sync.md). Doc map: [README.md](../README.md)._
+_Dev record: [data-and-backup.md](../dev/subsystems/data-and-backup.md); the streaming divergence in [upstream-sync.md](../dev/upstream-sync.md). Doc map: [README.md](../README.md)._
 
 Backups can be created to save your library data and app settings.
 You can transfer and restore backup files between devices, and between **Reikai** and other apps in the same lineage.
