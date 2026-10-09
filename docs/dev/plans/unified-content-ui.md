@@ -225,12 +225,12 @@ Those three reader/settings blocks (chrome unification, settings reorg, 7b reade
 ROADMAP and `Handoff.md` track as **Phase 7** (7a = the settings reorg, which reversed the dedicated-page plan;
 7b = the reader sub-features). The rest of the program shipped too: the manga reader skip-hidden fix, an
 independent library scroll position per content type, the novel download-storage re-key
-([novel-download-storage.md](novel-download-storage.md)), and the `[S]` Novels quick wins. The round-2 drift
+([downloads.md](../subsystems/downloads.md)), and the `[S]` Novels quick wins. The round-2 drift
 fixes + twin collapses that followed are recorded in
 [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md).
 
 The download subsystem (Road B) and the reader were taken over after this era; their records are
-[content-layer-download-surface.md](content-layer-download-surface.md),
+[downloads.md](../subsystems/downloads.md),
 [content-layer-reader-surface.md](content-layer-reader-surface.md) and
 [novel-reader-tsundoku.md](novel-reader-tsundoku.md).
 
