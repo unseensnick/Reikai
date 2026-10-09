@@ -12,7 +12,7 @@
 
 ## Rebase status
 
-The rebase has shipped: `main` is the Mihon-based main. The forward backlog lives in [ROADMAP.md](../../ROADMAP.md) (forward-only), the per-feature implementation records in [plans/](plans/) (the rebase's own record is `plans/rebase-overview.md`), and the done-log in [shipped.md](shipped.md). The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference.
+The rebase has shipped: `main` is the Mihon-based main. The forward backlog lives in [ROADMAP.md](../../ROADMAP.md) (forward-only), the per-feature implementation records in [plans/](plans/) (the rebase's own record is `plans/rebase-overview.md`), and what shipped in [CHANGELOG.md](../../CHANGELOG.md) and the release tags. The old Yōkai-based code stays on the `design/library-compose` branch as the porting reference.
 
 ## Canonical rules
 

@@ -6,7 +6,7 @@ Three tiers, by audience:
 - **Dev docs** (`dev/`): how the project is built, how to sync Mihon, how work is recorded. Start at [dev/README.md](dev/README.md).
 - **Feature records** (`dev/plans/*.md`): one per substantial feature, the how and the why, indexed in [dev/plans/README.md](dev/plans/README.md).
 
-Four more files hold the moving parts. At the repo root, the forward backlog is [ROADMAP.md](../ROADMAP.md) and user-facing release notes are [CHANGELOG.md](../CHANGELOG.md); under `dev/`, the terse done-log is [dev/shipped.md](dev/shipped.md) and what was considered and set aside is [dev/parked.md](dev/parked.md).
+Three more files hold the moving parts. At the repo root, the forward backlog is [ROADMAP.md](../ROADMAP.md) and user-facing release notes are [CHANGELOG.md](../CHANGELOG.md), which with the release tags is the record of what shipped; under `dev/`, what was considered and set aside is [dev/parked.md](dev/parked.md).
 
 ## Where a feature lives
 

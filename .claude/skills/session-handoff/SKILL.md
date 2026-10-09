@@ -58,7 +58,6 @@ Reikai keeps its durable record in several places, each with a different job. Up
 | `../reikai-claude-memories/handoff/Handoff.md` | The synced copy | Must be written too, then committed and pushed in that repo |
 | `ROADMAP.md` | Forward backlog only | One-line items, size tag, area grouping, never a log of what shipped |
 | `docs/dev/plans/*.md` | Per-feature record | Goal / Why / Approach / Key files / Status / Decisions; index it in that folder's `README.md` |
-| `docs/dev/shipped.md` | Done-log | At release-cut, not per session |
 | `CHANGELOG.md` | `[Unreleased]` | Benefit-first bold headline, user-facing effect only |
 | `docs/dev/upstream-sync.md` | Sync ledger | Append a row per Mihon sync |
 | `docs/dev/off-path-manifest.md` | Deleted Mihon paths | One row per delete plus its replacement |
