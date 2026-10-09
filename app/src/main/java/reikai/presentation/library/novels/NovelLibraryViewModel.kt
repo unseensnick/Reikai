@@ -175,9 +175,8 @@ class NovelLibraryViewModel(
             // No pin: manga's 0.25 s is upstream's own literal, kept verbatim for sync, and the
             // once-per-query scan is a cost choice that changes nothing a user sees.
             searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
-            // The collapse preferences no longer reach this pipeline. They only ever fed grouping,
-            // which LibraryEngine owns now, and leaving them in meant every collapse tap rebuilt the
-            // whole filtered novel list (merge collapse, tracker scores, filtering) for nothing.
+            // No collapse input: collapse only feeds grouping, which LibraryEngine owns, and as an
+            // input here every collapse tap would rebuild the whole filtered novel list for nothing.
             settingsFlow(),
         ) { (library, customInfo, tracks), search, settings ->
             buildState(library, customInfo, tracks, search, settings)
@@ -224,7 +223,7 @@ class NovelLibraryViewModel(
             mergedChapterUnitRepository,
         )
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
-        // group-mode change would rebuild the filtered list for a decision it no longer makes.
+        // group-mode change would rebuild the filtered list for a decision it does not make.
         return combine(
             libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
             libraryPreferences.showContinueReadingButton.changes(),

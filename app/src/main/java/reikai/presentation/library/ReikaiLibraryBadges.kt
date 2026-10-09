@@ -196,7 +196,7 @@ data class EndBadgePlan(
 /**
  * Decides what the end badge group drops as the cover narrows. The cover width varies with the
  * columns setting (0..10), so the budget is measured rather than assumed: a fixed icon cap is either
- * too many at ten columns or needlessly stingy at two. Order of sacrifice is the owner's ruling:
+ * too many at ten columns or needlessly stingy at two. Order of sacrifice:
  * icons fold into "+N", then into the plain group count, then the language badge goes. The caller
  * guarantees the unread count is never what loses.
  */

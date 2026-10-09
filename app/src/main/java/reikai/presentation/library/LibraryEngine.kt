@@ -70,8 +70,8 @@ class LibraryEngine(
     // be built at the call site.
     @Assisted private val providers: List<LibraryProvider>,
     // Constructor parameters rather than lazy lookups, so a test can drive the assembly. Selection is
-    // not pure maths any more: it is pruned to what the assembly kept, and a rule about the assembly
-    // can only be pinned by a test that can actually run one.
+    // pruned to what the assembly kept, and a rule about the assembly can only be pinned by a test
+    // that can actually run one.
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,

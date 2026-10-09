@@ -9,9 +9,9 @@ import tachiyomi.domain.category.model.Category
  * One section of the assembled library: a real DB category, or a synthetic bucket from dynamic
  * grouping (by source, tag, author, language, status or tracking status).
  *
- * A dynamic bucket used to be a [Category] with a negative id, so five hand-written guards were all
- * that kept one out of a category write, and the first bucket of every grouping sat on id -1, which
- * NovelUpdateWorker reads as "update the whole library". [realCategory] replaces those guards.
+ * Only [realCategory] answers a [Category], so a dynamic bucket can never reach a category write. Never
+ * model a dynamic group as a negative-id [Category]: id -1 is what NovelUpdateWorker reads as "update the
+ * whole library".
  */
 @Immutable
 sealed interface LibraryBucket {

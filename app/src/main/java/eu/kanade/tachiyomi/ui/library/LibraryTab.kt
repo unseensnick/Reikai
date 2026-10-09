@@ -386,8 +386,8 @@ data object LibraryTab : Tab {
 
         Scaffold(
             topBar = { scrollBehavior ->
-                // RK: built here over the assembled list, keeping the manga model's rules. It used to be
-                // the manga State's own, which knew only manga categories and counted only manga rows.
+                // RK: built here over the assembled list, so it names every chip's categories and counts
+                // rows of both content types.
                 val defaultTitle = stringResource(MR.strings.label_library)
                 // The paged view without tabs names the section on screen; single-list reads "Library".
                 val title = currentBucket().let { bucket ->
@@ -437,7 +437,7 @@ data object LibraryTab : Tab {
                         },
                         onClickRefresh = { onClickRefresh(currentRealCategory()) },
                         onClickGlobalUpdate = { onClickRefresh(null) },
-                        // RK: follows the content-type chip; it used to always open a manga.
+                        // RK: follows the content-type chip.
                         onClickOpenRandomManga = { onOpenRandom(currentBucket()?.key) },
                         // RK: library-wide tracker refresh, both content types at once, so it does not
                         // follow the chip. A snackbar reports the two states the user can act on.
