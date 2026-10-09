@@ -54,7 +54,7 @@ object SettingsBrowseScreen : SearchableSettings {
         }
 
         // RK: page previews are a source capability (four sources implement PagePreviewSource), so the
-        // row lives with sources rather than with the app-wide look it used to sit under.
+        // row lives with sources rather than with the app-wide look in Appearance.
         val uiPreferences = remember { context.appGraph.uiPreferences }
 
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)

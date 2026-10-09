@@ -219,7 +219,7 @@ object SettingsMainScreen : Screen() {
             icon = MaterialSymbols.Rounded.Explore,
             screen = SettingsBrowseScreen,
         ),
-        // RK: recommendations, previously reachable only from inside Library's settings.
+        // RK: recommendations, a top-level entry of its own rather than a page inside Library.
         Item(
             titleRes = MR.strings.pref_recommendations,
             subtitleRes = MR.strings.pref_recommendations_summary,

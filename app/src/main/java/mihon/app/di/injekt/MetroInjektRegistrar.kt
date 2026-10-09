@@ -51,15 +51,15 @@ class MetroInjektRegistrar(
         bind<EHentaiUpdateHelper> { graph.eHentaiUpdateHelper },
 
         // The interactors are unscoped, so each read builds a fresh instance. That is deliberate:
-        // DomainModule registered all three with addFactory, never addSingletonFactory.
+        // they hold no state, so nothing relies on a caller sharing one.
         bind<MetadataSource.GetMangaId> { graph.getManga },
         bind<MetadataSource.GetFlatMetadataById> { graph.getFlatMetadataById },
         bind<MetadataSource.InsertFlatMetadata> { graph.insertFlatMetadata },
         // RK <--
     )
 
-    // RK --> keys the entry on its value's own type, so a value that is not a T fails to compile, as
-    // DomainModule's addFactory<T> did. The map's values are untyped, so nothing else checks this.
+    // RK --> keys the entry on its value's own type, so a value that is not a T fails to compile.
+    // The map's values are untyped, so nothing else checks this.
     private inline fun <reified T : Any> bind(noinline get: () -> T): Pair<Type, () -> Any> = T::class.java to get
     // RK <--
 
