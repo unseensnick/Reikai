@@ -172,6 +172,18 @@ class RecentsFilterQueriesTest {
         novelUpdateIds(included = listOf(2), excluded = listOf(3)) shouldBe emptyList()
     }
 
+    /** The sheet lists a universal category once, so its one pick has to land on both feeds as is. */
+    @Test
+    fun `one pick on a universal category filters both types`() = runTest {
+        seedManga(id = 1, categoryId = 3)
+        seedManga(id = 2, categoryId = 1)
+        seedNovel(id = 1, categoryId = 3)
+        seedNovel(id = 2, categoryId = 2)
+        val pick = listOf(3L)
+
+        (mangaUpdateIds(included = pick) to novelUpdateIds(included = pick)) shouldBe (listOf(1L) to listOf(1L))
+    }
+
     @Test
     fun `not started hides a read manga chapter`() = runTest {
         seedManga(id = 1, categoryId = null, read = true)
@@ -324,7 +336,7 @@ class RecentsFilterQueriesTest {
         driver.execute(
             null,
             "INSERT OR IGNORE INTO category(id, name, `order`, flags, content_type) " +
-                "VALUES ($id, 'cat $id', $id, 0, 0)",
+                "VALUES ($id, 'cat $id', $id, 0, ${if (id == 1L || id == 2L) id else 0})",
             0,
         ).await()
     }

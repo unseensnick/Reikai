@@ -5,6 +5,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -44,6 +45,11 @@ class UpdatesSettingsViewModelTest {
             categoryRepository = mockk<CategoryRepository> {
                 every { getUnfilteredAsFlow() } returns table
                 coEvery { getUnfiltered() } answers { table.value }
+                // Each library's own read, universal rows included, as category.sq answers it
+                every { getAllAsFlow(any()) } answers {
+                    val type = firstArg<Long>()
+                    table.map { all -> all.filter { it.contentType in setOf(CategoryContentType.UNIVERSAL, type) } }
+                }
             },
             reikaiLibraryPreferences = ReikaiLibraryPreferences(store),
         ),
@@ -70,6 +76,21 @@ class UpdatesSettingsViewModelTest {
         advanceUntilIdle()
 
         model.categories.value shouldBe listOf(system, zeta, alpha, created)
+    }
+
+    /**
+     * One row per category id, so a category holding both manga and novels gets one tri-state toggle
+     * whose pick both content types' feeds read, rather than a row per library with picks that disagree.
+     */
+    @Test
+    fun `a universal category is listed once`() = runTest {
+        val shared = Category(3, "Shared", 3, 0L, CategoryContentType.UNIVERSAL)
+        table.value += shared
+        val model = viewModel()
+        backgroundScope.launch { model.categories.collect {} }
+        advanceUntilIdle()
+
+        model.categories.value.map { it.id } shouldBe listOf(0L, 1L, 2L, 3L)
     }
 
     @Test
