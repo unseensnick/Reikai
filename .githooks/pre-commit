@@ -76,7 +76,7 @@ subsystems=$(git diff --cached --name-only --diff-filter=ACMR -- 'docs/dev/subsy
 # ===== DI ownership: graph-owned, singleton, and every Injekt read bound =====
 # These mistakes are silent at build time: an Injekt read of a type MetroInjektRegistrar does not bind
 # throws only when the read runs, and an unscoped binding hands each caller its own instance. See
-# docs/dev/plans/metro-di-migration.md. The trigger is any staged .kt, not only one importing Metro or
+# docs/dev/subsystems/architecture.md. The trigger is any staged .kt, not only one importing Metro or
 # Injekt: a migration missing both @Inject and its multibinding imports neither, and the scan covers the
 # whole tree anyway, in a second or two.
 if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt')" ] && [ -f scripts/di-interop-check.ps1 ]; then
