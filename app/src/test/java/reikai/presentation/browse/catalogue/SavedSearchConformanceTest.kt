@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.source.CatalogueSource
 import eu.kanade.tachiyomi.source.model.Filter
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
+import exh.source.ExhPreferences
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -105,6 +106,7 @@ private class MangaSavedSearchProbe : SavedSearchProbe {
             reikaiSourcePreferences = ReikaiSourcePreferences(store),
             mangaLibraryAdder = mockk(relaxed = true),
             getFlatMetadataById = mockk(relaxed = true),
+            exhPreferences = ExhPreferences(store),
         )
         // The source resolves on Dispatchers.IO, which the test scheduler cannot advance.
         model.state.first { it.source != null }

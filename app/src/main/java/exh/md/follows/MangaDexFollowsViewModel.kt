@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel
 import exh.metadata.metadata.RaisedSearchMetadata
+import exh.source.ExhPreferences
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -45,6 +46,7 @@ class MangaDexFollowsViewModel(
     reikaiSourcePreferences: ReikaiSourcePreferences,
     mangaLibraryAdder: MangaLibraryAdder,
     getFlatMetadataById: GetFlatMetadataById,
+    exhPreferences: ExhPreferences,
 ) : BrowseSourceViewModel(
     sourceId = sourceId,
     listingQuery = null,
@@ -57,6 +59,7 @@ class MangaDexFollowsViewModel(
     reikaiSourcePreferences = reikaiSourcePreferences,
     mangaLibraryAdder = mangaLibraryAdder,
     getFlatMetadataById = getFlatMetadataById,
+    exhPreferences = exhPreferences,
 ) {
 
     // Its own factory: a Kotlin companion is not inherited, and the parent's would construct a plain

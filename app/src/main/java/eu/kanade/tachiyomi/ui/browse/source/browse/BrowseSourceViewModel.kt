@@ -22,6 +22,7 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.RandomMangaSource
 import exh.metadata.metadata.RaisedSearchMetadata
+import exh.source.ExhPreferences
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
 import kotlinx.coroutines.flow.Flow
@@ -77,8 +78,9 @@ open class BrowseSourceViewModel(
     // RK --> favorite / category / duplicate orchestration extracted to the shared MangaLibraryAdder
     private val mangaLibraryAdder: MangaLibraryAdder,
     // RK <--
-    // RK --> metadata DB-join for adult-source rich browse rows
+    // RK --> metadata DB-join and the Settings switch for adult-source rich browse rows
     private val getFlatMetadataById: GetFlatMetadataById,
+    exhPreferences: ExhPreferences,
     // RK <--
 ) : ViewModel() {
 
@@ -104,7 +106,7 @@ open class BrowseSourceViewModel(
     val source: Source? get() = state.value.source
 
     // RK: gate the rich adult-source browse rows on the EH/ExH source set + the enhanced-view pref
-    private val enhancedEhView = sourcePreferences.enableEnhancedEhView.get()
+    private val enhancedEhView = exhPreferences.enhancedEHentaiView().get()
     val useEhentaiView: Boolean
         get() = source?.id in eHentaiSourceIds && enhancedEhView
 
