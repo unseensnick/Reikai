@@ -60,16 +60,23 @@ fun ScreenTransition(
     modifier: Modifier = Modifier,
     content: ScreenTransitionContent = { it.Content() },
 ) {
+    // RK --> registered before the content, so a screen's own handlers and a nested navigator keep
+    //        priority even when the whole tree composes at once (rotation, activity restore). From Komikku.
+    BackHandler(enabled = navigator.canPop, onBack = navigator::pop)
+    // RK <--
+
     AnimatedContent(
         targetState = navigator.lastItem,
         transitionSpec = transition,
         modifier = modifier,
         label = "transition",
+        // RK: keyed like saveableState below, so a restored copy of an object screen and the object
+        //     itself are never composed together (a "used multiple times" crash). From Komikku.
+        contentKey = { it.key },
     ) { screen ->
         navigator.saveableState("transition", screen) {
             content(screen)
         }
     }
-
-    BackHandler(enabled = navigator.canPop, onBack = navigator::pop)
+    // RK: the navigator's BackHandler moved above AnimatedContent
 }

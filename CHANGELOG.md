@@ -667,6 +667,8 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **With Verbose logging on, logs and crash dumps no longer include your Hikka sign-in token.**
 - **A long series title no longer pushes the chapter numbers out of its update notification.**
 - **The Reikai icon on a notification is now the same size as the other notification icons.**
+- **Moving between screens after Android restored the app in the background no longer risks a crash (from Komikku).**
+- **After rotating the screen or returning to the app, Back in Settings now goes back one screen instead of jumping out to More (from Komikku).**
 - **Reikai's notification categories in Android's settings no longer repeat Mihon's names, so novel updates, novel downloads and each background sync can be told apart.**
 
 ### Other
