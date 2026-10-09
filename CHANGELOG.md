@@ -272,6 +272,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Novel auto-scroll now pauses while your finger is on the screen.**
 - **Novel auto-scroll now starts by itself only when Settings -> Novel reader -> Start auto-scroll when opening a chapter is on, which it is if you had left auto-scroll on.** The bottom bar button and the Controls tab start or stop it without changing that setting.
 - **The reader's quick reading-mode and rotation menus now highlight the mode you are reading in.**
+- **When the next manga chapter fails to load, the reader now waits 15 seconds before trying it again by itself, as the novel reader does, while Retry still tries at once.**
 - **The novel reader's button bar now starts with text size and theme buttons, unless you have already chosen its buttons.**
 - **The hardware bitmap threshold, legacy long strip decoding and custom display profile settings are gone from Settings -> Advanced (from Mihon).** Upstream: mihonapp/mihon#3786.
 

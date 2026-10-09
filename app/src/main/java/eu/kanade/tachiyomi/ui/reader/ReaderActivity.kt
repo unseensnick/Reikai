@@ -1150,8 +1150,8 @@ class ReaderActivity : BaseActivity() {
      * Called from the viewer when the given [chapter] should be preloaded. It should be called when
      * the viewer is reaching the beginning or end of a chapter or the transition page is active.
      */
-    fun requestPreloadChapter(chapter: ReaderChapter) {
-        lifecycleScope.launchIO { viewModel.preload(chapter) }
+    fun requestPreloadChapter(chapter: ReaderChapter, userAsked: Boolean = false) { // RK: true from a Retry tap
+        lifecycleScope.launchIO { viewModel.preload(chapter, userAsked) } // RK
     }
 
     /**

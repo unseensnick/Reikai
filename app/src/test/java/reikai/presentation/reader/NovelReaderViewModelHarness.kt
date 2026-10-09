@@ -512,6 +512,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     @Volatile
     var resolve: suspend (String) -> String? = { null }
 
+    /** Every chapter path asked for, in order. */
+    val chaptersAsked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
     /** Every page key asked for, in order. A page answers with no chapters. */
     val pagesAsked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
@@ -524,6 +527,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     override val contentWarning = ContentWarning.SAFE
 
     override suspend fun parseChapter(chapterPath: String): String {
+        chaptersAsked += chapterPath
         if (chapterPath in failing) throw IOException("no connection")
         return "<p>From the source: $chapterPath</p>"
     }

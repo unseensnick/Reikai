@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader
 
 import android.content.Context
 import android.net.Uri
+import android.os.SystemClock
 import androidx.annotation.IntRange
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.SavedStateHandle
@@ -92,6 +93,7 @@ import reikai.domain.merge.gapPresent
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.reader.ChapterIncognito // RK
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ChapterRetryCooldown // RK
 import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.ReaderPosition
 import reikai.domain.reader.chapterToDeleteBehind
@@ -282,6 +284,9 @@ class ReaderViewModel(
     // is gone. Resolved in init with the group and left fetching each chapter's own in source scope.
     var downloadTargets: DownloadTargets = DownloadTargets.OWN
         private set
+
+    // RK: the last failed preload per chapter, which ChapterRetryCooldown reads, as the novel window does.
+    private val preloadFailures = ChapterRetryCooldown.Failures()
 
     // RK: the group's chapters whose own source is installed, the copies a download can fetch at all.
     var fetchableChapterIds: Set<Long> = emptySet()
@@ -717,6 +722,8 @@ class ReaderViewModel(
     // logged, so the engine ends a pick that failed and the host says so. It is cleared as each load
     // starts, so a success goes back to idle and a repeat of the same failure is reported again.
     private suspend fun reportExplicitLoad(chapterId: Long, fromSource: Boolean, load: suspend () -> Unit) {
+        // Asked for afresh, so no earlier preload failure keeps a neighbour waiting.
+        preloadFailures.clear()
         mutableState.update { it.copy(isLoadingAdjacentChapter = true, adjacentLoadFailure = null) }
         try {
             load()
@@ -737,7 +744,7 @@ class ReaderViewModel(
      * Called when the viewers decide it's a good time to preload a [chapter] and improve the UX so
      * that the user doesn't have to wait too long to continue reading.
      */
-    suspend fun preload(chapter: ReaderChapter) {
+    suspend fun preload(chapter: ReaderChapter, userAsked: Boolean = false) { // RK: a Retry tap skips the wait
         if (chapter.state is ReaderChapter.State.Loaded || chapter.state == ReaderChapter.State.Loading) {
             return
         }
@@ -765,6 +772,12 @@ class ReaderViewModel(
             return
         }
 
+        // RK --> the viewers ask on every page turn, so a chapter that just failed waits out the rule the
+        // novel window keeps too; the user's Retry ends the wait.
+        val chapterId = chapter.chapter.id!!
+        if (userAsked) preloadFailures.remove(chapterId)
+        if (!preloadFailures.mayRetryUnprompted(chapterId, SystemClock.elapsedRealtime())) return
+        // RK <--
         val loader = loader ?: return
         try {
             logcat { "Preloading ${chapter.chapter.url}" }
@@ -773,8 +786,10 @@ class ReaderViewModel(
             if (e is CancellationException) {
                 throw e
             }
+            preloadFailures.record(chapterId, SystemClock.elapsedRealtime(), e.message) // RK
             return
         }
+        preloadFailures.remove(chapterId) // RK
         eventChannel.trySend(Event.ReloadViewerChapters)
     }
 

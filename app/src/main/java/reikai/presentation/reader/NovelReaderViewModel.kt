@@ -77,6 +77,7 @@ import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ChapterRetryCooldown
 import reikai.domain.reader.ReadSessionClock
 import reikai.domain.reader.chaptersToDownloadAhead
 import reikai.domain.reader.downloadedOrCurrent
@@ -105,7 +106,6 @@ import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelOpenLanding
 import reikai.presentation.reader.text.NovelResume
-import reikai.presentation.reader.text.NovelWarmPolicy
 import reikai.presentation.reader.text.NovelWindowReach
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
@@ -618,9 +618,9 @@ class NovelReaderViewModel(
         },
     )
 
-    /** The last warm failure per chapter, which [NovelWarmPolicy] reads to decide whether the window
+    /** The last warm failure per chapter, which [ChapterRetryCooldown] reads to decide whether the window
      *  may reach for that chapter again unprompted. An explicit open clears the lot. */
-    private val warmFailures = NovelWarmPolicy.Failures()
+    private val warmFailures = ChapterRetryCooldown.Failures()
 
     /** Chapters with a warm already running, so two crossings in quick succession do not fetch the
      *  same chapter twice. */
@@ -1276,7 +1276,7 @@ class NovelReaderViewModel(
     private fun warmNeighbour(chapterId: Long?) {
         val id = chapterId ?: return
         if (htmlCache.containsKey(id)) return
-        if (!warmFailures.mayAutoWarm(id, SystemClock.elapsedRealtime())) return
+        if (!warmFailures.mayRetryUnprompted(id, SystemClock.elapsedRealtime())) return
         if (!warmsInFlight.begin(id)) return
         viewModelScope.launchIO {
             try {

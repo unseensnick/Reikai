@@ -1,18 +1,18 @@
-package reikai.presentation.reader.text
+package reikai.domain.reader
 
 import java.util.Collections
 
 /**
- * Whether the seamless window may try a neighbour chapter again on its own after one failed.
+ * Whether either reader may try a neighbour chapter again on its own after one failed.
  *
  * Suppressing and self-clearing are both load-bearing: without the first, a boundary the reader
  * scrolls over re-requests a chapter that just failed; without the second, a session strands on one
- * that has since recovered. A manual retry and an explicit chapter open drop the record outright, so
- * neither of those waits.
+ * that has since recovered. The user's Retry and an explicit chapter open drop the record outright,
+ * so neither of those waits.
  */
-object NovelWarmPolicy {
+object ChapterRetryCooldown {
 
-    /** How long a failed chapter is left alone before the window may reach for it again unprompted. */
+    /** How long a failed chapter is left alone before the reader may reach for it again unprompted. */
     const val RETRY_COOLDOWN_MS = 15_000L
 
     /**
@@ -21,10 +21,10 @@ object NovelWarmPolicy {
      */
     data class Failure(val failedAtElapsedMs: Long, val message: String?)
 
-    fun mayAutoWarm(failure: Failure?, nowElapsedMs: Long): Boolean =
+    fun mayRetryUnprompted(failure: Failure?, nowElapsedMs: Long): Boolean =
         failure == null || nowElapsedMs - failure.failedAtElapsedMs >= RETRY_COOLDOWN_MS
 
-    /** The last failure per chapter, safe to reach from the warms running in parallel. */
+    /** The last failure per chapter, safe to reach from loads running in parallel. */
     class Failures {
 
         private val byChapter: MutableMap<Long, Failure> = Collections.synchronizedMap(mutableMapOf())
@@ -45,6 +45,7 @@ object NovelWarmPolicy {
 
         fun clear() = byChapter.clear()
 
-        fun mayAutoWarm(chapterId: Long, nowElapsedMs: Long): Boolean = mayAutoWarm(byChapter[chapterId], nowElapsedMs)
+        fun mayRetryUnprompted(chapterId: Long, nowElapsedMs: Long): Boolean =
+            mayRetryUnprompted(byChapter[chapterId], nowElapsedMs)
     }
 }

@@ -504,7 +504,7 @@ open class WebGpuViewer(
      * retry can race it and silently never queue the adjacent chapter's edge page for
      * decode. Gives up after 5 seconds if the chapter never finishes loading.
      */
-    private fun preloadChapterThenRetry(chapter: ReaderChapter) {
+    private fun preloadChapterThenRetry(chapter: ReaderChapter, userAsked: Boolean = false) { // RK
         // fetchPage reaches prev/next per frame - unguarded, each frame starts another 5s poll.
         val chapterId = chapter.chapter.id
         synchronized(lock) {
@@ -515,7 +515,7 @@ open class WebGpuViewer(
             // RK: a transition page draws the chapter's state, so it repaints as that changes.
             val repaint = launch { chapter.stateFlow.collect { repaintTransitionPages(chapter) } }
             try {
-                activity.viewModel.preload(chapter)
+                activity.viewModel.preload(chapter, userAsked) // RK
                 repeat(25) {
                     if (chapter.state is ReaderChapter.State.Loaded) {
                         currentPage?.let { preloadPages(it) }
@@ -577,7 +577,7 @@ open class WebGpuViewer(
             pages to chapters
         }
         pages.forEach(::retryPage)
-        chapters.forEach(::preloadChapterThenRetry)
+        chapters.forEach { preloadChapterThenRetry(it, userAsked = true) } // RK: a Retry tap skips the wait
         return pages.isNotEmpty() || chapters.isNotEmpty()
     }
 
