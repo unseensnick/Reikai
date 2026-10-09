@@ -1,91 +1,66 @@
 ---
 title: Getting started
-titleTemplate: Guides
-description: Essential information to help you get set up with Reikai.
+titleTemplate: Start here
+description: Install Reikai, add a manga source and a light novel source, and read your first chapter.
 ---
 
 # Getting started
 
-Essential information to help you get set up with Reikai.
+Install Reikai, add somewhere to read from, and open your first chapter.
 
-## Installation guide
+## Install Reikai
 
-### Downloading Reikai
+1. Download the latest version from the [download page](/download/).
+1. Open the `.apk` file and follow the installer.
 
-1. Visit our [download](/download/) page to get the latest version of **Reikai**.
-2. After the download is complete, open the `.apk` file.
-3. Proceed with the installation process.
+Reikai is not on an app store.
+It checks for its own updates in <nav to="about"> under **Check for updates**.
 
-### Adding sources
+## Add sources
 
-Once **Reikai** is installed on your device, you can bring your own content to read from various sources:
+Reikai comes with no sources to browse.
+You add them from a repo, which is an address someone publishes listing sources you can install.
+Reikai does not run or recommend any repo.
 
-:::: tabs
-== Local source
-Read content stored locally on your device.
+Sources come in two forms (see [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins)):
 
-See the [Local source guide](/docs/guides/local-source/) for instructions.
-== External repositories
-External repositories add additional sources to **Reikai**:
-* Add one by going to <nav to="browse"> and tapping **Repos**, then **Add repo**.
-* Paste the address as the repo gives it to you. An extension store's usually ends in `repo.json` or `index.min.json`, and for an older array-format store it has to end in `index.min.json`, because the app derives that store's real address from it.
-
-Novel repos are added the same way. **Reikai** reads
-[LNReader](https://github.com/LNReader/lnreader)-style plugins, whose repo address points at a
-`plugins.min.json` registry, and the novel extensions Tsundoku and IReader publish, whose stores are
-added like a manga extension store. **Add repo** works out which kind an address is, and turns down one
-it cannot read. Each repo's card shows how many extensions or plugins it lists, or that it
-could not be reached.
+* **Extension apps** are Android apps. Every manga extension is one, and so are Tsundoku's and IReader's light novel extensions.
+* **Plugins** are light novel sources in the LNReader format. They run inside Reikai and never appear in your device's app list.
 
 ::: danger Caution
-Reikai will not provide resources for any unofficial repositories. Beware that any third-party repositories or extensions will have full access to the app and may contain malware.
+Extensions and plugins from a third-party repo have full access to the app and may contain malware.
 :::
 
-Once you've added a repository, go to <nav to="extensions"> and refresh the list.
+### Add a repo
 
-You can now tap the download button next to an extension app or a light novel plugin to install it (see [extension apps and plugins](/docs/faq/browse/extensions#extension-apps-and-plugins)).
+1. Go to <nav to="extensions">, open the three-dot menu and tap **Repos**. The same screen is in <nav to="browse"> as **Repos**.
+1. Tap **Add repo** and paste the address exactly as the repo gives it.
+1. Reikai works out which kind of repo it is: an extension store (for manga extensions, or Tsundoku's and IReader's novel extensions) or a plugin repo (for LNReader plugins). It refuses an address it cannot read.
 
-> You may need to [enable third-party installations](/docs/faq/browse/extensions#enabling-third-party-installations).
+A manga repo and a light novel repo are added the same way, so add one of each if you read both.
 
-== Manual extensions
-Extensions can be manually installed through `.apk` files.
+### Install a source
 
-::: danger Caution
-Reikai will not provide resources for any unofficial extensions. Beware that any third-party repositories or extensions will have full access to the app and may contain malware.
-:::
-::::
+1. Go back to <nav to="extensions"> and pull down to refresh.
+1. Tap the install button next to an extension app or a plugin.
 
-### Adding series to your library
+Installing an extension app asks Android for permission the first time; see [enabling third-party installations](/docs/faq/browse/extensions#enabling-third-party-installations).
+A plugin installs without asking.
 
-After installing the desired extension, you'll find it in the **Sources** tab.
+You can also read files already on your device with the [local source](/docs/guides/local-source/).
 
-Here's how you can add series to your library:
+## Read your first chapter
 
-1. Select the source you'd like to browse.
-1. You can use the **Popular**/**Latest** listings to browse, or you can search for the series name.
-1. Once you've found the series that you want to add, tap on it for more details.
-1. Press the "**Add to library**" button, and the series will be added to your Library, ready to be read!
+1. Go to <nav to="sources"> and tap a source, or tap **Global search** (the globe icon) to search all of them at once.
+1. Browse its **Popular** or **Latest** lists, or search for a title.
+1. Tap a series to open its page, then tap **Add to library** to keep it in your <nav to="main_library">.
+1. Tap **Start** to open the first chapter. Next time the same button reads **Resume**.
 
-## Additional setup
+Can't find a series? Some sources use the romanized Japanese title, such as **Boku no Hero Academia** instead of **My Hero Academia**, so try both.
 
-### Series search options
+## Next steps
 
-If you want to search for series across all your sources, you can use the Global Search feature.
-
-Follow these steps:
-
-1. Go to the "**Browse**" section.
-1. Open the "**Sources**" tab. It comes first unless you turned on the **Feed** tab and put it in front.
-1. Tap **Global search** in the toolbar, the globe icon, to find series across all your sources. The plain search icon beside it only filters the source list.
-
-### Trouble finding a specific series?
-
-If you encounter difficulties while searching for a specific series, consider the following points:
-
-* Double-check your spelling and try again, as some sources might use **Japanese romanized** titles instead of **English** ones.
-  > Example: **Boku no Hero Academia** instead of **My Hero Academia**.
-
-* Some sources may use different spellings or wordings for titles.
-  > Example: **Bungo Stray Dogs** instead of **Bungou Stray Dogs**
-
-  > Example: **3-gatsu no Lion** instead of **Sangatsu no Lion**.
+* [Back up your library](/docs/guides/backups), and turn on automatic backups.
+* [Track your reading](/docs/guides/tracking) on AniList, MyAnimeList and other sites.
+* [Merge sources](/docs/multi-source) when the same series comes from more than one source.
+* Adjust the [reader settings](/docs/guides/reader-settings).
