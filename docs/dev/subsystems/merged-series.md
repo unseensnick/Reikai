@@ -159,4 +159,4 @@ Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedCla
 ## Related
 
 - User doc: [multi-source.md](../../multi-source.md).
-- Chapter-number corrections, which restitch a group: [chapter-number-override.md](../plans/chapter-number-override.md).
+- Chapter-number corrections, which restitch a group: [details.md](details.md).

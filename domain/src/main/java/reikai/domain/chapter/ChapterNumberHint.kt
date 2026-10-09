@@ -7,7 +7,7 @@ import kotlin.math.floor
  * Chapters whose number is far out of line with their neighbours in the source's own list, for manga and
  * novels alike. Only ever a marker with a suggestion: nothing changes a number until the user saves one.
  * Thresholds and the side-content skip are measured against the owner's library; see
- * docs/dev/plans/chapter-number-override.md.
+ * docs/dev/subsystems/details.md.
  */
 object ChapterNumberHint {
 
