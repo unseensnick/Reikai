@@ -33,7 +33,7 @@ open class EntryMergeManager(
      * the library. Library members only: a removed entry keeps its group so a re-add rejoins it, but
      * stops feeding what the group shows, and opened from History or Browse it resolves on its own.
      * Every display and aggregation read resolves through here; data operations read
-     * [MergeGroupRepository.getMembers] instead. See merge-system-rebuild.md "two member reads".
+     * [MergeGroupRepository.getMembers] instead. See docs/dev/subsystems/merged-series.md "The group".
      */
     suspend fun computeRelatedIds(targetId: Long): LongArray {
         val members = groupLibraryMembers(targetId)

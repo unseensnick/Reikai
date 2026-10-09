@@ -3,7 +3,7 @@ package reikai.domain.merge
 /**
  * A merged series has one chapter sort, filter and display setting: its settings owner's, the first
  * library member in stored source order (computeRelatedIds), so reordering the sources moves it. It is
- * deliberately not the library card's lead ([libraryLead]); see merge-system-rebuild.md. A change reaches
+ * deliberately not the library card's lead ([libraryLead]); see docs/dev/subsystems/merged-series.md. A change reaches
  * every member ([change]), a merge hands the owner's setting to the members joining ([adoptOwnerSetting])
  * and a member added back takes the group's ([rejoin]), so the stored values agree; reading through the
  * owner ([shown]) still holds for a group whose members disagree, such as one restored from an older backup.

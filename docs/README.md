@@ -18,7 +18,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Upgrading and moving from other apps | [before-you-upgrade.md](before-you-upgrade.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md) |
 | Backup & restore | [guides/backups.md](guides/backups.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md); streaming divergence in [upstream-sync.md](dev/upstream-sync.md) |
 | Trackers | [guides/tracking.md](guides/tracking.md) | [novel-tracking.md](dev/plans/novel-tracking.md), [novel-specific-trackers.md](dev/plans/novel-specific-trackers.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md) |
-| Merged series | [multi-source.md](multi-source.md) | [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md) |
+| Merged series | [multi-source.md](multi-source.md) | [merged-series.md](dev/subsystems/merged-series.md) |
 | Recommendations | [related-mangas.md](related-mangas.md) | [recommendations.md](dev/plans/recommendations.md) |
 | Adult sources | [adult-sources.md](adult-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
 | Library search | [library-search.md](library-search.md) | [library-all-chip.md](dev/plans/library-all-chip.md), [library-tag-search.md](dev/plans/library-tag-search.md) |

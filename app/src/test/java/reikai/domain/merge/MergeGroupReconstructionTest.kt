@@ -142,7 +142,7 @@ class MergeGroupReconstructionTest {
     fun `a manual merge referencing a missing id ignores it`() {
         // Id 9 is not a favorite, so it is left out even when it was a member the user removed from the library:
         // nothing tells that apart from an id Clear database freed and an unrelated entry reused, which a group
-        // would then capture. Deliberate, see merge-system-rebuild.md.
+        // would then capture. Deliberate, see docs/dev/subsystems/merged-series.md.
         val groups = reconstruct(
             candidates = listOf(candidate(1), candidate(2)),
             manualMerges = setOf("1,2,9"),

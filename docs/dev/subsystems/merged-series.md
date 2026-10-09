@@ -64,7 +64,8 @@ Read and bookmarked are group-wide in every scope: a merged chapter is read when
 - **Downloads** fetch one copy per merged chapter, never one per source. `DownloadTargets` picks the row's own copy while its source is installed, else the best-ranked copy on an installed source, else none. Library download-next and the details actions go through `DownloadCandidates.forGroup`, skipping a chapter any member holds on disk, and queue each chapter under its owning entry's folder.
 - **The All view's serving member** (`unifiedViewMember`) is the anchor while its source is installed, else the first installed member. Downloads, Open in WebView and the update interval go through it, so an anchor whose source was uninstalled still works from the All view.
 - **Reader.** `MergedChapterLoader` holds one Mihon `ChapterLoader` per source and routes each chapter to its own; tracker sync, delete-after-read and incognito are decided per chapter's own source. Save image and set-as-cover stay on the opened entry. `withOpenedChapter` places a chapter the merged list does not show (a sibling's copy resumed from History) in its unit's slot.
-- **Updates.** An update run counts and announces one copy per merged chapter (`collapseNewChapters`, run after reconciliation): a chapter is news only when the group did not already have that merged chapter. Download eligibility stays per entry, so the run deduplicates downloads by `dedupeKey` rather than downloading the announced copy.
+- **Updates.** An update run counts and announces one copy per merged chapter (`collapseNewChapters`, run after reconciliation): a chapter is news only when the group did not already have that merged chapter. Download eligibility stays per entry, so the run deduplicates downloads by `dedupeKey` rather than downloading the announced copy. A run that does not finish queues and counts its arrivals uncollapsed from a `finally`, since they are written and will never be new again; a duplicate download is the cheaper mistake.
+- **The reader's transition card** asks `isChapterDownloaded` against the next chapter's own source through the in-memory download cache, not a storage probe, so a cross-source boundary binds without a main-thread disk read; the badge can lag a beat behind a download that just finished.
 
 ### Library, counts and tracking
 
@@ -114,6 +115,10 @@ Groups are written as lists of stable `{url, source}` refs (field 711 manga, 702
 - **Manga's number pairing drops what it cannot place.** A sibling's unrecognized chapter, and one of two chapters recognizing to the same `Float`, are absent from the All view while present under their own chip. That is the design, not a bug, unless a concrete series shows otherwise.
 - **The widget refreshes on new chapters, not on merges**, so a series just merged keeps one cover per source until its next chapter arrives.
 - **A merged chapter shows the winning copy's page progress.** Partial progress on another copy is not merged.
+- **A chapter whose file sits on a copy the stitch does not show still streams when opened.** Reading the hidden copy would open a different chapter row, with its own history and position.
+- **A recents row's download indicator answers for its own copy only.** It is evaluated as the row draws, so asking every copy would multiply a disk probe by the group size on each recomposition.
+- **Some novel titles stay unmatched on purpose.** Normalization handles apostrophes, curly quotes and zero-width characters; a missing space (`theCold`), a hyphen against a space, and titles the sites really spell differently are left, since closing them needs fuzzy matching.
+- **Sorting a chapter list "By source" follows the source's own listing**, through the stamped `sourceOrder`, never the stored chapter number.
 
 ## Decisions
 
@@ -126,6 +131,9 @@ Groups are written as lists of stable `{url, source}` refs (field 711 manga, 702
 - **Backups carry membership only, not order or the override flag.** Restore keeps the local group's order and flag where one exists; a backup is usually older than the device, and restoring its order would wipe a ranking set since. Revisit if restoring onto a fresh device needs the ordering back.
 - **The reader's scope is chosen by the entry point.** Updates and notifications are per-source events, and group scope would open a chapter its own list does not show; History and Library continue the series.
 - **A 0.3.x backup is recognized by the missing field 718.** Keying on retired fields instead would miss the users who never touched merging, whose default same-title groups were never stored. A Mihon or Yokai backup also lacks 718, so it groups same-title favorites on restore.
+- **A chapter's stored number is left as the source reported it.** It is not a chapter number by contract (most LN plugins assign a list index), and neither LNReader, tsundoku, Komikku nor TachiyomiSY reconciles two sources' numbering; the stitch orders by position instead. Void if sources gain a numbering contract.
+- **A source sharing no chapter with the trunk goes at the end of the walk.** Ordering it against the trunk by number would bring back the cross-source comparison the stitch avoids.
+- **Open: should the Updates feed hide a sibling's copy of a chapter already read on another source?** Undecided; today it lists it.
 - **An upgrade dropped manual merges of entries already out of the library.** No stored field told a once-favorited row from a browsed one, and a freed id could be reused by an unrelated entry.
 
 ## Upstream divergences
@@ -143,6 +151,8 @@ Merge patches sit in `// RK` islands in these Mihon files: `MangaViewModel` and 
 ## Tests
 
 Group storage and resolution: `MergeGroupRepositoryTest`, `EntryMergeManagerTest`, `StandaloneResolutionConformanceTest`, `MergeGroupReconstructionTest`, `MigrateMergePrefsToGroupsMigrationTest`. Stitch: `MergedChapterOrderTest`, `ChapterAggregationTest`, `NovelChapterAggregationTest`, `MergedStitchReconcileTest`, `MergedTrunkConformanceTest`, `MergedGroupRankingTest`, `StoredStitchTest`, `RenderMergedReadingOrderTest`. Counts: `MergedCountConformanceTest` (the stitch and the badge agree), `MergeGroupCountsConformanceTest`, `MergedUnitSetConformanceTest`. Reading and downloads: `MergedChapterFilterConformanceTest`, `CopyToOpenTest`, `MergedCopyToOpenConformanceTest`, `MergedDownloadCopyConformanceTest`, `MergedResumeDownloadedConformanceTest`, `SourceScopedDownloadAheadConformanceTest`. Settings and removal: `GroupChapterSettingsConformanceTest`, `MergedChapterSettingsConformanceTest`, `DetailsRemovalConformanceTest`, `EntryLibraryRemovalConformanceTest`, `AddToGroupConformanceTest`. Library: `MangaMergeCollapseTest`, `NovelMergeCollapseTest`, `MergedLibraryRowConformanceTest`. Backup: `RestoreMergeGroupsTest`, `RestorePrefEraGroupsConformanceTest`, `PrefEraRestoreConformanceTest`, `MangaMergeBackupRoundTripTest`, `NovelBackupRoundTripTest`. Hosts: `EntryMergeGroupHostTest`, `EntryMergeActionHostTest`.
+
+Three cases have no UI path to the state they test and rest on their unit tests alone: the download badge counting a chapter two sources both hold (the app refuses to download a unit the group already has), the bookmark read-back from a single source (bookmark writes reach every copy), and an update run's announcement and queue collapse (it needs a source to publish).
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:data:test` / `:domain:test` for the classes under those modules.
 

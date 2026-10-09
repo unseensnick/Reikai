@@ -25,7 +25,7 @@ import tachiyomi.domain.chapter.model.Chapter
  * fixture twice, once rendered as a list and once stored and counted the way the library reads it,
  * and asserts the two agree. The fixture is built once and used by both halves, so they cannot drift
  * apart in the test either. This is what stops a second definition of cross-source chapter identity
- * being written again; the history is in docs/dev/plans/merged-read-state.md.
+ * being written again; the rules are in docs/dev/subsystems/merged-series.md.
  */
 class MergedCountConformanceTest {
 

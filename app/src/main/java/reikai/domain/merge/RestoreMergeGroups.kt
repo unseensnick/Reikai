@@ -10,7 +10,7 @@ import reikai.domain.library.ContentType
  *
  * The backup is authoritative for the entries it names; local members it does not name keep their own
  * group while two or more remain. Order and the ranking flag come from the surviving local group,
- * since the backup format carries neither. Rules and history: docs/dev/plans/merge-system-rebuild.md.
+ * since the backup format carries neither. Rules: docs/dev/subsystems/merged-series.md.
  */
 @Inject
 class RestoreMergeGroups(

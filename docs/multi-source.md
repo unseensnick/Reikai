@@ -6,7 +6,7 @@ description: Fold the same series from several sources into one library entry th
 
 # Merged series
 
-_Dev records: [merge-system-rebuild.md](dev/plans/merge-system-rebuild.md), [merge-aware-manga-reader.md](dev/plans/merge-aware-manga-reader.md), [merge-component-consolidation.md](dev/plans/merge-component-consolidation.md), [merged-read-state.md](dev/plans/merged-read-state.md). Doc map: [README.md](README.md)._
+_Dev record: [merged-series.md](dev/subsystems/merged-series.md). Doc map: [README.md](README.md)._
 
 The same series is often available from several sources.
 **Reikai** can fold those into a single library entry that reads as one series, called a merged series, so your library shows what you read rather than how many copies of it you have.

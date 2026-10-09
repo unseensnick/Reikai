@@ -102,6 +102,6 @@ Shipped in commit `7c56e07eb`, on-device verified (Z Fold). Roadmap Active item 
 
 ## Related
 
-- [merge-system-rebuild.md](merge-system-rebuild.md): the merge grouping that makes tracking group-aware.
+- [merged-series.md](../subsystems/merged-series.md): the merge grouping that makes tracking group-aware.
 - [novel-details.md](novel-details.md): the details screen that hosts the Tracking sheet.
 - [guides/tracking.md](../../guides/tracking.md): user-facing reference for tracker propagation across grouped sources.

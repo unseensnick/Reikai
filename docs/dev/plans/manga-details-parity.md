@@ -64,4 +64,4 @@ Shipped. P3 is done (Roadmap P3, status done): merge / Manage-sources UI, privat
 The two subsystems that surface on this screen are documented in their own plans, not duplicated here:
 
 - [recommendations.md](recommendations.md): the related-titles carousel and recommendations engine.
-- [merge-system-rebuild.md](merge-system-rebuild.md): the Manage-sources UI and the multi-source merge system.
+- [merged-series.md](../subsystems/merged-series.md): the Manage-sources UI and the multi-source merge system.

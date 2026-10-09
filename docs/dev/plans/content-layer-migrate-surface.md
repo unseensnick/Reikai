@@ -224,7 +224,7 @@ step 7 had not finished the job: three more places still held two answers to one
   reads and compares.
 
 Also from the same audit and fixed alongside: the migration engines' favorite swap and merge-group rewrite
-are now one transaction (see [merge-component-consolidation.md](merge-component-consolidation.md)). Open
+are now one transaction (see [merged-series.md](../subsystems/merged-series.md)). Open
 items from that report not yet actioned are listed there and in the audit file.
 
 **Steps 10 and 11, two more whole-system rounds (2026-08-05).** The surface was audited twice more at the
@@ -295,7 +295,7 @@ The comment debt closed too, and widened past this surface into a rule. Reikai-o
 comment lines against upstream Mihon's 5.8%, with blocks up to 30 lines; the cap in
 [code-quality.md](../../../.claude/rules/code-quality.md) is now hook-enforced, and the trim took the tree
 to 9.3% with no block over 10. Two stale comments fell out: the tuning sheet still justified itself with
-the row rebuild step 12 deleted, and `merge-system-rebuild.md` still described restore as a per-group
+the row rebuild step 12 deleted, and the merge record still described restore as a per-group
 additive write. The `EntryMigrateController` trio went with it: all four novel surfaces now raise the
 migrate dialog from their own ScreenModel's `Migrate` dialog case, exactly as manga's `Dialog.Migrate`
 does, which also moved two composable-side coroutines into the models (`14c0aec8c`). One accepted
