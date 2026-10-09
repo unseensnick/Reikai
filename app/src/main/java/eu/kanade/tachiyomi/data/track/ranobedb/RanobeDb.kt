@@ -28,7 +28,7 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * No route reads a user's own list entry back: the only GET under `/api/v0/user/` is `me`, and the
  * series detail route never passes the caller's id to its query. So [refresh] can only refresh
  * catalogue metadata, the local row stays authoritative for status and score, and a write cannot
- * preserve fields it does not send. See the plan doc for what that costs.
+ * preserve fields it does not send. See docs/dev/subsystems/tracking.md for what that costs.
  */
 class RanobeDb(id: Long) :
     BaseTracker(id, "RanobeDB"),
@@ -61,8 +61,8 @@ class RanobeDb(id: Long) :
     /**
      * The last body accepted for a series, so an identical one is not sent again. A repeat here is
      * not merely wasted: each write clears the list fields no route can read back, so it is a second
-     * pass over someone's labels and notes. Binding a partly-read novel used to push twice with the
-     * same body, once from `bind` and once from the read catch-up that follows it.
+     * pass over someone's labels and notes. Binding a partly-read novel sends the same body twice,
+     * once from `bind` and once from the read catch-up that follows it.
      *
      * Cleared on delete and logout, so a rebind after either always writes.
      */

@@ -202,7 +202,7 @@ class NovelList(id: Long) :
     }
 
     // A 404 is read as "not on the list". Any other failure stays one, because falling through to the
-    // blind write is what used to overwrite the user's entry.
+    // blind write would overwrite the user's entry.
     private suspend fun readingListEntryOrNull(uuid: String): NLReadingListEntry? = try {
         api.getReadingListEntry(uuid)
     } catch (e: HttpException) {
