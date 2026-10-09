@@ -18,7 +18,7 @@ class DeleteNovelChaptersAfterRead(
     // Deferred on purpose: building the manager restores the persisted queue and resumes the drain, so
     // taking it directly would resume downloads from every screen that can mark a chapter read. This is
     // the choke point, since the library, details, updates and the notification receiver all reach the
-    // manager only through here. See docs/dev/plans/metro-di-migration.md.
+    // manager only through here. See docs/dev/subsystems/architecture.md.
     private val downloadManager: () -> NovelDownloadManager,
 ) {
 

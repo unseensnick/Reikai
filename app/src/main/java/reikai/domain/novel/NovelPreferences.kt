@@ -185,7 +185,7 @@ class NovelPreferences(
     fun readerParagraphSpacing() = preferenceStore.getFloat("ln_reader_paragraph_spacing", 1.5f)
 
     /** Hold the screen awake while reading (Android FLAG_KEEP_SCREEN_ON). Separate from the manga
-     *  reader's key on purpose, not twin debt to unify: see docs/dev/plans/settings-restructure.md. */
+     *  reader's key on purpose, not twin debt to unify: see docs/dev/subsystems/architecture.md. */
     fun readerKeepScreenOn() = preferenceStore.getBoolean("ln_reader_keep_screen_on", false)
 
     /** Default reader orientation for novels with no per-novel override, the novel twin of the manga

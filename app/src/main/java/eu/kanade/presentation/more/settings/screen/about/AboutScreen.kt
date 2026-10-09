@@ -1,4 +1,4 @@
-// RK: whole file, rebuilt on the searchable settings DSL, see docs/dev/plans/settings-restructure.md
+// RK: whole file, rebuilt on the searchable settings DSL, see docs/dev/subsystems/architecture.md
 package eu.kanade.presentation.more.settings.screen.about
 
 import android.content.Context

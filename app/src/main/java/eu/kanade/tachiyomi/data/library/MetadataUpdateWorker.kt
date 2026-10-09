@@ -41,7 +41,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
 
     private val graph: AppGraph = context.metroGraph()
 
-    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
+    // RK: injected in init rather than at the top of doWork, since WorkManager may call getForegroundInfo first.
     init {
         graph.inject(this)
     }

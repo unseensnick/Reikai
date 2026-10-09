@@ -23,7 +23,7 @@ class DelayedTrackingUpdateWorker(private val context: Context, workerParams: Wo
 
     @Inject lateinit var delayedTrackingStore: DelayedTrackingStore
 
-    // RK: injected in init rather than at the top of doWork, see metro-di-migration.md "Workers inject".
+    // RK: injected in init rather than at the top of doWork, since WorkManager may call getForegroundInfo first.
     init {
         graph.inject(this)
     }

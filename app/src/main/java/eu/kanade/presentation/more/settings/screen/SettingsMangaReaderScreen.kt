@@ -33,7 +33,7 @@ import java.text.NumberFormat
  * The screen is self-contained: every setting on it applies to the manga reader only. Where the novel
  * reader has a setting of the same name (keep screen on, the volume keys, skip and mark-read-on-skip),
  * the two are deliberately separate values, because the ergonomics of paged images and continuously
- * scrolling text differ. Ruled, not twin debt: docs/dev/plans/settings-restructure.md.
+ * scrolling text differ. Not twin debt: docs/dev/subsystems/architecture.md.
  */
 object SettingsMangaReaderScreen : SearchableSettings {
 

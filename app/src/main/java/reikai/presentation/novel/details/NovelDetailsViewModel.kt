@@ -456,8 +456,7 @@ class NovelDetailsViewModel(
 
     /**
      * Fetches a novel with no stored row (opened from browsing) or no stored chapters, once. Decided from the
-     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again; see
-     * viewmodel-migration.md.
+     * stored rows, not the shown ones, so a filter hiding every chapter does not fetch again.
      */
     private suspend fun firstFetch(lookup: SourceLookup) {
         val stored = novelRepo.getByUrlAndSource(novelUrl, sourceId)

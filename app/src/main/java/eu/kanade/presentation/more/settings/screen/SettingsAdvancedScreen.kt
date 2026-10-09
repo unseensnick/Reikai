@@ -82,9 +82,9 @@ object SettingsAdvancedScreen : SearchableSettings {
         val libraryPreferences = remember { graph.libraryPreferences }
         // RK: listOfNotNull outlived the optional ExHentai login row it was for; no entry is null now
         return listOfNotNull(
-            // RK --> the loose rows at the top grouped under what they have in common (owner ruling, see
-            // docs/dev/plans/settings-restructure.md). The two update-error switches moved to Settings -> Library,
-            // the adult-sources gate to Browse and sources, and clearing merges into the Library group below.
+            // RK --> upstream's loose rows at the top grouped under what they have in common (see
+            // docs/dev/subsystems/architecture.md). The update-error switches live in Settings -> Library,
+            // the adult-sources gate in Browse and sources, and clearing merges in the Library group below.
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.label_debugging),
                 preferenceItems = listOf(
@@ -310,8 +310,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val context = LocalContext.current
 
-        // RK --> library maintenance that used to sit in the unheaded block at the top of this screen.
-        // These stay in Advanced rather than moving beside the everyday merge switches in Library
+        // RK --> library maintenance. These stay in Advanced rather than moving beside the everyday merge switches in Library
         // settings, because dissolving every merge group is destructive and belongs with the other
         // destructive actions, not one mis-tap from a toggle.
         val graph = remember { context.appGraph }
