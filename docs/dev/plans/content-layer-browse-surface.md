@@ -12,11 +12,11 @@ own.
 
 A 2026-08-02 deep research pass over both browse stacks found the UI seam largely done (the grid
 cell, search cards, source-options dialog and selection toolbar are shared) and the shell collapses
-deliberately declined (see [content-parity-drift-and-collapse.md](content-parity-drift-and-collapse.md)
+deliberately declined (see [content-layer.md](../subsystems/content-layer.md)
 2c and Phase 3, both marked do-not-re-flag). What remained forked was behavior: the two
 bulk-favorite ScreenModels were line-for-line twins, the two library adders expose the same
 favorite/duplicate/categories flow with per-type signatures, and their Remove dialogs are unshared
-twins. The spine rule of [content-layer-architecture.md](content-layer-architecture.md) held
+twins. The spine rule of [content-layer.md](../subsystems/content-layer.md) held
 unamended for that work: no library-style takeover, verbs stay in per-type code, Mihon files stay
 live.
 
@@ -116,7 +116,7 @@ Nine steps, each independently shippable and device-verified before the next.
 
 - **Step 1, record the ruling.** This file, the depth table in
   [content-layer.md](../../../.claude/rules/content-layer.md), and the sequencing line plus a new
-  amendment in [content-layer-architecture.md](content-layer-architecture.md). The three state the
+  amendment in [content-layer.md](../subsystems/content-layer.md). The three state the
   same ruling and must not disagree, so they move together.
 - **Step 2, novels onto Paging 3.** A Reikai `PagingSource` over `NovelSource.popularNovels` and
   `searchNovels`, folding the eager next-page probe into the paging key and hide-in-library into a

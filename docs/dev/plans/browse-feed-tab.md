@@ -397,4 +397,4 @@ adult-source saved-search specialization.
   Recorded here rather than only in a code comment because the write-once rule requires the mechanism
   named in the plan doc. The catalogue and the feed both run `NovelSavedSearchRun`, so they agree.
 
-Part of the broader [unified-content-ui](unified-content-ui.md) initiative.
+Part of the broader [content-layer.md](../subsystems/content-layer.md) initiative.

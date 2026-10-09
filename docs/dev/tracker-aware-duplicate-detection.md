@@ -15,7 +15,7 @@ The tracker half is what catches a different-romanization duplicate (for example
 
 ## Where it surfaces
 
-`MangaLibraryAdder` is the shared add-to-library helper used by both per-source Browse and global search (it returns plain results, not a screen-specific dialog, so one implementation serves both). When `getDuplicates` returns matches, the add flow shows the duplicate confirmation ("add anyway" / cancel) before favoriting. See the global-search long-press add in [plans/novel-parity-backlog.md](plans/novel-parity-backlog.md) for the surrounding flow.
+`MangaLibraryAdder` is the shared add-to-library helper used by both per-source Browse and global search (it returns plain results, not a screen-specific dialog, so one implementation serves both). When `getDuplicates` returns matches, the add flow shows the duplicate confirmation ("add anyway" / cancel) before favoriting. `NovelLibraryAdder` is the novel twin, used the same way.
 
 ## Precondition and caveat
 
