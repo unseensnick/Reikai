@@ -85,7 +85,7 @@ A user can correct a source's wrong chapter number ("Correct chapter number" in 
 - **A web page lookup in the adapter would run per download tick.** Resolve it in the model through `ShownWebPage`.
 - **The custom-info overlay never touches the source row.** Tracker search, refresh, duplicate detection, download folder names and merge read raw values.
 - **The partial novel update must be able to write null** for author, artist, description, cover and genre, which `RepairNovelDetails` relies on to clear a neighbour's details.
-- **The reader's chapter sheet still draws an enabled download indicator** on every row, since its rows carry no source state.
+- **The reader's chapter sheet hides the control by the same rule, `offersDownload`, and needs to be told which copies an installed source holds.** Its targets know that only on a stitched merge, so each reader passes `canFetch` (`ReaderViewModel.fetchableChapterIds`, the set `NovelReaderViewModel.chapterRows` builds); a row builder left on the default draws a control that does nothing on an uninstalled source's row.
 - **A sibling's own custom-info row is not loaded** on a merged page: its header shows the raw cover while the viewer applies that row.
 
 ## Decisions

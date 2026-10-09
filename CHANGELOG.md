@@ -287,6 +287,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Rotating the screen while a chapter is opening no longer leaves the reader stuck loading (from Mihon).** Upstream: mihonapp/mihon#3686.
 - **Tap navigation in the manga reader now works again after a press on a reader button turns into a scroll (from Mihon).** Upstream: mihonapp/mihon#3655.
 - **Swiping a chapter in either reader's chapter list now runs your configured swipe action instead of always bookmarking.**
+- **Both readers' chapter lists no longer show a download button that does nothing on a chapter whose source is uninstalled.**
 - **Novel chapters now follow manga's delete settings: finishing one in the reader no longer deletes it under "After manually marked as read", and one "After reading automatically delete" removes stays downloaded until you leave the reader.**
 - **With Downloaded only and Skip duplicate chapters on, both readers now keep the downloaded copy of a chapter instead of skipping that chapter.**
 - **Skipping past a novel chapter with Settings -> Novel reader -> Mark chapter read when skipping ahead on now finishes it as reading to the end does, deleting older downloads and marking a merged novel's other copies, without holding up the next chapter.**

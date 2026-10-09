@@ -226,7 +226,12 @@ class MangaReaderProvider(
                 val flags = viewModel.sheetFlags(chapters.map { it.chapter })
                 val numberOnly = viewModel.chapterSettings?.displayMode == Manga.CHAPTER_DISPLAY_NUMBER
                 val targets = viewModel.downloadTargets
-                val build = { chapters.map { it.toReaderChapterRow(queued, flags, numberOnly, titleWords, targets) } }
+                val fetchable = viewModel.fetchableChapterIds
+                val build = {
+                    chapters.map {
+                        it.toReaderChapterRow(queued, flags, numberOnly, titleWords, targets) { id -> id in fetchable }
+                    }
+                }
                 if (queued.isEmpty()) {
                     flowOf(build())
                 } else {
@@ -341,6 +346,7 @@ internal fun ReaderChapterItem.toReaderChapterRow(
     numberOnly: Boolean,
     words: ChapterTitleWords,
     targets: DownloadTargets = DownloadTargets.OWN,
+    canFetch: (Long) -> Boolean = { true },
 ): ReaderChapterRow {
     // A row whose download fetches another source's copy follows that copy through the queue.
     val active = targets.queuedFor(chapter.id, queued::get)
@@ -357,6 +363,6 @@ internal fun ReaderChapterItem.toReaderChapterRow(
         bookmark = flags.isBookmarked(chapter),
         downloadState = downloadState,
         downloadProgress = active?.progress ?: 0,
-        offersDownload = targets.offersDownload(chapter.id, downloadState),
+        offersDownload = targets.offersDownload(chapter.id, downloadState, canFetch),
     )
 }

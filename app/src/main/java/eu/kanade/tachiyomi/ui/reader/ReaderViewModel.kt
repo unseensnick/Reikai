@@ -283,6 +283,10 @@ class ReaderViewModel(
     var downloadTargets: DownloadTargets = DownloadTargets.OWN
         private set
 
+    // RK: the group's chapters whose own source is installed, the copies a download can fetch at all.
+    var fetchableChapterIds: Set<Long> = emptySet()
+        private set
+
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
     // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
@@ -563,12 +567,13 @@ class ReaderViewModel(
                 // the viewer, and auto-webtoon has to see every merged member to classify.
                 val group = mergedChapterProvider.load(manga)
                 mergedGroup = group
+                val installed = group.mangaById.values
+                    .filter { sourceManager.isInstalled(it.source) }
+                    .mapTo(HashSet()) { it.id }
+                fetchableChapterIds = group.pooledChapters.filter { it.mangaId in installed }.mapTo(HashSet()) { it.id }
                 if (mergeScope.copiesIn(group.stitch).isNotEmpty()) {
                     val pooled = group.pooledChapters
                     val onDisk = downloadManager.downloadedChapterIds(pooled) { group.mangaById.getValue(it.mangaId) }
-                    val installed = group.mangaById.values
-                        .filter { sourceManager.isInstalled(it.source) }
-                        .mapTo(HashSet()) { it.id }
                     downloadTargets = DownloadTargets.of(mergeScope, pooled, pooled, group.stitch, { it.id }) {
                         it.mangaId in installed
                     }

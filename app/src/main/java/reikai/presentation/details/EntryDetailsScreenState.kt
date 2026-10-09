@@ -69,11 +69,9 @@ sealed interface EntryDetailsScreenState {
          * nothing. A local row keeps Mihon's disabled one.
          */
         fun rowOffersDownload(chapterId: Long, downloadState: Download.State): Boolean =
-            downloadTargets.offersDownload(chapterId, downloadState) &&
-                (
-                    downloadState != Download.State.NOT_DOWNLOADED ||
-                        details.header.sourceState != EntrySourceState.Missing
-                    )
+            downloadTargets.offersDownload(chapterId, downloadState) {
+                details.header.sourceState != EntrySourceState.Missing
+            }
 
         /** A custom cover lands on the entry the library renders, so only the anchor's may be edited. */
         val isCoverAnchored: Boolean get() = viewedEntryId == entryId.rawId

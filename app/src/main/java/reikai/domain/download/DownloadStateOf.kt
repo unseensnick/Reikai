@@ -30,10 +30,14 @@ fun Download.State.swipeDownloadAction(): ChapterDownloadAction = when (this) {
  * Whether a row in [downloadState] draws its download control and takes a download swipe, for every
  * Reikai row of both content types: one on disk or queued always does, an idle one only when its
  * download can fetch a copy, so a chapter only an uninstalled source holds offers no control that
- * would do nothing.
+ * would do nothing. [canFetch] answers for the copy a download fetches, for a caller whose targets
+ * were not built knowing which sources are installed.
  */
-fun DownloadTargets.offersDownload(chapterId: Long, downloadState: Download.State): Boolean =
-    downloadState != Download.State.NOT_DOWNLOADED || idOf(chapterId) != null
+fun DownloadTargets.offersDownload(
+    chapterId: Long,
+    downloadState: Download.State,
+    canFetch: (copyId: Long) -> Boolean = { true },
+): Boolean = downloadState != Download.State.NOT_DOWNLOADED || idOf(chapterId)?.let(canFetch) == true
 
 /** This swipe as a row that offers no download takes it: a Download swipe goes with the control. */
 fun ChapterSwipeAction.whereDownloadOffered(offersDownload: Boolean): ChapterSwipeAction =
