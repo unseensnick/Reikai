@@ -31,7 +31,7 @@ import com.dokar.quickjs.QuickJs as DokarQuickJs
  *
  * Covers [LnPluginHost] running real lnreader plugins with no WebView and no Activity, which is what
  * background novel updates need, plus [JavaScriptEngine] for the manga-source path. The per-plugin
- * breakdown goes to logcat tag "HeadlessJsTest"; how to run it is in docs/dev/on-device-testing.md.
+ * breakdown goes to logcat tag "HeadlessJsTest"; how to run it is in docs/dev/testing.md.
  */
 @RunWith(AndroidJUnit4::class)
 class HeadlessJsIntegrationTest {
