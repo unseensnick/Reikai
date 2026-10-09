@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
  * Where a WebView novel reader loses its place as its window grows, the counterpart to
  * [RecyclerPrependPositionTest]. Chromium anchoring holds growth above the reader except at scroll
  * offset zero, where a backward load lands; the real document turns anchoring off and holds the line
- * itself. Numbers go to logcat tag "WebSeamSpike"; findings in content-layer-reader-surface.md.
+ * itself. Numbers go to logcat tag "WebSeamSpike"; what it decided: docs/dev/subsystems/novel-reader-rendering.md.
  */
 @RunWith(AndroidJUnit4::class)
 class WebViewSeamPositionTest {

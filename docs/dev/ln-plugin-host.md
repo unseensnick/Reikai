@@ -202,7 +202,7 @@ LN screens follow Mihon's Voyager `Screen` + AndroidX `ViewModel` conventions. N
 |---|---|
 | `presentation/novel/browse/` | Browse + search a source (`NovelBrowseScreen` + `NovelBrowseViewModel`), grid cell, filter/settings sheets, library-add. The duplicate dialog is shared with manga (`presentation/browse/components/EntryDuplicateDialog`). |
 | `presentation/novel/details/` | Novel details (`NovelScreen` + `NovelDetailsViewModel`), cover dialog, merge-source chips, manage-sources / page-selector. |
-| `presentation/reader/` | The novel side of the shared reader: `NovelReaderViewModel` under `NovelReaderProvider`, `NovelReaderSettings`, the native text renderer (`text/`, `NovelTextViewport`) and the WebView mode (`web/`, `NovelWebViewport`). Record: [content-layer-reader-surface.md](plans/content-layer-reader-surface.md). |
+| `presentation/reader/` | The novel side of the shared reader: `NovelReaderViewModel` under `NovelReaderProvider`, `NovelReaderSettings`, the native text renderer (`text/`, `NovelTextViewport`) and the WebView mode (`web/`, `NovelWebViewport`). Record: [novel-reader-rendering.md](subsystems/novel-reader-rendering.md). |
 | `presentation/novel/globalsearch/` | Cross-source global search. |
 | `presentation/migrate/flow/` | Migrate a novel between sources, through the migrate flow shared with manga (`NovelMigrationFlowAdapter`). |
 | `presentation/track/` | Tracker info dialog, shared with manga (`EntryTrackInfoDialog`). |

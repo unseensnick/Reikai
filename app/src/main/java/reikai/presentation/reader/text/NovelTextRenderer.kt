@@ -37,7 +37,7 @@ import tachiyomi.core.common.util.system.logcat
  * Ported from tsundoku (`textview/NovelTextRenderer.kt`), re-plumbed off their host Activity and
  * preference class. It is handed pipeline output, which a renderer must not process again, and it
  * takes the HTML built for a WebView sink, so plain text arrives already wrapped in paragraphs.
- * Details in docs/dev/plans/content-layer-reader-surface.md.
+ * See docs/dev/subsystems/novel-reader-rendering.md.
  */
 class NovelTextRenderer(
     private val context: Context,

@@ -7,7 +7,7 @@ import org.jsoup.Jsoup
  * reader's continuous mode does when a boundary is scrolled clear, and it is how a chapter shorter
  * than one screen gets read at all: it has no scroll room, so it never reaches the end a percent
  * measures. Only the last chapter, which cannot be left, is read on sight. Both renderers report the
- * crossing and the sighting this runs on. Ruling in content-layer-reader-surface.md.
+ * crossing and the sighting this runs on. See docs/dev/subsystems/novel-reader-rendering.md.
  */
 object NovelLeaveRule {
 

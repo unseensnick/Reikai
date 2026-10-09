@@ -24,7 +24,7 @@ import kotlin.math.abs
  * purpose, because `measure` plus `layout` drive `onLayoutChildren`, which is where anchoring runs.
  * Items carry a stable tag so a measurement follows the same content across an insert. Numbers go to
  * logcat tag "PrependSpike", and each case asserts the drift it measured, so a platform change that
- * moves one fails here. Findings and what they decided: docs/dev/plans/content-layer-reader-surface.md.
+ * moves one fails here. What they decided: docs/dev/subsystems/novel-reader-rendering.md.
  */
 @RunWith(AndroidJUnit4::class)
 class RecyclerPrependPositionTest {

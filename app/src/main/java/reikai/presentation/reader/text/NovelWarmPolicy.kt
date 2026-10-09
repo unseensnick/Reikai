@@ -8,7 +8,7 @@ import java.util.Collections
  * Suppressing and self-clearing are both load-bearing: without the first, a boundary the reader
  * scrolls over re-requests a chapter that just failed; without the second, a session strands on one
  * that has since recovered. A manual retry and an explicit chapter open drop the record outright, so
- * neither of those waits. Why both are needed is in content-layer-reader-surface.md.
+ * neither of those waits.
  */
 object NovelWarmPolicy {
 

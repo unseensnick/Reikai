@@ -28,8 +28,8 @@ import tachiyomi.domain.manga.model.Manga
  * through one shared kernel. The per-entry rotation flag crosses the seam **unresolved**, so 0 keeps
  * meaning "follow this type's default" and the picker's "use default" row shows as selected; the
  * resolved answer beside it goes through `resolveOrientation` against each type's own default. Each
- * probe pins its adapter's answer, not a model that fills the flag before the seam; that gap and why it
- * was declined are in docs/dev/plans/content-layer-reader-surface.md.
+ * probe pins its adapter's answer, not a model that fills the flag before the seam; that gap stays,
+ * since no unit test here builds a ViewModel and the repo carries no Robolectric.
  */
 class ReaderProviderConformanceTest {
 

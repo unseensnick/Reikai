@@ -231,8 +231,8 @@ fixes + twin collapses that followed are recorded in
 
 The download subsystem (Road B) and the reader were taken over after this era; their records are
 [downloads.md](../subsystems/downloads.md),
-[content-layer-reader-surface.md](content-layer-reader-surface.md) and
-[novel-reader-tsundoku.md](novel-reader-tsundoku.md).
+[reader.md](../subsystems/reader.md) and
+[novel-reader-rendering.md](../subsystems/novel-reader-rendering.md).
 
 ## Decisions & tradeoffs
 
@@ -241,7 +241,7 @@ The download subsystem (Road B) and the reader were taken over after this era; t
 - **Divergent bits are slots, not forks or nullable fields:** if a field only one content type
   ever sets, prefer a slot composable.
 - **Readers excluded:** too different to share; a shared chrome layer is tracked separately in
-  [unified-reader.md](unified-reader.md).
+  [reader.md](../subsystems/reader.md).
 - **A deliberate multi-screen initiative,** not incidental cleanup, so it is exempt from the
   "no standalone refactor sprints" rule, but it must be planned and sequenced, not big-banged.
 - **Complementary to, not a replacement for, the theme-layer reskin.**

@@ -26,7 +26,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Built-in sources | [built-in-sources.md](built-in-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md) |
 | MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
 | Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
-| Novel reader | [novel-reader.md](novel-reader.md), [guides/novel-reader-settings.md](guides/novel-reader-settings.md) | [novel-reader-tsundoku.md](dev/plans/novel-reader-tsundoku.md), [content-layer-reader-surface.md](dev/plans/content-layer-reader-surface.md) |
+| Novel reader | [novel-reader.md](novel-reader.md), [guides/novel-reader-settings.md](guides/novel-reader-settings.md) | [reader.md](dev/subsystems/reader.md), [novel-reader-rendering.md](dev/subsystems/novel-reader-rendering.md) |
 | Updates, History and Recents | [recents.md](recents.md) | [content-layer-recents-surface.md](dev/plans/content-layer-recents-surface.md), [recents-continue-reading-row.md](dev/plans/recents-continue-reading-row.md) |
 | Feed and saved searches | [feed.md](feed.md) | [browse-feed-tab.md](dev/plans/browse-feed-tab.md) |
 | Opening shared links | [shared-links.md](shared-links.md) | none |

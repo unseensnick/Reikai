@@ -38,7 +38,7 @@ Grouped by the area of the app each touches. Each entry describes current behavi
 
 **Mark chapter read when skipping ahead (novel).** Matching manga, tapping Next marks only the departed chapter as read, and only once the next chapter has loaded, never the in-between range, never on backward paging, never in incognito, and skips chapters already read. It is gated on a new opt-in preference (default off). The reader's existing inline tracker push fires for the departed chapter when auto-update is on.
 
-See `novel-reader.md` for the reader architecture these settings hang off.
+See `../subsystems/novel-reader-rendering.md` for the reader architecture these settings hang off.
 
 ### Downloads
 

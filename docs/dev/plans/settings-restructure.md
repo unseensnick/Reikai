@@ -91,7 +91,7 @@ Ruled 2026-09-03. **Pass 1 shipped**: two top-level reader entries, each self-co
 
 **Pass 4 shipped.** Verified on the emulator: Appearance's Display group ends at the combined Recents row with no page-preview slider left on it, Browse and sources shows the slider in its Sources group with the stored value carried over untouched, Library's Behavior group holds both indicator rows labelled `· Manga` and `· Novels`, and settings search returns "Page preview rows" as "Browse and sources > Sources" and the two indicator rows as distinguishable entries where they previously read identically.
 
-The reader takeover ([content-layer-reader-surface.md](content-layer-reader-surface.md)) starts at its step 2 now that this is done.
+The reader takeover ([reader.md](../subsystems/reader.md)) starts at its step 2 now that this is done.
 
 ## Decisions & tradeoffs
 
