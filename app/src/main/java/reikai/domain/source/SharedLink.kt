@@ -5,7 +5,7 @@ import java.net.URI
 /**
  * A web address shared into the app, reduced to what matching it against a source's site needs. The query
  * and fragment are dropped, as LNReader's share handler drops them, so a `?utm` tag cannot split one entry
- * into two paths. Both content types read a link through these rules: docs/dev/plans/content-layer-sources-surface.md.
+ * into two paths. Both content types read a link through these rules: docs/dev/subsystems/browse-and-sources.md.
  */
 class SharedLink private constructor(
     private val scheme: String,

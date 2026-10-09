@@ -15,7 +15,7 @@ object OwnedSites {
 
     /**
      * NovelUpdates' extension writes the same site as Reikai's tracker, destructively: its notes sync
-     * truncates a note at its first quote. Record: docs/dev/plans/content-layer-sources-surface.md.
+     * truncates a note at its first quote. Record: docs/dev/subsystems/browse-and-sources.md.
      */
     private val all = listOf(
         OwnedSite(

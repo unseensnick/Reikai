@@ -57,7 +57,7 @@ class LnPluginInstaller(
     // install/uninstall, so a tap-to-install never blocks behind an in-progress (possibly slow, e.g. a
     // down repo) ensureLoaded; those meet a pass only on the one plugin's lock in [urlLocks].
     // ExtensionManager.loadMutex holds the app scans the same way, so a reload cannot be overwritten by
-    // an in-flight load on either side (content-layer-browse-surface.md).
+    // an in-flight load on either side (docs/dev/subsystems/browse-and-sources.md).
     private val loadMutex = Mutex()
 
     // One lock per canonical plugin URL, held by a pass's load of it and by an install or uninstall of

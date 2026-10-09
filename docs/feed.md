@@ -6,7 +6,7 @@ description: Keep the latest from the sources you pick on one Browse tab, and sa
 
 # Feed and saved searches
 
-_Dev record: [browse-feed-tab.md](dev/plans/browse-feed-tab.md). Doc map: [README.md](README.md)._
+_Dev record: [browse-and-sources.md](dev/subsystems/browse-and-sources.md). Doc map: [README.md](README.md)._
 
 The Feed is a tab in <nav to="main_browse"> that shows a row of covers from each source you add to it, so you can see what is new without opening each source in turn.
 A saved search keeps a source search, with its filters, so you can run it again with one tap or add it to the Feed as a row of its own.

@@ -34,7 +34,7 @@ import tachiyomi.domain.source.model.StubSource
  * decision has to stay a read: a caller favorites between deciding and filing, and only that ordering
  * leaves nothing behind when the favorite write fails. Each probe drives one content type's adder and
  * the cases are shared, so neither type can answer differently without a red test.
- * Background: docs/dev/plans/content-layer-add-flow.md.
+ * Background: docs/dev/subsystems/browse-and-sources.md.
  */
 class AddDecisionConformanceTest {
 

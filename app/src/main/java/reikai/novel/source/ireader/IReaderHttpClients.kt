@@ -24,7 +24,7 @@ import okhttp3.OkHttpClient
  * The HTTP half of what an IReader extension is built with. Both clients run over Reikai's own OkHttp
  * client, so FlareSolverr, the WebView fetch, the shared cookie jar and the cache apply as for any
  * other source, which is why IReader's own cookie and cache plugins are left out. Record:
- * docs/dev/plans/content-layer-sources-surface.md, "The IReader runtime".
+ * docs/dev/subsystems/browse-and-sources.md, "The IReader runtime".
  */
 class IReaderHttpClients(
     private val context: Context,

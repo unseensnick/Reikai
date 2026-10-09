@@ -37,7 +37,7 @@ import reikai.util.runCatchingCancellable
  * [reikai.novel.source.NovelSource] over the catalogue of an IReader extension. IReader lists chapters
  * oldest first, as novels keep them, and hands a chapter over as pages, which become HTML here. Its
  * listings map in order onto Popular and Latest; its search reads the query from a Title filter. Record:
- * docs/dev/plans/content-layer-sources-surface.md.
+ * docs/dev/subsystems/browse-and-sources.md.
  */
 class IReaderNovelSource(
     val source: CatalogSource,

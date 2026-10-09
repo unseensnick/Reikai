@@ -13,7 +13,7 @@ import tachiyomi.domain.source.model.Source
 /**
  * The sources filter list, pinned once for both content types. The two keep different storage (a
  * manga language is off unless listed, a novel language on unless listed; ruled in
- * content-layer-browse-surface.md), so each probe stores the switch its own way and the cases read
+ * docs/dev/subsystems/browse-and-sources.md), so each probe stores the switch its own way and the cases read
  * the one list both halves draw.
  */
 class SourceFilterSectionsTest {

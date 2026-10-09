@@ -9,7 +9,7 @@ import tachiyomi.domain.category.model.Category
 /**
  * The add order both content types run. It is one implementation over each type's own verbs, so the
  * order is pinned here once rather than per type; what each type passes in is pinned at its own call
- * site. Background: docs/dev/plans/content-layer-add-flow.md.
+ * site. Background: docs/dev/subsystems/browse-and-sources.md.
  */
 class AddSequenceTest {
 

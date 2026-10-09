@@ -18,7 +18,7 @@ import tachiyomi.domain.manga.model.Manga
  * The long-press add flow, pinned once for both content types over the real adders. The shared
  * dialogs dismiss before they confirm, so what a verb acts on has to outlive the dismiss; and a list
  * can be drawn before an add made elsewhere, so the decision reads the stored row.
- * Background: docs/dev/plans/content-layer-add-flow.md.
+ * Background: docs/dev/subsystems/browse-and-sources.md.
  */
 class EntryAddFlowConformanceTest {
 

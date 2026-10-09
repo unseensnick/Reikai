@@ -24,7 +24,7 @@ import reikai.novel.source.NovelFilterState
  * filter still applies the rest. Pinned once over both probes instead of as a twin pair.
  *
  * The drift cases are shared because Reikai matches manga filters by kind and name, where the encoding
- * it was ported from matched by position. Background: docs/dev/plans/browse-feed-tab.md.
+ * it was ported from matched by position. Background: docs/dev/subsystems/browse-and-sources.md.
  */
 class SavedSearchFiltersConformanceTest {
 

@@ -131,8 +131,8 @@ class ExtensionManager(
     // RK --> one scan at a time. It runs from three places on this scope, and each pass assigns
     // both maps wholesale from a store list it read when it started, so a slow startup scan landing
     // after a re-trust would put every extension back to Untrusted until the next launch.
-    // LnPluginInstaller.loadMutex holds the LN plugin loads the same way; the pair is the pin that
-    // content-layer-browse-surface.md rules in place of a conformance test.
+    // LnPluginInstaller.loadMutex holds the LN plugin loads the same way; the pair stands in for a
+    // conformance test (docs/dev/subsystems/browse-and-sources.md).
     private val loadMutex = Mutex()
 
     /** The content-warning settings the latest scan judged against, see [reloadWhenScanStale]. */

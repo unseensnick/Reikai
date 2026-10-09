@@ -64,7 +64,7 @@ sealed interface Extension {
          * Upstream's rule: the store's key signs this apk. A keyless store (a third-party IReader repo, a
          * store carried over from a preference) cannot pass it, so it counts only for an apk no added
          * store's key signs. [storeKeys] are the stored keys, not the fetched ones, so a keyed store whose
-         * fetch failed still claims its apks. See content-layer-sources-surface.md.
+         * fetch failed still claims its apks. See docs/dev/subsystems/browse-and-sources.md.
          */
         fun canComeFrom(store: ExtensionStore, storeKeys: Set<String>): Boolean =
             if (store.hasSigningKey) {

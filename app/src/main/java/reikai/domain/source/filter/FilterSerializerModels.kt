@@ -89,7 +89,7 @@ class SelectSerializer(override val serializer: FilterSerializer) : Serializer<F
      * Re-points the saved index at the option it was on, by text. `state` is a position in `values`,
      * so a reordered list selects the wrong option and one past the end crashes the filter sheet,
      * which reads `values[state]` unguarded. Falls back to the first option when the saved one is
-     * gone. Rationale: docs/dev/plans/browse-feed-tab.md.
+     * gone. Rationale: docs/dev/subsystems/browse-and-sources.md.
      */
     override fun afterDeserialize(json: JsonObject, filter: Filter.Select<Any>) {
         val saved = json[VALUES]?.jsonArray
