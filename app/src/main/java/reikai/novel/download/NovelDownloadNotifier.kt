@@ -13,6 +13,7 @@ import reikai.data.notification.downloadErrorTitle
 import reikai.domain.novel.model.Novel
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Foreground progress notification for the novel chapter downloader, sibling of the manga downloader
@@ -52,17 +53,17 @@ class NovelDownloadNotifier(
         context.notificationBuilder(Notifications.CHANNEL_NOVEL_DOWNLOADER) {
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
             setContentText(reason)
-            setSmallIcon(R.drawable.ic_pause_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_pause)
             // A drain waiting for a network posts this again at every recheck.
             setOnlyAlertOnce(true)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             addAction(
-                R.drawable.ic_play_arrow_24dp,
+                MaterialSymbolsR.drawable.rounded_filled_play_arrow,
                 context.stringResource(MR.strings.action_resume),
                 NotificationReceiver.resumeNovelDownloadsPendingBroadcast(context),
             )
             addAction(
-                R.drawable.ic_close_24dp,
+                MaterialSymbolsR.drawable.rounded_close,
                 context.stringResource(MR.strings.action_cancel_all),
                 NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
             )
@@ -72,20 +73,20 @@ class NovelDownloadNotifier(
         builder
             .clearActions()
             .addAction(
-                R.drawable.ic_pause_24dp,
+                MaterialSymbolsR.drawable.rounded_filled_pause,
                 context.stringResource(MR.strings.action_pause),
                 NotificationReceiver.pauseNovelDownloadsPendingBroadcast(context),
             )
             .apply {
                 val novel = progress.novel ?: return@apply
                 addAction(
-                    R.drawable.ic_book_24dp,
+                    MaterialSymbolsR.drawable.rounded_book,
                     context.stringResource(MR.strings.action_show_manga),
                     NotificationReceiver.openNovelPendingActivity(context, novel),
                 )
             }
             .addAction(
-                R.drawable.ic_close_24dp,
+                MaterialSymbolsR.drawable.rounded_close,
                 context.stringResource(MR.strings.action_cancel),
                 NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
             )
@@ -125,11 +126,11 @@ class NovelDownloadNotifier(
         val notification = context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_ERROR) {
             setContentTitle(title ?: context.stringResource(MR.strings.download_notifier_downloader_title))
             setContentText(error ?: context.stringResource(MR.strings.download_notifier_unknown_error))
-            setSmallIcon(R.drawable.ic_warning_white_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_warning)
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))
             if (novel != null) {
                 addAction(
-                    R.drawable.ic_book_24dp,
+                    MaterialSymbolsR.drawable.rounded_book,
                     context.stringResource(MR.strings.action_show_manga),
                     NotificationReceiver.openNovelPendingActivity(context, novel),
                 )

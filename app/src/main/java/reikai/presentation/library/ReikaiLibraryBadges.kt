@@ -39,7 +39,7 @@ import exh.assets.painter
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.rounded.LocalLibrary
-import mihon.icons.materialsymbols.rounded.Warning
+import mihon.icons.materialsymbols.roundedfilled.Warning
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.NovelCover
 import tachiyomi.domain.manga.model.MangaCover
@@ -119,7 +119,7 @@ private fun BuiltInSourceLogoBadge(logo: BuiltInSourceLogo) {
 @Composable
 private fun MissingSourceBadge() {
     Badge(
-        imageVector = MaterialSymbols.Rounded.Warning,
+        imageVector = MaterialSymbols.RoundedFilled.Warning,
         color = MaterialTheme.colorScheme.errorContainer,
         iconColor = MaterialTheme.colorScheme.error,
     )

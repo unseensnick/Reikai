@@ -5,6 +5,7 @@ import androidx.core.app.NotificationCompat
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.util.system.notify
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * The update notice extensions and light-novel plugins share, each on its own channel and id: it
@@ -23,7 +24,7 @@ fun Context.notifyExtensionUpdates(
             setContentText(text)
             setStyle(NotificationCompat.BigTextStyle().bigText(text))
         }
-        setSmallIcon(R.drawable.ic_extension_24dp)
+        setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_extension)
         setContentIntent(NotificationReceiver.openExtensionsPendingActivity(this@notifyExtensionUpdates))
         setAutoCancel(true)
     }

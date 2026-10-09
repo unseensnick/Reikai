@@ -170,6 +170,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `a80027ff3` | `chore: sync Mihon Material Symbols icons and generated drawables` | 2026-10-09 | Remaining icons moved to Material Symbols, notification drawables generated (mihonapp/mihon#4057); MangaBaka-first tracker order (mihon `dd46413e1`) declined by owner ruling, premise: Reikai keeps its own tracker order, revisit only if the owner asks; its fastlane text N/A |
 | `ab7ee00c4` | `chore: sync Mihon R8 shrinking of app code` | 2026-10-08 | R8 shrinks app code (mihon `06d612811`) |
 | `6a329386c` | `714dbfe25` | 2026-10-08 | `MangaViewModel` collects while subscribed (mihon `7ff97761b`) |
 | `9a6dea804` | `b867fd6f4`..`b3afc9d4e` | 2026-10-08 | Database, library view, folder names, downloader, covers and backup fixes over `7aacaa349..ab7ee00c4` |

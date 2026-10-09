@@ -36,6 +36,7 @@ import reikai.domain.novel.model.withCustomInfo
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Notifications for the background novel-update job: an ongoing progress entry (with a Cancel action)
@@ -60,11 +61,11 @@ class NovelUpdateNotifier(
             // be updating at once: two entries reading "Updating library… (13%)" say nothing about
             // which is which.
             setSubText(context.stringResource(MR.strings.novel_library_update))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
             setOngoing(true)
             setOnlyAlertOnce(true)
             addAction(
-                R.drawable.ic_close_24dp,
+                MaterialSymbolsR.drawable.rounded_close,
                 context.stringResource(MR.strings.action_cancel),
                 NotificationReceiver.cancelNovelLibraryUpdatePendingBroadcast(context),
             )
@@ -133,7 +134,7 @@ class NovelUpdateNotifier(
                     NotificationReceiver.openNovelChapterPendingActivity(context, novel, newChapters.first()),
                 )
                 addAction(
-                    R.drawable.ic_done_24dp,
+                    MaterialSymbolsR.drawable.rounded_check,
                     context.stringResource(MR.strings.action_mark_as_read),
                     NotificationReceiver.markNovelAsReadPendingBroadcast(
                         context,
@@ -143,7 +144,7 @@ class NovelUpdateNotifier(
                     ),
                 )
                 addAction(
-                    R.drawable.ic_book_24dp,
+                    MaterialSymbolsR.drawable.rounded_book,
                     context.stringResource(MR.strings.action_view_chapters),
                     NotificationReceiver.openNovelPendingActivity(context, novel),
                 )

@@ -52,7 +52,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.anim_updates_enter)
+            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_updates)
             return TabOptions(
                 index = 1u,
                 title = stringResource(MR.strings.label_recents),

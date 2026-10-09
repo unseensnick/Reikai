@@ -22,7 +22,7 @@ import androidx.compose.ui.unit.sp
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.daysUntil
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Done
+import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.HourglassEmpty
 import mihon.icons.materialsymbols.rounded.Public
@@ -98,7 +98,7 @@ fun EntryActionRow(
             } else {
                 pluralStringResource(MR.plurals.num_trackers, count = trackingCount, trackingCount)
             },
-            icon = if (trackingCount == 0) MaterialSymbols.Rounded.Sync else MaterialSymbols.Rounded.Done,
+            icon = if (trackingCount == 0) MaterialSymbols.Rounded.Sync else MaterialSymbols.Rounded.Check,
             color = if (trackingCount == 0) defaultActionButtonColor else MaterialTheme.colorScheme.primary,
             onClick = onTrackingClicked,
         )

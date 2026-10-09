@@ -31,14 +31,14 @@ import me.saket.swipe.SwipeableActionsBox
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.BookmarkAdd
 import mihon.icons.materialsymbols.rounded.BookmarkRemove
+import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Delete
-import mihon.icons.materialsymbols.rounded.Done
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FileDownloadOff
 import mihon.icons.materialsymbols.rounded.RemoveDone
-import mihon.icons.materialsymbols.rounded.Warning
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
+import mihon.icons.materialsymbols.roundedfilled.Warning
 import reikai.presentation.components.subtitlePart
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
@@ -133,7 +133,7 @@ fun MangaChapterListItem(
                     // RK --> before the title, since a long title ellipsizes whatever follows it
                     if (onNumberHintClick != null) {
                         Icon(
-                            imageVector = MaterialSymbols.Rounded.Warning,
+                            imageVector = MaterialSymbols.RoundedFilled.Warning,
                             contentDescription = stringResource(MR.strings.chapter_number_hint),
                             modifier = Modifier
                                 .sizeIn(maxHeight = with(LocalDensity.current) { textHeight.toDp() })
@@ -222,7 +222,7 @@ internal fun getSwipeAction(
 ): me.saket.swipe.SwipeAction? {
     return when (action) {
         LibraryPreferences.ChapterSwipeAction.ToggleRead -> swipeAction(
-            icon = if (!read) MaterialSymbols.Rounded.Done else MaterialSymbols.Rounded.RemoveDone,
+            icon = if (!read) MaterialSymbols.Rounded.Check else MaterialSymbols.Rounded.RemoveDone,
             background = background,
             isUndo = read,
             onSwipe = onSwipe,

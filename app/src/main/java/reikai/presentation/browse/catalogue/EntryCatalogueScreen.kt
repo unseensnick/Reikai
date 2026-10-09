@@ -54,7 +54,7 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Favorite
 import mihon.icons.materialsymbols.rounded.FilterList
-import mihon.icons.materialsymbols.rounded.NewReleases
+import mihon.icons.materialsymbols.rounded.Verified
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
@@ -489,7 +489,7 @@ class EntryCatalogueScreen(
             if (loaded.supportsLatest) {
                 ListingChip(
                     selected = loaded.listing == EntryBrowseListing.Latest,
-                    icon = MaterialSymbols.Rounded.NewReleases,
+                    icon = MaterialSymbols.Rounded.Verified,
                     label = stringResource(MR.strings.latest),
                     onClick = {
                         onClearSavedSearch()

@@ -18,8 +18,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Label
-import mihon.icons.materialsymbols.rounded.ExpandLess
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 
 /**
  * Floating category jump control for the single-list library: previous category / scroll to
@@ -45,7 +45,7 @@ fun ReikaiCategoryHopper(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = onUpClick) {
-                Icon(imageVector = MaterialSymbols.Rounded.ExpandLess, contentDescription = null)
+                Icon(imageVector = MaterialSymbols.Rounded.KeyboardArrowUp, contentDescription = null)
             }
             // Raw combinedClickable (not IconButton) since IconButton has no long-press slot.
             Box(
@@ -58,7 +58,7 @@ fun ReikaiCategoryHopper(
                 Icon(imageVector = MaterialSymbols.AutoMirroredRounded.Label, contentDescription = null)
             }
             IconButton(onClick = onDownClick) {
-                Icon(imageVector = MaterialSymbols.Rounded.ExpandMore, contentDescription = null)
+                Icon(imageVector = MaterialSymbols.Rounded.KeyboardArrowDown, contentDescription = null)
             }
         }
     }

@@ -21,7 +21,7 @@ import androidx.compose.ui.Modifier
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.FilterList
-import mihon.icons.materialsymbols.rounded.PushPin
+import mihon.icons.materialsymbols.rounded.Keep
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -53,7 +53,7 @@ fun EntrySearchSourceFilterChips(
                     selected = isPinnedOnly,
                     onClick = onSelectPinnedOnly,
                     leadingIcon = {
-                        Icon(MaterialSymbols.Rounded.PushPin, null, Modifier.size(FilterChipDefaults.IconSize))
+                        Icon(MaterialSymbols.Rounded.Keep, null, Modifier.size(FilterChipDefaults.IconSize))
                     },
                     label = { Text(stringResource(MR.strings.pinned_sources)) },
                 )

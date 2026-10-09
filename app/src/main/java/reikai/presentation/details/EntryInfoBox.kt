@@ -46,8 +46,8 @@ import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.tachiyomi.util.system.copyToClipboard
 import exh.debug.LocalCoverImagesHidden
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.Person
+import mihon.icons.materialsymbols.roundedfilled.Brush
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.asNovelCover
@@ -350,7 +350,7 @@ private fun ColumnScope.EntryContentInfo(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(
-                imageVector = MaterialSymbols.Rounded.Brush,
+                imageVector = MaterialSymbols.RoundedFilled.Brush,
                 contentDescription = null,
                 modifier = Modifier.size(16.dp),
             )

@@ -21,15 +21,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalLayoutDirection
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import mihon.icons.custommaterialsymbols.CustomMaterialSymbols
+import mihon.icons.custommaterialsymbols.rounded.CropOff
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Crop
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.FormatBold
 import mihon.icons.materialsymbols.rounded.FormatListNumbered
@@ -222,7 +223,7 @@ private fun ActionButtons(
 
             ReaderBottomButton.ReadingMode -> IconButton(onClick = onClickReadingMode) {
                 Icon(
-                    painter = painterResource(readingMode.iconRes),
+                    imageVector = readingMode.icon,
                     contentDescription = stringResource(MR.strings.viewer),
                 )
             }
@@ -236,9 +237,11 @@ private fun ActionButtons(
 
             ReaderBottomButton.CropBorders -> IconButton(onClick = onClickCropBorder) {
                 Icon(
-                    painter = painterResource(
-                        if (cropEnabled) R.drawable.ic_crop_24dp else R.drawable.ic_crop_off_24dp,
-                    ),
+                    imageVector = if (cropEnabled) {
+                        MaterialSymbols.Rounded.Crop
+                    } else {
+                        CustomMaterialSymbols.Rounded.CropOff
+                    },
                     contentDescription = stringResource(MR.strings.pref_crop_borders),
                 )
             }

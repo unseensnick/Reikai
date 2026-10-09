@@ -5,7 +5,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Warning
+import mihon.icons.materialsymbols.roundedfilled.Warning
 
 /**
  * The sign that an entry's source is no longer installed, for manga and novels alike: the warning
@@ -14,7 +14,7 @@ import mihon.icons.materialsymbols.rounded.Warning
 @Composable
 fun MissingSourceIcon(modifier: Modifier = Modifier) {
     Icon(
-        imageVector = MaterialSymbols.Rounded.Warning,
+        imageVector = MaterialSymbols.RoundedFilled.Warning,
         contentDescription = null,
         tint = MaterialTheme.colorScheme.error,
         modifier = modifier,

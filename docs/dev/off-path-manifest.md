@@ -119,8 +119,6 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/res/layout/download_item.xml | mihon | reikai/presentation/download/EntryDownloadSeriesSheet.kt |
 | app/src/main/res/layout/download_header.xml | mihon | reikai/presentation/download/EntryDownloadCardList.kt |
 | app/src/main/res/menu/download_single.xml | mihon | reikai/presentation/download/EntryDownloadSeriesSheet.kt |
-| app/src/main/res/drawable/ic_drag_handle_24dp.xml | mihon | reikai/presentation/download/EntryDownloadCardList.kt |
-| app/src/main/res/drawable/ic_overflow_24dp.xml | mihon | reikai/presentation/download/EntryDownloadSeriesSheet.kt |
 | app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/ExtensionStoresScreen.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
 | app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/ExtensionStoresViewModel.kt | mihon | reikai/presentation/browse/repos/RepositoriesViewModel.kt |
 | app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/components/ExtensionStoresScreen.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
@@ -169,3 +167,5 @@ It was missed at the time because git records a rename as `R` while the `pre-com
 `D`; the guard reads both now, so the next one cannot arrive unrecorded the same way.
 
 `MihonViewModelFactory` is the manifest's first debrand rename rather than a surface takeover. `ReikaiViewModelFactory` is that file with the class renamed and a KDoc added, nothing else, so its Replacement sits under `mihon/app/di/` rather than `reikai/`: it kept upstream's package. It reached the manifest by a sweep rather than by the hook, and could only ever have arrived that way. Upstream added it in mihon `b2015d1ef` (`mihonapp/mihon#3608`), which is inside the synced base, but the Mihon-base seed brought in the renamed copy instead, so the file never existed here and no deletion was ever staged for `pre-commit` to see. **A file that arrives absent is invisible to that check by construction**, so a periodic diff of the whole upstream file set against this tree is the only thing that finds one.
+
+The download queue's two drawable rows, `ic_drag_handle_24dp.xml` and `ic_overflow_24dp.xml`, were dropped when upstream deleted both files outright (mihon `a80027ff3`, `mihonapp/mihon#4057`) in favour of drawables generated from Material Symbols. The Compose queue already drew the Material Symbols drag handle and has no overflow menu, so nothing was left to watch.

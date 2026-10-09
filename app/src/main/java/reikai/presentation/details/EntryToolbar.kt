@@ -21,8 +21,8 @@ import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
 import mihon.icons.materialsymbols.rounded.SelectAll
-import mihon.icons.materialsymbols.rounded.Visibility
-import mihon.icons.materialsymbols.rounded.VisibilityOff
+import mihon.icons.materialsymbols.roundedfilled.Visibility
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.theme.active
@@ -132,7 +132,7 @@ fun EntryToolbar(
                             add(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_unhide),
-                                    icon = MaterialSymbols.Rounded.Visibility,
+                                    icon = MaterialSymbols.RoundedFilled.Visibility,
                                     onClick = onUnhide,
                                 ),
                             )
@@ -140,7 +140,7 @@ fun EntryToolbar(
                             add(
                                 AppBar.Action(
                                     title = stringResource(MR.strings.action_hide),
-                                    icon = MaterialSymbols.Rounded.VisibilityOff,
+                                    icon = MaterialSymbols.RoundedFilled.VisibilityOff,
                                     onClick = onHide,
                                 ),
                             )

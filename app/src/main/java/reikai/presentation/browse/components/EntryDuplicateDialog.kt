@@ -59,10 +59,10 @@ import eu.kanade.presentation.more.settings.LocalPreferenceMinHeight
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
-import mihon.icons.materialsymbols.rounded.Brush
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.SelectAll
+import mihon.icons.materialsymbols.roundedfilled.Brush
 import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.components.entryStatusIcon
 import reikai.presentation.components.entryStatusRes
@@ -407,7 +407,7 @@ private fun EntryDuplicateCard(
         }
 
         ui.displayArtist?.let {
-            EntryDetailRow(text = it, iconImageVector = MaterialSymbols.Rounded.Brush, maxLines = 2)
+            EntryDetailRow(text = it, iconImageVector = MaterialSymbols.RoundedFilled.Brush, maxLines = 2)
         }
 
         EntryDetailRow(

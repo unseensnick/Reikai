@@ -30,8 +30,8 @@ import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.DragHandle
-import mihon.icons.materialsymbols.rounded.ExpandLess
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import reikai.domain.library.ContentType
 import reikai.presentation.components.CardKicker
 import reikai.presentation.components.ContentTypeBadge
@@ -236,14 +236,14 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
             ) {
                 IconButton(onClick = onMoveToTop) {
                     Icon(
-                        imageVector = MaterialSymbols.Rounded.ExpandLess,
+                        imageVector = MaterialSymbols.Rounded.KeyboardArrowUp,
                         contentDescription = stringResource(MR.strings.action_move_to_top),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 IconButton(onClick = onMoveToBottom) {
                     Icon(
-                        imageVector = MaterialSymbols.Rounded.ExpandMore,
+                        imageVector = MaterialSymbols.Rounded.KeyboardArrowDown,
                         contentDescription = stringResource(MR.strings.action_move_to_bottom),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

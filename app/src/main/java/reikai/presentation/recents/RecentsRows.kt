@@ -45,8 +45,8 @@ import eu.kanade.presentation.util.relativeTimeSpanString
 import eu.kanade.tachiyomi.data.download.model.Download
 import me.saket.swipe.SwipeableActionsBox
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.ExpandLess
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import mihon.icons.materialsymbols.roundedfilled.Bookmark
 import mihon.icons.materialsymbols.roundedfilled.Circle
 import reikai.presentation.components.readProgressLabel
@@ -112,7 +112,11 @@ fun RecentsGroupRow(
         },
         trailing = {
             Icon(
-                imageVector = if (expanded) MaterialSymbols.Rounded.ExpandLess else MaterialSymbols.Rounded.ExpandMore,
+                imageVector = if (expanded) {
+                    MaterialSymbols.Rounded.KeyboardArrowUp
+                } else {
+                    MaterialSymbols.Rounded.KeyboardArrowDown
+                },
                 contentDescription = null,
                 modifier = Modifier.padding(start = 4.dp),
             )

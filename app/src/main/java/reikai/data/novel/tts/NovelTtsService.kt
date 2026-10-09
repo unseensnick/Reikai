@@ -46,6 +46,7 @@ import reikai.domain.novel.tts.TtsPlayback
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Foreground service that keeps the process alive for novel read-aloud and shows a media-style
@@ -289,11 +290,19 @@ class NovelTtsService : Service() {
     private fun buildNotification(state: NovelTtsSession.State): Notification {
         val playing = state.playback == TtsPlayback.Playing
         val playPause = if (playing) {
-            action(R.drawable.ic_pause_24dp, stringResource(MR.strings.action_pause), ACTION_PAUSE)
+            action(
+                MaterialSymbolsR.drawable.rounded_filled_pause,
+                stringResource(MR.strings.action_pause),
+                ACTION_PAUSE,
+            )
         } else {
-            action(R.drawable.ic_play_arrow_24dp, stringResource(MR.strings.action_resume), ACTION_PLAY)
+            action(
+                MaterialSymbolsR.drawable.rounded_filled_play_arrow,
+                stringResource(MR.strings.action_resume),
+                ACTION_PLAY,
+            )
         }
-        val stop = action(R.drawable.ic_close_24dp, stringResource(MR.strings.tts_stop), ACTION_STOP)
+        val stop = action(MaterialSymbolsR.drawable.rounded_close, stringResource(MR.strings.tts_stop), ACTION_STOP)
         val actions = listOf(
             action(
                 R.drawable.ic_skip_previous_24dp,

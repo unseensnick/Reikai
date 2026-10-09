@@ -6,11 +6,11 @@ import eu.kanade.tachiyomi.source.model.SManga
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.AttachMoney
 import mihon.icons.materialsymbols.rounded.Block
+import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.Done
 import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.Pause
 import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.roundedfilled.Pause
 import tachiyomi.i18n.MR
 
 // NovelStatusCode reuses SManga's codes (pinned by NovelStatusCodeTest), so these serve both content types.
@@ -31,8 +31,8 @@ fun entryStatusIcon(status: Long): ImageVector = when (status.toInt()) {
     SManga.ONGOING -> MaterialSymbols.Rounded.Schedule
     SManga.COMPLETED -> MaterialSymbols.Rounded.DoneAll
     SManga.LICENSED -> MaterialSymbols.Rounded.AttachMoney
-    SManga.PUBLISHING_FINISHED -> MaterialSymbols.Rounded.Done
+    SManga.PUBLISHING_FINISHED -> MaterialSymbols.Rounded.Check
     SManga.CANCELLED -> MaterialSymbols.Rounded.Close
-    SManga.ON_HIATUS -> MaterialSymbols.Rounded.Pause
+    SManga.ON_HIATUS -> MaterialSymbols.RoundedFilled.Pause
     else -> MaterialSymbols.Rounded.Block
 }

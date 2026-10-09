@@ -39,12 +39,12 @@ import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.Explore
 import mihon.icons.materialsymbols.rounded.Info
-import mihon.icons.materialsymbols.rounded.NewReleases
 import mihon.icons.materialsymbols.rounded.Palette
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.Security
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.Sync
+import mihon.icons.materialsymbols.rounded.Verified
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -223,7 +223,7 @@ object SettingsMainScreen : Screen() {
         Item(
             titleRes = MR.strings.pref_recommendations,
             subtitleRes = MR.strings.pref_recommendations_summary,
-            icon = MaterialSymbols.Rounded.NewReleases,
+            icon = MaterialSymbols.Rounded.Verified,
             screen = SettingsRecommendationsScreen,
         ),
         Item(

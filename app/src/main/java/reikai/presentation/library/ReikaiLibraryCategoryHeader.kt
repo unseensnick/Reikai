@@ -20,7 +20,7 @@ import dev.icerock.moko.resources.StringResource
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ArrowDownward
 import mihon.icons.materialsymbols.rounded.ArrowUpward
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowRight
 import mihon.icons.materialsymbols.rounded.RadioButtonUnchecked
 import mihon.icons.materialsymbols.rounded.Refresh
@@ -78,7 +78,7 @@ fun ReikaiLibraryCategoryHeader(
                 imageVector = if (isCollapsed) {
                     MaterialSymbols.Rounded.KeyboardArrowRight
                 } else {
-                    MaterialSymbols.Rounded.ExpandMore
+                    MaterialSymbols.Rounded.KeyboardArrowDown
                 },
                 contentDescription = null,
                 modifier = Modifier.padding(vertical = 8.dp),

@@ -33,7 +33,7 @@ import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
@@ -527,7 +527,7 @@ private fun NovelPageBar(
             CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         }
         Icon(
-            imageVector = MaterialSymbols.Rounded.ExpandMore,
+            imageVector = MaterialSymbols.Rounded.KeyboardArrowDown,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.primary,
         )

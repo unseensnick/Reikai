@@ -646,7 +646,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 
 - **Updating the app now happens on the update screen itself, with the download progress on the button (from Mihon).** Tap once more when it finishes to install. Upstream: mihonapp/mihon#3669, mihonapp/mihon#3707.
 - **Reikai now checks for app and extension updates every time you open it from cold, instead of waiting days between checks (from Mihon).** Upstream: mihonapp/mihon#3658.
-- **Icons across the app are now drawn in Google's newer Material Symbols style (from Mihon).** A few Reikai-only icons, like the novel reader's text-alignment controls and the star ratings, keep their current look. Upstream: mihonapp/mihon#3873.
+- **Icons across the app, notifications and the bottom bar included, are now drawn in Google's newer Material Symbols style (from Mihon).** A few Reikai-only icons, like the novel reader's text-alignment controls and the star ratings, keep their current look. Upstream: mihonapp/mihon#3873, mihonapp/mihon#4057.
 - **A Nightly build's help links now open the Nightly docs at reikai.app.**
 - **The pre-release channel is now called Nightly and has a teal icon, so it is easy to tell apart from the stable app (partly from Mihon).** Downloads keep their file names and installs are unaffected. Upstream: mihonapp/mihon#3760.
 - **The two source settings screens that sat at the top of Settings now live under Settings -> Browse and sources, with Enable adult sources and Page preview rows.** The two screens are listed in its Source settings group while their sources are on.

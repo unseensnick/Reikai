@@ -44,6 +44,7 @@ import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.i18n.MR
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Pulls fresh remote state for every tracker bound to a library entry, both content types. Without it a track row
@@ -228,11 +229,15 @@ private class TrackerRefreshNotifier(
 
     val progressBuilder = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
         setContentTitle(context.stringResource(MR.strings.tracker_refresh_progress))
-        setSmallIcon(R.drawable.ic_refresh_24dp)
+        setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
         setOngoing(true)
         setOnlyAlertOnce(true)
         priority = NotificationCompat.PRIORITY_LOW
-        addAction(R.drawable.ic_close_24dp, context.stringResource(MR.strings.action_cancel), cancelIntent)
+        addAction(
+            MaterialSymbolsR.drawable.rounded_close,
+            context.stringResource(MR.strings.action_cancel),
+            cancelIntent,
+        )
     }
 
     fun showProgress(done: Int, total: Int) {
@@ -245,7 +250,7 @@ private class TrackerRefreshNotifier(
     fun showNothingTracked() {
         context.notify(Notifications.ID_TRACKER_REFRESH_RESULT, Notifications.CHANNEL_LIBRARY_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.tracker_refresh_none))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
             setAutoCancel(true)
         }
     }
@@ -264,7 +269,7 @@ private class TrackerRefreshNotifier(
                         failedTrackers.takeIf { it.isNotEmpty() }?.joinToString(", ", prefix = ": ").orEmpty(),
                 )
             }
-            setSmallIcon(R.drawable.ic_refresh_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
             setAutoCancel(true)
         }
     }

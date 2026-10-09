@@ -20,6 +20,7 @@ import reikai.data.updateerror.setUpdateErrorContent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Ongoing progress notifications for the E-Hentai gallery update checker and the favorites backup,
@@ -91,7 +92,7 @@ class EHentaiUpdateNotifier(
 
     private fun newProgressBuilder() = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_EHENTAI) {
         setContentTitle(context.stringResource(MR.strings.app_name))
-        setSmallIcon(R.drawable.ic_refresh_24dp)
+        setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
         setLargeIcon(notificationBitmap)
         setOngoing(true)
         setOnlyAlertOnce(true)

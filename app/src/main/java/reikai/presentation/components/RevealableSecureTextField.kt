@@ -20,8 +20,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Visibility
-import mihon.icons.materialsymbols.rounded.VisibilityOff
+import mihon.icons.materialsymbols.roundedfilled.Visibility
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 
 /**
  * A full-width password field with a show/hide toggle, the last field of a sign-in dialog. Mihon's
@@ -44,9 +44,9 @@ fun RevealableSecureTextField(
             IconButton(onClick = { hidden = !hidden }) {
                 Icon(
                     imageVector = if (hidden) {
-                        MaterialSymbols.Rounded.Visibility
+                        MaterialSymbols.RoundedFilled.Visibility
                     } else {
-                        MaterialSymbols.Rounded.VisibilityOff
+                        MaterialSymbols.RoundedFilled.VisibilityOff
                     },
                     contentDescription = null,
                 )

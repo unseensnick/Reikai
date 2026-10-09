@@ -69,7 +69,7 @@ class TrackerManager {
         kavita,
         suwayomi,
         hikka,
-        mangaBaka,
+        mangaBaka, // RK: kept after Hikka, where upstream lists it first
         // RK -->
         mdList,
         ranobeDb,

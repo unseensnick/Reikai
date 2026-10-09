@@ -7,11 +7,11 @@ import io.kotest.matchers.shouldBe
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.AttachMoney
 import mihon.icons.materialsymbols.rounded.Block
+import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.Done
 import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.Pause
 import mihon.icons.materialsymbols.rounded.Schedule
+import mihon.icons.materialsymbols.roundedfilled.Pause
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -51,9 +51,9 @@ class EntryStatusTest {
             Arguments.of(SManga.ONGOING, MaterialSymbols.Rounded.Schedule),
             Arguments.of(SManga.COMPLETED, MaterialSymbols.Rounded.DoneAll),
             Arguments.of(SManga.LICENSED, MaterialSymbols.Rounded.AttachMoney),
-            Arguments.of(SManga.PUBLISHING_FINISHED, MaterialSymbols.Rounded.Done),
+            Arguments.of(SManga.PUBLISHING_FINISHED, MaterialSymbols.Rounded.Check),
             Arguments.of(SManga.CANCELLED, MaterialSymbols.Rounded.Close),
-            Arguments.of(SManga.ON_HIATUS, MaterialSymbols.Rounded.Pause),
+            Arguments.of(SManga.ON_HIATUS, MaterialSymbols.RoundedFilled.Pause),
             Arguments.of(99, MaterialSymbols.Rounded.Block),
         )
     }

@@ -11,8 +11,8 @@ import androidx.compose.ui.Modifier
 import eu.kanade.presentation.browse.components.BaseSourceItem
 import eu.kanade.tachiyomi.ui.browse.source.browse.BrowseSourceViewModel.Listing
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.PushPin
-import mihon.icons.materialsymbols.roundedfilled.PushPin
+import mihon.icons.materialsymbols.rounded.Keep
+import mihon.icons.materialsymbols.roundedfilled.Keep
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
@@ -79,7 +79,7 @@ fun SourcePinButton( // RK: public, the novel source row draws it too
     isPinned: Boolean,
     onClick: () -> Unit,
 ) {
-    val icon = if (isPinned) MaterialSymbols.RoundedFilled.PushPin else MaterialSymbols.Rounded.PushPin
+    val icon = if (isPinned) MaterialSymbols.RoundedFilled.Keep else MaterialSymbols.Rounded.Keep
     val tint = if (isPinned) {
         MaterialTheme.colorScheme.primary
     } else {

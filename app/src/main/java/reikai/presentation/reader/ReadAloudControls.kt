@@ -13,9 +13,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Visibility
 import mihon.icons.materialsymbols.roundedfilled.Pause
 import mihon.icons.materialsymbols.roundedfilled.PlayArrow
+import mihon.icons.materialsymbols.roundedfilled.Visibility
 import reikai.presentation.icons.Bedtime
 import reikai.presentation.icons.FastForward
 import reikai.presentation.icons.FastRewind
@@ -50,7 +50,7 @@ fun ReadAloudControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onReadFromHere) {
-                Icon(MaterialSymbols.Rounded.Visibility, stringResource(MR.strings.tts_read_from_here))
+                Icon(MaterialSymbols.RoundedFilled.Visibility, stringResource(MR.strings.tts_read_from_here))
             }
             IconButton(onClick = onPreviousParagraph) {
                 Icon(ReikaiIcons.FastRewind, stringResource(MR.strings.tts_previous_paragraph))

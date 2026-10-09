@@ -25,8 +25,8 @@ import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
-import mihon.icons.materialsymbols.rounded.ExpandLess
-import mihon.icons.materialsymbols.rounded.ExpandMore
+import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import reikai.presentation.browse.sourceLanguageName
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -78,10 +78,10 @@ fun PreferredSourcesContent(
             itemsIndexed(preferred, key = { _, item -> item.key }) { index, item ->
                 SourceRow(item) {
                     IconButton(onClick = { onMoveUp(item.key) }, enabled = index > 0) {
-                        Icon(MaterialSymbols.Rounded.ExpandLess, contentDescription = null)
+                        Icon(MaterialSymbols.Rounded.KeyboardArrowUp, contentDescription = null)
                     }
                     IconButton(onClick = { onMoveDown(item.key) }, enabled = index < preferred.lastIndex) {
-                        Icon(MaterialSymbols.Rounded.ExpandMore, contentDescription = null)
+                        Icon(MaterialSymbols.Rounded.KeyboardArrowDown, contentDescription = null)
                     }
                     IconButton(onClick = { onRemove(item.key) }) {
                         Icon(

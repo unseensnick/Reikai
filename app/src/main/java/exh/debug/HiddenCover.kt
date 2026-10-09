@@ -12,9 +12,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import eu.kanade.tachiyomi.R
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Book
 import tachiyomi.presentation.core.util.collectAsState
 
 /** [DebugToggles.HIDE_COVER_IMAGE_ONLY_SHOW_COLOR], provided once per window so every cover reads one value. */
@@ -35,7 +35,7 @@ fun rememberCoverImagesHidden(): Boolean {
 fun HiddenCover(background: Color, modifier: Modifier = Modifier) {
     Box(modifier = modifier.background(background)) {
         Icon(
-            painter = painterResource(R.drawable.ic_book_24dp),
+            imageVector = MaterialSymbols.Rounded.Book,
             contentDescription = null,
             tint = HiddenCoverMarkColor,
             modifier = Modifier

@@ -83,6 +83,7 @@ import tachiyomi.presentation.widget.WidgetManager
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
 import java.security.Security
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 // RK: Configuration.Provider, for the on-demand WorkManager start below
 class App :
@@ -125,7 +126,7 @@ class App :
             .setWorkerInitializationExceptionHandler(
                 WorkerStartFailures { tag, workerName ->
                     val notice = notificationBuilder(Notifications.CHANNEL_COMMON) {
-                        setSmallIcon(R.drawable.ic_warning_white_24dp)
+                        setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_warning)
                         setContentTitle(stringResource(MR.strings.worker_start_failed))
                         setContentText(workerName)
                     }.build()
@@ -218,7 +219,7 @@ class App :
                     ) {
                         setContentTitle(stringResource(MR.strings.pref_incognito_mode))
                         setContentText(stringResource(MR.strings.notification_incognito_text))
-                        setSmallIcon(R.drawable.ic_glasses_24dp)
+                        setSmallIcon(MaterialSymbolsR.drawable.rounded_eyeglasses_2)
                         setOngoing(true)
 
                         val pendingIntent = PendingIntent.getBroadcast(

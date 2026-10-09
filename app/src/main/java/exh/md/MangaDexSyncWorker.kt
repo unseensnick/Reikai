@@ -53,6 +53,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
  * Two-way MangaDex sync worker: imports the account's follows into the library, or pushes library
@@ -96,7 +97,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_MANGADEX) {
             setContentTitle(context.stringResource(MR.strings.app_name))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
             setOngoing(true)
             setOnlyAlertOnce(true)
         }

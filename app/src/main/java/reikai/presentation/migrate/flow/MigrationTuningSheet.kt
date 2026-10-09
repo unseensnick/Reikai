@@ -17,7 +17,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Warning
+import mihon.icons.materialsymbols.roundedfilled.Warning
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
@@ -109,7 +109,7 @@ private fun WarningLine(text: String) {
         modifier = Modifier.padding(horizontal = SettingsItemsPaddings.Horizontal, vertical = 8.dp),
     ) {
         Icon(
-            imageVector = MaterialSymbols.Rounded.Warning,
+            imageVector = MaterialSymbols.RoundedFilled.Warning,
             contentDescription = null,
             tint = MaterialTheme.colorScheme.error,
         )

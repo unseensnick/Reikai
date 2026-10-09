@@ -22,9 +22,9 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.automirroredrounded.ViewList
+import mihon.icons.materialsymbols.automirroredroundedfilled.ViewList
 import mihon.icons.materialsymbols.rounded.SelectAll
-import mihon.icons.materialsymbols.rounded.Visibility
+import mihon.icons.materialsymbols.roundedfilled.Visibility
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.recommendation.relatedDestination
 import tachiyomi.i18n.MR
@@ -75,7 +75,7 @@ class RelatedMangasBrowseScreen(
                             if (state.hasHidden) {
                                 IconButton(onClick = viewModel::toggleShowHidden) {
                                     Icon(
-                                        imageVector = MaterialSymbols.Rounded.Visibility,
+                                        imageVector = MaterialSymbols.RoundedFilled.Visibility,
                                         contentDescription = stringResource(MR.strings.recs_show_hidden),
                                         tint = if (state.showHidden) {
                                             MaterialTheme.colorScheme.primary
@@ -88,7 +88,7 @@ class RelatedMangasBrowseScreen(
                             if (state.hasMultipleOrigins) {
                                 IconButton(onClick = viewModel::toggleGrouping) {
                                     Icon(
-                                        imageVector = MaterialSymbols.AutoMirroredRounded.ViewList,
+                                        imageVector = MaterialSymbols.AutoMirroredRoundedFilled.ViewList,
                                         contentDescription = stringResource(MR.strings.recs_group_toggle),
                                         tint = if (state.grouped) {
                                             MaterialTheme.colorScheme.primary
@@ -124,7 +124,7 @@ class RelatedMangasBrowseScreen(
                         actions = listOf(
                             EmptyScreenAction(
                                 MR.strings.recs_show_hidden,
-                                MaterialSymbols.Rounded.Visibility,
+                                MaterialSymbols.RoundedFilled.Visibility,
                                 viewModel::toggleShowHidden,
                             ),
                         ),

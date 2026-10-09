@@ -43,6 +43,7 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 @Inject
 class LibraryUpdateNotifier(
@@ -94,11 +95,15 @@ class LibraryUpdateNotifier(
     val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.app_name))
-            setSmallIcon(R.drawable.ic_refresh_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
             setLargeIcon(notificationBitmap)
             setOngoing(true)
             setOnlyAlertOnce(true)
-            addAction(R.drawable.ic_close_24dp, context.stringResource(MR.strings.action_cancel), cancelIntent)
+            addAction(
+                MaterialSymbolsR.drawable.rounded_close,
+                context.stringResource(MR.strings.action_cancel),
+                cancelIntent,
+            )
         }
     }
 
@@ -156,7 +161,7 @@ class LibraryUpdateNotifier(
             setStyle(
                 NotificationCompat.BigTextStyle().bigText(context.stringResource(MR.strings.notification_size_warning)),
             )
-            setSmallIcon(R.drawable.ic_warning_white_24dp)
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_warning)
             setTimeoutAfter(Downloader.WARNING_NOTIF_TIMEOUT_MS)
             setContentIntent(NotificationHandler.openUrl(context, HELP_WARNING_URL))
         }
@@ -275,7 +280,7 @@ class LibraryUpdateNotifier(
 
             // Mark chapters as read action
             addAction(
-                R.drawable.ic_done_24dp,
+                MaterialSymbolsR.drawable.rounded_check,
                 context.stringResource(MR.strings.action_mark_as_read),
                 NotificationReceiver.markAsReadPendingBroadcast(
                     context,
@@ -286,7 +291,7 @@ class LibraryUpdateNotifier(
             )
             // View chapters action
             addAction(
-                R.drawable.ic_book_24dp,
+                MaterialSymbolsR.drawable.rounded_book,
                 context.stringResource(MR.strings.action_view_chapters),
                 NotificationReceiver.openChapterPendingActivity(
                     context,

@@ -74,8 +74,8 @@ import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Delete
-import mihon.icons.materialsymbols.rounded.Warning
+import mihon.icons.materialsymbols.roundedfilled.Delete
+import mihon.icons.materialsymbols.roundedfilled.Warning
 import reikai.domain.entry.EntryId
 import reikai.domain.track.EntryTrackPort
 import reikai.domain.track.EntryTrackPorts
@@ -605,7 +605,7 @@ data class EntryTrackDateRemoverScreen(
         }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = MaterialSymbols.Rounded.Delete, contentDescription = null) },
+            icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
             title = {
                 Text(
                     text = stringResource(MR.strings.track_remove_date_conf_title),
@@ -834,7 +834,7 @@ data class EntryTrackerRemoveScreen(
         var removeRemoteTrack by remember { mutableStateOf(false) }
         AlertDialogContent(
             modifier = Modifier.windowInsetsPadding(WindowInsets.systemBars),
-            icon = { Icon(imageVector = MaterialSymbols.Rounded.Delete, contentDescription = null) },
+            icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Delete, contentDescription = null) },
             title = {
                 Text(
                     text = stringResource(MR.strings.track_delete_title, serviceName),
@@ -919,7 +919,7 @@ private fun ReplaceEntryConfirmDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        icon = { Icon(imageVector = MaterialSymbols.Rounded.Warning, contentDescription = null) },
+        icon = { Icon(imageVector = MaterialSymbols.RoundedFilled.Warning, contentDescription = null) },
         title = { Text(text = stringResource(MR.strings.track_replace_entry_title, trackerName)) },
         text = { Text(text = stringResource(MR.strings.track_replace_entry_text, trackerName)) },
         confirmButton = {

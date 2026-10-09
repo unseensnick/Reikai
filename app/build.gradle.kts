@@ -268,6 +268,7 @@ dependencies {
     implementation(libs.androidx.compose.foundation)
     implementation(libs.androidx.compose.material3)
     // RK --> icon modules moved from the top of the block into the Compose group
+    implementation(projects.icons.customMaterialSymbols)
     implementation(projects.icons.materialSymbols)
     implementation(projects.icons.simpleIcons)
     // RK <--

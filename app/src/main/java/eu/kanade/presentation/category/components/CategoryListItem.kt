@@ -30,9 +30,9 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.RadioButtonUnchecked
-import mihon.icons.materialsymbols.rounded.Visibility
-import mihon.icons.materialsymbols.rounded.VisibilityOff
 import mihon.icons.materialsymbols.roundedfilled.CheckCircle
+import mihon.icons.materialsymbols.roundedfilled.Visibility
+import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import reikai.domain.category.isHidden
 import reikai.presentation.category.categoryContentTypeLabel
 import sh.calvin.reorderable.ReorderableCollectionItemScope
@@ -130,9 +130,9 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                 IconButton(onClick = onToggleHidden) {
                     Icon(
                         imageVector = if (category.isHidden) {
-                            MaterialSymbols.Rounded.Visibility
+                            MaterialSymbols.RoundedFilled.Visibility
                         } else {
-                            MaterialSymbols.Rounded.VisibilityOff
+                            MaterialSymbols.RoundedFilled.VisibilityOff
                         },
                         contentDescription = stringResource(
                             if (category.isHidden) MR.strings.action_show_category else MR.strings.action_hide_category,
