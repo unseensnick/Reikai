@@ -6,7 +6,7 @@ description: Built-in gallery sources that carry real tags, uploader and page co
 
 # Adult sources
 
-_Dev records: [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md), [md-enhanced-source.md](dev/plans/md-enhanced-source.md). Doc map: [README.md](README.md)._
+_Dev records: [adult-sources.md](dev/subsystems/adult-sources.md), [library-tag-search.md](dev/plans/library-tag-search.md). Doc map: [README.md](README.md)._
 
 **Reikai** has built-in support for E-Hentai and ExHentai, with richer handling than an ordinary extension gives you.
 Galleries carry their real tags into your library, uploader and page count show on the details screen, and your favorites can be backed up to the account.

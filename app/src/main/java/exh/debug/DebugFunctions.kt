@@ -38,7 +38,7 @@ import java.util.UUID
 /**
  * Komikku's debug functions, which the debug menu lists by reflection: every public function here is
  * a row, and what it returns is shown. Re-typed to Reikai; the two Komikku has with no counterpart
- * here, and why, are in docs/dev/plans/exh-subsystem.md. `proguard-rules.pro` keeps the public members.
+ * here, and why, are in docs/dev/subsystems/adult-sources.md. `proguard-rules.pro` keeps the public members.
  */
 @Suppress("unused")
 @Inject

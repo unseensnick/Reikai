@@ -6,7 +6,7 @@ description: Which sources ship with Reikai, which are wrapped extensions, and w
 
 # Built-in sources
 
-_Dev records: [exh-subsystem.md](dev/plans/exh-subsystem.md), [md-enhanced-source.md](dev/plans/md-enhanced-source.md). Doc map: [README.md](README.md)._
+_Dev records: [adult-sources.md](dev/subsystems/adult-sources.md). Doc map: [README.md](README.md)._
 
 Most sources in **Reikai** come from extensions you install yourself.
 A few come from Reikai, and those are the ones whose bugs belong in this repository.
