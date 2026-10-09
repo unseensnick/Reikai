@@ -40,6 +40,7 @@ class BackupFieldsTest {
             "backupNovelSources" to BackupFields.NOVEL_SOURCES,
             "backupMergeGroupsStored" to BackupFields.MERGE_GROUPS_STORED,
             "backupSortOverridesStored" to BackupFields.SORT_OVERRIDES_STORED,
+            "backupKitsuNativeScale" to BackupFields.KITSU_NATIVE_SCALE,
         )
     }
 }

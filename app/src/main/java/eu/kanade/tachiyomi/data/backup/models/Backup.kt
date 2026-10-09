@@ -43,4 +43,6 @@ data class Backup(
     @ProtoNumber(718) var backupMergeGroupsStored: BackupMergeGroupsStored? = null,
     // RK: present when the category flags carry the sort-override bit; Mihon and Reikai before 0.3.0 wrote none.
     @ProtoNumber(719) var backupSortOverridesStored: BackupSortOverridesStored? = null,
+    // RK: present when Kitsu scores are on Kitsu's native 2-20 scale; without it a restore may double them.
+    @ProtoNumber(720) var backupKitsuNativeScale: BackupKitsuNativeScale? = null,
 )

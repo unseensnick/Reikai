@@ -41,7 +41,11 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import reikai.data.backup.mangaTrackScores
+import reikai.data.backup.novelTrackScores
+import reikai.data.backup.rescaleKitsu
 import reikai.data.backup.restoreBatch
+import reikai.domain.backup.KitsuBackupScoreScale
 import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -235,13 +239,21 @@ class BackupRestorer(
         val backupNovelUnmerges = mutableListOf<BackupNovelMergeGroup>()
         var mergeGroupsStored = false
         var sortOverridesStored = false
+        var kitsuNativeScale = false
+        val trackScores = mutableListOf<Pair<Long, Double>>()
         var mangaCount = 0
         var novelCount = 0
 
         BackupProtoReader(context).read(uri) { fieldNumber, data ->
             when (fieldNumber) {
-                BackupFields.MANGA -> mangaCount++
-                BackupFields.NOVELS -> novelCount++
+                BackupFields.MANGA -> {
+                    mangaCount++
+                    trackScores += parser.mangaTrackScores(data)
+                }
+                BackupFields.NOVELS -> {
+                    novelCount++
+                    trackScores += parser.novelTrackScores(data)
+                }
                 BackupFields.CATEGORIES ->
                     backupCategories.add(parser.decodeFromByteArray(BackupCategory.serializer(), data))
                 BackupFields.SOURCES -> backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
@@ -275,6 +287,7 @@ class BackupRestorer(
                     backupNovelUnmerges.add(parser.decodeFromByteArray(BackupNovelMergeGroup.serializer(), data))
                 BackupFields.MERGE_GROUPS_STORED -> mergeGroupsStored = true
                 BackupFields.SORT_OVERRIDES_STORED -> sortOverridesStored = true
+                BackupFields.KITSU_NATIVE_SCALE -> kitsuNativeScale = true
             }
         }
 
@@ -295,6 +308,7 @@ class BackupRestorer(
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
+            kitsuScoreScale = KitsuBackupScoreScale.of(kitsuNativeScale, trackScores),
             backupMangaUnmerges = backupMangaUnmerges,
             backupNovelUnmerges = backupNovelUnmerges,
         )
@@ -321,6 +335,8 @@ class BackupRestorer(
         val mergeGroupsStored: Boolean,
         // False for a backup written before the sort-override bit, whose flags alone hold each category's sort.
         val sortOverridesStored: Boolean,
+        // Decided over both types' tracks before either stream restores one.
+        val kitsuScoreScale: KitsuBackupScoreScale,
         val backupMangaUnmerges: List<BackupMangaMergeGroup>,
         val backupNovelUnmerges: List<BackupNovelMergeGroup>,
     ) {
@@ -355,11 +371,12 @@ class BackupRestorer(
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
+            val kitsuScale = summary.kitsuScoreScale
             restoreEntryStream(
                 uri,
                 fieldNumber = BackupFields.NOVELS,
                 decode = {
-                    summary.legacyCustomInfo.decodeNovel(parser, it).also { novel ->
+                    summary.legacyCustomInfo.decodeNovel(parser, it).rescaleKitsu(kitsuScale).also { novel ->
                         if (!summary.mergeGroupsStored && novel.favorite) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupNovelSourceRef(novel.url, novel.source),
@@ -449,7 +466,7 @@ class BackupRestorer(
             uri,
             fieldNumber = BackupFields.MANGA,
             decode = {
-                legacyCustomInfo.decodeManga(parser, it).also { manga ->
+                legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale).also { manga ->
                     if (!summary.mergeGroupsStored && manga.favorite) {
                         favorites += PrefEraGrouping.Favorite(
                             BackupMangaSourceRef(manga.url, manga.source),

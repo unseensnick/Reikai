@@ -40,6 +40,8 @@ An entry is matched by `url + source` or inserted, and its children re-link by s
 
 Preferences split by path. `PreferenceRestorer.restoreApp` wraps the generic write in `AppPreferenceCarry`, which carries retired keys into their replacements and skips keys a backup someone else made must not set (JS snippets, WebView dev tools, the installed plugin list, the extension installer, app-state keys). `restoreSource` runs the generic write alone, so Source settings never reach an app setting. Category-id settings of both types are translated by category name to the ids just minted.
 
+Kitsu scores are stored on Kitsu's native 2 to 20 scale, and were stored out of 10 before; `38.sqm` doubles the device's own rows, but a restore runs no migration. So pass 1 also decodes each entry's tracks alone (`mangaTrackScores`, `novelTrackScores` in `KitsuBackupScores.kt`) and `KitsuBackupScoreScale.of` decides once for the whole file: the 720 marker, or any Kitsu score above 10 on either type, means the native scale, and otherwise every Kitsu score of both types is doubled as it is decoded in pass 2 (`rescaleKitsu`).
+
 A restore installs nothing. `BackupFileValidator.validate` lists, before the restore starts, the extension apps (field 710) and LN plugins (read from the App settings entries) the backup had and this install lacks, beside Mihon's missing sources and trackers.
 
 ### Backup fields Reikai adds
@@ -55,6 +57,7 @@ A restore installs nothing. `BackupFileValidator.validate` lists, before the res
 | 717 | Each backed-up novel source's name, the twin of Mihon's 101 |
 | 718 | Marker: every merge group is stored (absent in 0.3.x) |
 | 719 | Marker: category flags carry the sort-override bit (absent from Mihon and pre-0.3.0 Reikai) |
+| 720 | Marker: Kitsu scores are on Kitsu's native 2 to 20 scale (absent from Mihon and Reikai 0.3.2 and older) |
 
 Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers (602, 603, 800 to 805), which `BackupNovel` reuses (`BackupCustomInfoFields`); `BackupChapter` adds `pageCount` (700) and `sourceChapterNumber` (701); `BackupCategory` adds `hidden` (900, Komikku's) and `contentType` (8001).
 
@@ -72,6 +75,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 - `app/src/main/java/eu/kanade/tachiyomi/data/backup/restore/BackupRestorer.kt`: `readBackupSummary`, `restoreMangaStream`, `restoreNovelsStream`.
 - `app/src/main/java/eu/kanade/tachiyomi/data/backup/restore/restorers/NovelRestorer.kt`: the novel half; `MangaRestorer.kt` beside it.
 - `domain/src/main/java/reikai/domain/backup/RestoreMergeRules.kt`: `backupDetailsWin`, `foldBackup`, `backupChapterReadAhead`, `mergedHistory`.
+- `domain/src/main/java/reikai/domain/backup/KitsuBackupScoreScale.kt` and `app/src/main/java/reikai/data/backup/KitsuBackupScores.kt`: the Kitsu scale decision and its pass-1 scan.
 - `app/src/main/java/reikai/data/backup/AppPreferenceCarry.kt`: every app-key carry and skip.
 - `app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupFileValidator.kt`: `validate`, `checkReadable`, `missingExtensionApps`, `missingPlugins`.
 - `app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupProtoReader.kt`: the streamed field reader both passes use.
@@ -85,6 +89,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 - **Proto numbers are permanent.** A field once shipped is never reused or renumbered; a retired one stays declared or commented so its number is not taken.
 - **Categories restore before entries.** An entry restored before its category exists falls into Default.
 - **A plugin's captured site login is a sensitive key.** Its storage key has no private prefix, because the plugin reads it back by that exact name, so `PreferenceBackupCreator` drops it through `isSensitivePluginKey` unless sensitive settings are included.
+- **A backup's Kitsu scale is one decision for the whole file, made before either stream restores.** Deciding per track would double a new-scale score of 10 or under from an unmarked file; the only per-track evidence is a score above 10, so it has to be read across every entry of both types first.
 - **The download folder merge never overwrites.** A chapter not copied is never deleted, and the copy's folder goes only when this run emptied it, since a failed listing also reads as empty.
 
 ## Decisions
@@ -95,6 +100,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 - **The restore keeps the further chapter progress, not the backup's.** Mihon's rule could rewind the device; both types share the kernel.
 - **The stitch cache is carried through the dedupe, not wiped.** Wiping it restitched every group on first open; the stale checks already find the groups the merge changed.
 - **Download folders merge after the migrations, not inside one.** `MainActivity` blocks the main thread on migrations, and a large copy would hold the splash and restart on the next launch if killed.
+- **An unmarked backup's Kitsu scores are taken as out of 10 unless one is above 10.** Mihon's backups carry no marker and write the 2 to 20 scale, so a Mihon file whose Kitsu scores all sit at 10 or under is doubled wrongly; the score test catches every Mihon file with one Kitsu rating above 5 out of 10. Void if every supported source app writes the 2 to 20 scale or carries the marker.
 - **A backup names novel sources without loading plugins.** `NovelSourceManager.nameOf` answers from the registry, then the last-seen record, then the id, so an automatic backup never evaluates every plugin.
 - **No in-place import from a Yokai-era database.** Reikai's `applicationId` is `app.reikai`, so a Yokai install meets it only as a separate app; the route is backup and restore, and a Yokai `.tachibk` restores through the normal pipeline (its per-category sort, field 800 on categories, is not read).
 
@@ -111,7 +117,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 
 ## Tests
 
-Schema: `SchemaChainMigrationTest` (the migrations over rows seeded into `43.db`, every dedupe case over both types), plus `./gradlew verifySqlDelightMigration`. Dedupe carry: `MergedDuplicateCarryMigrationTest`, `MergedDuplicateDownloadsTest`, `NovelDownloadRekeyMigrationTest`, `SavedQueueRestoreOrderTest`. Backup format: `BackupFieldsTest`, `BackupProtoReaderTest`, `BackupStreamFramingTest`, `BackupCustomInfoWireTest`, `BackupEntryDriverTest`, `GroupMemberBackupConformanceTest`, `BackupNovelSourceNameTest`. Restore: `RestoreMergeConformanceTest`, `RestoreHistoryConformanceTest`, `RestoreBatchRollbackTest`, `RestoreCategoryGateConformanceTest`, `CategoriesRestorerTest`, `PreferenceRestorerTest`, `NovelBackupRoundTripTest`, `MangaMergeBackupRoundTripTest`, `BackupCustomInfoConformanceTest`, `BackupFileValidatorTest`, `LauncherIntentTest` (a backup opened from Files reaches the Restore screen).
+Schema: `SchemaChainMigrationTest` (the migrations over rows seeded into `43.db`, every dedupe case over both types), plus `./gradlew verifySqlDelightMigration`. Dedupe carry: `MergedDuplicateCarryMigrationTest`, `MergedDuplicateDownloadsTest`, `NovelDownloadRekeyMigrationTest`, `SavedQueueRestoreOrderTest`. Backup format: `BackupFieldsTest`, `BackupProtoReaderTest`, `BackupStreamFramingTest`, `BackupCustomInfoWireTest`, `BackupEntryDriverTest`, `GroupMemberBackupConformanceTest`, `BackupNovelSourceNameTest`. Restore: `RestoreMergeConformanceTest`, `RestoreHistoryConformanceTest`, `RestoreBatchRollbackTest`, `RestoreCategoryGateConformanceTest`, `CategoriesRestorerTest`, `PreferenceRestorerTest`, `KitsuBackupScoreScaleTest` (`:domain`), `KitsuScoreRestoreConformanceTest`, `NovelBackupRoundTripTest`, `MangaMergeBackupRoundTripTest`, `BackupCustomInfoConformanceTest`, `BackupFileValidatorTest`, `LauncherIntentTest` (a backup opened from Files reaches the Restore screen).
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:data:test` for the schema tests.
 

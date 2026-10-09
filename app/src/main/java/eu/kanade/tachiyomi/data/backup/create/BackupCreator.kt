@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
+import eu.kanade.tachiyomi.data.backup.models.BackupKitsuNativeScale
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
@@ -234,6 +235,11 @@ class BackupCreator(
                     out,
                     BackupFields.SORT_OVERRIDES_STORED,
                     parser.encodeToByteArray(BackupSortOverridesStored.serializer(), BackupSortOverridesStored()),
+                )
+                BackupProtoWriter.writeField(
+                    out,
+                    BackupFields.KITSU_NATIVE_SCALE,
+                    parser.encodeToByteArray(BackupKitsuNativeScale.serializer(), BackupKitsuNativeScale()),
                 )
 
                 gzipOut.flush()

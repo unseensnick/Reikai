@@ -119,6 +119,12 @@ class BackupCustomInfoConformanceTest {
     }
 
     @Test
+    fun `a backup written now marks its Kitsu scores as on Kitsu's own scale`() = runTest {
+        // Without the marker a restore may take its Kitsu scores for the old out-of-10 ones and double them.
+        writeBackup().backupKitsuNativeScale.shouldNotBeNull()
+    }
+
+    @Test
     fun `a backup names the source of each novel it carries without loading the plugins`() = runTest {
         writeBackup().backupNovelSources shouldBe listOf(BackupNovelSource(name = "Novel source", sourceId = "src"))
     }
