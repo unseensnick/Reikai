@@ -5,8 +5,8 @@ import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver.Solve.Phase
 /**
  * The decisions one Turnstile solve makes: when to press, when to accept, and when to give up.
  *
- * Split out of [TurnstileSolver.attach] because every timing bug this feature has produced lived
- * here and none of it needs a WebView. The clock, the scheduler and the three effects arrive as
+ * Split out of [TurnstileSolver.attach] because the timing decisions need no WebView, so they can be
+ * tested without one. The clock, the scheduler and the three effects arrive as
  * lambdas, so a test drives time by hand; what stays in `attach` is the handful of lines that do
  * touch Android. Everything here runs on one thread, the main one, which is why nothing but [phase]
  * is guarded.
@@ -127,8 +127,7 @@ internal class SolveMachine(
         // The first press earns a fresh budget, so a challenge that turns interactive late gets the
         // same window to verify as one that turns early. Only the first: the cooldown is shorter
         // than the budget, so extending on every press lets a solve that keeps pressing outrun its
-        // own give-up forever, which is the one case the deadline exists for. Watched that happen
-        // for 23 seconds and six presses with no give-up line.
+        // own give-up forever, which is the one case the deadline exists for.
         if (!hasPressed) {
             hasPressed = true
             deadline = at + SOLVE_BUDGET_MS

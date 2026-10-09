@@ -218,11 +218,11 @@ fun bypassPreferenceItems(networkPreferences: NetworkPreferences): List<Preferen
                     context.toast(MR.strings.error_flaresolverr_invalid_url)
                 } else {
                     scope.launch {
-                        // The solver's agent is deliberately not stored as the app default.
-                        // Doing that made every WebView announce FlareSolverr's desktop browser
-                        // while running as Android WebView, and Cloudflare re-challenged that
-                        // mismatch endlessly. UserAgentInterceptor already pins the agent per
-                        // solved host, which is what cf_clearance is actually bound to.
+                        // The solver's agent is deliberately not stored as the app default: every
+                        // WebView would then announce FlareSolverr's desktop browser while running
+                        // as Android WebView, and Cloudflare re-challenges that mismatch. The pin in
+                        // FlareSolverrUserAgentPin.kt covers each solved host, which is what
+                        // cf_clearance is actually bound to.
                         flareSolverrTesting = true
                         val result = networkHelper.flareSolverr.test(url)
                         flareSolverrTesting = false

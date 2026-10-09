@@ -97,7 +97,7 @@ class CloudflareInterceptor(
                     }
                 }
                 try {
-                    // One solve per host is the base class's job now; a sibling that queued behind
+                    // One solve per host is the base class's job; a sibling that queued behind
                     // this one re-checks the jar and never reaches here.
                     resolveWithWebView(request, challengeUrl, oldCookie)
                 } catch (e: CloudflareBypassException) {
@@ -226,12 +226,8 @@ class CloudflareInterceptor(
                         }
                     }
 
-                    // RK: every event Cloudflare posts, acted on by nothing. The two handlers above
-                    //     cover the only ones this decides anything from, so a solve that stalls
-                    //     leaves no trace of what the challenge was actually doing. `complete` in
-                    //     particular is Cloudflare reporting a solve it accepted, which is a better
-                    //     signal than watching the markup go, and this is how we learn whether it
-                    //     reaches an interstitial at all. See the rework design in the plan doc.
+                    // RK: every event Cloudflare posts, logged so a solve that stalls leaves a trace
+                    //     of what the challenge was doing; the two handlers above decide the rest.
                     @Suppress("unused")
                     @JavascriptInterface
                     fun challengeEvent(event: String) {
@@ -292,9 +288,8 @@ class CloudflareInterceptor(
                     }
 
                     // RK: with the solver running, a fresh cf_clearance is not proof of anything.
-                    //     Cloudflare hands one out on a challenge it has not accepted, which ended
-                    //     three test solves early with a 403 on the retry; the solver reports when
-                    //     the challenge markup is actually gone instead.
+                    //     Cloudflare hands one out on a challenge it has not accepted, and the retry
+                    //     gets a 403; the solver reports when the challenge is actually passed instead.
                     if (solve.get() == null && isCloudFlareBypassed()) {
                         cloudflareBypassed = true
                         latch.countDown()
@@ -361,11 +356,9 @@ class CloudflareInterceptor(
             latch.awaitFor30Seconds()
 
             // RK: a solve the WebView performed but never reported still leaves its clearance in
-            //     the jar, so ask the jar before giving up. Measured on a source whose two requests
-            //     raced: one retried to a 200 while the other threw, having solved the challenge
-            //     itself. Gated on the solver having watched the interstitial go, because a
-            //     clearance on its own proves nothing: Cloudflare issues one on a round it refused,
-            //     and trusting that turned three honest failures into 403s with no Open in WebView.
+            //     the jar, so ask the jar before giving up. Gated on the solve having reached
+            //     Verified, because a clearance on its own proves nothing: Cloudflare issues one on
+            //     a round it refused, and trusting it turns a failure into a 403 with no Open in WebView.
             if (!cloudflareBypassed && solverWanted && solve.get()?.phase == TurnstileSolver.Solve.Phase.Verified) {
                 val cleared = cookieManager.clearanceFor(challengeUrl)
                 if (cleared != null && cleared != oldCookie) {

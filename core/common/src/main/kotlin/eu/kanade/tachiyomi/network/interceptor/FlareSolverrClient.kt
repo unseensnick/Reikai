@@ -46,10 +46,10 @@ import java.util.concurrent.TimeUnit
 /**
  * Resolves Cloudflare challenges via a self-hosted FlareSolverr proxy.
  *
- * Extracted from Reikai's CloudflareInterceptor port so the patch on Mihon's interceptor stays
- * a small island: this class owns all FlareSolverr internals (DTOs, the FS HTTP client, the
- * shared session, per-host dedup, cookie install, and User-Agent pinning), while
- * [CloudflareInterceptor] keeps the challenge detection and decides when to delegate here.
+ * Kept apart so the patch on Mihon's interceptor stays a small island: this class owns all
+ * FlareSolverr internals (DTOs, the FS HTTP client, the shared session, cookie install, and
+ * User-Agent pinning), while [CloudflareInterceptor] keeps the challenge detection and decides when
+ * to delegate here. One solve per host is [WebViewInterceptor]'s per-host lock.
  */
 class FlareSolverrClient(
     private val cookieManager: AndroidCookieJar,
@@ -596,7 +596,7 @@ private data class FlareSolverrSolution(
 )
 
 @Serializable
-// internal (was private) so toRawCookieString's leading-dot domain logic is unit-testable.
+// internal so toRawCookieString's leading-dot domain logic is unit-testable.
 internal data class FlareSolverrCookie(
     val name: String,
     val value: String,
