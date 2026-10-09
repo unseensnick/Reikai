@@ -9,12 +9,12 @@ How Reikai's documentation is organised and published. User docs live in this re
 ### The tiers
 
 - **User docs**, `docs/*.md`, `docs/guides/`, `docs/faq/`, with their illustrations beside them and the shared file-tree icons in `docs/img/`. Each page opens with an italic `_Dev records: ..._` line pointing at the dev docs for its area. `docs/README.md` is the front door and carries the topic map (feature area to user doc and dev records).
-- **Dev reference**, `docs/dev/`: `docs/dev/README.md` is its front door, with the "what to update when you finish something" table and who owns which fact. Process records (`upstream-sync.md`, `feature-ports.md`, `off-path-manifest.md`, `shipped.md`, `parked.md`) sit at its top level.
+- **Dev reference**, `docs/dev/`: `docs/dev/README.md` is its front door, with the "what to update when you finish something" table and who owns which fact. Process records (`upstream-sync.md`, `feature-ports.md`, `off-path-manifest.md`, `parked.md`), `recipes.md` and `testing.md` sit at its top level.
 - **Subsystem docs**, `docs/dev/subsystems/`: one page per subsystem describing how it works now, rewritten in place. The template and rules are its [README](README.md).
 - **Plans**, `docs/dev/plans/`: in-flight design only. Once the work lands, its lasting content moves into a subsystem doc and the plan is deleted.
 - **Process files outside `docs/`**: `CHANGELOG.md` (`[Unreleased]` feeds the nightlies, a version section feeds a release), `ROADMAP.md` (forward backlog only), and the rules in `.claude/rules/`, which bind agents and contributors alike.
 
-Every fact has one owner. The Mihon frontier lives only in the `upstream-sync.md` ledger; the docs site's own sync ledger is `UPSTREAM-SYNC.md` in the website repo; what shipped when lives in `CHANGELOG.md` and `shipped.md`.
+Every fact has one owner. The Mihon frontier lives only in the `upstream-sync.md` ledger; the docs site's own sync ledger is `UPSTREAM-SYNC.md` in the website repo; what shipped when lives in `CHANGELOG.md` and the release tags.
 
 ### The website
 

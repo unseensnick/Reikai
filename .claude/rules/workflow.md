@@ -18,7 +18,7 @@ Check `README.md` and `docs/*.md` for stale references when behavior or fork-spe
 
 ## Roadmap & plans
 
-The forward backlog is `ROADMAP.md` (terse, forward-only, one-line items); substantial features get a record in `docs/dev/plans/` (Goal / Why / Approach / Key files / Status / Decisions template); shipped work moves to `docs/dev/shipped.md` at release-cut. The full structure, naming, and lint rules for all three live in [roadmap-plans.md](roadmap-plans.md), a path-scoped rule that loads when those files are in play. The hard rules (no content-source names, no em dash, no bare `#N`) are enforced by the `pre-commit` hook and `docs-lint` CI regardless.
+The forward backlog is `ROADMAP.md` (terse, forward-only, one-line items); how each area works now lives in `docs/dev/subsystems/`, one reference doc per area, rewritten in place; design still in flight gets a plan in `docs/dev/plans/`, folded into its subsystem doc and deleted once it lands; what shipped is in CHANGELOG.md and the release tags. The structure, naming, and lint rules live in [roadmap-plans.md](roadmap-plans.md), a path-scoped rule that loads when those files are in play. The hard rules (no content-source names, no em dash, no bare `#N`) are enforced by the `pre-commit` hook and `docs-lint` CI regardless.
 
 ## Cutting a release (user-initiated)
 
@@ -80,6 +80,9 @@ A **`commit-msg` git hook enforces this** automatically: `.githooks/commit-msg` 
 8. **Off-path manifest** (`docs/dev/off-path-manifest.md`), three checks in one: no manifested path may exist in the tree, every named Replacement must exist, and staging the deletion of a file `refs/mihon` still has needs a manifest row in the same commit. The last one warns rather than blocks when the clone is missing.
 9. **Duplicated code**: `scripts/dup-check.ps1 -Staged` rejects a new cross-file clone of 100+ tokens that touches a staged file and is not in `scripts/dup-baseline.txt`, reading every main-source Kotlin file `refs/mihon` lacks plus the RK islands of the ones it has. Ownership comes from the clone at the synced base (the top ledger row of `docs/dev/upstream-sync.md`) and at its HEAD, so a missing clone fails the commit. Needs `pwsh`, and skips with a message without it; CI runs the whole tree against a blobless clone.
 10. **Same-name warning** (never blocks): a new top-level name under `reikai/` or `exh/` that already exists elsewhere, by name or by stem, is listed so the `Reuse:` footer can answer it.
+11. **KDoc links**: a `[Symbol]` in an added Kotlin comment must name something that exists in the code; a link to a renamed or deleted symbol is rejected. Runs only when Kotlin is staged.
+12. **Comment history** (never blocks): an added comment under `reikai/` or `exh/`, or an `// RK` line, that narrates history (`used to`, `previously`, `found by an audit`, an owner-ruling note) gets a warning: keep the rule, move the story to git.
+13. **Subsystem docs**: a staged `docs/dev/subsystems/` doc is rejected if it carries a date, a commit SHA, step / phase / round language, owner attribution, a Status section, or more than 300 lines.
 
 The doc checks also run in CI via `.github/workflows/docs-lint.yml`, from the same implementation: both call `scripts/lint-docs.sh`, so a rule exists once and the hook only decides what content to feed it. `scripts/lint-docs-test.sh` asserts each rule still rejects a real violation, and runs in that workflow. Reinstall both hooks on a fresh clone with `cp .githooks/commit-msg .githooks/pre-commit .git/hooks/ && chmod +x .git/hooks/commit-msg .git/hooks/pre-commit`.
 

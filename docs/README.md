@@ -14,23 +14,23 @@ To change or understand a feature, this is every doc that covers it: the user do
 
 | Feature area | User doc | Dev records |
 |---|---|---|
-| Categories | [guides/categories.md](guides/categories.md) | [novel-categories.md](dev/plans/novel-categories.md), [category-schema-unification.md](dev/plans/category-schema-unification.md), [library-sort-overrides.md](dev/plans/library-sort-overrides.md) |
+| Categories | [guides/categories.md](guides/categories.md) | [library.md](dev/subsystems/library.md) |
 | Upgrading and moving from other apps | [before-you-upgrade.md](before-you-upgrade.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md) |
 | Backup & restore | [guides/backups.md](guides/backups.md) | [data-and-backup.md](dev/subsystems/data-and-backup.md); streaming divergence in [upstream-sync.md](dev/upstream-sync.md) |
-| Trackers | [guides/tracking.md](guides/tracking.md) | [novel-tracking.md](dev/plans/novel-tracking.md), [novel-specific-trackers.md](dev/plans/novel-specific-trackers.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md) |
+| Trackers | [guides/tracking.md](guides/tracking.md) | [tracking.md](dev/subsystems/tracking.md), [tracker-aware-duplicate-detection.md](dev/tracker-aware-duplicate-detection.md) |
 | Merged series | [multi-source.md](multi-source.md) | [merged-series.md](dev/subsystems/merged-series.md) |
-| Recommendations | [related-mangas.md](related-mangas.md) | [recommendations.md](dev/plans/recommendations.md) |
-| Adult sources | [adult-sources.md](adult-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md), [adult-browse-parity.md](dev/plans/adult-browse-parity.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
-| Library search | [library-search.md](library-search.md) | [library-all-chip.md](dev/plans/library-all-chip.md), [library-tag-search.md](dev/plans/library-tag-search.md) |
-| Cloudflare bypass | [flaresolverr.md](flaresolverr.md) | [flaresolverr-integration.md](dev/plans/flaresolverr-integration.md) |
-| Built-in sources | [built-in-sources.md](built-in-sources.md) | [exh-subsystem.md](dev/plans/exh-subsystem.md) |
-| MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [md-enhanced-source.md](dev/plans/md-enhanced-source.md) |
-| Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/ln-plugin-host.md) |
+| Recommendations | [related-mangas.md](related-mangas.md) | [recommendations.md](dev/subsystems/recommendations.md) |
+| Adult sources | [adult-sources.md](adult-sources.md) | [adult-sources.md](dev/subsystems/adult-sources.md), [library.md](dev/subsystems/library.md) |
+| Library search | [library-search.md](library-search.md) | [library.md](dev/subsystems/library.md) |
+| Cloudflare bypass | [flaresolverr.md](flaresolverr.md) | [cloudflare.md](dev/subsystems/cloudflare.md) |
+| Built-in sources | [built-in-sources.md](built-in-sources.md) | [adult-sources.md](dev/subsystems/adult-sources.md) |
+| MangaDex enhanced source | [built-in-sources.md](built-in-sources.md) | [adult-sources.md](dev/subsystems/adult-sources.md) |
+| Light novels | [about.md](about.md) | the `novel-*` records in [plans/](dev/plans/README.md#light-novels), plus [ln-plugin-host.md](dev/subsystems/ln-plugin-host.md) |
 | Novel reader | [novel-reader.md](novel-reader.md), [guides/novel-reader-settings.md](guides/novel-reader-settings.md) | [reader.md](dev/subsystems/reader.md), [novel-reader-rendering.md](dev/subsystems/novel-reader-rendering.md) |
-| Updates, History and Recents | [recents.md](recents.md) | [content-layer-recents-surface.md](dev/plans/content-layer-recents-surface.md), [recents-continue-reading-row.md](dev/plans/recents-continue-reading-row.md) |
-| Feed and saved searches | [feed.md](feed.md) | [browse-feed-tab.md](dev/plans/browse-feed-tab.md) |
+| Updates, History and Recents | [recents.md](recents.md) | [recents.md](dev/subsystems/recents.md) |
+| Feed and saved searches | [feed.md](feed.md) | [browse-and-sources.md](dev/subsystems/browse-and-sources.md) |
 | Opening shared links | [shared-links.md](shared-links.md) | none |
-| Library shell | [library-layout.md](library-layout.md) | [library-screen-carry.md](dev/plans/library-screen-carry.md), [library-all-chip.md](dev/plans/library-all-chip.md) |
+| Library shell | [library-layout.md](library-layout.md) | [library.md](dev/subsystems/library.md) |
 | Unified manga + novel UI | (none yet) | the Unified-surfaces records in [plans/](dev/plans/README.md) |
 
 Areas with no user doc are internal or cross-cutting; their records carry the full picture. When you add a user-facing feature, add its row here.

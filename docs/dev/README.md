@@ -6,44 +6,42 @@ The machine-enforced conventions (commits, CHANGELOG, screen rules) live in [`.c
 
 ## The docs and what they own
 
-**Process & records** (how work is tracked):
-
-| Doc | Owns | Touch it when |
-|---|---|---|
-| [upstream-sync.md](upstream-sync.md) | the Mihon sync process and the frontier (sole owner of "synced through X") | you port a Mihon commit |
-| [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / IReader / LNReader, per feature | you port from a non-Mihon ref |
-| [off-path-manifest.md](off-path-manifest.md) | Mihon files deleted for a `reikai.*` twin, and the sync check that guards them | you delete a Mihon file for a twin |
-| [shipped.md](shipped.md) | terse done-log of what landed, by area | a feature ships |
-| [parked.md](parked.md) | items set aside or declined, with the reason and the revive trigger | you park or decline an item, or revive one |
-| [plans/](plans/README.md) | one per-feature record (how and why), indexed | you build or finish a substantial feature |
-
-**Architecture & reference** (how the code works, cross-linked by the records above):
+**How the code works** (read the area's doc before changing it):
 
 | Doc | Owns |
 |---|---|
-| [subsystems/](subsystems/README.md) | how each subsystem works now, one reference doc per area; [plans/](plans/README.md) is for design still in flight |
-| [development.md](development.md) | architecture, module map, build (the reference clones are listed in [CLAUDE.md](../../CLAUDE.md)) |
-| [ln-plugin-host.md](ln-plugin-host.md) | the light-novel plugin host: navigation handbook, layer map, shim recipes |
-| [on-device-testing.md](on-device-testing.md) | running and verifying builds on a device |
+| [development.md](development.md) | architecture overview, module and package map, build |
+| [subsystems/](subsystems/README.md) | how each area works now, one reference doc per area: purpose, flow, key files, invariants and traps, decisions, extending, tests |
+| [recipes.md](recipes.md) | how to make the changes that recur: migrations, trackers, backup fields, settings, ViewModels, RK islands, upstream ports |
+| [testing.md](testing.md) | running tests per module, what CI runs, the test harness, and driving a build on a device |
+| [tracker-aware-duplicate-detection.md](tracker-aware-duplicate-detection.md) | the add-to-library duplicate check by tracker id |
 | [readme-showcase.md](readme-showcase.md) | how the README showcase animation is captured and rebuilt |
-| [tracker-aware-duplicate-detection.md](tracker-aware-duplicate-detection.md) | the add-to-library duplicate-detection mechanism |
+
+**Records** (read by people and by scripts):
+
+| Doc | Owns | Touch it when |
+|---|---|---|
+| [upstream-sync.md](upstream-sync.md) | the Mihon sync process, the deliberate divergences and the frontier (sole owner of "synced through X") | you port a Mihon commit |
+| [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / IReader / LNReader, per feature | you port from a non-Mihon ref |
+| [off-path-manifest.md](off-path-manifest.md) | Mihon files deleted for a `reikai.*` twin, and the sync check that guards them | you delete a Mihon file for a twin |
+| [parked.md](parked.md) | items set aside or declined, with the reason and what would revive them | you park, decline or revive an item |
+| [plans/](plans/README.md) | design still in flight; a plan is folded into its subsystem doc and deleted once the work lands | you start or finish a substantial piece of work |
 
 ## What to update when you finish something
 
-The file-to-file workflow. Do these in order; skip a row's steps that don't apply.
-
 | I just... | Update, in order |
 |---|---|
-| Shipped a feature | its [plans/](plans/README.md) doc `Status` → [CHANGELOG](../../CHANGELOG.md) (user-facing headline) → [shipped.md](shipped.md) (one line + short-SHA + plan link) → remove its line from [ROADMAP](../../ROADMAP.md) |
-| Synced a Mihon commit | add a [upstream-sync.md](upstream-sync.md) ledger row → [CHANGELOG](../../CHANGELOG.md) credit (`synced from Mihon, mihonapp/mihon#N`). Do **not** record the frontier anywhere else |
+| Shipped a feature | its [subsystem doc](subsystems/README.md) (rewrite the parts that changed; fold in and delete the plan, if there was one) → [CHANGELOG](../../CHANGELOG.md) (user-facing headline) → remove its line from [ROADMAP](../../ROADMAP.md) |
+| Changed how an area behaves | its [subsystem doc](subsystems/README.md), in place: the flow, invariants or decisions that changed, never an appended note |
+| Synced a Mihon commit | a [upstream-sync.md](upstream-sync.md) ledger row → [CHANGELOG](../../CHANGELOG.md) credit (`synced from Mihon, mihonapp/mihon#N`). Do **not** record the frontier anywhere else |
 | Ported from Komikku / Tsundoku / IReader / LNReader | a [feature-ports.md](feature-ports.md) row → credit in the commit body, [README](../../README.md), and the [CHANGELOG](../../CHANGELOG.md) headline |
-| Deleted a Mihon file for a `reikai.*` twin | add a [off-path-manifest.md](off-path-manifest.md) row (or the next sync silently misses upstream's change to it) |
-| Started a substantial feature | a new [plans/](plans/README.md) doc (template in its README) + a [ROADMAP](../../ROADMAP.md) line |
+| Deleted a Mihon file for a `reikai.*` twin | a [off-path-manifest.md](off-path-manifest.md) row (or the next sync silently misses upstream's change to it) |
+| Started a substantial piece of work | a [plans/](plans/README.md) doc + a [ROADMAP](../../ROADMAP.md) line |
 
 ## Who owns which fact
 
 So two docs never record the same thing and drift apart:
 
-- [ROADMAP](../../ROADMAP.md) is what's **left** (forward only, no shipped log). [CHANGELOG](../../CHANGELOG.md) is what changed **for users**. [shipped.md](shipped.md) is what **shipped** (a dev log, may name sources). [parked.md](parked.md) is what was **set aside**, with why and what would revive it.
+- [ROADMAP](../../ROADMAP.md) is what's **left**. [CHANGELOG](../../CHANGELOG.md) and the release tags are what **shipped**, for users. [parked.md](parked.md) is what was **set aside**, with why and what would revive it.
+- A [subsystem doc](subsystems/README.md) is the one place an area's current behaviour, invariants and decisions are written; other docs link to it, never restate it. History lives in git, not in any doc.
 - [upstream-sync.md](upstream-sync.md) is the **only** place the Mihon frontier is recorded. [feature-ports.md](feature-ports.md) is the only place borrow provenance is recorded.
-- [plans/](plans/README.md) owns per-feature detail; [shipped.md](shipped.md) and the user docs point to it, never restate it.

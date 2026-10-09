@@ -4,7 +4,7 @@
     nothing reads or scopes, an Injekt registration, or a graph multibinding member left out.
 
 .DESCRIPTION
-    Metro owns the graph (docs/dev/plans/metro-di-migration.md). Injekt survives only for the
+    Metro owns the graph (docs/dev/subsystems/architecture.md). Injekt survives only for the
     extension contract, through MetroInjektRegistrar: a read-only registrar whose bindings each read
     one AppGraph accessor. None of these mistakes surfaces at build time:
 

@@ -2,7 +2,7 @@
 
 One doc per subsystem, describing how it works **now**. These are the reference a maintainer opens before changing an area: what the pieces are, how data moves, which rules a change must keep, and which traps have already bitten.
 
-A subsystem doc is rewritten in place whenever the code changes, never appended to. It holds no history: how a design was reached lives in git (`git log -- <path>`, the commit bodies), and what shipped when lives in [CHANGELOG.md](../../../CHANGELOG.md) and [shipped.md](../shipped.md). In-flight design work (something not built yet, or being rebuilt) still goes in [plans/](../plans/README.md); once it lands, the plan's lasting content moves into the subsystem doc and the plan is retired.
+A subsystem doc is rewritten in place whenever the code changes, never appended to. It holds no history: how a design was reached lives in git (`git log -- <path>`, the commit bodies), and what shipped when lives in [CHANGELOG.md](../../../CHANGELOG.md) and the release tags. In-flight design work (something not built yet, or being rebuilt) still goes in [plans/](../plans/README.md); once it lands, the plan's lasting content moves into the subsystem doc and the plan is deleted.
 
 When code and a subsystem doc disagree, the code is right and the doc is a bug: fix the doc in the same change.
 
@@ -34,19 +34,21 @@ A doc is titled with the subsystem's name and has these second-level sections, i
 
 | Area | Doc |
 |---|---|
-| Content layer (manga and novels over one `Entry` vocabulary) | to come |
-| Library | to come |
-| Details | to come |
-| Reader | to come |
-| Recents (History, Updates) | to come |
-| Downloads | to come |
-| Browse and sources | to come |
-| Migrate | to come |
+| Content layer (manga and novels over one `Entry` vocabulary; start here) | [content-layer.md](content-layer.md) |
+| App architecture (DI, ViewModels, settings, preference migrations) | [architecture.md](architecture.md) |
+| Data and backup (schema, migrations, backup and restore) | [data-and-backup.md](data-and-backup.md) |
+| Library (assembly, filters, categories, library updates) | [library.md](library.md) |
+| Details (series page) | [details.md](details.md) |
+| Reader (host, engine, viewers, manga and novel providers) | [reader.md](reader.md) |
+| Novel reader rendering (text and WebView modes, read aloud) | [novel-reader-rendering.md](novel-reader-rendering.md) |
+| Recents (History, Updates, combined Recents) | [recents.md](recents.md) |
+| Downloads | [downloads.md](downloads.md) |
+| Browse and sources (lists, catalogue, global search, feed, add flow, the `NovelSource` seam) | [browse-and-sources.md](browse-and-sources.md) |
+| LN plugin host | [ln-plugin-host.md](ln-plugin-host.md) |
+| Migrate | [migrate.md](migrate.md) |
 | Merged series | [merged-series.md](merged-series.md) |
-| Tracking | to come |
-| Recommendations | to come |
-| LN plugin host | to come |
-| Cloudflare | to come |
-| Adult sources | to come |
-| Backup | to come |
-| Dependency injection | to come |
+| Tracking | [tracking.md](tracking.md) |
+| Recommendations | [recommendations.md](recommendations.md) |
+| Adult sources | [adult-sources.md](adult-sources.md) |
+| Cloudflare | [cloudflare.md](cloudflare.md) |
+| Docs and website | [docs-and-website.md](docs-and-website.md) |
