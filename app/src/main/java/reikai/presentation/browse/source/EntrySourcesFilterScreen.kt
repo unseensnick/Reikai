@@ -45,7 +45,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
  * chip. The two halves keep their own preferences and are drawn by one list over [SourceFilterSection].
  */
 class EntrySourcesFilterScreen(
-    /** The Browse chip this was opened from. All lands on manga, the half it used to open alone. */
+    /** The Browse chip this was opened from. All lands on manga. */
     private val initial: ContentType = ContentType.MANGA,
 ) : Screen() {
 
