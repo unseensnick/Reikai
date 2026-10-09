@@ -6,7 +6,7 @@ description: Search your library by field, compare numbers and dates, and combin
 
 # Library search
 
-_Dev records: [library-all-chip.md](dev/plans/library-all-chip.md), [library-tag-search.md](dev/plans/library-tag-search.md). Doc map: [README.md](README.md)._
+_Dev records: [library.md](dev/subsystems/library.md). Doc map: [README.md](README.md)._
 
 Searching your library does more than match titles.
 You can search one field, compare numbers and dates, combine terms and exclude things.

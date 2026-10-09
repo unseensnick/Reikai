@@ -33,7 +33,7 @@ data class LibraryAssemblyInputs(
  * and [categories] contain; the algorithm is chip-blind, and buckets before sorting because the sort is
  * per category. Values are [LibraryItem]s, never raw ids: a manga and a novel can share a raw table id,
  * so any Long-keyed structure over a mixed list silently cross-wires. The custom-info overlay is NOT
- * applied here. Rules pinned by LibraryAssemblyTest; record: docs/dev/plans/library-all-chip.md.
+ * applied here. Rules pinned by LibraryAssemblyTest; record: docs/dev/subsystems/library.md.
  */
 fun assembleLibrary(
     rows: List<LibraryItem>,

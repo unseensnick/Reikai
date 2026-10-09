@@ -161,7 +161,7 @@ Shipped. Steps 1 to 4 are device-verified; step 5 is the recents verb, which `Re
 
 No piece of the flow is written per type any more: the History add decision moved onto the recents
 engine (`content-layer-recents-surface.md`, step 8b), and the category picker collapsed onto the
-dialog the library already used for both types (recorded in `category-schema-unification.md`).
+dialog the library already used for both types (recorded in ../subsystems/library.md).
 
 - **Step 1** (`91999475c`) and **step 2** (`a6f73a2ac`): no user-visible change, so no CHANGELOG entry.
 - **Step 3** in two commits, manga (`f44f97322`) then novels (`f4517ec3b`), which is where the

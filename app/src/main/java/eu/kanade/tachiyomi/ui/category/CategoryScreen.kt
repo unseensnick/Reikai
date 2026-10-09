@@ -1,4 +1,4 @@
-// RK: whole file, one category list for both content types, see docs/dev/plans/category-schema-unification.md
+// RK: whole file, one category list for both content types, see docs/dev/subsystems/library.md
 package eu.kanade.tachiyomi.ui.category
 
 import androidx.compose.material3.SnackbarDuration

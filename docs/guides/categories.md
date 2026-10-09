@@ -6,7 +6,7 @@ description: Organize your favorite series effortlessly with categories that dec
 
 # Categories
 
-_Dev records: [novel-categories.md](../dev/plans/novel-categories.md), [category-schema-unification.md](../dev/plans/category-schema-unification.md), [library-sort-overrides.md](../dev/plans/library-sort-overrides.md). Doc map: [README.md](../README.md)._
+_Dev records: [library.md](../dev/subsystems/library.md). Doc map: [README.md](../README.md)._
 
 Organize your favorite series effortlessly with categories that declutter and structure your library.
 

@@ -10,7 +10,7 @@ Give light novels a first-class Browse surface that matches the manga one. From 
 
 Mihon manga sources are Android APK extensions: the system installs them and class-loads the binary. Light-novel sources are LNReader-style JavaScript plugins run inside a headless QuickJS host (see [novel-plugin-host.md](novel-plugin-host.md) and [ln-plugin-host.md](../ln-plugin-host.md)), so there is no installer or class-loader to lean on. They needed their own install, registry, and update path.
 
-The product principle is one library, one Browse, with content type treated as metadata rather than a separate destination (see [library-all-chip.md](library-all-chip.md), Decisions). So rather than a separate "novels" tab, novel sources fold into the same Sources and Extensions tabs behind a content-type filter, and the per-source novel browse mirrors the manga catalogue closely enough that the two feel like one feature.
+The product principle is one library, one Browse, with content type treated as metadata rather than a separate destination (see [library.md](../subsystems/library.md), Decisions). So rather than a separate "novels" tab, novel sources fold into the same Sources and Extensions tabs behind a content-type filter, and the per-source novel browse mirrors the manga catalogue closely enough that the two feel like one feature.
 
 ## Approach
 

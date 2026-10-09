@@ -5,7 +5,7 @@ import tachiyomi.domain.library.model.LibrarySort
 /**
  * Maps a novel category's legacy `flags` onto Mihon's layout. Only the Downloaded and TrackerMean sort
  * values differ (swapped); every other bit passes through. The novel values are literals because the old
- * novel sort type is gone and this runs on every upgrade. See category-schema-unification.md.
+ * novel sort type is gone and this runs on every upgrade. See docs/dev/subsystems/library.md.
  */
 fun novelCategoryFlagsToMangaLayout(flags: Long): Long {
     val novelType = flags and SORT_TYPE_MASK
