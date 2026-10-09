@@ -591,6 +591,7 @@ class NovelDetailsViewModel(
                 downloadTargets = DownloadTargets.of(group.mergeScope, pooled, ordered, stitch, { it.id }) {
                     it.novelId in installed
                 },
+                groupNovels = members,
             )
         }
     }
@@ -1664,6 +1665,8 @@ sealed interface NovelDetailsState {
         val servedNovel: Novel? = null,
         /** The copy each row's download fetches; only the All view moves one off a missing plugin. */
         val downloadTargets: DownloadTargets = DownloadTargets.OWN,
+        /** Every library member of a merged series in group order, on the All view only; empty otherwise. */
+        val groupNovels: List<Novel> = emptyList(),
         // Resolved (per-novel or global-default) chapter view settings.
         val sorting: Long = NovelChapterFlags.SORTING_SOURCE,
         val sortDescending: Boolean = true,

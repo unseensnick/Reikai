@@ -63,6 +63,8 @@ import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.roundedfilled.Brush
+import reikai.data.coil.withCoverFallbacks
+import reikai.domain.merge.coverFallbacks
 import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.components.entryStatusIcon
 import reikai.presentation.components.entryStatusRes
@@ -312,7 +314,10 @@ private fun <T> collapseToCards(
     .groupBy { (_, ui) -> groupIdByEntryId[ui.id]?.let { true to it } ?: (false to ui.id) }
     .map { (_, members) ->
         val (entry, ui) = members.first()
-        DuplicateCard(entry, ui, members.map { it.second.id })
+        // A group's card draws another member's cover when this one's is missing or fails to load.
+        val fallbacks = coverFallbacks(ui, members.map { it.second }) { it.id }.map { it.coverModel }
+        val groupUi = ui.copy(coverModel = withCoverFallbacks(ui.coverModel, fallbacks))
+        DuplicateCard(entry, groupUi, members.map { it.second.id })
     }
 
 @Composable

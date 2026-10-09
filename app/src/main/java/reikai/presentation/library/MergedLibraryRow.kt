@@ -18,10 +18,12 @@ data class MergedRowMember<S>(
  * counts are the stored stitch's ([counts], [mergedDownloads]), one per chapter the group covers:
  * summing the members would count every chapter two of them share twice. An unstitched group keeps the
  * leading row's own unread and sums the members' downloads. Each distinct source is searched and
- * badged once, and every badge stays gated by [badgePrefs].
+ * badged once, and every badge stays gated by [badgePrefs]. [coverFallbacks] are the other members'
+ * cover models in ranking order.
  */
 suspend fun <S> LibraryItem.stampMergedGroup(
     members: List<MergedRowMember<S>>,
+    coverFallbacks: List<Any>,
     counts: MergedGroupCounts?,
     mergedDownloads: Int?,
     badgePrefs: LibraryBadgePrefs,
@@ -40,6 +42,7 @@ suspend fun <S> LibraryItem.stampMergedGroup(
         relatedMangaIds = members.map { it.id },
         memberSources = sources.map { querySource(it) },
         memberGenres = members.flatMap { it.genre.orEmpty() }.distinct(),
+        coverFallbacks = coverFallbacks,
         badges = badges.copy(
             downloadCount = badgePrefs.downloadBadge(downloads),
             unreadCount = badgePrefs.unreadBadge(unread),

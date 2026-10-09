@@ -18,6 +18,7 @@ import eu.kanade.presentation.manga.EditCoverAction
 import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.SetIntervalDialog
 import eu.kanade.presentation.util.Screen
+import reikai.data.coil.withCoverFallbacks
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.DetailsRemoval
@@ -122,16 +123,19 @@ fun Screen.EntryDetailsDialogHost(
             val isCoverEditable by coverViewModel.isCoverEditable.collectAsStateWithLifecycle()
             val page by behavior.state.collectAsStateWithLifecycle()
             val isCoverAnchored = (page as? EntryDetailsScreenState.Loaded)?.isCoverAnchored == true
+            // The header's fallbacks, so the viewer, Save and Share show the cover the header drew.
+            val coverFallbacks = (page as? EntryDetailsScreenState.Loaded)?.details?.header?.coverFallbacks.orEmpty()
             if (cover != null) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                     if (uri != null) coverViewModel.editCover(context, uri)
                 }
+                val shownCover = remember(cover, coverFallbacks) { withCoverFallbacks(cover!!, coverFallbacks) }
                 EntryCoverDialog(
-                    cover = cover!!,
+                    cover = shownCover,
                     isCustomCover = remember(cover) { coverViewModel.hasCustomCover() },
                     snackbarHostState = coverViewModel.snackbarHostState,
-                    onShareClick = { coverViewModel.shareCover(context) },
-                    onSaveClick = { coverViewModel.saveCover(context) },
+                    onShareClick = { coverViewModel.shareCover(context, shownCover) },
+                    onSaveClick = { coverViewModel.saveCover(context, shownCover) },
                     // Null hides Edit and Delete: for an entry that cannot keep a custom cover, and for
                     // a chip's sibling, since a custom cover has to land on the entry the library
                     // renders, so it is only offered where the group's own cover is the one on screen.

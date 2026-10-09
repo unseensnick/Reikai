@@ -25,20 +25,28 @@ fun <T> trunkOrder(priority: (T) -> Int, chapterCount: (T) -> Long, id: (T) -> L
     compareBy(priority).thenByDescending(chapterCount).thenBy(id)
 
 /**
- * The member a merge group's library row leads on, first in [trunkOrder]. Both library collapses and the
- * library list export pick through here, so the export writes a series under the member, and so the
- * Edit info, the library shows.
+ * A merge group's members in [trunkOrder]. The first is the library lead, the member the library row
+ * leads on: both library collapses and the library list export pick through here, so the export writes a
+ * series under the member, and so the Edit info, the library shows. The rest is the order the row's
+ * cover falls back in ([coverFallbacks]).
  */
-fun <T, S> libraryLead(
+fun <T, S> libraryRanking(
     members: List<T>,
     memberRanking: List<Long>,
     preferredSourceIds: List<S>,
     id: (T) -> Long,
     sourceId: (T) -> S?,
     chapterCount: (T) -> Long,
-): T = members.minWith(
+): List<T> = members.sortedWith(
     trunkOrder({ sourcePriority(id(it), sourceId(it), preferredSourceIds, memberRanking) }, chapterCount, id),
 )
+
+/**
+ * The members whose covers a merged series falls back to, in [members]' order, when [shown]'s own cover
+ * is missing or fails to load. [shown]'s cover goes first because it carries the user's custom cover and
+ * edited cover address. The fallback is drawn only, never stored.
+ */
+fun <T> coverFallbacks(shown: T, members: List<T>, id: (T) -> Long): List<T> = members.filter { id(it) != id(shown) }
 
 /**
  * [ranked] in the order a stitch walks it: a member with no chapters moves last, so the stitch starts

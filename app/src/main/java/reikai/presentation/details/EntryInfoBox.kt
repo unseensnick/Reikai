@@ -48,6 +48,7 @@ import exh.debug.LocalCoverImagesHidden
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Person
 import mihon.icons.materialsymbols.roundedfilled.Brush
+import reikai.data.coil.withCoverFallbacks
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.asNovelCover
@@ -63,7 +64,8 @@ import tachiyomi.presentation.core.util.secondaryItemAlpha
 
 /**
  * Content-agnostic header data for the shared [EntryInfoBox]. [coverModel] is a coil model (a `Manga`
- * or a [NovelCover]), so each content type feeds its own object.
+ * or a [NovelCover]), so each content type feeds its own object. [coverFallbacks] are the other members'
+ * models on a merged series' All view, empty otherwise; [cover] is what the header draws.
  */
 data class EntryHeaderUi(
     val coverModel: Any,
@@ -76,9 +78,17 @@ data class EntryHeaderUi(
     val sourceState: EntrySourceState,
     /** The library query for the viewed source's entries; null where [sourceName] labels a merged group. */
     val sourceQuery: String?,
-)
+    val coverFallbacks: List<Any> = emptyList(),
+) {
+    val cover: Any = withCoverFallbacks(coverModel, coverFallbacks)
+}
 
-fun Manga.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourceQuery: String?) = EntryHeaderUi(
+fun Manga.toEntryHeader(
+    sourceName: String,
+    sourceState: EntrySourceState,
+    sourceQuery: String?,
+    coverFallbacks: List<Manga>,
+) = EntryHeaderUi(
     coverModel = this,
     title = title,
     author = author,
@@ -87,9 +97,15 @@ fun Manga.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourc
     sourceName = sourceName,
     sourceState = sourceState,
     sourceQuery = sourceQuery,
+    coverFallbacks = coverFallbacks,
 )
 
-fun Novel.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourceQuery: String?) = EntryHeaderUi(
+fun Novel.toEntryHeader(
+    sourceName: String,
+    sourceState: EntrySourceState,
+    sourceQuery: String?,
+    coverFallbacks: List<Novel>,
+) = EntryHeaderUi(
     coverModel = asNovelCover(),
     title = title,
     author = author,
@@ -98,6 +114,7 @@ fun Novel.toEntryHeader(sourceName: String, sourceState: EntrySourceState, sourc
     sourceName = sourceName,
     sourceState = sourceState,
     sourceQuery = sourceQuery,
+    coverFallbacks = coverFallbacks.map { it.asNovelCover() },
 )
 
 /**
@@ -127,7 +144,7 @@ fun EntryInfoBox(
         if (!LocalCoverImagesHidden.current) {
             AsyncImage(
                 model = ImageRequest.Builder(LocalContext.current)
-                    .data(header.coverModel)
+                    .data(header.cover)
                     .crossfade(true)
                     .build(),
                 contentDescription = null,
@@ -184,7 +201,7 @@ private fun EntryTitlesLarge(
     ) {
         MangaCover.Book(
             modifier = Modifier.fillMaxWidth(0.65f),
-            data = header.coverModel,
+            data = header.cover,
             contentDescription = stringResource(MR.strings.manga_cover),
             onClick = onCoverClick,
         )
@@ -219,7 +236,7 @@ private fun EntryTitlesSmall(
             modifier = Modifier
                 .sizeIn(maxWidth = 100.dp)
                 .align(Alignment.Top),
-            data = header.coverModel,
+            data = header.cover,
             contentDescription = stringResource(MR.strings.manga_cover),
             onClick = onCoverClick,
         )

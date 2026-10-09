@@ -21,6 +21,7 @@ import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
@@ -75,6 +76,12 @@ class MangaEntryAdapter(
                     sourceName = model.headerSourceName(this),
                     sourceState = servingSource.entrySourceState(),
                     sourceQuery = model.headerSourceQuery(this),
+                    // Only the All view stands for the group; a chip shows its own source's cover.
+                    coverFallbacks = if (mergeDisplayManga == null) {
+                        coverFallbacks(manga, mergedMangaById.values.toList()) { it.id }
+                    } else {
+                        emptyList()
+                    },
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,

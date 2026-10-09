@@ -1,9 +1,10 @@
 package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import reikai.domain.library.mangaLibraryLead
+import reikai.domain.library.mangaLibraryRanking
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
+import reikai.domain.merge.coverFallbacks
 import tachiyomi.domain.source.model.Source
 
 /**
@@ -69,10 +70,12 @@ object MangaMergeCollapse {
         badgePrefs: LibraryBadgePrefs,
         recognizedChapterCounts: Map<Long, Long>,
     ): LibraryItem {
-        val primary = mangaLibraryLead(subGroup, overrideOrder, preferredSourceIds, recognizedChapterCounts) {
+        val ranked = mangaLibraryRanking(subGroup, overrideOrder, preferredSourceIds, recognizedChapterCounts) {
             it.libraryManga.manga
         }
+        val primary = ranked.first()
         return primary.stampMergedGroup(
+            coverFallbacks = coverFallbacks(primary, ranked) { it.id }.map(::libraryCoverModel),
             members = subGroup.map {
                 MergedRowMember(
                     it.id,

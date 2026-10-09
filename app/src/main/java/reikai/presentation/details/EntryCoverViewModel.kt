@@ -85,10 +85,11 @@ abstract class EntryCoverViewModel<T : Any>(
         .map { it != null && canEditCover(it) }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), false)
 
-    fun saveCover(context: Context) {
+    /** Saves [cover], the model the dialog draws: [coverModel] or a merged series' fallback over it. */
+    fun saveCover(context: Context, cover: Any) {
         viewModelScope.launch {
             try {
-                saveCoverInternal(context, temp = false)
+                saveCoverInternal(context, cover, temp = false)
                 snackbarHostState.showSnackbar(context.stringResource(MR.strings.cover_saved), withDismissAction = true)
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
@@ -100,10 +101,10 @@ abstract class EntryCoverViewModel<T : Any>(
         }
     }
 
-    fun shareCover(context: Context) {
+    fun shareCover(context: Context, cover: Any) {
         viewModelScope.launch {
             try {
-                val uri = saveCoverInternal(context, temp = true) ?: return@launch
+                val uri = saveCoverInternal(context, cover, temp = true) ?: return@launch
                 withUIContext { context.startActivity(uri.toShareIntent(context)) }
             } catch (e: Throwable) {
                 logcat(LogPriority.ERROR, e)
@@ -115,10 +116,10 @@ abstract class EntryCoverViewModel<T : Any>(
         }
     }
 
-    private suspend fun saveCoverInternal(context: Context, temp: Boolean): Uri? {
+    private suspend fun saveCoverInternal(context: Context, cover: Any, temp: Boolean): Uri? {
         val entry = entry.value ?: return null
         val request = ImageRequest.Builder(context)
-            .data(coilModel(entry))
+            .data(cover)
             .size(Size.ORIGINAL)
             .build()
 

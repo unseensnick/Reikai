@@ -1,6 +1,6 @@
 package reikai.domain.library
 
-import reikai.domain.merge.libraryLead
+import reikai.domain.merge.libraryRanking
 import reikai.domain.novel.model.LibraryNovel
 import tachiyomi.domain.manga.model.Manga
 
@@ -15,7 +15,16 @@ fun <T> mangaLibraryLead(
     preferredSourceIds: List<Long>,
     recognizedCounts: Map<Long, Long>,
     manga: (T) -> Manga,
-): T = libraryLead(
+): T = mangaLibraryRanking(members, memberRanking, preferredSourceIds, recognizedCounts, manga).first()
+
+/** Every member in the order [mangaLibraryLead] ranks them, the lead first. */
+fun <T> mangaLibraryRanking(
+    members: List<T>,
+    memberRanking: List<Long>,
+    preferredSourceIds: List<Long>,
+    recognizedCounts: Map<Long, Long>,
+    manga: (T) -> Manga,
+): List<T> = libraryRanking(
     members,
     memberRanking,
     preferredSourceIds,
@@ -29,7 +38,14 @@ fun novelLibraryLead(
     members: List<LibraryNovel>,
     memberRanking: List<Long>,
     preferredSourceIds: List<String>,
-): LibraryNovel = libraryLead(
+): LibraryNovel = novelLibraryRanking(members, memberRanking, preferredSourceIds).first()
+
+/** Every member in the order [novelLibraryLead] ranks them, the lead first. */
+fun novelLibraryRanking(
+    members: List<LibraryNovel>,
+    memberRanking: List<Long>,
+    preferredSourceIds: List<String>,
+): List<LibraryNovel> = libraryRanking(
     members,
     memberRanking,
     preferredSourceIds,

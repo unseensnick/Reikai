@@ -40,6 +40,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Folder
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.roundedfilled.Warning
+import reikai.data.coil.withCoverFallbacks
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.NovelCover
 import tachiyomi.domain.manga.model.MangaCover
@@ -153,10 +154,13 @@ private fun UrlSourceIconBadge(iconUrl: String) {
 }
 
 /**
- * Cover data for a library row: a [NovelCover] for a novel, else the manga [MangaCover]. Returns [Any] because the shared
- * grid cells accept either model as coil data.
+ * Cover data for a library row: a [NovelCover] for a novel, else the manga [MangaCover], falling back to a
+ * merged series' other members ([LibraryItem.coverFallbacks]). Returns [Any] because the shared grid cells
+ * accept either model as coil data.
  */
-fun libraryCoverModel(item: LibraryItem): Any {
+fun libraryCoverModel(item: LibraryItem): Any = withCoverFallbacks(ownCoverModel(item), item.coverFallbacks)
+
+private fun ownCoverModel(item: LibraryItem): Any {
     val manga = item.libraryManga.manga
     val entryId = item.entryId
     return if (entryId is EntryId.Novel) {

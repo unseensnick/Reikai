@@ -1,10 +1,12 @@
 package reikai.presentation.library.novels
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import reikai.domain.library.novelLibraryLead
+import reikai.domain.library.novelLibraryRanking
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
+import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.model.LibraryNovel
+import reikai.domain.novel.model.asNovelCover
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.MergedRowMember
@@ -29,6 +31,8 @@ object NovelMergeCollapse {
         val mergedCounts: MergedGroupCounts?,
         /** Merged chapters with a copy on disk; null keeps the members' own sum. */
         val mergedDownloads: Int?,
+        /** The other members, best ranked first, whose covers the row falls back to. */
+        val coverFallbacks: List<LibraryNovel> = emptyList(),
     ) {
         /** Real novel ids of every group member. */
         val memberIds: List<Long> = members.map { it.novel.id }
@@ -54,11 +58,13 @@ object NovelMergeCollapse {
         return library.bucketByMergeGroup(membership, mergingEnabled) { it.novel.id }.map { bucket ->
             val groupId = bucket.groupId
             val overrideOrder = groupId?.let { overrideRankings[it] }.orEmpty()
+            val ranked = novelLibraryRanking(bucket.members, overrideOrder, preferredSourceIds)
             CollapsedNovel(
-                representative = novelLibraryLead(bucket.members, overrideOrder, preferredSourceIds),
+                representative = ranked.first(),
                 members = bucket.members,
                 mergedCounts = groupId?.let { mergedCountsByGroup[it] },
                 mergedDownloads = groupId?.let { mergedDownloadsByGroup[it] },
+                coverFallbacks = coverFallbacks(ranked.first(), ranked) { it.novel.id },
             )
         }
     }
@@ -83,6 +89,7 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
         members = members.map {
             MergedRowMember(it.novel.id, it.novel.source, it.lastRead, it.downloadCount.toInt(), it.novel.genre)
         },
+        coverFallbacks = coverFallbacks.map { it.novel.asNovelCover() },
         counts = mergedCounts,
         mergedDownloads = mergedDownloads,
         badgePrefs = badgePrefs,

@@ -14,6 +14,7 @@ import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupMarks
+import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.withCustomInfo
@@ -94,6 +95,8 @@ class NovelEntryAdapter(
                     sourceName = model.headerSourceName(this),
                     sourceState = sourceState,
                     sourceQuery = model.headerSourceQuery(this),
+                    // Filled on the All view only; a chip shows its own source's cover.
+                    coverFallbacks = coverFallbacks(novel, groupNovels) { it.id },
                 ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,

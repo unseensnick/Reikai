@@ -67,6 +67,7 @@ import mihon.core.migration.Migrator
 import mihon.telemetry.TelemetryConfig
 import org.conscrypt.Conscrypt
 import reikai.data.coil.ExtensionIconFetcher
+import reikai.data.coil.GroupCoverInterceptor
 import reikai.data.coil.NovelCoverFactory
 import reikai.data.coil.NovelCoverKeyer
 import reikai.data.coil.NovelImageFetcher
@@ -333,6 +334,8 @@ class App :
                 add(PagePreviewKeyer()) // RK
                 add(MangaDexTrackCoverKeyer()) // RK
                 // Interceptor
+                // RK: first, so each candidate of a merged series' cover runs the whole chain on its own
+                add(GroupCoverInterceptor())
                 add(CoverRequestInterceptor())
             }
 
