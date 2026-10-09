@@ -4,8 +4,8 @@ Items that were considered and set aside, with why and what would revive them. K
 [ROADMAP.md](../../ROADMAP.md), which holds forward work only, so an entry here can carry its full
 reasoning without turning the backlog into an essay. A dev record, so it may name sources.
 
-Each entry: what it is, why it is parked or declined, the revive trigger, and a link to the plan doc
-where one carries the detail. Reviving one means moving a one-line item back into the roadmap and
+Each entry: what it is, why it is parked or declined, the revive trigger, and a link to the doc
+that carries the detail, where one does. Reviving one means moving a one-line item back into the roadmap and
 deleting it here.
 
 - **Chapter translation for novels** `[XL]` - translate a novel chapter in place from inside the reader, the way tsundoku does with twelve engines behind a per-engine key. Parked: it is roughly 2400 lines across three modules, off by default in the reference, and wired into their forked reader model rather than sitting under the viewer. Revive if there is demand for it. [Plan](subsystems/reader.md).

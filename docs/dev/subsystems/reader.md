@@ -93,7 +93,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 
 ## Upstream divergences
 
-Reikai patches sit in `// RK` islands in `ReaderActivity` (engine and provider wiring, `onNewIntent`, the ordering-hazard notes, the chapter sheet pick) and `ReaderViewModel` (merged lists, `ChapterSwitches`, the event channel, the requested-page reset, auto webtoon, duplicate and Downloaded-only ranking). The image-viewer islands are the ones the content-layer Reader row names. Recorded in [upstream-sync.md](../upstream-sync.md) "Deliberate divergences", including Downloaded only applied after the duplicate ranking.
+Reikai patches sit in `// RK` islands in `ReaderActivity` (engine and provider wiring, `onNewIntent`, the ordering-hazard notes, the chapter sheet pick) and `ReaderViewModel` (merged lists, `ChapterSwitches`, the event channel, the requested-page reset, auto webtoon, duplicate and Downloaded-only ranking, `fetchableChapterIds` for the sheet's download control). The image-viewer islands are the ones the content-layer Reader row names. Recorded in [upstream-sync.md](../upstream-sync.md) "Deliberate divergences", including Downloaded only applied after the duplicate ranking.
 
 ## Extending
 

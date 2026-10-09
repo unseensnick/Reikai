@@ -57,19 +57,20 @@ Reikai keeps its durable record in several places, each with a different job. Up
 | `Handoff.md` (root) | Session state | **Gitignored. Edit on disk, never `git add` it.** |
 | `../reikai-claude-memories/handoff/Handoff.md` | The synced copy | Must be written too, then committed and pushed in that repo |
 | `ROADMAP.md` | Forward backlog only | One-line items, size tag, area grouping, never a log of what shipped |
-| `docs/dev/plans/*.md` | Per-feature record | Goal / Why / Approach / Key files / Status / Decisions; index it in that folder's `README.md` |
+| `docs/dev/subsystems/*.md` | How each area works now | Rewritten in place, never appended to; no dates, SHAs or Status section |
+| `docs/dev/plans/*.md` | Design still in flight | Goal / Why / Approach / Key files / Open questions / Decisions; folded into its subsystem doc and deleted once it lands |
 | `CHANGELOG.md` | `[Unreleased]` | Benefit-first bold headline, user-facing effect only |
 | `docs/dev/upstream-sync.md` | Sync ledger | Append a row per Mihon sync |
 | `docs/dev/off-path-manifest.md` | Deleted Mihon paths | One row per delete plus its replacement |
 | The memory store | Durable cross-session facts | Junctioned into the memories repo, so writes need a commit and push there |
 
-**The split that matters most:** `ROADMAP.md` stays terse and forward-looking, plan docs carry the detail, and observations blocked on the owner go to memory rather than the roadmap. When a roadmap line starts growing a research narrative, move that narrative into a plan doc and leave a one-line item with a link.
+**The split that matters most:** `ROADMAP.md` stays terse and forward-looking, subsystem docs carry how things work, and observations blocked on the owner go to memory rather than the roadmap. When a roadmap line starts growing a research narrative, move that narrative into the subsystem doc (or a plan, while the work is still being designed) and leave a one-line item with a link.
 
 ## Step 4: Sync and verify
 
 1. Copy `Handoff.md` to `../reikai-claude-memories/handoff/Handoff.md`.
 2. Commit and push the memories repo (its own git repo, `main`). Memory writes do not sync without this.
-3. Commit tracked app-repo doc changes (`ROADMAP.md`, plan docs, CHANGELOG) with a `docs(...)` subject. `Handoff.md` is never in that commit.
+3. Commit tracked app-repo doc changes (`ROADMAP.md`, subsystem docs, plans, CHANGELOG) with a `docs(...)` subject. `Handoff.md` is never in that commit.
 4. Report the final branch state so the owner knows whether anything is left to push.
 
 ## Reikai conventions the global skill cannot know

@@ -46,7 +46,7 @@ Each top-level Settings screen is a `SearchableSettings` object (a Voyager `Scre
 The layout, by subject:
 
 - **Manga reader** and **Novel reader** are two top-level screens, each holding every setting for its reader. Settings with the same name on both (keep screen on, the volume-key trio, skip duplicates, mark read on skip) are separate keys per type; bottom buttons offer a different option set per type (`ReaderBottomButton.Scope`), while default rotation offers one list, `readerOrientationChoices`.
-- **Browse and sources** holds source configuration: extension stores, the adult-sources gate directly above the Source settings group it reveals (MangaDex and E-Hentai as drill-downs), and page preview rows.
+- **Browse and sources** holds source configuration: extension stores, the adult-sources gate and the delegated-sources switch, then the Source settings group the gate reveals (MangaDex and E-Hentai as drill-downs), and page preview rows.
 - **Library** holds the merged-series group (the merge switch, auto-merge, preferred sources) and per-type global update groups, including the update-error tracking switches. Rows that differ by type carry a `· Manga` / `· Novels` suffix from `contentTypedCategory` in `Commons.kt` where they would otherwise read as one row printed twice.
 - **Recommendations** is its own top-level screen.
 - **About** is built on the preference DSL, so its version, update check and legal links are searchable.

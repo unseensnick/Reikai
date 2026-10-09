@@ -118,7 +118,6 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 - **Universal categories stay in both backup lists.** Emitting one once would drop novel memberships, which resolve by order inside the novel list.
 - **The toolbar sort is always global.** The tabbed pager has no per-category sort control; overrides are set from the single list.
 - **Smart update reuses the manga restriction constants.** They are content-agnostic tags; renaming would touch manga code for nothing.
-- **The recents category filter lists each category once.** A universal category has one tri-state toggle that both types' feeds read; a type-only category is still one row and matches nothing of the other type. The per-type selections 0.3.2 stored were dropped, not merged: their novel ids predate the shared id space, and the switch defaults off.
 
 ## Upstream divergences
 

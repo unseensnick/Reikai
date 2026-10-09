@@ -34,7 +34,7 @@ All three authenticate with `PREVIEW_REPO_TOKEN`, the fine-grained token that al
 
 ### What the lints check
 
-`scripts/lint-docs.sh` holds every docs rule once; the `pre-commit` hook feeds it staged content and `docs-lint.yml` runs it over the tree. It rejects content-source names in `CHANGELOG.md` and `ROADMAP.md`, em dashes and bare `#N` in `ROADMAP.md` and the sync records, a missing bold headline on a new `[Unreleased]` entry, plan codenames and dates in code comments, an unpinned `twin of` marker, a Key files path that does not exist in a plan, and, in CI only, history in a subsystem doc (`subsystem-docs`: dates, SHAs, steps, rounds, phases, owner rulings, a Status heading, more than 300 lines). A subsystem doc's Key files are checked only when `key-files` is run on it by hand. `scripts/lint-docs-test.sh` asserts each rule still rejects a real violation.
+`scripts/lint-docs.sh` holds every docs rule once; the `pre-commit` hook feeds it staged content and `docs-lint.yml` runs it over the tree. It rejects content-source names in `CHANGELOG.md` and `ROADMAP.md`, em dashes and bare `#N` in `ROADMAP.md` and the sync records, a missing bold headline on a new `[Unreleased]` entry, plan codenames and dates in code comments, an unpinned `twin of` marker, a Key files path that does not exist in a plan, and history in a subsystem doc (`subsystem-docs`, on staged pages in the hook and every page in CI: dates, SHAs, steps, rounds, phases, owner rulings, a Status heading, more than 300 lines). CI runs `key-files` over both plans and subsystem docs. `scripts/lint-docs-test.sh` asserts each rule still rejects a real violation.
 
 ## Key files
 

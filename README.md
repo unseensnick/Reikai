@@ -44,7 +44,7 @@ It is built first for my own daily use, so development is sporadic and the featu
 - `Light novels`, first-class: a full Novels library equal to manga; three kinds of novel source, [LNReader](https://github.com/LNReader/lnreader)-format plugins on a headless QuickJS host plus [Tsundoku](https://github.com/tsundoku-otaku/tsundoku) and [IReader](https://github.com/IReaderorg/IReader) novel extension apps; a reader that renders chapters natively or in a WebView; and track novels on AniList, MyAnimeList, MangaUpdates, Kitsu, Shikimori, Hikka and MangaBaka, plus the novel-first [RanobeDB](https://ranobedb.org/), [NovelList](https://www.novellist.co/) and [NovelUpdates](https://www.novelupdates.com/). ([docs](https://reikai.app/docs/guides/tracking))
 - `Taste-profile recommendations`: rank the related row by your tracked-tag preferences. ([docs](https://reikai.app/docs/related-mangas#your-taste-profile))
 - `Cloudflare bypass` support: route a blocked source through a self-hosted proxy ([Solverr](https://github.com/unseensnick/Solverr) recommended, or Byparr / FlareSolverr). ([docs](https://reikai.app/docs/flaresolverr))
-- `Library update errors`: a list of entries that failed their last update, recorded by default and switchable off under Advanced.
+- `Library update errors`: a list of entries that failed their last update, recorded by default and switchable off under Settings -> Library (Track update errors).
 
 <details>
 <summary><strong>From Yōkai</strong></summary>

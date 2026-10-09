@@ -33,7 +33,7 @@ raised to match, it is "Dynamic workflow size" in the app's config.
 - **`<rev>..<rev>`**: that commit range.
 - **A path**: the default range, limited to files under that path.
 - **A surface name** (`novel reader`, `recents engine`): resolve it to paths through the surface's
-  plan doc in `docs/dev/plans/` and the seam-depth table in `.claude/rules/content-layer.md`, then
+  doc in `docs/dev/subsystems/` and the seam-depth table in `.claude/rules/content-layer.md`, then
   treat it as a path scope. If it resolves to nothing, ask.
 - **`--quick`**: every agent on Opus. One map agent at medium effort; one sweep per code slice covering correctness,
   async, security, dead code and the slice's own wiring; one agent each for wiring, all rule files,
@@ -93,7 +93,7 @@ Read these, and pass them to the workflow verbatim as `ground`:
   while its reason still holds. Only verifiers see it, filtered to the files a finding cites and each
   reason cut to its first sentence; finders never carry it.
 
-Deferred and declined items live in `docs/dev/plans/`. The agents are told to read the record for
+Deferred and declined items live in the Decisions sections of `docs/dev/subsystems/` and in `docs/dev/parked.md`. The agents are told to read the record for
 their surface themselves; don't inline those docs.
 
 ## Step 2: Map, then stop for approval

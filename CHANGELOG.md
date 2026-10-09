@@ -450,7 +450,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Two languages whose codes share one name (such as "in" and "id") no longer lose a section in Browse's lists and source filter, on manga and novels.**
 - **Settings -> Advanced -> FlareSolverr URL can now be cleared once an address is saved.**
 - **The sources filter now has a switch per language for novel sources too, hiding all of that language's novel sources from Browse and search as it already could for manga.**
-- **Turning off the enhanced gallery view in the adult source settings now switches the browse rows back to the plain grid.** It used to have no effect.
+- **Turning off the enhanced gallery view in the adult source settings now switches browse back to the regular layout.** It used to have no effect.
 
 ### Migration
 

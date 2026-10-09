@@ -70,8 +70,8 @@ A pure-UI Mihon file fully replaced by a shared component is deleted and given a
 
 ## Invariants and traps
 
-- **Key mixed collections on `EntryId`.** A `Long`-keyed map over manga and novels cross-wires a colliding pair with no crash; the Random sort once tied every colliding pair for this reason.
-- **A shared component either derives a piece of state or does not own it.** `EntryMergeGroupHost` once derived the group and its chips but left the picked chip a free cell beside them; migrating the picked source out crashed the manga list and silently rendered a stale source on novels. The group and its selection are one cell now.
+- **Key mixed collections on `EntryId`.** A `Long`-keyed map over manga and novels cross-wires a colliding pair with no crash, and a sort tie-breaker keyed that way ties every colliding pair.
+- **A shared component either derives a piece of state or does not own it.** `EntryMergeGroupHost` keeps the group, its chips and the picked chip in one cell: a picked chip held beside them goes stale when its source is migrated out, which crashes the manga list and renders a stale source on novels.
 - **A selection is pruned to what the surface excluded, never to what navigation hides.** A hidden category, an emptied bucket or a filtered row leaves the selection; a collapsed category or a pager page one swipe away keeps it. The library prunes to the ids its assembly kept, recents to the rows it drew.
 - **`ContentType.ALL` never reaches a per-type store.** `MergeGroupRepository` and the per-type providers refuse it; only the engines fan out over a mixed view.
 - **Adapters keep the engines' own write paths.** Read, download, filter and sort stay in the per-type interactors; a shared-layer step that reimplements `SetReadStatus` or `DownloadManager` has gone too far.

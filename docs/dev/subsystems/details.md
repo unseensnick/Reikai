@@ -80,7 +80,7 @@ A user can correct a source's wrong chapter number ("Correct chapter number" in 
 
 - **`MangaViewModel` is never made to implement the shared contract.** The adapter reads it and forwards; a renamed upstream field breaks `MangaEntryAdapter` at compile time.
 - **Derive the rows, chips and picked chip from one snapshot.** Reading the chips from the live host while the rows came from an earlier snapshot wrote an ungrouped list under the merged switcher; the novel chapter flows take all three from the `GroupState` they were built for. `MangaViewModel` still mirrors the chips and the picked chip through two collectors, so they can disagree for one emission.
-- **Description expansion is a layout input too.** The two-pane layout opens the synopsis expanded; a single adapter field once dropped that.
+- **Description expansion is a layout input too.** The two-pane layout opens the synopsis expanded; an adapter that drops that field shows it collapsed.
 - **A one-shot flag on a rebuilt state does not survive.** `NovelDetailsState.Loaded` is rebuilt whenever the chapter list changes; the first-download prompt lives in `AddToLibraryOffer` for that reason.
 - **A web page lookup in the adapter would run per download tick.** Resolve it in the model through `ShownWebPage`.
 - **The custom-info overlay never touches the source row.** Tracker search, refresh, duplicate detection, download folder names and merge read raw values.

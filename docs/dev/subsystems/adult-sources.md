@@ -24,7 +24,7 @@ Metadata feeds four places: the details card (`GalleryInfoBox`, with a curated E
 
 ### E-Hentai browse
 
-The site's `next=` parameter is a gallery-id cursor, not a page number. `EHentai.genericMangaParse` returns a `MetadataMangasPage` (`// RK` in source-api's `MangasPage`) carrying the last gallery's id as `nextKey` plus each row's metadata, and `SourcePagingSource` (`// RK`) takes that cursor over its own page counter. Browse pages `Pair<Manga, RaisedSearchMetadata?>`, preferring stored metadata and falling back to the carried one, and E-Hentai sources draw `BrowseSourceEHentaiList` rows (cover, uploader, rating, category badge, language, page count, date) while `enableEnhancedEhView` is on. Other adult sources keep the standard grid.
+The site's `next=` parameter is a gallery-id cursor, not a page number. `EHentai.genericMangaParse` returns a `MetadataMangasPage` (`// RK` in source-api's `MangasPage`) carrying the last gallery's id as `nextKey` plus each row's metadata, and `SourcePagingSource` (`// RK`) takes that cursor over its own page counter. Browse pages `Pair<Manga, RaisedSearchMetadata?>`, preferring stored metadata and falling back to the carried one, and E-Hentai sources draw `BrowseSourceEHentaiList` rows (cover, uploader, rating, category badge, language, page count, date) while `ExhPreferences.enhancedEHentaiView` is on (read once when the screen opens). Other adult sources keep the standard grid.
 
 ### Account features (E-Hentai)
 
@@ -47,7 +47,7 @@ Import entry points: `InterceptActivity` opens a shared gallery link, and `Batch
 - **Sync.** `SettingsMangaDexScreen` (under Browse and sources settings) holds the preferred MangaDex language (`preferredMangaDexId`, read by `MdUtil.getEnabledMangaDex` on every call, falling back to the first enabled source), the follow statuses to import, and two actions run by `MangaDexSyncWorker`: import follows into the library, and push library MangaDex entries as MDList-tracked follows.
 - **Tracker search** loads covers through `MangaDexTrackCoverFactory` with the extension's headers and batches the details and rating calls.
 
-`MANGADEX_IDS` (62 language ids) gates the sync and the metadata surfaces; it is a separate gate from the name match that wraps the source, so both must hold.
+`MANGADEX_IDS` (61 language ids) gates the sync and the metadata surfaces; it is a separate gate from the name match that wraps the source, so both must hold.
 
 ### Debug menu
 
@@ -78,7 +78,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 - **Every MangaDex API, auth and cover call carries the extension's headers.** MangaDex answers Reikai's injected browser User-Agent with HTTP 400 (the web app instead of JSON), which silently breaks details, login, token refresh, Random and covers. Never build `MangaDexService` or the login helper on the bare network client; Komikku does, and has these bugs.
 - **E-Hentai paging needs the cursor.** Feeding `next=` a page number returns an empty or malformed page after page 1.
 - **Never let the library update fetch EH, ExH, Pururin or nHentai galleries.** A new built-in gallery source goes into `LIBRARY_UPDATE_EXCLUDED_SOURCES`, or into a derived list like nHentai's when its id is not fixed.
-- **Reach a delegate's extras through `getMainSource`, never `enhancedSource`.** Only `getMainSource` honours the delegated-sources switch, so a direct `enhancedSource` read keeps a delegate feature alive after the user turns delegation off.
+- **Reach a delegate's extras through `getMainSource`, never `enhancedSource`.** `getMainSource` (like `EnhancedHttpSource.source()` and `configurableSource`) honours the delegated-sources switch; a direct `enhancedSource` read keeps a delegate feature alive after the user turns delegation off.
 - **The account backup is one way.** Nothing may pull the account's favorites into the library or remove a gallery from the account without the user's tick.
 - **An `apply {}` block on an `SManga` can shadow a model property with a local**, which crashed the port once; use `also {}` or explicit receivers.
 - **A converted gallery's downloads stay under the old source's folder** after the debug EH and ExH conversion, as in Komikku.
@@ -99,7 +99,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 
 ## Upstream divergences
 
-`// RK` islands: `AndroidSourceManager` (gates, built-ins, wrapping), `ExtensionManager` (blacklist), `LibraryUpdateWorker` (exclusion), `MangasPage` and `SourcePagingSource` (the metadata page and cursor), `BrowseSourceViewModel` (metadata pairing, follows hooks), `MangaViewModel` and `MangaScreen` (remove-from-account confirm, metadata viewer, root redirect), `TrackerManager` and `SettingsTrackingScreen` (MDList), `SettingsBrowseScreen` and `SettingsAdvancedScreen` (the settings and debug entries), the browse source icon, the manifest (the OAuth callback, `InterceptActivity`), and `app/proguard-rules.pro` (`DebugFunctions`, reached by reflection). Where Reikai is ahead of Komikku (the version-merge chapter ids, the MDList token refresh) is recorded in [feature-ports.md](../feature-ports.md).
+`// RK` islands: `AndroidSourceManager` (gates, built-ins, wrapping), `ExtensionManager` (blacklist), `LibraryUpdateWorker` (exclusion), `MangasPage` and `SourcePagingSource` (the metadata page and cursor), `BrowseSourceViewModel` (metadata pairing, follows hooks, the enhanced-view gate), `MangaViewModel` and `MangaScreen` (remove-from-account confirm, metadata viewer, root redirect), `TrackerManager` and `SettingsTrackingScreen` (MDList), `SettingsBrowseScreen` and `SettingsAdvancedScreen` (the settings and debug entries), the browse source icon, the manifest (the OAuth callback, `InterceptActivity`), and `app/proguard-rules.pro` (`DebugFunctions`, reached by reflection). Where Reikai is ahead of Komikku (the version-merge chapter ids, the MDList token refresh) is recorded in [feature-ports.md](../feature-ports.md).
 
 ## Extending
 
@@ -109,7 +109,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 
 ## Tests
 
-Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `SourceHelpersTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
+Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `SourceHelpersTest`, `EnhancedEhViewTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`.
 

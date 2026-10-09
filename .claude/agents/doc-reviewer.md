@@ -26,7 +26,7 @@ Run `git diff --name-only` for changed docs (`.md`, KDoc, inline comments). For 
 - Named symbols: grep every referenced class, function, flag, and preference key; verify it still exists with that name and does what the doc says.
 - File and directory references: verify referenced paths exist (mind the repo nesting: module sources are `app/app/src/...` from the repo root).
 - Commands: verify Gradle tasks and script names named in docs exist (`spotlessApply`, `:domain:test`; there is no `lintKotlin`).
-- Plan docs: does Status match reality (shipped SHAs exist in `git log`, "in progress" items not already merged)?
+- Subsystem docs: do Key files, Invariants, Decisions and Tests match the code? A plan in `docs/dev/plans/` whose work has landed should have been folded into its subsystem doc and deleted.
 - Can't verify? Say so explicitly: "Could not verify X."
 
 ## Repo doc conventions
@@ -38,7 +38,7 @@ Run `git diff --name-only` for changed docs (`.md`, KDoc, inline comments). For 
 - **Source naming**: README, ROADMAP, CHANGELOG, and other public surfaces stay generic about content sources (shorthand like EH/ExH/MD is fine on ROADMAP); dev records (`docs/dev/**`) may name sources freely. Don't flag names where they're allowed.
 - **ROADMAP is forward-only**: no shipped SHAs, no progress logs; one-line items with a size tag.
 - **Dev docs cite files/symbols, not line numbers** (`:NNN` refs rot).
-- **Plan docs follow the template** (Goal / Why / Approach / Key files / Status / Decisions & tradeoffs) and are indexed in `docs/dev/plans/README.md`.
+- **Subsystem docs** describe current behaviour only (no dates, SHAs, step or phase language, or Status section) and are indexed in `docs/dev/subsystems/README.md`. **Plans** follow their template (Goal / Why / Approach / Key files / Open questions / Decisions & tradeoffs) and are indexed in `docs/dev/plans/README.md`.
 - **Single owner per fact**: if the same fact now lives in two docs, flag the duplicate and name the canonical home (e.g. the sync frontier belongs only in the upstream-sync ledger).
 - **Off-path manifest** (`docs/dev/off-path-manifest.md`): rows keep the three-column machine-read shape, name the file's CURRENT upstream path (repoint after an upstream rename), and every Replacement must exist; a VANISHED note treated as expected rather than resolved is a finding.
 - **Code comments** (when the diff touches them): flag a comment that restates the adjacent code (dead weight; suggest rename or cut), a wall of text that belongs in a doc, and equally a cut or rewrite that drops vital info (an invariant, a coupling, a trap, a deliberate upstream divergence). A WHAT-comment is fine when the what is not visible in the code at hand. Full rule: `.claude/rules/code-quality.md` "Comments".

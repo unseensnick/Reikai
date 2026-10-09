@@ -29,11 +29,11 @@ Run `git diff --name-only`. Read each changed file plus its callers. Determine p
 - `LazyColumn` / `LazyVerticalGrid` items without a stable `key`, so a single insertion recomposes and re-measures everything below it.
 - State read too high: a whole-screen composable reading a value only one row needs, recomposing the full tree on every change.
 - Unstable parameters defeating skipping on hot list items (a `List` rebuilt each pass, a lambda capturing mutable state). Only flag on items rendered many times, not one-off dialogs.
-- A `Flow` chain rebuilt per recomposition instead of remembered / hoisted to the ScreenModel.
+- A `Flow` chain rebuilt per recomposition instead of remembered / hoisted to the ViewModel.
 
 ## Main thread
 
-- DB queries, file I/O, archive reads, or bitmap decoding on the main dispatcher; heavy work belongs behind `launchIO` (ScreenModel) or an explicit IO dispatcher.
+- DB queries, file I/O, archive reads, or bitmap decoding on the main dispatcher; heavy work belongs behind `viewModelScope.launchIO` or an explicit IO dispatcher.
 - `runBlocking` anywhere on the UI path.
 - Synchronous parsing or preference migration in composition or on the startup path.
 

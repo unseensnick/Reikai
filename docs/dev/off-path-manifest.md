@@ -42,7 +42,7 @@ replacing it: the feature is one this fork does not run at all. On a sync the ac
 confirm the decision still holds, not to reconcile the change into anything. The `pre-commit`
 replacement check skips an empty cell for exactly this case.
 
-The path is relative to the repo root and matches the `refs/` clone layout. `Upstream` selects which clone the check diffs (`mihon`, or `tsundoku` once the reader migrates). Every row whose first column starts with a lower-case module directory is machine-read by the sync script; keep the three-column shape.
+The path is relative to the repo root and matches the `refs/` clone layout. `Upstream` selects which clone the check diffs (`mihon` in every current row). Every row whose first column starts with a lower-case module directory is machine-read by the sync script; keep the three-column shape.
 
 | Upstream path | Upstream | Replacement |
 |---|---|---|

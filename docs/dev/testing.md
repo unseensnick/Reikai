@@ -43,7 +43,7 @@ run them as separate calls. Never run CLI Gradle while Android Studio is buildin
 | `nightly.yml` | push to `main`, `feat/**`, `fix/**` on the same paths | `di-interop-check.ps1`, `verifySqlDelightMigration`, `test`, `assembleNightly`, `scripts/ci/release-notes-test.sh`, then publishes the nightly |
 | `release.yml` | a `v*` tag | `test`, `assembleRelease`, `assembleFoss`, `release-notes-test.sh`, then a draft release |
 | `commit-standards.yml` | every pull request | `.githooks/commit-msg` over each commit, `scripts/commit-msg-test.sh`, `.claude/hooks/tests/run-all.sh` |
-| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every `scripts/lint-docs.sh` mode, `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1` against a blobless Mihon clone |
+| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1` against a blobless Mihon clone |
 | `dependency-availability.yml` | weekly, and a pull request touching the version catalogs | `scripts/check-external-artifacts.sh` |
 
 No workflow runs instrumented tests; those run on a device by hand (below). The local `pre-commit`
