@@ -200,7 +200,7 @@ class EntryMigrationFavoritesViewModel(
      * The source's name and its favorites, as one value so the screen never shows a loaded list under
      * an empty source name. Stays subscribed while the screen is: migrating an entry away removes it
      * from this source's library, and the list should say so rather than offering it again. A throw
-     * used to escape and leave the screen on its spinner for good, since nothing clears isLoading.
+     * must not escape: nothing clears isLoading, so the screen would sit on its spinner for good.
      */
     private val content: Flow<Content> = flow {
         adapter.prepare()

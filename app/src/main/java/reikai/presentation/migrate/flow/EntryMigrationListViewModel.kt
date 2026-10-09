@@ -46,8 +46,7 @@ import tachiyomi.core.common.util.system.logcat
 class EntryMigrationListViewModel(
     @Assisted private val entryIds: List<Long>,
     // Passed in rather than resolved here, so the driver, the claim and the finish gate can be
-    // constructed in a plain JVM test. Resolving DI here made every one of them reachable only by
-    // reading the code, which is why each gate defect was found by an audit and never by a test.
+    // constructed in a plain JVM test rather than being reachable only by reading the code.
     // The screen picks the adapter for its content type and passes it in.
     @Assisted private val adapter: MigrationFlowAdapter,
     /** The extra search term for this run; see [MigrationTuning.extraQuery]. */
@@ -595,9 +594,8 @@ class EntryMigrationListViewModel(
     /**
      * Commit one row, marking the screen busy on the CALLER's thread.
      *
-     * The mark used to land inside the coroutine, which left a dispatch-sized window where a second
-     * commit passed its guard against a commit that had already been decided, migrating the same
-     * entry twice.
+     * A mark set inside the coroutine would leave a dispatch-sized window where a second commit
+     * passes its guard against one already decided, migrating the same entry twice.
      */
     private fun runSingleCommit(row: MigratingEntryRow, replace: Boolean, flags: Set<MigrationDataFlag>) {
         state.update { it.copy(commit = CommitActivity.Single(row.entry.id)) }
@@ -655,9 +653,8 @@ class EntryMigrationListViewModel(
         replace: Boolean,
         flags: Set<MigrationDataFlag>,
     ) {
-        // Claim the row atomically: the busy mark used to land only once this coroutine ran, so a
-        // double-tap on Retry (or a batch racing a single commit) could commit the same row twice.
-        // The loser of the claim no-ops.
+        // Claim the row atomically, so a double-tap on Retry (or a batch racing a single commit)
+        // cannot commit the same row twice. The loser of the claim no-ops.
         val previous = row.commit.value
         if (previous.isBusy) return
         if (!row.commit.compareAndSet(previous, CommitPhase.Committing(replace))) return
@@ -665,7 +662,7 @@ class EntryMigrationListViewModel(
         // every chooser refuses and skip is blocked, so a swap or a skip that slipped in between the
         // caller's guard and the claim is caught here instead of being migrated anyway.
         //
-        // The membership check is what the skip flag used to do. The batch iterates a snapshot taken
+        // The membership check is how a skip reaches the batch. The batch iterates a snapshot taken
         // before it started, so without this a row the user skipped while the batch was working
         // through the rows ahead of it would still be migrated.
         val target = row.acceptance.value.candidate
@@ -730,8 +727,8 @@ class EntryMigrationListViewModel(
         }
     }
 
-    /** Ask before leaving. Allowed mid-commit, and it cannot touch the commit cell: back used to
-     *  overwrite the one cell that held both, which cleared the busy state under a running migration. */
+    /** Ask before leaving. Allowed mid-commit, and it cannot touch the commit cell, which is separate
+     *  from the dialog so back cannot clear the busy state under a running migration. */
     fun showExitConfirm() = state.update { it.copy(dialog = Dialog.ExitConfirm) }
 
     /** Close an open dialog. Only a dialog: a commit is not something a dismissal may cancel. */

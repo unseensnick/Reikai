@@ -74,9 +74,9 @@ class MigrateNovelUseCase(
         check(current.id != target.id) { "Target is the entry itself" }
         try {
             // Checked before anything is written, and outside the refresh branch below, so the engine
-            // fails the same way manga's does whether or not the caller pre-fetched. It used to sit
-            // inside that branch, which is skipped on the normal commit path, so the engine would
-            // happily migrate onto a source it could not resolve and leave the entry unreadable.
+            // fails the same way manga's does whether or not the caller pre-fetched. Inside that branch,
+            // which the normal commit path skips, it would let the engine migrate onto a source it
+            // cannot resolve and leave the entry unreadable.
             val targetSource = checkNotNull(sourceManager.get(target.source)) {
                 "Target source ${target.source} unavailable"
             }
@@ -154,9 +154,9 @@ class MigrateNovelUseCase(
             }
 
             // The favorite swap and the merge-group rewrite are ONE unit of work, with the swap
-            // genuinely last inside it, matching manga. They used to be two transactions with a
-            // suspension point between them: a batch the user cancelled could commit the swap and
-            // never reach the rewrite, leaving the source out of the library but still in the group,
+            // genuinely last inside it, matching manga. As two transactions with a suspension
+            // point between them, a batch the user cancelled could commit the swap and never reach
+            // the rewrite, leaving the source out of the library but still in the group,
             // feeding chapters into it while invisible there and unreachable to unmerge. Everything
             // above touches only satellite state, so a failure there leaves both entries' library
             // membership untouched.

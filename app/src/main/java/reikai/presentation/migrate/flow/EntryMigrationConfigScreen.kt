@@ -474,8 +474,8 @@ class EntryMigrationConfigViewModel(
      * Apply a selection edit, then save the settled order off the caller's thread.
      *
      * A state update re-runs its block when a write races it (the init load is the one that can), so
-     * a save inside the block repeats. The writes are serialized and versioned instead: two quick
-     * edits used to race, and the older order could land last and be what the flow then searched.
+     * a save inside the block repeats. The writes are serialized and versioned instead, so of two quick
+     * edits the older order can never land last and be what the flow then searches.
      */
     private fun editSelection(edit: (State) -> State) {
         val settled = state.updateAndGet(edit)

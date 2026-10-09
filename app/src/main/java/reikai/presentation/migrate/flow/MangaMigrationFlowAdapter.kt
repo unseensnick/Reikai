@@ -216,9 +216,9 @@ class MangaMigrationFlowAdapter(
     override suspend fun peekCounts(candidate: MigrationCandidate): MigrationCandidate? {
         val manga = (candidate.handle as? MangaCandidateHandle)?.manga ?: return null
         // Display only, and bounded to one read, which is what the seam asks of a peek and what the
-        // novel side already does. This used to call resolve(), so merely tapping a candidate could
-        // cost two network round trips AND permanently write chapter rows for an entry the user had
-        // not committed to; on a bulk accept that multiplied by the row count.
+        // novel side already does. Never resolve() here: merely tapping a candidate would cost two
+        // network round trips AND permanently write chapter rows for an entry the user had not
+        // committed to, multiplied by the row count on a bulk accept.
         val stored = getChaptersByMangaId.await(manga.id)
         if (stored.isNotEmpty()) return candidate.withChapterCounts(stored) { it.chapterNumber }
         // Nothing stored yet: read the source's chapter list and count it, without writing any of it

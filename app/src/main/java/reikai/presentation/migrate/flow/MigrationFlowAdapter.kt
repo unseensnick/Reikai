@@ -95,8 +95,7 @@ data class MigrationCandidate(
     /**
      * Adapter-owned, and the only place resolved-ness lives: whether a commit still owes this
      * candidate a materialising [MigrationFlowAdapter.resolve] is a property of the handle, not of
-     * the shared model. It used to be a Boolean here whose meaning differed per adapter, which the
-     * surface's standing rules forbid. The novel handle answers it with its stored row; manga
+     * the shared model, since a shared Boolean would mean something different per adapter. The novel handle answers it with its stored row; manga
      * candidates are stored from search time. Both resolves re-check chapters regardless, since a
      * stored row may never have been synced.
      */
@@ -158,7 +157,7 @@ data class MigrationTuning(
  * contract: [resolve] is the expensive one and the only one a commit depends on, since it alone
  * guarantees the candidate is materialised and populated. Storing is not the distinction, as
  * [suggest] and [candidates] insert rows on manga too. Design record:
- * docs/dev/plans/content-layer-migrate-surface.md.
+ * docs/dev/subsystems/migrate.md.
  */
 interface MigrationFlowAdapter {
     val contentType: ContentType

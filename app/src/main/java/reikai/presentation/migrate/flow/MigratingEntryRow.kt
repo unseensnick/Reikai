@@ -181,9 +181,9 @@ object MigrationRowRules {
     /**
      * What the user has settled about this row, as the one answer every consumer reads.
      *
-     * The two axes say what the row IS; this says where the user stands on it. It was previously
-     * answered three incompatible ways that each collapsed [Acceptance.Declined] differently, so
-     * declining a row could re-arm it on the next accept-all and wedge the finish gate. A decided row
+     * The two axes say what the row IS; this says where the user stands on it. Every consumer
+     * reads this one answer, so [Acceptance.Declined] cannot be re-armed by accept-all or wedge the
+     * finish gate through a consumer collapsing it its own way. A decided row
      * leaves the list, so the only thing still settling a row in place is a target handed back.
      */
     enum class Disposition {
@@ -204,8 +204,8 @@ object MigrationRowRules {
     }
 
     /**
-     * Whether the hide toggles drop this row, as upstream drops it: a filtered row stayed in the
-     * list, where accept-all reached it and armed a target the user could not see.
+     * Whether the hide toggles drop this row, as upstream drops it: a row merely filtered from view
+     * would stay in the list, where accept-all would reach it and arm a target the user cannot see.
      *
      * Only an untouched row goes, and never one whose picker is open. A failed search is kept, since
      * hide-unmatched is about entries with no match, not ones whose sources could not be reached.
@@ -259,8 +259,7 @@ object MigrationRowRules {
      *
      * The single source of truth for the row's controls: the screen renders a control only where the
      * matching flag is true, and the ViewModel refuses anything else. Deriving both from here is
-     * what stops the two from disagreeing, which is how Retry, Skip, "Migrate now" and the accept
-     * toggle all came to render on rows whose handlers silently refused them.
+     * what stops a control rendering on a row whose handler would silently refuse it.
      */
     data class RowActions(
         val canAccept: Boolean,
@@ -270,9 +269,8 @@ object MigrationRowRules {
         val canCommitNow: Boolean,
         /**
          * Whether the override picker may be open and taken from. It belongs here for the same
-         * reason as the rest: the screen used to render it off the row's `expanded` flag alone, so a
-         * row whose commit was in flight kept a picker whose every candidate was tappable and
-         * silently refused.
+         * reason as the rest: rendered off the row's `expanded` flag alone, a row whose commit is in
+         * flight would keep a picker whose every candidate is tappable and silently refused.
          */
         val canPick: Boolean,
     )
