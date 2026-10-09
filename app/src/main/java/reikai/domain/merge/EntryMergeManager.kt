@@ -49,6 +49,13 @@ open class EntryMergeManager(
         return repository.getFavoriteMembers(contentType, groupId)
     }
 
+    /** Every group's library members, each in order; empty while merging is off, as [groupLibraryMembers] is. */
+    suspend fun libraryGroups(): List<List<Long>> {
+        if (!preferences.seriesMergingEnabled.get()) return emptyList()
+        return repository.getAllMemberships(contentType).values.distinct()
+            .map { repository.getFavoriteMembers(contentType, it) }
+    }
+
     /**
      * Emits whenever [computeRelatedIds] could answer differently, first on collection: a library
      * member joining or leaving a group, or the merging switch flipping. A removed entry keeps its

@@ -62,7 +62,7 @@ android {
         // downloads of duplicates the upgrade merged away; 199 keeps the hash suffix in chapter file names for
         // upgraders. All sit above 0.3.2's 185, so a 0.3.2 install still runs them. Further migrations take 200+.
         // versionName tracks the last shipped release until this cycle is cut.
-        versionCode = 199
+        versionCode = 200
         versionName = "0.3.2"
         // RK <--
 

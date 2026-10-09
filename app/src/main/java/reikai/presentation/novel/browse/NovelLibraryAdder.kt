@@ -3,7 +3,7 @@ package reikai.presentation.novel.browse
 import dev.zacsweers.metro.Inject
 import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
-import reikai.domain.category.groupOrDefaultCategoryIds
+import reikai.domain.category.groupCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
@@ -102,31 +102,22 @@ class NovelLibraryAdder(
      */
     suspend fun addToLibrary(item: NovelItem, sourceId: String): NovelBrowseDialog? {
         val outcome = addEntry(
-            resolveCategories = { resolveDefaultCategories() },
+            resolveCategories = { landingCategories(novelRepository.getByUrlAndSource(item.path, sourceId)?.id) },
             favorite = { favoriteReturningId(item, sourceId) },
             fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
         )
         if (outcome != AddOutcome.NeedsCategoryChoice) return null
-        return NovelBrowseDialog.ChangeCategory(
-            NovelCategoryTarget.Pending(item, sourceId),
-            categoryPickerPrompt(item, sourceId),
-        )
+        return NovelBrowseDialog.ChangeCategory(item, sourceId, categoryPickerPrompt(item, sourceId))
     }
 
     /**
-     * The writes a browse picker's confirm owes. Neither add has written anything yet: a
-     * [NovelCategoryTarget.Pending] one creates the row, favorites it and files it, and a
-     * [NovelCategoryTarget.JoinGroup] one favorites and merges its stored row as one unit, then files it.
+     * The writes a browse picker's confirm owes. The add has written nothing yet, so this creates the
+     * row, favorites it and files it.
      */
-    suspend fun confirmCategories(target: NovelCategoryTarget, categoryIds: List<Long>): AddOutcome =
+    suspend fun confirmCategories(item: NovelItem, sourceId: String, categoryIds: List<Long>): AddOutcome =
         finishAdd(
             categoryIds = categoryIds,
-            favorite = {
-                when (target) {
-                    is NovelCategoryTarget.JoinGroup -> joinGroup(target.novelId, target.selectedIds)
-                    is NovelCategoryTarget.Pending -> favoriteReturningId(target.item, target.sourceId)
-                }
-            },
+            favorite = { favoriteReturningId(item, sourceId) },
             fileCategories = { id, ids -> applyCategories(id, ids) },
         )
 
@@ -149,29 +140,21 @@ class NovelLibraryAdder(
      */
     suspend fun favoriteForAdd(novelId: Long): Long? = novelRepository.getById(novelId)?.let { favoriteStored(it) }
 
-    /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
-    suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
-        groupOrDefaultCategoryIds(selectedIds.flatMap { getNovelCategories.awaitByNovelId(it) }) {
-            resolveDefaultCategories()
-        }
+    /** Where an entry joining [selectedIds]'s group lands: their categories, never a prompt. Reads only. */
+    suspend fun groupCategoryIdsOf(selectedIds: List<Long>): List<Long> =
+        groupCategoryIds(selectedIds.flatMap { getNovelCategories.awaitByNovelId(it) })
 
     /**
-     * Add the browsed item in the group of the user's picked duplicates, through the shared sequence, so
-     * a picker it returns writes nothing until its confirm reaches [confirmCategories]. The row is
-     * inserted first, unfavorited, since the merge and the picker need its id; an insert on its own
-     * leaves nothing a user can see.
+     * Add the browsed item in the group of the user's picked duplicates, through the shared sequence,
+     * filed in the group's categories, so it never asks. The row is inserted first, unfavorited, since
+     * the merge needs its id; an insert on its own leaves nothing a user can see.
      */
-    suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>): NovelBrowseDialog? {
-        val storedId = materialize(item, sourceId)?.id ?: return null
-        val outcome = addEntry(
-            resolveCategories = { groupOrDefaultCategories(selectedIds) },
+    suspend fun addToExistingGroup(item: NovelItem, sourceId: String, selectedIds: List<Long>) {
+        val storedId = materialize(item, sourceId)?.id ?: return
+        addEntry(
+            resolveCategories = { groupCategoryIdsOf(selectedIds) },
             favorite = { joinGroup(storedId, selectedIds) },
             fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
-        )
-        if (outcome != AddOutcome.NeedsCategoryChoice) return null
-        return NovelBrowseDialog.ChangeCategory(
-            NovelCategoryTarget.JoinGroup(storedId, selectedIds),
-            categoryPickerPrompt(storedId),
         )
     }
 
@@ -181,7 +164,7 @@ class NovelLibraryAdder(
      * stored-row case its browse twin above cannot serve: nothing is inserted here, only favorited and filed.
      */
     suspend fun addStoredToLibrary(novelId: Long): AddFavoriteResult = addEntryOrPrompt(
-        resolveCategories = { resolveDefaultCategories() },
+        resolveCategories = { landingCategories(novelId) },
         favorite = { favoriteForAdd(novelId) },
         fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
         categoryPicker = { categoryPickerPrompt(novelId) },
@@ -193,19 +176,11 @@ class NovelLibraryAdder(
      * `addEntryOrPrompt` kernel both call.
      */
     suspend fun addToExistingGroup(novelId: Long, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
-        resolveCategories = { groupOrDefaultCategories(selectedIds) },
+        resolveCategories = { groupCategoryIdsOf(selectedIds) },
         favorite = { joinGroup(novelId, selectedIds) },
         fileCategories = { id, categoryIds -> applyCategories(id, categoryIds) },
         categoryPicker = { categoryPickerPrompt(novelId) },
     )
-
-    /** The writes a stored-row group add's picker confirm owes, so backing out adds nothing. */
-    suspend fun confirmGroupCategories(novelId: Long, selectedIds: List<Long>, categoryIds: List<Long>): AddOutcome =
-        finishAdd(
-            categoryIds = categoryIds,
-            favorite = { joinGroup(novelId, selectedIds) },
-            fileCategories = { id, ids -> applyCategories(id, ids) },
-        )
 
     /**
      * Favorite the novel and merge it into [selectedIds]'s group as ONE unit, answering its id, or null
@@ -256,6 +231,14 @@ class NovelLibraryAdder(
         novelRepository.insertOrGet(item.toNovel(sourceId))
 
     /**
+     * Where an add of [novelId] lands, or null to ask: a member coming back to its group takes the
+     * group's categories, as it takes its chapter setting; anything else, or a row not stored yet, the
+     * default. Reads only. Twin of `MangaLibraryAdder.landingCategories`, pinned by GroupCategoriesConformanceTest.
+     */
+    suspend fun landingCategories(novelId: Long?): List<Long>? =
+        novelId?.let { groupCategories.groupCategoriesFor(it, mergeManager) } ?: resolveDefaultCategories()
+
+    /**
      * Where a new favorite should land, or null when the user has to be asked. Reads only, so a caller
      * can favorite between this and [applyCategories]. Twin of `MangaLibraryAdder.resolveDefaultCategories`;
      * both call the `resolveDefaultCategoryIds` kernel, pinned by `AddDecisionConformanceTest`.
@@ -287,6 +270,10 @@ class NovelLibraryAdder(
         categories = getNovelCategories.await().filterNot { it.isSystemCategory },
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
+
+    /** Files a just-added [novelId]: a member back in its group takes the group's categories, else [categoryIds]. */
+    suspend fun fileAdded(novelId: Long, categoryIds: List<Long>) =
+        applyCategories(novelId, groupCategories.groupCategoriesFor(novelId, mergeManager) ?: categoryIds)
 
     /** Files [novelId] under [categoryIds], and the rest of its merge group with it. */
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {

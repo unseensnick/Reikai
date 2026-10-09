@@ -3,7 +3,7 @@ package reikai.presentation.browse
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.firstOrNull
-import reikai.domain.category.groupOrDefaultCategoryIds
+import reikai.domain.category.groupCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
@@ -91,41 +91,21 @@ class MangaLibraryAdder(
         }
     }
 
-    /** Where an entry joining [selectedIds]'s group lands, or null to ask. Reads only. */
-    suspend fun groupOrDefaultCategories(selectedIds: List<Long>): List<Long>? =
-        groupOrDefaultCategoryIds(selectedIds.flatMap { getCategories.await(it) }) { resolveDefaultCategories() }
+    /** Where an entry joining [selectedIds]'s group lands: their categories, never a prompt. Reads only. */
+    suspend fun groupCategoryIdsOf(selectedIds: List<Long>): List<Long> =
+        groupCategoryIds(selectedIds.flatMap { getCategories.await(it) })
 
     /**
      * Add [manga] to the library in the group of the user's picked duplicates, through the shared
-     * sequence: decide the categories, then write, so a picker it has to raise writes nothing until
-     * its confirm reaches [confirmGroupCategories]. Only the picks: the duplicate list is fuzzy, and
-     * one member is enough since the merge absorbs that member's whole group.
+     * sequence, filed in the group's categories, so it never asks. Only the picks: the duplicate list
+     * is fuzzy, and one member is enough since the merge absorbs that member's whole group.
      */
     suspend fun addToExistingGroup(manga: Manga, selectedIds: List<Long>): AddFavoriteResult = addEntryOrPrompt(
-        resolveCategories = { groupOrDefaultCategories(selectedIds) },
+        resolveCategories = { groupCategoryIdsOf(selectedIds) },
         favorite = { joinGroupForAdd(manga, selectedIds) },
         fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
         categoryPicker = { categoryPickerSelection(manga.id) },
     )
-
-    /** The writes a group add's picker confirm owes, so backing out of the picker adds nothing. */
-    suspend fun confirmGroupCategories(manga: Manga, selectedIds: List<Long>, categoryIds: List<Long>): AddOutcome =
-        finishAdd(
-            categoryIds = categoryIds,
-            favorite = { joinGroupForAdd(manga, selectedIds) },
-            fileCategories = { _, ids -> moveToCategories(manga, ids) },
-        )
-
-    /**
-     * A browse picker's confirm: neither add wrote anything before asking, so this owes the favorite,
-     * joining [joinGroup]'s group as one unit when the add came from the duplicate dialog's grouping.
-     */
-    suspend fun confirmPicker(manga: Manga, categoryIds: List<Long>, joinGroup: List<Long>): AddOutcome =
-        if (joinGroup.isNotEmpty()) {
-            confirmGroupCategories(manga, joinGroup, categoryIds)
-        } else {
-            confirmAddCategories(manga.id, categoryIds)
-        }
 
     // The defaults go first, so the setting the join hands the entry is the one it keeps.
     private suspend fun joinGroupForAdd(manga: Manga, selectedIds: List<Long>): Long? {
@@ -163,6 +143,10 @@ class MangaLibraryAdder(
     /** Files [manga] under [categoryIds], and the rest of its merge group with it. */
     suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) = fileCategories(manga.id, categoryIds)
 
+    /** Files a just-added [mangaId]: a member back in its group takes the group's categories, else [categoryIds]. */
+    suspend fun fileAdded(mangaId: Long, categoryIds: List<Long>) =
+        fileCategories(mangaId, groupCategories.groupCategoriesFor(mangaId, mergeManager) ?: categoryIds)
+
     private suspend fun fileCategories(mangaId: Long, categoryIds: List<Long>) {
         groupCategories.set(mangaId, categoryIds.withoutSystemCategory(), mergeManager)
     }
@@ -173,7 +157,7 @@ class MangaLibraryAdder(
      * it adds nothing.
      */
     suspend fun resolveAddFavorite(manga: Manga): AddFavoriteResult = addEntryOrPrompt(
-        resolveCategories = { resolveDefaultCategories() },
+        resolveCategories = { landingCategories(manga.id) },
         favorite = { favoriteFromBrowse(manga.id) },
         fileCategories = { _, categoryIds -> moveToCategories(manga, categoryIds) },
         categoryPicker = { categoryPickerSelection(manga.id) },
@@ -204,7 +188,7 @@ class MangaLibraryAdder(
      */
     suspend fun addWithoutAsking(mangaId: Long): Long? = favoriteForAdd(mangaId) { added ->
         setMangaDefaultChapterFlags.await(added)
-        resolveDefaultCategories()?.let { moveToCategories(added, it) }
+        landingCategories(added.id)?.let { moveToCategories(added, it) }
     }
 
     /** Whether [mangaId] is in the library now, rather than when a list drew it. */
@@ -228,6 +212,13 @@ class MangaLibraryAdder(
         autoBindOnAdd.manga(stored, sourceManager.getOrStub(stored.source))
         return mangaId
     }
+
+    /**
+     * Where an add of [mangaId] lands, or null to ask: a member coming back to its group takes the
+     * group's categories, as it takes its chapter setting; anything else the default. Reads only.
+     */
+    suspend fun landingCategories(mangaId: Long): List<Long>? =
+        groupCategories.groupCategoriesFor(mangaId, mergeManager) ?: resolveDefaultCategories()
 
     /**
      * Where a new favorite should land, or null when the user has to be asked. Reads only, so a

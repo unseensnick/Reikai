@@ -40,6 +40,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
@@ -177,6 +178,23 @@ class MigrateEngineConformanceTest {
     @MethodSource("engines")
     fun `a copy of an ungrouped entry groups nothing`(engine: MigrateEngine) = runTest {
         engine.migrate(Setup(group = longArrayOf(SOURCE)), replace = false).groupWrites shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `without the category option a target joining a group takes the group's categories`(engine: MigrateEngine) =
+        runTest {
+            val setup = Setup(group = longArrayOf(SOURCE, 7L), categories = mapOf(SOURCE to listOf(5L)))
+
+            engine.migrate(setup, replace = false).categoryWrites shouldBe mapOf(TARGET to listOf(5L))
+        }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `without the category option an ungrouped target is filed nowhere`(engine: MigrateEngine) = runTest {
+        val setup = Setup(group = longArrayOf(SOURCE), categories = mapOf(SOURCE to listOf(5L)))
+
+        engine.migrate(setup, replace = true).categoryWrites shouldBe emptyMap()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -419,6 +437,8 @@ data class Setup(
     /** Stored history rows, on either entry's chapters. */
     val history: List<Hist> = emptyList(),
     val group: LongArray = longArrayOf(),
+    /** Each entry's stored categories. */
+    val categories: Map<Long, List<Long>> = emptyMap(),
     val customCover: String? = null,
     val notes: String = "",
     val chapterFlags: Long = 0,
@@ -428,6 +448,12 @@ data class Setup(
     val carryWriteFails: Boolean = false,
     val swapFails: Boolean = false,
 )
+
+/** The library members of [id]'s group once the migration has run: the group's, with the target added. */
+fun Setup.libraryMembersAfter(id: Long): List<Long> =
+    if (group.size > 1) group.toList() + MigrateEngineConformanceTest.TARGET else listOf(id)
+
+private fun category(id: Long) = Category(id = id, name = "c$id", order = 0L, flags = 0L)
 
 /** One entry's part of the favourite swap; [Swap.favorite] is null when the write leaves membership alone. */
 fun swapOf(
@@ -466,6 +492,8 @@ class Outcome(
     val sourceTrackerCalls: List<String>,
     /** The target's stored history after the migration, by chapter id. */
     val targetHistory: List<Hist>,
+    /** Every category write, by entry. */
+    val categoryWrites: Map<Long, List<Long>>,
 ) {
     val targetSwap: Swap? get() = swap?.singleOrNull { it.favorite == true }
 
@@ -490,6 +518,7 @@ private class Recorder : Transactions {
     var downloadsQueued = 0
     val tracksWritten = mutableListOf<Pair<Long, Long>>()
     val sourceTrackerCalls = mutableListOf<String>()
+    val categoryWrites = mutableMapOf<Long, List<Long>>()
     private val history = mutableMapOf<Long, Hist>()
     val coverDir: File = Files.createTempDirectory("migrate-covers").toFile().apply { deleteOnExit() }
 
@@ -546,6 +575,7 @@ private class Recorder : Transactions {
         tracksWritten = tracksWritten,
         sourceTrackerCalls = sourceTrackerCalls,
         targetHistory = historyOf(targetChapters.map { it.id }).sortedBy { it.chapterId },
+        categoryWrites = categoryWrites,
     )
 }
 
@@ -619,6 +649,7 @@ class MangaEngine : MigrateEngine {
         }
         val merge = mockk<MangaMergeManager> {
             coEvery { computeRelatedIds(any()) } returns setup.group
+            coEvery { groupLibraryMembers(any()) } answers { setup.libraryMembersAfter(firstArg()) }
             coEvery { merge(any()) } answers { rec.group("merge ${firstArg<List<Long>>()}") }
             coEvery { replaceInGroup(any(), any()) } answers
                 { rec.group("replace ${firstArg<Long>()}->${secondArg<Long>()}") }
@@ -668,8 +699,12 @@ class MangaEngine : MigrateEngine {
             updateManga = updateManga,
             getChaptersByMangaId = getChapters,
             updateChapter = mockk(relaxed = true),
-            getCategories = mockk { coEvery { await(any<Long>()) } returns emptyList() },
-            setMangaCategories = mockk(relaxed = true),
+            getCategories = mockk {
+                coEvery { await(any<Long>()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
+            },
+            setMangaCategories = mockk {
+                coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()] = secondArg() }
+            },
             getTracks = getTracks,
             upsertTrack = upsertTrack,
             coverCache = coverCache,
@@ -793,6 +828,7 @@ class NovelEngine : MigrateEngine {
         }
         val merge = mockk<NovelMergeManager> {
             coEvery { computeRelatedIds(any()) } returns setup.group
+            coEvery { groupLibraryMembers(any()) } answers { setup.libraryMembersAfter(firstArg()) }
             coEvery { merge(any()) } answers { rec.group("merge ${firstArg<List<Long>>()}") }
             coEvery { replaceInGroup(any(), any()) } answers
                 { rec.group("replace ${firstArg<Long>()}->${secondArg<Long>()}") }
@@ -831,8 +867,12 @@ class NovelEngine : MigrateEngine {
         }
         val useCase = MigrateNovelUseCase(
             novelChapterRepository = chapterRepository,
-            getNovelCategories = mockk(relaxed = true),
-            setNovelCategories = mockk(relaxed = true),
+            getNovelCategories = mockk {
+                coEvery { awaitByNovelId(any()) } answers { setup.categories[firstArg()].orEmpty().map(::category) }
+            },
+            setNovelCategories = mockk {
+                coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()!!] = secondArg() }
+            },
             novelMergeManager = merge,
             novelDownloadManagerProvider = { downloadManager },
             updateNovel = updateNovel,

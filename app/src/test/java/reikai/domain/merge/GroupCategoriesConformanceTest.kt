@@ -6,9 +6,12 @@ import eu.kanade.tachiyomi.ui.manga.seedManga
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import mihon.core.migration.migrations.MergedGroupCategoriesMigration
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
@@ -26,6 +29,7 @@ import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
+import reikai.novel.host.NovelItem
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -37,7 +41,9 @@ import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEFAULT_CATEGORY_PREF_KEY
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.MangaUpdate
 
 /**
  * A merged series sits in one set of categories: a category write through any member reaches every
@@ -127,6 +133,58 @@ class GroupCategoriesConformanceTest {
             side.categoriesOf(SIBLING) shouldBe setOf(X)
         }
 
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("reAdds")
+    fun `a member added back takes its group's categories, not the default`(type: ContentType, path: AddPath) =
+        runTest {
+            val side = side(type).grouped().apply { setInLibrary(SIBLING, false) }
+
+            side.addBack(SIBLING, path)
+
+            side.categoriesOf(SIBLING) shouldBe setOf(X)
+        }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("reAdds")
+    fun `a member added back leaves the rest of its group where it was`(type: ContentType, path: AddPath) = runTest {
+        val side = side(type).grouped().apply { setInLibrary(SIBLING, false) }
+
+        side.addBack(SIBLING, path)
+
+        side.categoriesOf(MEMBER) shouldBe setOf(X)
+    }
+
+    @ParameterizedTest(name = "{0} {1}")
+    @MethodSource("reAdds")
+    fun `an entry added back outside any group lands in the default category`(type: ContentType, path: AddPath) =
+        runTest {
+            val side = side(type).grouped().apply { setInLibrary(OUTSIDER, false) }
+
+            side.addBack(OUTSIDER, path)
+
+            side.categoriesOf(OUTSIDER) shouldBe setOf(Y)
+        }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `the upgrade puts a group that disagreed in its first member's categories`(type: ContentType) = runTest {
+        val side = side(type).grouped().apply { store(SIBLING, Z) }
+
+        side.upgrade()
+
+        side.categoriesOf(SIBLING) shouldBe setOf(X)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `the upgrade leaves an entry outside any group alone`(type: ContentType) = runTest {
+        val side = side(type).grouped().apply { store(OUTSIDER, Z) }
+
+        side.upgrade()
+
+        side.categoriesOf(OUTSIDER) shouldBe setOf(Z)
+    }
+
     /** [MEMBER], [SIBLING] and [OUTSIDER] in the library, each filed under [X], in no group yet. */
     private suspend fun side(type: ContentType, mergingOn: Boolean = true): Side {
         Database.Schema.create(driver).await()
@@ -162,7 +220,18 @@ class GroupCategoriesConformanceTest {
 
         /** Files [id] under [ids] through the adder's file verb, as the details picker and every add do. */
         abstract suspend fun file(id: Long, ids: List<Long>)
+
+        abstract suspend fun setInLibrary(id: Long, inLibrary: Boolean)
+
+        /** Adds [id] back through [path], with [Y] set as the default category. */
+        abstract suspend fun addBack(id: Long, path: AddPath)
+
+        /** Runs the upgrade migration that aligns every group's categories. */
+        abstract suspend fun upgrade()
     }
+
+    /** The add paths a removed entry can come back through, each a different entry point. */
+    enum class AddPath { BROWSE, STORED, UNASKED, BULK }
 
     private val groups = MergeGroupRepositoryImpl(database)
     private val categoryRepository = CategoryRepositoryImpl(database)
@@ -175,7 +244,9 @@ class GroupCategoriesConformanceTest {
         override val mergeManager = MangaMergeManager(groups, reikaiPreferences, categories::adoptOwnerCategories) {}
         private val adder = MangaLibraryAdder(
             sourceManager = mockk(relaxed = true),
-            libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+            libraryPreferences = LibraryPreferences(
+                InMemoryPreferenceStore(sequenceOf(InMemoryPreference(DEFAULT_CATEGORY_PREF_KEY, Y.toInt(), -1))),
+            ),
             getCategories = getCategories,
             getDuplicateLibraryManga = mockk(relaxed = true),
             getManga = GetManga(mangas),
@@ -197,6 +268,28 @@ class GroupCategoriesConformanceTest {
         override suspend fun categoriesOf(id: Long) = getCategories.await(id).map { it.id }.toSet()
 
         override suspend fun file(id: Long, ids: List<Long>) = adder.moveToCategories(mangas.getMangaById(id), ids)
+
+        override suspend fun setInLibrary(id: Long, inLibrary: Boolean) {
+            mangas.update(MangaUpdate(id) { favoriteAt = 1L.takeIf { inLibrary } })
+        }
+
+        override suspend fun addBack(id: Long, path: AddPath) {
+            when (path) {
+                // Manga's stored-row add is the browse add: both resolve through resolveAddFavorite's rule.
+                AddPath.BROWSE, AddPath.STORED -> adder.resolveAddFavorite(mangas.getMangaById(id))
+                AddPath.UNASKED -> adder.addWithoutAsking(id)
+                AddPath.BULK -> {
+                    adder.favoriteFromBrowse(id)
+                    adder.fileAdded(id, listOf(Y))
+                }
+            }
+        }
+
+        override suspend fun upgrade() {
+            MergedGroupCategoriesMigration(
+                AlignGroupCategories(mergeManager, categories, mockk(relaxed = true), mockk(relaxed = true)),
+            ).invoke(mockk(relaxed = true))
+        }
     }
 
     private inner class NovelSide(reikaiPreferences: ReikaiLibraryPreferences) : Side(ContentType.NOVELS) {
@@ -211,7 +304,9 @@ class GroupCategoriesConformanceTest {
             getNovelCategories = getNovelCategories,
             setNovelCategories = setNovelCategories,
             updateNovel = UpdateNovel(novels, sourceTracker = mockk(relaxed = true)),
-            novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
+            novelPreferences = NovelPreferences(
+                InMemoryPreferenceStore(sequenceOf(InMemoryPreference("default_novel_category", Y.toInt(), -1))),
+            ),
             mergeManager = mergeManager,
             transactions = PassThroughTransactions,
             reikaiLibraryPreferences = reikaiPreferences,
@@ -231,9 +326,39 @@ class GroupCategoriesConformanceTest {
         override suspend fun categoriesOf(id: Long) = getNovelCategories.awaitByNovelId(id).map { it.id }.toSet()
 
         override suspend fun file(id: Long, ids: List<Long>) = adder.applyCategories(id, ids)
+
+        override suspend fun setInLibrary(id: Long, inLibrary: Boolean) {
+            novels.update(NovelUpdate(id) { favoriteAt = 1L.takeIf { inLibrary } })
+        }
+
+        override suspend fun addBack(id: Long, path: AddPath) {
+            when (path) {
+                AddPath.BROWSE -> adder.addToLibrary(
+                    NovelItem(name = "Novel", path = "/novel/$id", cover = null),
+                    "src$id",
+                )
+                AddPath.STORED -> adder.addStoredToLibrary(id)
+                // Novels have no add that skips the picker outright; the bulk add is the unasked one.
+                AddPath.UNASKED, AddPath.BULK -> {
+                    adder.favoriteForAdd(id)
+                    adder.fileAdded(id, listOf(Y))
+                }
+            }
+        }
+
+        override suspend fun upgrade() {
+            MergedGroupCategoriesMigration(
+                AlignGroupCategories(mockk(relaxed = true), mockk(relaxed = true), mergeManager, categories),
+            ).invoke(mockk(relaxed = true))
+        }
     }
 
-    private companion object {
+    companion object {
+        @JvmStatic
+        fun reAdds() = listOf(ContentType.MANGA, ContentType.NOVELS).flatMap { type ->
+            AddPath.entries.map { Arguments.of(type, it) }
+        }
+
         const val MEMBER = 1L
         const val SIBLING = 2L
         const val OUTSIDER = 3L

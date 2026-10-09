@@ -126,7 +126,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 
 #### Changed
 
-- **Changing a merged series' categories now changes them for every source in the group, so its library card no longer jumps between categories after a refresh.** Merging series files them together in the first one's categories.
+- **Changing a merged series' categories now changes them for every source in the group, so its library card no longer jumps between categories after a refresh.** Merging, adding a source or adding one back keeps the series in its categories, and updating reunites series already split.
 - **Adding a series that shares a title with one in your library now asks whether to group them instead of grouping them on its own, unless Settings -> Library -> Suggest grouping same-titled series is off.** It asks from Browse, global search and History, with a separate switch for manga and novels.
 - **On a merged series, the library, the series' page and History now open the whole group in the reader, while Updates, a source chip and new-chapter notifications open only that source.**
 - **Reading a chapter now marks its duplicates read by default, in the same series and on a merged series' other sources, under Settings -> Library -> Mark duplicate read chapter as read.**

@@ -36,7 +36,7 @@ class BulkFavoriteViewModel(
             finishAdd(
                 categoryIds = categoryIds,
                 favorite = { libraryAdder.favoriteFromBrowse(manga.id) },
-                fileCategories = { _, ids -> libraryAdder.moveToCategories(manga, ids) },
+                fileCategories = { _, ids -> libraryAdder.fileAdded(manga.id, ids) },
             )
         }
     }

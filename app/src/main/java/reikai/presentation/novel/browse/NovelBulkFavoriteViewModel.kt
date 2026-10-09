@@ -38,7 +38,7 @@ class NovelBulkFavoriteViewModel(
             finishAdd(
                 categoryIds = categoryIds,
                 favorite = { libraryAdder.favoriteReturningId(selected.item, selected.sourceId) },
-                fileCategories = { id, ids -> libraryAdder.applyCategories(id, ids) },
+                fileCategories = { id, ids -> libraryAdder.fileAdded(id, ids) },
             )
         }
     }

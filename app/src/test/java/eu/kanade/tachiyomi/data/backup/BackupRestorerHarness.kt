@@ -14,6 +14,7 @@ import io.mockk.mockk
 import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -30,6 +31,7 @@ suspend fun restoreEncoded(
     sourceManager: SourceManager = mockk(relaxed = true),
     stubSourceRepository: StubSourceRepository = mockk(relaxed = true),
     novelSourceManager: NovelSourceManager = mockk(relaxed = true),
+    alignGroupCategories: AlignGroupCategories = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -62,5 +64,6 @@ suspend fun restoreEncoded(
         },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = ReikaiLibraryPreferences(InMemoryPreferenceStore()),
+        alignGroupCategories = alignGroupCategories,
     ).restore(uri, options)
 }

@@ -272,13 +272,9 @@ class NovelRecentsAdapter(
         return novelLibraryAdder.addStoredToLibrary(novel.id)
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
         val novel = novelOf(entry) ?: return
-        if (joinGroup.isEmpty()) {
-            novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
-        } else {
-            novelLibraryAdder.confirmGroupCategories(novel.id, joinGroup.map { it.rawId }, categoryIds)
-        }
+        novelLibraryAdder.confirmAddCategories(novel.id, categoryIds)
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {

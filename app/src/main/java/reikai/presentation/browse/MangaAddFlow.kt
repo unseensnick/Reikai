@@ -21,8 +21,6 @@ sealed interface MangaAddDialog {
     data class ChangeCategory(
         val manga: Manga,
         val initialSelection: List<CheckboxState.State<Category>>,
-        /** The group of the duplicate dialog's picks, when the add joins one: its confirm then merges too. */
-        val joinGroup: List<Long> = emptyList(),
     ) : MangaAddDialog
 
     data class Migrate(val currentId: Long, val targetId: Long) : MangaAddDialog
@@ -43,7 +41,7 @@ class MangaAddFlow(
 
     override fun confirmCategories(categoryIds: List<Long>) =
         continueWith(raised as? MangaAddDialog.ChangeCategory) {
-            adder.confirmPicker(it.manga, categoryIds, it.joinGroup)
+            adder.confirmAddCategories(it.manga.id, categoryIds)
             null
         }
 
@@ -52,7 +50,7 @@ class MangaAddFlow(
     }
 
     override fun addToGroup(entryIds: List<Long>) = continueWith(raised as? MangaAddDialog.AddDuplicate) {
-        adder.addToExistingGroup(it.manga, entryIds).pickerFor(it.manga, joinGroup = entryIds)
+        adder.addToExistingGroup(it.manga, entryIds).pickerFor(it.manga)
     }
 
     override fun startMigrate(duplicateId: Long) = continueWith(raised as? MangaAddDialog.AddDuplicate) {
@@ -70,8 +68,8 @@ class MangaAddFlow(
 }
 
 /** The picker an add has to raise, or null when it finished (or failed, which wrote nothing). */
-internal fun AddFavoriteResult.pickerFor(manga: Manga, joinGroup: List<Long> = emptyList()): MangaAddDialog? =
+internal fun AddFavoriteResult.pickerFor(manga: Manga): MangaAddDialog? =
     when (this) {
         AddFavoriteResult.Added, AddFavoriteResult.Failed -> null
-        is AddFavoriteResult.NeedsCategoryChoice -> MangaAddDialog.ChangeCategory(manga, initialSelection, joinGroup)
+        is AddFavoriteResult.NeedsCategoryChoice -> MangaAddDialog.ChangeCategory(manga, initialSelection)
     }

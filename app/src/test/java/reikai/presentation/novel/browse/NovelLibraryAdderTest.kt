@@ -117,10 +117,7 @@ class NovelLibraryAdderTest {
         val dialog = adder(userCategories = listOf(category(3L)), defaultCategoryId = -1)
             .addToLibrary(item, sourceId = "src")
 
-        dialog shouldBe NovelBrowseDialog.ChangeCategory(
-            NovelCategoryTarget.Pending(item, "src"),
-            listOf(CheckboxState.State.None(category(3L))),
-        )
+        dialog shouldBe NovelBrowseDialog.ChangeCategory(item, "src", listOf(CheckboxState.State.None(category(3L))))
     }
 
     @Test
@@ -131,7 +128,7 @@ class NovelLibraryAdderTest {
         val setNovelCategories = mockk<SetNovelCategories>(relaxed = true)
 
         adder(setNovelCategories = setNovelCategories, updateNovel = updateNovel)
-            .confirmCategories(NovelCategoryTarget.Pending(item, "src"), listOf(3L))
+            .confirmCategories(item, "src", listOf(3L))
 
         coVerifyOrder {
             updateNovel.awaitUpdateFavorite(5L, true)

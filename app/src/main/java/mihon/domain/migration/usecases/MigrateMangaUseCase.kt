@@ -15,6 +15,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.backup.mergedHistory // RK
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId // RK
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.core.common.util.system.logcat
@@ -64,6 +65,8 @@ class MigrateMangaUseCase(
     private val upsertHistory: UpsertHistory,
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
+
+    private val groupCategories = MangaGroupCategories(getCategories, setMangaCategories) // RK
 
     // RK: flags may be passed as a value so concurrent migrations can't read each other's set out of
     // the shared preference; skipTargetRefresh lets a caller that just fetched the target's chapters
@@ -225,6 +228,9 @@ class MigrateMangaUseCase(
                     "Migration favorite swap failed (${current.id} -> ${target.id})"
                 }
             }
+            // Without the category option the target keeps its own categories, which inside a group
+            // would file one member apart from the rest; it takes the group's instead.
+            if (MigrationFlag.CATEGORY !in flags) groupCategories.takeGroupCategories(target.id, mangaMergeManager)
             sourceTracker.migrated(
                 EntryId.Manga(current.id),
                 EntryId.Manga(target.id),

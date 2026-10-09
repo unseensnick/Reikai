@@ -34,6 +34,20 @@ open class GroupCategories(
         memberIds.drop(1).forEach { write(it, owned) }
     }
 
+    /** The categories [id]'s group holds, read from another of its library members; null outside a group. */
+    suspend fun groupCategoriesFor(id: Long, mergeManager: EntryMergeManager): List<Long>? =
+        mergeManager.groupLibraryMembers(id).firstOrNull { it != id }?.let { categoriesOf(it) }
+
+    /** [id], having entered its group without a category write of its own, takes the group's categories. */
+    suspend fun takeGroupCategories(id: Long, mergeManager: EntryMergeManager) {
+        groupCategoriesFor(id, mergeManager)?.let { write(id, it) }
+    }
+
+    /** Every group of [mergeManager]'s type takes its first library member's categories. */
+    suspend fun alignEveryGroup(mergeManager: EntryMergeManager) {
+        mergeManager.libraryGroups().forEach { adoptOwnerCategories(it) }
+    }
+
     private suspend fun groupOf(id: Long, mergeManager: EntryMergeManager): List<Long> =
         mergeManager.computeRelatedIds(id).asList()
 }

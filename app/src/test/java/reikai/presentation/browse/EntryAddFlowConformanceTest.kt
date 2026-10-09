@@ -59,16 +59,16 @@ class EntryAddFlowConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
-    fun `a group add with no default asks for categories, then files there`(probe: AddFlowProbe) = runTest {
-        val duplicate = probe.storeDuplicate()
-        probe.storeEntry(inLibrary = false)
-        probe.pressEntry()
+    fun `a group add with no default files with the uncategorized group without asking`(probe: AddFlowProbe) =
+        runTest {
+            val duplicate = probe.storeDuplicate()
+            probe.storeEntry(inLibrary = false)
+            probe.pressEntry()
 
-        probe.act { flow.addToGroup(listOf(duplicate)) }
-        probe.act { flow.confirmCategories(listOf(PICKED_CATEGORY)) }
+            probe.act { flow.addToGroup(listOf(duplicate)) }
 
-        probe.entryCategories() shouldBe listOf(PICKED_CATEGORY)
-    }
+            probe.entryCategories() shouldBe emptyList()
+        }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")

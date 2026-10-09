@@ -793,7 +793,7 @@ class MangaViewModel(
                 // RK: the shared add sequence, so no add path can drift from the others: decide,
                 // favorite, file, and abandon the whole add if the favorite write fails.
                 val outcome = addEntry(
-                    resolveCategories = { mangaLibraryAdder.resolveDefaultCategories() },
+                    resolveCategories = { mangaLibraryAdder.landingCategories(manga.id) },
                     favorite = { mangaLibraryAdder.favoriteForAdd(manga.id) },
                     fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
                 )
@@ -804,18 +804,17 @@ class MangaViewModel(
         }
     }
 
-    // RK: add-time grouping, through the shared add sequence: the group's categories win, then the
-    // default, and a picker it has to raise writes nothing until its confirm. Only the picks the user
-    // chose: the duplicate list is fuzzy, so merging every match would fuse distinct series.
+    // RK: add-time grouping, through the shared add sequence, filed in the group's categories so it
+    // never asks. Only the picks the user chose: the duplicate list is fuzzy, so merging every match
+    // would fuse distinct series.
     fun addToExistingGroup(selectedIds: List<Long>) {
         val manga = successState?.manga ?: return
         viewModelScope.launchIO {
-            val outcome = addEntry(
-                resolveCategories = { mangaLibraryAdder.groupOrDefaultCategories(selectedIds) },
+            addEntry(
+                resolveCategories = { mangaLibraryAdder.groupCategoryIdsOf(selectedIds) },
                 favorite = { mangaLibraryAdder.joinGroup(manga, selectedIds) },
                 fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
             )
-            if (outcome == AddOutcome.NeedsCategoryChoice) showChangeCategoryDialog(joinGroup = selectedIds)
         }
     }
 
@@ -862,7 +861,7 @@ class MangaViewModel(
     }
     // RK <--
 
-    fun showChangeCategoryDialog(joinGroup: List<Long> = emptyList()) { // RK: joinGroup
+    fun showChangeCategoryDialog() {
         val manga = successState?.manga ?: return
         viewModelScope.launch {
             // RK: the adder's picker, ordered by the category sort-order pref like the library's pickers.
@@ -870,7 +869,6 @@ class MangaViewModel(
             dialog.value = Dialog.ChangeCategory(
                 manga = manga,
                 initialSelection = selection,
-                joinGroup = joinGroup, // RK
             )
         }
     }
@@ -917,23 +915,12 @@ class MangaViewModel(
     // RK <--
 
     // RK: the picker's confirm owes both writes the add deferred, in the shared order, so backing out
-    // of the picker adds nothing and a failed favorite leaves no categories behind. A group add's
-    // favorite joins [joinGroup]'s group as one unit.
-    fun moveMangaToCategoriesAndAddToLibrary(
-        manga: Manga,
-        categories: List<Long>,
-        joinGroup: List<Long>,
-    ) {
+    // of the picker adds nothing and a failed favorite leaves no categories behind.
+    fun moveMangaToCategoriesAndAddToLibrary(manga: Manga, categories: List<Long>) {
         viewModelScope.launchIO {
             finishAdd(
                 categoryIds = categories,
-                favorite = {
-                    if (joinGroup.isNotEmpty()) {
-                        mangaLibraryAdder.joinGroup(manga, joinGroup)
-                    } else {
-                        if (manga.favorite) manga.id else mangaLibraryAdder.favoriteForAdd(manga.id)
-                    }
-                },
+                favorite = { if (manga.favorite) manga.id else mangaLibraryAdder.favoriteForAdd(manga.id) },
                 fileCategories = { _, categoryIds -> mangaLibraryAdder.moveToCategories(manga, categoryIds) },
             )
         }
@@ -1676,8 +1663,6 @@ class MangaViewModel(
         data class ChangeCategory(
             val manga: Manga,
             val initialSelection: List<CheckboxState<Category>>,
-            // RK: the group of the duplicate dialog's picks, when the add joins one.
-            val joinGroup: List<Long> = emptyList(),
         ) : Dialog
         data class DeleteChapters(val chapters: List<Chapter>) : Dialog
 

@@ -491,9 +491,9 @@ class RecentsEngine(
     }
 
     /** The category picker's confirm, which owes both writes the add deferred. */
-    fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
+    fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
         dismissDialog()
-        viewModelScope.launchIO { fileAddCategories(entry, categoryIds, joinGroup) }
+        viewModelScope.launchIO { fileAddCategories(entry, categoryIds) }
     }
 
     /** Migrates a duplicate already in the library onto the entry being added, from the prompt. */
@@ -516,21 +516,21 @@ class RecentsEngine(
 
     internal suspend fun runAdd(entry: EntryId) {
         val provider = providersByType[entry.contentType] ?: return
-        promptForCategories(entry, provider.addToLibrary(entry), joinGroup = emptyList())
+        promptForCategories(entry, provider.addToLibrary(entry))
     }
 
+    // A group add files into the group's categories, so it never asks.
     internal suspend fun groupAdd(entry: EntryId, duplicates: List<EntryId>) {
-        val provider = providersByType[entry.contentType] ?: return
-        promptForCategories(entry, provider.addToGroup(entry, duplicates), joinGroup = duplicates)
+        providersByType[entry.contentType]?.addToGroup(entry, duplicates)
     }
 
-    internal suspend fun fileAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
-        providersByType[entry.contentType]?.applyAddCategories(entry, categoryIds, joinGroup)
+    internal suspend fun fileAddCategories(entry: EntryId, categoryIds: List<Long>) {
+        providersByType[entry.contentType]?.applyAddCategories(entry, categoryIds)
     }
 
-    private fun promptForCategories(entry: EntryId, result: AddFavoriteResult, joinGroup: List<EntryId>) {
+    private fun promptForCategories(entry: EntryId, result: AddFavoriteResult) {
         if (result is AddFavoriteResult.NeedsCategoryChoice) {
-            openDialog(RecentsDialog.ChangeCategory(entry, result.initialSelection, joinGroup))
+            openDialog(RecentsDialog.ChangeCategory(entry, result.initialSelection))
         }
     }
 

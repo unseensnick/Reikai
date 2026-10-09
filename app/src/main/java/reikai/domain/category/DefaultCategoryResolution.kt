@@ -26,11 +26,8 @@ fun resolveDefaultCategoryIds(categories: List<Category>, defaultCategoryId: Int
 fun List<Long>.withoutSystemCategory(): List<Long> = filter { it != Category.UNCATEGORIZED_ID }
 
 /**
- * Where an entry joining a group lands: the categories the group's members already use, so a new
- * source sits with the rest of the series, else [default], whose null means ask.
+ * Where an entry joining a group lands: the categories the group's members already use, none included,
+ * so a new source sits with the rest of the series and the series stays where it was.
  */
-suspend fun groupOrDefaultCategoryIds(
-    groupCategories: List<Category>,
-    default: suspend () -> List<Long>?,
-): List<Long>? =
-    groupCategories.map { it.id }.withoutSystemCategory().distinct().ifEmpty { null } ?: default()
+fun groupCategoryIds(groupCategories: List<Category>): List<Long> =
+    groupCategories.map { it.id }.withoutSystemCategory().distinct()

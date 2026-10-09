@@ -1046,15 +1046,12 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `adding to a group still asks for categories when the group has none`() = runTest {
-        val selection = listOf(CheckboxState.State.None(category))
-        val manga = provider(ContentType.MANGA, addResult = AddFavoriteResult.NeedsCategoryChoice(selection))
-        val engine = engine(listOf(manga))
+    fun `adding to a group hands the provider the picked duplicates`() = runTest {
+        val manga = provider(ContentType.MANGA)
 
-        engine.groupAdd(manga1, listOf(manga2))
+        engine(listOf(manga)).groupAdd(manga1, listOf(manga2))
 
         manga.groupedWith shouldBe listOf(manga2)
-        engine.dialog.value shouldBe RecentsDialog.ChangeCategory(manga1, selection, joinGroup = listOf(manga2))
     }
 
     @Test
@@ -1183,20 +1180,11 @@ class RecentsEngineTest {
     }
 
     @Test
-    fun `a group add's confirm hands the provider the group to join`() = runTest {
-        val manga = provider(ContentType.MANGA)
-
-        engine(listOf(manga)).fileAddCategories(manga1, listOf(3L), joinGroup = listOf(manga2))
-
-        manga.filedJoiningGroup shouldBe listOf(manga2)
-    }
-
-    @Test
     fun `the picker's confirm files through the provider that owns the entry`() = runTest {
         val manga = provider(ContentType.MANGA)
         val novel = provider(ContentType.NOVELS)
 
-        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L), joinGroup = emptyList())
+        engine(listOf(manga, novel)).fileAddCategories(novel1, listOf(3L))
 
         (manga.filedCategories to novel.filedCategories) shouldBe (null to (novel1 to listOf(3L)))
     }
@@ -1741,8 +1729,6 @@ private class FakeRecentsProvider(
         private set
     var filedCategories: Pair<EntryId, List<Long>>? = null
         private set
-    var filedJoiningGroup: List<EntryId>? = null
-        private set
     var groupedWith: List<EntryId>? = null
         private set
 
@@ -1894,9 +1880,8 @@ private class FakeRecentsProvider(
         return addResult
     }
 
-    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>, joinGroup: List<EntryId>) {
+    override suspend fun applyAddCategories(entry: EntryId, categoryIds: List<Long>) {
         filedCategories = entry to categoryIds
-        filedJoiningGroup = joinGroup
     }
 
     override suspend fun addToGroup(entry: EntryId, duplicates: List<EntryId>): AddFavoriteResult {

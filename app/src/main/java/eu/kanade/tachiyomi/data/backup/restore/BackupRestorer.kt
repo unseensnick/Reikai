@@ -50,6 +50,7 @@ import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
@@ -93,6 +94,7 @@ class BackupRestorer(
     private val adultContentChecker: AdultContentChecker,
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val alignGroupCategories: AlignGroupCategories,
     // RK <--
 ) {
 
@@ -409,6 +411,8 @@ class BackupRestorer(
                         summary.backupNovelUnmerges.map { it.refs },
                     ),
                 )
+                // Entries were filed one at a time from the backup, so a group can come back disagreeing.
+                alignGroupCategories.align(ContentType.NOVELS)
             }
         }
     }
@@ -501,6 +505,8 @@ class BackupRestorer(
                     summary.backupMangaUnmerges.map { it.refs },
                 ),
             )
+            // RK: entries were filed one at a time from the backup, so a group can come back disagreeing
+            alignGroupCategories.align(ContentType.MANGA)
         }
     }
 

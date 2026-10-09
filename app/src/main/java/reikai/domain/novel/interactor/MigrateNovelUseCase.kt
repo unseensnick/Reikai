@@ -12,6 +12,7 @@ import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -61,6 +62,8 @@ class MigrateNovelUseCase(
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
+
+    private val groupCategories = NovelGroupCategories(getNovelCategories, setNovelCategories)
 
     suspend operator fun invoke(
         current: Novel,
@@ -187,6 +190,9 @@ class MigrateNovelUseCase(
                     "Migration favorite swap failed (${current.id} -> ${target.id})"
                 }
             }
+            // Without the category option the target keeps its own categories, which inside a group
+            // would file one member apart from the rest; it takes the group's instead.
+            if (NovelMigrationFlag.CATEGORY !in flags) groupCategories.takeGroupCategories(target.id, novelMergeManager)
             sourceTracker.migrated(
                 EntryId.Novel(current.id),
                 EntryId.Novel(target.id),

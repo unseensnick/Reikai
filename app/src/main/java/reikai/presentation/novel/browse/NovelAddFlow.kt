@@ -21,24 +21,17 @@ sealed interface NovelBrowseDialog {
         val sourceId: String,
         val prompt: DuplicatePrompt<NovelWithChapterCount, String>,
     ) : NovelBrowseDialog
+
+    /** A browse add's picker. The add has written nothing, so its confirm stores, favorites and files [item]. */
     data class ChangeCategory(
-        val target: NovelCategoryTarget,
+        val item: NovelItem,
+        val sourceId: String,
         val initialSelection: List<CheckboxState.State<Category>>,
     ) : NovelBrowseDialog
     data class RemoveNovel(val item: NovelItem, val sourceId: String) : NovelBrowseDialog
 
     /** Migrating the library's copy onto the one just browsed to, both already stored by id. */
     data class Migrate(val currentId: Long, val targetId: Long) : NovelBrowseDialog
-}
-
-/**
- * What a category picker's confirm has left to write. Both adds reach the picker before anything is
- * written, so backing out of it adds nothing and confirming owes the whole add; a group add's favorite
- * also merges its already inserted row into the group of [JoinGroup.selectedIds], as one unit.
- */
-sealed interface NovelCategoryTarget {
-    data class JoinGroup(val novelId: Long, val selectedIds: List<Long>) : NovelCategoryTarget
-    data class Pending(val item: NovelItem, val sourceId: String) : NovelCategoryTarget
 }
 
 /** The novel long-press add flow, over [NovelLibraryAdder]. */
@@ -56,7 +49,7 @@ class NovelAddFlow(
 
     override fun confirmCategories(categoryIds: List<Long>) =
         continueWith(raised as? NovelBrowseDialog.ChangeCategory) {
-            adder.confirmCategories(it.target, categoryIds)
+            adder.confirmCategories(it.item, it.sourceId, categoryIds)
             null
         }
 
@@ -66,6 +59,7 @@ class NovelAddFlow(
 
     override fun addToGroup(entryIds: List<Long>) = continueWith(raised as? NovelBrowseDialog.AddDuplicate) {
         adder.addToExistingGroup(it.item, it.sourceId, entryIds)
+        null
     }
 
     // A browsed novel has no row until it is stored, which is a source round trip.

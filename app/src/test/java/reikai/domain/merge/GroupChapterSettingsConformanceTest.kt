@@ -174,7 +174,7 @@ class GroupChapterSettingsConformanceTest {
         /** Adds [id] back through a stored row's add confirm, which every add surface ends in. */
         suspend fun addBack(id: Long)
 
-        /** Adds [id] back merged into [pickedId]'s group, as the duplicate prompt's group add confirms. */
+        /** Adds [id] back merged into [pickedId]'s group, as the duplicate prompt's group add does. */
         suspend fun addBackIntoGroupOf(id: Long, pickedId: Long)
 
         suspend fun groupOf(id: Long) = mergeManager.computeRelatedIds(id).asList()
@@ -227,7 +227,7 @@ class GroupChapterSettingsConformanceTest {
         }
 
         override suspend fun addBackIntoGroupOf(id: Long, pickedId: Long) {
-            adder.confirmGroupCategories(mangas.getMangaById(id), listOf(pickedId), categoryIds = emptyList())
+            adder.addToExistingGroup(mangas.getMangaById(id), listOf(pickedId))
         }
 
         private suspend fun shown(openedId: Long, memberIds: List<Long>) =
@@ -272,7 +272,7 @@ class GroupChapterSettingsConformanceTest {
         }
 
         override suspend fun addBackIntoGroupOf(id: Long, pickedId: Long) {
-            adder.confirmGroupCategories(id, listOf(pickedId), categoryIds = emptyList())
+            adder.addToExistingGroup(id, listOf(pickedId))
         }
 
         override suspend fun seed(id: Long, descending: Boolean) {
