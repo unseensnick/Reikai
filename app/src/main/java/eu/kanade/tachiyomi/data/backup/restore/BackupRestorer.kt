@@ -380,8 +380,8 @@ class BackupRestorer(
                 }
             }
 
-            // Isolated for the same reason as the manga twin: a failure here used to cancel the
-            // sibling stream and escape before the error log was written.
+            // Isolated as the manga twin is: a failure here must not cancel the sibling stream or
+            // escape before the error log is written.
             restoreIsolated("novel merges") {
                 novelRestorer.restoreMerges(
                     summary.backupNovelMerges,
@@ -471,9 +471,8 @@ class BackupRestorer(
         }
 
         // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
-        // like the entry loop above: this ran bare, so a failure here cancelled the novel stream
-        // mid-batch and escaped before the error log was written, leaving the user a half-restored
-        // library and no report.
+        // like the entry loop above: a failure here would otherwise cancel the novel stream mid-batch
+        // and escape before the error log is written, leaving a half-restored library and no report.
         ensureActive()
         restoreIsolated("merges") {
             mangaRestorer.restoreMerges(
