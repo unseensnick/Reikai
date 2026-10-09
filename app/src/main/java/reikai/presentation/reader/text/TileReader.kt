@@ -10,7 +10,7 @@ import java.io.File
 /**
  * Where a tall picture's slices are decoded from, kept open while the picture is on screen. The platform
  * reads a region of JPEG, PNG, WebP and HEIF only, so a picture in any other format has none of this and
- * is drawn from the copy the loader decoded, as every picture used to be.
+ * is drawn whole from the copy the loader decoded.
  */
 internal class TileReader private constructor(private val decoder: BitmapRegionDecoder) : Closeable {
 

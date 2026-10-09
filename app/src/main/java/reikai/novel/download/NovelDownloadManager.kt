@@ -172,8 +172,8 @@ class NovelDownloadManager(
         NovelDownloadWorker.start(context)
     }
 
-    /** Stop the running job and clear the entire pending queue. Already-downloaded chapters (files +
-     *  flags) are kept; only what's still queued is discarded. */
+    /** Stop the running job and clear the entire pending queue. Downloaded chapters are kept; only
+     *  what's still queued is discarded. */
     fun cancelAllDownloads() {
         NovelDownloadWorker.stop(context)
         sourcePreferences.novelDownloadsPaused.set(false)
@@ -190,8 +190,8 @@ class NovelDownloadManager(
     }
 
     /** User pause: stop the drain without clearing the queue. The flag only tells the worker's last
-     *  notification to offer Resume, since nothing restarts a queue on launch anyway. The worker is cancelled; any in-flight chapter is reset to QUEUE at the next drain start (see
-     *  [runQueue]) so resume re-downloads it rather than leaving it stuck DOWNLOADING. */
+     *  notification to offer Resume, since nothing restarts a queue on launch anyway. The worker is
+     *  cancelled; an in-flight chapter goes back to QUEUE at the next drain start (see [runQueue]). */
     fun pauseDownloads() {
         sourcePreferences.novelDownloadsPaused.set(true)
         _downloadingNovelId.value = null
@@ -319,8 +319,8 @@ class NovelDownloadManager(
      * [eu.kanade.tachiyomi.data.download.DownloadManager.deleteManga], pinned by EmptiedPausedQueueConformanceTest.
      *
      * Chapter-by-chapter deletion cannot do this job. It only reaches what the disk cache already
-     * reports, and a queued chapter is by definition not downloaded yet, so migrating away with
-     * remove-downloads on left the worker still fetching into the source just left behind.
+     * reports, and a queued chapter is not downloaded yet, so the worker would keep fetching into a
+     * novel migrated away from.
      */
     suspend fun awaitDeleteNovel(novel: Novel) {
         val queued = _queueState.value.filter { it.novelId == novel.id }.map { it.chapterId }
@@ -374,8 +374,7 @@ class NovelDownloadManager(
             // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
             // finished download leaves the queue, so what is left is either DOWNLOADING from a drain
             // that was cancelled (a user pause, a crash, a force-kill) or ERROR, which is exactly what
-            // Resume is for. The loop below only picks QUEUE, so an ERROR row used to sit there
-            // untouched with Resume doing nothing for it.
+            // Resume is for. The loop below only picks QUEUE, so an ERROR row left as it is would never run.
             _queueState.update { q -> q.map { it.copy(state = NovelDownload.State.QUEUE) } }
             var done = 0
             while (true) {
@@ -472,7 +471,6 @@ class NovelDownloadManager(
                         lastError?.message
                     }
                     setState(next.chapterId, NovelDownload.State.ERROR, reason)
-                    // Notify the user: a failed novel download was previously completely silent.
                     onError(shown, chapter?.name, reason, isAdult)
                 }
                 // Per-source pacing, by the user's delay and NovelDownloadPacing's back-off, so a

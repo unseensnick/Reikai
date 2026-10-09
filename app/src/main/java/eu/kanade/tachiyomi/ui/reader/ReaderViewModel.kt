@@ -1596,7 +1596,7 @@ class ReaderViewModel(
         /**
          * The chapter the chrome describes, which is not always [currentChapter]: the viewer crosses
          * into the next chapter before the model swaps that asynchronously, so reading the title from
-         * it used to pair one chapter's page number with another's title and total.
+         * it would pair one chapter's page number with another's title and total.
          */
         val visibleChapter: ReaderChapter?
             get() {

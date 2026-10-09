@@ -167,8 +167,8 @@ class Downloader(
         // RK -->
         // A transient failure (no network, or wifi-only while on mobile data) shouldn't error the
         // in-flight chapter and strand the progress notification. Re-queue it and show the
-        // resumable Paused notification instead of a dead-end warning, matching Yokai's graceful
-        // pause. DownloadWorker keeps its network monitor alive and resumes when connectivity returns.
+        // resumable Paused notification instead of a dead-end warning. DownloadWorker keeps its
+        // network monitor alive and resumes when connectivity returns.
         if (reason != null) {
             queueState.value
                 .filter { it.status == Download.State.DOWNLOADING }
@@ -411,10 +411,9 @@ class Downloader(
                 }
             }
         }
-        // RK: (re)start whenever the downloader isn't already running, not only on a fresh
-        // (previously-empty) queue, so a leftover errored or paused download at the head of
-        // the queue no longer leaves newly-added chapters stuck until a manual resume. A chapter
-        // queued again after failing starts it the same way.
+        // RK: (re)start whenever the downloader isn't already running, not only on an empty queue,
+        // so a leftover errored or paused download at the head of the queue cannot leave newly added
+        // chapters stuck until a manual resume. A chapter queued again after failing starts it the same way.
         return autoStart && !isRunning && (chaptersToQueue.isNotEmpty() || retried.isNotEmpty())
     }
 

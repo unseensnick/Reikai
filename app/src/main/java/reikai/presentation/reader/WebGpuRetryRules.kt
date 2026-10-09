@@ -9,7 +9,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 
 /**
  * Whether reaching a neighbour's edge starts loading it. A neighbour that failed is held until the
- * next page turn or a Retry tap: the viewer asks on every frame, so it used to fetch every 5 seconds.
+ * next page turn or a Retry tap: the viewer asks on every frame, and otherwise refetches it every 5 seconds.
  */
 internal fun shouldAutoPreload(state: ReaderChapter.State, isHeld: Boolean): Boolean =
     state !is ReaderChapter.State.Loaded && !(state is ReaderChapter.State.Error && isHeld)
