@@ -148,18 +148,13 @@ class NovelLibraryAdapter(
         model.unmergeSelection(entries.ownIds())
     }
 
-    // The category write applies to exactly the ids it is handed, so the merge group is expanded here;
-    // delete expands on its own, but only when asked to.
+    // The model expands merge groups itself for categories; delete expands only on request.
     override fun setCategories(
         entries: Set<EntryId>,
         addCategories: List<Long>,
         removeCategories: List<Long>,
     ) {
-        model.setNovelCategories(
-            model.state.value.memberIdsFor(entries.ownIds()),
-            addCategories,
-            removeCategories,
-        )
+        model.setNovelCategories(entries.ownIds(), addCategories, removeCategories)
     }
 
     override fun deleteEntries(

@@ -23,7 +23,8 @@ open class EntryMergeManager(
     // The type's own "suggest grouping same-title series" switch, which each subclass hands in.
     private val sameTitlePreference: Preference<Boolean>,
     // Runs after a merge with the group's library members in order, so the members joining take the
-    // settings owner's chapter settings (GroupChapterSettings.adoptOwnerSetting).
+    // settings owner's chapter settings and categories (GroupChapterSettings.adoptOwnerSetting,
+    // GroupCategories.adoptOwnerCategories).
     private val onMerged: suspend (memberIds: List<Long>) -> Unit,
     private val onBeforeDissolve: suspend (memberIds: List<Long>) -> Unit,
 ) : MergeManager {

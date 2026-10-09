@@ -39,6 +39,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -134,6 +135,8 @@ class NovelLibraryViewModel(
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow<String?>(null)
+
+    private val groupCategories = NovelGroupCategories(getNovelCategories, setNovelCategories)
 
     // The novel update restrictions gate the custom-interval axis, as the manga ones do for manga.
     private val filterSettings = libraryFilterSettingsFlow(
@@ -453,14 +456,10 @@ class NovelLibraryViewModel(
         }
     }
 
-    /** Writes exactly the ids it is handed; the caller expands the merge group. */
+    /** Changes each of [novelIds]' categories together with the rest of its merge group. */
     fun setNovelCategories(novelIds: List<Long>, addCategories: List<Long>, removeCategories: List<Long>) {
         viewModelScope.launchNonCancellable {
-            novelIds.forEach { novelId ->
-                val current = getNovelCategories.awaitByNovelId(novelId).map { it.id }
-                val new = (current - removeCategories.toSet() + addCategories).distinct()
-                setNovelCategories.await(novelId, new)
-            }
+            novelIds.forEach { groupCategories.change(it, addCategories, removeCategories, mergeManager) }
         }
     }
 

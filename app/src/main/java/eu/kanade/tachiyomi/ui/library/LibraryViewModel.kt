@@ -43,6 +43,7 @@ import reikai.domain.chapter.hiddenKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -151,6 +152,8 @@ class LibraryViewModel(
 ) : ViewModel() {
 
     private val searchQuery = MutableStateFlow<String?>(null)
+
+    private val groupCategories = MangaGroupCategories(getCategories, setMangaCategories) // RK
 
     // RK: the active page moved to LibraryEngine, which persists it per chip and seeds each pager
     //     through initialPageFor
@@ -608,19 +611,11 @@ class LibraryViewModel(
      * @param removeCategories the categories to remove in all mangas.
      */
     fun setMangaCategories(mangaList: List<Manga>, addCategories: List<Long>, removeCategories: List<Long>) {
-        // RK: apply to every source of a merge group, so members can't drift into different
-        //     categories and make the entry vanish from a category the user moved it to. Works on
-        //     ids, so the merged-away members need no DB round-trip.
-        val memberIds = state.value.memberIdsFor(mangaList.map { it.id })
         viewModelScope.launchNonCancellable {
-            memberIds.forEach { mangaId ->
-                val categoryIds = getCategories.await(mangaId)
-                    .map { it.id }
-                    .subtract(removeCategories.toSet())
-                    .plus(addCategories)
-                    .toList()
-
-                setMangaCategories.await(mangaId, categoryIds) // RK: per group member id
+            mangaList.forEach { manga ->
+                // RK: the whole merge group takes one result, so its members cannot disagree and let
+                // the card move by itself when the lead changes.
+                groupCategories.change(manga.id, addCategories, removeCategories, mergeManager)
             }
         }
     }

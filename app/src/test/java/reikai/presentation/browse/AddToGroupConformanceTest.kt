@@ -373,6 +373,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         },
         mergeManager = mockk<MangaMergeManager>(relaxed = true) {
             coEvery { merge(any()) } answers { merged = true }
+            coEvery { computeRelatedIds(any()) } answers { longArrayOf(firstArg()) }
         },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {
@@ -512,6 +513,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         },
         mergeManager = mockk<NovelMergeManager>(relaxed = true) {
             coEvery { merge(any()) } answers { merged = true }
+            coEvery { computeRelatedIds(any()) } answers { longArrayOf(firstArg()) }
         },
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = mockk {

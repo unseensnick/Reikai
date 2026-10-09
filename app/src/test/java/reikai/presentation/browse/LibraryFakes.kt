@@ -45,6 +45,8 @@ inline fun <reified T : EntryMergeManager> fakeGrouping(
         firstArg<List<Long>>().mapNotNull { id -> groupIdByEntryId[id]?.let { id to it } }.toMap()
     }
     every { suggestGroupingOnAdd } returns suggest
+    // Library groups are not modelled here: every entry's category write reaches only itself.
+    coEvery { computeRelatedIds(any()) } answers { longArrayOf(firstArg()) }
 }
 
 /**

@@ -9,6 +9,7 @@ import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaChapterSettings
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.track.autobind.AutoBindOnAdd
@@ -52,6 +53,8 @@ class MangaLibraryAdder(
     private val removeMangaFromLibrary: RemoveMangaFromLibrary,
     private val chapterSettings: MangaChapterSettings,
 ) {
+
+    private val groupCategories = MangaGroupCategories(getCategories, setMangaCategories)
 
     /**
      * Decide a long press: remove, confirm a possible duplicate, or add. Decided on the stored row, since
@@ -157,8 +160,11 @@ class MangaLibraryAdder(
         removeMangaFromLibrary.await(listOf(manga.id))
     }
 
-    suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) {
-        setMangaCategories.await(manga.id, categoryIds.withoutSystemCategory())
+    /** Files [manga] under [categoryIds], and the rest of its merge group with it. */
+    suspend fun moveToCategories(manga: Manga, categoryIds: List<Long>) = fileCategories(manga.id, categoryIds)
+
+    private suspend fun fileCategories(mangaId: Long, categoryIds: List<Long>) {
+        groupCategories.set(mangaId, categoryIds.withoutSystemCategory(), mergeManager)
     }
 
     /**
@@ -181,7 +187,7 @@ class MangaLibraryAdder(
     suspend fun confirmAddCategories(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
         categoryIds = categoryIds,
         favorite = { favoriteFromBrowse(mangaId) },
-        fileCategories = { id, ids -> setMangaCategories.await(id, ids.withoutSystemCategory()) },
+        fileCategories = { id, ids -> fileCategories(id, ids) },
     )
 
     /**

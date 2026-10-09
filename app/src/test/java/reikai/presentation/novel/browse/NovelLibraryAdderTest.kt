@@ -54,7 +54,9 @@ class NovelLibraryAdderTest {
         groupCategories: List<Category> = emptyList(),
         userCategories: List<Category> = emptyList(),
         defaultCategoryId: Int = -1,
-        mergeManager: NovelMergeManager = mockk(relaxed = true),
+        mergeManager: NovelMergeManager = mockk(relaxed = true) {
+            coEvery { computeRelatedIds(any()) } answers { longArrayOf(firstArg()) }
+        },
         setNovelCategories: SetNovelCategories = mockk(relaxed = true),
         updateNovel: UpdateNovel = mockk {
             coEvery { awaitUpdateFavorite(any(), any()) } returns favoriteWriteSucceeds

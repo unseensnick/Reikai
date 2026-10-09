@@ -7,10 +7,12 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaChapterSettings
+import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterSettings
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -34,8 +36,15 @@ object ReikaiBindings {
         preferences: ReikaiLibraryPreferences,
         propagate: PropagateTrackerLinks,
         chapterSettings: MangaChapterSettings,
-    ): MangaMergeManager =
-        MangaMergeManager(repository, preferences, chapterSettings::adoptOwnerSetting) { propagate.distribute(it) }
+        groupCategories: MangaGroupCategories,
+    ): MangaMergeManager = MangaMergeManager(
+        repository,
+        preferences,
+        onMerged = {
+            chapterSettings.adoptOwnerSetting(it)
+            groupCategories.adoptOwnerCategories(it)
+        },
+    ) { propagate.distribute(it) }
 
     // The novel propagator arrives deferred because it reads tracks through GetNovelTracks, which
     // takes this manager, and Metro rejects the cycle. The lambda only ever runs inside a suspend
@@ -47,8 +56,15 @@ object ReikaiBindings {
         preferences: ReikaiLibraryPreferences,
         propagate: () -> PropagateNovelTrackerLinks,
         chapterSettings: NovelChapterSettings,
-    ): NovelMergeManager =
-        NovelMergeManager(repository, preferences, chapterSettings::adoptOwnerSetting) { propagate().distribute(it) }
+        groupCategories: NovelGroupCategories,
+    ): NovelMergeManager = NovelMergeManager(
+        repository,
+        preferences,
+        onMerged = {
+            chapterSettings.adoptOwnerSetting(it)
+            groupCategories.adoptOwnerCategories(it)
+        },
+    ) { propagate().distribute(it) }
 
     // Each fetcher wants a concrete tracker, and those are properties of the TrackerManager
     // singleton rather than bindings of their own. Binding them separately would build second

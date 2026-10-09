@@ -9,6 +9,7 @@ import reikai.domain.category.withoutSystemCategory
 import reikai.domain.db.Transactions
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterSettings
+import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -55,6 +56,8 @@ class NovelLibraryAdder(
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
     private val chapterSettings: NovelChapterSettings,
 ) {
+
+    private val groupCategories = NovelGroupCategories(getNovelCategories, setNovelCategories)
 
     /**
      * Decide a long press: remove, confirm a possible duplicate, or add. Decided on the stored row, as
@@ -285,8 +288,9 @@ class NovelLibraryAdder(
         sortOrder = reikaiLibraryPreferences.categorySortOrder.get(),
     )
 
+    /** Files [novelId] under [categoryIds], and the rest of its merge group with it. */
     suspend fun applyCategories(novelId: Long, categoryIds: List<Long>) {
-        setNovelCategories.await(novelId, categoryIds.withoutSystemCategory())
+        groupCategories.set(novelId, categoryIds.withoutSystemCategory(), mergeManager)
     }
 
     /** Remove a favorited result from the library (keeps the row + read state, like the manga side). */
