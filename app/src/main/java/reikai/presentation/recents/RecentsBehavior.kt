@@ -86,7 +86,7 @@ internal suspend fun <T> fetchedCopies(
  * reading a selection, because the selection belongs to the engine that can span both types.
  *
  * Carries no state, deliberately unlike `LibraryBehavior`, whose state flow the library's engine reads
- * a search query back out of. Reasoning: content-layer-recents-surface.md.
+ * a search query back out of. Reasoning: docs/dev/subsystems/recents.md.
  */
 interface RecentsBehavior {
     val chapterActions: RecentsChapterActions

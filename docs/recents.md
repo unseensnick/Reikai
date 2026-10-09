@@ -5,7 +5,7 @@ description: Combine Updates and History into one Recents tab, filter both by ca
 
 # Updates, History and Recents
 
-_Dev records: [content-layer-recents-surface.md](dev/plans/content-layer-recents-surface.md), [recents-continue-reading-row.md](dev/plans/recents-continue-reading-row.md). Doc map: [README.md](README.md)._
+_Dev record: [recents.md](dev/subsystems/recents.md). Doc map: [README.md](README.md)._
 
 Updates lists new chapters, and History lists what you have read. Both hold manga and light novels together, with **All** / **Manga** / **Novels** chips to narrow them.
 You can keep them as two tabs, or combine them into one **Recents** tab.

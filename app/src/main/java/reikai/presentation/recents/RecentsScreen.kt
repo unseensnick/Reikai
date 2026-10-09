@@ -94,7 +94,7 @@ import kotlin.time.Clock
  * The one recent-activity screen, rendering whichever mode its [engine] is on. Both tabs call it and
  * keep their own identity: the bottom nav selects by tab class, so a single shared Tab would light
  * both entries at once. Everything describing the list comes off the engine; this file decides only
- * how it looks. Record: content-layer-recents-surface.md.
+ * how it looks. Record: docs/dev/subsystems/recents.md.
  */
 @Composable
 fun Screen.RecentsScreen(
@@ -600,7 +600,7 @@ private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapte
  * @param movedOn weakens the read verb to "Last read", where the row has resolved past its record
  *   onto a chapter never opened, so the time is about the series rather than the chapter named.
  * @param datesOlderRows swaps the clock time for the date once a row is not from today, for the two
- *   modes that draw no day header to carry it. Record: content-layer-recents-surface.md.
+ *   modes that draw no day header to carry it. Record: docs/dev/subsystems/recents.md.
  */
 @Composable
 private fun mixedLaneTime(
