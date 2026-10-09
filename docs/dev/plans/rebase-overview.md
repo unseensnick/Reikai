@@ -1,12 +1,12 @@
 # Reikai → Mihon rebase overview
 
-Reikai's foundation was rebuilt on [Mihon](https://github.com/mihonapp/mihon) instead of [Yōkai](https://github.com/null2264/yokai), so the fork can keep its identity (in-place upgrade, light novels, lightweight merge, J2K library feel) while shedding solo maintenance of everything that is not a Reikai-original feature.
+Reikai's foundation was rebuilt on [Mihon](https://github.com/mihonapp/mihon) instead of [Yōkai](https://github.com/null2264/yokai), so the fork can keep its identity (light novels, lightweight merge, J2K library feel) while shedding solo maintenance of everything that is not a Reikai-original feature.
 
-This is the narrative overview. Individual features have their own plan docs in this folder; the living status snapshot lives in [ROADMAP.md](../../../ROADMAP.md), and the rules that govern day-to-day work live under [.claude/rules/](../../../.claude/rules/).
+This is the narrative overview. Individual features have their own plan docs in this folder; the forward backlog lives in [ROADMAP.md](../../../ROADMAP.md) and the done-log in [shipped.md](../shipped.md), and the rules that govern day-to-day work live under [.claude/rules/](../../../.claude/rules/).
 
 ## Goal
 
-Move Reikai's foundation off Yōkai and onto Mihon, re-applying only Reikai's distinguishing features on top, so the app upgrades in place for existing users and rides Mihon's actively-maintained upstream for everything that is not Reikai-specific.
+Move Reikai's foundation off Yōkai and onto Mihon, re-applying only Reikai's distinguishing features on top, so the app upgraded in place for existing users (until 0.3.2's rename to `app.reikai`, which installs beside an older build; see Identity preservation below) and rides Mihon's actively-maintained upstream for everything that is not Reikai-specific.
 
 ## Why
 

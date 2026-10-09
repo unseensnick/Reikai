@@ -182,15 +182,17 @@ A `popularNovels` call (the others are analogous):
 | `download/` | `NovelDownloadManager`, `NovelDownloadWorker`, `NovelDownloadProvider`, `NovelDownloadStore`, `NovelDownloadNotifier`, `NovelDownload`, `NovelChapterImageInliner`. |
 | `update/` | `LnPluginUpdateChecker`, `LnPluginVersion` (plugin-version comparison for update checks). |
 
-### Domain + data (`app/src/main/java/reikai/domain/novel/`, `app/src/main/java/reikai/data/novel/`)
+### Domain + data (`reikai/domain/novel/`, `reikai/data/novel/`, split across modules)
 
-Immutable domain models live in `reikai/domain/novel/model/` (`Novel.kt`, `NovelChapter.kt`,
-`NovelTrack.kt`, `LibraryNovel.kt`, etc.); repository interfaces and interactors in
-`reikai/domain/novel/` and its `interactor/` package; `NovelPreferences.kt` (including
-`installedPluginUrls()`, `installedPluginMetadata()`, `addedRepoUrls()`). Repo implementations and
-SQLDelight-row mappers live in `reikai/data/novel/` (`NovelRepositoryImpl`, `NovelChapterRepositoryImpl`,
-`NovelTrackRepositoryImpl`, `NovelHistoryRepositoryImpl`, `NovelCategoryRepositoryImpl`, `NovelMapper`,
-`NovelMapping`, plus the update jobs `NovelUpdateWorker` / `LnPluginUpdateWorker`).
+Immutable domain models live in the `:domain` module, `domain/src/main/java/reikai/domain/novel/model/`
+(`Novel.kt`, `NovelChapter.kt`, `NovelTrack.kt`, `LibraryNovel.kt`, etc.), beside the repository
+interfaces in `domain/src/main/java/reikai/domain/novel/`. Interactors (`interactor/`) and
+`NovelPreferences.kt` (including `installedPluginUrls()`, `installedPluginMetadata()`,
+`addedRepoUrls()`) live in `app/src/main/java/reikai/domain/novel/`. Repo implementations and the
+SQLDelight-row mapper live in the `:data` module, `data/src/main/java/reikai/data/novel/`
+(`NovelRepositoryImpl`, `NovelChapterRepositoryImpl`, `NovelTrackRepositoryImpl`,
+`NovelHistoryRepositoryImpl`, `NovelMapper`); `app/src/main/java/reikai/data/novel/` holds `NovelMapping`
+and the update jobs `update/NovelUpdateWorker` / `update/LnPluginUpdateWorker`.
 
 ### Presentation (`app/src/main/java/reikai/presentation/`)
 

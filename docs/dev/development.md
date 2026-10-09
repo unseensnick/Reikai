@@ -26,7 +26,7 @@ The working rules under `.claude/rules/` are the single source of truth; this do
 ## Build
 
 - Android Studio (`Build → Make/Rebuild`). JDK 21 (Temurin 21.0.11; matches `.github/.java-version`). Formatting via Spotless (`./gradlew spotlessApply`).
-- `minSdk 26`, `targetSdk 36`, `compileSdk 37`.
+- `minSdk 26`, `targetSdk 36`, `compileSdk 37.2` (the `android-sdk-*` keys in `gradle/mihon.versions.toml`).
 - No product flavors. Build types: `debug` (`.dev`), `release` (no suffix), `foss`, `nightly` (`.debug`), `benchmark`. Release builds use AGP-native signing with the real key when CI secrets or a local `keystore.properties` are present, else they fall back to debug-signed (see the `// RK` signing block in `app/build.gradle.kts`). The `nightly` build type is the pre-release channel; it installs as `app.reikai.debug`.
 - Domain tests: `./gradlew :domain:test`.
 - CLI Gradle is intermittent on the dev machine (loopback flake); build/test on-device in Android Studio when it fails.
@@ -40,11 +40,12 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 | `app/` | Android application (Compose + Voyager UI, AndroidX ViewModels) |
 | `core/common` | Shared utilities (coroutine + preference helpers) |
 | `core/archive` | Archive handling |
-| `core/metro` | Metro DI helpers: graph lookup, build-type qualifier, ViewModel wiring |
-| `core-metadata` | Metadata parsing |
+| `core/metro` | Metro DI helpers: graph lookup (`metroGraph`) and the `IsDebugBuild` qualifier; ViewModel wiring comes from the `metrox-viewmodel` library |
+| `core-metadata` | Local-source metadata models (`ComicInfo.xml`, the legacy JSON details file) |
 | `data/` | SQLDelight database + repository implementations |
 | `domain/` | Business logic + interactors (immutable `tachiyomi.domain.*` models; has unit tests) |
 | `i18n/` | Strings via Moko Resources |
+| `icons/material-symbols` / `icons/simple-icons` | SVG icon packs compiled to Compose `ImageVector`s by the Valkyrie plugin |
 | `presentation-core` / `presentation-widget` | Reusable Compose components, home-screen widgets |
 | `source-api` | Extension contract loaded by 3rd-party extensions |
 | `source-local` | Local source |

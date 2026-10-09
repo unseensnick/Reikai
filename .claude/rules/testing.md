@@ -13,5 +13,5 @@ alwaysApply: true
 - Arrange-Act-Assert. No `if` or loops in tests. Parameterize with `@ParameterizedTest` or Kotest data-driven tests instead.
 - Coroutines: use `runTest` with `TestDispatcher`; never call `runBlocking` in tests. Advance virtual time with `advanceTimeBy` / `advanceUntilIdle`.
   - **Exemption: instrumented tests (`app/src/androidTest`) may use `runBlocking`** (owner ruling). They drive real views, layout passes and a real WebView, which wait on the device's own frame clock and renderer process, so virtual time cannot advance them. Bound each wait with a real timeout instead.
-- Multiplatform: put pure logic tests in `commonTest`, platform-specific tests in `androidUnitTest` / `androidInstrumentedTest`.
+- Placement: JVM unit tests go in the module's `src/test` (`domain/src/test`, `app/src/test`, ...), tests that need a device in its `src/androidTest` (`app`, `data`). No code module is multiplatform (only `i18n` is, and it holds no Kotlin), so there is no `commonTest`.
 - Never `assertTrue(true)` or check a mock was called without verifying arguments.
