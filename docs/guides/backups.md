@@ -146,25 +146,5 @@ Pick the columns, **Title**, **Author** and **Artist** (all ticked to start), ta
 
 ## Backups from other apps
 
-**Reikai** uses Mihon's backup format, so `.tachibk` files move between apps in the same family:
-[Mihon](https://mihon.app) itself and the forks it endorses, which are
-[TachiyomiJ2K](https://mihon.app/forks/TachiyomiJ2K/), [TachiyomiSY](https://mihon.app/forks/TachiyomiSY/),
-[TachiyomiAZ](https://mihon.app/forks/TachiyomiAZ/), [Yōkai](https://mihon.app/forks/Yokai/) and
-[Komikku](https://mihon.app/forks/Komikku/). A `.tachibk` or `.proto.gz` backup from any of them restores here with your
-library, categories, reading history and tracking links. An old `.json` backup from TachiyomiAZ does not. A backup made here
-can carry only your manga to them, since your light novels are saved in a part of the file those apps do not read. We have not
-tested every fork, so check that app's own docs.
-
-Older Yōkai-based **Reikai** builds are covered as well. Reikai grew out of Yōkai before moving onto
-Mihon, and the backup format did not change with it.
-
-The details you edited yourself come across both ways with Komikku and Yōkai, except an edited cover
-address, which Yōkai does not keep. Reikai 0.3.2 and older restore a backup made now without those
-edits, though a backup made by any earlier Reikai still brings them back here.
-
-From a Yōkai backup, a default category or library update categories other than Default are left
-for you to pick again, since Yōkai saves no way to match them to your categories.
-
-What does not come across is anything specific to the app that wrote the file. Every fork saves its
-own settings alongside the shared data, and an app without that feature ignores them, so a round trip
-is safe for your library and lossy for that app's extras.
+**Reikai** uses Mihon's backup format, so a `.tachibk` backup from Mihon, Yōkai and several other forks restores here, and a backup made here carries your manga to them.
+What comes across each way, and the steps for moving to Reikai, are in [Before you upgrade](/docs/before-you-upgrade#from-yokai-yokai-y2k-or-another-fork).

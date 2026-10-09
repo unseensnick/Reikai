@@ -13,28 +13,13 @@ For how the reading experience works, the rest of this section and the [guides](
 Ask in [Q&A](https://github.com/unseensnick/Reikai/discussions/categories/q-a).
 :::
 
-## What is Reikai, and why was it rebuilt on Mihon?
+## What is Reikai?
 
 Reikai is a personal fork for reading manga and light novels in one app.
 
-It started on Yōkai, which descends from TachiyomiJ2K. That foundation was showing its age, and
-keeping it modern meant rebuilding large parts of it by hand, on my own. Mihon had already done that
-work: it runs on a current stack, and an active community keeps it up to date with fixes, security
-updates and extension compatibility.
-
-So from 0.1.0, Reikai is built on Mihon, with its own features on top. Mihon's improvements reach
-Reikai as they land, and my time goes into what Reikai adds rather than into maintaining the base.
-
-::: warning Two updates needed extra steps
-- **0.3.2** changed the ID Android uses to recognise the app, so it installs next to an older Reikai
-  rather than over it. Back up in the old app with **Include sensitive settings** ticked so your
-  tracker logins come along, install 0.3.2 and pick the same storage folder, restore the backup, then
-  uninstall the old app. Covers you set by hand do not carry over, so set those again.
-- **0.1.0 and 0.1.1**, the first releases on Mihon, crashed on launch when installed over Yōkai-Y2K.
-  0.1.2 to 0.3.1 fixed that by recovering your library on first launch, though merged series came back
-  unmerged. From 0.3.2 Reikai installs as a separate app, so coming from Yōkai-Y2K now means backing up
-  there and restoring that backup in Reikai.
-:::
+It is built on Mihon, with its own features on top: light novels beside manga in one library,
+[merged series](/docs/multi-source) that bring one series' sources together, and more.
+Mihon's fixes and improvements reach Reikai as they land.
 
 ## Does the UI follow Mihon or Yōkai?
 
@@ -62,7 +47,8 @@ there, do not install it.
 ## Will updating keep my library and data? Should I back up?
 
 Yes. An update installs over the version you have, and your library and settings stay as they are.
-The exceptions are listed under [the rebuild question](#what-is-reikai-and-why-was-it-rebuilt-on-mihon).
+Coming from Reikai 0.3.1 or older, or from another app, takes a few extra steps: see
+[Before you upgrade](/docs/before-you-upgrade).
 
 Making a backup before any update is a good habit either way (<nav to="data-and-storage"> then
 **Create backup**).

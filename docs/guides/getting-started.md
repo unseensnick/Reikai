@@ -8,6 +8,10 @@ description: Install Reikai, add a manga source and a light novel source, and re
 
 Install Reikai, add somewhere to read from, and open your first chapter.
 
+::: tip Coming from an older Reikai, Yōkai or another fork?
+Read [Before you upgrade](/docs/before-you-upgrade) first.
+:::
+
 ## Install Reikai
 
 1. Download the latest version from the [download page](/download/).
