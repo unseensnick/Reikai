@@ -5,7 +5,7 @@ description: Suggestions for what to read next, drawn from the source, your trac
 
 # Recommendations
 
-_Dev record: [recommendations.md](dev/plans/recommendations.md). Doc map: [README.md](README.md)._
+_Dev record: [recommendations.md](dev/subsystems/recommendations.md). Doc map: [README.md](README.md)._
 
 A manga's details page has a **Related** row of similar titles, so finishing something leads somewhere.
 Its settings are in <nav to="recommendations">.
