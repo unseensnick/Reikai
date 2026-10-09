@@ -60,7 +60,8 @@ android {
         // allowed content warnings; 196 moves bypass-server credentials out of the stored address; 197
         // carries the novel auto-scroll switch into start-on-open; 198 carries the custom covers and
         // downloads of duplicates the upgrade merged away; 199 keeps the hash suffix in chapter file names for
-        // upgraders. All sit above 0.3.2's 185, so a 0.3.2 install still runs them. Further migrations take 200+.
+        // upgraders; 200 files each merged series' sources in one set of categories. All sit above 0.3.2's
+        // 185, so a 0.3.2 install still runs them. Further migrations take 201+.
         // versionName tracks the last shipped release until this cycle is cut.
         versionCode = 200
         versionName = "0.3.2"
