@@ -41,9 +41,8 @@ enum class RecentsMode {
         get() = when (this) {
             // History takes a selection: the combined modes already give a read row one, and every
             // verb behind it acts on the chapter that row names rather than on an update burst.
-            // Withholding it here made the same row answer differently depending on which tab drew
-            // it. It could also answer the
-            // chapter-state filters (its rows carry that state), but the four preferences behind them
+            // A row answers the same whichever tab draws it. It could also answer the chapter-state
+            // filters (its rows carry that state), but the four preferences behind them
             // are the Updates view's, and obeying them unprompted would narrow this feed silently.
             HISTORY -> setOf(RecentsCapability.SELECTION)
             UPDATES, FEED, DIGEST -> setOf(RecentsCapability.SELECTION, RecentsCapability.CHAPTER_FILTER)

@@ -69,7 +69,7 @@ import kotlin.time.Duration.Companion.seconds
  * last-updated line) is owned here and stored once; storing it per content type is what let the two
  * replaced screens disagree with themselves. Anything describing one type stays on a provider.
  * [lanes] is the surface's, not the chip's: every provider's lanes always run, and the chip only
- * selects whose rows assemble. Record: content-layer-recents-surface.md.
+ * selects whose rows assemble. Record: docs/dev/subsystems/recents.md.
  */
 @AssistedInject
 class RecentsEngine(
@@ -194,8 +194,8 @@ class RecentsEngine(
                 chip = chip,
                 items = rows,
                 membership = membership,
-                // Over the active providers only: an unloaded novel lane used to hold the manga chip's
-                // spinner, since one flag was read for a list the other type was not in.
+                // Over the active providers only, so an unloaded lane of the type the chip hides
+                // cannot hold the visible one's spinner.
                 loading = active.any { !it.loaded },
             )
         }
@@ -392,8 +392,7 @@ class RecentsEngine(
     /**
      * Drop selected chapters the surface no longer draws, so the toolbar count cannot promise more
      * than the verbs will touch. Against the drawn rows rather than the assembled ones: a mode caps
-     * its sections and a filter hides rows, and both used to leave a selection acting on what nobody
-     * could see. What navigation hides is not pruned, because a collapsed group's members are still
+     * its sections and a filter hides rows, and a selection must not act on what nobody can see. What navigation hides is not pruned, because a collapsed group's members are still
      * drawn as far as this list is concerned.
      */
     private fun pruneSelection(present: List<ChapterRef>) = selectionStore.retain(present)

@@ -70,7 +70,7 @@ fun ReikaiSourcePreferences.seedRecentsSurfaceFromUpdates() {
     toExclude.set(fromExclude.get())
 }
 
-/** One derivation for every recents feed; each model used to carry its own copy of this. */
+/** One derivation for every recents feed, so no model carries its own copy. */
 fun ReikaiSourcePreferences.recentsCategoryFilterFlow(surface: RecentsSurface): Flow<RecentsCategoryFilter> {
     val (enabledPref, includePref, excludePref) = categoryFilterPrefs(surface)
     return combine(

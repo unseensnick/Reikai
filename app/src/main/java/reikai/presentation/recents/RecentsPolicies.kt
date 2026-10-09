@@ -95,13 +95,13 @@ fun flatRecentsRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): L
  * The two chapter sections share one budget of nine, so a big update burst cannot push continue-reading
  * off the screen. Deliberately without Yokai's twelve-hour upload tiebreak inside new chapters: novel
  * updates carry no upload date at all, so it would order one content type's rows by a clock the other
- * does not have, invisibly. Record: content-layer-recents-surface.md.
+ * does not have, invisibly. Record: docs/dev/subsystems/recents.md.
  */
 fun digestRows(items: List<RecentsItem>, membership: Map<EntryId, Long>): List<RecentsRow> {
     // Collapsed across the three lanes before sectioning, so an entry claims one section rather than
     // spending a slot in each. Which section is whichever lane holds its newest activity, because the
-    // collapse keeps the first row after ordering, and the caps below are small enough that a series
-    // added, updated and read on one day used to cost three of them to say one thing.
+    // collapse keeps the first row after ordering. The caps below are small enough that a series
+    // added, updated and read on one day would otherwise spend three of them to say one thing.
     val byLane = collapseByGroup(items, membership).groupBy { it.lane.kind }
     fun lane(kind: RecentsLaneKind) = byLane[kind].orEmpty()
 

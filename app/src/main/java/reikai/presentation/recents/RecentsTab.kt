@@ -43,7 +43,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
      */
     private val showModeEvent = Channel<RecentsMode>(1, BufferOverflow.DROP_OLDEST)
 
-    /** Opens this tab on [mode], for the two shortcuts that used to reach a tab of their own. */
+    /** Opens this tab on [mode], for the Updates and History shortcuts while this tab replaces both. */
     fun showMode(mode: RecentsMode) {
         showModeEvent.trySend(mode)
     }
