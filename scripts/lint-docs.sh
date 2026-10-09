@@ -15,6 +15,9 @@
 #   lint-docs.sh twin-pins [--stdin|--tree]      a twin/mirrors comment names its pin
 #   lint-docs.sh manifest-rows <file>            every off-path row still describes reality
 #   lint-docs.sh key-files <file>...             every path a plan record's Key files names exists
+#   lint-docs.sh kdoc-links [--stdin|--tree]     a [Symbol] in a comment names live code
+#   lint-docs.sh history-words                   comments narrating history, diff on stdin (warns)
+#   lint-docs.sh subsystem-docs [<file>...]      docs/dev/subsystems/ pages carry no history
 #
 # Exits non-zero when a check fails. Under GitHub Actions the heading is emitted as ::error:: so it
 # lands as an annotation; locally it is printed plainly.
@@ -43,6 +46,38 @@ CODENAME='(Phase[[:space:]]*[0-9]|\b[Ss]tage[[:space:]]*[0-9]|Active[[:space:]]*
 # case-insensitive because a lower-case "step 2" reached main once. Two Kotlin range shapes quoted
 # in comments are spared too: "2..20 step 6" and a fractional "step 0.5".
 CODENAME_SPARED='(\b[Ss]t(ep|age)[[:space:]]*[0-9]:|[0-9]\.\.[0-9]+[[:space:]]+step[[:space:]]|[Ss]tep[[:space:]]*[0-9]+\.[0-9])'
+
+# Comment words that narrate history, which git and the plan docs already hold (a warning, not a block).
+HISTORY_WORDS="used to (be|sit|have|always)|previously|was found by|found by an audit|owner('s)? ruling|\\(owner"
+
+# What a docs/dev/subsystems/ page must not carry: it describes the subsystem as it is, so dates,
+# commit SHAs, plan steps, rounds, phases, rulings and a Status section belong in docs/dev/plans/.
+SUBSYSTEM_HISTORY='\b20[0-9]{2}-[0-9]{2}-[0-9]{2}\b|`[0-9a-f]{7,40}`|\bstep[[:space:]]+[0-9]|\bround[[:space:]]+(one|two|[0-9])|\bphase[[:space:]]+[0-9]|\(owner,|^#+[[:space:]]+status\b'
+SUBSYSTEM_MAX_LINES=300
+
+# Shared awk prologue for the checks that read either a unified diff (git diff -U0, the hook's feed) or
+# whole files (tree=1). It sets `file`, `line` (without the diff's '+') and `where` (path:line) for each
+# added or scanned line, and calls the program's own boundary() wherever a run of lines is broken.
+DIFF_WALK='
+  tree && FNR == 1 { boundary() }
+  !tree && /^\+\+\+ / { boundary(); file = $0; sub(/^\+\+\+ (b\/)?/, "", file); next }
+  !tree && /^@@/ { boundary(); ln = $0; sub(/^@@ -[0-9,]+ \+/, "", ln); sub(/[ ,].*/, "", ln); ln += 0; next }
+  !tree && !/^\+/ { boundary(); next }
+  { if (tree) { line = $0; file = FILENAME; where = FILENAME ":" FNR } else { line = substr($0, 2); where = file ":" ln; ln++ } }'
+
+# The comment and the code part of one Kotlin line, by the same heuristic as COMMENT_LINE: a line
+# opening with //, /* or * is all comment, otherwise a // starts one.
+COMMENT_SPLIT='
+  function comment_of(l,  s) {
+    s = l; sub(/^[ \t]+/, "", s)
+    if (s ~ /^(\/\/|\/\*|\*)/) return s
+    return index(s, "//") > 0 ? substr(s, index(s, "//")) : ""
+  }
+  function code_of(l,  s) {
+    s = l; sub(/^[ \t]+/, "", s)
+    if (s ~ /^(\/\/|\/\*|\*)/) return ""
+    return index(s, "//") > 0 ? substr(s, 1, index(s, "//") - 1) : s
+  }'
 
 report() {
   if [ -n "${GITHUB_ACTIONS:-}" ]; then
@@ -139,17 +174,9 @@ case "$cmd" in
           print loc ": " first
         n = 0; text = ""
       }
-      tree && FNR == 1 { flush() }
+      function boundary() { flush() }
+      '"$DIFF_WALK"'
       {
-        line = $0
-        if (!tree) {
-          if (line ~ /^\+\+\+ /) { flush(); file = line; sub(/^\+\+\+ (b\/)?/, "", file); next }
-          if (line ~ /^@@/) { flush(); ln = line; sub(/^@@ -[0-9,]+ \+/, "", ln); sub(/[ ,].*/, "", ln); ln += 0; next }
-          if (line !~ /^\+/) { flush(); next }
-          line = substr(line, 2); where = file ":" ln; ln++
-        } else {
-          where = FILENAME ":" FNR
-        }
         s = line; sub(/^[ \t]+/, "", s)
         if (s ~ /^(\/\/|\/\*|\*)/) { sub(/^(\/+|\/\*+|\*+)[ \t]*/, "", s) }
         else if (index(s, "//") > 0) { s = substr(s, index(s, "//") + 2) }
@@ -299,6 +326,107 @@ case "$cmd" in
       fi
     done
     rm -f "$tracked" "$refs"
+    [ "$fail" -eq 0 ] || exit 1
+    ;;
+
+  kdoc-links)
+    # A [Symbol] in a comment names code, and one whose symbol was renamed or deleted reads as current
+    # while pointing nowhere. A reference resolves when its last dotted segment appears in non-comment
+    # Kotlin anywhere in the tree (main and test, any module), which also covers a documented
+    # function's own parameter names, since a signature is code. In --stdin mode the added code lines
+    # count too, so a symbol the same diff declares resolves. Skipped: [text](url) links, the label of
+    # [label][Symbol] (the symbol is checked), and an index such as list[i], whose '[' follows a name.
+    # Scope: Kotlin under app/src, domain/src, data/src, core and source-api. --stdin reads a unified
+    # diff and fails; --tree reports only.
+    mode="${1:---stdin}"
+    ids=$(mktemp)
+    git ls-files -z -- '*.kt' '*.kts' | xargs -0 awk "$COMMENT_SPLIT"'
+      { c = code_of($0); while (match(c, /[A-Za-z_][A-Za-z0-9_]*/)) { seen[substr(c, RSTART, RLENGTH)] = 1; c = substr(c, RSTART + RLENGTH) } }
+      END { for (k in seen) print k }' | sort -u > "$ids"
+    kdoc_awk="$COMMENT_SPLIT"'
+      BEGIN { while ((getline t < ENVIRON["KDOC_IDS"]) > 0) ids[t] = 1 }
+      function boundary() {}
+      '"$DIFF_WALK"'
+      {
+        c = code_of(line)
+        while (match(c, /[A-Za-z_][A-Za-z0-9_]*/)) { ids[substr(c, RSTART, RLENGTH)] = 1; c = substr(c, RSTART + RLENGTH) }
+        if (file !~ /^(app\/src|domain\/src|data\/src|core|source-api)\/.*\.kt$/) next
+        t = comment_of(line)
+        while (match(t, /\[[A-Za-z_][A-Za-z0-9_.]*\]/)) {
+          pre = RSTART > 1 ? substr(t, RSTART - 1, 1) : ""
+          post = substr(t, RSTART + RLENGTH, 1)
+          name = substr(t, RSTART + 1, RLENGTH - 2)
+          t = substr(t, RSTART + RLENGTH)
+          if (pre ~ /[A-Za-z0-9_)>]/ || post == "(" || post == "[") continue
+          sub(/\.+$/, "", name); n = split(name, part, ".")
+          nr++; ref[nr] = part[n]; at[nr] = where; whole[nr] = name
+        }
+      }
+      END { for (i = 1; i <= nr; i++) if (!(ref[i] in ids)) print at[i] ": [" whole[i] "]" }'
+    if [ "$mode" = "--tree" ]; then
+      hits=$(git ls-files -z -- 'app/src/*.kt' 'domain/src/*.kt' 'data/src/*.kt' 'core/*.kt' 'source-api/*.kt' \
+        | KDOC_IDS="$ids" xargs -0 awk -v tree=1 "$kdoc_awk" || true)
+      rm -f "$ids"
+      if [ -n "$hits" ]; then
+        echo "kdoc-links: $(printf '%s\n' "$hits" | wc -l | tr -d ' ') comment reference(s) name no symbol in the code (report only):"
+        printf '%s\n' "$hits"
+      fi
+    else
+      hits=$(KDOC_IDS="$ids" awk -v tree=0 "$kdoc_awk")
+      rm -f "$ids"
+      if [ -n "$hits" ]; then
+        report "a comment's [Symbol] names nothing in the code; point it at the live symbol, or drop the brackets if it names no symbol." "$hits"
+        exit 1
+      fi
+    fi
+    ;;
+
+  history-words)
+    # A comment states the durable fact; how it came to be (what something used to do, who ruled, which
+    # audit found it) is history that git and the feature's plan doc already hold. Read on the lines a
+    # unified diff adds: comments under reikai/ or exh/, and RK lines in Mihon's files. Warns, never
+    # blocks, since a word like "previously" is sometimes the plain fact.
+    hits=$(HIST="$HISTORY_WORDS" awk -v tree=0 "$COMMENT_SPLIT"'
+      function boundary() {}
+      '"$DIFF_WALK"'
+      {
+        c = comment_of(line)
+        if (c == "") next
+        if ((file ~ /(^|\/)(reikai|exh)\// || c ~ /\/\/[ \t]*RK([^A-Za-z0-9_]|$)/) && tolower(c) ~ ENVIRON["HIST"])
+          print where ": " line
+      }')
+    if [ -n "$hits" ]; then
+      echo "history-words (warning): a comment narrates history; state the fact as it stands and leave"
+      echo "how it got there to git and the plan doc. See code-quality.md \"Comments\"."
+      printf '%s\n' "$hits"
+    fi
+    ;;
+
+  subsystem-docs)
+    # A docs/dev/subsystems/ page describes a subsystem as it is now, so anything that dates it is
+    # rejected (SUBSYSTEM_HISTORY), and so is a page past SUBSYSTEM_MAX_LINES, which has stopped being
+    # an overview. With no arguments every file under the folder is checked; absent is not a violation.
+    files=("$@")
+    if [ "${#files[@]}" -eq 0 ]; then
+      if [ ! -d docs/dev/subsystems ]; then
+        echo "subsystem-docs: docs/dev/subsystems does not exist here, nothing to check."
+        exit 0
+      fi
+      mapfile -t files < <(find docs/dev/subsystems -type f)
+    fi
+    fail=0
+    for file in "${files[@]}"; do
+      [ -f "$file" ] || continue
+      if hits=$(grep -niE "$SUBSYSTEM_HISTORY" "$file"); then
+        report "$file carries history (a date, a commit SHA, a step, round or phase, an owner ruling, or a Status section); keep it in docs/dev/plans/ and describe what is." "$hits"
+        fail=1
+      fi
+      lines=$(awk 'END { print NR }' "$file")
+      if [ "$lines" -gt "$SUBSYSTEM_MAX_LINES" ]; then
+        report "$file runs to $lines lines, past the cap of $SUBSYSTEM_MAX_LINES; split it by component."
+        fail=1
+      fi
+    done
     [ "$fail" -eq 0 ] || exit 1
     ;;
 

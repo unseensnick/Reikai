@@ -95,6 +95,47 @@ check "catches a dead Key files link"    1 bash "$lint" key-files "$(fixture kf2
 check "passes live paths and names"      0 bash "$lint" key-files "$(fixture kf3.md '## Key files\n\n- `scripts/lint-docs.sh`, `LibraryViewModel.kt` (`applyGrouping`), `reikai/domain/entry/EntryId`.\n\n## Status\n\n- `app/src/main/java/reikai/NoSuchFile.kt` sits outside the section.\n')"
 check "skips a line recording a deletion" 0 bash "$lint" key-files "$(fixture kf4.md '## Key files\n\n- Deleted and manifested: `app/src/main/java/reikai/NoSuchFile.kt`.\n')"
 
+echo "kdoc-links"
+kdoc() { printf '%b' "+++ b/${2:-app/src/main/java/reikai/X.kt}\n@@ -1,0 +1,4 @@\n$1" | bash "$lint" kdoc-links --stdin; }
+check "catches a link to no symbol"       1 kdoc '+/** Hands off to [NoSuchSymbolAnywhereXyz]. */\n'
+check "catches a dotted link's last part" 1 kdoc '+// see [LibraryViewModel.noSuchMemberXyz]\n'
+check "passes a live symbol"              0 kdoc '+/** Resolved by [LibraryViewModel]. */\n'
+check "passes a qualified live member"    0 kdoc '+// see [reikai.presentation.library.GallerySearchIndex.matches]\n'
+check "passes a symbol the diff declares" 0 kdoc '+/** See [brandNewThingXyz]. */\n+fun brandNewThingXyz() = 1\n'
+check "passes a parameter name"           0 kdoc '+/** Scales [factorXyzParam]. */\n+fun scale(factorXyzParam: Int) = 1\n'
+check "skips a markdown link"             0 kdoc '+// [NoSuchLinkTextXyz](https://example.com)\n'
+check "skips the label of a label pair"   0 kdoc '+// the [NoSuchLabelXyz][LibraryViewModel]\n'
+check "catches a dead symbol after one"   1 kdoc '+// the [LibraryViewModel][NoSuchSymbolAnywhereXyz]\n'
+check "skips an index in quoted code"     0 kdoc '+// reads rows[noSuchIndexXyz]\n'
+check "ignores a code line"               0 kdoc '+val a = b[noSuchIndexXyz]\n'
+check "ignores a file outside the scope"  0 kdoc '+// [NoSuchSymbolAnywhereXyz]\n' 'presentation-core/src/main/java/X.kt'
+check "ignores a removed line"            0 kdoc '-// [NoSuchSymbolAnywhereXyz]\n'
+check "tree mode reports without failing" 0 bash "$lint" kdoc-links --tree
+
+echo "history-words"
+# A warning, so the assertion is on what it prints, not on its exit code.
+history() { printf '%b' "+++ b/$1\n@@ -1,0 +1,2 @@\n$2" | bash "$lint" history-words | grep -q '^history-words'; }
+check "warns on used to be"               0 history app/src/main/java/reikai/X.kt '+// this used to be a list\n'
+check "warns on an owner ruling"          0 history app/src/main/java/exh/X.kt '+ * per the owner ruling on sorting\n'
+check "warns on an RK line in Mihon code" 0 history app/src/main/java/eu/kanade/X.kt '+// RK: previously a flow (owner, today)\n'
+check "passes Mihon prose without RK"     1 history app/src/main/java/eu/kanade/X.kt '+// previously cached\n'
+check "passes a plain Reikai comment"     1 history app/src/main/java/reikai/X.kt '+// sorts by date\n'
+check "passes the words in code"          1 history app/src/main/java/reikai/X.kt '+val previously = 1\n'
+check "never fails the commit"            0 bash -c "printf '+++ b/app/src/main/java/reikai/X.kt\n@@ -1,0 +1,1 @@\n+// used to be\n' | bash '$lint' history-words"
+
+echo "subsystem-docs"
+check "catches a date"                    1 bash "$lint" subsystem-docs "$(fixture ss1.md 'Measured on 2026-10-09.\n')"
+check "catches a backticked commit SHA"   1 bash "$lint" subsystem-docs "$(fixture ss2.md 'Landed in `ab7ee00c4`.\n')"
+check "catches a plan step"               1 bash "$lint" subsystem-docs "$(fixture ss3.md 'Built in Step 3.\n')"
+check "catches an audit round"            1 bash "$lint" subsystem-docs "$(fixture ss4.md 'Found in round two.\n')"
+check "catches a phase"                   1 bash "$lint" subsystem-docs "$(fixture ss5.md 'Ported in phase 2.\n')"
+check "catches an owner attribution"      1 bash "$lint" subsystem-docs "$(fixture ss6.md 'Kept (owner, ruling 3).\n')"
+check "catches a Status heading"          1 bash "$lint" subsystem-docs "$(fixture ss7.md '# Reader\n\n## Status\n\nDone.\n')"
+printf 'line\n%.0s' $(seq 301) > "$work/ss8.md"
+check "catches a page past the cap"       1 bash "$lint" subsystem-docs "$work/ss8.md"
+check "passes a timeless page"            0 bash "$lint" subsystem-docs "$(fixture ss9.md '# Reader\n\nThe engine owns `ReaderViewModel` and pages through `abcdef`.\n')"
+check "tree mode passes absent or clean"  0 bash "$lint" subsystem-docs
+
 for f in "$work"/*.md; do rm -f "$f"; done
 rmdir "$work" 2> /dev/null || true
 

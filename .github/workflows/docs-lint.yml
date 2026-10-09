@@ -2,7 +2,8 @@ name: Docs lint
 
 # Enforces the CHANGELOG, ROADMAP, upstream-sync and feature-ports conventions (see .claude/rules/workflow.md:
 # "After completing any code change", "Public-facing naming", "Roadmap & plans"), plus the
-# no-plan-codename rule for code comments (code-quality.md).
+# no-plan-codename rule for code comments (code-quality.md), comment [Symbol] links, and the
+# docs/dev/subsystems/ pages.
 #
 # The rules live in scripts/lint-docs.sh, which .githooks/pre-commit calls too. The hook checks what
 # a commit stages; this checks the whole tree, so anything that slipped in without the hook fails
@@ -10,10 +11,10 @@ name: Docs lint
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
@@ -56,6 +57,16 @@ jobs:
       # their files are next touched. The hook fails a new one on the lines a commit adds.
       - name: Report twin markers that name no pin
         run: bash scripts/lint-docs.sh twin-pins --tree
+
+      # Report only, like the twin markers: the hook fails a [Symbol] naming nothing on the lines a
+      # commit adds, and the ones already in the tree are fixed as their files are next touched.
+      - name: Report comment links that name no symbol
+        run: bash scripts/lint-docs.sh kdoc-links --tree
+
+      # A subsystem doc describes what is, so dates, SHAs, steps, rounds, phases, rulings, a Status
+      # section and an overlong page fail. Passes while the folder does not exist.
+      - name: Lint the subsystem docs
+        run: bash scripts/lint-docs.sh subsystem-docs
 
       # The duplicate check reads which files are Reikai's from Mihon's tree at the synced base (the top
       # ledger row of docs/dev/upstream-sync.md) and at upstream HEAD. Blobless, since listing a tree
