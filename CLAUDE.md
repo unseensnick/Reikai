@@ -64,7 +64,7 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 ## Current release target (next cycle, on `feat/0.4.0`)
 
-**The top of [ROADMAP.md](ROADMAP.md) is the only place the cut's gate list lives** (owner rulings 2026-08-21 and 2026-08-25). When to cut is the owner's call. Read it there rather than restating it here, so the two cannot disagree. Nothing else moves the cut.
+**A cut's gate list, when it has one, lives only at the top of [ROADMAP.md](ROADMAP.md)** (owner rulings 2026-08-21 and 2026-08-25). 0.4.0 has none left; when to cut is the owner's call. Read it there rather than restating it here, so the two cannot disagree. Nothing else moves the cut.
 
 **0.3.0, 0.3.1 and 0.3.2 have shipped**, tagged, with their notes in [CHANGELOG.md](CHANGELOG.md); 0.3.2 is the cut that renamed the app to `app.reikai`. `app/build.gradle.kts` reads `versionName 0.3.2` / `versionCode 199` (the `versionCode` climbs mid-cycle whenever a preference migration needs it, see below; `versionName` moves at the 0.4.0 cut). Notes for continuing sessions:
 
