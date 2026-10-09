@@ -24,7 +24,8 @@ Yes, in the two horizontal paged modes with the high quality renderer on. Open a
 The option only appears in **Paged (left to right)** and **Paged (right to left)**. Pairing is side by side, so the vertical and long strip modes do not offer it. It also needs **Use high quality renderer**, in <nav to="advanced">: the standard renderer has no dual page view.
 
 ## What do all the settings do?
-For detailed instructions, please consult the guides section on the website [here on reader settings](/docs/guides/reader-settings).
+See [manga reader settings](/docs/guides/reader-settings) and [novel reader settings](/docs/guides/novel-reader-settings).
+For how to use the novel reader, see the [novel reader guide](/docs/novel-reader).
 
 ## I turned on Auto webtoon mode but a manhwa still opens paged. Why?
 

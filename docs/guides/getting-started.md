@@ -63,4 +63,4 @@ Can't find a series? Some sources use the romanized Japanese title, such as **Bo
 * [Back up your library](/docs/guides/backups), and turn on automatic backups.
 * [Track your reading](/docs/guides/tracking) on AniList, MyAnimeList and other sites.
 * [Merge sources](/docs/multi-source) when the same series comes from more than one source.
-* Adjust the [reader settings](/docs/guides/reader-settings).
+* Set up the [manga reader](/docs/guides/reader-settings) or the [novel reader](/docs/novel-reader).

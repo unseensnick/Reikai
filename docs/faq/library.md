@@ -52,7 +52,7 @@ Dealing with series translated by multiple groups that result in duplicate chapt
 Bookmark or mark as read the undesired chapters, then open the **Filter** menu, ensure you're on the **Filter** tab, then double-tap **Bookmarked** or single-tap **Unread**.
 
 This hides bookmarked or read chapters, enabling you to skip them as you read.
-Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="manga-reader"> under **Reading**, or for light novels, [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters-1) at <nav to="novel-reader"> under **Reading**.
+Ensure [Skip filtered chapters](/docs/guides/reader-settings#skip-filtered-chapters) is enabled at <nav to="manga-reader"> under **Reading**, or for light novels, [Skip filtered chapters](/docs/guides/novel-reader-settings#skip-filtered-chapters) at <nav to="novel-reader"> under **Reading**.
 
 Alternatively, migrate to a source without duplicates.
 Refer to the [migration guide](/docs/guides/source-migration) for detailed instructions.
