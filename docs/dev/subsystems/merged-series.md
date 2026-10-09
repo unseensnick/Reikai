@@ -133,7 +133,7 @@ Groups are written as lists of stable `{url, source}` refs (field 711 manga, 702
 - **A 0.3.x backup is recognized by the missing field 718.** Keying on retired fields instead would miss the users who never touched merging, whose default same-title groups were never stored. A Mihon or Yokai backup also lacks 718, so it groups same-title favorites on restore.
 - **A chapter's stored number is left as the source reported it.** It is not a chapter number by contract (most LN plugins assign a list index), and neither LNReader, tsundoku, Komikku nor TachiyomiSY reconciles two sources' numbering; the stitch orders by position instead. Void if sources gain a numbering contract.
 - **A source sharing no chapter with the trunk goes at the end of the walk.** Ordering it against the trunk by number would bring back the cross-source comparison the stitch avoids.
-- **Open: should the Updates feed hide a sibling's copy of a chapter already read on another source?** Undecided; today it lists it.
+- **The Updates feed lists a sibling's copy of a chapter already read on another source, shown as read.** Updates is a per-source feed (what this source published), and read state is group-wide, so the row already reads as read; hiding it would need its own rule for a copy marked unread later. Void if Updates stops being per-source.
 - **An upgrade dropped manual merges of entries already out of the library.** No stored field told a once-favorited row from a browsed one, and a freed id could be reused by an unrelated entry.
 
 ## Upstream divergences
