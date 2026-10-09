@@ -89,5 +89,5 @@ jobs:
         run: bash scripts/lint-docs.sh manifest-rows docs/dev/off-path-manifest.md
 
       # A Key files path that no longer exists sends a reader to nothing while reading as current.
-      - name: Lint the plan records' Key files
-        run: bash scripts/lint-docs.sh key-files docs/dev/plans/*.md
+      - name: Lint the Key files of plans and subsystem docs
+        run: bash scripts/lint-docs.sh key-files docs/dev/plans/*.md docs/dev/subsystems/*.md
