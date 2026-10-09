@@ -495,7 +495,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 
 #### Changed
 
-- **Kitsu scores now use whichever rating scale your Kitsu account is set to: smileys, stars or the 10 point decimal (from Mihon).** Existing scores are converted on upgrade, on manga and novels. Upstream: mihonapp/mihon#3818, mihonapp/mihon#3887.
+- **Kitsu scores now use whichever rating scale your Kitsu account is set to: smileys, stars or the 10 point decimal (from Mihon).** Existing scores are converted on upgrade and when restoring an older backup, on manga and novels. Upstream: mihonapp/mihon#3818, mihonapp/mihon#3887.
 - **Marking chapters read no longer announces tracker updates, and names any tracker that failed in one message.** A failed update is still retried in the background.
 - **MangaUpdates search results now show each entry's rating and creators while you pick one to bind, on manga and novels (from Mihon).** Upstream: mihonapp/mihon#3795.
 
@@ -615,7 +615,6 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Restoring a backup no longer changes your extension installer or marks any extension trusted.** Your device keeps its own choice for each.
 - **Opening a backup file from a file manager now opens the Restore screen.** It used to close the app straight away.
 - **Restoring a backup over a series you already have no longer rewinds it, on manga and novels: chapters keep the further position, and trackers keep your status and score and only move progress forward (partly from Mihon).** Upstream: mihon 4b48a84ec.
-- **Restoring a backup made before this update keeps its Kitsu ratings correct on manga and novels, instead of halving them.** They are converted to the new rating scale as your own were on upgrade.
 - **Restoring a backup now keeps your default category, update categories, category filters and collapsed categories for manga and novels, including Default and Always ask.** A Yōkai backup keeps Default but leaves out its other category choices, since it saves no way to match them.
 - **Restoring a backup now turns Settings -> Library -> Per-category settings for sort on only when a manga or light-novel category keeps its own sort, and keeps the per-category sorts of a backup made by Mihon or by Reikai before 0.3.0.** A hidden category, or one reset to the library sort, no longer turns it on.
 - **Picking a backup to restore now opens the system file picker on devices where it would not open before (from Mihon).** Upstream: mihonapp/mihon#3948.
