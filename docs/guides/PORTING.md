@@ -13,8 +13,8 @@ after the next check rather than re-deriving it. What to diff: `website/src/docs
 `.vitepress/config/shortcodes.ts` and `theme/styles/tree.styl` for the pieces the website repo borrowed.
 
 **They are live on the site.** `sync-docs.mjs` walks the whole `docs/` tree, carrying the markdown
-into `src/docs/` and everything else into `src/public/docs/`, and the sidebar follows Mihon's own shape:
-site pages, then Frequently Asked Questions, then Guides. The text has been debranded and then read
+into `src/docs/` and everything else into `src/public/docs/`, and the sidebar groups pages by task:
+site pages, then Start here, Library, Sources, Reading, the single-page topics, Troubleshooting, Reference and the FAQ. The text has been debranded and then read
 page by page against how Reikai behaves (see "What still has to happen"). The two statements that were
 flatly false about Reikai (light novels, and Yōkai backup compatibility) were fixed, and are recorded under
 "Where Reikai already differs" below.
@@ -100,12 +100,12 @@ guide that already covered the topic, and their files are gone:
 Three answers moved out of what is now `about.md` into the FAQ page that owns their topic: a failing download into
 `faq/downloads.md`, edited titles versus sorting into `faq/library.md`, auto webtoon mode into
 `faq/reader.md`. What is left of it is about the project rather than the app, which is why it is `about.md`, so it stays whole
-and leads the Frequently Asked Questions group.
+and leads the FAQ group.
 
 The rest of Reikai's docs are guides in their own right with no Mihon counterpart, so they keep their
-files and sit in the Guides group: multi-source grouping, library search, related manga, adult
-sources, and FlareSolverr under Troubleshooting. `built-in-sources.md` is reference and sits under
-Browse.
+files and sit in the group for what they help with: merged series and library search under Library,
+adult sources under Sources, the novel reader under Reading, the bypass proxy under Troubleshooting.
+`built-in-sources.md` and the two reader settings pages sit under Reference.
 
 ## The content pass: what it found
 

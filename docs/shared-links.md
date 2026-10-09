@@ -1,6 +1,6 @@
 ---
 title: Opening shared links
-titleTemplate: Guides
+titleTemplate: Sources
 description: Share a series or chapter link to Reikai from your browser and it opens the page or the chapter.
 ---
 

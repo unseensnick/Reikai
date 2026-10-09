@@ -1,6 +1,6 @@
 ---
 title: Local source
-titleTemplate: Guides
+titleTemplate: Sources
 description: For users who would like to download and organize their own media.
 ---
 

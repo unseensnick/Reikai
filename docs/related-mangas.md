@@ -1,6 +1,5 @@
 ---
 title: Recommendations
-titleTemplate: Recommendations
 description: Suggestions for what to read next, drawn from the source, your trackers and your taste.
 ---
 

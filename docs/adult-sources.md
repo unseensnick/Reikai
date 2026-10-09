@@ -1,6 +1,6 @@
 ---
 title: Adult sources
-titleTemplate: Guides
+titleTemplate: Sources
 description: Built-in gallery sources that carry real tags, uploader and page counts into your library.
 ---
 

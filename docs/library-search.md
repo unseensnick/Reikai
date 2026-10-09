@@ -1,6 +1,6 @@
 ---
 title: Library search
-titleTemplate: Guides
+titleTemplate: Library
 description: Search your library by field, compare numbers and dates, and combine or exclude terms.
 ---
 

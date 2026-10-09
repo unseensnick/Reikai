@@ -1,6 +1,6 @@
 ---
 title: Diagnosis
-titleTemplate: Troubleshooting - Guides
+titleTemplate: Troubleshooting
 description: Facing issues with a source or the app? Follow these steps to troubleshoot and find solutions.
 ---
 

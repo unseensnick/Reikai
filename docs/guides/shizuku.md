@@ -1,6 +1,6 @@
 ---
 title: Shizuku
-titleTemplate: Guides
+titleTemplate: Sources
 description: Using Shizuku with Reikai.
 ---
 

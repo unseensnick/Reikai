@@ -1,6 +1,5 @@
 ---
 title: Updates, History and Recents
-titleTemplate: Guides
 description: Combine Updates and History into one Recents tab, filter both by category, and act on chapters with a swipe.
 ---
 

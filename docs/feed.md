@@ -1,6 +1,6 @@
 ---
 title: Feed and saved searches
-titleTemplate: Guides
+titleTemplate: Sources
 description: Keep the latest from the sources you pick on one Browse tab, and save a search to run again later.
 ---
 

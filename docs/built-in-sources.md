@@ -1,6 +1,6 @@
 ---
 title: Built-in sources
-titleTemplate: Browse - Frequently Asked Questions
+titleTemplate: Reference
 description: Which sources ship with Reikai, which are wrapped extensions, and which bugs belong here.
 ---
 

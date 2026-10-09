@@ -1,6 +1,6 @@
 ---
 title: Library layout
-titleTemplate: Guides
+titleTemplate: Library
 description: How the library looks, from covers and badges to showing every category in one list, jumping between them, and grouping by tag, source, author and more.
 ---
 

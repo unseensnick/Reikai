@@ -1,6 +1,6 @@
 ---
 title: Categories
-titleTemplate: Guides
+titleTemplate: Library
 description: Organize your favorite series effortlessly with categories that declutter and structure your library.
 ---
 
