@@ -9,7 +9,7 @@ data class KitsuEntryLookup(val ownerId: String, val viewerId: String?, val mang
  * Finds a Kitsu track's library entry, healing a row restored from a Yokai backup on the way: Yokai kept
  * the entry id where the manga id belongs and no entry id at all. Only a row with no library id is ever
  * read as an entry id, and only an entry the signed-in user owns heals it, because entry ids are global
- * and a stranger's entry would move the row onto the wrong series. Rule record: kitsu-single-api.md.
+ * and a stranger's entry would move the row onto the wrong series. See docs/dev/subsystems/tracking.md.
  */
 class KitsuLibraryEntryResolver(
     private val findInLibrary: suspend (Track) -> Track?,

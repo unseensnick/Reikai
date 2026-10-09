@@ -5,7 +5,7 @@ description: Tracking helps track your library with different online services.
 
 # Tracking
 
-_Dev records: [novel-tracking.md](../dev/plans/novel-tracking.md), [novel-specific-trackers.md](../dev/plans/novel-specific-trackers.md), [tracker-aware-duplicate-detection.md](../dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](../README.md)._
+_Dev records: [tracking.md](../dev/subsystems/tracking.md), [tracker-aware-duplicate-detection.md](../dev/tracker-aware-duplicate-detection.md). Doc map: [README.md](../README.md)._
 
 **Reikai** supports various tracking services to help you automatically update your tracking details such as read chapters, scoring, start & finish dates, etc. Not every service stores all of that, so a tracker only shows the fields it can actually save.
 
