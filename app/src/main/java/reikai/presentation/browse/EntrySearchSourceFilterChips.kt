@@ -27,10 +27,9 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
- * The Pinned / All / Has-results filter chips shared by the manga and novel global search, with a
- * horizontal divider beneath the row. Driven by primitives ([isPinnedOnly] rather than either side's
- * `SourceFilter` enum) so the one row serves both. [showSourceFilter] hides Pinned / All (e.g. a
- * source-scoped search that only toggles results).
+ * The Pinned / All / Has-results filter chips of the global search, with a horizontal divider
+ * beneath the row. [showSourceFilter] hides Pinned / All (e.g. a source-scoped search that only
+ * toggles results).
  */
 @Composable
 fun EntrySearchSourceFilterChips(

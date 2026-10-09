@@ -21,7 +21,7 @@ import java.net.URLEncoder
 import kotlin.time.Duration.Companion.minutes
 
 /**
- * NovelUpdates has no API, so every call fetches a page and hands it to [NovelUpdatesParser].
+ * NovelUpdates has no API, so every call fetches a page and hands it to a parser in `NovelUpdatesParser.kt`.
  *
  * Cookies come from the shared jar, which is the WebView's own store, so the sign-in session and
  * the Cloudflare clearance both ride along without being resent by hand. Nothing here sets a

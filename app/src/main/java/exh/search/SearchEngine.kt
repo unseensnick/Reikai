@@ -7,7 +7,7 @@ import java.util.Locale
  *
  * Ported from Komikku, trimmed to the parsing half: the SQL-emitting `queryToSql` path is a
  * browse-side concern, so the library matches the parsed components in memory (see
- * `LibraryItem.matches`). Supports `namespace:tag` with aliases, quoted phrases, `-` exclusion,
+ * [reikai.presentation.library.GallerySearchIndex.matches]). Supports `namespace:tag` with aliases, quoted phrases, `-` exclusion,
  * `$` exact, and `*`/`?` (and `%`/`_`) wildcards.
  */
 class SearchEngine {

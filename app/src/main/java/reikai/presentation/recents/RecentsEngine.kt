@@ -167,7 +167,7 @@ class RecentsEngine(
     /**
      * The one ordered stream every render policy draws from, tagged with the chip that produced it
      * because the flow lags a chip flip by one emission and a policy must not render the wrong one.
-     * Collapsing is not done here: its scope is a policy's decision (see [RecentsAssembly]).
+     * Collapsing is not done here: its scope is a policy's decision (see [collapseByEntry] and [collapseByGroup]).
      * `by lazy` like every scope-touching member, so the engine can be constructed in a unit test.
      */
     val assembled: StateFlow<RecentsAssembled?> by lazy {
