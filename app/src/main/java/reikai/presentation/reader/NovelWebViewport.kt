@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
@@ -35,6 +36,7 @@ import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.presentation.reader.text.NovelSeam
+import reikai.presentation.reader.text.ResumeVeil
 import reikai.presentation.reader.web.NovelDocumentGate
 import reikai.presentation.reader.web.NovelWebBridge
 import reikai.presentation.reader.web.NovelWebDocument
@@ -153,6 +155,17 @@ class NovelWebViewport(
 
     private var fingerDown = false
 
+    /** Up from a document opening on a saved percent until it reports ready, which the page holds until that
+     *  percent has landed on its pictures. Declared above the WebView that reads it. */
+    private val resumeVeil: ResumeVeil = ResumeVeil { up ->
+        webView.foreground = documentSettings?.takeIf { up }?.let {
+            ColorDrawable(readerBackgroundColorInt(it.backgroundColor))
+        }
+    }
+
+    /** Whether the touch on screen went down under the veil, which keeps all of it from the page. */
+    private var touchHeld = false
+
     private val webView = WebView(context).apply {
         setDefaultSettings()
         WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
@@ -209,14 +222,19 @@ class NovelWebViewport(
             NovelWebBridge.NAME,
         )
         // Only a scroll made while a finger is down is the reader's: the page's own seek, keys, read aloud
-        // and auto-scroll move the window too. Not consumed, so selection and the page's touches still run.
+        // and auto-scroll move the window too. Not consumed, so selection and the page's touches still run,
+        // except under the veil, where a scroll would cancel the landing the veil is waiting on.
         setOnTouchListener { _, event ->
             when (event.actionMasked) {
-                MotionEvent.ACTION_DOWN -> fingerDown = true
+                MotionEvent.ACTION_DOWN -> {
+                    fingerDown = true
+                    touchHeld = resumeVeil.isUp
+                }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> fingerDown = false
             }
-            false
+            touchHeld
         }
+        setOnGenericMotionListener { _, _ -> resumeVeil.isUp }
         setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) callbacks.onReaderScrolled(y - oldY) }
         // Every layout, because the inset is only known once the window has one and it moves with the
         // system bars; comparing first keeps an unchanged one from rewriting the page.
@@ -265,7 +283,7 @@ class NovelWebViewport(
     override fun handleKeyEvent(event: KeyEvent): Boolean {
         if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = documentSettings ?: return false
-        if (event.action == KeyEvent.ACTION_DOWN) {
+        if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
             scrollByFraction(
                 NovelVolumeKeys.scrollFraction(
                     event.keyCode,
@@ -311,6 +329,7 @@ class NovelWebViewport(
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
         val fontSource = webFonts.dataUri(context, fontManager, settings.fontFamily)
+        val initialFraction = chapter.progressPercent / 100f
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -319,7 +338,7 @@ class NovelWebViewport(
                 chapterHtml = webImages.rewrite(chapter.html, chapter.baseUrl, chapter.sourceId),
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
-                initialFraction = chapter.progressPercent / 100f,
+                initialFraction = initialFraction,
                 initialLine = chapter.topLine,
                 settings = settings,
                 statusBarHeightPx = inset,
@@ -332,6 +351,7 @@ class NovelWebViewport(
         }
         val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         loadedBaseUrl = safeBaseUrl
+        resumeVeil.set(ResumeVeil.pageWaits(initialFraction))
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
         syncEnd()
     }
@@ -598,6 +618,8 @@ class NovelWebViewport(
 
     private fun onPageReady(token: String) {
         if (!gate.markReady(token)) return
+        // Ready follows the opening seek in the same task on the page, so the landed place is what shows.
+        resumeVeil.set(false)
         // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
         pushObscured()
         pendingWindowVerbs.forEach(::evaluate)

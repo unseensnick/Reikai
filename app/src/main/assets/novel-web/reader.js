@@ -1494,7 +1494,8 @@
       // The saved fraction is of the chapter's height with its images in it, and reader.css gives
       // every image `height: auto`, so before they land the chapter measures short by the whole
       // image block and the seek drops the reader past unread text. Anchoring then holds them
-      // there and the next report saves that place over the one they left.
+      // there and the next report saves that place over the one they left. The host veils the page and
+      // holds its touches until ready (ResumeVeil.kt), so ready must follow the seek, never precede it.
       seekWaiting = true;
       whenImagesLanded(boundaries[0].el, function () {
         if (!seekWaiting) return;

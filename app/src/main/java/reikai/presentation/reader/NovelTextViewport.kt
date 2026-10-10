@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Paint
 import android.graphics.Rect
+import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.text.Spannable
@@ -55,6 +56,7 @@ import reikai.presentation.reader.text.ParagraphShape
 import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
 import reikai.presentation.reader.text.ReaderControlSpan
+import reikai.presentation.reader.text.ResumeVeil
 import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.hasTravelled
@@ -86,6 +88,13 @@ class NovelTextViewport(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val renderer = NovelTextRenderer(context, scope, ::jumpToAnchor)
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    /** Up while a chapter's saved percent waits on its pictures ([waitOutImages]), so the reader never sees
+     *  the chapter's top meanwhile or scrolls the landing away. Declared above the recycler that reads it. */
+    private val resumeVeil: ResumeVeil = ResumeVeil { up ->
+        recycler.foreground =
+            settings?.takeIf { up }?.let { ColorDrawable(readerBackgroundColorInt(it.backgroundColor)) }
+    }
 
     /** The latest settings the viewport was given, which every chapter is built with. The host hands
      *  the window verbs the value it read when the window changed, and a change may have landed since. */
@@ -256,6 +265,8 @@ class NovelTextViewport(
      */
     private val tapWatcher = object : RecyclerView.OnItemTouchListener {
         override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
+            // Taken whole, so it neither scrolls nor taps; the recycler then keeps the gesture here until it ends.
+            if (resumeVeil.isUp) return true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     touchDownX = e.x
@@ -324,8 +335,9 @@ class NovelTextViewport(
         addOnItemTouchListener(tapWatcher)
         // A mouse wheel scrolls without a drag state; returning false leaves the scroll to the recycler.
         setOnGenericMotionListener { _, event ->
-            if (event.actionMasked == MotionEvent.ACTION_SCROLL) readerMoved()
-            false
+            if (event.actionMasked != MotionEvent.ACTION_SCROLL) return@setOnGenericMotionListener false
+            if (!resumeVeil.isUp) readerMoved()
+            resumeVeil.isUp
         }
         if (textSelectable) addOnAttachStateChangeListener(focusableWhileAttached)
         // Passed on untouched: the recycler draws nothing from them, it only needs to know they came.
@@ -983,7 +995,7 @@ class NovelTextViewport(
     override fun handleKeyEvent(event: KeyEvent): Boolean {
         if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = settings ?: return false
-        if (event.action == KeyEvent.ACTION_DOWN) {
+        if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
             readerMoved()
             val fraction = NovelVolumeKeys.scrollFraction(
                 event.keyCode,
@@ -1141,15 +1153,22 @@ class NovelTextViewport(
             slot.imageWait = null
             slot.imageWaitOver = true
             if (slot.landing is Landing.Share) land(slot)
+            // After the landing, in the same pass, so no frame shows the chapter's top between the two.
+            syncResumeVeil()
         }
         slot.imageWait = wait
         mainHandler.postDelayed(wait, CHAPTER_IMAGE_WAIT_MS)
+        syncResumeVeil()
     }
 
     private fun cancelImageWait(slot: ChapterSlot) {
         slot.imageWait?.let(mainHandler::removeCallbacks)
         slot.imageWait = null
+        syncResumeVeil()
     }
+
+    /** A wait running is exactly a percent landing held on its pictures. */
+    private fun syncResumeVeil() = resumeVeil.set(slots.any { it.imageWait != null })
 
     /** The last fit answer sent per chapter, so a scroll that changes nothing says nothing. */
     private val reportedFits = mutableMapOf<Long, Boolean>()
@@ -1277,7 +1296,7 @@ class NovelTextViewport(
                 // the wait for them runs out. A chapter the list has not laid out has nowhere to scroll,
                 // and laying it out comes back here.
                 if (boundsOf(slot) == null) return
-                if (slot.block.imagesLoading && !slot.imageWaitOver) {
+                if (ResumeVeil.waitsForPictures(slot.block.imagesLoading, slot.imageWaitOver)) {
                     waitOutImages(slot)
                     return
                 }
