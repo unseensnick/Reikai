@@ -404,6 +404,7 @@ class MangaViewModel(
             ),
         ) { (manga, ownChapters, group) ->
             val selectedSource = group.selected
+            // Each list carries the group it was built for, so the chips drawn over it are that group's.
             when {
                 selectedSource != null && group.ids.size > 1 ->
                     singleSourceChaptersFlow(manga, selectedSource, group)
@@ -419,9 +420,9 @@ class MangaViewModel(
                     )
                 else ->
                     mergedChaptersFlow(manga, group)
-            }
+            }.map { it to group }
         }
-        .map { mc ->
+        .map { (mc, group) ->
             val items = mc.chapters.toChapterListItems(mc.manga, mc.flags(), mc.mangaBySource, mc.downloadTargets)
             ChapterView(
                 merged = mc,
@@ -432,6 +433,7 @@ class MangaViewModel(
                     mc.displayManga,
                     mc.mangaBySource.values.ifEmpty { listOf(mc.manga) },
                 ),
+                group = group,
             )
         }
 
@@ -456,13 +458,6 @@ class MangaViewModel(
         }
         .distinctUntilChanged()
 
-    // Resolved from the group's ids by the same resolver the host's own chips use, so the first state
-    // carries the chips of the seeded group rather than waiting on the host's collector.
-    private val mergeChips = seeded(mergeGroup.state)
-        .map { it.ids }
-        .distinctUntilChanged()
-        .map { buildMergeSources(it) }
-
     // The active source's gallery metadata (primary when unified), so the tag chips and info box follow a
     // source-chip switch, the first open's fetch storing it, and a gallery update rewriting it.
     private val galleryMetadata = mergeGroup.selectedSourceChanges
@@ -476,11 +471,10 @@ class MangaViewModel(
         // The overlay is applied at the display layer via Manga.withCustomInfo; the raw manga stays
         // source-accurate.
         getCustomMangaInfo.subscribe(mangaId).distinctUntilChanged(),
-        mergeChips,
-        mergeGroup.selectedSourceChanges,
+        // Only to render again once the chips resolve: the state reads them for the list's own group.
+        mergeGroup.chips,
         galleryMetadata,
-        ::MergeInputs,
-    )
+    ) { scanlators, customInfo, _, galleryMetadata -> MergeInputs(scanlators, customInfo, galleryMetadata) }
 
     // Counted by the tracking sheet's own offer rule, the one the novel details screen runs too; the
     // port's read spans the merge group.
@@ -541,8 +535,8 @@ class MangaViewModel(
             },
             // RK -->
             mergedMangaById = mc.mangaBySource,
-            mergeSources = merge.chips,
-            selectedSourceMangaId = merge.selectedSource,
+            mergeSources = mergeGroup.chipsOf(view.group),
+            selectedSourceMangaId = view.group.selected,
             mergeDisplayManga = mc.displayManga,
             mergeDisplaySource = mc.displaySource,
             mergeServedManga = mc.servedManga,
@@ -992,13 +986,12 @@ class MangaViewModel(
         val hidden: HiddenChapters,
         val numberHints: Map<Long, ChapterNumberHint.Hint>,
         val downloadFolderOwner: Manga?,
+        val group: EntryMergeGroupHost.GroupState,
     )
 
     private data class MergeInputs(
         val scanlators: ScanlatorFilterView,
         val customInfo: CustomMangaInfo?,
-        val chips: List<EntryMergeSource>,
-        val selectedSource: Long?,
         val galleryMetadata: RaisedSearchMetadata?,
     )
 
