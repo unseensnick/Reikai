@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import exh.md.dto.MangaDto
 import exh.md.dto.StatisticsMangaDto
 import exh.md.service.MangaDexService
+import exh.md.utils.MdConstants
 import exh.md.utils.MdUtil
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,10 @@ class MangaHandler(
 
     // Random-manga id for the Browse "Random" button; the caller opens it via an id: search.
     suspend fun fetchRandomMangaId(): String = service.randomManga().data.id
+
+    // The title id a chapter belongs to, for a shared chapter link.
+    suspend fun getMangaFromChapterId(chapterId: String): String? =
+        service.viewChapter(chapterId).data.relationships.firstOrNull { it.type == MdConstants.Types.manga }?.id
 
     private suspend fun getSimpleChapters(manga: SManga): List<String> {
         return runCatching { service.aggregateChapters(MdUtil.getMangaId(manga.url), lang) }

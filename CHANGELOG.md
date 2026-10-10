@@ -393,6 +393,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **Browse can now show a Feed tab, turned on under Settings -> Browse and sources -> Show Feed tab, with up to twenty rows of covers, one per source or saved search, that you can drag into order (partly from TachiyomiSY and Komikku).** A long press removes a row.
 - **Any source's filters can now be saved as a named search and re-applied from a chip while you browse that source (partly from TachiyomiSY and Komikku).** Long-press the chip to delete the search.
 - **A manga or novel link shared into Reikai now opens that series when an installed source serves its site, and anything else shared or searched from another app searches manga and novels across all your sources.**
+- **Tapping a title or chapter link to a supported manga site now opens it in Reikai and adds the series to your library (from Komikku).** It needs the site's extension and Enable delegated sources on; without them the link opens as before.
 - **Sites that block the app but let its built-in browser in now load without a FlareSolverr server.**
 - **Settings -> Advanced -> Solve interactive Cloudflare challenges ticks the verification box for you instead of giving up, and a second switch lets background library updates do the same.**
 - **Pick several covers across the Feed's rows and add them to your library together, manga and light novels in one batch.** Each is filed into its own categories.

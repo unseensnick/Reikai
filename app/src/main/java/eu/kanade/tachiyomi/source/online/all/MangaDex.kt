@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.source.online.all
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.net.Uri
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -17,6 +18,7 @@ import eu.kanade.tachiyomi.source.online.LoginSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.NamespaceSource
 import eu.kanade.tachiyomi.source.online.RandomMangaSource
+import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import exh.md.dto.MangaDataDto
 import exh.md.dto.MangaDto
 import exh.md.dto.StatisticsMangaDto
@@ -27,6 +29,7 @@ import exh.md.network.MangaDexLoginHelper
 import exh.md.service.MangaDexAuthService
 import exh.md.service.MangaDexService
 import exh.md.utils.FollowStatus
+import exh.md.utils.MdApi
 import exh.md.utils.MdConstants
 import exh.md.utils.MdLang
 import exh.md.utils.MdUtil
@@ -55,7 +58,8 @@ class MangaDex(delegate: HttpSource, val context: Context) :
     LoginSource,
     FollowsSource,
     RandomMangaSource,
-    NamespaceSource {
+    NamespaceSource,
+    UrlImportableSource {
 
     override val lang: String = delegate.lang
 
@@ -163,6 +167,26 @@ class MangaDex(delegate: HttpSource, val context: Context) :
 
     // RandomMangaSource: a random title id for the Browse "Random" button.
     override suspend fun fetchRandomMangaUrl(): String = mangaHandler.fetchRandomMangaId()
+
+    // UrlImportableSource: a mangadex.org title or chapter link opened in the app (InterceptActivity).
+    override val matchingHosts: List<String> = listOf("mangadex.org", "www.mangadex.org")
+
+    override suspend fun mapUrlToMangaUrl(uri: Uri): String? {
+        val kind = uri.pathSegments.firstOrNull()?.lowercase()
+        if (kind != "title" && kind != "manga") return null
+        return uri.pathSegments.getOrNull(1)?.takeIf { it.isNotBlank() }?.let(MdUtil::buildMangaUrl)
+    }
+
+    override fun mapUrlToChapterUrl(uri: Uri): String? {
+        if (!uri.pathSegments.firstOrNull().equals("chapter", ignoreCase = true)) return null
+        val id = uri.pathSegments.getOrNull(1)?.takeIf { it.isNotBlank() } ?: return null
+        return "${MdApi.chapter}/$id"
+    }
+
+    override suspend fun mapChapterUrlToMangaUrl(uri: Uri): String? {
+        val id = uri.pathSegments.getOrNull(1) ?: return null
+        return mangaHandler.getMangaFromChapterId(id)?.let(MdUtil::buildMangaUrl)
+    }
 
     // MDList tracker round-trip (per-title follow status + rating), called by MdList.
     suspend fun fetchTrackingInfo(url: String): Track = followsHandler.fetchTrackingInfo(url)

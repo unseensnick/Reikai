@@ -36,7 +36,7 @@ The site's `next=` parameter is a gallery-id cursor, not a page number. `EHentai
 
 `LibraryUpdateWorker` (`// RK`) drops `LIBRARY_UPDATE_EXCLUDED_SOURCES` (every EH and ExH id, Pururin, nhentai.net) and `nHentaiDelegatedSourceIds` from the sweep, since re-fetching saved galleries on every update risks rate limits and bans.
 
-Import entry points: `InterceptActivity` opens a shared gallery link, and `BatchAddScreen` adds a list of gallery URLs (`UrlImportableSource`, implemented by `EHentai`, `NHentai`, `NHentaiNet`, `EightMuses` and `Pururin`). Built-in sources draw bundled logos from `BuiltInSourceLogo`.
+Import entry points: `InterceptActivity` opens a tapped gallery or MangaDex link, and `BatchAddScreen` adds a list of gallery URLs (`UrlImportableSource`, implemented by `EHentai`, `NHentai`, `NHentaiNet`, `EightMuses`, `Pururin` and `MangaDex`). Both resolve the link through `GalleryAdder.pickSource`, which reaches a delegate through `getMainSource`, so a delegate stops importing when delegation is off. When no source imports a tapped link, `InterceptActivity` hands it to the installed extension that also opens it, which sends the app its own search intent; with no such extension the import fails with a message. Built-in sources draw bundled logos from `BuiltInSourceLogo`.
 
 ### MangaDex enhanced source
 
@@ -45,6 +45,7 @@ Import entry points: `InterceptActivity` opens a shared gallery link, and `Batch
 - **Login and MDList.** Sign-in is browser OAuth with PKCE from Settings, Tracking, returning to `MangaDexLoginActivity` on `tachiyomisy://mangadex-auth` (Komikku's grandfathered public client; MangaDex no longer registers new ones). The token is stored as the `MdList` tracker's (`TrackerManager.MDLIST`, id 60), which binds a title and round-trips follow status and rating through `FollowsHandler`. `MangaDexAuthInterceptor` refreshes under a lock; only a refresh token MangaDex rejects (400 or 401) clears the login.
 - **Follows.** `MangaDexFollowsScreen` (a Follows button in the browse filter sheet) pages the user's follows by offset over a `BrowseSourceViewModel` subclass. A Random button opens `/manga/random`.
 - **Sync.** `SettingsMangaDexScreen` (under Browse and sources settings) holds the preferred MangaDex language (`preferredMangaDexId`, read by `MdUtil.getEnabledMangaDex` on every call, falling back to the first enabled source), the follow statuses to import, and two actions run by `MangaDexSyncWorker`: import follows into the library, and push library MangaDex entries as MDList-tracked follows.
+- **Links.** A tapped `mangadex.org` (or `www.`) `/title/`, `/manga/` or `/chapter/` link opens in `InterceptActivity` and imports into the library. `mapUrlToMangaUrl` reads the title id; a chapter link resolves its title through `MangaHandler.getMangaFromChapterId` (the chapter's `manga` relationship) and the reader opens on that chapter when the source's language has it. Several enabled MangaDex languages ask which one to import into, as E-Hentai does.
 - **Tracker search** loads covers through `MangaDexTrackCoverFactory` with the extension's headers and batches the details and rating calls.
 
 `MANGADEX_IDS` (61 language ids) gates the sync and the metadata surfaces; it is a separate gate from the name match that wraps the source, so both must hold.
@@ -95,7 +96,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 - **Sync is a dedicated worker**, never a `LibraryUpdateWorker` target.
 - **Two Komikku debug functions are not ported.** `killSyncJobs` has no library sync to kill, and `migrateLangNhentaiToMultiLangSource` has no fixed multi-language nHentai id to move to. `addAllMangaInDatabaseToLibrary` adds through `MangaLibraryAdder`, so categories and trackers apply as for any add.
 - **Four candidate adult sites (Luscious, HentaiNexus, 3Hentai, Hitomi.la) are not wrapped**: no stock extension to wrap, or too little structured metadata.
-- Open: MangaDex deep links and `UrlImportableSource` for MangaDex are not built.
+- **A link no source imports goes back to its extension, not to an error.** With delegation off the MangaDex extension's own link activity still claims the link, and handing it on gives the extension's search scoped to that title, so turning delegation off never strands a link.
 
 ## Upstream divergences
 
@@ -109,7 +110,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 
 ## Tests
 
-Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `SourceHelpersTest`, `EnhancedEhViewTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
+Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `SourceHelpersTest`, `EnhancedEhViewTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexLinkImportTest`, `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`.
 

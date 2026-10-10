@@ -17,6 +17,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.core.net.toUri
 import androidx.lifecycle.lifecycleScope
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import eu.kanade.presentation.components.AppBar
@@ -188,6 +189,7 @@ class InterceptActivity : BaseActivity() {
         if (status.value is InterceptResult.Idle) {
             status.value = InterceptResult.Loading
             val sources = galleryAdder.pickSource(gallery)
+            if (sources.isEmpty() && handOffToExtension(gallery)) return
             if (sources.size > 1) {
                 withUIContext {
                     MaterialAlertDialogBuilder(this@InterceptActivity)
@@ -204,6 +206,21 @@ class InterceptActivity : BaseActivity() {
                 loadGalleryEnd(gallery)
             }
         }
+    }
+
+    // No source here imports the link (delegated sources off, or a site with no built-in support), so
+    // it goes back to the installed extension that also opens it, which hands it to the app as a search.
+    private suspend fun handOffToExtension(link: String): Boolean {
+        val uri = link.toUri()
+        val handoff = appGraph.extensionManager.getLoadedExtensions()
+            .map { Intent(Intent.ACTION_VIEW, uri).setPackage(it.pkgName) }
+            .firstOrNull { it.resolveActivity(packageManager) != null }
+            ?: return false
+        withUIContext {
+            startActivity(handoff)
+            finish()
+        }
+        return true
     }
 
     private suspend fun loadGalleryEnd(gallery: String, source: UrlImportableSource? = null) {
