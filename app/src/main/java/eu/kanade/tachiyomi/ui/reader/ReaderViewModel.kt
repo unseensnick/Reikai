@@ -295,7 +295,7 @@ class ReaderViewModel(
     // RK: source scope narrows chapterList to the opened source's own chapters (Updates / a specific
     // source chip); group scope (default) shows the whole merge group. Read from the launching intent
     // like the ids above, so it survives a configuration change. mergedGroup stays full either way, so
-    // the mark-duplicates-read pass over unfilteredChapterList still reaches sibling sources.
+    // the mark-duplicates-read pass over groupChapters still reaches sibling sources.
     private val sourceScoped = savedState.get<Boolean>("source_scoped") ?: false
     private val mergeScope = MergeScope.of(sourceScoped)
 
@@ -386,12 +386,13 @@ class ReaderViewModel(
     // RK: which overlapping chapter switch may land. Main thread only.
     private val chapterSwitches = ChapterSwitches()
 
-    private val unfilteredChapterList by lazy {
-        // RK: span the whole merge group so the duplicate-read pass reaches the stitch's copies on
-        // sibling sources too; for an unmerged manga this is just its own chapters, as before.
-        val ids = mergedGroup?.mangaById?.keys ?: setOf(manga!!.id)
-        runBlocking { ids.flatMap { getChaptersByMangaId.await(it, applyScanlatorFilter = false) } }
-    }
+    private val unfilteredChapterList by lazy { runBlocking { groupChapters() } } // RK
+
+    // RK: every chapter of the whole merge group as stored now, so the duplicate-read pass reaches the
+    // stitch's copies on sibling sources too; for an unmerged manga this is just its own chapters.
+    private suspend fun groupChapters(): List<Chapter> =
+        (mergedGroup?.mangaById?.keys ?: setOf(manga!!.id))
+            .flatMap { getChaptersByMangaId.await(it, applyScanlatorFilter = false) }
 
     /**
      * Chapter list for the active manga. It's retrieved lazily and should be accessed for the first
@@ -983,9 +984,10 @@ class ReaderViewModel(
 
         // RK: upstream's same-number match, kept inside the chapter's own entry, plus the group's copies
         // the stored stitch places with it. A number match across sources marked a chapter several
-        // along on the sibling, since two sources of one series count differently.
+        // along on the sibling, since two sources of one series count differently. Read fresh, as the
+        // novel finish does: the chapters loaded at open miss a copy unmarked or fetched since.
         val readChapter = readerChapter.chapter.toDomainChapter() ?: return
-        val duplicateUnreadChapters = unfilteredChapterList
+        val duplicateUnreadChapters = groupChapters()
             .duplicatesOfRead(
                 readChapter,
                 groupCopyIds(readChapter.id).toSet(),

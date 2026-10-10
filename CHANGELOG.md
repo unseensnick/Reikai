@@ -295,6 +295,7 @@ another novel's title and cover and re-fetches them in one pass; refresh any it 
 - **With Downloaded only and Skip duplicate chapters on, both readers now keep the downloaded copy of a chapter instead of skipping that chapter.**
 - **Skipping past a novel chapter with Settings -> Novel reader -> Mark chapter read when skipping ahead on now finishes it as reading to the end does, deleting older downloads and marking a merged novel's other copies, without holding up the next chapter.**
 - **With Mark chapter read when skipping ahead on (Settings -> Manga reader or Novel reader), a Next that fails to load no longer marks the chapter you are still on as read.**
+- **Finishing a manga chapter now marks its duplicates read even when one was marked unread or fetched after you opened the reader.**
 - **A chapter step in the manga reader that fails to load, or has no chapter to go to, no longer sends you back to page 1.**
 - **A bookmark or read mark set on a novel chapter just before closing the reader is no longer lost.**
 - **Reading time in History is no longer counted twice for one reading session, on manga and novels (from Mihon).** Upstream: mihon 553762fae.

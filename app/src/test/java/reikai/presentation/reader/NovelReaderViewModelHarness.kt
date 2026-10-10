@@ -263,9 +263,9 @@ class NovelReaderViewModelHarness private constructor(
     /** Whether [chapter] is marked read. */
     suspend fun isRead(chapter: SeededChapter): Boolean? = chapterRepo.getById(chapter.id)?.read
 
-    /** Marks [chapter] read, as reading it elsewhere does. */
-    suspend fun markRead(chapter: SeededChapter) {
-        chapterRepo.setReadBulk(listOf(chapter.id), true)
+    /** Marks [chapter] read, or unread, as reading it elsewhere or the details screen does. */
+    suspend fun markRead(chapter: SeededChapter, read: Boolean = true) {
+        chapterRepo.setReadBulk(listOf(chapter.id), read)
     }
 
     /** Live collectors of the chapter queries details screens hold open while they are shown. */

@@ -115,6 +115,11 @@ class MangaReaderViewModelHarness private constructor(
         return stored(id)
     }
 
+    /** Marks [id] read or unread behind an open reader's back, as the details screen does. */
+    suspend fun setRead(id: Long, read: Boolean) {
+        driver.execute(null, "UPDATE chapter SET user_read = ${if (read) 1 else 0} WHERE id = $id", 0).await()
+    }
+
     /** [id] as the database holds it now. */
     suspend fun stored(id: Long): Chapter = chapters.getChapterById(id)!!
 
