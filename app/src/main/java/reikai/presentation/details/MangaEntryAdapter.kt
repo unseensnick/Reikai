@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.withCustomInfo
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
@@ -63,9 +62,7 @@ class MangaEntryAdapter(
 
     private fun MangaViewModel.State.Success.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
         // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
-        val shown = shownEntry(manga, siblingChip(), { it.withCustomInfo(customInfo) }) { entry, own ->
-            entry.copy(thumbnailUrl = own.thumbnailUrl)
-        }
+        val shown = shownManga(manga, siblingChip(), customInfo, chipCustomInfo)
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
         val showInlineRelated = !model.recommendationsInMenu && (relatedLoading || relatedItems.isNotEmpty())
         return EntryDetailsScreenState.Loaded(

@@ -17,7 +17,6 @@ import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.novel.NovelChapterListEntry
 import reikai.domain.novel.model.NovelChapter
-import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
@@ -84,9 +83,7 @@ class NovelEntryAdapter(
 
     private fun NovelDetailsState.Loaded.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
         val sibling = displayNovel.takeIf { it.id != novel.id }
-        val display = shownEntry(novel, sibling, { it.withCustomInfo(customInfo) }) { entry, own ->
-            entry.copy(thumbnailUrl = own.thumbnailUrl)
-        }
+        val display = shownNovel(novel, sibling, customInfo, chipCustomInfo)
         return EntryDetailsScreenState.Loaded(
             entryId = EntryId.Novel(novel.id),
             viewedEntryId = displayNovel.id,

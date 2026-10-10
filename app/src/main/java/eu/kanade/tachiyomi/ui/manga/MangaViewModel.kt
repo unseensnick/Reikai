@@ -474,7 +474,11 @@ class MangaViewModel(
         // Only to render again once the chips resolve: the state reads them for the list's own group.
         mergeGroup.chips,
         galleryMetadata,
-    ) { scanlators, customInfo, _, galleryMetadata -> MergeInputs(scanlators, customInfo, galleryMetadata) }
+        // The chip's own row, for its cover address alone (shownManga).
+        mergeGroup.selectedSourceChanges.flatMapLatest { id -> id?.let(getCustomMangaInfo::subscribe) ?: flowOf(null) },
+    ) { scanlators, customInfo, _, galleryMetadata, chipCustomInfo ->
+        MergeInputs(scanlators, customInfo, galleryMetadata, chipCustomInfo)
+    }
 
     // Counted by the tracking sheet's own offer rule, the one the novel details screen runs too; the
     // port's read spans the merge group.
@@ -563,6 +567,7 @@ class MangaViewModel(
             numberHints = view.numberHints,
             resumeChapter = view.hidden.resumeChapter,
             customInfo = merge.customInfo,
+            chipCustomInfo = merge.chipCustomInfo,
             seedColor = extras.seedColor,
             pagePreviewsState = extras.pagePreviewsState,
             previewsRowCount = extras.previewsRowCount,
@@ -993,6 +998,7 @@ class MangaViewModel(
         val scanlators: ScanlatorFilterView,
         val customInfo: CustomMangaInfo?,
         val galleryMetadata: RaisedSearchMetadata?,
+        val chipCustomInfo: CustomMangaInfo?,
     )
 
     private data class Extras(
@@ -1964,6 +1970,8 @@ class MangaViewModel(
             // Manga.withCustomInfo. Never folded into the raw `manga` field above, which stays
             // source-accurate for tracker search, refresh, duplicate detection, downloads, etc.
             val customInfo: CustomMangaInfo? = null,
+            // RK: the selected source chip's own overlay, read for its cover alone (shownManga).
+            val chipCustomInfo: CustomMangaInfo? = null,
             // RK: cover-derived tint, null until extracted. Always extracted, since edit info tints from it;
             // the screen applies it only when cover theming is on.
             val seedColor: Color? = null,

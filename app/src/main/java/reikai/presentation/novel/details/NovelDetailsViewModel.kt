@@ -400,9 +400,13 @@ class NovelDetailsViewModel(
     private val customInfo = anchorIdChanges
         .flatMapLatest { novelId -> if (novelId == null) flowOf(null) else getCustomNovelInfo.subscribe(novelId) }
 
+    /** The selected source chip's own overlay, read for its cover alone (`shownNovel`). */
+    private val chipCustomInfo = mergeGroup.selectedSourceChanges
+        .flatMapLatest { id -> id?.let(getCustomNovelInfo::subscribe) ?: flowOf(null) }
+
     val state: StateFlow<NovelDetailsState> = combine(
         sourcedChapterList,
-        combine(downloadStates, trackingButton, customInfo, ::Triple),
+        combine(downloadStates, trackingButton, combine(customInfo, chipCustomInfo, ::Pair), ::Triple),
         combine(chapterSelection, dialog, isRefreshing, isPageLoading, seedColor, ::Overlay),
         failure,
     ) { list, (downloads, tracking, info), overlay, failure ->
@@ -410,7 +414,8 @@ class NovelDetailsViewModel(
             downloadStates = downloads,
             trackingCount = tracking.count,
             hasLoggedInTrackers = tracking.hasTrackers,
-            customInfo = info,
+            customInfo = info.first,
+            chipCustomInfo = info.second,
             dialog = overlay.dialog,
             selection = EntrySelection.retain(overlay.selection, list.chapters.map { it.id }).selection,
             isRefreshing = overlay.isRefreshing,
@@ -1639,6 +1644,8 @@ sealed interface NovelDetailsState {
         /** Non-destructive edit-info overlay; the display applies it over [displayNovel] (the raw novel
          *  stays source-accurate). Null when the novel has no edits. */
         val customInfo: CustomNovelInfo? = null,
+        /** The selected source chip's own overlay, which only its cover takes (`shownNovel`). */
+        val chipCustomInfo: CustomNovelInfo? = null,
         val dialog: NovelDetailsDialog? = null,
         val selection: Set<Long> = emptySet(),
         val resumeChapter: NovelChapter? = null,
