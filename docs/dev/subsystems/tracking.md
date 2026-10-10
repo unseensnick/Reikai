@@ -98,7 +98,6 @@ Some extensions keep reading state on their own site (`SourceTracker` in `source
 - **The NovelList host is editable but https only, and not carried by backups.** Authenticated calls carry the JWT, and a shared backup could point the next sign-in at its author's host.
 - **Tracker failures use Reikai's wording everywhere both types call, a deliberate divergence from Mihon.** The settings screen's account refresh and login dialogs still show the raw message, as upstream.
 - **Declined services.** MyNovelList (IReader's own deployment with an empty catalogue, and a name shared with an unrelated site that has no API), MiraiList and Novel Trackr (no API), Hardcover (beta, and its terms forbid deployed clients). Revisit Hardcover if it leaves beta with OAuth.
-- Open: why NovelUpdates once answered the note read with HTTP 400 during an auto-bind (a WordPress `admin-ajax` 400 means no handler answered for that session).
 
 ## Upstream divergences
 
