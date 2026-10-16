@@ -1,5 +1,6 @@
 package reikai.data.readinglog
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -7,6 +8,7 @@ import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
 import reikai.domain.library.ContentType
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import kotlin.time.Instant
@@ -23,9 +25,9 @@ class ReadingLogRepositoryImpl(
     override suspend fun record(contentType: ContentType, chapterId: Long, endedAt: Instant, duration: Long) {
         // A reader opened and closed in the same instant spent no time, and history adds nothing for it either.
         if (duration <= 0L) return
-        check(contentType != ContentType.ALL) { "ContentType.ALL has no reading log" }
+        val isManga = isManga(contentType)
         try {
-            if (contentType == ContentType.MANGA) {
+            if (isManga) {
                 queries.insertManga(chapterId, endedAt.toEpochMilliseconds(), duration)
             } else {
                 queries.insertNovel(chapterId, endedAt.toEpochMilliseconds(), duration)
@@ -33,5 +35,46 @@ class ReadingLogRepositoryImpl(
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to record a reading session for chapterId=$chapterId" }
         }
+    }
+
+    override suspend fun sessionsByUrl(contentType: ContentType, entryId: Long): List<UrlReadingSession> {
+        val mapper = { url: String, endedAt: Long, duration: Long ->
+            UrlReadingSession(url, Instant.fromEpochMilliseconds(endedAt), duration)
+        }
+        return if (isManga(contentType)) {
+            queries.sessionsByUrlOfManga(entryId, mapper).awaitAsList()
+        } else {
+            queries.sessionsByUrlOfNovel(entryId, mapper).awaitAsList()
+        }
+    }
+
+    override suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>) {
+        if (sessions.isEmpty()) return
+        val isManga = isManga(contentType)
+        database.transaction {
+            sessions.forEach {
+                val endedAt = it.endedAt.toEpochMilliseconds()
+                if (isManga) {
+                    queries.restoreManga(endedAt, it.duration, entryId, it.chapterUrl)
+                } else {
+                    queries.restoreNovel(endedAt, it.duration, entryId, it.chapterUrl)
+                }
+            }
+        }
+    }
+
+    override suspend fun copy(contentType: ContentType, sourceByTargetChapter: Map<Long, Long>) {
+        if (sourceByTargetChapter.isEmpty()) return
+        val isManga = isManga(contentType)
+        database.transaction {
+            sourceByTargetChapter.forEach { (target, source) ->
+                if (isManga) queries.copyManga(target, source) else queries.copyNovel(target, source)
+            }
+        }
+    }
+
+    private fun isManga(contentType: ContentType): Boolean {
+        check(contentType != ContentType.ALL) { "ContentType.ALL has no reading log" }
+        return contentType == ContentType.MANGA
     }
 }

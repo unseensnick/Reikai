@@ -39,6 +39,7 @@ import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.repository.CustomNovelInfoRepository
+import reikai.domain.readinglog.NoReadingLog
 import reikai.novel.source.NovelSourceManager
 import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
@@ -169,6 +170,7 @@ class BackupCustomInfoConformanceTest {
                     getManga = mockk(),
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    readingLog = NoReadingLog,
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
                 extensionStoresBackupCreator = mockk(relaxed = true),
@@ -204,6 +206,7 @@ class BackupCustomInfoConformanceTest {
                         },
                     ),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    readingLog = NoReadingLog,
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
@@ -350,6 +353,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             setCustomNovelInfo = SetCustomNovelInfo(repository),
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            readingLog = NoReadingLog,
         )
         restoreEncoded(backup, ENTRIES_ONLY, novelRestorer = restorer)
         return written

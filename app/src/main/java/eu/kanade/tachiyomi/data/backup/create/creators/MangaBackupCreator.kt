@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
 import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
@@ -18,6 +19,7 @@ import reikai.data.backup.BackupEntryParts
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory
@@ -47,6 +49,8 @@ class MangaBackupCreator(
     private val mergeGroupRepository: MergeGroupRepository,
     // RK: chapter numbers the user corrected, carried beside the source's own.
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    // RK: the reading log, carried with history.
+    private val readingLog: ReadingLogRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     // RK --> the option gates and the choice of which manga to back up live in the driver shared with
@@ -124,6 +128,9 @@ class MangaBackupCreator(
                 backup.history = history
             }
         }
+        // RK: sessions ride the history option, keyed by url as history is
+        backup.readingSessions =
+            readingLog.sessionsByUrl(ContentType.MANGA, entry.id).map { it.toBackupReadingSession() }
     }
 
     override suspend fun customInfo(entry: Manga, backup: BackupManga) {

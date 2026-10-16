@@ -10,6 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.history.HistoryRepositoryImpl
@@ -88,6 +89,50 @@ class ReadingLogRepositoryTest {
 
         sessionCount(ContentType.MANGA) shouldBe 1L
     }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `sessions read out by url restore onto the chapter with that url`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+        chapter(type, id = 2L, entryId = 2L, url = "/c1")
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+
+        log.restore(type, entryId = 2L, sessions = log.sessionsByUrl(type, entryId = 1L))
+
+        log.sessionsByUrl(type, entryId = 2L) shouldBe
+            listOf(UrlReadingSession("/c1", Instant.fromEpochMilliseconds(1_000L), 60_000L))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a restored session whose chapter is gone is dropped`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+
+        log.restore(type, 1L, listOf(UrlReadingSession("/gone", Instant.fromEpochMilliseconds(1_000L), 60_000L)))
+
+        sessionCount(type) shouldBe 0L
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a copy puts the source chapter's sessions on its target once`(type: ContentType) = runTest {
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+
+        repeat(2) { log.copy(type, sourceByTargetChapter = mapOf(10L to 1L)) }
+
+        sessionCount(type) shouldBe 2L
+    }
+
+    private suspend fun chapter(type: ContentType, id: Long, entryId: Long, url: String) = exec(
+        if (type == ContentType.MANGA) {
+            "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_chapter_number, remote_order, " +
+                "remote_memo, user_read, user_bookmark, user_last_page_read, state_date_fetch) " +
+                "VALUES ($id, $entryId, '$url', 'c', 1, 0, X'7B7D', 0, 0, 0, 0)"
+        } else {
+            "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, source_order, " +
+                "date_fetch) VALUES ($id, $entryId, '$url', 'c', 0, 0, 1, 0, 0)"
+        },
+    )
 
     private suspend fun exec(sql: String) {
         driver.execute(null, sql, 0).await()

@@ -63,6 +63,7 @@ import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
 import reikai.novel.download.NovelDownloadCache
@@ -346,6 +347,7 @@ class NovelReaderViewModelHarness private constructor(
             novelPreferences = novelPreferences,
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
+            readingLog = NoReadingLog,
             setNovelReadStatus = setNovelReadStatus(),
             libraryPreferences = libraryPreferences,
             // The tracker network.

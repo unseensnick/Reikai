@@ -18,6 +18,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.manga.model.Manga
@@ -93,6 +94,7 @@ class BackupDatesConformanceTest {
                     getManga = mockk(relaxed = true),
                     mergeGroupRepository = mockk(relaxed = true),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    readingLog = NoReadingLog,
                 )
                 val backup = creator.base(manga)
                 creator.chapters(manga, backup)
@@ -149,6 +151,7 @@ class BackupDatesConformanceTest {
                     },
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    readingLog = NoReadingLog,
                 )
                 val backup = creator.base(novel)
                 creator.chapters(novel, backup)

@@ -10,6 +10,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.backup.RestoreRepositoryImpl
@@ -45,6 +46,7 @@ fun mangaRestorer(
             mangaMetadataRepository = MangaMetadataRepositoryImpl(database),
             setCustomMangaInfo = SetCustomMangaInfo(customInfo),
             chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+            readingLog = NoReadingLog,
         ),
         getCategories = GetCategories(CategoryRepositoryImpl(database)),
         fetchInterval = FetchInterval(GetChaptersByMangaId(chapters)),
@@ -83,6 +85,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 
     /** Stores a bare device copy under a chosen [id], for a test that pins the id a restore writes under. */

@@ -30,6 +30,7 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.model.Novel
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -146,6 +147,7 @@ class ChapterNumberOverrideBackupTest {
                         getManga = mockk(),
                         mergeGroupRepository = mockk(),
                         chapterNumberOverrides = overrides,
+                        readingLog = NoReadingLog,
                     ).chapters(Manga.create().copy(id = 1), backup)
                 }.chapters.single().let { it.chapterNumber.toDouble() to it.sourceChapterNumber }
 
@@ -186,6 +188,7 @@ class ChapterNumberOverrideBackupTest {
                         novelHistoryRepository = mockk(),
                         novelSourceManager = mockk(),
                         chapterNumberOverrides = overrides,
+                        readingLog = NoReadingLog,
                     ).chapters(Novel.create().copy(id = 1), backup)
                 }.chapters.single().let { it.chapterNumber to it.sourceChapterNumber }
 
@@ -199,6 +202,7 @@ class ChapterNumberOverrideBackupTest {
                     setCustomNovelInfo = mockk(relaxed = true),
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    readingLog = NoReadingLog,
                 ).restore(
                     BackupNovel(
                         source = "src",

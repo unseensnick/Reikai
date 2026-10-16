@@ -22,6 +22,7 @@ import reikai.domain.backup.mergedHistory
 import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
 import tachiyomi.domain.backup.model.RestoredManga
@@ -49,6 +50,7 @@ class RestoreRepositoryImpl(
     private val mangaMetadataRepository: MangaMetadataRepository,
     private val setCustomMangaInfo: SetCustomMangaInfo,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val readingLog: ReadingLogRepository,
     // RK <--
 ) : RestoreRepository {
 
@@ -77,6 +79,7 @@ class RestoreRepositoryImpl(
         chapterNumberOverrides.restore(ContentType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
         restoreTracking(manga, entry.tracks)
         restoreHistory(manga, entry.history)
+        readingLog.restore(ContentType.MANGA, manga.id, entry.readingSessions) // RK
         restoreExcludedScanlators(manga, entry.excludedScanlators)
         // RK --> an entry without either leaves the device's own alone, as the forks do
         entry.searchMetadata?.let { mangaMetadataRepository.insertFlatMetadata(it.forManga(manga.id)) }

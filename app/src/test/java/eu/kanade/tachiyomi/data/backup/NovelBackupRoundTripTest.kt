@@ -25,6 +25,7 @@ import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.readinglog.NoReadingLog
 import kotlin.time.Instant
 
 class NovelBackupRoundTripTest {
@@ -47,6 +48,7 @@ class NovelBackupRoundTripTest {
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 
     @Test
@@ -71,6 +73,7 @@ class NovelBackupRoundTripTest {
             novelHistoryRepository = mockk(relaxed = true),
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            readingLog = NoReadingLog,
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
         val options = BackupOptions(
@@ -178,6 +181,7 @@ class NovelBackupRoundTripTest {
             novelHistoryRepository = mockk(),
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            readingLog = NoReadingLog,
         )
         val backup = BackupNovel(source = "s1", url = "u")
         creator.chapters(novel(1, "u", "s1"), backup)

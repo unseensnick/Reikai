@@ -51,6 +51,8 @@ class BackupManga(
     @ProtoNumber(113) var nextUpdate: Long = 0,
     // RK: captured adult/EXH gallery metadata (700-range stays clear of Mihon's numbers).
     @ProtoNumber(700) var searchMetadata: BackupSearchMetadata? = null,
+    // RK: the reading log, one entry per session (BackupReadingSession); field 701, beside 700.
+    @ProtoNumber(701) var readingSessions: List<BackupReadingSession> = emptyList(),
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

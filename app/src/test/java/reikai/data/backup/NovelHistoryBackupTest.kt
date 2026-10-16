@@ -14,6 +14,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.History
@@ -85,5 +86,6 @@ class NovelHistoryBackupTest {
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         novelSourceManager = mockk(),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 }

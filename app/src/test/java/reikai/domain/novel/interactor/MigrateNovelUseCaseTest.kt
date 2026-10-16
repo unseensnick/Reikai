@@ -15,6 +15,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelMigrationFlag
+import reikai.domain.readinglog.NoReadingLog
 import reikai.novel.download.NovelDownloadManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -50,6 +51,7 @@ class MigrateNovelUseCaseTest {
         sourceTracker = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 
     @Test

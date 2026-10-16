@@ -17,6 +17,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
@@ -33,6 +34,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
+import reikai.domain.readinglog.ReadingLogRepository
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -47,6 +49,7 @@ class NovelBackupCreator(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val novelSourceManager: NovelSourceManager,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val readingLog: ReadingLogRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
@@ -105,6 +108,9 @@ class NovelBackupCreator(
         if (history.isNotEmpty()) {
             backup.history = history
         }
+        // Sessions ride the history option, keyed by url as history is, as for manga.
+        backup.readingSessions =
+            readingLog.sessionsByUrl(ContentType.NOVELS, entry.id).map { it.toBackupReadingSession() }
     }
 
     override suspend fun customInfo(entry: Novel, backup: BackupNovel) {

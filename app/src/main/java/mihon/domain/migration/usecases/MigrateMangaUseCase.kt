@@ -18,8 +18,10 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.backup.mergedHistory // RK
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId // RK
+import reikai.domain.library.ContentType // RK
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.readinglog.ReadingLogRepository // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
@@ -66,6 +68,7 @@ class MigrateMangaUseCase(
     // RK: reading history carries onto the matched chapters, as Komikku's migration does.
     private val getHistory: GetHistory,
     private val upsertHistory: UpsertHistory,
+    private val readingLog: ReadingLogRepository, // RK: and so does its reading log
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
 
@@ -117,6 +120,7 @@ class MigrateMangaUseCase(
                 val prevHistory = getHistory.await(current.id).associateBy { it.chapterId }
                 val targetHistory = getHistory.await(target.id).associateBy { it.chapterId }
                 val historyUpdates = mutableListOf<HistoryUpdate>()
+                val sessionSources = mutableMapOf<Long, Long>()
                 // RK <--
 
                 val chapterUpdates = mangaChapters
@@ -126,6 +130,7 @@ class MigrateMangaUseCase(
                             .find { it.isRecognizedNumber && it.chapterNumber == mangaChapter.chapterNumber }
 
                         // RK --> each matched chapter takes the source chapter's reading history
+                        if (prevChapter != null) sessionSources[mangaChapter.id] = prevChapter.id
                         prevChapter?.let { prevHistory[it.id] }?.let { history ->
                             val readAt = history.readAt ?: return@let
                             val stored = targetHistory[mangaChapter.id]
@@ -160,6 +165,7 @@ class MigrateMangaUseCase(
                 // deleted, so a retry after this throws heals everything.
                 chapterRepository.updateAll(chapterUpdates)
                 historyUpdates.forEach { upsertHistory.await(it) } // RK
+                readingLog.copy(ContentType.MANGA, sessionSources) // RK
             }
 
             // Update categories

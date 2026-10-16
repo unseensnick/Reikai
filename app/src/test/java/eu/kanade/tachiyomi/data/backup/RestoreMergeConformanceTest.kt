@@ -23,6 +23,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.model.Track
@@ -437,5 +438,6 @@ class NovelMergeRestorer : MergeRestorer {
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 }
