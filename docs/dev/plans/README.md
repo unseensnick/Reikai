@@ -6,4 +6,4 @@ The template and the rule for what earns a plan live in [.claude/rules/roadmap-p
 
 ## Open plans
 
-None at present.
+- [paged-novel-reading.md](paged-novel-reading.md): page-at-a-time novel reading in both renderers, right-to-left and e-ink flash included.
