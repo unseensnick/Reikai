@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import mihon.domain.library.model.search.QueryNode
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.sortForCategory
 import tachiyomi.core.common.preference.TriState
@@ -16,15 +17,17 @@ import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
  * Whether a library reads its tracks at all. Only a tracker filter, a tracker-score sort (the global
- * one or a category's own) and grouping by tracking status read them, and loading every track is slow on
- * a large library. Mihon's gate has the first two; grouping by tracking status is Reikai's.
+ * one or a category's own), grouping by tracking status and a search for a tracker or a score read them,
+ * and loading every track is slow on a large library. Mihon's gate has the first two.
  */
 fun libraryNeedsTracks(
     trackerFilters: Collection<TriState>,
     globalSort: LibrarySort,
     categories: List<Category>,
     groupBy: Int,
-): Boolean = trackerFilters.any { it != TriState.DISABLED } ||
+    searchReadsTracks: Boolean = false,
+): Boolean = searchReadsTracks ||
+    trackerFilters.any { it != TriState.DISABLED } ||
     groupBy == LibraryGroup.BY_TRACK_STATUS ||
     globalSort.type == LibrarySort.Type.TrackerMean ||
     categories.any { sortForCategory(it, globalSort).type == LibrarySort.Type.TrackerMean }
@@ -36,12 +39,14 @@ fun <T> libraryTracksFlow(
     categories: Flow<List<Category>>,
     libraryPreferences: LibraryPreferences,
     reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    searchQuery: Flow<String?>,
     tracks: () -> Flow<Map<Long, List<T>>>,
 ): Flow<Map<Long, List<T>>> = combine(
     filters.map { it.trackers.values },
     libraryPreferences.sortingMode.changes(),
     categories,
     reikaiLibraryPreferences.groupLibraryBy.changes(),
+    searchQuery.map { query -> query?.takeUnless { it.isBlank() }?.let(QueryNode::from)?.readsTracks() == true },
     ::libraryNeedsTracks,
 )
     .distinctUntilChanged()

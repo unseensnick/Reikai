@@ -1,5 +1,6 @@
 package reikai.presentation.library
 
+import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -13,6 +14,7 @@ import mihon.domain.library.model.search.MangaField
 import mihon.domain.library.model.search.NotNode
 import mihon.domain.library.model.search.OrNode
 import mihon.domain.library.model.search.QueryNode
+import tachiyomi.domain.category.model.Category
 import kotlin.math.abs
 import kotlin.time.Instant
 
@@ -51,12 +53,21 @@ class LibraryQueryFields<T>(
      * field term, printed back as typed. False for a row with no gallery metadata, novels included.
      */
     val matchesTagTerm: (T, String) -> Boolean,
+    /** The publishing status code, the source's own as the filters read it. */
+    val status: (T) -> Long,
+    /** Names of the logged-in trackers bound on the entry or any merged member. */
+    val trackerNames: (T) -> List<String>,
+    val categoryIds: (T) -> List<Long>,
+    /** Whether the entry is in a category the term names, resolved once per query like [matchesChapter]. */
+    val matchesCategory: (T, String) -> Boolean?,
+    /** The mean 0 to 10 tracker score, the one the library sorts by; null when unscored. */
+    val meanScore: (T) -> Double?,
 )
 
 /**
  * A row's custom-info overrides, neutral over the two content types' own custom-info rows, so search can
  * match the values actually on the card. A null field means no override, so the source value is used.
- * `status` is overridable too but has no query field, so it is not here.
+ * `status` is overridable too, but `status:` reads the source's value as the filters do, so it is not here.
  */
 class LibraryQueryOverlay(
     val title: String? = null,
@@ -81,12 +92,47 @@ data class LibraryQuerySource(
  * nothing else. Walks the tree rather than the raw string, so quoting, negation and nesting are already
  * handled: `-chapter:"the clown"` yields `the clown`.
  */
-fun QueryNode.chapterSearchTerms(): Set<String> = when (this) {
-    is AndNode -> children.flatMapTo(mutableSetOf()) { it.chapterSearchTerms() }
-    is OrNode -> children.flatMapTo(mutableSetOf()) { it.chapterSearchTerms() }
-    is NotNode -> child.chapterSearchTerms()
-    is FieldQueryNode -> if (field == MangaField.CHAPTER && value.isNotEmpty()) setOf(value) else emptySet()
+fun QueryNode.chapterSearchTerms(): Set<String> = fieldTerms(MangaField.CHAPTER)
+
+/** Every `category:` term, resolved to category ids once per query as [chapterSearchTerms] are. */
+fun QueryNode.categorySearchTerms(): Set<String> = fieldTerms(MangaField.CATEGORY)
+
+/**
+ * Each `category:` term to the ids of [categories] named exactly that, ignoring case, for
+ * [LibraryQueryFields.matchesCategory]. Whole names, so a search for "Read" leaves out "Reading".
+ */
+fun QueryNode.categoryMatches(categories: List<Category>): Map<String, Set<Long>> =
+    categorySearchTerms().associateWith { term ->
+        categories.filter { it.name.equals(term, ignoreCase = true) }.mapTo(mutableSetOf()) { it.id }
+    }
+
+private fun QueryNode.fieldTerms(field: MangaField): Set<String> = when (this) {
+    is AndNode -> children.flatMapTo(mutableSetOf()) { it.fieldTerms(field) }
+    is OrNode -> children.flatMapTo(mutableSetOf()) { it.fieldTerms(field) }
+    is NotNode -> child.fieldTerms(field)
+    is FieldQueryNode -> if (this.field == field && value.isNotEmpty()) setOf(value) else emptySet()
     else -> emptySet()
+}
+
+/** Whether a query reads trackers, so a library that loads tracks only on demand loads them for it. */
+fun QueryNode.readsTracks(): Boolean = when (this) {
+    is AndNode -> children.any { it.readsTracks() }
+    is OrNode -> children.any { it.readsTracks() }
+    is NotNode -> child.readsTracks()
+    is FieldQueryNode -> field == MangaField.TRACKER
+    is ComparisonQueryNode -> field == ComparisonField.SCORE
+    else -> false
+}
+
+/** The word `status:` matches a publishing status by; both content types share the codes. */
+fun statusQueryWord(code: Long): String = when (code.toInt()) {
+    SManga.ONGOING -> "ongoing"
+    SManga.COMPLETED -> "completed"
+    SManga.LICENSED -> "licensed"
+    SManga.PUBLISHING_FINISHED -> "finished"
+    SManga.CANCELLED -> "cancelled"
+    SManga.ON_HIATUS -> "hiatus"
+    else -> "unknown"
 }
 
 /** Whether [row] satisfies the parsed [node]. Pure over the [fields] accessors. */
@@ -123,7 +169,9 @@ private fun <T> GeneralQueryNode.matches(row: T, fields: LibraryQueryFields<T>):
             MangaField.NOTES -> fields.notes(row)?.contains(value, ignoreCase = true) ?: false
 
             // field-only; unreachable above, listed to keep the `when` exhaustive
-            MangaField.LANGUAGE, MangaField.SOURCE_ID, MangaField.CHAPTER -> false
+            MangaField.LANGUAGE, MangaField.SOURCE_ID, MangaField.CHAPTER,
+            MangaField.STATUS, MangaField.TRACKER, MangaField.CATEGORY,
+            -> false
         }
     } || fields.matchesTagTerm(row, termText(value))
     return if (negated) !match else match
@@ -154,6 +202,29 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
 
         MangaField.CHAPTER -> if (value.isEmpty()) false else fields.matchesChapter(row, value) ?: false
 
+        // A status is a word or its code; an empty value asks for an unknown one.
+        MangaField.STATUS -> {
+            val code = fields.status(row)
+            if (value.isEmpty()) {
+                statusQueryWord(code) == statusQueryWord(SManga.UNKNOWN.toLong())
+            } else {
+                statusQueryWord(code).startsWith(value, ignoreCase = true) || value == code.toString()
+            }
+        }
+
+        MangaField.TRACKER -> {
+            val names = fields.trackerNames(row)
+            // Whole names, as category's are: "AniList" is not a part of another tracker's name, but stays exact.
+            if (value.isEmpty()) names.isEmpty() else names.any { it.equals(value, ignoreCase = true) }
+        }
+
+        // An empty value asks for an entry filed in none of the user's categories, which reads as category 0.
+        MangaField.CATEGORY -> if (value.isEmpty()) {
+            fields.categoryIds(row).all { it == 0L }
+        } else {
+            fields.matchesCategory(row, value) ?: false
+        }
+
         else -> {
             val text = when (field) {
                 MangaField.TITLE -> fields.title(row)
@@ -164,7 +235,7 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
 
                 // unreachable; listed to keep the `when` exhaustive
                 MangaField.GENRE, MangaField.SOURCE, MangaField.SOURCE_ID, MangaField.LANGUAGE,
-                MangaField.CHAPTER,
+                MangaField.CHAPTER, MangaField.STATUS, MangaField.TRACKER, MangaField.CATEGORY,
                 -> null
             }
             if (value.isEmpty()) text.isNullOrEmpty() else text?.contains(value, ignoreCase = true) ?: false
@@ -211,6 +282,9 @@ private fun <T> ComparisonQueryNode.matches(row: T, fields: LibraryQueryFields<T
         ComparisonField.UNREAD -> value.toLongOrNull()?.let { queryComparator.apply(fields.unreadCount(row), it) }
         ComparisonField.READ -> value.toLongOrNull()?.let { queryComparator.apply(fields.readCount(row), it) }
         ComparisonField.TOTAL -> value.toLongOrNull()?.let { queryComparator.apply(fields.totalChapters(row), it) }
+        ComparisonField.SCORE -> value.toDoubleOrNull()?.let { wanted ->
+            fields.meanScore(row)?.let { queryComparator.apply(it, wanted) }
+        }
     } ?: false
 
     return if (negated) !match else match

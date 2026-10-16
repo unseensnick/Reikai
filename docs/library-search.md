@@ -45,9 +45,12 @@ Put the field name and a colon in front of the term to search only that field.
 | `language:` | `lang:` | `lang:en` |
 | `srcid:` | `source_id:`, `sourceid:`, `src_id:` | `srcid:novelarrow` |
 | `chapter:` | `ch:` | `chapter:epilogue` |
+| `status:` | | `status:completed` |
+| `tracker:` | | `tracker:anilist` |
+| `category:` | `cat:` | `category:"Plan to read"` |
 
-::: info Three fields need their name typed
-A plain word never searches `language:`, `srcid:` or `chapter:`, so those only answer when you name them.
+::: info Some fields need their name typed
+A plain word never searches `language:`, `srcid:`, `chapter:`, `status:`, `tracker:` or `category:`, so those only answer when you name them.
 :::
 
 **`source:` matches the source's display name**, so `source:mangadex` and `src:manga` both work on a partial name.
@@ -59,7 +62,12 @@ A merged series answers for every source it reads from, so `source:`, `srcid:` a
 **`chapter:` searches chapter names**, so `chapter:epilogue` finds every entry with a chapter called that.
 It is the one field that looks past the entry itself, which is why a plain word never includes chapter names.
 
-An empty quoted value finds entries where a field is missing: `genre:""` finds entries with no genres at all.
+**`status:` matches the publishing status** by its word: `ongoing`, `completed`, `licensed`, `finished` (publishing finished), `cancelled`, `hiatus` or `unknown`, and the start of one is enough, so `status:comp` works.
+
+**`tracker:` and `category:` match a whole name**, ignoring case, so `category:read` leaves out a category called "Reading".
+`tracker:` reads the trackers you are signed in to, on the entry or any series merged with it.
+
+An empty quoted value finds entries where a field is missing: `genre:""` finds entries with no genres at all, `tracker:""` entries you track nowhere, and `category:""` entries in none of your categories.
 A bare `genre:` with nothing after it reads as ordinary text instead.
 
 ::: warning `chapter:` is not accent-insensitive
@@ -78,6 +86,7 @@ Its case-insensitivity covers plain letters only, so an accented character has t
 | `added` | | the date you added it |
 | `nextupdate` | `nu` | when it is next due to be checked |
 | `fetchinterval` | `fi` | how often it is checked, in days |
+| `score` | | your mean tracker score, 0 to 10 |
 
 Compare with `>`, `<`, `>=`, `<=` or `=`.
 Dates are written year-month-day, like `2026-08-01`.
@@ -87,6 +96,8 @@ Dates are written year-month-day, like `2026-08-01`.
 | `unread>5` | more than five unread chapters |
 | `unread=0` | nothing left to read |
 | `total<20` | short series |
+| `score>=8` | entries you scored 8 or higher |
+| `-score>0` | entries you have not scored |
 | `added>2026-01-01` | added this year |
 | `id=1425` | that exact entry, though on **All** a manga and a novel can share a number, so you may get one of each |
 

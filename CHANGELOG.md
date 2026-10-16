@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Library
+
+#### Added
+
+- **Library search can find series by publishing status, tracker, category and score.** Try `status:completed`, `tracker:anilist`, `category:"Plan to read"` or `score>=8`.
+
 ## [0.4.1]
 
 ### Highlights

@@ -47,18 +47,21 @@ fun adultLookupKeys(rows: List<LibraryItem>, sourceKey: (LibraryItem) -> String)
     rows.flatMapTo(mutableSetOf()) { row -> row.allSources(sourceKey(row)).map { it.key } }
 
 /**
- * The search counterpart of [libraryItemFilterFields], binding the shared query kernel onto the library
- * row; both libraries call this one function.
- * Four seams: [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
- * [chapterMatches] is the per-term id set each side resolved once; [overlay] supplies custom-info
- * overrides by row id, as a map lookup rather than a copied row, since filter, sort and grouping all read
- * the source values; and [galleryIndex] answers the tag grammar, which novels never have.
+ * The search counterpart of [libraryItemFilterFields]; both libraries call this one function. The seams:
+ * [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
+ * [chapterMatches] and [categoryMatches] are the per-term id sets each side resolved once; [overlay]
+ * supplies custom-info overrides by row id, since filter, sort and grouping read the source values;
+ * [galleryIndex] answers the tag grammar, which novels never have; [trackerNames] and [meanScore] come
+ * from each side's own tracks.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
     chapterMatches: Map<String, Set<Long>> = emptyMap(),
     overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
     galleryIndex: GallerySearchIndex = GallerySearchIndex(),
+    categoryMatches: Map<String, Set<Long>> = emptyMap(),
+    trackerNames: (LibraryItem) -> List<String> = { emptyList() },
+    meanScore: (LibraryItem) -> Double? = { null },
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
     title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
@@ -82,6 +85,13 @@ fun libraryItemQueryFields(
         chapterMatches[term]?.let { ids -> item.memberIds().any { it in ids } }
     },
     matchesTagTerm = galleryIndex::matches,
+    status = { it.libraryManga.manga.status },
+    trackerNames = trackerNames,
+    categoryIds = { it.libraryManga.categories },
+    matchesCategory = { item, term ->
+        categoryMatches[term]?.let { ids -> item.libraryManga.categories.any { it in ids } }
+    },
+    meanScore = meanScore,
 )
 
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */

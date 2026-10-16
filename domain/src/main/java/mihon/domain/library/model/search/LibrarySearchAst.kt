@@ -14,6 +14,12 @@ enum class MangaField(vararg val aliases: String, val fieldOnly: Boolean = false
     // RK: chapter-name search, which upstream has no field for. fieldOnly on purpose: the match needs a
     // database lookup, so a bare word must never sweep it.
     CHAPTER("chapter", "ch", fieldOnly = true),
+
+    // RK --> fields Statistics' details rows open the library with; field-only, as no bare word means them
+    STATUS("status", fieldOnly = true),
+    TRACKER("tracker", fieldOnly = true),
+    CATEGORY("category", "cat", fieldOnly = true),
+    // RK <--
     ;
 
     companion object {
@@ -33,6 +39,7 @@ enum class ComparisonField(vararg val aliases: String) {
     UNREAD("unread"),
     READ("read"),
     TOTAL("total"),
+    SCORE("score"), // RK: the mean tracker score, 0 to 10
     ;
 
     companion object {

@@ -3,6 +3,7 @@ package reikai.presentation.library
 import io.kotest.matchers.shouldBe
 import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
+import tachiyomi.domain.category.model.Category
 import kotlin.time.Instant
 
 /**
@@ -20,7 +21,14 @@ class LibraryQueryMatchTest {
         val sources: List<LibraryQuerySource> = listOf(source()),
         val notes: String? = "",
         val unread: Long = 3L,
+        val status: Long = 1L,
+        val trackers: List<String> = listOf("AniList"),
+        val categories: List<Long> = listOf(5L),
+        val score: Double? = 7.2,
     )
+
+    /** Stands in for the category ids each library resolves once per query by name. */
+    private val categoryMatches = mapOf("read" to setOf(5L))
 
     /** Stands in for the id set each library resolves once per query from its own chapter table. */
     private val chapterMatches = mapOf("clown" to setOf(1L), "seer" to setOf(2L))
@@ -42,6 +50,11 @@ class LibraryQueryMatchTest {
         nextUpdate = { EPOCH },
         matchesChapter = { row, term -> chapterMatches[term]?.contains(row.id) },
         matchesTagTerm = { _, _ -> false },
+        status = { it.status },
+        trackerNames = { it.trackers },
+        categoryIds = { it.categories },
+        matchesCategory = { row, term -> categoryMatches[term]?.let { ids -> row.categories.any { it in ids } } },
+        meanScore = { it.score },
     )
 
     /** A merged series led by the default source, with a local Japanese member. */
@@ -70,10 +83,85 @@ class LibraryQueryMatchTest {
         nextUpdate = fields.nextUpdate,
         matchesChapter = fields.matchesChapter,
         matchesTagTerm = fields.matchesTagTerm,
+        status = fields.status,
+        trackerNames = fields.trackerNames,
+        categoryIds = fields.categoryIds,
+        matchesCategory = fields.matchesCategory,
+        meanScore = fields.meanScore,
     )
 
     private fun matchesOverlaid(query: String) =
         libraryQueryMatches(QueryNode.from(query), Row(), overlaidFields)
+
+    @Test
+    fun `status matches its word`() {
+        matches("status:ongoing") shouldBe true
+    }
+
+    @Test
+    fun `status matches its code`() {
+        matches("status:1") shouldBe true
+    }
+
+    @Test
+    fun `an empty status asks for an unknown one`() {
+        matches("status:\"\"", Row(status = 0L)) shouldBe true
+    }
+
+    @Test
+    fun `tracker matches a whole tracker name`() {
+        matches("tracker:anilist") shouldBe true
+    }
+
+    @Test
+    fun `tracker does not match part of a name`() {
+        matches("tracker:ani") shouldBe false
+    }
+
+    @Test
+    fun `an empty tracker asks for an untracked entry`() {
+        matches("tracker:\"\"", Row(trackers = emptyList())) shouldBe true
+    }
+
+    @Test
+    fun `category matches through the resolved ids`() {
+        matches("category:read") shouldBe true
+    }
+
+    @Test
+    fun `an empty category asks for an entry filed nowhere`() {
+        matches("category:\"\"", Row(categories = listOf(0L))) shouldBe true
+    }
+
+    @Test
+    fun `score compares the mean`() {
+        matches("score>=7 score<7.5") shouldBe true
+    }
+
+    @Test
+    fun `an unscored entry fails a score comparison`() {
+        matches("score>0", Row(score = null)) shouldBe false
+    }
+
+    @Test
+    fun `a negated score comparison finds an unscored entry`() {
+        matches("-score>0", Row(score = null)) shouldBe true
+    }
+
+    @Test
+    fun `a category term resolves to the category with that whole name only`() {
+        val categories = listOf(category(5L, "Read"), category(6L, "Reading"))
+
+        QueryNode.from("category:read").categoryMatches(categories) shouldBe mapOf("read" to setOf(5L))
+    }
+
+    @Test
+    fun `a tracker or score term makes the query read tracks`() {
+        listOf("tracker:anilist", "score>3", "title").map { QueryNode.from(it).readsTracks() } shouldBe
+            listOf(true, true, false)
+    }
+
+    private fun category(id: Long, name: String) = Category(id = id, name = name, order = 0L, flags = 0L)
 
     @Test
     fun `a bare word sweeps the text fields`() {

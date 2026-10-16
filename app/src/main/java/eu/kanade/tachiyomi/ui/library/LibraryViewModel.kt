@@ -65,10 +65,12 @@ import reikai.domain.merge.stitchInputChanges
 import reikai.domain.source.isInstalled
 import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
+import reikai.presentation.library.LibraryQueryFields
 import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
+import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.gallerySearchIndexFor
 import reikai.presentation.library.libraryBadgePrefsFlow
@@ -77,6 +79,7 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
+import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
@@ -187,6 +190,7 @@ class LibraryViewModel(
         getCategories.subscribe(),
         libraryPreferences,
         reikaiLibraryPreferences,
+        searchQuery,
         getTracksPerManga::subscribe,
     )
     // RK <--
@@ -229,7 +233,15 @@ class LibraryViewModel(
                             getSearchTags::awaitAll,
                             getSearchTitles::awaitAll,
                         )
-                        val queryFields = mangaQueryFields(chapterMatches, customInfo, gallery)
+                        val queryFields = mangaQueryFields(
+                            chapterMatches,
+                            customInfo,
+                            gallery,
+                            queryNode.categoryMatches(getCategories.await()),
+                            items,
+                            tracksMap,
+                            filters.trackers.keys,
+                        )
                         items.filter { libraryQueryMatches(queryNode, it, queryFields) }
                     }
                 }
@@ -330,14 +342,27 @@ class LibraryViewModel(
         chapterMatches: Map<String, Set<Long>>,
         customInfo: List<CustomMangaInfo>,
         gallery: GallerySearchIndex,
-    ) = libraryItemQueryFields(
-        sourceKey = { it.libraryManga.manga.source.toString() },
-        chapterMatches = chapterMatches,
-        // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
-        // The rows stay override-free: filter, sort and grouping deliberately read the source values.
-        overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
-        galleryIndex = gallery,
-    )
+        categoryMatches: Map<String, Set<Long>>,
+        rows: List<LibraryItem>,
+        trackMap: Map<Long, List<Track>>,
+        loggedInTrackerIds: Set<Long>,
+    ): LibraryQueryFields<LibraryItem> {
+        val trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
+        val means = libraryTrackerMeans(rows.associate { it.id to it.memberIds() }, trackMap, trackers)
+        return libraryItemQueryFields(
+            sourceKey = { it.libraryManga.manga.source.toString() },
+            chapterMatches = chapterMatches,
+            // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
+            // The rows stay override-free: filter, sort and grouping deliberately read the source values.
+            overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
+            galleryIndex = gallery,
+            categoryMatches = categoryMatches,
+            trackerNames = { item ->
+                mergedGroupTracks(item.memberIds(), trackMap).mapNotNull { trackers[it.trackerId]?.name }
+            },
+            meanScore = { means[it.id] },
+        )
+    }
 
     // RK: one lookup per distinct `chapter:` term the user actually typed. Runs off the query slot, so a
     // plain search never touches the chapter table and a chapter search costs one scan, not one per row.

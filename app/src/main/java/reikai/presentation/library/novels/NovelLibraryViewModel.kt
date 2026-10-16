@@ -70,6 +70,7 @@ import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.MergeCollapseInputs
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
+import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.installedIconsBySite
 import reikai.presentation.library.libraryBadgePrefsFlow
@@ -173,6 +174,7 @@ class NovelLibraryViewModel(
                     getNovelCategories.subscribe(),
                     libraryPreferences,
                     reikaiLibraryPreferences,
+                    searchQuery,
                     getNovelTracks::subscribeAll,
                 ),
                 ::Triple,
@@ -307,10 +309,11 @@ class NovelLibraryViewModel(
         val uiTracks = tracks.mapValues { (_, novelTracks) -> novelTracks.map { it.toUiTrack() } }
         val membersByRep = groups.associate { it.representative.novel.id to it.memberIds }
         val tracksByRep = membersByRep.mapValues { (_, memberIds) -> mergedGroupTracks(memberIds, uiTracks) }
+        val scoringTrackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
         val trackerMeanScores = libraryTrackerMeans(
             membersByRow = membersByRep,
             tracksById = uiTracks,
-            trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
+            trackers = scoringTrackers,
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors: novels have no local-source concept.
@@ -362,6 +365,11 @@ class NovelLibraryViewModel(
             // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.
             overlay = overlay.mapValues { (_, custom) -> custom.toQueryOverlay() },
+            categoryMatches = queryNode?.categoryMatches(getNovelCategories.await()).orEmpty(),
+            trackerNames = { item ->
+                tracksByRep[item.id].orEmpty().mapNotNull { scoringTrackers[it.trackerId]?.name }
+            },
+            meanScore = { trackerMeanScores[it.id] },
         )
         val items = allItems.filter { item ->
             val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)
