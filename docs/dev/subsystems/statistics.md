@@ -28,7 +28,7 @@ Sessions follow history: clearing all history clears them per type, Clear databa
 
 ### Charts
 
-Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed through `rememberM3VicoTheme`. Slice colours are fixed theme roles per value (`statusColor`, `TrackStatus.color`), so a status keeps its colour between chips. The Reading time screen's bars are plain Compose (`WeekBars`) so each day is a selectable target. Every chart carries a spoken description or, for a donut, leaves it to the legend beside it.
+Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed through `rememberM3VicoTheme`. Slice colours are fixed theme roles per value (`statusColor`, `TrackStatus.color`), so a status keeps its colour between chips. The Reading time screen's bars are plain Compose (`WeekBars`) so each day is a selectable target. Source rows show the library's cover badge (`SourceIconBadge`, resolved once per source in the loader through `badgeSource` and `novelSourceBadge`), drawn scaled to list size so every badge case keeps the library's own drawing. Every chart carries a spoken description or, for a donut, leaves it to the legend beside it.
 
 ## Key files
 

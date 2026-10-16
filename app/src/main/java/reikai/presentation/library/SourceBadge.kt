@@ -4,6 +4,8 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.source.siteHost
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.source.model.Source
+import tachiyomi.domain.source.model.StubSource
+import tachiyomi.domain.source.service.SourceManager
 
 /**
  * A library row's source as a cover badge draws it, for both content types. A manga source is drawn
@@ -15,6 +17,12 @@ sealed interface SourceBadge {
     data class Icon(val url: String) : SourceBadge
     data object Generic : SourceBadge
     data object Missing : SourceBadge
+}
+
+/** A manga source as its badge draws it: the installed source, or a stub once its extension is gone. */
+suspend fun SourceManager.badgeSource(sourceId: Long): Source {
+    val s = getOrStub(sourceId)
+    return Source(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
 }
 
 /**

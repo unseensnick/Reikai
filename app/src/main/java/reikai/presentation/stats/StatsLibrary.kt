@@ -20,6 +20,10 @@ import reikai.domain.novel.track.toUiTrack
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.library.SourceBadge
+import reikai.presentation.library.badgeSource
+import reikai.presentation.library.installedIconsBySite
+import reikai.presentation.library.novelSourceBadge
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -38,6 +42,8 @@ class StatsLibrary(
     /** Every tracker's and category's name by id, for the groupings' rows and their library searches. */
     val trackerNames: Map<Long, String>,
     val categoryNames: Map<Long, String>,
+    /** Each source's icon by its search key, drawn as the library's cover badges draw it. */
+    val sourceBadges: Map<String, SourceBadge>,
     private val mangaTitles: List<StatsTitle>,
     private val novelTitles: List<StatsTitle>,
     private val mangaSessions: List<EntryReadingSession>,
@@ -119,6 +125,10 @@ class StatsLibraryLoader(
         val novelSources = novels.members.map { it.novel.source }.distinct().associateWith { id ->
             novelSourceManager.identityOf(id).let { StatsSource(id, it.name, it.lang.orEmpty()) }
         }
+        val iconsBySite = installedIconsBySite(novelSourceManager.getAll())
+        val sourceBadges = mangaSources.keys.associate { id ->
+            id.toString() to SourceBadge.Manga(sourceManager.badgeSource(id))
+        } + novelSources.keys.associateWith { id -> novelSourceBadge(novelSourceManager.get(id), iconsBySite) }
 
         val mangaTitles = manga.statsTitles(
             StatsTitleFields(
@@ -162,6 +172,7 @@ class StatsLibraryLoader(
             trackerNames = trackerManager.trackers.associate { it.id to it.name },
             // One table holds both types' categories; each getter adds the universal ones.
             categoryNames = (getCategories.await() + getNovelCategories.await()).associate { it.id to it.name },
+            sourceBadges = sourceBadges,
             mangaTitles = mangaTitles,
             novelTitles = novelTitles,
             mangaSessions = mangaSessions,

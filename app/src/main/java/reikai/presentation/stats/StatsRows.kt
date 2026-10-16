@@ -3,12 +3,16 @@ package reikai.presentation.stats
 import androidx.compose.runtime.Immutable
 import kotlinx.datetime.TimeZone
 import reikai.domain.library.ContentType
+import reikai.presentation.library.SourceBadge
 
 enum class StatsSort { COUNT, READ, SCORE, TIME }
 
-/** A grouping's row: [name] is set where the key names an id the screen cannot resolve itself. */
+/**
+ * A grouping's row: [name] is set where the key names an id the screen cannot resolve itself, and
+ * [sourceBadge] on a source row, the icon its library cover badge shows.
+ */
 @Immutable
-data class StatsRow(val group: StatsGroup, val name: String?, val query: String?)
+data class StatsRow(val group: StatsGroup, val name: String?, val query: String?, val sourceBadge: SourceBadge? = null)
 
 /** Groupings with no order of their own, which [StatsSort] reorders; the rest keep their own order. */
 val StatsDimension.isSortable: Boolean
@@ -26,6 +30,7 @@ fun StatsLibrary.rows(
             group = group,
             name = nameOf(group.key),
             query = group.key.libraryQuery(trackerNames::get, categoryNames::get),
+            sourceBadge = (group.key as? StatsGroupKey.Source)?.let { sourceBadges[it.key] },
         )
     }
 

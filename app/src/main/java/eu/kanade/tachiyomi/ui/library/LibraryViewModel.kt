@@ -70,6 +70,7 @@ import reikai.presentation.library.MangaMergeCollapse
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
+import reikai.presentation.library.badgeSource
 import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.gallerySearchIndexFor
@@ -107,13 +108,11 @@ import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
 import tachiyomi.source.local.isLocal
 import kotlin.time.Duration.Companion.seconds
-import tachiyomi.domain.source.model.Source as DomainSource
 
 @Inject
 @ViewModelKey
@@ -419,7 +418,7 @@ class LibraryViewModel(
                         unreadCount = manga.unreadCount,
                         isLocal = manga.manga.isLocal(),
                         sourceLanguage = source.lang,
-                        sourceBadge = SourceBadge.Manga(resolveBadgeSource(manga.manga.source)),
+                        sourceBadge = SourceBadge.Manga(sourceManager.badgeSource(manga.manga.source)),
                     ),
                 )
             }
@@ -431,7 +430,7 @@ class LibraryViewModel(
                 membership = mergePrefs.membership,
                 mergingEnabled = mergePrefs.mergingEnabled,
                 showMergeSourceIcons = mergePrefs.showSourceIcons,
-                resolveSource = ::resolveBadgeSource,
+                resolveSource = sourceManager::badgeSource,
                 mergedCountsByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedCounts else emptyMap(),
                 // RK: the same treatment for downloads, which summing the members double-counted for
                 //     every chapter two of them hold.
@@ -474,11 +473,6 @@ class LibraryViewModel(
                 owner.source,
             )
         }
-    }
-
-    private suspend fun resolveBadgeSource(sourceId: Long): DomainSource {
-        val s = sourceManager.getOrStub(sourceId)
-        return DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
     }
     // RK <--
 
