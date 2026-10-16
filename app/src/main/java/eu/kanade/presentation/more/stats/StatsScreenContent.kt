@@ -5,8 +5,9 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyItemScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -22,7 +23,9 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.stats.STATS_CARD_MIN_WIDTH
 import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.statsCard
 import reikai.presentation.stats.statsChartCards
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
@@ -44,36 +47,39 @@ fun StatsScreenContent(
     onOpenReading: () -> Unit,
     // RK <--
 ) {
-    LazyColumn(
+    // RK --> a masonry grid, one column on a phone and more on a wider screen, each card going under the
+    // shorter column; a card is a Column, since a grid item overlaps its children where a list item stacks them
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Adaptive(STATS_CARD_MIN_WIDTH),
         contentPadding = paddingValues,
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        verticalItemSpacing = MaterialTheme.padding.small,
     ) {
-        // RK --> content-type switch, mirroring the Updates/History tabs
-        item {
+        // content-type switch, mirroring the Updates/History tabs
+        item(span = StaggeredGridItemSpan.FullLine) {
             ContentTypeFilterChips(
                 selected = contentType,
                 onSelect = onContentTypeSelected,
             )
         }
-        // RK <--
-        item {
+        statsCard("overview") {
             OverviewSection(state.overview)
         }
-        item {
+        statsCard("titles") {
             TitlesStats(state.titles)
         }
-        item {
+        statsCard("chapters") {
             ChapterStats(state.chapters)
         }
-        item {
+        statsCard("trackers") {
             TrackerStats(state.trackers)
         }
+        // RK <--
         statsChartCards(state.charts, onSeeAll, onOpenRow, onOpenReading) // RK
     }
 }
 
 @Composable
-private fun LazyItemScope.OverviewSection(
+private fun OverviewSection( // RK: grid item, no list receiver
     data: StatsData.Overview,
 ) {
     val none = stringResource(MR.strings.none)
@@ -107,7 +113,7 @@ private fun LazyItemScope.OverviewSection(
 }
 
 @Composable
-private fun LazyItemScope.TitlesStats(
+private fun TitlesStats( // RK: grid item, no list receiver
     data: StatsData.Titles,
 ) {
     SectionCard(MR.strings.label_titles_section) {
@@ -129,7 +135,7 @@ private fun LazyItemScope.TitlesStats(
 }
 
 @Composable
-private fun LazyItemScope.ChapterStats(
+private fun ChapterStats( // RK: grid item, no list receiver
     data: StatsData.Chapters,
 ) {
     SectionCard(MR.strings.chapters) {
@@ -151,7 +157,7 @@ private fun LazyItemScope.ChapterStats(
 }
 
 @Composable
-private fun LazyItemScope.TrackerStats(
+private fun TrackerStats( // RK: grid item, no list receiver
     data: StatsData.Trackers,
 ) {
     val notApplicable = stringResource(MR.strings.not_applicable)

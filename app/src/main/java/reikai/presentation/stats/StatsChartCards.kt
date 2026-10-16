@@ -4,12 +4,13 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,6 +23,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
@@ -63,14 +65,14 @@ import java.util.Locale
  * The overview's cards after Mihon's four: the charts, then a card of rows per grouping. A card that would
  * draw nothing is left out. [onSeeAll] opens a grouping's full list, [onOpenRow] a row's library search.
  */
-fun LazyListScope.statsChartCards(
+fun LazyStaggeredGridScope.statsChartCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenRow: (String) -> Unit,
     onOpenReading: () -> Unit,
 ) {
     if (charts.status.isNotEmpty()) {
-        item(key = "stats-publishing-status") {
+        statsCard("stats-publishing-status") {
             StatsCardHeader(MR.strings.stats_publishing_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.STATUS)
             }
@@ -84,7 +86,7 @@ fun LazyListScope.statsChartCards(
         }
     }
     if (charts.trackStatus.isNotEmpty()) {
-        item(key = "stats-tracking-status") {
+        statsCard("stats-tracking-status") {
             SectionCard(MR.strings.stats_tracking_status) {
                 StatsDonut(
                     TrackStatus.entries.mapNotNull { status ->
@@ -95,7 +97,7 @@ fun LazyListScope.statsChartCards(
         }
     }
     if (charts.scores.isNotEmpty()) {
-        item(key = "stats-scores") {
+        statsCard("stats-scores") {
             StatsCardHeader(MR.strings.stats_scores, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
             SectionCard {
                 StatsColumns(
@@ -106,7 +108,7 @@ fun LazyListScope.statsChartCards(
             }
         }
     }
-    item(key = "stats-reading-week") {
+    statsCard("stats-reading-week") {
         StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
         SectionCard {
             StatsReadingWeek(charts)
@@ -115,7 +117,7 @@ fun LazyListScope.statsChartCards(
     OVERVIEW_GROUPINGS.forEach { dimension ->
         val rows = charts.groups[dimension].orEmpty()
         if (rows.isEmpty()) return@forEach
-        item(key = "stats-group-$dimension") {
+        statsCard("stats-group-$dimension") {
             StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
             SectionCard {
                 rows.forEach { StatsRowLine(it, onOpenRow) }
@@ -123,6 +125,17 @@ fun LazyListScope.statsChartCards(
         }
     }
 }
+
+/** One overview card as a grid item, its parts stacked: a grid item overlaps its children where a list stacks them. */
+fun LazyStaggeredGridScope.statsCard(key: String, content: @Composable ColumnScope.() -> Unit) {
+    item(key = key) { Column(content = content) }
+}
+
+/**
+ * The narrowest a Statistics card gets before the grid drops a column, so a phone keeps one column and an
+ * unfolded or tablet screen sets two or three side by side.
+ */
+val STATS_CARD_MIN_WIDTH: Dp = 340.dp
 
 @Composable
 private fun StatsReadingWeek(charts: StatsCharts) {

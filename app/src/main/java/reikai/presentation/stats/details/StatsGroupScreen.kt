@@ -3,8 +3,9 @@ package reikai.presentation.stats.details
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -29,6 +30,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Check
 import reikai.presentation.details.searchLibraryFromDetails
+import reikai.presentation.stats.STATS_CARD_MIN_WIDTH
 import reikai.presentation.stats.StatsDimension
 import reikai.presentation.stats.StatsRowCard
 import reikai.presentation.stats.StatsSort
@@ -68,7 +70,8 @@ class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
                 LoadingScreen()
                 return@Scaffold
             }
-            LazyColumn(
+            LazyVerticalGrid(
+                columns = GridCells.Adaptive(STATS_CARD_MIN_WIDTH),
                 contentPadding = PaddingValues(
                     start = MaterialTheme.padding.medium,
                     end = MaterialTheme.padding.medium,
@@ -76,6 +79,7 @@ class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
                     bottom = paddingValues.calculateBottomPadding() + MaterialTheme.padding.medium,
                 ),
                 verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             ) {
                 items(current.rows, key = { it.group.key.toString() }) { row ->
                     StatsRowCard(row) { query ->

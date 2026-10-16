@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -14,8 +13,9 @@ import dev.icerock.moko.resources.StringResource
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 
+// RK: no LazyItemScope receiver, so Statistics can set these cards in a grid
 @Composable
-fun LazyItemScope.SectionCard(
+fun SectionCard(
     titleRes: StringResource? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
