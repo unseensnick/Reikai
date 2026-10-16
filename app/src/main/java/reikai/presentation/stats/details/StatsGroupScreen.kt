@@ -1,7 +1,8 @@
 package reikai.presentation.stats.details
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.DropdownMenu
@@ -17,7 +18,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.icerock.moko.resources.StringResource
@@ -30,11 +30,9 @@ import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Check
 import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.stats.StatsDimension
-import reikai.presentation.stats.StatsRow
-import reikai.presentation.stats.StatsRowLine
+import reikai.presentation.stats.StatsRowCard
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.isSortable
-import reikai.presentation.stats.statsDuration
 import reikai.presentation.stats.title
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -70,30 +68,24 @@ class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
                 LoadingScreen()
                 return@Scaffold
             }
-            LazyColumn(contentPadding = paddingValues) {
+            LazyColumn(
+                contentPadding = PaddingValues(
+                    start = MaterialTheme.padding.medium,
+                    end = MaterialTheme.padding.medium,
+                    top = paddingValues.calculateTopPadding() + MaterialTheme.padding.small,
+                    bottom = paddingValues.calculateBottomPadding() + MaterialTheme.padding.medium,
+                ),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+            ) {
                 items(current.rows, key = { it.group.key.toString() }) { row ->
-                    Box(Modifier.padding(horizontal = MaterialTheme.padding.medium)) {
-                        StatsRowLine(
-                            row = row,
-                            onOpen = { query ->
-                                scope.launch { navigator.searchLibraryFromDetails(query, current.contentType) }
-                            },
-                            supporting = row.supporting(),
-                        )
+                    StatsRowCard(row) { query ->
+                        scope.launch { navigator.searchLibraryFromDetails(query, current.contentType) }
                     }
                 }
             }
         }
     }
 }
-
-/** Chapters read, the mean score and reading time, each only when the row has one. */
-@Composable
-private fun StatsRow.supporting(): String = listOfNotNull(
-    stringResource(MR.strings.stats_row_chapters, group.readChapters.toInt(), group.totalChapters.toInt()),
-    group.meanScore?.let { "%.1f ★".format(it) },
-    if (group.readDuration > 0) statsDuration(group.readDuration) else null,
-).joinToString("  ·  ")
 
 @Composable
 private fun SortMenu(selected: StatsSort, onSelect: (StatsSort) -> Unit) {

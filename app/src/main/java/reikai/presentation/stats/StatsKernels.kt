@@ -120,7 +120,21 @@ data class StatsGroup(
     val totalChapters: Long,
     val meanScore: Double?,
     val readDuration: Long,
+    /** The row's series by how far they are read; the three always add up to [count]. */
+    val finished: Int,
+    val reading: Int,
+    val notStarted: Int,
 )
+
+/** How far a series is read: every chapter, some, or none. A series with no chapters has not started. */
+enum class ReadState { FINISHED, READING, NOT_STARTED }
+
+val StatsTitle.readState: ReadState
+    get() = when {
+        readChapters <= 0L -> ReadState.NOT_STARTED
+        readChapters >= totalChapters -> ReadState.FINISHED
+        else -> ReadState.READING
+    }
 
 /** Chapter-count bands, as Yōkai's details screen draws them. */
 val STATS_LENGTHS = listOf(0L..0L, 1L..1L, 2L..10L, 11L..25L, 26L..50L, 51L..100L, 101L..200L, 201L..Long.MAX_VALUE)
@@ -149,6 +163,9 @@ fun List<StatsTitle>.groupsBy(dimension: StatsDimension, timeZone: TimeZone): Li
                 totalChapters = titles.sumOf { it.totalChapters },
                 meanScore = titles.mapNotNull { it.meanScore }.takeIf { it.isNotEmpty() }?.average(),
                 readDuration = titles.sumOf { it.readDuration },
+                finished = titles.count { it.readState == ReadState.FINISHED },
+                reading = titles.count { it.readState == ReadState.READING },
+                notStarted = titles.count { it.readState == ReadState.NOT_STARTED },
             )
         }
 }

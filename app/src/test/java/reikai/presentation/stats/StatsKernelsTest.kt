@@ -85,11 +85,28 @@ class StatsKernelsTest {
             listOf(StatsGroupKey.Length(0L..0L))
     }
 
+    @Test
+    fun `a row splits its series by how far they are read`() {
+        val titles =
+            listOf(title(totalChapters = 3, readChapters = 3), title(totalChapters = 3, readChapters = 1), title())
+
+        titles.groupsBy(StatsDimension.STATUS, utc).single().let {
+            Triple(it.finished, it.reading, it.notStarted)
+        } shouldBe
+            Triple(1, 1, 1)
+    }
+
+    @Test
+    fun `a series with no chapters has not started`() {
+        title(totalChapters = 0, readChapters = 0).readState shouldBe ReadState.NOT_STARTED
+    }
+
     private fun title(
         sources: List<StatsSource> = listOf(StatsSource("1", "One", "en")),
         genres: List<String> = emptyList(),
         categoryIds: List<Long> = listOf(1L),
         totalChapters: Long = 3,
+        readChapters: Long = 0,
         trackerStartedAt: Instant? = null,
         firstLoggedReadAt: Instant? = null,
     ) = StatsTitle(
@@ -100,7 +117,7 @@ class StatsKernelsTest {
         genres = genres,
         categoryIds = categoryIds,
         totalChapters = totalChapters,
-        readChapters = 0,
+        readChapters = readChapters,
         trackerIds = emptyList(),
         meanScore = null,
         trackStatus = null,

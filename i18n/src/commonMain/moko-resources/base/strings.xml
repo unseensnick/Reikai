@@ -1953,7 +1953,10 @@
     <string name="stats_sort_read">Chapters read</string>
     <string name="stats_sort_score">Mean score</string>
     <string name="stats_sort_time">Reading time</string>
-    <string name="stats_row_chapters">%1$d of %2$d chapters read</string>
+    <string name="stats_label_finished">Finished</string>
+    <string name="stats_label_not_started">Not started</string>
+    <string name="stats_series_count">%1$d series</string>
+    <string name="stats_label_time">Time</string>
     <string name="stats_nothing_read">Nothing read this day</string>
     <string name="stats_previous_week">Previous week</string>
     <string name="stats_next_week">Next week</string>

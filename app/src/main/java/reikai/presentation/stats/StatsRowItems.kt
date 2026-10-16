@@ -1,19 +1,26 @@
 package reikai.presentation.stats
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
@@ -106,12 +113,118 @@ fun StatsGroupKey.label(name: String?): String = when (this) {
     is StatsGroupKey.StartYear -> year?.toString() ?: stringResource(MR.strings.unknown)
 }
 
-/** A reading time as the overview shows its total, so the two read alike. */
+/**
+ * A reading time in at most two units: whole minutes once there is one, so "19m 29s" reads "19m"; a read
+ * under a minute keeps its seconds rather than showing nothing.
+ */
 @Composable
-fun statsDuration(ms: Long): String =
-    ms.toDuration(
-        DurationUnit.MILLISECONDS,
-    ).toDurationString(LocalContext.current, fallback = stringResource(MR.strings.none))
+fun statsDuration(ms: Long): String {
+    val shown = if (ms >= MS_PER_MINUTE) ms - ms % MS_PER_MINUTE else ms
+    return shown.toDuration(DurationUnit.MILLISECONDS)
+        .toDurationString(LocalContext.current, fallback = stringResource(MR.strings.none))
+}
+
+/**
+ * One grouping as a card: its name and series count, its series split by how far they are read (a bar,
+ * then the three counts under labels), then its score and time. No value is a bare number, and a missing
+ * one shows None in its place rather than shifting the rest.
+ */
+@Composable
+fun StatsRowCard(row: StatsRow, onOpen: (String) -> Unit) {
+    val group = row.group
+    ElevatedCard(
+        onClick = { row.query?.let(onOpen) },
+        enabled = row.query != null,
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Column(
+            modifier = Modifier.padding(MaterialTheme.padding.medium),
+            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = group.key.label(row.name),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(MR.strings.stats_series_count, group.count),
+                    style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
+                )
+            }
+            ReadStateBar(group)
+            Row {
+                StatsLabelled(MR.strings.stats_label_finished, Modifier.weight(1f)) {
+                    StatsValue(group.finished.toString())
+                }
+                StatsLabelled(MR.strings.reading, Modifier.weight(1f)) {
+                    StatsValue(group.reading.toString())
+                }
+                StatsLabelled(MR.strings.stats_label_not_started, Modifier.weight(1f)) {
+                    StatsValue(group.notStarted.toString())
+                }
+            }
+            Row {
+                StatsLabelled(MR.strings.score, Modifier.weight(1f)) {
+                    StatsValue(group.meanScore?.let { "%.1f".format(it) })
+                }
+                StatsLabelled(MR.strings.stats_label_time, Modifier.weight(2f)) {
+                    StatsValue(if (group.readDuration > 0) statsDuration(group.readDuration) else null)
+                }
+            }
+        }
+    }
+}
+
+/** The finished, reading and not-started shares side by side; the counts under it say the same in words. */
+@Composable
+private fun ReadStateBar(group: StatsGroup) {
+    val parts = listOf(
+        group.finished to MaterialTheme.colorScheme.primary,
+        group.reading to MaterialTheme.colorScheme.tertiary,
+        group.notStarted to MaterialTheme.colorScheme.surfaceVariant,
+    ).filter { it.first > 0 }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .clip(MaterialTheme.shapes.small)
+            .clearAndSetSemantics {},
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        parts.forEach { (count, color) ->
+            Box(Modifier.weight(count.toFloat()).fillMaxHeight().background(color))
+        }
+    }
+}
+
+@Composable
+private fun StatsLabelled(label: StringResource, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier) {
+        Text(
+            text = stringResource(label),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        content()
+    }
+}
+
+/** A value, or the word None in the same place when there is none. */
+@Composable
+private fun StatsValue(value: String?) {
+    Text(
+        text = value ?: stringResource(MR.strings.none),
+        style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
+        color = if (value == null) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
+    )
+}
+
+// Same-width digits, so numbers in a list line up and do not jitter between rows.
+private const val TABULAR = "tnum"
+
+private const val MS_PER_MINUTE = 60_000L
 
 /** The section title for a grouping's card and its See all screen. */
 val StatsDimension.title: StringResource
