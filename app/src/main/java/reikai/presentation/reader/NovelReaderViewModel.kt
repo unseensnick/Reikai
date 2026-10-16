@@ -46,6 +46,7 @@ import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
+import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
@@ -88,6 +89,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.source.isInstalled
 import reikai.domain.track.TrackedChapterNumber
@@ -141,6 +143,7 @@ class NovelReaderViewModel(
     private val novelPreferences: NovelPreferences,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
+    private val readingLog: ReadingLogRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
     // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
     // read (parity with the manga reader).
@@ -1002,6 +1005,7 @@ class NovelReaderViewModel(
         val now = Clock.System.now()
         val duration = chapterReadSession.take(now)
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
+        readingLog.record(ContentType.NOVELS, id, now, duration)
     }
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped

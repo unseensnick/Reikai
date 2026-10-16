@@ -1,0 +1,43 @@
+-- One row per reading session, for Statistics' reading time per day, streaks and start year. history
+-- keeps one row per chapter with its last read overwritten, so it cannot say when the time was spent.
+-- A session's end and length are what both readers' ReadSessionClock yields. (chapter_id, ended_at) is
+-- unique so a migrate or a restore that copies a session twice adds nothing. ended_at is epoch millis.
+CREATE TABLE reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES chapter (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);
+
+insertManga:
+INSERT OR IGNORE INTO reading_session(chapter_id, ended_at, duration)
+VALUES (:chapterId, :endedAt, :duration);
+
+insertNovel:
+INSERT OR IGNORE INTO novel_reading_session(chapter_id, ended_at, duration)
+VALUES (:chapterId, :endedAt, :duration);
+
+removeAllManga:
+DELETE FROM reading_session;
+
+removeAllNovel:
+DELETE FROM novel_reading_session;
+
+-- The sessions of the history rows history.sq removeResettedHistory is about to delete, so the log loses
+-- the same time the total does.
+removeMangaOfResetHistory:
+DELETE FROM reading_session
+WHERE chapter_id IN (SELECT chapter_id FROM history WHERE read_at IS NULL);

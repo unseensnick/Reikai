@@ -1,0 +1,21 @@
+-- The reading log behind Statistics' reading time per day, streaks and start year: one row per reading
+-- session, for each content type. Empty on upgrade, since history never kept when its time was spent.
+CREATE TABLE reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES chapter (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);

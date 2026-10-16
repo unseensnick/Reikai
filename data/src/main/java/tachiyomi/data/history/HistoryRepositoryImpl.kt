@@ -88,6 +88,7 @@ class HistoryRepositoryImpl(
     override suspend fun deleteAllHistory(): Boolean {
         return try {
             database.historyQueries.removeAllHistory()
+            database.reading_sessionQueries.removeAllManga() // RK: the reading log goes with the time it adds up to
             true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, throwable = e)
@@ -96,6 +97,7 @@ class HistoryRepositoryImpl(
     }
 
     override suspend fun deleteResetHistory() {
+        database.reading_sessionQueries.removeMangaOfResetHistory() // RK: first, while the rows still say which
         database.historyQueries.removeResettedHistory()
     }
 

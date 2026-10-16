@@ -84,6 +84,7 @@ import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.entry.EntryId // RK
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.library.ContentType
 import reikai.domain.library.chapterSwipeActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -113,6 +114,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey // RK
 import reikai.domain.source.isInstalled
 import reikai.domain.track.TrackedChapterNumber
@@ -188,6 +190,7 @@ class ReaderViewModel(
     private val getChapter: GetChapter,
     private val chapterDownloadActions: MangaChapterDownloadActions,
     private val trackedChapterNumber: TrackedChapterNumber,
+    private val readingLog: ReadingLogRepository,
     // RK <--
 ) : ViewModel() {
 
@@ -1129,6 +1132,7 @@ class ReaderViewModel(
             val sessionReadDuration = chapterReadSession.take(endTime)
 
             upsertHistory.await(HistoryUpdate(chapterId, endTime, sessionReadDuration))
+            readingLog.record(ContentType.MANGA, chapterId, endTime, sessionReadDuration) // RK
         }
     }
 
