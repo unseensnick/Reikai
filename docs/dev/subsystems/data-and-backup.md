@@ -69,7 +69,7 @@ A restore installs only from repos the user trusts. `BackupFileValidator.validat
 | 719 | Marker: category flags carry the sort-override bit (absent from Mihon and Reikai 0.3.2 and older) |
 | 720 | Marker: Kitsu scores are on Kitsu's native 2 to 20 scale (absent from Mihon and Reikai 0.3.2 and older) |
 
-Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers (602, 603, 800 to 805), which `BackupNovel` reuses (`BackupCustomInfoFields`); `BackupChapter` adds `pageCount` (700) and `sourceChapterNumber` (701); `BackupCategory` adds `hidden` (900, Komikku's) and `contentType` (8001).
+Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers (602, 603, 800 to 805), which `BackupNovel` reuses (`BackupCustomInfoFields`); `BackupChapter` adds `pageCount` (700) and `sourceChapterNumber` (701); `BackupCategory` adds `hidden` (900, Komikku's) and `contentType` (8001); the reading log rides at `BackupManga` 701 and `BackupNovel` 28 ([statistics.md](statistics.md)).
 
 ## Key files
 
@@ -87,7 +87,10 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 - `domain/src/main/java/reikai/domain/backup/RestoreMergeRules.kt`: `backupDetailsWin`, `foldBackup`, `backupChapterReadAhead`, `mergedHistory`.
 - `domain/src/main/java/reikai/domain/backup/KitsuBackupScoreScale.kt` and `app/src/main/java/reikai/data/backup/KitsuBackupScores.kt`: the Kitsu scale decision and its pass-1 scan.
 - `app/src/main/java/reikai/data/backup/AppPreferenceCarry.kt`: every app-key carry and skip.
-- `app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupFileValidator.kt`: `validate`, `checkReadable`, `missingExtensionApps`, `missingPlugins`.
+- `app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupFileValidator.kt`: `validate`, `checkReadable`.
+- `app/src/main/java/reikai/data/backup/RestoreInstalls.kt`: `planInstalls`, `RestoreInstallSources` (`missing`, `plan`, `device`), `RestoreInstallPlan`, `ApprovedRepos`.
+- `app/src/main/java/reikai/data/backup/RestoreExtensionInstaller.kt`: `addTrusted`, `install`.
+- `app/src/main/java/reikai/presentation/backup/RestoreInstallItems.kt`: the Restore screen's install and trust cards.
 - `app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupProtoReader.kt`: the streamed field reader both passes use.
 
 ## Invariants and traps
@@ -116,7 +119,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 
 ## Upstream divergences
 
-`// RK` islands carry this subsystem in `Backup.kt`, `BackupCategory.kt`, `BackupChapter.kt`, `BackupManga.kt`, `BackupCreator.kt` (streaming, novels, markers, `checkReadable`), `BackupRestorer.kt` (two-pass streaming, category ordering, novels, merges), `CategoriesRestorer.kt` (sort-override marker), `PreferenceRestorer.kt`, `BackupFileValidator.kt`, `BackupCreateWorker.kt`, `BackupRestoreWorker.kt`, `DownloadStore.kt` and `App.kt`. Recorded divergences: [upstream-sync.md](../upstream-sync.md) "Deliberate divergences" (backup streaming).
+`// RK` islands carry this subsystem in `Backup.kt`, `BackupCategory.kt`, `BackupChapter.kt`, `BackupManga.kt`, `BackupCreator.kt` (streaming, novels, markers, `checkReadable`), `BackupRestorer.kt` (two-pass streaming, category ordering, novels, merges), `CategoriesRestorer.kt` (sort-override marker), `PreferenceRestorer.kt`, `BackupFileValidator.kt`, `BackupCreateWorker.kt`, `BackupRestoreWorker.kt` (the trusted repos), `RestoreOptions.kt` (Missing extensions), `RestoreBackupScreen.kt` (the install cards), `ExtensionStoreRestorer.kt` (no store the device lacks), `DownloadStore.kt` and `App.kt`. Recorded divergences: [upstream-sync.md](../upstream-sync.md) "Deliberate divergences" (backup streaming).
 
 ## Extending
 
@@ -127,7 +130,7 @@ Inside entries, custom info rides at Komikku's and Yokai's `BackupManga` numbers
 
 ## Tests
 
-Schema: `SchemaChainMigrationTest` (the migrations over rows seeded into `43.db`, every dedupe case over both types, and a novel's retired Last read stamp carried into history), `InstantDatesMigrationTest` (unknown dates and removed history become NULL on both types, every foreign key and view survives the rebuild), `RawChapterNumberMigrationTest`, plus `./gradlew verifySqlDelightMigration`. Dedupe carry: `MergedDuplicateCarryMigrationTest`, `MergedDuplicateDownloadsTest`, `NovelDownloadRekeyMigrationTest`, `SavedQueueRestoreOrderTest`. Backup format: `BackupFieldsTest`, `BackupProtoReaderTest`, `BackupStreamFramingTest`, `BackupCustomInfoWireTest`, `BackupEntryDriverTest`, `GroupMemberBackupConformanceTest`, `BackupNovelSourceNameTest`. Restore: `RestoreMergeConformanceTest`, `RestoreGroupCategoriesConformanceTest`, `RestoreHistoryConformanceTest`, `RestoreBatchRollbackTest`, `RestoreCategoryGateConformanceTest`, `RestoreCategoryMatchConformanceTest` (a category reused by name, and an entry's category orders mapped to this device's ids, both types), `CategoriesRestorerTest`, `PreferenceRestorerTest`, `KitsuBackupScoreScaleTest` (`:domain`), `KitsuScoreRestoreConformanceTest`, `NovelDisplayBitRestoreTest`, `NovelBackupRoundTripTest`, `MangaMergeBackupRoundTripTest`, `BackupDatesConformanceTest` (unknown dates written as 0 and read back as unknown), `BackupCustomInfoConformanceTest`, `BackupFileValidatorTest`, `LauncherIntentTest` (a backup opened from Files reaches the Restore screen).
+Schema: `SchemaChainMigrationTest` (the migrations over rows seeded into `43.db`, every dedupe case over both types, and a novel's retired Last read stamp carried into history), `InstantDatesMigrationTest` (unknown dates and removed history become NULL on both types, every foreign key and view survives the rebuild), `RawChapterNumberMigrationTest`, plus `./gradlew verifySqlDelightMigration`. Dedupe carry: `MergedDuplicateCarryMigrationTest`, `MergedDuplicateDownloadsTest`, `NovelDownloadRekeyMigrationTest`, `SavedQueueRestoreOrderTest`. Backup format: `BackupFieldsTest`, `BackupProtoReaderTest`, `BackupStreamFramingTest`, `BackupCustomInfoWireTest`, `BackupEntryDriverTest`, `GroupMemberBackupConformanceTest`, `BackupNovelSourceNameTest`. Restore: `RestoreMergeConformanceTest`, `RestoreGroupCategoriesConformanceTest`, `RestoreHistoryConformanceTest`, `RestoreBatchRollbackTest`, `RestoreCategoryGateConformanceTest`, `RestoreCategoryMatchConformanceTest` (a category reused by name, and an entry's category orders mapped to this device's ids, both types), `CategoriesRestorerTest`, `PreferenceRestorerTest`, `KitsuBackupScoreScaleTest` (`:domain`), `KitsuScoreRestoreConformanceTest`, `NovelDisplayBitRestoreTest`, `NovelBackupRoundTripTest`, `MangaMergeBackupRoundTripTest`, `BackupDatesConformanceTest` (unknown dates written as 0 and read back as unknown), `BackupCustomInfoConformanceTest`, `BackupFileValidatorTest`, `RestoreInstallsTest` (where each missing app or plugin installs from, over manga apps, novel apps and plugins, and which repos are offered), `RestoreExtensionInstallerTest` (a trusted repo is added only under the key shown), `ExtensionStoreRestorerTest`, `LauncherIntentTest` (a backup opened from Files reaches the Restore screen).
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:data:test` for the schema tests.
 

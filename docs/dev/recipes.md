@@ -12,8 +12,8 @@ or above the migration's gate.
 1. Add a class under `mihon/core/migration/migrations/` implementing `Migration`
    (`mihon/core/migration/Migration.kt`), annotated `@Inject` and `@ContributesIntoSet(AppScope::class)`,
    and take what it needs as constructor parameters. `ChapterNameSuffixMigration` is the model.
-2. Give it its own gate: `override val version: Float = 201f` (or the next free number). The current top
-   is `MergedGroupCategoriesMigration` at `200f`; never reuse a gate another migration holds.
+2. Give it its own gate above the shipped `versionCode` (grep `override val version` under
+   `mihon/core/migration/migrations/` for the current top); never reuse a gate another migration holds.
 3. Raise `versionCode` in `app/build.gradle.kts` to that gate and add the migration to the comment above
    it that lists each gate. This is the one mid-cycle `versionCode` bump allowed; `versionName` waits for
    the release cut.
@@ -37,8 +37,8 @@ A schema change runs off the database's own `user_version`, not off `versionCode
 `versionCode` bump.
 
 1. Change the table in `data/src/main/sqldelight/tachiyomi/data/*.sq` (views are in `.../view/*.sq`).
-2. Add the next-numbered file in `data/src/main/sqldelight/tachiyomi/migrations/` (the highest is
-   `66.sqm`, so the next is `67.sqm`) with the same change. Never copy Mihon's `.sqm` number, never edit
+2. Add the next-numbered file in `data/src/main/sqldelight/tachiyomi/migrations/` (one above the highest
+   `.sqm` there) with the same change. Never copy Mihon's `.sqm` number, never edit
    the SQL of an existing `.sqm`, and put an index change in a migration of its own.
 3. If the migration rebuilds or renames a table, `DROP VIEW` every view over it and recreate each view
    with its current `view/*.sq` text; a table rename rewrites dependent views to read the dropped table.

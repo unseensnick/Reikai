@@ -24,7 +24,7 @@ Run `git diff --name-only` for changed docs (`.md`, KDoc, inline comments). For 
 ## Accuracy (cross-reference with code)
 
 - Named symbols: grep every referenced class, function, flag, and preference key; verify it still exists with that name and does what the doc says.
-- File and directory references: verify referenced paths exist (mind the repo nesting: module sources are `app/app/src/...` from the repo root).
+- File and directory references: verify referenced paths exist (mind the repo nesting: module sources are `app/src/...` from the repo root, `app/app/src/...` only from the parent `yokai-y2k` folder).
 - Commands: verify Gradle tasks and script names named in docs exist (`spotlessApply`, `:domain:test`; there is no `lintKotlin`).
 - Subsystem docs: do Key files, Invariants, Decisions and Tests match the code? A plan in `docs/dev/plans/` whose work has landed should have been folded into its subsystem doc and deleted.
 - Can't verify? Say so explicitly: "Could not verify X."

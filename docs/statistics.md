@@ -19,11 +19,13 @@ Below them:
 * **Reading this week** shows your reading time for the last seven days, your current streak of reading days and your longest one.
 * **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Started reading** list your top five in each.
 
+On a tablet or an unfolded phone the cards sit side by side in three groups, **At a glance**, **Charts** and **Your library by**, with every card in a row the same height. A phone shows one column.
+
 A series merged from several sources counts once, except in **Sources**, **Tags**, **Trackers** and **Languages**, where it counts under each one it has. Those lists can add up to more than your library.
 
 ## Opening a list
 
-**See all** on a card opens the whole list, one card per row. Each shows how many of its series you have **Finished** (read every chapter), are **Reading** and have **Not started**, then its mean score and reading time. Where the list has no order of its own, the sort button in the top bar orders it by most series, chapters read, mean score or reading time.
+**See all** on a card opens the whole list, one card per row on a phone and several side by side on a wider screen. Each shows how many of its series you have **Finished** (read every chapter), are **Reading** and have **Not started**, then its mean score and reading time. Where the list has no order of its own, the sort button in the top bar orders it by most series, chapters read, mean score or reading time.
 
 Tap a row to open those series in your library. The library opens with a search already typed, such as `srcid:"..."` or `category:"Plan to read"`, which you can edit like any other [library search](library-search.md).
 

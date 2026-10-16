@@ -45,7 +45,7 @@ Multi-module Gradle project; convention plugins live in `gradle/build-logic` (`i
 | `data/` | SQLDelight database + repository implementations |
 | `domain/` | Business logic + interactors (immutable `tachiyomi.domain.*` models; has unit tests) |
 | `i18n/` | Strings via Moko Resources |
-| `icons/material-symbols` / `icons/simple-icons` | SVG icon packs compiled to Compose `ImageVector`s by the Valkyrie plugin |
+| `icons/material-symbols` / `icons/custom-material-symbols` / `icons/simple-icons` | SVG icon packs compiled to Compose `ImageVector`s by the Valkyrie plugin |
 | `presentation-core` / `presentation-widget` | Reusable Compose components, home-screen widgets |
 | `source-api` | Extension contract loaded by 3rd-party extensions |
 | `source-local` | Local source |

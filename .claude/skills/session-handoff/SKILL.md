@@ -80,7 +80,7 @@ Reikai keeps its durable record in several places, each with a different job. Up
 - **Commit subjects `<= 72` chars**, `type(scope): summary`, enforced by a `commit-msg` hook that aborts a chained `git add && git commit` on rejection. Keep `set -e`.
 - **Never a bare `#N`.** A roadmap item is `Roadmap N`; a real issue or PR is `owner/repo#N`.
 - **`ROADMAP.md` is a semi-public surface**: no content-source names, use the approved shorthand (EH / ExH / MD / CMK) or collective phrasing.
-- **Module sources live under `app/app/src/...`** from the repo root.
+- **Module sources live under `app/src/...`** from the repo root (`app/app/src/...` from the parent `yokai-y2k` folder).
 - A plan-doc step marker citing its own commit SHA goes in a **follow-up** docs commit, since it cannot be amended in.
 
 ## Handing back
