@@ -5,9 +5,7 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
-import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -23,10 +21,12 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.stats.STATS_CARD_MIN_WIDTH
+import reikai.presentation.stats.StatsCard
 import reikai.presentation.stats.StatsDimension
-import reikai.presentation.stats.statsCard
+import reikai.presentation.stats.StatsShelf
+import reikai.presentation.stats.StatsShelfContent
 import reikai.presentation.stats.statsChartCards
+import reikai.presentation.stats.statsGroupCards
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
@@ -47,40 +47,39 @@ fun StatsScreenContent(
     onOpenReading: () -> Unit,
     // RK <--
 ) {
-    // RK --> a masonry grid, one column on a phone and more on a wider screen, each card going under the
-    // shorter column; a card is a Column, since a grid item overlaps its children where a list item stacks them
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Adaptive(STATS_CARD_MIN_WIDTH),
+    LazyColumn(
         contentPadding = paddingValues,
-        verticalItemSpacing = MaterialTheme.padding.small,
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {
-        // content-type switch, mirroring the Updates/History tabs
-        item(span = StaggeredGridItemSpan.FullLine) {
+        // RK --> content-type switch, mirroring the Updates/History tabs
+        item {
             ContentTypeFilterChips(
                 selected = contentType,
                 onSelect = onContentTypeSelected,
             )
         }
-        statsCard("overview") {
-            OverviewSection(state.overview)
+        // Shelves of cards, side by side on a wide screen and one column on a phone
+        item {
+            StatsShelfContent(
+                StatsShelf.GLANCE,
+                listOf<StatsCard>(
+                    { OverviewSection(state.overview, it) },
+                    { TitlesStats(state.titles, it) },
+                    { ChapterStats(state.chapters, it) },
+                    { TrackerStats(state.trackers, it) },
+                ),
+            )
         }
-        statsCard("titles") {
-            TitlesStats(state.titles)
-        }
-        statsCard("chapters") {
-            ChapterStats(state.chapters)
-        }
-        statsCard("trackers") {
-            TrackerStats(state.trackers)
-        }
+        item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenReading)) }
+        item { StatsShelfContent(StatsShelf.LISTS, statsGroupCards(state.charts, onSeeAll, onOpenRow)) }
         // RK <--
-        statsChartCards(state.charts, onSeeAll, onOpenRow, onOpenReading) // RK
     }
 }
 
 @Composable
-private fun OverviewSection( // RK: grid item, no list receiver
+private fun OverviewSection( // RK: a shelf card, no list receiver
     data: StatsData.Overview,
+    modifier: Modifier, // RK
 ) {
     val none = stringResource(MR.strings.none)
     val context = LocalContext.current
@@ -89,7 +88,8 @@ private fun OverviewSection( // RK: grid item, no list receiver
             .toDuration(DurationUnit.MILLISECONDS)
             .toDurationString(context, fallback = none)
     }
-    SectionCard(MR.strings.label_overview_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_overview_section, modifier, Arrangement.Center) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min),
         ) {
@@ -113,10 +113,12 @@ private fun OverviewSection( // RK: grid item, no list receiver
 }
 
 @Composable
-private fun TitlesStats( // RK: grid item, no list receiver
+private fun TitlesStats( // RK: a shelf card, no list receiver
     data: StatsData.Titles,
+    modifier: Modifier, // RK
 ) {
-    SectionCard(MR.strings.label_titles_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_titles_section, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.globalUpdateItemCount.toString(),
@@ -135,10 +137,12 @@ private fun TitlesStats( // RK: grid item, no list receiver
 }
 
 @Composable
-private fun ChapterStats( // RK: grid item, no list receiver
+private fun ChapterStats( // RK: a shelf card, no list receiver
     data: StatsData.Chapters,
+    modifier: Modifier, // RK
 ) {
-    SectionCard(MR.strings.chapters) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.chapters, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.totalChapterCount.toString(),
@@ -157,8 +161,9 @@ private fun ChapterStats( // RK: grid item, no list receiver
 }
 
 @Composable
-private fun TrackerStats( // RK: grid item, no list receiver
+private fun TrackerStats( // RK: a shelf card, no list receiver
     data: StatsData.Trackers,
+    modifier: Modifier, // RK
 ) {
     val notApplicable = stringResource(MR.strings.not_applicable)
     val meanScoreStr = remember(data.trackedTitleCount, data.meanScore) {
@@ -169,7 +174,8 @@ private fun TrackerStats( // RK: grid item, no list receiver
             notApplicable
         }
     }
-    SectionCard(MR.strings.label_tracker_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_tracker_section, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.trackedTitleCount.toString(),

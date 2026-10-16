@@ -38,18 +38,21 @@ import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-/** A section title with a link at its end, set where SectionCard sets its title. */
+/**
+ * A section title, with a link at its end when it has [action], set where SectionCard sets its title. It
+ * keeps the link's height without one, so cards side by side start level.
+ */
 @Composable
-fun StatsCardHeader(title: StringResource, action: StringResource, onAction: () -> Unit) {
+fun StatsCardHeader(title: StringResource, action: StringResource? = null, onAction: () -> Unit = {}) {
     Row(
-        modifier = Modifier.fillMaxWidth().padding(
+        modifier = Modifier.fillMaxWidth().heightIn(min = HEADER_HEIGHT).padding(
             start = MaterialTheme.padding.extraLarge,
             end = MaterialTheme.padding.medium,
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-        TextButton(onClick = onAction) { Text(stringResource(action)) }
+        if (action != null) TextButton(onClick = onAction) { Text(stringResource(action)) }
     }
 }
 
@@ -245,6 +248,9 @@ private const val TABULAR = "tnum"
 private const val MS_PER_MINUTE = 60_000L
 
 private val SOURCE_ICON_SIZE = 24.dp
+
+// A TextButton's touch target, so a header without a link is as tall as one with it.
+private val HEADER_HEIGHT = 48.dp
 
 // The library badge is 18dp square (LoadedSourceIconBadge), so this brings it to SOURCE_ICON_SIZE.
 private const val SOURCE_ICON_SCALE = 24f / 18f

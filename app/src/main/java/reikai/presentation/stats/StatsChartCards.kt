@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.lazy.staggeredgrid.LazyStaggeredGridScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,22 +60,21 @@ import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 
-/**
- * The overview's cards after Mihon's four: the charts, then a card of rows per grouping. A card that would
- * draw nothing is left out. [onSeeAll] opens a grouping's full list, [onOpenRow] a row's library search.
- */
-fun LazyStaggeredGridScope.statsChartCards(
+/** One overview card; [fill] goes on its card body, so a shelf can stretch the body to its row's height. */
+typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
+
+/** The chart cards, each left out when it would draw nothing. */
+fun statsChartCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
-    onOpenRow: (String) -> Unit,
     onOpenReading: () -> Unit,
-) {
+): List<StatsCard> = buildList {
     if (charts.status.isNotEmpty()) {
-        statsCard("stats-publishing-status") {
+        add { fill ->
             StatsCardHeader(MR.strings.stats_publishing_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.STATUS)
             }
-            SectionCard {
+            SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsDonut(
                     charts.status.toSortedMap().map { (code, count) ->
                         DonutSlice(stringResource(entryStatusRes(code)), count, statusColor(code))
@@ -86,8 +84,9 @@ fun LazyStaggeredGridScope.statsChartCards(
         }
     }
     if (charts.trackStatus.isNotEmpty()) {
-        statsCard("stats-tracking-status") {
-            SectionCard(MR.strings.stats_tracking_status) {
+        add { fill ->
+            StatsCardHeader(MR.strings.stats_tracking_status)
+            SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsDonut(
                     TrackStatus.entries.mapNotNull { status ->
                         charts.trackStatus[status]?.let { DonutSlice(stringResource(status.label), it, status.color) }
@@ -97,9 +96,9 @@ fun LazyStaggeredGridScope.statsChartCards(
         }
     }
     if (charts.scores.isNotEmpty()) {
-        statsCard("stats-scores") {
+        add { fill ->
             StatsCardHeader(MR.strings.stats_scores, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
-            SectionCard {
+            SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsColumns(
                     values = (1..10).map { charts.scores[it] ?: 0 },
                     label = { (it + 1).toString() },
@@ -108,33 +107,32 @@ fun LazyStaggeredGridScope.statsChartCards(
             }
         }
     }
-    statsCard("stats-reading-week") {
+    add { fill ->
         StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
-        SectionCard {
+        SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
             StatsReadingWeek(charts)
         }
     }
-    OVERVIEW_GROUPINGS.forEach { dimension ->
-        val rows = charts.groups[dimension].orEmpty()
-        if (rows.isEmpty()) return@forEach
-        statsCard("stats-group-$dimension") {
-            StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
-            SectionCard {
-                rows.forEach { StatsRowLine(it, onOpenRow) }
-            }
+}
+
+/** A card of rows per grouping that has any, [onOpenRow] opening a row's library search. */
+fun statsGroupCards(
+    charts: StatsCharts,
+    onSeeAll: (StatsDimension) -> Unit,
+    onOpenRow: (String) -> Unit,
+): List<StatsCard> = OVERVIEW_GROUPINGS.mapNotNull { dimension ->
+    val rows = charts.groups[dimension].orEmpty()
+    if (rows.isEmpty()) return@mapNotNull null
+    val card: StatsCard = { fill ->
+        StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
+        SectionCard(modifier = fill) {
+            rows.forEach { StatsRowLine(it, onOpenRow) }
         }
     }
+    card
 }
 
-/** One overview card as a grid item, its parts stacked: a grid item overlaps its children where a list stacks them. */
-fun LazyStaggeredGridScope.statsCard(key: String, content: @Composable ColumnScope.() -> Unit) {
-    item(key = key) { Column(content = content) }
-}
-
-/**
- * The narrowest a Statistics card gets before the grid drops a column, so a phone keeps one column and an
- * unfolded or tablet screen sets two or three side by side.
- */
+/** The narrowest a See all card gets before its grid drops a column, so a phone keeps one column. */
 val STATS_CARD_MIN_WIDTH: Dp = 340.dp
 
 @Composable

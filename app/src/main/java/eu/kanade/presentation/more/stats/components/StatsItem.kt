@@ -38,11 +38,12 @@ fun RowScope.StatsItem(
     title: String,
     subtitle: String,
 ) {
+    // RK: the overview's sizes, so the number cards read alike side by side
     BaseStatsItem(
         title = title,
-        titleStyle = MaterialTheme.typography.bodyMedium,
+        titleStyle = MaterialTheme.typography.titleLarge,
         subtitle = subtitle,
-        subtitleStyle = MaterialTheme.typography.labelSmall,
+        subtitleStyle = MaterialTheme.typography.bodyMedium,
     )
 }
 

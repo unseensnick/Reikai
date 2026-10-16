@@ -1928,6 +1928,9 @@
     <string name="word_density_range">Density %1$d of %2$d: %3$s to %4$s words a chapter</string>
     <string name="word_density_range_top">Density %1$d of %2$d: over %3$s words a chapter</string>
     <!-- RK: Statistics charts and the details screen -->
+    <string name="stats_shelf_glance">At a glance</string>
+    <string name="stats_shelf_charts">Charts</string>
+    <string name="stats_shelf_lists">Your library by</string>
     <string name="stats_publishing_status">Publishing status</string>
     <string name="stats_tracking_status">Tracking status</string>
     <string name="stats_scores">Scores</string>
