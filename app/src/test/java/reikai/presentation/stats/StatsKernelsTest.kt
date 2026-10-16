@@ -93,6 +93,7 @@ class StatsKernelsTest {
         trackerStartedAt: Instant? = null,
         firstLoggedReadAt: Instant? = null,
     ) = StatsTitle(
+        title = "",
         entryId = EntryId.Manga(1L),
         status = 1L,
         sources = sources,

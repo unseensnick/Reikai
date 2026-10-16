@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.stats
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.metroViewModel
@@ -10,6 +11,10 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.more.stats.StatsScreenContent
 import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.util.Screen
+import kotlinx.coroutines.launch
+import reikai.presentation.details.searchLibraryFromDetails
+import reikai.presentation.stats.details.StatsGroupScreen
+import reikai.presentation.stats.details.StatsReadingScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -20,6 +25,7 @@ class StatsScreen : Screen() {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
+        val scope = rememberCoroutineScope() // RK
 
         val viewModel = metroViewModel<StatsViewModel>()
         val state by viewModel.state.collectAsState()
@@ -47,6 +53,9 @@ class StatsScreen : Screen() {
                 // RK -->
                 contentType = contentType,
                 onContentTypeSelected = viewModel::setContentType,
+                onSeeAll = { navigator.push(StatsGroupScreen(it)) },
+                onOpenRow = { query -> scope.launch { navigator.searchLibraryFromDetails(query, contentType) } },
+                onOpenReading = { navigator.push(StatsReadingScreen()) },
                 // RK <--
             )
         }

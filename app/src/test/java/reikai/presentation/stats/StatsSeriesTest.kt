@@ -163,6 +163,7 @@ class StatsSeriesTest {
 
     private fun <T> titleFields(id: (T) -> Long, total: (T) -> Long, read: (T) -> Long) = StatsTitleFields<T>(
         entryId = { EntryId.Manga(id(it)) },
+        title = { "" },
         status = { 0L },
         source = { StatsSource(id(it).toString(), "source", "en") },
         genres = { emptyList() },

@@ -74,6 +74,7 @@ class StatsLibraryQueryTest {
         trackers: List<Long>,
         categories: List<Long>,
     ) = StatsTitle(
+        title = "",
         entryId = EntryId.Manga(id),
         status = status,
         sources = listOf(StatsSource("s$id", "Source $id", if (id % 2 == 0L) "en" else "ja")),

@@ -1927,4 +1927,34 @@
     <string name="word_density_indicator">Word density %1$d</string>
     <string name="word_density_range">Density %1$d of %2$d: %3$s to %4$s words a chapter</string>
     <string name="word_density_range_top">Density %1$d of %2$d: over %3$s words a chapter</string>
+    <!-- RK: Statistics charts and the details screen -->
+    <string name="stats_publishing_status">Publishing status</string>
+    <string name="stats_tracking_status">Tracking status</string>
+    <string name="stats_scores">Scores</string>
+    <string name="stats_reading_week">Reading this week</string>
+    <string name="stats_current_streak">Current streak</string>
+    <string name="stats_longest_streak">Longest streak</string>
+    <string name="stats_logged_since">Logged since %1$s</string>
+    <string name="stats_reading_not_logged">Reading time per day is logged from now on</string>
+    <string name="stats_see_all">See all</string>
+    <string name="stats_open">Open</string>
+    <string name="stats_group_source">Sources</string>
+    <string name="stats_group_category">Categories</string>
+    <string name="stats_group_tag">Tags</string>
+    <string name="stats_group_tracker">Trackers</string>
+    <string name="stats_group_language">Languages</string>
+    <string name="stats_group_length">Length</string>
+    <string name="stats_group_start_year">Year started</string>
+    <string name="stats_group_reading_time">Reading time</string>
+    <string name="stats_sort">Sort by</string>
+    <string name="stats_not_tracked">Not tracked</string>
+    <string name="stats_not_scored">Not scored</string>
+    <string name="stats_sort_count">Most series</string>
+    <string name="stats_sort_read">Chapters read</string>
+    <string name="stats_sort_score">Mean score</string>
+    <string name="stats_sort_time">Reading time</string>
+    <string name="stats_row_chapters">%1$d of %2$d chapters read</string>
+    <string name="stats_nothing_read">Nothing read this day</string>
+    <string name="stats_previous_week">Previous week</string>
+    <string name="stats_next_week">Next week</string>
 </resources>

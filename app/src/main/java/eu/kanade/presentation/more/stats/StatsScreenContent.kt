@@ -22,6 +22,8 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.statsChartCards
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
@@ -37,6 +39,9 @@ fun StatsScreenContent(
     // RK --> All / Manga / Novels switch
     contentType: ContentType,
     onContentTypeSelected: (ContentType) -> Unit,
+    onSeeAll: (StatsDimension) -> Unit,
+    onOpenRow: (String) -> Unit,
+    onOpenReading: () -> Unit,
     // RK <--
 ) {
     LazyColumn(
@@ -63,6 +68,7 @@ fun StatsScreenContent(
         item {
             TrackerStats(state.trackers)
         }
+        statsChartCards(state.charts, onSeeAll, onOpenRow, onOpenReading) // RK
     }
 }
 

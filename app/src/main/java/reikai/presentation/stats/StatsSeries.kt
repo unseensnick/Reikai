@@ -31,6 +31,10 @@ class StatsSeries<T>(
     private val membersByTitle: Map<Long, List<Long>> =
         buckets.associate { bucket -> id(bucket.members.first()) to bucket.members.map(id) }
 
+    /** Each member's title id, so a session on any source of a merged series counts under the series. */
+    val titleIdByMember: Map<Long, Long> =
+        membersByTitle.flatMap { (titleId, members) -> members.map { it to titleId } }.toMap()
+
     /** Mihon's completed count: titles whose status is completed and that have nothing left unread. */
     fun completedCount(facts: (T) -> SmartUpdateFacts): Int = buckets.count { bucket ->
         val title = facts(bucket.members.first())
@@ -72,6 +76,7 @@ class StatsSeries<T>(
             val stitch = stitchOf(bucket)
             StatsTitle(
                 entryId = fields.entryId(title),
+                title = fields.title(title),
                 status = fields.status(title),
                 sources = bucket.members.map(fields.source).distinctBy { it.key },
                 genres = bucket.members.flatMap(fields.genres).distinctBy { it.lowercase() },

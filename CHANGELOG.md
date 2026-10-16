@@ -14,6 +14,14 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library search can find series by publishing status, tracker, category and score.** Try `status:completed`, `tracker:anilist`, `category:"Plan to read"` or `score>=8`.
 
+### Statistics
+
+#### Added
+
+- **Statistics now charts your library's publishing status, tracking status and scores, for manga and novels.** The All, Manga and Novels switch applies to every chart.
+- **Statistics shows how long you read each day, your reading streak and when you started each series.** Reading time per day is recorded from this version on; older reading keeps counting toward the total.
+- **Statistics lists your library by source, tag, category, tracker, language, length and year started, and a tap opens those series in the library.**
+
 ## [0.4.1]
 
 ### Highlights

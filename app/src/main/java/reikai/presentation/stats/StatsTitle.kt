@@ -11,6 +11,7 @@ import kotlin.time.Instant
  */
 data class StatsTitle(
     val entryId: EntryId,
+    val title: String,
     val status: Long,
     val sources: List<StatsSource>,
     val genres: List<String>,
@@ -35,6 +36,7 @@ data class StatsSource(val key: String, val name: String, val language: String)
 /** How one content type answers [StatsTitle]'s per-entry fields; the shape of `libraryItemQueryFields`. */
 class StatsTitleFields<T>(
     val entryId: (T) -> EntryId,
+    val title: (T) -> String,
     val status: (T) -> Long,
     val source: (T) -> StatsSource,
     val genres: (T) -> List<String>,

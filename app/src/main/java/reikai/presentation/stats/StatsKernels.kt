@@ -7,6 +7,7 @@ import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.entry.EntryId
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
 import kotlin.math.roundToInt
@@ -26,20 +27,39 @@ fun scoreBar(mean: Double): Int = mean.roundToInt().coerceIn(1, 10)
 fun List<StatsTitle>.trackStatusCounts(): Map<TrackStatus, Int> =
     mapNotNull { it.trackStatus }.groupingBy { it }.eachCount()
 
-/** Reading time per local day; a session that crosses midnight is split between the days it spans. */
+/** Reading time per local day. */
 fun readingTimeByDay(sessions: List<EntryReadingSession>, timeZone: TimeZone): Map<LocalDate, Long> {
     val byDay = mutableMapOf<LocalDate, Long>()
     sessions.forEach { session ->
-        val end = session.endedAt
-        var start = end - session.duration.milliseconds
-        while (start < end) {
-            val day = start.toLocalDateTime(timeZone).date
-            val sliceEnd = minOf(day.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone), end)
-            byDay[day] = (byDay[day] ?: 0L) + (sliceEnd - start).inWholeMilliseconds
-            start = sliceEnd
+        session.splitByDay(timeZone) { day, ms -> byDay[day] = (byDay[day] ?: 0L) + ms }
+    }
+    return byDay
+}
+
+/** Reading time per local day and series; keyed by [EntryId], since a manga and a novel can share a row id. */
+fun readingTimeByDayAndTitle(
+    sessions: List<TitleReadingSession>,
+    timeZone: TimeZone,
+): Map<LocalDate, Map<EntryId, Long>> {
+    val byDay = mutableMapOf<LocalDate, MutableMap<EntryId, Long>>()
+    sessions.forEach { (title, session) ->
+        session.splitByDay(timeZone) { day, ms ->
+            val byTitle = byDay.getOrPut(day) { mutableMapOf() }
+            byTitle[title.entryId] = (byTitle[title.entryId] ?: 0L) + ms
         }
     }
     return byDay
+}
+
+/** Hands each local day this session spans its share; a session that crosses midnight is split. */
+private inline fun EntryReadingSession.splitByDay(timeZone: TimeZone, add: (LocalDate, Long) -> Unit) {
+    var start = endedAt - duration.milliseconds
+    while (start < endedAt) {
+        val day = start.toLocalDateTime(timeZone).date
+        val sliceEnd = minOf(day.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone), endedAt)
+        add(day, (sliceEnd - start).inWholeMilliseconds)
+        start = sliceEnd
+    }
 }
 
 data class ReadingStreaks(val current: Int, val longest: Int)
@@ -57,7 +77,7 @@ fun readingStreaks(daysRead: Set<LocalDate>, today: LocalDate): ReadingStreaks {
     var run = 0
     var previous: LocalDate? = null
     daysRead.sorted().forEach {
-        run = if (previous != null && previous!!.plus(1, DateTimeUnit.DAY) == it) run + 1 else 1
+        run = if (previous?.plus(1, DateTimeUnit.DAY) == it) run + 1 else 1
         longest = maxOf(longest, run)
         previous = it
     }

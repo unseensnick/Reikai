@@ -377,6 +377,7 @@ dependencies {
     implementation(libs.composeWebview)
     implementation(libs.composeGrid)
     implementation(libs.reorderable)
+    implementation(libs.vico.compose.m3) // RK: Statistics charts (status, score, reading time)
     implementation(libs.bundles.markdown)
     implementation(libs.materialKolor)
 
