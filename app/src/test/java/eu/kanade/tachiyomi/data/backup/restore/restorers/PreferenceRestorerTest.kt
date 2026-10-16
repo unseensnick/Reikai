@@ -383,6 +383,11 @@ class PreferenceRestorerTest {
                     NovelPreferences(store).installedPluginMetadata().key(),
                     StringPreferenceValue("""{"https://example.com/plugin.js":{"pluginId":"p"}}"""),
                 ),
+                Arguments.of(
+                    "the light-novel plugin repos, which come back only once trusted",
+                    NovelPreferences(store).addedRepoUrls().key(),
+                    StringSetPreferenceValue(setOf("https://example.com/plugins.min.json")),
+                ),
             )
         }
     }

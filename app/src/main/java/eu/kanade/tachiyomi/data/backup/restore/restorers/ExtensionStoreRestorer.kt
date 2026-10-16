@@ -13,16 +13,17 @@ class ExtensionStoreRestorer(
     suspend operator fun invoke(
         backupStore: BackupExtensionStore,
     ) {
-        // RK --> the key decides which apks count as trusted, so a store already here keeps its own
+        // RK --> the key decides which apks count as trusted, so a store already here keeps its own, and one
+        // this device lacks is added only once the user trusts it on the Restore screen (RestoreInstallSources)
         val deviceKey = extensionStoreRepository.getAll().firstOrNull { it.indexUrl == backupStore.indexUrl }
-            ?.signingKey
+            ?.signingKey ?: return
         // RK <--
         extensionStoreRepository.upsert(
             ExtensionStore(
                 indexUrl = backupStore.indexUrl,
                 name = backupStore.name,
                 badgeLabel = backupStore.badgeLabel ?: backupStore.name,
-                signingKey = deviceKey ?: backupStore.signingKey, // RK
+                signingKey = deviceKey, // RK
                 contact = ExtensionStore.Contact(
                     website = backupStore.contactWebsite,
                     discord = backupStore.contactDiscord,

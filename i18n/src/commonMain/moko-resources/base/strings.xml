@@ -1050,6 +1050,13 @@
     <string name="invalid_backup_file_unknown">Backup file is corrupted</string>
     <!-- RK: the backup's extension apps and plugins not installed here, which a restore does not install -->
     <string name="backup_restore_missing_extensions">Extensions to install:</string>
+    <string name="restore_install_extensions">Missing extensions</string>
+    <string name="restore_installs_ready">Installs after the restore</string>
+    <string name="restore_repo_untrusted">Not on this device. Trust it to add it back and install from it.</string>
+    <string name="restore_repo_installs">Installs</string>
+    <string name="restore_repo_nothing">Nothing missing comes from this repo</string>
+    <string name="restore_repo_trust">Trust this repo</string>
+    <string name="restore_repos_unread">Repos that couldn\'t be read, or now sign with another key:</string>
     <string name="backup_restore_missing_sources">Missing sources:</string>
     <string name="backup_restore_missing_trackers">Trackers not logged into:</string>
     <string name="backup_restore_content_full">You may need to install any missing extensions and log in to tracking services afterwards to use them.</string>

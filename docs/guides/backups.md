@@ -78,14 +78,14 @@ Restore a compatible backup file in <nav to="data-and-storage">.
 To ensure a smooth restoration process, remember to:
 
 1. Log into the [Tracking services](/docs/guides/tracking) you previously used.
-1. Install the extensions the Restore screen lists. A restore installs no extension app or plugin itself, since a backup file could come from anyone; your extension and novel repos come back, so each is a tap away in Browse.
+1. Check the repos on the Restore screen. A backup file could come from anyone, so a repo it brings back is never trusted on its own: each one shows with its address and signing key, and comes back only if you tick **Trust this repo**.
 
-The Restore screen lists the extensions to install, any missing sources and any trackers you are not logged into.
+With **Missing extensions** on, the restore then installs the backup's extension apps and light-novel plugins this install lacks, from the repos you already had and the ones you trusted, one at a time. Android asks you to confirm each app unless you chose another installer. The Restore screen also names anything no repo lists, so you can install it by hand, beside any missing sources and trackers you are not logged into.
 :::
 
 Entries from an extension you have not installed yet reappear in your library but cannot fetch
-chapters until you install it. Your plugin repos ride along in **App settings** and your extension
-app repos, manga and novel, in **Extension stores**, so leave both included to get them back.
+chapters until you install it. A repo that has nothing to install still shows on the Restore screen,
+since trusting it there is how it comes back.
 
 ### Transferring downloads to a new installation
 During the setup or after restoring a backup to **Reikai**:

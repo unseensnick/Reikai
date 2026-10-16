@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.backup.BackupProtoReader
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
+import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
@@ -41,6 +42,9 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
+import reikai.data.backup.ApprovedRepos
+import reikai.data.backup.RestoreExtensionInstaller
+import reikai.data.backup.RestoreInstallSources
 import reikai.data.backup.mangaTrackScores
 import reikai.data.backup.novelTrackScores
 import reikai.data.backup.rescaleKitsu
@@ -96,6 +100,8 @@ class BackupRestorer(
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val alignGroupCategories: AlignGroupCategories,
+    private val restoreExtensionInstaller: RestoreExtensionInstaller,
+    private val restoreInstallSources: RestoreInstallSources,
     // RK <--
 ) {
 
@@ -113,7 +119,7 @@ class BackupRestorer(
      */
     private var sourceMapping: Map<Long, String> = emptyMap()
 
-    suspend fun restore(uri: Uri, options: RestoreOptions) {
+    suspend fun restore(uri: Uri, options: RestoreOptions, trusted: ApprovedRepos) { // RK: trusted
         val startTime = System.currentTimeMillis()
 
         // RK: a restored merge group has no stored cross-source stitch yet, and until it does the group
@@ -121,7 +127,7 @@ class BackupRestorer(
         // than waiting for the next library update, because a fresh install marks every migration done
         // without running it, so nothing else fills it in. A restore that fails or is cancelled midway
         // has already written groups and chapters, so it is stitched too.
-        reconcileMergedChapters.afterPass { restoreFromFile(uri, options) }
+        reconcileMergedChapters.afterPass { restoreFromFile(uri, options, trusted) } // RK: trusted
 
         // Invalidate download cache to ensure UI reflects any restored downloads
         if (options.libraryEntries) {
@@ -150,7 +156,7 @@ class BackupRestorer(
     // large library, the read side of unseensnick/Reikai#53). Pass 1 (readBackupSummary) gathers the small fields
     // and counts the library entries; the entries themselves are streamed and restored one bounded
     // batch at a time in restoreMangaStream / restoreNovelsStream.
-    private suspend fun restoreFromFile(uri: Uri, options: RestoreOptions) {
+    private suspend fun restoreFromFile(uri: Uri, options: RestoreOptions, trusted: ApprovedRepos) { // RK
         val summary = readBackupSummary(uri)
 
         // Store source mapping for error messages
@@ -220,7 +226,31 @@ class BackupRestorer(
 
             // TODO: optionally trigger online library + tracker update
         }
+        restoreExtensions(summary, options, trusted) // RK
     }
+
+    // RK --> once the rest is back: the backup repos the user trusted, then the apps and plugins it lacks
+    private suspend fun restoreExtensions(summary: BackupSummary, options: RestoreOptions, trusted: ApprovedRepos) {
+        restoreIsolated("extension repos") {
+            restoreExtensionInstaller.addTrusted(trusted).forEach { errors.add(Date() to it) }
+        }
+        if (!options.extensions) return
+        notifier.showRestoreProgress(
+            context.stringResource(MR.strings.ext_installing),
+            restoreProgress.load(),
+            restoreAmount,
+            isSync,
+        )
+        restoreIsolated("extensions") {
+            val preferences = summary.backupPreferences
+                .filter { it.key in restoreInstallSources.pluginPreferenceKeys }
+                .associate { it.key to it.value }
+            restoreExtensionInstaller.install(summary.backupExtensions, preferences).forEach {
+                errors.add(Date() to "Extension not reinstalled (${it.reason.label}): ${it.name}")
+            }
+        }
+    }
+    // RK <--
 
     // RK: pass 1. Decode only the small fields (kilobytes) and count the streamed library entries, so
     // the restore never has to hold every manga / novel and their chapters in memory at once.
@@ -230,6 +260,7 @@ class BackupRestorer(
         val backupPreferences = mutableListOf<BackupPreference>()
         val backupSourcePreferences = mutableListOf<BackupSourcePreferences>()
         val backupExtensionStores = mutableListOf<BackupExtensionStore>()
+        val backupExtensions = mutableListOf<BackupExtension>() // RK
         val backupMangaMerges = mutableListOf<BackupMangaMergeGroup>()
         val backupCustomMangaInfo = mutableListOf<BackupCustomMangaInfo>()
         val backupNovelCategories = mutableListOf<BackupNovelCategory>()
@@ -267,6 +298,8 @@ class BackupRestorer(
                 )
                 BackupFields.EXTENSION_STORES ->
                     backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
+                BackupFields.EXTENSIONS -> // RK
+                    backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
                 BackupFields.MANGA_MERGES ->
                     backupMangaMerges.add(parser.decodeFromByteArray(BackupMangaMergeGroup.serializer(), data))
                 BackupFields.CUSTOM_MANGA_INFO ->
@@ -302,6 +335,7 @@ class BackupRestorer(
             backupPreferences = backupPreferences,
             backupSourcePreferences = backupSourcePreferences,
             backupExtensionStores = backupExtensionStores,
+            backupExtensions = backupExtensions, // RK
             backupMangaMerges = backupMangaMerges,
             legacyCustomInfo = LegacyCustomInfo(backupCustomMangaInfo, backupCustomNovelInfo),
             backupNovelCategories = backupNovelCategories,
@@ -330,6 +364,7 @@ class BackupRestorer(
         val backupPreferences: List<BackupPreference>,
         val backupSourcePreferences: List<BackupSourcePreferences>,
         val backupExtensionStores: List<BackupExtensionStore>,
+        val backupExtensions: List<BackupExtension>, // RK
         val backupMangaMerges: List<BackupMangaMergeGroup>,
         // An older backup's root custom-info lists, folded onto each entry as it is decoded.
         val legacyCustomInfo: LegacyCustomInfo,

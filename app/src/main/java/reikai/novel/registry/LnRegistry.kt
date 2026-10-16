@@ -2,6 +2,7 @@ package reikai.novel.registry
 
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import reikai.domain.novel.LnInstalledPluginMetadata
 
 /**
  * One entry from an lnreader plugin registry's `plugins.min.json` (or `plugins.json`). The user pastes
@@ -24,6 +25,15 @@ data class LnRegistryEntry(
     /** Optional URL to a stylesheet the plugin ships for its chapter markup, which the WebView rendering
      *  mode applies, as LNReader's reader does. */
     val customCSS: String? = null,
+)
+
+/** The record an install from this entry stores, so a later load knows its icon, language and stylesheet. */
+fun LnRegistryEntry.toMetadata() = LnInstalledPluginMetadata(
+    pluginId = id,
+    iconUrl = iconUrl,
+    version = version,
+    lang = lang,
+    customCssUrl = customCSS,
 )
 
 /**

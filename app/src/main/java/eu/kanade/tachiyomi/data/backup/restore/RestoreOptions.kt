@@ -11,6 +11,8 @@ data class RestoreOptions(
     val sourceSettings: Boolean = true,
     // RK: saved browse searches and the Browse feed built on them.
     val savedSearches: Boolean = true,
+    // RK: the backup's extension apps and plugins this device lacks, from repos it has or the user trusts.
+    val extensions: Boolean = true,
 ) {
 
     fun asBooleanArray() = booleanArrayOf(
@@ -20,11 +22,13 @@ data class RestoreOptions(
         extensionStores,
         sourceSettings,
         savedSearches, // RK
+        extensions, // RK
     )
 
     // RK: savedSearches counts too
     fun canRestore() =
-        libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches
+        libraryEntries || categories || appSettings || extensionStores || sourceSettings || savedSearches ||
+            extensions
 
     companion object {
         val options = listOf(
@@ -59,6 +63,12 @@ data class RestoreOptions(
                 getter = RestoreOptions::savedSearches,
                 setter = { options, enabled -> options.copy(savedSearches = enabled) },
             ),
+            // RK
+            Entry(
+                label = MR.strings.restore_install_extensions,
+                getter = RestoreOptions::extensions,
+                setter = { options, enabled -> options.copy(extensions = enabled) },
+            ),
         )
 
         fun fromBooleanArray(array: BooleanArray) = RestoreOptions(
@@ -69,6 +79,7 @@ data class RestoreOptions(
             sourceSettings = array[4],
             // RK: see BackupOptions.fromBooleanArray.
             savedSearches = array.getOrElse(5) { true },
+            extensions = array.getOrElse(6) { true }, // RK
         )
     }
 

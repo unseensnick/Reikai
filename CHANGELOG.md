@@ -14,6 +14,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library search can find series by publishing status, tracker, category and score.** Try `status:completed`, `tracker:anilist`, `category:"Plan to read"` or `score>=8`.
 
+### Backup & restore
+
+#### Changed
+
+- **Restoring a backup installs its missing extensions and plugins again, from repos you trust on the Restore screen.** A repo the backup brings shows its address and signing key and comes back only if you tick it.
+
 ### Statistics
 
 #### Added
