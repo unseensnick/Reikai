@@ -46,9 +46,9 @@ import com.patrykandpatrick.vico.compose.pie.data.PieChartModelProducer
 import com.patrykandpatrick.vico.compose.pie.data.pieModel
 import com.patrykandpatrick.vico.compose.pie.rememberPieChart
 import eu.kanade.presentation.more.stats.components.StatsItem
-import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.datetime.toJavaLocalDate
 import reikai.domain.recommendation.taste.TrackStatus
+import reikai.presentation.components.EntryStatus
 import reikai.presentation.components.entryStatusRes
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
@@ -251,14 +251,14 @@ fun StatsColumns(values: List<Number>, label: (Int) -> String, description: Stri
 // colour from one chip to the next.
 @Composable
 private fun statusColor(code: Long): Color = with(MaterialTheme.colorScheme) {
-    when (code.toInt()) {
-        SManga.ONGOING -> primary
-        SManga.COMPLETED -> tertiary
-        SManga.LICENSED -> secondary
-        SManga.PUBLISHING_FINISHED -> inversePrimary
-        SManga.CANCELLED -> error
-        SManga.ON_HIATUS -> onSurfaceVariant
-        else -> outline
+    when (EntryStatus.of(code)) {
+        EntryStatus.ONGOING -> primary
+        EntryStatus.COMPLETED -> tertiary
+        EntryStatus.LICENSED -> secondary
+        EntryStatus.PUBLISHING_FINISHED -> inversePrimary
+        EntryStatus.CANCELLED -> error
+        EntryStatus.ON_HIATUS -> onSurfaceVariant
+        EntryStatus.UNKNOWN -> outline
     }
 }
 
@@ -283,5 +283,3 @@ private val TrackStatus.label
         TrackStatus.DROPPED -> MR.strings.dropped
         TrackStatus.UNKNOWN -> MR.strings.unknown
     }
-
-private const val MS_PER_MINUTE = 60_000L

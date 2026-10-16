@@ -8,7 +8,7 @@ Statistics summarises the library and the reader's reading for manga and novels 
 
 ### Loading
 
-`StatsLibraryLoader.load` reads both content types once per screen into a `StatsLibrary`: each type's library as a `StatsSeries` (a merged series is one title, through the merge manager's buckets and the stored stitch counts), every member's tracks on the signed-in trackers, the reading log's sessions, each entry's lifetime reading time from history, and the tracker and category names. Each type answers the per-entry fields through `StatsTitleFields`, the shape `libraryItemQueryFields` uses, and `StatsSeries.statsTitles` builds one neutral `StatsTitle` per series. Everything after that point is written once for both types.
+`StatsLibraryLoader.load` reads both content types once per screen into a `StatsLibrary`: each type's library as a `StatsSeries` (a merged series is one title, through the merge manager's `rankedSeriesBuckets`, ranked by `mangaLibraryRanking` / `novelLibraryRanking` so the series reads the lead its library row shows, and the stored stitch counts), every member's tracks on the signed-in trackers, the reading log's sessions, each entry's lifetime reading time from history, and the tracker and category names. Each type answers the per-entry fields through `StatsTitleFields`, the shape `libraryItemQueryFields` uses, and `StatsSeries.statsTitles` builds one neutral `StatsTitle` per series. Everything after that point is written once for both types.
 
 `StatsViewModel` (Mihon's, patched) keeps the four overview cards' numbers and adds `StatsCharts`; `StatsGroupViewModel` (one grouping's list, assisted on the `StatsDimension`) and `StatsReadingViewModel` (the Reading time screen) call the same loader. All three read `statsContentType`, so the switch set on the overview applies everywhere.
 
@@ -57,7 +57,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 ## Decisions
 
-- **Merged series count once, except where a series has several values.** Status, score and length read the series; sources, tags, trackers and languages list every value, as library search matches any member.
+- **Merged series count once, except where a series has several values.** Status, categories, score and length read the series as its library row does, through the same lead; sources, tags, trackers and languages list every value, as library search matches any member. A series' tags are one rule for both sides, `seriesGenres`: its Edit info tags when set, else every source's tags.
 - **Start year prefers a tracker's start date.** It is a real date where one exists and reaches back before the log; the log's first session covers the rest.
 - **`tag:` and `lang:` keep Mihon's part-of-a-value match.** A tag row's search can therefore also find a longer tag holding it; `tracker:` and `category:` are Reikai's and match whole names.
 

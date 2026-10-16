@@ -2,6 +2,7 @@ package reikai.presentation.stats
 
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.library.statusQueryWord
+import tachiyomi.domain.category.model.Category
 
 /**
  * The library search that lists a details row's series, or null for a row search cannot express (a start
@@ -27,7 +28,13 @@ fun StatsGroupKey.libraryQuery(trackerName: (Long) -> String?, categoryName: (Lo
             else -> trackerName(trackerId)?.let { "tracker:\"$it\"" }
         }
         is StatsGroupKey.Source -> sourceKeyQuery(key)
-        is StatsGroupKey.Category -> if (id == 0L) "category:\"\"" else categoryName(id)?.let { "category:\"$it\"" }
+        is StatsGroupKey.Category -> if (id ==
+            Category.UNCATEGORIZED_ID
+        ) {
+            "category:\"\""
+        } else {
+            categoryName(id)?.let { "category:\"$it\"" }
+        }
         is StatsGroupKey.Tag -> "tag:\"$name\""
         is StatsGroupKey.Language -> "lang:\"$code\""
         is StatsGroupKey.StartYear -> null

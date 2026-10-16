@@ -1,11 +1,13 @@
 package reikai.presentation.library
 
+import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
 import reikai.util.isAdultEntry
+import tachiyomi.domain.track.model.Track
 
 /**
  * The one binding of the shared filter and sort kernels onto the library's row type, used by both
@@ -51,8 +53,8 @@ fun adultLookupKeys(rows: List<LibraryItem>, sourceKey: (LibraryItem) -> String)
  * [sourceKey] is a String on both sides (a numeric id for manga, a plugin slug for novels);
  * [chapterMatches] and [categoryMatches] are the per-term id sets each side resolved once; [overlay]
  * supplies custom-info overrides by row id, since filter, sort and grouping read the source values;
- * [galleryIndex] answers the tag grammar, which novels never have; [trackerNames] and [meanScore] come
- * from each side's own tracks.
+ * [galleryIndex] answers the tag grammar, which novels never have; [tracksById] is each side's own track
+ * table, already in the shared [Track], and [trackers] the logged-in ones.
  */
 fun libraryItemQueryFields(
     sourceKey: (LibraryItem) -> String,
@@ -60,8 +62,8 @@ fun libraryItemQueryFields(
     overlay: Map<Long, LibraryQueryOverlay> = emptyMap(),
     galleryIndex: GallerySearchIndex = GallerySearchIndex(),
     categoryMatches: Map<String, Set<Long>> = emptyMap(),
-    trackerNames: (LibraryItem) -> List<String> = { emptyList() },
-    meanScore: (LibraryItem) -> Double? = { null },
+    tracksById: Map<Long, List<Track>> = emptyMap(),
+    trackers: Map<Long, Tracker> = emptyMap(),
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
     title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
@@ -69,7 +71,7 @@ fun libraryItemQueryFields(
     artist = { overlay[it.id]?.artist ?: it.libraryManga.manga.artist },
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     notes = { it.libraryManga.manga.notes },
-    genre = { overlay[it.id]?.genre ?: it.libraryManga.manga.genre },
+    genre = { seriesGenres(overlay[it.id]?.genre, listOf(it.libraryManga.manga.genre, it.memberGenres)) },
     sources = { item -> item.allSources(sourceKey(item)) },
     // The deduplicated group counts, matching what the badges and the sort read.
     unreadCount = { it.unreadCount },
@@ -86,13 +88,20 @@ fun libraryItemQueryFields(
     },
     matchesTagTerm = galleryIndex::matches,
     status = { it.libraryManga.manga.status },
-    trackerNames = trackerNames,
+    trackerNames = { libraryTrackerNames(it.memberIds(), tracksById, trackers) },
     categoryIds = { it.libraryManga.categories },
     matchesCategory = { item, term ->
         categoryMatches[term]?.let { ids -> item.libraryManga.categories.any { it in ids } }
     },
-    meanScore = meanScore,
+    meanScore = { libraryTrackerMean(it.memberIds(), tracksById, trackers) },
 )
+
+/**
+ * A series' tags as search and Statistics read them: its Edit info tags when set, else every source's
+ * tags of a merged series, so a tag row counts exactly the series its `tag:` search finds.
+ */
+fun seriesGenres(custom: List<String>?, memberGenres: List<List<String>?>): List<String> =
+    custom ?: memberGenres.flatMap { it.orEmpty() }.distinctBy { it.lowercase() }
 
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */
 fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)

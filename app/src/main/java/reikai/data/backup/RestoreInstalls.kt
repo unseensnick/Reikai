@@ -17,6 +17,7 @@ import reikai.novel.install.canonicalizePluginUrl
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
 import reikai.util.runCatchingCancellable
 
@@ -40,7 +41,7 @@ data class RepoListings(
         apps.filter { it.pkgName == item.pkgName }.maxByOrNull { it.versionCode }
 
     fun find(item: RestoreItem.Plugin): LnRegistryEntry? =
-        plugins.firstOrNull { canonicalizePluginUrl(it.url) == item.url }
+        plugins.byPluginUrl(item.url)
             ?: item.pluginId?.let { id -> plugins.firstOrNull { it.id == id } }
 
     fun lists(item: RestoreItem): Boolean = when (item) {
@@ -150,7 +151,7 @@ class RestoreInstallSources(
         val installedUrls = novelPreferences.installedPluginUrls().get()
         val installedIds = novelPreferences.installedPluginMetadata().get().values.mapTo(HashSet()) { it.pluginId }
         return urls
-            .filterNot { it in installedUrls || metadata[it]?.pluginId in installedIds }
+            .filterNot { canonicalizePluginUrl(it) in installedUrls || metadata[it]?.pluginId in installedIds }
             .map { url ->
                 val pluginId = metadata[url]?.pluginId
                 RestoreItem.Plugin(

@@ -245,7 +245,7 @@ private fun StatsValue(value: String?) {
 // Same-width digits, so numbers in a list line up and do not jitter between rows.
 private const val TABULAR = "tnum"
 
-private const val MS_PER_MINUTE = 60_000L
+internal const val MS_PER_MINUTE = 60_000L
 
 private val SOURCE_ICON_SIZE = 24.dp
 

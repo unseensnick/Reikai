@@ -1,6 +1,7 @@
 package reikai.domain.readinglog
 
 import reikai.domain.library.ContentType
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
@@ -31,4 +32,6 @@ interface ReadingLogRepository {
 
 data class UrlReadingSession(val chapterUrl: String, val endedAt: Instant, val duration: Long)
 
-data class EntryReadingSession(val entryId: Long, val endedAt: Instant, val duration: Long)
+data class EntryReadingSession(val entryId: Long, val endedAt: Instant, val duration: Long) {
+    val startedAt: Instant get() = endedAt - duration.milliseconds
+}

@@ -80,7 +80,6 @@ import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
 import reikai.presentation.library.libraryItemQueryFields
 import reikai.presentation.library.libraryQueryMatches
-import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
@@ -237,7 +236,6 @@ class LibraryViewModel(
                             customInfo,
                             gallery,
                             queryNode.categoryMatches(getCategories.await()),
-                            items,
                             tracksMap,
                             filters.trackers.keys,
                         )
@@ -342,12 +340,9 @@ class LibraryViewModel(
         customInfo: List<CustomMangaInfo>,
         gallery: GallerySearchIndex,
         categoryMatches: Map<String, Set<Long>>,
-        rows: List<LibraryItem>,
         trackMap: Map<Long, List<Track>>,
         loggedInTrackerIds: Set<Long>,
     ): LibraryQueryFields<LibraryItem> {
-        val trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id }
-        val means = libraryTrackerMeans(rows.associate { it.id to it.memberIds() }, trackMap, trackers)
         return libraryItemQueryFields(
             sourceKey = { it.libraryManga.manga.source.toString() },
             chapterMatches = chapterMatches,
@@ -356,10 +351,8 @@ class LibraryViewModel(
             overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
             galleryIndex = gallery,
             categoryMatches = categoryMatches,
-            trackerNames = { item ->
-                mergedGroupTracks(item.memberIds(), trackMap).mapNotNull { trackers[it.trackerId]?.name }
-            },
-            meanScore = { means[it.id] },
+            tracksById = trackMap,
+            trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
         )
     }
 

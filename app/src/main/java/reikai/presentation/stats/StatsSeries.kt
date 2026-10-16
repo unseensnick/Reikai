@@ -9,12 +9,13 @@ import reikai.domain.recommendation.taste.trackStatusOf
 import reikai.presentation.library.groupStatusTrack
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.mergedGroupTracks
+import reikai.presentation.library.seriesGenres
 import tachiyomi.domain.track.model.Track
 import kotlin.time.Instant
 
 /**
- * One content type's library as Statistics counts it. A merged series is one title, its lowest-id
- * member standing for it in the status stats, with its read and unread taken from the stored stitch
+ * One content type's library as Statistics counts it. A merged series is one title, its first member
+ * (the library lead, see `rankedSeriesBuckets`) standing for it, with its read and unread taken from the stored stitch
  * ([groupCounts], by group id) as its library card takes them. Per-source rows and files (chapters,
  * downloads) sum over every member and its trackers are read across them, as the library card reads them.
  */
@@ -79,7 +80,7 @@ class StatsSeries<T>(
                 title = fields.title(title),
                 status = fields.status(title),
                 sources = bucket.members.map(fields.source).distinctBy { it.key },
-                genres = bucket.members.flatMap(fields.genres).distinctBy { it.lowercase() },
+                genres = seriesGenres(fields.customGenres(title), bucket.members.map(fields.genres)),
                 categoryIds = fields.categoryIds(title),
                 totalChapters = stitch?.total ?: fields.totalChapters(title),
                 readChapters = stitch?.read ?: fields.readCount(title),
@@ -99,8 +100,10 @@ class StatsSeries<T>(
     private fun stitchOf(bucket: MergeBucket<T>): MergedGroupCounts? = bucket.groupId?.let(groupCounts::get)
 }
 
+/** [rank] orders a merged group's members as the library collapse does, so the series reads the lead the library shows. */
 suspend fun <T> EntryMergeManager.statsSeries(
     library: List<T>,
     groupCounts: Map<Long, MergedGroupCounts>,
+    rank: (members: List<T>, memberRanking: List<Long>) -> List<T> = { members, _ -> members },
     id: (T) -> Long,
-): StatsSeries<T> = StatsSeries(seriesBuckets(library, id), groupCounts, id)
+): StatsSeries<T> = StatsSeries(rankedSeriesBuckets(library, id, rank), groupCounts, id)

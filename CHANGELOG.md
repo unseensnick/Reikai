@@ -14,6 +14,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library search can find series by publishing status, tracker, category and score.** Try `status:completed`, `tracker:anilist`, `category:"Plan to read"` or `score>=8`.
 
+#### Changed
+
+- **Library search finds a merged series by a tag any of its sources gives it.** Tags set in Edit info still replace the sources' own.
+
 ### Backup & restore
 
 #### Changed

@@ -39,7 +39,9 @@ class StatsTitleFields<T>(
     val title: (T) -> String,
     val status: (T) -> Long,
     val source: (T) -> StatsSource,
-    val genres: (T) -> List<String>,
+    val genres: (T) -> List<String>?,
+    /** Edit info's tags, which replace every source's own, as the library search reads them. */
+    val customGenres: (T) -> List<String>?,
     val categoryIds: (T) -> List<Long>,
     val totalChapters: (T) -> Long,
     val readCount: (T) -> Long,

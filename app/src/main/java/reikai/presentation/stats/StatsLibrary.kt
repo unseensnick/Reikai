@@ -9,7 +9,10 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
+import reikai.domain.library.mangaLibraryRanking
+import reikai.domain.library.novelLibraryRanking
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.novel.NovelMergeManager
@@ -98,18 +101,27 @@ class StatsLibraryLoader(
     private val getEntryCustomInfo: GetEntryCustomInfo,
     private val getCategories: GetCategories,
     private val getNovelCategories: GetNovelCategories,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     suspend fun load(): StatsLibrary {
         // A series favorited from three sources is three rows here and one card in the library, so
         // StatsSeries counts it once.
+        // Each merged series ranked as its library row ranks it, so its status and categories are the lead's.
+        val recognizedCounts = mergedChapterUnits.getRecognizedChapterCountsAsFlow().first()
+        val preferredManga = reikaiLibraryPreferences.preferredMangaSources.get()
+        val preferredNovels = reikaiLibraryPreferences.preferredNovelSources.get()
         val manga = mangaMergeManager.statsSeries(
             getLibraryManga.await(),
             mergedChapterUnits.getGroupCounts(ContentType.MANGA),
+            rank = { members, ranking ->
+                mangaLibraryRanking(members, ranking, preferredManga, recognizedCounts) { it.manga }
+            },
         ) { it.id }
         val novels = novelMergeManager.statsSeries(
             novelRepository.getLibraryNovelAsFlow().first(),
             mergedChapterUnits.getGroupCounts(ContentType.NOVELS),
+            rank = { members, ranking -> novelLibraryRanking(members, ranking, preferredNovels) },
         ) { it.id }
         val loggedInTrackers = trackerManager.loggedInTrackers()
         val trackers = loggedInTrackers.associateBy { it.id }
@@ -117,7 +129,7 @@ class StatsLibraryLoader(
         val novelTracks = getNovelTrackMap(novels.members, trackers.keys)
         val mangaSessions = readingLog.sessions(ContentType.MANGA)
         val novelSessions = readingLog.sessions(ContentType.NOVELS)
-        val customTitles = getEntryCustomInfo.awaitAll().mapValues { it.value.title }
+        val customInfo = getEntryCustomInfo.awaitAll()
 
         val mangaSources = manga.members.map { it.manga.source }.distinct().associateWith { id ->
             sourceManager.getOrStub(id).let { StatsSource(id.toString(), it.name, it.lang) }
@@ -133,10 +145,11 @@ class StatsLibraryLoader(
         val mangaTitles = manga.statsTitles(
             StatsTitleFields(
                 entryId = { EntryId.Manga(it.manga.id) },
-                title = { customTitles[EntryId.Manga(it.manga.id)] ?: it.manga.title },
+                title = { customInfo[EntryId.Manga(it.manga.id)]?.title ?: it.manga.title },
                 status = { it.manga.status },
                 source = { mangaSources.getValue(it.manga.source) },
-                genres = { it.manga.genre.orEmpty() },
+                genres = { it.manga.genre },
+                customGenres = { customInfo[EntryId.Manga(it.manga.id)]?.genre },
                 categoryIds = { it.categories },
                 totalChapters = { it.totalChapters },
                 readCount = { it.readCount },
@@ -149,10 +162,11 @@ class StatsLibraryLoader(
         val novelTitles = novels.statsTitles(
             StatsTitleFields(
                 entryId = { EntryId.Novel(it.novel.id) },
-                title = { customTitles[EntryId.Novel(it.novel.id)] ?: it.novel.title },
+                title = { customInfo[EntryId.Novel(it.novel.id)]?.title ?: it.novel.title },
                 status = { it.novel.status },
                 source = { novelSources.getValue(it.novel.source) },
-                genres = { it.novel.genre.orEmpty() },
+                genres = { it.novel.genre },
+                customGenres = { customInfo[EntryId.Novel(it.novel.id)]?.genre },
                 categoryIds = { it.categories },
                 totalChapters = { it.totalChapters },
                 readCount = { it.readCount },

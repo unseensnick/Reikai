@@ -28,6 +28,23 @@ class StatsSeriesTest {
         series(type, mergingOn = true).titles.size shouldBe 1
     }
 
+    // The library row ranks its members to pick a lead, and the series' status and categories are the lead's.
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series stands as the member its library ranking leads with`(type: ContentType) = runTest {
+        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 9L, 2L to 9L)), mergingOn = true)
+        val leadId = when (type) {
+            ContentType.MANGA -> managers.manga.statsSeries(listOf(manga(1L), manga(2L)), emptyMap(), rank = { m, _ ->
+                m.reversed()
+            }) { it.id }.titles.single().id
+            else -> managers.novel.statsSeries(listOf(novel(1L), novel(2L)), emptyMap(), rank = { m, _ ->
+                m.reversed()
+            }) { it.id }.titles.single().id
+        }
+
+        leadId shouldBe 2L
+    }
+
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `with series merging off each source is its own title`(type: ContentType) = runTest {
@@ -167,6 +184,7 @@ class StatsSeriesTest {
         status = { 0L },
         source = { StatsSource(id(it).toString(), "source", "en") },
         genres = { emptyList() },
+        customGenres = { null },
         categoryIds = { emptyList() },
         totalChapters = total,
         readCount = read,

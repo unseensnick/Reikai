@@ -7,11 +7,11 @@ import kotlinx.datetime.atStartOfDayIn
 import kotlinx.datetime.minus
 import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.category.orUncategorized
 import reikai.domain.entry.EntryId
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /** Titles per publishing status code; both content types share the codes (`NovelStatusCode`). */
@@ -53,7 +53,7 @@ fun readingTimeByDayAndTitle(
 
 /** Hands each local day this session spans its share; a session that crosses midnight is split. */
 private inline fun EntryReadingSession.splitByDay(timeZone: TimeZone, add: (LocalDate, Long) -> Unit) {
-    var start = endedAt - duration.milliseconds
+    var start = startedAt
     while (start < endedAt) {
         val day = start.toLocalDateTime(timeZone).date
         val sliceEnd = minOf(day.plus(1, DateTimeUnit.DAY).atStartOfDayIn(timeZone), endedAt)
@@ -90,7 +90,7 @@ val StatsTitle.startedAt: Instant? get() = trackerStartedAt ?: firstLoggedReadAt
 /** Each entry's first logged session start, for [StatsTitle.firstLoggedReadAt]. */
 fun firstLoggedRead(sessions: List<EntryReadingSession>): Map<Long, Instant> = sessions
     .groupBy { it.entryId }
-    .mapValues { (_, entry) -> entry.minOf { it.endedAt - it.duration.milliseconds } }
+    .mapValues { (_, entry) -> entry.minOf { it.startedAt } }
 
 fun List<StatsTitle>.startedPerYear(timeZone: TimeZone): Map<Int, Int> =
     mapNotNull { it.startedAt?.toLocalDateTime(timeZone)?.year }.groupingBy { it }.eachCount()
@@ -179,8 +179,12 @@ private fun StatsTitle.groupKeys(dimension: StatsDimension, timeZone: TimeZone):
             trackerIds.distinct().map { StatsGroupKey.Tracker(it) }.ifEmpty { listOf(StatsGroupKey.Tracker(null)) }
         StatsDimension.SOURCE -> sources.map { StatsGroupKey.Source(it.key, it.name) }
         // An entry filed nowhere sits in the Default category, id 0.
-        StatsDimension.CATEGORY -> categoryIds.ifEmpty { listOf(0L) }.distinct().map { StatsGroupKey.Category(it) }
+        StatsDimension.CATEGORY -> categoryIds.orUncategorized().distinct().map { StatsGroupKey.Category(it) }
         StatsDimension.TAG -> genres.map { StatsGroupKey.Tag(it.trim()) }
         StatsDimension.LANGUAGE -> sources.map { StatsGroupKey.Language(it.language) }.distinct()
         StatsDimension.START_YEAR -> listOf(StatsGroupKey.StartYear(startedAt?.toLocalDateTime(timeZone)?.year))
     }
+
+/** The seven days ending on [end], oldest first, each with its [total]: one reading week as both screens show it. */
+fun weekEnding(end: LocalDate, total: (LocalDate) -> Long): List<Pair<LocalDate, Long>> =
+    (6 downTo 0).map { back -> end.minus(back, DateTimeUnit.DAY).let { day -> day to total(day) } }

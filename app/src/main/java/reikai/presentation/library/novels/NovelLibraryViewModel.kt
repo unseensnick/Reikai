@@ -366,10 +366,8 @@ class NovelLibraryViewModel(
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.
             overlay = overlay.mapValues { (_, custom) -> custom.toQueryOverlay() },
             categoryMatches = queryNode?.categoryMatches(getNovelCategories.await()).orEmpty(),
-            trackerNames = { item ->
-                tracksByRep[item.id].orEmpty().mapNotNull { scoringTrackers[it.trackerId]?.name }
-            },
-            meanScore = { trackerMeanScores[it.id] },
+            tracksById = uiTracks,
+            trackers = scoringTrackers,
         )
         val items = allItems.filter { item ->
             val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)

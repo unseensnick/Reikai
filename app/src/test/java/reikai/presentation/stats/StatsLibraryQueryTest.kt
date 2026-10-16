@@ -64,6 +64,10 @@ class StatsLibraryQueryTest {
         title(2L, status = 2L, score = 1.2, chapters = 5, trackers = listOf(1L), categories = listOf(5L)),
         title(3L, status = 2L, score = 7.4, chapters = 300, trackers = listOf(1L, 2L), categories = listOf(6L)),
         title(4L, status = 6L, score = 9.6, chapters = 30, trackers = listOf(2L), categories = listOf(5L, 6L)),
+        // Each on a band's edge, where scoreBar's rounding and the row's search range must agree.
+        title(5L, status = 1L, score = 1.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
+        title(6L, status = 1L, score = 7.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
+        title(7L, status = 1L, score = 9.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
     )
 
     private fun title(

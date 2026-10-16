@@ -27,6 +27,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibraryLoader
 import reikai.presentation.stats.readingTimeByDayAndTitle
+import reikai.presentation.stats.weekEnding
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Clock
 
@@ -62,9 +63,7 @@ class StatsReadingViewModel(
         val byDay = readingTimeByDayAndTitle(library.sessions(type), timeZone)
         val names = library.titles(type).associate { it.entryId to it.title }
         StatsReadingState(
-            days = (6 downTo 0).map { back ->
-                week.end.minus(back, DateTimeUnit.DAY).let { day -> day to byDay[day].orEmpty().values.sum() }
-            },
+            days = weekEnding(week.end) { byDay[it].orEmpty().values.sum() },
             selected = week.selected,
             titles = byDay[week.selected].orEmpty()
                 .mapNotNull { (entryId, ms) -> names[entryId]?.let { it to ms } }

@@ -7,7 +7,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.manga.MangaMergeManager
-import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
@@ -40,24 +39,14 @@ class GetLibraryExportRows(
         val novelSources = reikaiLibraryPreferences.preferredNovelSources.get()
         val novels = novelRepository.getLibraryNovelAsFlow().first()
         return libraryExportRows(
-            manga = mangaMergeManager.leads(getFavorites.await(), Manga::id) { members, ranking ->
-                mangaLibraryLead(members, ranking, mangaSources, recognizedCounts) { it }
-            },
-            novels = novelMergeManager.leads(novels, { it.novel.id }) { members, ranking ->
-                novelLibraryLead(members, ranking, novelSources)
-            }.map { it.novel },
+            manga = mangaMergeManager.rankedSeriesBuckets(getFavorites.await(), Manga::id) { members, ranking ->
+                mangaLibraryRanking(members, ranking, mangaSources, recognizedCounts) { it }
+            }.map { it.members.first() },
+            novels = novelMergeManager.rankedSeriesBuckets(novels, { it.novel.id }) { members, ranking ->
+                novelLibraryRanking(members, ranking, novelSources)
+            }.map { it.members.first().novel },
             customInfo = getEntryCustomInfo.awaitAll(),
         )
-    }
-
-    private suspend fun <T> EntryMergeManager.leads(
-        entries: List<T>,
-        id: (T) -> Long,
-        lead: (members: List<T>, memberRanking: List<Long>) -> T,
-    ): List<T> = seriesBuckets(entries, id).map { bucket ->
-        val members = bucket.members
-        if (members.size == 1) return@map members.single()
-        lead(members, overrideRankingMemberIds(id(members.first())))
     }
 }
 

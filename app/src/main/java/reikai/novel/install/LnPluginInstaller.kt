@@ -27,6 +27,7 @@ import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
 import reikai.novel.registry.pluginRepos
 import reikai.novel.source.LnPluginSource
@@ -334,7 +335,7 @@ class LnPluginInstaller(
         if (entries.isEmpty()) return current
         val updated = current.toMutableMap()
         needs.forEach { pluginUrl ->
-            val match = entries.firstOrNull { canonicalizePluginUrl(it.url) == pluginUrl }
+            val match = entries.byPluginUrl(pluginUrl)
                 ?: return@forEach
             // The version stays whatever was recorded: the repo's is not necessarily the one installed.
             updated[pluginUrl] = (current[pluginUrl] ?: LnInstalledPluginMetadata(pluginId = match.id))

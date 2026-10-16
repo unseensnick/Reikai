@@ -7,7 +7,6 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.recommendation.taste.TrackStatus
-import kotlin.time.Duration.Companion.milliseconds
 
 /** What the overview's charts draw for the selected content type. */
 @Immutable
@@ -50,11 +49,9 @@ fun statsCharts(
         status = titles.statusCounts(),
         scores = titles.scoreCounts(),
         trackStatus = titles.trackStatusCounts(),
-        lastWeek = (6 downTo 0).map { back ->
-            today.minus(back, DateTimeUnit.DAY).let { day -> day to (byDay[day] ?: 0L) }
-        },
+        lastWeek = weekEnding(today) { byDay[it] ?: 0L },
         streaks = readingStreaks(byDay.filterValues { it > 0L }.keys, today),
-        loggedSince = sessions.minOfOrNull { it.session.endedAt - it.session.duration.milliseconds }
+        loggedSince = sessions.minOfOrNull { it.session.startedAt }
             ?.toLocalDateTime(timeZone)?.date,
         groups = groups.mapValues { (_, rows) -> rows.take(OVERVIEW_ROWS) },
     )

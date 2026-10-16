@@ -1,6 +1,5 @@
 package reikai.presentation.library
 
-import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -14,6 +13,8 @@ import mihon.domain.library.model.search.MangaField
 import mihon.domain.library.model.search.NotNode
 import mihon.domain.library.model.search.OrNode
 import mihon.domain.library.model.search.QueryNode
+import reikai.domain.category.isUncategorized
+import reikai.presentation.components.EntryStatus
 import tachiyomi.domain.category.model.Category
 import kotlin.math.abs
 import kotlin.time.Instant
@@ -125,15 +126,7 @@ fun QueryNode.readsTracks(): Boolean = when (this) {
 }
 
 /** The word `status:` matches a publishing status by; both content types share the codes. */
-fun statusQueryWord(code: Long): String = when (code.toInt()) {
-    SManga.ONGOING -> "ongoing"
-    SManga.COMPLETED -> "completed"
-    SManga.LICENSED -> "licensed"
-    SManga.PUBLISHING_FINISHED -> "finished"
-    SManga.CANCELLED -> "cancelled"
-    SManga.ON_HIATUS -> "hiatus"
-    else -> "unknown"
-}
+fun statusQueryWord(code: Long): String = EntryStatus.of(code).queryWord
 
 /** Whether [row] satisfies the parsed [node]. Pure over the [fields] accessors. */
 fun <T> libraryQueryMatches(
@@ -206,7 +199,7 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
         MangaField.STATUS -> {
             val code = fields.status(row)
             if (value.isEmpty()) {
-                statusQueryWord(code) == statusQueryWord(SManga.UNKNOWN.toLong())
+                EntryStatus.of(code) == EntryStatus.UNKNOWN
             } else {
                 statusQueryWord(code).startsWith(value, ignoreCase = true) || value == code.toString()
             }
@@ -220,7 +213,7 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
 
         // An empty value asks for an entry filed in none of the user's categories, which reads as category 0.
         MangaField.CATEGORY -> if (value.isEmpty()) {
-            fields.categoryIds(row).all { it == 0L }
+            fields.categoryIds(row).isUncategorized()
         } else {
             fields.matchesCategory(row, value) ?: false
         }

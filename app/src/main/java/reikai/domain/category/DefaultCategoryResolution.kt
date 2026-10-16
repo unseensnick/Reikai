@@ -25,6 +25,12 @@ fun resolveDefaultCategoryIds(categories: List<Category>, defaultCategoryId: Int
  */
 fun List<Long>.withoutSystemCategory(): List<Long> = filter { it != Category.UNCATEGORIZED_ID }
 
+/** Whether an entry with these category ids is filed nowhere, as the library's Default category shows it. */
+fun List<Long>.isUncategorized(): Boolean = all { it == Category.UNCATEGORIZED_ID }
+
+/** These ids, or the system category alone when there are none, as the Default rows count them. */
+fun List<Long>.orUncategorized(): List<Long> = ifEmpty { listOf(Category.UNCATEGORIZED_ID) }
+
 /**
  * Where an entry joining a group lands: the categories the group's members already use, none included,
  * so a new source sits with the rest of the series and the series stays where it was.
