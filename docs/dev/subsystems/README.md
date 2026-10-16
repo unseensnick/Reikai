@@ -42,6 +42,7 @@ A doc is titled with the subsystem's name and has these second-level sections, i
 | Reader (host, engine, viewers, manga and novel providers) | [reader.md](reader.md) |
 | Novel reader rendering (text and WebView modes, read aloud) | [novel-reader-rendering.md](novel-reader-rendering.md) |
 | Recents (History, Updates, combined Recents) | [recents.md](recents.md) |
+| Statistics (charts, groupings, the reading log) | [statistics.md](statistics.md) |
 | Downloads | [downloads.md](downloads.md) |
 | Browse and sources (lists, catalogue, global search, feed, add flow, the `NovelSource` seam) | [browse-and-sources.md](browse-and-sources.md) |
 | LN plugin host | [ln-plugin-host.md](ln-plugin-host.md) |

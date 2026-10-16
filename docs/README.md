@@ -28,6 +28,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Light novels | [about.md](about.md) | [browse-and-sources.md](dev/subsystems/browse-and-sources.md), [ln-plugin-host.md](dev/subsystems/ln-plugin-host.md) |
 | Novel reader | [novel-reader.md](novel-reader.md), [guides/novel-reader-settings.md](guides/novel-reader-settings.md) | [reader.md](dev/subsystems/reader.md), [novel-reader-rendering.md](dev/subsystems/novel-reader-rendering.md) |
 | Updates, History and Recents | [recents.md](recents.md) | [recents.md](dev/subsystems/recents.md) |
+| Statistics | [statistics.md](statistics.md) | [statistics.md](dev/subsystems/statistics.md) |
 | Feed and saved searches | [feed.md](feed.md) | [browse-and-sources.md](dev/subsystems/browse-and-sources.md) |
 | Opening shared links | [shared-links.md](shared-links.md) | none |
 | Library shell | [library-layout.md](library-layout.md) | [library.md](dev/subsystems/library.md) |
