@@ -8,7 +8,7 @@ Backlog, grouped by area. Unordered within an area.
 
 ### Reader
 
-- **Paged novel reading for both renderers** `[L]` - turn a whole screen per tap, swipe or volume key, with an instant turn and a flash for e-ink and a right-to-left page direction, asked for in unseensnick/Reikai#76. Recommended design, awaiting the owner's go: true sideways pages in both renderers (CSS columns in the WebView, whole-line slices of the native layout), chapters joined seamlessly with the seam as its own page, and position kept as the first character on the page. [Plan](docs/dev/plans/paged-novel-reading.md).
+- **Paged novel reading for both renderers** `[L]` - turn a whole screen per tap, swipe or volume key, with an instant turn and a flash for e-ink and a right-to-left page direction, asked for in unseensnick/Reikai#76. Each renderer keeps its column and one shared rule cuts it into whole-line pages, proven by a prototype on the phone and the tablet. [Plan](docs/dev/plans/paged-novel-reading.md).
 
 ### UI & design
 
