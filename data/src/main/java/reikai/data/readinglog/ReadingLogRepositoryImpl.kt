@@ -7,6 +7,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.core.common.util.system.logcat
@@ -70,6 +71,26 @@ class ReadingLogRepositoryImpl(
             sourceByTargetChapter.forEach { (target, source) ->
                 if (isManga) queries.copyManga(target, source) else queries.copyNovel(target, source)
             }
+        }
+    }
+
+    override suspend fun sessions(contentType: ContentType): List<EntryReadingSession> {
+        val mapper = { entryId: Long, endedAt: Long, duration: Long ->
+            EntryReadingSession(entryId, Instant.fromEpochMilliseconds(endedAt), duration)
+        }
+        return if (isManga(contentType)) {
+            queries.sessionsOfManga(mapper).awaitAsList()
+        } else {
+            queries.sessionsOfNovel(mapper).awaitAsList()
+        }
+    }
+
+    override suspend fun readDurationByEntry(contentType: ContentType): Map<Long, Long> {
+        val mapper = { entryId: Long, duration: Long -> entryId to duration }
+        return if (isManga(contentType)) {
+            queries.readDurationByManga(mapper).awaitAsList().toMap()
+        } else {
+            queries.readDurationByNovel(mapper).awaitAsList().toMap()
         }
     }
 

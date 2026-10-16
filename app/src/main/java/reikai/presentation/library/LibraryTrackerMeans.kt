@@ -38,6 +38,10 @@ fun groupTrackStatus(
     loggedInTrackerIds: Set<Long>,
     trackerManager: TrackerManager,
 ): StringResource? {
-    val track = groupTracks.firstOrNull { it.trackerId in loggedInTrackerIds } ?: return null
+    val track = groupStatusTrack(groupTracks, loggedInTrackerIds) ?: return null
     return trackerManager.get(track.trackerId)?.getStatus(track.status)
 }
+
+/** The track whose status a row's tracking status is, for the library's grouping and Statistics alike. */
+fun groupStatusTrack(groupTracks: List<Track>, loggedInTrackerIds: Set<Long>): Track? =
+    groupTracks.firstOrNull { it.trackerId in loggedInTrackerIds }

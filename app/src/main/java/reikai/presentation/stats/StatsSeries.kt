@@ -5,9 +5,12 @@ import reikai.domain.library.SmartUpdateFacts
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.MergeBucket
 import reikai.domain.merge.MergedGroupCounts
+import reikai.domain.recommendation.taste.trackStatusOf
+import reikai.presentation.library.groupStatusTrack
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.mergedGroupTracks
 import tachiyomi.domain.track.model.Track
+import kotlin.time.Instant
 
 /**
  * One content type's library as Statistics counts it. A merged series is one title, its lowest-id
@@ -49,6 +52,43 @@ class StatsSeries<T>(
     /** Each scored title's mean 0-10 score over [trackers], the logged-in ones. */
     fun meanScores(tracksById: Map<Long, List<Track>>, trackers: Map<Long, Tracker>): Collection<Double> =
         libraryTrackerMeans(membersByTitle, tracksById, trackers).values
+
+    /**
+     * Each title as [StatsTitle]: [trackers] are the logged-in ones, [readDuration] and [firstLoggedRead]
+     * are keyed by member id. Chapters come from the stitch where the group has one, as [completedCount].
+     */
+    fun statsTitles(
+        fields: StatsTitleFields<T>,
+        tracksById: Map<Long, List<Track>>,
+        trackers: Map<Long, Tracker>,
+        readDuration: Map<Long, Long>,
+        firstLoggedRead: Map<Long, Instant>,
+    ): List<StatsTitle> {
+        val means = libraryTrackerMeans(membersByTitle, tracksById, trackers)
+        return buckets.map { bucket ->
+            val title = bucket.members.first()
+            val memberIds = bucket.members.map(id)
+            val groupTracks = mergedGroupTracks(memberIds, tracksById).filter { it.trackerId in trackers }
+            val stitch = stitchOf(bucket)
+            StatsTitle(
+                entryId = fields.entryId(title),
+                status = fields.status(title),
+                sources = bucket.members.map(fields.source).distinctBy { it.key },
+                genres = bucket.members.flatMap(fields.genres).distinctBy { it.lowercase() },
+                categoryIds = fields.categoryIds(title),
+                totalChapters = stitch?.total ?: fields.totalChapters(title),
+                readChapters = stitch?.read ?: fields.readCount(title),
+                trackerIds = groupTracks.map { it.trackerId },
+                meanScore = means[id(title)],
+                trackStatus = groupStatusTrack(groupTracks, trackers.keys)
+                    ?.let { track -> trackers[track.trackerId]?.trackStatusOf(track.status) },
+                trackerStartedAt = groupTracks.mapNotNull { it.startDate }.minOrNull(),
+                trackerFinishedAt = groupTracks.mapNotNull { it.finishDate }.maxOrNull(),
+                readDuration = memberIds.sumOf { readDuration[it] ?: 0L },
+                firstLoggedReadAt = memberIds.mapNotNull(firstLoggedRead::get).minOrNull(),
+            )
+        }
+    }
 
     // An unstitched group falls back to its title's own counts, as its library row does.
     private fun stitchOf(bucket: MergeBucket<T>): MergedGroupCounts? = bucket.groupId?.let(groupCounts::get)

@@ -21,6 +21,14 @@ interface ReadingLogRepository {
 
     /** Copies each matched source chapter's sessions onto its target, keyed target id to source id. */
     suspend fun copy(contentType: ContentType, sourceByTargetChapter: Map<Long, Long>)
+
+    /** Every logged session, with the entry its chapter belongs to. */
+    suspend fun sessions(contentType: ContentType): List<EntryReadingSession>
+
+    /** Each entry's lifetime reading time from history, which predates the log; an entry never read is absent. */
+    suspend fun readDurationByEntry(contentType: ContentType): Map<Long, Long>
 }
 
 data class UrlReadingSession(val chapterUrl: String, val endedAt: Instant, val duration: Long)
+
+data class EntryReadingSession(val entryId: Long, val endedAt: Instant, val duration: Long)

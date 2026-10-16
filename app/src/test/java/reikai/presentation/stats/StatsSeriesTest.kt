@@ -7,6 +7,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.merge.MergedGroupCounts
@@ -16,6 +17,7 @@ import reikai.domain.novel.model.Novel
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.model.Track
+import kotlin.time.Instant
 
 /** Library members 1 and 2 are one merged series in every case; the ids are each type's own. */
 class StatsSeriesTest {
@@ -98,6 +100,78 @@ class StatsSeriesTest {
         mergedSeries(type, leadRead = 3, stitch = MergedGroupCounts(total = 4, read = 3, bookmarked = 0))
             .completed shouldBe 0
     }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series' title lists every member's source`(type: ContentType) = runTest {
+        mergedTitle(type).sources.map { it.key } shouldBe listOf("1", "2")
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series' title takes its chapters from the stitch`(type: ContentType) = runTest {
+        mergedTitle(type, stitch = MergedGroupCounts(total = 5, read = 4, bookmarked = 0))
+            .let { it.totalChapters to it.readChapters } shouldBe (5L to 4L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series' reading time sums every member`(type: ContentType) = runTest {
+        mergedTitle(type, readDuration = mapOf(1L to 10L, 2L to 5L)).readDuration shouldBe 15L
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a tracker start date on a later member starts the series`(type: ContentType) = runTest {
+        val started = Instant.parse("2024-03-01T00:00:00Z")
+        val tracks = mapOf(2L to listOf(track(entryId = 2L, score = 0.0).copy(startDate = started)))
+
+        mergedTitle(type, tracks = tracks, trackers = relaxedTrackers).trackerStartedAt shouldBe started
+    }
+
+    /** Members 1 and 2 merged in group 9, as one [StatsTitle]. */
+    private suspend fun mergedTitle(
+        type: ContentType,
+        stitch: MergedGroupCounts? = null,
+        readDuration: Map<Long, Long> = emptyMap(),
+        tracks: Map<Long, List<Track>> = emptyMap(),
+        trackers: Map<Long, Tracker> = this.trackers,
+    ): StatsTitle {
+        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 9L, 2L to 9L)), mergingOn = true)
+        val counts = stitch?.let { mapOf(9L to it) }.orEmpty()
+        return when (type) {
+            ContentType.MANGA -> managers.manga.statsSeries(listOf(manga(1L, totalChapters = 3), manga(2L)), counts) {
+                it.id
+            }.statsTitles(
+                titleFields({ it.id }, { it.totalChapters }, { it.readCount }),
+                tracks,
+                trackers,
+                readDuration,
+                emptyMap(),
+            )
+            else -> managers.novel.statsSeries(listOf(novel(1L, totalChapters = 3), novel(2L)), counts) {
+                it.id
+            }.statsTitles(
+                titleFields({ it.id }, { it.totalChapters }, { it.readCount }),
+                tracks,
+                trackers,
+                readDuration,
+                emptyMap(),
+            )
+        }.single()
+    }
+
+    private fun <T> titleFields(id: (T) -> Long, total: (T) -> Long, read: (T) -> Long) = StatsTitleFields<T>(
+        entryId = { EntryId.Manga(id(it)) },
+        status = { 0L },
+        source = { StatsSource(id(it).toString(), "source", "en") },
+        genres = { emptyList() },
+        categoryIds = { emptyList() },
+        totalChapters = total,
+        readCount = read,
+    )
+
+    private val relaxedTrackers = mapOf(1L to mockk<Tracker>(relaxed = true))
 
     /** Members 1 (the lead, three chapters, [leadRead] read, completed) and 2, merged in group 9. */
     private suspend fun mergedSeries(type: ContentType, leadRead: Long, stitch: MergedGroupCounts): StatusCounts {
