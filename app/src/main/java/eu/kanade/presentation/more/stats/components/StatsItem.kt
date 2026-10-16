@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
@@ -75,6 +76,8 @@ private fun RowScope.BaseStatsItem(
                 .copy(
                     color = MaterialTheme.colorScheme.onSurface
                         .copy(alpha = SECONDARY_ALPHA),
+                    // RK: a label too long for its third of the card hyphenates at large font sizes
+                    hyphens = Hyphens.Auto,
                 ),
             textAlign = TextAlign.Center,
         )
