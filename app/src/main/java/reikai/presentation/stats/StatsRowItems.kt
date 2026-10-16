@@ -33,6 +33,7 @@ import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.SourceIconBadge
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
@@ -98,10 +99,15 @@ private fun StatsSourceIcon(badge: SourceBadge) {
 fun StatsGroupKey.label(name: String?): String = when (this) {
     is StatsGroupKey.Status -> stringResource(entryStatusRes(code))
     is StatsGroupKey.Score -> bar?.toString() ?: stringResource(MR.strings.stats_not_scored)
-    is StatsGroupKey.Length -> when {
-        chapters.last == Long.MAX_VALUE -> "${chapters.first}+"
-        chapters.first == chapters.last -> chapters.first.toString()
-        else -> "${chapters.first}-${chapters.last}"
+    // The band in words, so "2-10" reads "2-10 chapters"; a band counts as plural unless it is exactly one.
+    is StatsGroupKey.Length -> {
+        val band = when {
+            chapters.last == Long.MAX_VALUE -> "${chapters.first}+"
+            chapters.first == chapters.last -> chapters.first.toString()
+            else -> "${chapters.first}-${chapters.last}"
+        }
+        val count = if (chapters.first == chapters.last) chapters.first.toInt() else Int.MAX_VALUE
+        pluralStringResource(MR.plurals.manga_num_chapters, count, band)
     }
     is StatsGroupKey.Tracker -> when (trackerId) {
         null -> stringResource(MR.strings.stats_not_tracked)

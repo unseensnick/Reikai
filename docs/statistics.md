@@ -17,7 +17,7 @@ Below them:
 * **Publishing status** and **Tracking status** show how your series split, with the counts beside each chart. Tracking status counts series you track, by the status of your first signed-in tracker.
 * **Scores** shows how many series sit at each mean tracker score from 1 to 10.
 * **Reading this week** shows your reading time for the last seven days, your current streak of reading days and your longest one.
-* **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Length** and **Year started** list your top five in each.
+* **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Year started** list your top five in each.
 
 A series merged from several sources counts once, except in **Sources**, **Tags**, **Trackers** and **Languages**, where it counts under each one it has. Those lists can add up to more than your library.
 

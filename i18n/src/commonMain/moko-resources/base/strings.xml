@@ -1943,7 +1943,7 @@
     <string name="stats_group_tag">Tags</string>
     <string name="stats_group_tracker">Trackers</string>
     <string name="stats_group_language">Languages</string>
-    <string name="stats_group_length">Length</string>
+    <string name="stats_group_length">Series length</string>
     <string name="stats_group_start_year">Year started</string>
     <string name="stats_group_reading_time">Reading time</string>
     <string name="stats_sort">Sort by</string>
