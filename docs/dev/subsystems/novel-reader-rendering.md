@@ -10,7 +10,7 @@ How a light-novel chapter becomes a screen inside the shared reader: the novel m
 
 `NovelReaderViewModel` is the novel session: the chapter list (through `GetNextNovelChapter.readingOrder` and `hiddenAmong`, the rules the resume uses), the display settings as one `NovelReaderSettings` flow so a change restyles live, chapter text, progress, history, trackers, mark-read and the trim behind the reader. `NovelReaderProvider` adapts it for the engine and builds the viewport the rendering mode picks (`NovelPreferences.readerRenderingMode`, `NATIVE` or `WEBVIEW`; an unknown stored name such as the retired `LEGACY` falls back to `NATIVE`). Both viewports take one `NovelViewportCallbacks` value, so the two cannot be wired differently.
 
-`NovelChapterTextLoader` is the one session-scoped chapter loader: the downloaded copy first, else `NovelSource.parseChapter`, then the content pipeline. `reloadChapter(fromSource)` drops the chapter from the session's text cache and, from the source, skips the downloaded copy once.
+`NovelChapterTextLoader` is the one session-scoped chapter loader: the downloaded copy first, then the text an earlier session fetched (`NovelChapterTextCache`), else `NovelSource.parseChapter`, then the content pipeline. `reloadChapter(fromSource)` drops the chapter from the session's text cache and, from the source, skips both disk copies once and refreshes the cached one. The web actions resolve the chapter's source on demand, since an open from disk never needed it.
 
 Reading is seamless in both directions while `readerSeamlessChapters` is on (the default). The model publishes a `Window` of up to three chapters (previous, current, next) with a generation and an anchor, and the host drives the viewport's `ChapterWindow` verbs (`append`, `prepend`, `evict`) in the order `NovelWindowDiff` gives: dropped chapters first, then below, then above. The viewport reports the visible chapter back, so the title, progress, mark-read and history follow the reader across a seam. The next chapter is fetched on open but joins the window only once the reader passes `readerAutoLoadNextAt` (95%) of the current one (`NovelWindowReach.joinable`); a previous chapter joins only once the chapters below have arrived or failed (`previousMayJoin`), and the window reaches past up to three chapters that fit on one screen. A failed neighbour waits 15 seconds before an unprompted retry (`ChapterRetryCooldown`, the rule the manga reader's preloads share) and draws a failure with Retry at the window edge (`NovelBoundaryFailureView`, `ChapterWindow.setBoundaryFailures`); an explicit open or Retry clears the wait.
 
@@ -71,6 +71,7 @@ The WebView side is split: `reader.js`'s `paged` module measures (text client re
 - `app/src/main/java/reikai/presentation/reader/NovelReaderSettings.kt` and `app/src/main/java/reikai/domain/novel/NovelPreferences.kt`: the settings.
 - `app/src/main/java/reikai/domain/novel/NovelRenderingMode.kt`: the two modes.
 - `app/src/main/java/reikai/novel/source/NovelChapterTextLoader.kt`: the chapter loader.
+- `app/src/main/java/reikai/novel/source/NovelChapterTextCache.kt`: fetched chapter text on disk, inside Mihon's `ChapterCache`.
 - `app/src/main/java/reikai/presentation/reader/TextViewport.kt`: `TextViewport`, `ChapterWindow`.
 - `app/src/main/java/reikai/presentation/reader/NovelViewportCallbacks.kt`: the shared viewport wiring.
 - `app/src/main/java/reikai/presentation/reader/text/NovelWindowReach.kt`, `app/src/main/java/reikai/presentation/reader/text/NovelWindowDiff.kt`: the window rules.
@@ -119,6 +120,7 @@ The WebView side is split: `reader.js`'s `paged` module measures (text client re
 - **A picture taller than a page continues on the next page**, as it does when scrolling, rather than being shrunk to fit.
 - **Paged position is the first character on the page plus a percent.** A page index changes with every font or size change; the character offset both renderers already report does not.
 - **Page turns are instant.** The feature exists for e-ink screens, where an animation smears.
+- **Fetched chapter text lives in manga's `ChapterCache`, not a cache of its own.** That cache already holds manga's page lists, so its size cap, Clear chapter cache and the clear-on-launch switch cover novels with no second setting. The text is stored as the source answered it, before the pipeline, so a reading setting changed since still applies. A `DiskLruCache` directory takes one owner, which rules out a second cache beside it.
 
 ## Upstream divergences
 

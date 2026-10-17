@@ -27,6 +27,7 @@ class NovelChapterTextLoader(
     private val sourceManager: NovelSourceManager,
     private val installer: LnPluginInstaller,
     private val preferences: NovelPreferences,
+    private val textCache: NovelChapterTextCache,
     /** The downloaded copy, or null when the chapter is not on disk. */
     private val readDownloaded: (Novel, NovelChapter) -> String?,
 ) {
@@ -49,9 +50,8 @@ class NovelChapterTextLoader(
     fun cachedSource(novelId: Long): NovelSource? = sourcesByNovel[novelId]
 
     /**
-     * Downloaded chapter: read the self-contained HTML from disk (no source, null base URL, images
-     * already inlined). Otherwise resolve the chapter's source and parse live, using the source site
-     * as the base URL so relative image URLs resolve.
+     * The downloaded copy (self-contained, images inlined, null base URL), then [textCache], else the
+     * source parsed live, with its site as the base URL so relative image URLs resolve.
      *
      * What comes back is pipeline output, never raw source markup, so a renderer must not process it
      * again. The target follows the rendering mode, which decides whether embedded CSS and JS survive.
@@ -72,14 +72,19 @@ class NovelChapterTextLoader(
         return html to baseUrl
     }
 
-    /** The downloaded copy when there is one, unless [fromSource] asks the source regardless. */
+    /** A copy on disk when there is one, unless [fromSource] asks the source regardless. */
     private suspend fun fetch(chapter: NovelChapter, fromSource: Boolean): Pair<String, String?> {
-        val novel = novelRepo.getById(chapter.novelId)
-        if (novel != null && !fromSource) readDownloaded(novel, chapter)?.let { return it to null }
+        if (!fromSource) {
+            val novel = novelRepo.getById(chapter.novelId)
+            if (novel != null) readDownloaded(novel, chapter)?.let { return it to null }
+            textCache.get(chapter)?.let { return it.text to it.baseUrl }
+        }
         val src = resolveSource(chapter.novelId)
         // A blank page reads as the reader failing to draw, so an empty answer fails the load instead.
         val text = src.parseChapter(chapter.url).ifBlank { throw EmptyChapterException() }
-        return text to src.site.ifBlank { null }
+        val baseUrl = src.site.ifBlank { null }
+        textCache.put(chapter, CachedChapterText(text, baseUrl))
+        return text to baseUrl
     }
 
     /**

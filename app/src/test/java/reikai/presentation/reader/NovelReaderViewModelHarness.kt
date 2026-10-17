@@ -77,6 +77,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
@@ -366,6 +367,7 @@ class NovelReaderViewModelHarness private constructor(
             ),
             setNovelViewerFlags = SetNovelViewerFlags(novelRepo),
             novelDownloadCache = downloadCache,
+            chapterTextCache = testChapterTextCache(),
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
                 novelPreferences,

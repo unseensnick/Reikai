@@ -198,6 +198,22 @@ class ChapterCache(
     fun removeImage(imageUrl: String) {
         runCatching { diskCache.remove(DiskUtil.hashKeyForDisk(imageUrl)) }
     }
+
+    // A novel chapter's text, kept by NovelChapterTextCache in this cache so its cap and clearing cover both
+    fun getText(key: String): String? = diskCache.get(DiskUtil.hashKeyForDisk(key))?.use { it.getString(0) }
+
+    fun putText(key: String, text: String) {
+        val hashed = DiskUtil.hashKeyForDisk(key)
+        // A commit renames its new file over the old one, which Windows refuses, so an entry is replaced by removing it first
+        diskCache.remove(hashed)
+        val editor = diskCache.edit(hashed) ?: return
+        try {
+            editor.set(0, text)
+            editor.commit()
+        } finally {
+            editor.abortUnlessCommitted()
+        }
+    }
     // RK <--
 
     fun clear(): Int {

@@ -319,6 +319,18 @@ class NovelReaderViewModelTest {
         model.webUrlFor(earlier) shouldBe "https://alpha.example" + opened.url
     }
 
+    /** A chapter read from disk never resolves its source to open, so the web actions resolve it. */
+    @Test
+    fun `a downloaded chapter gets its source's web address`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("alpha"))
+        val chapter = harness.chapter(novel, 1.0)
+        harness.download(chapter, "<p>Chapter one on disk</p>")
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+
+        model.webUrlFor(model.chapter.value!!) shouldBe "https://alpha.example" + chapter.url
+    }
+
     /** Asked by id, as the failed-chapter actions do, while the session reads the other source's chapter. */
     @Test
     fun `a chapter asked for by id gets its own source's web address`() = readerTest { harness ->

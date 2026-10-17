@@ -26,6 +26,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.** Auto-scroll turns a page every few seconds while paged.
 - **The manga reader offers the novel reader's Thirds, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
 
+#### Changed
+
+- **A novel chapter you have opened before now opens without fetching it from the source again.** It is kept in the chapter cache, the same one manga uses, and Clear chapter cache empties it.
+- **The novel reader menu now offers Open in WebView, Open in browser and Share on a downloaded chapter, as manga does.** Its source has to be installed.
+
 #### Fixed
 
 - **In Native text, a novel chapter with pictures opened at its start now shows at once instead of staying blank for up to three seconds.**

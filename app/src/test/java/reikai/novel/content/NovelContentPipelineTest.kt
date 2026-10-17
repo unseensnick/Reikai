@@ -18,6 +18,7 @@ import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.testChapterTextCache
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import kotlin.time.Instant
@@ -199,6 +200,7 @@ class NovelContentPipelineTest {
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
             preferences = preferences,
+            textCache = testChapterTextCache(),
             readDownloaded = { _, _ -> null },
         )
 
@@ -221,6 +223,7 @@ class NovelContentPipelineTest {
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
             preferences = preferences,
+            textCache = testChapterTextCache(),
             readDownloaded = { _, _ -> null },
         )
 
@@ -239,6 +242,7 @@ class NovelContentPipelineTest {
             sourceManager = sourceManager,
             installer = mockk { coEvery { ensureLoaded() } throws CancellationException("cancelled") },
             preferences = preferences,
+            textCache = testChapterTextCache(),
             readDownloaded = { _, _ -> null },
         )
 
@@ -295,6 +299,7 @@ class NovelContentPipelineTest {
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
             preferences = preferences,
+            textCache = testChapterTextCache(),
             readDownloaded = { _, _ -> "<p>downloaded</p>" },
         )
     }

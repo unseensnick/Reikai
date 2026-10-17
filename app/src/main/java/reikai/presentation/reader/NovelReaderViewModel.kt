@@ -103,6 +103,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterStylesheet
+import reikai.novel.source.NovelChapterTextCache
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
@@ -115,6 +116,7 @@ import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelOpenLanding
 import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWindowReach
+import reikai.util.runCatchingCancellable
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -157,6 +159,7 @@ class NovelReaderViewModel(
     private val getIncognitoState: GetIncognitoState,
     private val setNovelViewerFlags: SetNovelViewerFlags,
     private val novelDownloadCache: NovelDownloadCache,
+    private val chapterTextCache: NovelChapterTextCache,
     private val deleteChaptersBehindReader: DeleteNovelChaptersBehindReader,
     private val basePreferences: BasePreferences,
     private val context: Context,
@@ -200,6 +203,7 @@ class NovelReaderViewModel(
         sourceManager = sourceManager,
         installer = installer,
         preferences = novelPreferences,
+        textCache = chapterTextCache,
         readDownloaded = { novel, chapter -> downloadManager.getChapterText(novel, chapter) },
     )
 
@@ -1136,13 +1140,15 @@ class NovelReaderViewModel(
         chapterRepo.getById(chapterId)?.let { webUrl(it.novelId, it.url) }
 
     /**
-     * [chapter]'s page on the source site, or null for one read from disk whose source this session
-     * never resolved, which is the case the web actions have to hide rather than open empty.
+     * [chapter]'s page on the source site, or null when its source cannot be resolved (not installed),
+     * which is the case the web actions have to hide rather than open empty. A chapter read from disk
+     * resolves its source here, since its open never needed one.
      */
     suspend fun webUrlFor(chapter: LoadedChapter): String? = webUrl(chapter.novelId, chapter.url)
 
     private suspend fun webUrl(novelId: Long, chapterUrl: String): String? =
-        textLoader.cachedSource(novelId)?.webUrl(chapterUrl, isNovel = false)
+        runCatchingCancellable { textLoader.resolveSource(novelId) }.getOrNull()
+            ?.webUrl(chapterUrl, isNovel = false)
 
     /** Start, cancel or delete a chapter download from the sheet. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
