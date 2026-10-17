@@ -37,4 +37,6 @@ class NovelViewportCallbacks(
     /** A scroll the reader's finger made, in pixels; the provider hides the menu past its threshold.
      *  The viewport's own scrolls (seek, keys, read aloud, auto-scroll) never report. */
     val onReaderScrolled: (dyPx: Int) -> Unit,
+    /** A new page is on screen in paged reading, drawn, which is when an e-ink screen is flashed clean. */
+    val onPageTurned: () -> Unit,
 )

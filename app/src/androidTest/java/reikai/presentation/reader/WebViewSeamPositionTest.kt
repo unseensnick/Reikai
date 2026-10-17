@@ -459,6 +459,7 @@ class WebViewSeamPositionTest {
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 textSelectable = false,
+                paged = false,
             ),
         )
         assertTrue("the engine never reported ready", engineReady.await(TIMEOUT_S, TimeUnit.SECONDS))

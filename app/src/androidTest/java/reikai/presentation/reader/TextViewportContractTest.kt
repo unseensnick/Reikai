@@ -48,6 +48,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
@@ -133,6 +134,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = { endsSeen += it },
         onReaderScrolled = { scrolls += it },
+        onPageTurned = {},
     )
 
     @Before
@@ -159,18 +161,22 @@ class TextViewportContractTest(private val renderer: Renderer) {
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
                 textSelectable = textSelectable,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = callbacks,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             Renderer.WEB -> NovelWebViewport(
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = textSelectable,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = callbacks,
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
         }
 

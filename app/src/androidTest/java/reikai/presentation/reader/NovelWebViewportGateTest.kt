@@ -18,6 +18,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.domain.novel.NovelPageLayout
 import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.web.NovelWebSnippets
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -74,6 +75,7 @@ class NovelWebViewportGateTest {
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -87,10 +89,12 @@ class NovelWebViewportGateTest {
                     onChapterFits = { id, _ -> fitsReports += id },
                     onChapterEndSeen = { endsSeen += it },
                     onReaderScrolled = {},
+                    onPageTurned = {},
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             (activity.webView.parent as ViewGroup).addView(
                 viewport.view,

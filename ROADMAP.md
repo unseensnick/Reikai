@@ -6,10 +6,6 @@ Forward plan only: what is left to build, in what order. Shipped work is in [CHA
 
 Backlog, grouped by area. Unordered within an area.
 
-### Reader
-
-- **Paged novel reading for both renderers** `[L]` - turn a whole screen per tap, swipe or volume key, with an instant turn and a flash for e-ink and a right-to-left page direction, asked for in unseensnick/Reikai#76. Each renderer keeps its column and one shared rule cuts it into whole-line pages, proven by a prototype on the phone and the tablet. [Plan](docs/dev/plans/paged-novel-reading.md).
-
 ### UI & design
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).

@@ -195,6 +195,7 @@ class NovelWebDocumentTest {
         useOriginalFonts = useOriginalFonts,
         sourceCssPriority = sourceCssPriority,
         textSelectable = false,
+        paged = false,
     )
 
     @Before

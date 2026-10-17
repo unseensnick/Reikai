@@ -40,6 +40,8 @@ object NovelWebDocument {
         useOriginalFonts: Boolean,
         sourceCssPriority: Boolean,
         textSelectable: Boolean,
+        /** Paged reading, which the page's engine measures and moves the column for. */
+        paged: Boolean,
         /** The chapter source's own stylesheet, which the page sets ahead of the user's snippets. */
         sourceStylesheet: String? = null,
     ): String {
@@ -49,6 +51,7 @@ object NovelWebDocument {
             "reader.js",
             mapOf(
                 "__SWIPE__" to settings.swipeGestures.toString(),
+                "__PAGED__" to paged.toString(),
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),

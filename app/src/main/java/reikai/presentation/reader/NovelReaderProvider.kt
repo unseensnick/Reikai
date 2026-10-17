@@ -24,6 +24,7 @@ import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.reader.ChapterProgress
@@ -83,6 +84,8 @@ class NovelReaderProvider(
         grayscale = novelPreferences.readerGrayscale(),
         invertedColors = novelPreferences.readerInvertedColors(),
     )
+
+    override val flash = ReaderFlash.novel(novelPreferences)
 
     override val fullscreen = novelPreferences.readerFullscreen()
 
@@ -280,15 +283,19 @@ class NovelReaderProvider(
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
             onReaderScrolled = { dy -> if (abs(dy) > hideThreshold) host.hideMenu() },
+            onPageTurned = host::pageTurned,
         )
         val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
+        val autoScrollInterval = novelPreferences.readerAutoScrollInterval()
         if (built.renderingMode == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
                 fontManager = fontManager,
                 textSelectable = built.textSelectable,
+                pageLayout = built.pageLayout,
                 callbacks = callbacks,
                 autoScrollSpeed = autoScrollSpeed,
+                autoScrollInterval = autoScrollInterval,
             )
         }
         return NovelWebViewport(
@@ -296,11 +303,13 @@ class NovelReaderProvider(
             fontManager = fontManager,
             imageRequests = imageRequests,
             textSelectable = built.textSelectable,
+            pageLayout = built.pageLayout,
             callbacks = callbacks,
             useOriginalFonts = built.useOriginalFonts,
             sourceCssPriority = built.sourceCssPriority,
             devTools = novelPreferences.readerWebViewDevTools().get(),
             autoScrollSpeed = autoScrollSpeed,
+            autoScrollInterval = autoScrollInterval,
         )
     }
 
@@ -402,6 +411,7 @@ class NovelReaderProvider(
 /** The settings a novel viewport is built with, which a change applies only by building it again. */
 internal data class NovelViewportSettings(
     val renderingMode: NovelRenderingMode,
+    val pageLayout: NovelPageLayout,
     val textSelectable: Boolean,
     val useOriginalFonts: Boolean,
     val sourceCssPriority: Boolean,
@@ -409,6 +419,7 @@ internal data class NovelViewportSettings(
     companion object {
         fun read(preferences: NovelPreferences) = NovelViewportSettings(
             renderingMode = preferences.readerRenderingMode().get(),
+            pageLayout = preferences.readerPageLayout().get(),
             textSelectable = preferences.readerTextSelectable().get(),
             useOriginalFonts = preferences.readerUseOriginalFonts().get(),
             sourceCssPriority = preferences.readerSourceCssPriority().get(),
@@ -417,6 +428,7 @@ internal data class NovelViewportSettings(
         // Must name every preference [read] reads; NovelViewportSettingsTest compares the two.
         fun watched(preferences: NovelPreferences): List<Flow<*>> = listOf(
             preferences.readerRenderingMode().changes(),
+            preferences.readerPageLayout().changes(),
             preferences.readerTextSelectable().changes(),
             preferences.readerUseOriginalFonts().changes(),
             preferences.readerSourceCssPriority().changes(),

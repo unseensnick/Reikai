@@ -23,6 +23,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.coroutines.flow.Flow
@@ -37,6 +38,7 @@ import reikai.presentation.icons.RecordVoiceOver
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.icons.TouchApp
 import reikai.presentation.reader.ReaderDisplayFilters
+import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ViewportAutoScroll
@@ -47,6 +49,7 @@ import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.SettingsChipRow
 import tachiyomi.presentation.core.components.SliderItem
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
 
@@ -239,6 +242,48 @@ internal fun ColumnScope.ReaderPageRows(
         CheckboxItem(label = stringResource(MR.strings.pref_cutout_short), pref = drawUnderCutout)
     }
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = keepScreenOn)
+}
+
+private val flashColors = listOf(
+    MR.strings.pref_flash_style_black to ReaderPreferences.FlashColor.BLACK,
+    MR.strings.pref_flash_style_white to ReaderPreferences.FlashColor.WHITE,
+    MR.strings.pref_flash_style_white_black to ReaderPreferences.FlashColor.WHITE_BLACK,
+)
+
+/** The e-ink flash after a page turn, the same rows for either reader. */
+@Composable
+internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
+    val flashPageState by flash.onPageChange.collectAsState()
+    CheckboxItem(label = stringResource(MR.strings.pref_flash_page), pref = flash.onPageChange)
+    if (!flashPageState) return
+    val flashMillis by flash.durationMillis.collectAsState()
+    SliderItem(
+        value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
+        valueRange = 1..15,
+        label = stringResource(MR.strings.pref_flash_duration),
+        valueString = stringResource(MR.strings.pref_flash_duration_summary, flashMillis),
+        onChange = { flash.durationMillis.set(it * ReaderPreferences.MILLI_CONVERSION) },
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    val flashInterval by flash.pageInterval.collectAsState()
+    SliderItem(
+        value = flashInterval,
+        valueRange = 1..10,
+        label = stringResource(MR.strings.pref_flash_page_interval),
+        valueString = pluralStringResource(MR.plurals.pref_pages, flashInterval, flashInterval),
+        onChange = { flash.pageInterval.set(it) },
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+    )
+    val flashColor by flash.color.collectAsState()
+    SettingsChipRow(MR.strings.pref_flash_with) {
+        flashColors.map { (labelRes, value) ->
+            FilterChip(
+                selected = flashColor == value,
+                onClick = { flash.color.set(value) },
+                label = { Text(stringResource(labelRes)) },
+            )
+        }
+    }
 }
 
 /** Which side the rail sits on and how tall it is, once the reader's own gate has shown the rail. */

@@ -22,6 +22,18 @@ Tap the middle of the screen to show the menu, and the gear icon in it to change
 If a chapter looks wrong in one mode, try the other.
 Switching from the reader's settings sheet rebuilds the reader at the same place in the chapter.
 
+## Read a page at a time
+
+**Reading mode**, beside **Rendering mode**, turns a chapter into pages, as an e-book reader does.
+
+* **Scrolling** <Badge type="info" text="Default" /> scrolls the chapter as one long column.
+* **Paged (left to right)** shows one screen of whole lines at a time. A tap on a tap zone, a swipe or a volume key turns the page at once, with no scrolling in between.
+* **Paged (right to left)** turns the pages the other way, so the left edge and a swipe to the right read on.
+
+A page never cuts a line in half, and both rendering modes break pages in the same places. The marker between two chapters is a page of its own. Your place is the first line on the page, so after rotating or changing the text size you land on the page that holds it.
+
+Paged reading suits e-ink screens. **Flash on page change**, which only appears while reading a page at a time, flashes the screen after each turn to clear ghosting. Auto-scroll turns a page every few seconds instead of scrolling.
+
 ## Read straight on to the next chapter
 
 With **Continuous chapters** on, which it is by default, the next chapter appears below the one you are reading, so you can keep scrolling.

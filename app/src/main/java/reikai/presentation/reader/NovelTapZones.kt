@@ -44,16 +44,21 @@ data class NovelTapZones(
     val bottomZoneFraction: Float
         get() = bottomZoneHeightPercent.coerceIn(BOTTOM_ZONE_PERCENT) / 100f
 
-    /** What a tap at [x], [y], each a fraction of the page, asks for. Next and right both read on. */
-    fun actionAt(x: Float, y: Float): NovelTapAction {
+    /**
+     * What a tap at [x], [y], each a fraction of the page, asks for. Next reads on; right reads on too, unless
+     * the pages turn [rtl], where left does, as Mihon's right-to-left pager reads the same regions.
+     */
+    fun actionAt(x: Float, y: Float, rtl: Boolean): NovelTapAction {
         if (layout.isZoneOnly) {
             val inZone = navigation.getRegions().any { it.rectF.contains(x, y) }
             return if (inZone) NovelTapAction.MENU else NovelTapAction.NONE
         }
         return when (navigation.getAction(PointF(x, y))) {
             NavigationRegion.MENU -> NovelTapAction.MENU
-            NavigationRegion.NEXT, NavigationRegion.RIGHT -> NovelTapAction.FORWARD
-            NavigationRegion.PREV, NavigationRegion.LEFT -> NovelTapAction.BACK
+            NavigationRegion.NEXT -> NovelTapAction.FORWARD
+            NavigationRegion.PREV -> NovelTapAction.BACK
+            NavigationRegion.RIGHT -> if (rtl) NovelTapAction.BACK else NovelTapAction.FORWARD
+            NavigationRegion.LEFT -> if (rtl) NovelTapAction.FORWARD else NovelTapAction.BACK
         }
     }
 

@@ -17,6 +17,9 @@ Most of these can also be changed while reading: open a chapter, tap the middle 
 ### Rendering mode <Badge type="info" text="Native text" />
 How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. Changing it from the reader's settings sheet rebuilds the reader in place, at the same position.
 
+### Reading mode <Badge type="info" text="Scrolling" />
+**Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. Changing it from the reader's settings sheet rebuilds the reader at the same place.
+
 ### Select text by long press <Badge type="info" text="Off" />
 Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Rendering mode**, it takes effect at once.
 
@@ -77,7 +80,7 @@ When you jump to the next chapter, marks the one you skipped as read.
 Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** checkbox in the reader's Controls tab, and the **Auto-scroll** button once you add it under **Bottom bar buttons**, start or stop it until you leave the reader without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
 
 ### Scroll speed <Badge type="info" text="1.0x" />
-How fast auto-scroll moves the text.
+How fast auto-scroll moves the text. While reading a page at a time, **Auto-scroll interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
 
 ### Bottom bar buttons
 Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.
@@ -159,7 +162,7 @@ Scrolls with the volume keys.
 Inverts what the volume keys do.
 
 ### Volume key scroll amount <Badge type="info" text="75%" />
-How much of the screen one press moves.
+How much of the screen one press moves. Hidden while reading a page at a time, where a press turns a whole page.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
 How quickly you have to scroll before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
@@ -175,6 +178,22 @@ Moves that slider to the left edge, for left-handed reading.
 
 ### Vertical navigator height <Badge type="info" text="65" />
 How tall the slider is, as a percentage of the screen.
+
+## E-Ink
+
+Shown only while **Reading mode** is one of the paged choices. These are the novel reader's own, apart from the manga reader's.
+
+### Flash on page change <Badge type="info" text="Off" />
+Flashes the screen after each page turn to reduce ghosting on e-ink displays. The three settings below only appear once this is on.
+
+### Flash duration <Badge type="info" text="100 ms" />
+How long each flash lasts.
+
+### Flash every <Badge type="info" text="1 page" />
+How many pages pass between flashes.
+
+### Flash with <Badge type="info" text="Black" />
+Whether the flash is **Black**, **White**, or **White and Black**.
 
 ## Read aloud
 

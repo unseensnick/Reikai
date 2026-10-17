@@ -26,6 +26,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
@@ -90,6 +91,7 @@ class NovelTextViewportWindowTest {
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -103,8 +105,10 @@ class NovelTextViewportWindowTest {
                     onChapterFits = { id, fit -> fits[id] = fit },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onPageTurned = {},
                 ),
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             activity.setContentView(viewport.view)
         }

@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import reikai.presentation.reader.ReaderFlash
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -54,12 +55,6 @@ private val readerThemes = listOf(
     MR.strings.gray_background to 2,
     MR.strings.white_background to 0,
     MR.strings.automatic_background to 3,
-)
-
-private val flashColors = listOf(
-    MR.strings.pref_flash_style_black to ReaderPreferences.FlashColor.BLACK,
-    MR.strings.pref_flash_style_white to ReaderPreferences.FlashColor.WHITE,
-    MR.strings.pref_flash_style_white_black to ReaderPreferences.FlashColor.WHITE_BLACK,
 )
 
 /** This series' reading mode and rotation, then how the running viewer lays a page out. */
@@ -214,38 +209,7 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel)
         CutoutModeRow(MR.strings.pref_cutout_mode, preferences.cutoutMode)
     }
 
-    val flashPageState by preferences.flashOnPageChange.collectAsState()
-    CheckboxItem(label = stringResource(MR.strings.pref_flash_page), pref = preferences.flashOnPageChange)
-    if (flashPageState) {
-        val flashMillis by preferences.flashDurationMillis.collectAsState()
-        SliderItem(
-            value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
-            valueRange = 1..15,
-            label = stringResource(MR.strings.pref_flash_duration),
-            valueString = stringResource(MR.strings.pref_flash_duration_summary, flashMillis),
-            onChange = { preferences.flashDurationMillis.set(it * ReaderPreferences.MILLI_CONVERSION) },
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-        val flashInterval by preferences.flashPageInterval.collectAsState()
-        SliderItem(
-            value = flashInterval,
-            valueRange = 1..10,
-            label = stringResource(MR.strings.pref_flash_page_interval),
-            valueString = pluralStringResource(MR.plurals.pref_pages, flashInterval, flashInterval),
-            onChange = { preferences.flashPageInterval.set(it) },
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-        val flashColor by preferences.flashColor.collectAsState()
-        SettingsChipRow(MR.strings.pref_flash_with) {
-            flashColors.map { (labelRes, value) ->
-                FilterChip(
-                    selected = flashColor == value,
-                    onClick = { preferences.flashColor.set(value) },
-                    label = { Text(stringResource(labelRes)) },
-                )
-            }
-        }
-    }
+    ReaderFlashRows(ReaderFlash.manga(preferences))
 }
 
 /** How a touch drives the reader: tap zones, panning and zoom gestures, the long tap, the rail. */

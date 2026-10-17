@@ -18,6 +18,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.novel.content.NovelContentConfig
@@ -117,6 +118,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -130,10 +132,12 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                     onChapterFits = { _, _ -> rendered.countDown() },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onPageTurned = {},
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             activity.setContentView(viewport.view)
         }

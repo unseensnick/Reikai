@@ -68,6 +68,9 @@
   }
   addSourceCss(__SOURCE_CSS__);
 
+  // Paged reading, which this page measures and moves for while the host decides the pages. See paged.
+  var PAGED = __PAGED__;
+
   var settings = {
     swipe: __SWIPE__,
     bionic: __BIONIC__,
@@ -115,6 +118,12 @@
     return parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-inset-top')) || 0;
   }
 
+  /* Where reading starts down the screen: in paged reading the top of a page, below the chapter's own top
+     margin, and while scrolling the screen's edge. */
+  function readingTop() {
+    return PAGED ? paged.margins().top : 0;
+  }
+
   /*
    * Rebuilds where each chapter starts and how tall it is, in document coordinates.
    * getBoundingClientRect plus scrollY rather than offsetTop, so a positioned container cannot
@@ -150,6 +159,7 @@
     reportFits();
     reportEnds();
     readAloud.reposition();
+    if (PAGED) paged.moved();
   }
 
   /* The last answer sent per chapter, so a rebuild that changes nothing says nothing. */
@@ -226,7 +236,8 @@
 
   /* Which chapter the reader is in and how far through it, rather than through the document. */
   function state() {
-    var top = scrollTop();
+    // Paged, the margin above the page is masked and still shows the page before's last lines.
+    var top = scrollTop() + readingTop();
     var viewport = viewportHeight();
 
     if (boundaries.length === 0) {
@@ -244,6 +255,8 @@
       if (top >= boundaries[i].claimFrom - EDGE_TOLERANCE) index = i; else break;
     }
     var chapter = boundaries[index];
+    var paging = paged.shownIn(chapter.id);
+    if (paging !== null) return { id: chapter.id, progress: paging };
     var progress = 0;
     // A chapter that fits on one screen stays at 0, as in the native renderer: it has no scroll room
     // and is read when the reader leaves it forward (NovelLeaveRule), never on sight.
@@ -276,7 +289,7 @@
 
     /* The first character of the line at the top of the screen, or the element there when it holds none. */
     function pick() {
-      var caret = document.caretRangeFromPoint(0, Math.min(insetTop() + 1, viewportHeight() - 1));
+      var caret = document.caretRangeFromPoint(0, Math.min(Math.max(insetTop(), readingTop()) + 1, viewportHeight() - 1));
       if (!caret) return null;
       var node = caret.startContainer;
       var offset = caret.startOffset;
@@ -414,7 +427,8 @@
     function measure(id) {
       // The screen's own top rather than below the inset, as the native renderer measures: the inset reaches a
       // rebuilt page after it lands, and measured below it the next report named the line under the landed one.
-      var caret = document.caretRangeFromPoint(0, Math.min(1, viewportHeight() - 1));
+      // Paged, the page's top, whose first line the reader is on.
+      var caret = document.caretRangeFromPoint(0, Math.min(readingTop() + 1, viewportHeight() - 1));
       var node = caret && caret.startContainer;
       if (!node || node.nodeType !== Node.TEXT_NODE) return -1;
       var chapter = node.parentElement && node.parentElement.closest(CHAPTER_SELECTOR);
@@ -454,12 +468,14 @@
         range.setEnd(found.node, found.offset + 1);
         var rect = range.getClientRects()[0];
         if (!rect) return false;
-        window.scrollTo({ top: Math.round(scrollTop() + rect.top), behavior: 'instant' });
+        window.scrollTo({ top: Math.round(scrollTop() + rect.top - readingTop()), behavior: 'instant' });
         place.sync();
         var id = chapter.getAttribute(CHAPTER_ID_ATTR);
         lastChapterSeen = id;
         var landed = range.getClientRects()[0];
-        if (landed && landed.top > EDGE_TOLERANCE) shortSeek = { chapter: chapter, line: line, at: measure(id) };
+        if (landed && landed.top > readingTop() + EDGE_TOLERANCE) {
+          shortSeek = { chapter: chapter, line: line, at: measure(id) };
+        }
         return true;
       },
       /* A chapter joined below: a line that landed short lands again while the reader is still where it stopped. */
@@ -476,6 +492,197 @@
       },
       invalidate: function () {
         cache = {};
+      },
+    };
+  })();
+
+  /*
+   * Paged reading on the same column. The host cuts the pages (NovelPaging.kt) from the boxes measure()
+   * reports and shows one with show(); this page jumps to it, masks the margin above it and everything below
+   * its last whole line, and tells the host whenever anything else moved the column, so the page holding the
+   * reading line goes back on screen whole. A chapter's item runs from what introduces it (the failure above
+   * the first chapter, its seam) to what closes it (the end marker and failure below the last), as the native
+   * renderer's item holds the same views.
+   */
+  var paged = (function () {
+    // { id, scrollY, height, fraction } of the page last shown, null before one has been.
+    var shown = null;
+    var notifyPending = false;
+    var maskTop = null;
+    var maskBottom = null;
+    // Where measure() reads a text node's line height from, per element, which costs a style lookup each.
+    var lineHeights = null;
+
+    function chapterEl(id) {
+      return document.querySelector(CHAPTER_SELECTOR + '[' + CHAPTER_ID_ATTR + '="' + id + '"]');
+    }
+
+    function margins() {
+      var el = document.querySelector(CHAPTER_SELECTOR);
+      if (!el) return { top: 0, bottom: 0 };
+      var style = getComputedStyle(el);
+      return { top: parseFloat(style.paddingTop) || 0, bottom: parseFloat(style.paddingBottom) || 0 };
+    }
+
+    /* What a chapter's item holds besides its text, each with whether it takes a page of its own. */
+    function extras(el) {
+      var list = [];
+      var above = el.previousElementSibling;
+      if (above && above.classList.contains('rk-seam')) list.push({ el: above, alone: true });
+      var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
+      if (chapters[0] === el) {
+        var start = document.getElementById('rk-failure-start');
+        if (start) list.push({ el: start, alone: false });
+      }
+      if (chapters[chapters.length - 1] === el) {
+        ['rk-end', 'rk-failure-end'].forEach(function (id) {
+          var after = document.getElementById(id);
+          if (after) list.push({ el: after, alone: false });
+        });
+      }
+      return list;
+    }
+
+    /* The item's top and bottom in document coordinates. */
+    function itemOf(el) {
+      var rect = el.getBoundingClientRect();
+      var top = rect.top;
+      var bottom = rect.bottom;
+      extras(el).forEach(function (extra) {
+        var box = extra.el.getBoundingClientRect();
+        top = Math.min(top, box.top);
+        bottom = Math.max(bottom, box.bottom);
+      });
+      var y = scrollTop();
+      return { top: top + y, bottom: bottom + y };
+    }
+
+    /* The line box a client rect sits in: a rect covers the glyphs, and the line adds half its leading
+       above and below them, which the native renderer's line tops and bottoms include. */
+    function lineHeightOf(element) {
+      if (!lineHeights.has(element)) lineHeights.set(element, parseFloat(getComputedStyle(element).lineHeight));
+      return lineHeights.get(element);
+    }
+
+    function measure(id) {
+      var el = chapterEl(id);
+      if (!el) return null;
+      var item = itemOf(el);
+      var y = scrollTop();
+      var bands = [];
+      function push(rect, alone) {
+        if (rect.height > 0) bands.push([rect.top + y - item.top, rect.bottom + y - item.top, alone]);
+      }
+      extras(el).forEach(function (extra) { push(extra.el.getBoundingClientRect(), extra.alone); });
+      lineHeights = new Map();
+      var walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, {
+        acceptNode: function (node) {
+          var parent = node.parentElement;
+          return !parent || parent.closest('script, style') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        },
+      });
+      var range = document.createRange();
+      while (walker.nextNode()) {
+        var node = walker.currentNode;
+        if (!node.nodeValue.trim()) continue;
+        range.selectNodeContents(node);
+        var rects = range.getClientRects();
+        var lineHeight = lineHeightOf(node.parentElement);
+        for (var i = 0; i < rects.length; i++) {
+          var half = lineHeight > rects[i].height ? (lineHeight - rects[i].height) / 2 : 0;
+          push({ top: rects[i].top - half, bottom: rects[i].bottom + half, height: rects[i].height }, false);
+        }
+      }
+      lineHeights = null;
+      // What draws without text: pictures, rules, media, and a failed picture's box.
+      el.querySelectorAll('img, svg, video, canvas, iframe, hr, .rk-failure').forEach(function (box) {
+        push(box.getBoundingClientRect(), false);
+      });
+      var m = margins();
+      return {
+        bands: bands,
+        height: item.bottom - item.top,
+        contentHeight: viewportHeight() - m.top - m.bottom,
+      };
+    }
+
+    /* The chapter at the reading line, how far down its item that line is, and each held chapter's item
+       height, which is what the host's measured pages are keyed on. */
+    function where() {
+      var probe = scrollTop() + readingTop();
+      var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
+      var heights = {};
+      var at = null;
+      for (var i = 0; i < chapters.length; i++) {
+        var item = itemOf(chapters[i]);
+        var id = chapters[i].getAttribute(CHAPTER_ID_ATTR);
+        heights[id] = item.bottom - item.top;
+        if (at === null || item.top <= probe + EDGE_TOLERANCE) at = { id: id, y: probe - item.top };
+      }
+      if (at === null) return null;
+      var m = margins();
+      return {
+        id: at.id,
+        y: at.y,
+        heights: heights,
+        contentHeight: viewportHeight() - m.top - m.bottom,
+      };
+    }
+
+    function mask(id) {
+      var el = document.createElement('div');
+      el.id = id;
+      el.className = 'rk-page-mask';
+      document.body.appendChild(el);
+      return el;
+    }
+
+    function show(id, top, height, fraction) {
+      var el = chapterEl(id);
+      if (!el) return;
+      var m = margins();
+      window.scrollTo({ top: Math.round(itemOf(el).top + top - m.top), behavior: 'instant' });
+      if (!maskTop) maskTop = mask('rk-page-mask-top');
+      if (!maskBottom) maskBottom = mask('rk-page-mask-bottom');
+      maskTop.style.height = m.top + 'px';
+      maskBottom.style.top = (m.top + height) + 'px';
+      shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction };
+      // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
+      place.sync();
+      onScroll();
+      // A page is where the reader stops, and a jump the page cannot scroll itself may end in no scrollend.
+      persist();
+    }
+
+    /* Asks the host to put a whole page back, once a frame at most. */
+    function moved() {
+      if (!PAGED || !ready || notifyPending) return;
+      notifyPending = true;
+      requestAnimationFrame(function () {
+        notifyPending = false;
+        bridge().onPagedMoved(DOCUMENT_TOKEN);
+      });
+    }
+
+    return {
+      margins: margins,
+      measure: function (id) { return measure(String(id)); },
+      where: where,
+      show: show,
+      moved: moved,
+      /* After a frame: whatever scrolled the page that was not a page being shown. */
+      check: function () {
+        if (PAGED && (!shown || Math.abs(scrollTop() - shown.scrollY) > 0.5)) moved();
+      },
+      /* The shown page's share of chapter id, null while another chapter or no page is on screen. */
+      shownIn: function (id) {
+        return PAGED && shown && shown.id === id ? shown.fraction : null;
+      },
+      /* The page's own extent on screen, which read aloud keeps to. */
+      visible: function () {
+        if (!PAGED || !shown) return null;
+        var top = margins().top;
+        return { top: top, bottom: top + shown.height };
       },
     };
   })();
@@ -506,6 +713,7 @@
     // this frame, and it is what releases a chapter either report is holding.
     reportFits();
     reportEnds();
+    paged.check();
   }
 
   /*
@@ -661,7 +869,7 @@
       var target = anchorTarget(chapter, link.getAttribute('href').substring(1));
       if (!target) return;
       onReaderMove();
-      window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top, behavior: 'instant' });
+      window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - readingTop(), behavior: 'instant' });
       place.sync();
     }, true);
 
@@ -793,7 +1001,11 @@
 
     /* The part of the screen the reader can see text in: below the inset and clear of the chrome. */
     function uncovered() {
-      return { top: Math.max(insetTop(), obscured.top), bottom: viewportHeight() - obscured.bottom };
+      var page = paged.visible() || { top: 0, bottom: viewportHeight() };
+      return {
+        top: Math.max(insetTop(), obscured.top, page.top),
+        bottom: Math.min(viewportHeight() - obscured.bottom, page.bottom),
+      };
     }
 
     function chapterElement(id) {
@@ -959,6 +1171,13 @@
       if (!range || !options.keepInView) return;
       var rect = range.getBoundingClientRect();
       var visible = uncovered();
+      // Paged, by page: text starting on this one stays, since the host would only show it again. Otherwise it goes to
+      // the reading line, where the host then shows the page holding it.
+      if (PAGED) {
+        if (rect.top >= visible.top - EDGE_TOLERANCE && rect.top < visible.bottom) return;
+        window.scrollBy({ top: Math.round(rect.top - readingTop()), behavior: 'instant' });
+        return;
+      }
       if (rect.top >= visible.top - EDGE_TOLERANCE && rect.bottom <= visible.bottom + EDGE_TOLERANCE) return;
       var available = visible.bottom - visible.top;
       var target = options.scrollToTop || rect.height >= available
@@ -1017,6 +1236,7 @@
 
   window.rkReader = {
     readAloud: readAloud,
+    paged: paged,
     addSourceCss: addSourceCss,
     /* Called after any insert, so the next frame measures the shape the reader is actually in. */
     refresh: function () {
@@ -1442,6 +1662,7 @@
 
   /* What needs the chapter parsed, which this script, running in the head, is ahead of. */
   function start() {
+    if (PAGED) document.documentElement.classList.add('rk-paged');
     if (typeof ResizeObserver === 'function') {
       new ResizeObserver(function () {
         lastResizeAt = Date.now();

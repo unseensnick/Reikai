@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -58,6 +59,7 @@ import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
+import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.ReaderThemeSwatches
@@ -112,6 +114,17 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
             FilterChip(
                 selected = renderingMode == it,
                 onClick = { renderingModePref.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    val pageLayoutPref = preferences.readerPageLayout()
+    val pageLayout by pageLayoutPref.collectAsState()
+    SettingsChipRow(MR.strings.pref_category_reading_mode) {
+        NovelPageLayout.entries.forEach {
+            FilterChip(
+                selected = pageLayout == it,
+                onClick = { pageLayoutPref.set(it) },
                 label = { Text(stringResource(it.titleRes)) },
             )
         }
@@ -238,6 +251,9 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
             pref = preferences.readerAlwaysShowChapterTransition(),
         )
     }
+    // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
+    val pageLayout by preferences.readerPageLayout().collectAsState()
+    if (pageLayout.isPaged) ReaderFlashRows(ReaderFlash.novel(preferences))
 
     NovelChapterTextRows(preferences)
 }
@@ -334,11 +350,15 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         label = stringResource(MR.strings.pref_read_with_volume_keys),
         pref = preferences.readerUseVolumeButtons(),
     )
+    // A press turns a whole page when paged, so there is no distance to choose.
+    val pageLayout by preferences.readerPageLayout().collectAsState()
     if (volumeKeys) {
         CheckboxItem(
             label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
             pref = preferences.readerVolumeButtonsInverted(),
         )
+    }
+    if (volumeKeys && !pageLayout.isPaged) {
         val percentPref = preferences.readerVolumeButtonsFraction().scaled(ReaderRanges.PERCENT)
         val percent by percentPref.collectAsState()
         SliderItem(

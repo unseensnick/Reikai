@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.ReaderHideThreshold
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import kotlinx.serialization.builtins.MapSerializer
@@ -198,6 +199,19 @@ class NovelPreferences(
     fun readerRenderingMode() =
         preferenceStore.getEnum("ln_reader_rendering_mode", NovelRenderingMode.NATIVE)
 
+    /** Whether a chapter scrolls or turns a page at a time, and which way its pages turn. */
+    fun readerPageLayout() = preferenceStore.getEnum("ln_reader_page_layout", NovelPageLayout.SCROLL)
+
+    /** The e-ink flash after a page turn, kept apart from the manga reader's so each type has its own. */
+    fun readerFlashOnPageChange() = preferenceStore.getBoolean("ln_reader_flash", false)
+
+    fun readerFlashDurationMillis() =
+        preferenceStore.getInt("ln_reader_flash_duration", ReaderPreferences.MILLI_CONVERSION)
+
+    fun readerFlashPageInterval() = preferenceStore.getInt("ln_reader_flash_interval", 1)
+
+    fun readerFlashColor() = preferenceStore.getEnum("ln_reader_flash_mode", ReaderPreferences.FlashColor.BLACK)
+
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", readerDarkPreset.background)
@@ -385,6 +399,9 @@ class NovelPreferences(
 
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
+
+    /** Seconds per page while auto-scroll turns pages, in paged reading. */
+    fun readerAutoScrollInterval() = preferenceStore.getInt("ln_reader_auto_scroll_interval", 5)
 
     /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
      *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. No pin: manga's half

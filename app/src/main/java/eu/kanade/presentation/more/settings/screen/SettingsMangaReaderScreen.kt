@@ -13,12 +13,15 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderRanges
+import reikai.presentation.reader.autoScrollIntervalPreference
 import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.hideThresholdPreference
 import reikai.presentation.reader.railHeightPreference
 import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
+import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
@@ -158,48 +161,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
         )
     }
 
+    // The group the novel reader's screen shows too, over the manga reader's own flash settings.
     @Composable
-    private fun getEInkGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
-        val flashPageState by readerPreferences.flashOnPageChange.collectAsState()
-
-        val flashColorPref = readerPreferences.flashColor
-
-        return Preference.PreferenceGroup(
-            title = "E-Ink",
-            preferenceItems = listOf(
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = readerPreferences.flashOnPageChange,
-                    title = stringResource(MR.strings.pref_flash_page),
-                    subtitle = stringResource(MR.strings.pref_flash_page_summ),
-                ),
-                Preference.PreferenceItem.SliderPreference(
-                    preference = readerPreferences.flashDurationMillis,
-                    valueRange = ReaderPreferences.MILLI_CONVERSION.let { it..it * 15 step it },
-                    title = stringResource(MR.strings.pref_flash_duration),
-                    valueText = { stringResource(MR.strings.pref_flash_duration_summary, it) },
-                    visible = flashPageState,
-                ),
-                Preference.PreferenceItem.SliderPreference(
-                    preference = readerPreferences.flashPageInterval,
-                    valueRange = 1..10,
-                    title = stringResource(MR.strings.pref_flash_page_interval),
-                    valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
-                    visible = flashPageState,
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = flashColorPref,
-                    entries = mapOf(
-                        ReaderPreferences.FlashColor.BLACK to stringResource(MR.strings.pref_flash_style_black),
-                        ReaderPreferences.FlashColor.WHITE to stringResource(MR.strings.pref_flash_style_white),
-                        ReaderPreferences.FlashColor.WHITE_BLACK
-                            to stringResource(MR.strings.pref_flash_style_white_black),
-                    ),
-                    title = stringResource(MR.strings.pref_flash_with),
-                    visible = flashPageState,
-                ),
-            ),
-        )
-    }
+    private fun getEInkGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup =
+        readerFlashGroup(ReaderFlash.manga(readerPreferences))
 
     @Composable
     private fun getReadingGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
@@ -238,13 +203,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.autoScrollOnOpen,
                     title = stringResource(MR.strings.pref_auto_scroll_on_open),
                 ),
-                Preference.PreferenceItem.SliderPreference(
-                    preference = readerPreferences.autoScrollInterval,
-                    valueRange = ReaderRanges.autoScrollIntervalSeconds,
-                    title = stringResource(MR.strings.pref_auto_scroll_interval),
-                    subtitle = stringResource(MR.strings.pref_auto_scroll_paged_only),
-                    valueText = { stringResource(MR.strings.seconds_short, it) },
-                ),
+                autoScrollIntervalPreference(readerPreferences.autoScrollInterval),
                 autoScrollSpeedPreference(
                     readerPreferences.autoScrollSpeed,
                     subtitle = stringResource(MR.strings.pref_volume_keys_scroll_amount_long_strip),

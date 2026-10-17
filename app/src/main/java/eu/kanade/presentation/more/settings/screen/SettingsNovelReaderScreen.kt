@@ -18,6 +18,7 @@ import eu.kanade.presentation.more.settings.screen.novel.NovelRegexRulesScreen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -31,13 +32,16 @@ import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
+import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.TtsOptions
+import reikai.presentation.reader.autoScrollIntervalPreference
 import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.hideThresholdPreference
 import reikai.presentation.reader.railHeightPreference
 import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
+import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.rememberTtsOptions
@@ -66,12 +70,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
     override fun getPreferences(): List<Preference> {
         val context = LocalContext.current
         val novelPref = remember { context.appGraph.novelPreferences }
+        val pageLayout by novelPref.readerPageLayout().collectAsState()
 
-        return listOf(
+        return listOfNotNull(
             getReadingGroup(novelPreferences = novelPref),
             getTextDisplayGroup(novelPreferences = novelPref),
             getChapterTextGroup(novelPreferences = novelPref),
             getNavigationGroup(novelPreferences = novelPref),
+            // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
+            readerFlashGroup(ReaderFlash.novel(novelPref)).takeIf { pageLayout.isPaged },
             getReadAloudGroup(novelPreferences = novelPref),
             getAccessibilityGroup(novelPreferences = novelPref),
         )
@@ -377,6 +384,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
     @Composable
     private fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
+        val pageLayout by novelPreferences.readerPageLayout().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val tapLayout by novelPreferences.readerTapLayout().collectAsState()
@@ -389,6 +397,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerRenderingMode(),
                     entries = NovelRenderingMode.entries.associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_novel_rendering_mode),
+                ),
+                // Rebuilds an open reader the same way.
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerPageLayout(),
+                    entries = NovelPageLayout.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_category_reading_mode),
                 ),
                 // Only the native renderer gives up link taps for it, so only it carries the warning.
                 Preference.PreferenceItem.SwitchPreference(
@@ -490,7 +504,12 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerAutoScrollOnOpen(),
                     title = stringResource(MR.strings.pref_auto_scroll_on_open),
                 ),
-                autoScrollSpeedPreference(novelPreferences.readerAutoScrollSpeed(), subtitle = null),
+                // Only the rate the running layout reads, as the reader's own sheet offers it.
+                if (pageLayout.isPaged) {
+                    autoScrollIntervalPreference(novelPreferences.readerAutoScrollInterval())
+                } else {
+                    autoScrollSpeedPreference(novelPreferences.readerAutoScrollSpeed(), subtitle = null)
+                },
                 readerBottomButtonsPreference(ReaderBottomButton.BarPreferences.novel(novelPreferences)),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerPreserveReadingPosition(),
@@ -505,6 +524,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getNavigationGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
         val useVolumeButtons by useVolumeButtonsPref.collectAsState()
+        // A press turns a whole page when paged, so there is no distance to choose.
+        val pageLayout by novelPreferences.readerPageLayout().collectAsState()
         // Gated on the rail alone, unlike the manga screen's pair: a novel has no reading mode to pick it.
         val useRail by novelPreferences.readerUseRail().collectAsState()
         val showNavigator by novelPreferences.readerShowNavigator().collectAsState()
@@ -523,7 +544,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 volumeKeyScrollPreference(
                     novelPreferences.readerVolumeButtonsFraction(),
-                    visible = useVolumeButtons,
+                    visible = useVolumeButtons && !pageLayout.isPaged,
                     subtitle = null,
                 ),
                 hideThresholdPreference(novelPreferences.readerHideThreshold()),

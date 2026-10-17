@@ -18,6 +18,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library search finds a merged series by a tag any of its sources gives it.** Tags set in Edit info still replace the sources' own.
 
+### Reader
+
+#### Added
+
+- **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pick it under Reading mode; a page never cuts a line in half, and a tap, a swipe or a volume key turns it at once.
+- **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.** Auto-scroll turns a page every few seconds while paged.
+
+#### Fixed
+
+- **In Native text, a tap below the end of the last chapter now reaches the tap zones and the menu.**
+
 ### Backup & restore
 
 #### Changed
