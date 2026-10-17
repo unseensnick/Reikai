@@ -19,6 +19,7 @@ import org.json.JSONArray
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -373,6 +374,38 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] and the next starts after it", checkNotNull(lastTopLine()) > saved)
     }
 
+    /** The margin below a page hides the next page's first lines, links among them; a tap there turns the page. */
+    @Test
+    fun aTapOverAHiddenLinkBelowThePageTurnsIt() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, linked("first"))
+        val margin = openedWith.margins.bottom * instrumentation.targetContext.resources.displayMetrics.density
+        tapAndAwaitTurn(view.width * 0.1f, view.height - margin / 2)
+    }
+
+    /** A picture drawn as a background takes up the column with no text in it, so a break must not skip it. */
+    @Test
+    fun aTurnNeverSkipsAPictureDrawnAsABackground() {
+        assumeTrue("only the page draws a background", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR)
+        val art = "<div id=\"art\" style=\"height:95vh;background-image:linear-gradient(red, blue)\"></div>"
+        open(1L, short("before") + art + short("after"))
+        var topShown = artTopOnPage()
+        var turns = 0
+        while (!topShown && lastPercentOf(1L) < 100 && turns++ < MAX_PAGES) {
+            forwardTap()
+            topShown = artTopOnPage()
+        }
+        assertTrue("[$renderer] the picture's top never showed on a page", topShown)
+    }
+
+    private fun artTopOnPage(): Boolean = evalString(
+        "(function(){ var r = document.getElementById('art').getBoundingClientRect();" +
+            " var top = parseFloat(getComputedStyle(document.querySelector('.rk-chapter')).paddingTop);" +
+            " var bottom = parseFloat(document.getElementById('rk-page-mask-bottom').style.top);" +
+            " return String(r.top >= top - 1 && r.top < bottom); })()",
+    ) == "true"
+
     // region driving
 
     private fun open(
@@ -558,6 +591,11 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     private fun long(marker: String) =
         (1..120).joinToString("") { "<p>$marker $it. " + "lorem <b>ipsum</b> dolor sit amet ".repeat(8) + "</p>" }
+
+    /** Every paragraph a link to an anchor that does not exist, which neither renderer leaves the chapter for. */
+    private fun linked(marker: String) = (1..120).joinToString("") {
+        "<p><a href=\"#missing\">$marker $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</a></p>"
+    }
 
     private fun short(marker: String) =
         (1..12).joinToString("") { "<p>$marker $it. " + "lorem <b>ipsum</b> dolor sit amet ".repeat(8) + "</p>" }

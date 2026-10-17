@@ -106,6 +106,23 @@ class NovelPagingTest {
         NovelPaging.turn(listOf(1L), chapterId = 1L, index = 3, count = 4, forward = true) shouldBe Turn.Beyond(true)
     }
 
+    /** A WebView chapter's script can answer the measure; a page under a pixel never ended cutting. */
+    @Test
+    fun `a page shorter than a pixel has no pages`() {
+        NovelPaging.cut(listOf(Band(0f, 1_000_000f)), height = 1e-6f) shouldBe emptyList()
+    }
+
+    @Test
+    fun `a band too tall for any chapter stops at the page cap`() {
+        NovelPaging.cut(listOf(Band(0f, Float.MAX_VALUE)), height = 1f).size shouldBe 10_000
+    }
+
+    @Test
+    fun `a band without a finite edge is dropped`() {
+        NovelPaging.cut(listOf(Band(Float.NEGATIVE_INFINITY, 40f), Band(10f, 40f)), height = 100f) shouldBe
+            listOf(Page(10f, 40f))
+    }
+
     @Test
     fun `the last page is all of the chapter`() {
         NovelPaging.fractionOf(index = 4, count = 5) shouldBe 1f

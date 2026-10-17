@@ -24,6 +24,7 @@ class NovelWebBridgeTest {
         onChapterFits = { _, _ -> calls += "fits" },
         onChapterEndSeen = { calls += "end" },
         onPagedMoved = { calls += "paged" },
+        onPagedPicturesLanded = { calls += "pictures" },
         onReady = {},
     )
 
@@ -36,6 +37,7 @@ class NovelWebBridgeTest {
         CHAPTER_FITS({ onChapterFits("token", "1", true) }),
         CHAPTER_END_SEEN({ onChapterEndSeen("token", "1") }),
         PAGED_MOVED({ onPagedMoved("token") }),
+        PAGED_PICTURES_LANDED({ onPagedPicturesLanded("token", "1") }),
     }
 
     /** What the reader's own finger does, which a chapter script holding up the parse must not block. */

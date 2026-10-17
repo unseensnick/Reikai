@@ -6,9 +6,11 @@ import org.junit.jupiter.api.Test
 
 class NovelChapterTagsTest {
 
+    private val baseUrl = "https://site.example/novel/chapter-5.html"
+
     private fun hrefsAfterPrepare(html: String): List<String> {
         val doc = Jsoup.parse(html)
-        NovelChapterTags.prepare(doc)
+        NovelChapterTags.prepare(doc, baseUrl)
         return doc.select("a").map { it.attr("href") }
     }
 
@@ -30,5 +32,24 @@ class NovelChapterTagsTest {
     fun `a link whose name holds a percent sign finds its target`() {
         hrefsAfterPrepare("<a href=\"#100%\">note</a><p id=\"100%\">text</p>").single() shouldBe
             "${NovelChapterTags.ANCHOR_HREF}0"
+    }
+
+    /** A plugin can make every href absolute; the page jumps within itself for one, and so must the text. */
+    @Test
+    fun `a link to the chapter's own address with a fragment jumps within it`() {
+        hrefsAfterPrepare("<a href=\"$baseUrl#n\">note</a><p id=\"n\">text</p>").single() shouldBe
+            "${NovelChapterTags.ANCHOR_HREF}0"
+    }
+
+    @Test
+    fun `a relative link to the chapter's own file with a fragment jumps within it`() {
+        hrefsAfterPrepare("<a href=\"chapter-5.html#n\">note</a><p id=\"n\">text</p>").single() shouldBe
+            "${NovelChapterTags.ANCHOR_HREF}0"
+    }
+
+    @Test
+    fun `a link to another chapter's fragment stays a link`() {
+        hrefsAfterPrepare("<a href=\"chapter-6.html#n\">next</a><p id=\"n\">text</p>").single() shouldBe
+            "chapter-6.html#n"
     }
 }

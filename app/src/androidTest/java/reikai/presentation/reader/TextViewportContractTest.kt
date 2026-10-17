@@ -418,6 +418,20 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(emptyList<Boolean>(), steps.toList())
     }
 
+    /** Wider than it is tall but not twice as wide, so only the sideways factor refuses it, in both renderers. */
+    @Test
+    fun aDiagonalDragDoesNotStep() {
+        open(chapter(FIRST, long("first")))
+        drag(
+            fromX = view.width - EDGE_PX,
+            toX = view.width - EDGE_PX - dp(SWIPE_DP),
+            fromY = view.height * 0.8f,
+            toY = view.height * 0.8f - dp(SWIPE_DP) * 0.75f,
+        )
+        Thread.sleep(QUIET_MS)
+        assertEquals(emptyList<Boolean>(), steps.toList())
+    }
+
     /** A swipe has no time limit. Only a finger held still is a long press, so one that travels for
      *  longer than a long press takes still steps instead of selecting the text under it. It starts
      *  well inside the column, on the text a long press would select. */
@@ -437,6 +451,18 @@ class TextViewportContractTest(private val renderer: Renderer) {
         tap(view.width / 2f, view.height / 2f)
         awaitWhile { menuToggles.get() == 0 }
         assertEquals(1, menuToggles.get())
+    }
+
+    /** A tap read in pixels rather than fractions of the screen lands in no zone, which opens the menu, so
+     *  only a tap on a zone that moves the column shows both renderers scale it. */
+    @Test
+    fun aTapInTheBottomThirdReadsOn() {
+        open(chapter(FIRST, long("first")))
+        val before = scrollOffset()
+        tap(view.width / 2f, view.height * 0.85f)
+        awaitWhile { scrollOffset() - before < viewportHeight() / 2 }
+        val moved = scrollOffset() - before
+        assertTrue("a tap moved the column $moved of a ${viewportHeight()} screen", moved >= viewportHeight() / 2)
     }
 
     @Test

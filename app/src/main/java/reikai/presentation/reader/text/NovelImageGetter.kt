@@ -458,14 +458,15 @@ class NovelImageGetter(
         override fun onClick(widget: View) {
             val box = wrapper.innerDrawable as? ImageFailureDrawable ?: return
             if (box.retrying) return
+            // Through redraw, as a pulse is: a selectable view replays its drawn text on a plain invalidate.
             box.retrying = true
-            widget.invalidate()
+            redraw(wrapper)
             scope.launch {
                 // Through the same path as a first load, so a tall strip loaded by Retry is sliced too.
                 val landed = fetch(imageUrl, retry = true)?.let { prepare(imageUrl, it) }
                 box.retrying = false
                 if (landed == null) {
-                    widget.invalidate()
+                    redraw(wrapper)
                     return@launch
                 }
                 // Now and once more after the batch that carries the picture sets its text, since a

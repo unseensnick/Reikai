@@ -36,13 +36,13 @@ html.rk-paged body {
   touch-action: none;
 }
 
-/* Over the page's margin and below its last whole line, where the column still holds the pages either side. */
+/* Over the page's margin and below its last whole line, where the column still holds the pages either side. Takes
+   the touches there, so a tap turns the page rather than following a link the reader cannot see. */
 .rk-page-mask {
   position: fixed;
   left: 0;
   right: 0;
   z-index: 2147483646;
-  pointer-events: none;
   background-color: var(--rk-background);
 }
 

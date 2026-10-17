@@ -22,7 +22,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -40,6 +42,7 @@ import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelChapterStylesheet
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.text.ResumeVeil
 import reikai.presentation.reader.web.NovelDocumentGate
@@ -260,6 +263,9 @@ class NovelWebViewport(
                 onChapterFits = callbacks.onChapterFits,
                 onChapterEndSeen = callbacks.onChapterEndSeen,
                 onPagedMoved = ::requestSnap,
+                onPagedPicturesLanded = { id ->
+                    shownPage.update { if ((it.key as? Pair<*, *>)?.first == id) it.copy(ready = true) else it }
+                },
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { token -> mainHandler.post { onPageReady(token) } },
             ),
@@ -410,7 +416,9 @@ class NovelWebViewport(
         }
         val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         loadedBaseUrl = safeBaseUrl
-        resumeVeil.set(ResumeVeil.pageWaits(initialFraction))
+        // Paged, also until the first page is shown: the column lands by scrolling and is masked and moved
+        // onto a page frames later, so its opening frames would show between them.
+        raiseVeil(paged || ResumeVeil.pageWaits(initialFraction))
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
         syncEnd()
     }
@@ -633,11 +641,16 @@ class NovelWebViewport(
     private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int) {
         val page = pages[index.coerceIn(pages.indices)]
         shownHeight = page.height
+        val key = chapterId to index
+        // The page answers whether the chapter's pictures have landed, and reports when they do, so auto-scroll
+        // counts a page's time from then, as the native renderer does.
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
                 "${NovelPaging.fractionOf(index, pages.size)});",
-        )
-        shownPage.value = ShownPage(chapterId to index, ready = true)
+        ) { landed ->
+            shownPage.value = ShownPage(key, ready = landed != "false")
+            raiseVeil(false)
+        }
     }
 
     /** Scrolls by a signed fraction of the screen (positive = forward), through the page's own
@@ -801,10 +814,26 @@ class NovelWebViewport(
         )
     }
 
+    /** Raises or drops the veil, which drops by itself after [VEIL_CAP_MS]: a chapter script holding up the
+     *  parse holds up the ready report, and the reader must still reach the page and the menu. */
+    private fun raiseVeil(up: Boolean) {
+        veilCap?.cancel()
+        resumeVeil.set(up)
+        if (up) {
+            veilCap = scope.launch {
+                delay(VEIL_CAP_MS)
+                resumeVeil.set(false)
+            }
+        }
+    }
+
+    private var veilCap: Job? = null
+
     private fun onPageReady(token: String) {
         if (!gate.markReady(token)) return
-        // Ready follows the opening seek in the same task on the page, so the landed place is what shows.
-        resumeVeil.set(false)
+        // Ready follows the opening seek in the same task on the page, so the landed place is what shows. Paged,
+        // the first page shown drops it instead.
+        if (!paged) raiseVeil(false)
         // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
         pushObscured()
         pendingWindowVerbs.forEach(::evaluate)
@@ -847,3 +876,7 @@ class NovelWebViewport(
 
 /** How much of a script error a toast shows, which is enough to find it in the inspector. */
 private const val CONSOLE_TOAST_CHARS = 120
+
+/** Longer than the page's own wait for a landing's pictures, [CHAPTER_IMAGE_WAIT_MS] counted from its parse, so
+ *  the veil drops on the page's ready report whenever there is one. */
+private const val VEIL_CAP_MS = CHAPTER_IMAGE_WAIT_MS * 2

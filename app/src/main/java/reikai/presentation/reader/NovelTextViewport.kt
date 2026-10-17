@@ -226,7 +226,7 @@ class NovelTextViewport(
     private var failedNext: NovelReaderViewModel.BoundaryFailure? = null
 
     private val autoScroller = FrameScroller(context.resources.displayMetrics.density) { px ->
-        recycler.scrollBy(0, px)
+        scrollColumnBy(px)
         true
     }
 
@@ -254,6 +254,10 @@ class NovelTextViewport(
 
     /** Whether the touch on screen has had a second finger down ([chapterSwipeStep]). */
     private var multiTouch = false
+
+    /** Whether the touch on screen went down under the page mask, which keeps it from the text there. */
+    private var maskedTouch = false
+
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
     /**
@@ -295,8 +299,12 @@ class NovelTextViewport(
      */
     private val tapWatcher = object : RecyclerView.OnItemTouchListener {
         override fun onInterceptTouchEvent(rv: RecyclerView, e: MotionEvent): Boolean {
-            // Taken whole, so it neither scrolls nor taps; the recycler then keeps the gesture here until it ends.
-            if (resumeVeil.isUp) return true
+            // Taken whole, so it neither scrolls nor taps; the recycler then keeps the gesture here until it ends,
+            // and its lift never comes back through here to open the paged gate.
+            if (resumeVeil.isUp) {
+                pagedLayoutManager?.fingerDown = false
+                return true
+            }
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     touchDownX = e.x
@@ -304,6 +312,10 @@ class NovelTextViewport(
                     dragging = false
                     multiTouch = false
                     pagedLayoutManager?.fingerDown = true
+                    // Under the mask the column holds the pages either side, and a link there must not take a
+                    // tap meant for the page: the gesture is kept here and read as the page's ([onTouchEvent]).
+                    maskedTouch = underPageMask(e.y)
+                    if (maskedTouch) return true
                 }
                 MotionEvent.ACTION_CANCEL -> pagedLayoutManager?.fingerDown = false
                 // Before the child under the finger is handed the same move, so its press ends on it.
@@ -329,7 +341,24 @@ class NovelTextViewport(
             return false
         }
 
-        override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) = Unit
+        override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
+            if (!maskedTouch) return
+            when (e.actionMasked) {
+                MotionEvent.ACTION_MOVE ->
+                    if (hasTravelled(e.x - touchDownX, e.y - touchDownY, touchSlop)) dragging = true
+                MotionEvent.ACTION_POINTER_DOWN -> multiTouch = true
+                MotionEvent.ACTION_UP -> {
+                    maskedTouch = false
+                    pagedLayoutManager?.fingerDown = false
+                    onPointerUp(e.x, e.y)
+                    if (!dragging && !multiTouch) onTap(e.x, e.y)
+                }
+                MotionEvent.ACTION_CANCEL -> {
+                    maskedTouch = false
+                    pagedLayoutManager?.fingerDown = false
+                }
+            }
+        }
 
         // A selection drag takes the gesture, and the list sees no lift for it, which left paged scrolling refused.
         override fun onRequestDisallowInterceptTouchEvent(disallow: Boolean) {
@@ -483,6 +512,13 @@ class NovelTextViewport(
         obscuredBottomPx = bottom
     }
 
+    /** Whether [y] is in the margin above the page shown or below its last whole line, where [pageMask] draws. */
+    private fun underPageMask(y: Float): Boolean {
+        val height = shownPageHeight ?: return false
+        val top = readingTop()
+        return y < top || y > top + height
+    }
+
     /** Where the text read aloud can be seen from: below the cutout and below whatever chrome covers it, and in
      *  paged reading inside the page. */
     private fun uncoveredTop() = maxOf(topInsetPx, obscuredTopPx, readingTop())
@@ -634,7 +670,7 @@ class NovelTextViewport(
             // By page: text starting on this one stays, since the snap would only show it again. Otherwise it goes to the
             // reading line, where the snap that follows shows the page holding it.
             if (top >= visibleTop && top < visibleBottom) return
-            recycler.scrollBy(0, top - readingTop())
+            scrollColumnBy(top - readingTop())
             return
         }
         if (top >= visibleTop && bottom <= visibleBottom) return
@@ -709,7 +745,7 @@ class NovelTextViewport(
         // The bound holders are updated in place rather than through the adapter. A rebind detaches
         // and re-adds the chapter's text container, re-measuring every chunk of the chapter the
         // reader is inside, which is the one thing this container must never do while it is showing.
-        adapter.refreshBoundaries()
+        adapter.refreshMarkers()
     }
 
     /** Everything a view is drawn from. The rest of the object (auto-scroll, the rail, volume keys,
@@ -736,7 +772,7 @@ class NovelTextViewport(
             previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         if (recoloured || seamsToggled) adapter.refreshMarkers()
         // A cached holder is rebound whole by the notice above; the bound ones need their failures redrawn.
-        if (recoloured) adapter.refreshBoundaries()
+        if (recoloured) adapter.refreshMarkers()
         if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         // A chapter still rendering built its pictures at the old size and joins with a restyle.
@@ -863,7 +899,7 @@ class NovelTextViewport(
         beforeNextDraw {
             correctionPending = false
             val by = shift()
-            if (by != 0) recycler.scrollBy(0, by)
+            if (by != 0) scrollColumnBy(by)
         }
     }
 
@@ -913,7 +949,7 @@ class NovelTextViewport(
                 ?: continue
             // The reader chose where to go, so a landing still waiting on images must not pull them back.
             readerMoved()
-            lineTopOf(view, text.getSpanStart(anchor))?.let { recycler.scrollBy(0, it - readingTop()) }
+            lineTopOf(view, text.getSpanStart(anchor))?.let { scrollColumnBy(it - readingTop()) }
             return
         }
     }
@@ -1372,7 +1408,7 @@ class NovelTextViewport(
             return
         }
         val (top, height) = boundsOf(slot) ?: return
-        recycler.scrollBy(0, ChapterScrollProgress.offsetFor(fraction, height, recycler.height) + top)
+        scrollColumnBy(ChapterScrollProgress.offsetFor(fraction, height, recycler.height) + top)
     }
 
     /** Where reading starts down the screen: in paged reading the top of a page, which keeps a chapter's own top
@@ -1615,14 +1651,14 @@ class NovelTextViewport(
                 val top = lineTopOf(view, offset) ?: return
                 slot.landing = null
                 val before = scrolled
-                recycler.scrollBy(0, top - readingTop())
+                scrollColumnBy(top - readingTop())
                 if (lineTopOf(view, offset) != readingTop()) holdShort(slot, landing)
                 if (scrolled == before) report(callbacks.onProgressChanged)
             }
             is Landing.Line -> {
                 val view = slot.block.chunkViews.getOrNull(landing.chunk) ?: return
                 val top = lineTopOf(view, landing.offset) ?: return
-                recycler.scrollBy(0, top - landing.y)
+                scrollColumnBy(top - landing.y)
                 if (lineTopOf(view, landing.offset) == landing.y) slot.landing = null
             }
         }
@@ -1674,12 +1710,25 @@ class NovelTextViewport(
             }
         }
 
-    /** Refuses a finger's scroll, so paged reading moves only a page at a time. The viewport's own jumps still go
-     *  through, since they land while no finger is down. */
+    /** The viewport's own scroll, which a paged list takes even while a finger is down: a picture landing or a
+     *  chapter arriving mid-tap must still hold the reading line in place. */
+    private fun scrollColumnBy(dy: Int) {
+        val paged = pagedLayoutManager
+        paged?.scrollingItself = true
+        try {
+            recycler.scrollBy(0, dy)
+        } finally {
+            paged?.scrollingItself = false
+        }
+    }
+
+    /** Refuses a finger's scroll, so paged reading moves only a page at a time. The viewport's own scrolls go
+     *  through [scrollColumnBy], and its jumps by position are never refused. */
     private class PagedLayoutManager(context: Context) : LinearLayoutManager(context) {
         var fingerDown = false
+        var scrollingItself = false
 
-        override fun canScrollVertically() = !fingerDown
+        override fun canScrollVertically() = !fingerDown || scrollingItself
 
         // A tapped chunk takes focus, and the list scrolls a focused child into what it counts as visible, which the
         // screen of padding below the last chapter leaves empty: every tap slid the page off itself.
@@ -1795,12 +1844,13 @@ class NovelTextViewport(
             return Holder(root, head, seam, end, tail)
         }
 
-        /** A marker-only change rebinds just the markers: a full bind re-adds the chapter's text container,
+        /** A marker-only change rebinds just the markers and failure boxes: a full bind re-adds the chapter's text container,
          *  re-measuring every chunk of what may be the chapter on screen. */
         override fun onBindViewHolder(holder: Holder, position: Int, payloads: MutableList<Any>) {
             if (payloads.isNotEmpty() && payloads.all { it === MARKERS_CHANGED }) {
                 bindSeam(holder, position)
                 bindEnd(holder, position)
+                bindBoundaries(holder, position)
             } else {
                 onBindViewHolder(holder, position)
             }
@@ -1894,19 +1944,10 @@ class NovelTextViewport(
             return fresh
         }
 
-        /** Re-draws the edges on the holders already bound, without rebinding their chapters. A failure
-         *  turning up above the text the reader is in would push it down, so that is taken back. */
-        fun refreshBoundaries() = keepingReaderStill {
-            shown.indices.forEach { position ->
-                val holder = recycler.findViewHolderForAdapterPosition(position) as? Holder ?: return@forEach
-                bindBoundaries(holder, position)
-            }
-        }
-
-        /** Re-decides every marker once the setting that hides seams or the text colour has changed. A
-         *  change notice rather than the bound holders alone, since a holder cached off screen would come
-         *  back with its old marker. One above the text the reader is in moves that text, so that is
-         *  taken back. */
+        /** Re-decides every marker and failure box once a failure, the setting that hides seams or the text
+         *  colour has changed. A change notice rather than the bound holders alone, since a holder cached off
+         *  screen would come back with its old one. One above the text the reader is in moves that text, so
+         *  that is taken back. */
         fun refreshMarkers() = keepingReaderStill { notifyItemRangeChanged(0, shown.size, MARKERS_CHANGED) }
 
         override fun getItemCount(): Int = shown.size

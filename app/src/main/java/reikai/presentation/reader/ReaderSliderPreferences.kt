@@ -27,6 +27,13 @@ fun autoScrollIntervalPreference(preference: Preference<Int>) = SettingsPreferen
     valueText = { stringResource(MR.strings.seconds_short, it) },
 )
 
+/** The e-ink flash's colours with their labels, for the settings screens and the reader sheet alike. */
+val readerFlashColors = listOf(
+    MR.strings.pref_flash_style_black to ReaderPreferences.FlashColor.BLACK,
+    MR.strings.pref_flash_style_white to ReaderPreferences.FlashColor.WHITE,
+    MR.strings.pref_flash_style_white_black to ReaderPreferences.FlashColor.WHITE_BLACK,
+)
+
 /** The e-ink flash after a page turn, the same group on both readers' settings screens. */
 @Composable
 fun readerFlashGroup(flash: ReaderFlash): SettingsPreference.PreferenceGroup {
@@ -41,26 +48,23 @@ fun readerFlashGroup(flash: ReaderFlash): SettingsPreference.PreferenceGroup {
             ),
             SettingsPreference.PreferenceItem.SliderPreference(
                 preference = flash.durationMillis,
-                valueRange = ReaderPreferences.MILLI_CONVERSION.let { it..it * 15 step it },
+                valueRange = ReaderRanges.flashDurationSteps.let { steps ->
+                    ReaderPreferences.MILLI_CONVERSION.let { steps.first * it..steps.last * it step it }
+                },
                 title = stringResource(MR.strings.pref_flash_duration),
                 valueText = { stringResource(MR.strings.pref_flash_duration_summary, it) },
                 visible = flashPageState,
             ),
             SettingsPreference.PreferenceItem.SliderPreference(
                 preference = flash.pageInterval,
-                valueRange = 1..10,
+                valueRange = ReaderRanges.flashPageInterval,
                 title = stringResource(MR.strings.pref_flash_page_interval),
                 valueText = { pluralStringResource(MR.plurals.pref_pages, it, it) },
                 visible = flashPageState,
             ),
             SettingsPreference.PreferenceItem.ListPreference(
                 preference = flash.color,
-                entries = mapOf(
-                    ReaderPreferences.FlashColor.BLACK to stringResource(MR.strings.pref_flash_style_black),
-                    ReaderPreferences.FlashColor.WHITE to stringResource(MR.strings.pref_flash_style_white),
-                    ReaderPreferences.FlashColor.WHITE_BLACK
-                        to stringResource(MR.strings.pref_flash_style_white_black),
-                ),
+                entries = readerFlashColors.associate { (labelRes, value) -> value to stringResource(labelRes) },
                 title = stringResource(MR.strings.pref_flash_with),
                 visible = flashPageState,
             ),

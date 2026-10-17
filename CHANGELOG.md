@@ -29,6 +29,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **In Native text, a novel chapter with pictures opened at its start now shows at once instead of staying blank for up to three seconds.**
 - **In Native text, a tap below the end of the last chapter now reaches the tap zones and the menu.**
+- **In WebView mode, a chapter whose own script stalls its loading no longer locks out taps and the menu.**
+- **In Native text, a footnote link written as the chapter's own address now jumps to the note instead of opening the browser.**
+- **In Native text, two pictures in one paragraph now each show as their own picture, and a tall one sharpens as it does alone.**
+- **In Native text, a chapter that failed to load no longer keeps its Retry box once it loads.**
+- **In Native text with text selection on, tapping Retry on a failed picture now dims it while it loads.**
 
 ### Backup & restore
 

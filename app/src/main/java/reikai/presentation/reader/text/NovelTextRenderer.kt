@@ -129,7 +129,7 @@ class NovelTextRenderer(
                     .also { placeImages(it, textSizePx.toInt(), spacingPx) }
                     .also { NovelChapterTags.placeRules(it) }
                     .also { shrinkScripts(it) }
-                    .also { NovelChapterLinks.apply(it, context, onAnchor) }
+                    .also { NovelChapterLinks.apply(it, context, baseUrl, onAnchor) }
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
 
@@ -240,7 +240,7 @@ class NovelTextRenderer(
     private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
         val doc = Jsoup.parse(html)
         doc.select("style, script").remove()
-        NovelChapterTags.prepare(doc)
+        NovelChapterTags.prepare(doc, baseUrl)
         doc.select("video source, audio source").remove()
         // `source` is a void element and Html.fromHtml corrupts the rest of the document without one.
         NovelImageSources.unwrapPictures(doc)
@@ -283,10 +283,14 @@ class NovelTextRenderer(
      * image outside a paragraph gets; a side left with nothing to show is dropped. A paragraph showing
      * only the image is centred where it stands.
      */
+    private fun Element.isOrHoldsImage() = tagName() == "img" || selectFirst("img") != null
+
     private fun liftOutOfText(img: Element, parent: Element) {
         val siblings = parent.childNodes()
+        // Another picture counts: two in one paragraph each take their own block, as the page lays them out.
         val showsSomethingElse = siblings.any {
-            it !== img && ((it is TextNode && !it.isBlank) || (it is Element && it.hasText()))
+            it !== img &&
+                ((it is TextNode && !it.isBlank) || (it is Element && (it.hasText() || it.isOrHoldsImage())))
         }
         if (!showsSomethingElse) {
             parent.attr("style", "text-align:center;")

@@ -8,6 +8,9 @@ import kotlin.math.abs
  */
 internal const val CHAPTER_SWIPE_MIN_DP = 180
 
+/** How many times its height a swipe must run sideways to step chapters; reader.js reads it as `SWIPE_SIDEWAYS`. */
+internal const val CHAPTER_SWIPE_SIDEWAYS = 2
+
 /**
  * Whether a touch has left where it went down. From there it is a drag, never a tap or a long press
  * however slowly it goes, so a swipe has no time limit. The WebView page has this from its browser;
@@ -24,7 +27,7 @@ internal fun hasTravelled(dx: Float, dy: Float, slop: Int): Boolean = abs(dx) > 
  * nor takes a tap, for a touch that ever had a second finger down (TextViewportContractTest pins it).
  */
 internal fun chapterSwipeStep(dx: Float, dy: Float, startX: Float, width: Float, minimum: Float): Boolean? {
-    if (abs(dx) <= minimum || abs(dx) <= abs(dy) * 2) return null
+    if (abs(dx) <= minimum || abs(dx) <= abs(dy) * CHAPTER_SWIPE_SIDEWAYS) return null
     val middle = width / 2
     return when {
         dx < 0 && startX >= middle -> true

@@ -196,6 +196,37 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         )
     }
 
+    /** Two pictures in one paragraph are two blocks on the page (reader.css), so each is a picture of its own. */
+    @Test
+    fun twoPicturesInOneParagraphAreEachAPicture() {
+        runBlocking(Dispatchers.Main) {
+            renderer.render(
+                block = block,
+                html = "<p><img src=\"${server.url("a")}\"> <img src=\"${server.url("b")}\"></p>" +
+                    "<p>lorem ipsum</p>".repeat(20),
+                fontSize = 18,
+                paragraphSpacing = 0f,
+                paragraphIndent = 0f,
+                selectable = selectable,
+                bionic = false,
+                contentWidth = COLUMN_PX,
+                baseUrl = null,
+                sourceId = null,
+                holdAcross = { it() },
+                onTextSet = {},
+            ).join()
+        }
+        awaitWhile { block.imagesLoading }
+
+        var pictures = 0
+        instrumentation.runOnMainSync {
+            pictures = block.chunkViews.sumOf { view ->
+                (view.text as? Spanned)?.let { it.getSpans(0, it.length, ChapterImageSpan::class.java).size } ?: 0
+            }
+        }
+        assertTrue("$pictures of the two pictures are laid out as pictures", pictures == 2)
+    }
+
     /** How many image spans sit on a line shorter than their picture. */
     private fun shortPictureLines(): Int = block.chunkViews.sumOf { view ->
         val text = view.text as? Spanned ?: return@sumOf 0

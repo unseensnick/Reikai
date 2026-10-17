@@ -28,6 +28,8 @@ class NovelWebBridge(
     private val onChapterEndSeen: (chapterId: Long) -> Unit,
     /** Paged reading: something other than a page being shown moved the column. */
     private val onPagedMoved: () -> Unit,
+    /** Paged reading: the pictures of the chapter on screen have landed, so its page is ready to read. */
+    private val onPagedPicturesLanded: (chapterId: Long) -> Unit,
     /** The one call that is not gated: it is what tells the host which token is the page's. */
     private val onReady: (documentToken: String) -> Unit,
 ) {
@@ -77,6 +79,11 @@ class NovelWebBridge(
 
     @JavascriptInterface
     fun onPagedMoved(documentToken: String) = fromDocument(documentToken) { onPagedMoved.invoke() }
+
+    @JavascriptInterface
+    fun onPagedPicturesLanded(documentToken: String, chapterId: String) {
+        chapterId.toLongOrNull()?.let { fromDocument(documentToken) { onPagedPicturesLanded(it) } }
+    }
 
     @JavascriptInterface
     fun onReady(documentToken: String) = onReady.invoke(documentToken)

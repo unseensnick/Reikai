@@ -43,6 +43,7 @@ import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ViewportAutoScroll
 import reikai.presentation.reader.autoScrollSpeedLabel
+import reikai.presentation.reader.readerFlashColors
 import reikai.util.scaled
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
@@ -244,12 +245,6 @@ internal fun ColumnScope.ReaderPageRows(
     CheckboxItem(label = stringResource(MR.strings.pref_keep_screen_on), pref = keepScreenOn)
 }
 
-private val flashColors = listOf(
-    MR.strings.pref_flash_style_black to ReaderPreferences.FlashColor.BLACK,
-    MR.strings.pref_flash_style_white to ReaderPreferences.FlashColor.WHITE,
-    MR.strings.pref_flash_style_white_black to ReaderPreferences.FlashColor.WHITE_BLACK,
-)
-
 /** The e-ink flash after a page turn, the same rows for either reader. */
 @Composable
 internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
@@ -259,7 +254,7 @@ internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
     val flashMillis by flash.durationMillis.collectAsState()
     SliderItem(
         value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
-        valueRange = 1..15,
+        valueRange = ReaderRanges.flashDurationSteps,
         label = stringResource(MR.strings.pref_flash_duration),
         valueString = stringResource(MR.strings.pref_flash_duration_summary, flashMillis),
         onChange = { flash.durationMillis.set(it * ReaderPreferences.MILLI_CONVERSION) },
@@ -268,7 +263,7 @@ internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
     val flashInterval by flash.pageInterval.collectAsState()
     SliderItem(
         value = flashInterval,
-        valueRange = 1..10,
+        valueRange = ReaderRanges.flashPageInterval,
         label = stringResource(MR.strings.pref_flash_page_interval),
         valueString = pluralStringResource(MR.plurals.pref_pages, flashInterval, flashInterval),
         onChange = { flash.pageInterval.set(it) },
@@ -276,7 +271,7 @@ internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
     )
     val flashColor by flash.color.collectAsState()
     SettingsChipRow(MR.strings.pref_flash_with) {
-        flashColors.map { (labelRes, value) ->
+        readerFlashColors.map { (labelRes, value) ->
             FilterChip(
                 selected = flashColor == value,
                 onClick = { flash.color.set(value) },

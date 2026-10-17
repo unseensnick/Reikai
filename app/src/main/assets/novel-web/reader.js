@@ -27,6 +27,8 @@
   // A chapter swipe's shortest travel, CHAPTER_SWIPE_MIN_DP in ChapterSwipe.kt. The document is
   // initial-scale=1, so a CSS pixel here is the dp the native renderer measures it in.
   var SWIPE_MIN_PX = __SWIPE_MIN_PX__;
+  // How many times its height a swipe must run sideways, CHAPTER_SWIPE_SIDEWAYS in ChapterSwipe.kt.
+  var SWIPE_SIDEWAYS = __SWIPE_SIDEWAYS__;
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -504,6 +506,9 @@
    * the first chapter, its seam) to what closes it (the end marker and failure below the last), as the native
    * renderer's item holds the same views.
    */
+  var DRAWN_SELECTOR =
+    'img, svg, video, canvas, iframe, hr, object, embed, audio, input, select, textarea, button, .rk-failure';
+
   var paged = (function () {
     // { id, scrollY, height, fraction } of the page last shown, null before one has been.
     var shown = null;
@@ -557,6 +562,14 @@
       return { top: top + y, bottom: bottom + y };
     }
 
+    function drawsWithoutText(box) {
+      if (getComputedStyle(box).backgroundImage !== 'none') return true;
+      return [':before', ':after'].some(function (pseudo) {
+        var content = getComputedStyle(box, pseudo).content;
+        return content && content !== 'none' && content !== 'normal';
+      });
+    }
+
     /* The line box a client rect sits in: a rect covers the glyphs, and the line adds half its leading
        above and below them, which the native renderer's line tops and bottoms include. */
     function lineHeightOf(element) {
@@ -594,9 +607,14 @@
         }
       }
       lineHeights = null;
-      // What draws without text: pictures, rules, media, and a failed picture's box.
-      el.querySelectorAll('img, svg, video, canvas, iframe, hr, .rk-failure').forEach(function (box) {
-        push(box.getBoundingClientRect(), false);
+      // What draws without text: pictures, rules, media, controls, a failed picture's box, and an element with no
+      // text that draws a background picture or generated content, as an illustration or a scene break can.
+      el.querySelectorAll('*').forEach(function (box) {
+        if (box.matches(DRAWN_SELECTOR)) {
+          push(box.getBoundingClientRect(), false);
+        } else if (!box.textContent.trim() && !box.closest('script, style, svg') && drawsWithoutText(box)) {
+          push(box.getBoundingClientRect(), false);
+        }
       });
       var m = margins();
       return {
@@ -652,6 +670,14 @@
       onScroll();
       // A page is where the reader stops, and a jump the page cannot scroll itself may end in no scrollend.
       persist();
+      // Whether the page is ready to read; one still waiting on pictures is reported when they land.
+      var landed = imagesLanded(el);
+      if (!landed) {
+        whenImagesLanded(el, function () {
+          if (shown && shown.id === String(id)) bridge().onPagedPicturesLanded(DOCUMENT_TOKEN, String(id));
+        });
+      }
+      return landed;
     }
 
     /* Asks the host to put a whole page back, once a frame at most. */
@@ -890,7 +916,7 @@
       // enough not to be a stray, and started on the half it moves away from. A swipe that clears the
       // first two but starts on the wrong half falls through to the tap check below, where `moved`
       // discards it.
-      if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * 2) {
+      if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_SIDEWAYS) {
         var middle = window.innerWidth / 2;
         if (dx < 0 && startX >= middle) {
           bridge().onStepChapter(DOCUMENT_TOKEN, true);

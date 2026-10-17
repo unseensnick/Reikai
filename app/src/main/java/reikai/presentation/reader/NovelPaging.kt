@@ -1,5 +1,9 @@
 package reikai.presentation.reader
 
+import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.fraction
+import reikai.domain.reader.seekTo
+
 /**
  * The page rule both novel renderers read when paging: each measures where its lines sit in a chapter's
  * column, and this alone decides where the pages break and where a turn goes, so the two cannot disagree.
@@ -19,11 +23,13 @@ object NovelPaging {
     /**
      * Cuts [bands] into pages at most [height] tall. Bands that overlap, as a line split into fragments
      * does, merge first. A page takes whole bands until the next would overflow it; a band taller than a
-     * page is cut at page height and whatever follows it starts whole on the next page.
+     * page is cut at page height and whatever follows it starts whole on the next page. A WebView chapter's
+     * own script can answer the measure, so a page shorter than a pixel, a value that is not a number, and
+     * more than [MAX_PAGES] pages are refused rather than cut until memory runs out.
      */
     fun cut(bands: List<Band>, height: Float): List<Page> {
         // A window too small for its margins has no room for a line, and cutting at no height would never end.
-        if (height <= 0f) return emptyList()
+        if (!height.isFinite() || height < MIN_PAGE_HEIGHT) return emptyList()
         val pages = mutableListOf<Page>()
         var top = Float.NaN
         var bottom = Float.NaN
@@ -31,11 +37,13 @@ object NovelPaging {
             if (!top.isNaN()) pages += Page(top, bottom)
             top = Float.NaN
         }
-        merge(bands).forEach { band ->
+        merge(bands.filter { it.top.isFinite() && it.bottom.isFinite() }).forEach { band ->
+            if (pages.size >= MAX_PAGES) return pages
             if (band.alone) close()
             if (!top.isNaN() && band.bottom - top > height) close()
             if (top.isNaN()) top = band.top
             while (band.bottom - top > height) {
+                if (pages.size >= MAX_PAGES) return pages
                 pages += Page(top, top + height)
                 top += height
             }
@@ -87,14 +95,19 @@ object NovelPaging {
         data class Beyond(val forward: Boolean) : Turn
     }
 
-    /** How far through the chapter page [index] of [count] is, so the last page reads as all of it, as the
-     *  scrolled column's end does. */
-    fun fractionOf(index: Int, count: Int): Float = if (count <= 1) 0f else index.toFloat() / (count - 1)
+    /** How far through the chapter page [index] of [count] is, by the manga pager's own rule, so the last
+     *  page reads as all of it, as the scrolled column's end does. */
+    fun fractionOf(index: Int, count: Int): Float = ChapterProgress.Pages(index, count).fraction
 
     /** The page a stored [fraction] names, the inverse of [fractionOf]. */
     fun indexFor(fraction: Float, count: Int): Int =
-        if (count <= 1) 0 else Math.round(fraction.coerceIn(0f, 1f) * (count - 1))
+        (ChapterProgress.Pages(0, count).seekTo(fraction.coerceIn(0f, 1f)) as ChapterProgress.Pages).lastPageRead
 
     /** Fragments of one line can overlap the next by a sub-pixel; that much never joins two lines. */
     private const val OVERLAP_SLACK = 1f
+
+    private const val MIN_PAGE_HEIGHT = 1f
+
+    /** Far past any real chapter on the smallest window; a count above it is a broken measure. */
+    private const val MAX_PAGES = 10_000
 }
