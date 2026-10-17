@@ -3179,7 +3179,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val done = CountDownLatch(1)
         var result = "[]"
         instrumentation.runOnMainSync {
-            (view as WebView).evaluateJavascript(js) { value ->
+            (viewport as NovelWebViewport).webView.evaluateJavascript(js) { value ->
                 result = value ?: "[]"
                 done.countDown()
             }

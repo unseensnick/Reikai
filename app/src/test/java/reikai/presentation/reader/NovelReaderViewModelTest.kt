@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coVerify
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -108,6 +109,48 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.chapter.value?.html.orEmpty() shouldContain "From the page"
+    }
+
+    /** A paged WebView holds its opening veil on this, since the chapter's arrival above moves the page. */
+    @Test
+    fun `the window says the chapter before is joining while it loads`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        source.holding[previous.url] = CompletableDeferred()
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.chapters.any { chapter -> chapter.chapterId == opened.id } }.previousJoining shouldBe
+            true
+    }
+
+    @Test
+    fun `the window says the chapter before has stopped joining once it is in`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.chapters.any { chapter -> chapter.chapterId == previous.id } }.previousJoining shouldBe
+            false
+    }
+
+    /** A chapter that will not load never joins, so a renderer waiting on it would wait for nothing. */
+    @Test
+    fun `the window says the chapter before is not joining once it failed`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        source.failing += previous.url
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.failedPrevious != null }.previousJoining shouldBe false
     }
 
     /** The browser's page is how a chapter the source cannot serve gets read, so its save opens it. */

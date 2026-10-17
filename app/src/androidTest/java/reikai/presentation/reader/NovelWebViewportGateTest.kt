@@ -51,7 +51,7 @@ class NovelWebViewportGateTest {
     private val fitsReports = CopyOnWriteArrayList<Long>()
     private var destroyedByTest = false
 
-    private val webView: WebView get() = viewport.view as WebView
+    private val webView: WebView get() = viewport.webView
 
     private companion object {
         const val TIMEOUT_S = 10L

@@ -3,7 +3,6 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
@@ -14,6 +13,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.widget.FrameLayout
 import coil3.imageLoader
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
@@ -187,12 +187,18 @@ class NovelWebViewport(
 
     private var fingerDown = false
 
+    /**
+     * Over the WebView while a document opens, in the page colour. A view of its own above it rather than the
+     * WebView's foreground: the page's frames draw over the WebView's own foreground once it paints, which
+     * showed every landing and snap the veil was meant to hide. Passes touches on; the WebView holds them.
+     */
+    private val veilView = View(context).apply { visibility = View.GONE }
+
     /** Up from a document opening on a saved percent until it reports ready, which the page holds until that
      *  percent has landed on its pictures. Declared above the WebView that reads it. */
     private val resumeVeil: ResumeVeil = ResumeVeil { up ->
-        webView.foreground = documentSettings?.takeIf { up }?.let {
-            ColorDrawable(readerBackgroundColorInt(it.backgroundColor))
-        }
+        documentSettings?.let { veilView.setBackgroundColor(readerBackgroundColorInt(it.backgroundColor)) }
+        veilView.visibility = if (up) View.VISIBLE else View.GONE
     }
 
     /** Whether the touch on screen went down under the veil, which keeps all of it from the page. */
@@ -201,7 +207,7 @@ class NovelWebViewport(
     /** Set when the renderer dies, after which the WebView takes nothing but destroy(). */
     private var rendererGone = false
 
-    private val webView = WebView(context).apply {
+    internal val webView = WebView(context).apply {
         setDefaultSettings()
         WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
         if (devTools) {
@@ -240,7 +246,6 @@ class NovelWebViewport(
         if (textSelectable) {
             isFocusable = true
             isFocusableInTouchMode = true
-            addOnAttachStateChangeListener(SelectableWhileAttached())
         }
         addJavascriptInterface(
             NovelWebBridge(
@@ -285,17 +290,34 @@ class NovelWebViewport(
             touchHeld
         }
         setOnGenericMotionListener { _, _ -> resumeVeil.isUp }
-        setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) callbacks.onReaderScrolled(y - oldY) }
-        // Every layout, because the inset is only known once the window has one and it moves with the
-        // system bars; comparing first keeps an unchanged one from rewriting the page.
+        setOnScrollChangeListener { _, _, y, _, oldY ->
+            if (fingerDown) callbacks.onReaderScrolled(y - oldY)
+            viewScrollCaughtUp()
+        }
+    }
+
+    /** Whether the veil is over the page. */
+    internal val isVeiled: Boolean get() = veilView.visibility == View.VISIBLE
+
+    /** The WebView with the veil stacked over it, which is what the reader holds. */
+    override val view: View = FrameLayout(context).apply {
+        addView(
+            webView,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        addView(
+            veilView,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        // The reader's container blocks descendant focus, which this lifts for the view it holds.
+        if (textSelectable) addOnAttachStateChangeListener(SelectableWhileAttached())
+        // Every layout of the view the reader lays out, because the inset is only known once the window has one
+        // and it moves with the system bars; comparing first keeps an unchanged one from rewriting the page.
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val settings = documentSettings
             if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
         }
     }
-
-    override val view: View
-        get() = webView
 
     override val isRtl: Boolean
         get() = pageLayout.isRtl
@@ -387,6 +409,7 @@ class NovelWebViewport(
         documentInset = inset
         measuredPages.clear()
         shownPage.value = ShownPage(Unit, ready = false)
+        opening = if (paged) Opening() else null
         // A line lands on its page wherever the page stops; a share has to name a page, which the page cannot.
         openingShare = (chapter.progressPercent / 100f).takeIf { paged && chapter.topLine == null && it > 0f }
         // Resolving a user font copies it out of the user's storage folder on first use, which is
@@ -620,6 +643,7 @@ class NovelWebViewport(
         scope.launch {
             paging.withLock {
                 snapQueued = false
+                val joinsSeen = opening?.joins
                 openingShare?.let { share ->
                     openingShare = null
                     seekPage(share)
@@ -629,7 +653,10 @@ class NovelWebViewport(
                 val pages = pagesOf(at.chapterId, at) ?: return@withLock
                 val index = NovelPaging.pageAt(pages, at.y)
                 val shown = shownPage.value.key == (at.chapterId to index)
-                if (shown && abs(at.y - pages[index].top) < 1f && pages[index].height == shownHeight) return@withLock
+                if (shown && abs(at.y - pages[index].top) < 1f && pages[index].height == shownHeight) {
+                    pageSettled(joinsSeen)
+                    return@withLock
+                }
                 showPage(at.chapterId, pages, index)
             }
         }
@@ -642,15 +669,58 @@ class NovelWebViewport(
         val page = pages[index.coerceIn(pages.indices)]
         shownHeight = page.height
         val key = chapterId to index
+        val joinsSeen = opening?.joins
+        val viewYBefore = webView.scrollY
         // The page answers whether the chapter's pictures have landed, and reports when they do, so auto-scroll
         // counts a page's time from then, as the native renderer does.
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
                 "${NovelPaging.fractionOf(index, pages.size)});",
-        ) { landed ->
-            shownPage.value = ShownPage(key, ready = landed != "false")
-            raiseVeil(false)
+        ) { answer ->
+            val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
+            shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
+            // The view's own scroll follows the page's a moment later, and until it does the old place shows.
+            if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
+            pageSettled(joinsSeen)
         }
+    }
+
+    /**
+     * A paged document's opening, until its veil drops: once a page is on screen, the chapter before has
+     * joined, and the page shown after that join has settled. Each join moves the column and the page is
+     * shown again, so lifting at the first page let the reader watch it jump. [VEIL_CAP_MS] still bounds it.
+     */
+    private class Opening {
+        var previousJoining = false
+
+        /** Chapters joined above so far, and the count a page last settled at: one shown before the latest
+         *  join is about to move. None has settled before the first page. */
+        var joins = 0
+        var settledAtJoins = -1
+    }
+
+    private var opening: Opening? = null
+
+    /** A page is on screen where the column stopped, shown or found there by a snap begun after [joinsSeen]
+     *  joins; one begun before a later join does not count, since that join moved it. */
+    private fun pageSettled(joinsSeen: Int?) {
+        val open = opening ?: return
+        if (joinsSeen != open.joins) return
+        open.settledAtJoins = open.joins
+        liftOpeningVeil()
+    }
+
+    private fun liftOpeningVeil() {
+        val open = opening ?: return
+        if (open.previousJoining || open.settledAtJoins != open.joins) return
+        opening = null
+        dropVeilOncePainted()
+    }
+
+    override fun setPreviousJoining(joining: Boolean) {
+        val open = opening ?: return
+        open.previousJoining = joining
+        liftOpeningVeil()
     }
 
     /** Scrolls by a signed fraction of the screen (positive = forward), through the page's own
@@ -683,6 +753,8 @@ class NovelWebViewport(
             held.lastOrNull()?.let { NovelSeam.between(it, chapter) }
         }?.drawn(documentSettings?.alwaysShowChapterTransition)
         held.add(if (atStart) 0 else held.size, chapter)
+        // The column moves under the page shown, which is shown again once the snap that follows has run.
+        if (atStart) opening?.let { it.joins++ }
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
         // download or, in a merged series, another site.
@@ -819,6 +891,11 @@ class NovelWebViewport(
     private fun raiseVeil(up: Boolean) {
         veilCap?.cancel()
         resumeVeil.set(up)
+        // A paint still owed to an earlier drop must not take this veil down.
+        if (up) {
+            visualStateRequest++
+            dropOnceViewScrolled = false
+        }
         if (up) {
             veilCap = scope.launch {
                 delay(VEIL_CAP_MS)
@@ -829,11 +906,45 @@ class NovelWebViewport(
 
     private var veilCap: Job? = null
 
+    /**
+     * Drops the veil once the page as it stands is on screen. The page answers as soon as its DOM has moved,
+     * while the view's scroll and the WebView's paint follow later, so dropping on the answer showed the
+     * place it moved from.
+     */
+    private fun dropVeilOncePainted() {
+        if (viewScrollBehind) {
+            dropOnceViewScrolled = true
+            return
+        }
+        val request = visualStateRequest
+        webView.postVisualStateCallback(
+            request,
+            object : WebView.VisualStateCallback() {
+                override fun onComplete(requestId: Long) {
+                    if (requestId == visualStateRequest) raiseVeil(false)
+                }
+            },
+        )
+    }
+
+    private var visualStateRequest = 0L
+
+    /** The page moved its column and the view has not followed yet; a drop asked for meanwhile waits for it. */
+    private var viewScrollBehind = false
+    private var dropOnceViewScrolled = false
+
+    private fun viewScrollCaughtUp() {
+        viewScrollBehind = false
+        if (!dropOnceViewScrolled) return
+        dropOnceViewScrolled = false
+        dropVeilOncePainted()
+    }
+
     private fun onPageReady(token: String) {
         if (!gate.markReady(token)) return
         // Ready follows the opening seek in the same task on the page, so the landed place is what shows. Paged,
         // the first page shown drops it instead.
-        if (!paged) raiseVeil(false)
+        if (!paged) dropVeilOncePainted()
         // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
         pushObscured()
         pendingWindowVerbs.forEach(::evaluate)

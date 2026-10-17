@@ -531,6 +531,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     val failing = mutableSetOf<String>()
 
+    /** Chapter paths whose fetch waits on their gate, as a slow connection does. */
+    val holding: MutableMap<String, CompletableDeferred<Unit>> = java.util.concurrent.ConcurrentHashMap()
+
     /** What asking for a novel's details does; by default it throws, as for a source no test meant to ask. */
     @Volatile
     var details: () -> SourceNovel = { unused() }
@@ -557,6 +560,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     override suspend fun parseChapter(chapterPath: String): String {
         chaptersAsked += chapterPath
+        holding[chapterPath]?.await()
         if (chapterPath in failing) throw IOException("no connection")
         return "<p>From the source: $chapterPath</p>"
     }

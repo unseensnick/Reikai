@@ -144,7 +144,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         try {
             runBlocking(Dispatchers.Main) { viewport.load(chapter(html), readerTestSettings) }
             rendered.await(TIMEOUT_S, TimeUnit.SECONDS)
-            val quoted = eval(viewport.view, "document.querySelector('.rk-chapter[data-rk-chapter-id]').innerText")
+            val quoted = eval(viewport.webView, "document.querySelector('.rk-chapter[data-rk-chapter-id]').innerText")
             return lines(JSONArray("[$quoted]").getString(0))
         } finally {
             instrumentation.runOnMainSync { viewport.destroy() }
@@ -170,11 +170,11 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         isLast = false,
     )
 
-    private fun eval(view: View, js: String): String {
+    private fun eval(webView: WebView, js: String): String {
         val done = CountDownLatch(1)
         var result = "null"
         instrumentation.runOnMainSync {
-            (view as WebView).evaluateJavascript(js) { value ->
+            webView.evaluateJavascript(js) { value ->
                 result = value ?: "null"
                 done.countDown()
             }

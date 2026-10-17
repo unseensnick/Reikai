@@ -659,6 +659,7 @@
       var el = chapterEl(id);
       if (!el) return;
       var m = margins();
+      var before = scrollTop();
       window.scrollTo({ top: Math.round(itemOf(el).top + top - m.top), behavior: 'instant' });
       if (!maskTop) maskTop = mask('rk-page-mask-top');
       if (!maskBottom) maskBottom = mask('rk-page-mask-bottom');
@@ -677,7 +678,8 @@
           if (shown && shown.id === String(id)) bridge().onPagedPicturesLanded(DOCUMENT_TOKEN, String(id));
         });
       }
-      return landed;
+      // Whether the column moved, which the host's view only follows a moment later.
+      return { landed: landed, moved: scrollTop() !== before };
     }
 
     /* Asks the host to put a whole page back, once a frame at most. */

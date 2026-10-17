@@ -67,4 +67,11 @@ interface ChapterWindow {
         previous: NovelReaderViewModel.BoundaryFailure?,
         next: NovelReaderViewModel.BoundaryFailure?,
     )
+
+    /**
+     * Whether the chapter before the one opened is still on its way in. Paged, a page shown before it joins
+     * is moved when it does, which the WebView renderer holds its opening veil over. The native renderer
+     * keeps its line through a prepend without a visible move, so it has nothing to hold.
+     */
+    fun setPreviousJoining(joining: Boolean) = Unit
 }

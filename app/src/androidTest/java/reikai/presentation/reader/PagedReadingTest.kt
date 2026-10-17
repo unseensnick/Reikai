@@ -399,6 +399,48 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] the picture's top never showed on a page", topShown)
     }
 
+    /** The chapter before joins after the first page shows and moves it, which the reader must not watch. */
+    @Test
+    fun theOpeningVeilStaysUpWhileTheChapterBeforeIsJoining() {
+        assumeTrue("only the page veils its opening", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR)
+        openJoining(2L, percent = 50)
+
+        assertTrue("[$renderer] the veil dropped before the chapter before joined", veiled())
+    }
+
+    @Test
+    fun theOpeningVeilDropsOnceTheChapterBeforeHasJoinedAndThePageSettled() {
+        assumeTrue("only the page veils its opening", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR)
+        openJoining(2L, percent = 50)
+
+        runBlocking(Dispatchers.Main) {
+            viewport.window.prepend(chapter(1L, long("first"), 0, null))
+            viewport.window.setPreviousJoining(false)
+        }
+        awaitWhile { veiled() }
+
+        assertTrue("[$renderer] the veil is still up once the chapter before joined", !veiled())
+    }
+
+    /** Opens [id] as the provider does while the chapter before is still loading, and waits for its first page. */
+    private fun openJoining(id: Long, percent: Int) {
+        fits.remove(id)
+        runBlocking(Dispatchers.Main) {
+            viewport.load(chapter(id, long("second"), percent, null), readerTestSettings)
+            viewport.window.setPreviousJoining(true)
+        }
+        awaitWhile { !fits.containsKey(id) || !pageShown() }
+        settle()
+    }
+
+    private fun veiled(): Boolean {
+        var up = false
+        instrumentation.runOnMainSync { up = (viewport as NovelWebViewport).isVeiled }
+        return up
+    }
+
     private fun artTopOnPage(): Boolean = evalString(
         "(function(){ var r = document.getElementById('art').getBoundingClientRect();" +
             " var top = parseFloat(getComputedStyle(document.querySelector('.rk-chapter')).paddingTop);" +
@@ -650,7 +692,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         val done = CountDownLatch(1)
         var result = "\"\""
         instrumentation.runOnMainSync {
-            (view as WebView).evaluateJavascript(js) { value ->
+            (viewport as NovelWebViewport).webView.evaluateJavascript(js) { value ->
                 result = value ?: "\"\""
                 done.countDown()
             }

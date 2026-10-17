@@ -421,6 +421,8 @@ class NovelReaderViewModel(
          *  the renderer can say so at the edge instead of simply ending. */
         val failedPrevious: BoundaryFailure? = null,
         val failedNext: BoundaryFailure? = null,
+        /** The chapter before is on its way into the window: warming, or waiting on the reach below. */
+        val previousJoining: Boolean = false,
     )
 
     /**
@@ -1373,6 +1375,8 @@ class NovelReaderViewModel(
             failedPrevious = boundaryFailure(previous, chapters),
             // The first chapter of the reach still missing is the edge the reader will run into.
             failedNext = boundaryFailure(forward.firstOrNull { id -> chapters.none { it.chapterId == id } }, chapters),
+            previousJoining = around.previous?.let { id -> chapters.none { it.chapterId == id } && id !in warmFailures }
+                ?: false,
         )
     }
 
