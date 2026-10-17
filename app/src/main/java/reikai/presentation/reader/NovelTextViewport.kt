@@ -147,6 +147,11 @@ class NovelTextViewport(
         /** Before the text is set there is nothing to be a percentage of. */
         var rendered = false
 
+        /** The last [NovelPaging.cut] and the geometry it came from, since one page turn asks for the pages
+         *  several times between layouts. A text [android.text.Layout] never changes its lines once built,
+         *  so the chunks' layout instances and offsets stand in for every line. */
+        var cut: Pair<List<Any?>, List<NovelPaging.Page>>? = null
+
         /** A line landing the list stopped short of for want of room below ([holdShort]). Landed again when a
          *  chapter joins below, while the reader is still on the line it stopped at; it never holds a report. */
         var shortLanding: ShortLanding? = null
@@ -1432,10 +1437,24 @@ class NovelTextViewport(
         val item = recycler.layoutManager?.findViewByPosition(position) as? ViewGroup ?: return null
         val holder = recycler.getChildViewHolder(item) as? BlockAdapter.Holder ?: return null
         val container = slot.block.container
-        val bands = mutableListOf<NovelPaging.Band>()
-        item.children.filter { it !== container && it.isVisible && it.height > 0 }.forEach {
-            bands += NovelPaging.Band(it.top.toFloat(), it.bottom.toFloat(), alone = it === holder.seam)
+        val others = item.children.filter { it !== container && it.isVisible && it.height > 0 }.toList()
+        val height = pageContentHeight()
+        val geometry = buildList {
+            add(height)
+            add(container.top)
+            others.forEach {
+                add(it)
+                add(it.top)
+                add(it.bottom)
+            }
+            slot.block.chunkViews.forEach {
+                add(it.layout)
+                add(it.top + it.totalPaddingTop)
+            }
         }
+        slot.cut?.takeIf { it.first == geometry }?.let { return it.second to item.top }
+        val bands = mutableListOf<NovelPaging.Band>()
+        others.forEach { bands += NovelPaging.Band(it.top.toFloat(), it.bottom.toFloat(), alone = it === holder.seam) }
         slot.block.chunkViews.forEach { chunk ->
             val layout = chunk.layout ?: return@forEach
             val base = container.top + chunk.top + chunk.totalPaddingTop
@@ -1446,7 +1465,8 @@ class NovelTextViewport(
                 )
             }
         }
-        return NovelPaging.cut(bands, pageContentHeight()) to item.top
+        val pages = NovelPaging.cut(bands, height).also { slot.cut = geometry to it }
+        return pages to item.top
     }
 
     /** The chapter at the reading line, its pages, and which of them holds that line. */
