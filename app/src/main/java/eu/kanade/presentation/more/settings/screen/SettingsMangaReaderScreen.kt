@@ -12,12 +12,15 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
+import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.autoScrollIntervalPreference
 import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.hideThresholdPreference
+import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.railHeightPreference
 import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
@@ -234,23 +237,29 @@ object SettingsMangaReaderScreen : SearchableSettings {
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = navModePref,
-                    entries = ReaderPreferences.TapZones
+                    // RK: Mihon's layouts, then the ones the novel reader brought
+                    entries = MangaTapLayouts.names
                         .mapIndexed { index, it -> index to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_viewer_nav),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.pagerNavInverted,
-                    entries = listOf(
-                        ReaderPreferences.TappingInvertMode.NONE,
-                        ReaderPreferences.TappingInvertMode.HORIZONTAL,
-                        ReaderPreferences.TappingInvertMode.VERTICAL,
-                        ReaderPreferences.TappingInvertMode.BOTH,
-                    )
+                    // RK: only the inversions that change the layout
+                    entries = MangaTapLayouts.invertModes(navMode)
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    visible = navMode != 5,
+                    visible = MangaTapLayouts.invertModes(navMode).size > 1, // RK
                 ),
+                // RK -->
+                Preference.PreferenceItem.SliderPreference(
+                    preference = readerPreferences.tapBottomZoneHeight,
+                    valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+                    title = stringResource(MR.strings.pref_tap_bottom_zone_height),
+                    valueText = { "$it%" },
+                    visible = MangaTapLayouts.added(navMode) == NovelTapLayout.BOTTOM,
+                ),
+                // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = imageScaleTypePref,
                     entries = ReaderPreferences.ImageScaleType
@@ -330,23 +339,29 @@ object SettingsMangaReaderScreen : SearchableSettings {
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = navModePref,
-                    entries = ReaderPreferences.TapZones
+                    // RK: Mihon's layouts, then the ones the novel reader brought
+                    entries = MangaTapLayouts.names
                         .mapIndexed { index, it -> index to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_viewer_nav),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.webtoonNavInverted,
-                    entries = listOf(
-                        ReaderPreferences.TappingInvertMode.NONE,
-                        ReaderPreferences.TappingInvertMode.HORIZONTAL,
-                        ReaderPreferences.TappingInvertMode.VERTICAL,
-                        ReaderPreferences.TappingInvertMode.BOTH,
-                    )
+                    // RK: only the inversions that change the layout
+                    entries = MangaTapLayouts.invertModes(navMode)
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    visible = navMode != 5,
+                    visible = MangaTapLayouts.invertModes(navMode).size > 1, // RK
                 ),
+                // RK -->
+                Preference.PreferenceItem.SliderPreference(
+                    preference = readerPreferences.tapBottomZoneHeight,
+                    valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+                    title = stringResource(MR.strings.pref_tap_bottom_zone_height),
+                    valueText = { "$it%" },
+                    visible = MangaTapLayouts.added(navMode) == NovelTapLayout.BOTTOM,
+                ),
+                // RK <--
                 // RK --> Min width under the high quality renderer, upstream's side padding otherwise
                 if (highQualityRenderer) {
                     Preference.PreferenceItem.SliderPreference(

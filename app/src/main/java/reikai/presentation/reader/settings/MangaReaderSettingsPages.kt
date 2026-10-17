@@ -18,7 +18,10 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import reikai.domain.novel.NovelTapLayout
+import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.ReaderFlash
+import reikai.presentation.reader.navigation.MangaTapLayouts
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -231,6 +234,7 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
                 onSelect = preferences.navigationModeWebtoon::set,
                 invertMode = webtoonNavInverted,
                 onSelectInvertMode = preferences.webtoonNavInverted::set,
+                bottomZoneHeight = preferences.tapBottomZoneHeight,
             )
             CheckboxItem(
                 label = stringResource(MR.strings.pref_double_tap_zoom),
@@ -368,6 +372,7 @@ private fun ColumnScope.PagerTapZones(preferences: ReaderPreferences) {
         onSelect = preferences.navigationModePager::set,
         invertMode = pagerNavInverted,
         onSelectInvertMode = preferences.pagerNavInverted::set,
+        bottomZoneHeight = preferences.tapBottomZoneHeight,
     )
 }
 
@@ -377,9 +382,10 @@ private fun ColumnScope.TapZonesRows(
     onSelect: (Int) -> Unit,
     invertMode: ReaderPreferences.TappingInvertMode,
     onSelectInvertMode: (ReaderPreferences.TappingInvertMode) -> Unit,
+    bottomZoneHeight: Preference<Int>,
 ) {
     SettingsChipRow(MR.strings.pref_viewer_nav) {
-        ReaderPreferences.TapZones.mapIndexed { index, it ->
+        MangaTapLayouts.names.mapIndexed { index, it ->
             FilterChip(
                 selected = selected == index,
                 onClick = { onSelect(index) },
@@ -387,10 +393,10 @@ private fun ColumnScope.TapZonesRows(
             )
         }
     }
-    // 5 is Disabled, which has no zones to invert.
-    if (selected != 5) {
+    val invertModes = MangaTapLayouts.invertModes(selected)
+    if (invertModes.size > 1) {
         SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            ReaderPreferences.TappingInvertMode.entries.map {
+            invertModes.map {
                 FilterChip(
                     selected = it == invertMode,
                     onClick = { onSelectInvertMode(it) },
@@ -398,5 +404,16 @@ private fun ColumnScope.TapZonesRows(
                 )
             }
         }
+    }
+    if (MangaTapLayouts.added(selected) == NovelTapLayout.BOTTOM) {
+        val height by bottomZoneHeight.collectAsState()
+        SliderItem(
+            value = height,
+            valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+            label = stringResource(MR.strings.pref_tap_bottom_zone_height),
+            valueString = "$height%",
+            onChange = bottomZoneHeight::set,
+            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        )
     }
 }

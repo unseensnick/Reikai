@@ -1,6 +1,5 @@
 package reikai.presentation.reader
 
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelTapLayout
@@ -19,9 +18,6 @@ class NovelTapZonesBoundsTest {
 
     @Test
     fun `a stored bottom zone height outside the setting's range is held to its ends`() {
-        listOf(1, 30, 80).map {
-            NovelTapZones(NovelTapLayout.BOTTOM, TappingInvertMode.NONE, it).bottomZoneFraction
-        } shouldBe
-            listOf(0.02f, 0.3f, 0.5f)
+        listOf(1, 30, 80).map(::bottomZoneFraction) shouldBe listOf(0.02f, 0.3f, 0.5f)
     }
 }

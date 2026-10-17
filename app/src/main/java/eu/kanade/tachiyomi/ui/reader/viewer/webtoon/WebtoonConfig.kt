@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import reikai.presentation.reader.navigation.MangaTapLayouts
 
 /**
  * Configuration used by webtoon viewers.
@@ -60,6 +61,8 @@ class WebtoonConfig(
 
         readerPreferences.navigationModeWebtoon
             .register({ navigationMode = it }, { updateNavigation(it) })
+        readerPreferences.tapBottomZoneHeight // RK: the Bottom layout's zone height
+            .register({ tapBottomZoneHeight = it }, { updateNavigation(navigationMode) })
 
         readerPreferences.webtoonNavInverted
             .register({ tappingInverted = it }, { navigator.invertMode = it })
@@ -105,6 +108,8 @@ class WebtoonConfig(
             .launchIn(scope)
     }
 
+    private var tapBottomZoneHeight = 0 // RK
+
     override var navigator: ViewerNavigation = defaultNavigation()
         set(value) {
             field = value.also { it.invertMode = tappingInverted }
@@ -115,15 +120,16 @@ class WebtoonConfig(
     }
 
     override fun updateNavigation(navigationMode: Int) {
-        this.navigator = when (navigationMode) {
-            0 -> defaultNavigation()
-            1 -> LNavigation()
-            2 -> KindlishNavigation()
-            3 -> EdgeNavigation()
-            4 -> RightAndLeftNavigation()
-            5 -> DisabledNavigation()
-            else -> defaultNavigation()
-        }
+        this.navigator = MangaTapLayouts.navigation(navigationMode, tapBottomZoneHeight) // RK
+            ?: when (navigationMode) {
+                0 -> defaultNavigation()
+                1 -> LNavigation()
+                2 -> KindlishNavigation()
+                3 -> EdgeNavigation()
+                4 -> RightAndLeftNavigation()
+                5 -> DisabledNavigation()
+                else -> defaultNavigation()
+            }
         navigationModeChangedListener?.invoke()
     }
 }

@@ -70,6 +70,7 @@ import mihon.app.di.appGraph
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
 import reikai.presentation.reader.isCachedPageCurrent
+import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.reader.placeholderSideWidth
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
@@ -1107,7 +1108,9 @@ open class WebGpuViewer(
             }
 
             onTap = { offset ->
-                when (config.navigator.getAction(PointF(offset.x, offset.y))) {
+                when (config.navigator.actionAt(PointF(offset.x, offset.y))) {
+                    // RK: a zone-only layout leaves the rest to the page, where a failure's Retry still answers
+                    null -> retryFailuresOnScreen()
                     // RK
                     NavigationRegion.MENU -> if (!retryFailuresOnScreen()) activity.toggleMenu()
                     NavigationRegion.NEXT -> moveToNext()

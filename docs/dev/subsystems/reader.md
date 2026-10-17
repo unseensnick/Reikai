@@ -97,6 +97,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 
 ## Decisions
 
+- **Both readers offer the same tap layouts.** Manga stores an index into Mihon's six, so the novel reader's Thirds, Center, Large center and Bottom are appended after them (`MangaTapLayouts`) and built by the novel reader's own rule (`NovelTapLayout.navigation`); a zone-only layout (`ZoneOnlyNavigation`) leaves a tap outside its zone to the page in both. The Bottom zone's height is a setting per reader.
 - **One host, a neutral engine, two providers (not novels folded into `ReaderViewModel`, not a second host).** Folding synthesizes manga rows for novels, which the data layer rejected; a second host guarantees two of everything. Void if novels become manga rows.
 - **`ReaderViewModel` stays live as the manga provider.** It is Mihon's engine file with real callers, so absorbing it would turn every upstream reader fix into a hand-port.
 - **The engine floor stays Mihon's**: `ChapterLoader`, the page loaders, `DownloadManager` and the read, history and track interactors, with the novel sinks beside them. The engine orchestrates; it never reimplements them.
@@ -110,7 +111,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 
 ## Upstream divergences
 
-Reikai patches sit in `// RK` islands in `ReaderActivity` (engine and provider wiring, `onNewIntent`, the ordering-hazard notes, the chapter sheet pick, the Retry flag on `requestPreloadChapter`) and `ReaderViewModel` (the reading-session record, see [statistics.md](statistics.md); merged lists, `ChapterSwitches`, the event channel, the requested-page reset, auto webtoon, duplicate and Downloaded-only ranking, the preload cooldown, the next-chapter preload placed after the overtaken-switch check, `fetchableChapterIds` for the sheet's download control, progress writes through `ReaderProgressWrites`) and `HttpPageLoader` (the user-set off-Wi-Fi window in place of `LIMITED_PAGES_AHEAD`). The image-viewer islands are the ones the content-layer Reader row names. Recorded in [upstream-sync.md](../upstream-sync.md) "Deliberate divergences", including Downloaded only applied after the duplicate ranking.
+Reikai patches sit in `// RK` islands in `ReaderActivity` (engine and provider wiring, `onNewIntent`, the ordering-hazard notes, the chapter sheet pick, the Retry flag on `requestPreloadChapter`) and `ReaderViewModel` (the reading-session record, see [statistics.md](statistics.md); merged lists, `ChapterSwitches`, the event channel, the requested-page reset, auto webtoon, duplicate and Downloaded-only ranking, the preload cooldown, the next-chapter preload placed after the overtaken-switch check, `fetchableChapterIds` for the sheet's download control, progress writes through `ReaderProgressWrites`) and `HttpPageLoader` (the user-set off-Wi-Fi window in place of `LIMITED_PAGES_AHEAD`). `DisplayRefreshHost` takes the open session's `ReaderFlash`, so manga and novels keep separate flash settings, and `SettingsMangaReaderScreen.getEInkGroup` is the shared `readerFlashGroup`. The image-viewer islands are the ones the content-layer Reader row names. Recorded in [upstream-sync.md](../upstream-sync.md) "Deliberate divergences", including Downloaded only applied after the duplicate ranking.
 
 ## Extending
 

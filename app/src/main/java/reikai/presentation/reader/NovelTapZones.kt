@@ -13,6 +13,7 @@ import reikai.domain.novel.NovelTapLayout
 import reikai.presentation.reader.navigation.BottomNavigation
 import reikai.presentation.reader.navigation.CenterNavigation
 import reikai.presentation.reader.navigation.ThirdsNavigation
+import reikai.presentation.reader.navigation.actionAt
 
 enum class NovelTapAction { MENU, BACK, FORWARD, NONE }
 
@@ -27,33 +28,16 @@ data class NovelTapZones(
 ) {
     /** The zones as regions, which the host's tap-zone overlay draws. */
     val navigation: ViewerNavigation by lazy {
-        when (layout) {
-            NovelTapLayout.DISABLED -> DisabledNavigation()
-            NovelTapLayout.THIRDS -> ThirdsNavigation()
-            NovelTapLayout.L_SHAPED -> LNavigation()
-            NovelTapLayout.KINDLISH -> KindlishNavigation()
-            NovelTapLayout.EDGE -> EdgeNavigation()
-            NovelTapLayout.RIGHT_AND_LEFT -> RightAndLeftNavigation()
-            NovelTapLayout.CENTER -> CenterNavigation()
-            NovelTapLayout.CENTER_LARGE -> CenterNavigation(large = true)
-            NovelTapLayout.BOTTOM -> BottomNavigation(bottomZoneFraction)
-        }.also { it.invertMode = invert }
+        layout.navigation(bottomZoneHeightPercent).also { it.invertMode = invert }
     }
-
-    /** The bottom zone's share of the page, a stored height outside what the setting offers held to its ends. */
-    val bottomZoneFraction: Float
-        get() = bottomZoneHeightPercent.coerceIn(BOTTOM_ZONE_PERCENT) / 100f
 
     /**
      * What a tap at [x], [y], each a fraction of the page, asks for. Next reads on; right reads on too, unless
      * the pages turn [rtl], where left does, as Mihon's right-to-left pager reads the same regions.
      */
     fun actionAt(x: Float, y: Float, rtl: Boolean): NovelTapAction {
-        if (layout.isZoneOnly) {
-            val inZone = navigation.getRegions().any { it.rectF.contains(x, y) }
-            return if (inZone) NovelTapAction.MENU else NovelTapAction.NONE
-        }
-        return when (navigation.getAction(PointF(x, y))) {
+        return when (navigation.actionAt(PointF(x, y))) {
+            null -> NovelTapAction.NONE
             NavigationRegion.MENU -> NovelTapAction.MENU
             NavigationRegion.NEXT -> NovelTapAction.FORWARD
             NavigationRegion.PREV -> NovelTapAction.BACK
@@ -70,3 +54,19 @@ data class NovelTapZones(
         val BOTTOM_ZONE_PERCENT = 2..50
     }
 }
+
+/** This layout's regions, for either reader; [bottomZoneHeightPercent] only shapes [NovelTapLayout.BOTTOM]. */
+fun NovelTapLayout.navigation(bottomZoneHeightPercent: Int): ViewerNavigation = when (this) {
+    NovelTapLayout.DISABLED -> DisabledNavigation()
+    NovelTapLayout.THIRDS -> ThirdsNavigation()
+    NovelTapLayout.L_SHAPED -> LNavigation()
+    NovelTapLayout.KINDLISH -> KindlishNavigation()
+    NovelTapLayout.EDGE -> EdgeNavigation()
+    NovelTapLayout.RIGHT_AND_LEFT -> RightAndLeftNavigation()
+    NovelTapLayout.CENTER -> CenterNavigation()
+    NovelTapLayout.CENTER_LARGE -> CenterNavigation(large = true)
+    NovelTapLayout.BOTTOM -> BottomNavigation(bottomZoneFraction(bottomZoneHeightPercent))
+}
+
+/** The bottom zone's share of the page, a stored height outside what the setting offers held to its ends. */
+fun bottomZoneFraction(heightPercent: Int): Float = heightPercent.coerceIn(NovelTapZones.BOTTOM_ZONE_PERCENT) / 100f

@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import reikai.presentation.reader.navigation.MangaTapLayouts
 
 /**
  * Configuration used by pager viewers.
@@ -98,6 +99,8 @@ class WebGpuConfig(
         readerPreferences.landscapeZoom.register({ landscapeZoom = it }, { imagePropertyChangedListener?.invoke() })
 
         readerPreferences.navigationModePager.register({ navigationMode = it }, { updateNavigation(navigationMode) })
+        readerPreferences.tapBottomZoneHeight // RK: the Bottom layout's zone height
+            .register({ tapBottomZoneHeight = it }, { updateNavigation(navigationMode) })
 
         readerPreferences.pagerNavInverted.register({ tappingInverted = it }, { navigator.invertMode = it })
         readerPreferences.pagerNavInverted.changes().drop(1).onEach { navigationModeChangedListener?.invoke() }
@@ -184,6 +187,8 @@ class WebGpuConfig(
         }
     }
 
+    private var tapBottomZoneHeight = 0 // RK
+
     override var navigator: ViewerNavigation = defaultNavigation()
         set(value) {
             field = value.also { it.invertMode = this.tappingInverted }
@@ -198,15 +203,16 @@ class WebGpuConfig(
     }
 
     override fun updateNavigation(navigationMode: Int) {
-        navigator = when (navigationMode) {
-            0 -> defaultNavigation()
-            1 -> LNavigation()
-            2 -> KindlishNavigation()
-            3 -> EdgeNavigation()
-            4 -> RightAndLeftNavigation()
-            5 -> DisabledNavigation()
-            else -> defaultNavigation()
-        }
+        navigator = MangaTapLayouts.navigation(navigationMode, tapBottomZoneHeight) // RK
+            ?: when (navigationMode) {
+                0 -> defaultNavigation()
+                1 -> LNavigation()
+                2 -> KindlishNavigation()
+                3 -> EdgeNavigation()
+                4 -> RightAndLeftNavigation()
+                5 -> DisabledNavigation()
+                else -> defaultNavigation()
+            }
         navigationModeChangedListener?.invoke()
     }
 }

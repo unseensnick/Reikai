@@ -220,6 +220,9 @@ class ReaderPreferences(
 
     val navigationModePager: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_pager", 0)
 
+    // RK: the Bottom tap layout's zone height in percent, which the novel reader keeps its own of
+    val tapBottomZoneHeight: Preference<Int> = preferenceStore.getInt("reader_tap_bottom_zone_height", 12)
+
     val navigationModeWebtoon: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_webtoon", 0)
 
     val pagerNavInverted: Preference<TappingInvertMode> = preferenceStore.getEnum(
