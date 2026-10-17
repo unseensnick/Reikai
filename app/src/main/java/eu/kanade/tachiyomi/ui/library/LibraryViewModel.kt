@@ -182,13 +182,16 @@ class LibraryViewModel(
         .distinctUntilChanged()
 
     // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
-    // novel library asks too
-    private val tracks = libraryTracksFlow(
+    // novel library asks too. The debounced query rides it, so a search waits for the tracks it reads.
+    // The query carries its resolved `chapter:` id sets alongside it, so a chapter lookup runs once per
+    // query change rather than on every favorites tick.
+    private val searchAndTracks = libraryTracksFlow(
         filterSettings,
         getCategories.subscribe(),
         libraryPreferences,
         reikaiLibraryPreferences,
-        searchQuery,
+        searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
+        { it.first },
         getTracksPerManga::subscribe,
     )
     // RK <--
@@ -198,22 +201,20 @@ class LibraryViewModel(
     // because only it sees both content types.
     private val libraryData: StateFlow<LibraryData?> =
         combine(
-            // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
-            //     lookup runs once per query change rather than on every favorites tick.
-            searchQuery.debounce(0.25.seconds)
-                .map { query -> query to resolveChapterMatches(query) },
+            searchAndTracks, // RK
             // RK: no category-table input: grouping, its only reader, moved to LibraryEngine, and a
             //     rename re-ran this whole filter pass for nothing.
             // RK: the custom-info overlay rides with favorites but is
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            combine(tracks, filterSettings, ::Pair), // RK: filterSettings
+            filterSettings, // RK
         ) {
-                (searchQuery, chapterMatches),
+                (search, tracksMap),
                 (favorites, customInfo),
-                (tracksMap, filters),
+                filters,
             ->
+            val (searchQuery, chapterMatches) = search // RK
             val filteredFavorites = favorites
                 .applyFilters(tracksMap, filters.resolve()) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel

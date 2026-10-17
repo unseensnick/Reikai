@@ -3,6 +3,8 @@ package reikai.presentation.library
 import io.kotest.matchers.shouldBe
 import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import tachiyomi.domain.category.model.Category
 import kotlin.time.Instant
 
@@ -131,6 +133,37 @@ class LibraryQueryMatchTest {
     @Test
     fun `an empty category asks for an entry filed nowhere`() {
         matches("category:\"\"", Row(categories = listOf(0L))) shouldBe true
+    }
+
+    /** Some galleries file their site category under a `category` tag namespace, which is not the user's. */
+    @ParameterizedTest
+    @ValueSource(strings = ["category:manga", "status:manga", "tracker:manga"])
+    fun `a field only the library holds is never answered by a gallery tag`(query: String) {
+        val galleryFields = LibraryQueryFields<Row>(
+            id = fields.id,
+            title = fields.title,
+            author = fields.author,
+            artist = fields.artist,
+            description = fields.description,
+            notes = fields.notes,
+            genre = fields.genre,
+            sources = fields.sources,
+            unreadCount = fields.unreadCount,
+            readCount = fields.readCount,
+            totalChapters = fields.totalChapters,
+            dateAdded = fields.dateAdded,
+            fetchInterval = fields.fetchInterval,
+            nextUpdate = fields.nextUpdate,
+            matchesChapter = fields.matchesChapter,
+            matchesTagTerm = { _, _ -> true },
+            status = fields.status,
+            trackerNames = fields.trackerNames,
+            categoryIds = fields.categoryIds,
+            matchesCategory = fields.matchesCategory,
+            meanScore = fields.meanScore,
+        )
+
+        libraryQueryMatches(QueryNode.from(query), Row(), galleryFields) shouldBe false
     }
 
     @Test

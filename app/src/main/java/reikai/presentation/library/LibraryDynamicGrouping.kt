@@ -54,7 +54,8 @@ suspend fun libraryDynamicGroupingFeed(
 ): DynamicGroupingFeed = DynamicGroupingFeed(
     items = rows.map { row ->
         val manga = row.libraryManga.manga
-        DynItem(row.entryId, manga.genre, manga.author, manga.artist)
+        // Every member's tags, as tag search and Statistics count a merged series; never Edit info's.
+        DynItem(row.entryId, seriesGenres(null, listOf(manga.genre, row.memberGenres)), manga.author, manga.artist)
     },
     sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
         rows.mapNotNull { row -> sourceOf(row)?.let { row.entryId to it } }.toMap()

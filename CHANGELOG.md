@@ -16,7 +16,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
-- **Library search finds a merged series by a tag any of its sources gives it.** Tags set in Edit info still replace the sources' own.
+- **Library search and Group by tag find a merged series by a tag any of its sources gives it.** Tags set in Edit info still replace the sources' own in search.
 
 ### Reader
 

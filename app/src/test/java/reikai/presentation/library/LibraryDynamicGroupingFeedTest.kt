@@ -50,6 +50,15 @@ class LibraryDynamicGroupingFeedTest {
         feed(row, LibraryGroup.BY_TAG).items shouldBe listOf(DynItem(row.entryId, listOf("Drama"), "Ito", "Kai"))
     }
 
+    /** As tag search and Statistics count a merged series. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series groups under every member's tags`(type: ContentType) = runTest {
+        val row = row(type).copy(memberGenres = listOf("Isekai", "drama"))
+
+        feed(row, LibraryGroup.BY_TAG).items.single().genre shouldBe listOf("Drama", "Isekai")
+    }
+
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
     fun `language groups read the row's source language`(type: ContentType) = runTest {

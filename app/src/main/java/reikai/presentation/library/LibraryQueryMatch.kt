@@ -233,10 +233,16 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
             }
             if (value.isEmpty()) text.isNullOrEmpty() else text?.contains(value, ignoreCase = true) ?: false
         }
-        // An empty value asks for an absent field, which the tag grammar has no reading of.
-    } || (value.isNotEmpty() && fields.matchesTagTerm(row, "${field.aliases.first()}:${termText(value)}"))
+        // An empty value asks for an absent field, which the tag grammar has no reading of, and a field only
+        // the library holds is never a gallery's tag: some sites file their own `category` namespace.
+    } || (
+        value.isNotEmpty() && field !in LIBRARY_ONLY_FIELDS &&
+            fields.matchesTagTerm(row, "${field.aliases.first()}:${termText(value)}")
+        )
     return if (negated) !match else match
 }
+
+private val LIBRARY_ONLY_FIELDS = setOf(MangaField.STATUS, MangaField.TRACKER, MangaField.CATEGORY)
 
 // The tag grammar reads a term before its negation, so an excluded term drops a row either grammar finds
 // it in. The lexer unquoted the value, so one the tag grammar would split or read as `-` is quoted back.

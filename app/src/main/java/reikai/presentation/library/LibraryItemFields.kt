@@ -98,7 +98,8 @@ fun libraryItemQueryFields(
 
 /**
  * A series' tags as search and Statistics read them: its Edit info tags when set, else every source's
- * tags of a merged series, so a tag row counts exactly the series its `tag:` search finds.
+ * tags of a merged series, so a tag row counts exactly the series its `tag:` search finds. Group by tag
+ * passes no Edit info, since grouping reads source values.
  */
 fun seriesGenres(custom: List<String>?, memberGenres: List<List<String>?>): List<String> =
     custom ?: memberGenres.flatMap { it.orEmpty() }.distinctBy { it.lowercase() }

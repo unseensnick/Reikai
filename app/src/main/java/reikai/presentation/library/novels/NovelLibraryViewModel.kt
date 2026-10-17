@@ -167,29 +167,29 @@ class NovelLibraryViewModel(
                     // Re-emit when a download/delete changes the disk index so the badge + filter refresh.
                     .combine(novelDownloadCache.changes.pausedWhileUnsubscribed()) { library, _ -> library },
                 getCustomNovelInfo.subscribeAll(),
-                // Whole-library novel tracks (novelId -> tracks) ride with the library so a bind/unbind
-                // re-sinks the tracker filter/sort/group, read only while one of those uses them.
-                libraryTracksFlow(
-                    filterSettings,
-                    getNovelCategories.subscribe(),
-                    libraryPreferences,
-                    reikaiLibraryPreferences,
-                    searchQuery,
-                    getNovelTracks::subscribeAll,
-                ),
-                ::Triple,
+                ::Pair,
             ),
             // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
             // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
             // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
             // change, not on every library, download-cache or track tick, as the manga side does.
             // No pin: manga's 0.25 s is upstream's own literal, kept verbatim for sync, and the
-            // once-per-query scan is a cost choice that changes nothing a user sees.
-            searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
+            // once-per-query scan is a cost choice that changes nothing a user sees. Whole-library novel
+            // tracks (novelId -> tracks) ride the query, read only while a filter, sort, group or the
+            // search uses them, so a search waits for the tracks it reads.
+            libraryTracksFlow(
+                filterSettings,
+                getNovelCategories.subscribe(),
+                libraryPreferences,
+                reikaiLibraryPreferences,
+                searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
+                { it.first },
+                getNovelTracks::subscribeAll,
+            ),
             // No collapse input: collapse only feeds grouping, which LibraryEngine owns, and as an
             // input here every collapse tap would rebuild the whole filtered novel list for nothing.
             settingsFlow(),
-        ) { (library, customInfo, tracks), search, settings ->
+        ) { (library, customInfo), (search, tracks), settings ->
             buildState(library, customInfo, tracks, search, settings)
         }
             .flowOn(Dispatchers.Default)
