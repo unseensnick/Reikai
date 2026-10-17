@@ -67,7 +67,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 ## Upstream divergences
 
-`StatsViewModel`, `StatsScreen`, `StatsScreenContent` and `StatsScreenState` carry `// RK` patches: the loader, the content switch, the chart cards and their links. `ReaderViewModel` records sessions; `HistoryRepositoryImpl`, `RestoreRepositoryImpl`, `MangaBackupCreator`, `MangaRestorer`, `BackupManga`, `RestoredManga` and `MigrateMangaUseCase` carry the log through clear, backup, restore and migrate. `LibrarySearchAst` adds the `status`, `tracker`, `category` and `score` fields.
+`StatsViewModel`, `StatsScreen`, `StatsScreenContent` and `StatsScreenState` carry `// RK` patches: the loader, the content switch, the chart cards and their links. `ReaderViewModel` records sessions; `HistoryRepositoryImpl`, `RestoreRepositoryImpl`, `MangaBackupCreator`, `MangaRestorer`, `BackupManga`, `RestoredManga` and `MigrateMangaUseCase` carry the log through clear, backup, restore and migrate. `LibrarySearchAst` adds the `status`, `tracker`, `category` and `score` fields. Mihon's `SectionCard` (`presentation-core`) takes a modifier and an arrangement and drops its `LazyItemScope` receiver, and `StatsItem` takes the overview's type sizes and hyphenates a long label, both for the shelves.
 
 ## Extending
 

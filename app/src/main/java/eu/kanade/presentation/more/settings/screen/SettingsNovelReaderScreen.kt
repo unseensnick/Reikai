@@ -526,7 +526,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val useVolumeButtons by useVolumeButtonsPref.collectAsState()
         // A press turns a whole page when paged, so there is no distance to choose.
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
-        // Gated on the rail alone, unlike the manga screen's pair: a novel has no reading mode to pick it.
+        // Gated on the rail alone, unlike the manga screen's pair: every novel reading mode shows the same rail.
         val useRail by novelPreferences.readerUseRail().collectAsState()
         val showNavigator by novelPreferences.readerShowNavigator().collectAsState()
 
