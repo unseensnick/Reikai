@@ -18,13 +18,17 @@ Statistics summarises the library and the reader's reading for manga and novels 
 
 ### Library searches
 
-A row opens the library through `searchLibraryFromDetails` with a query the shared search kernel answers: `status:`, `tracker:""`, `category:"Name"`, a `score` range matching the bar `scoreBar` rounds into, `total` bounds, `srcid:` and so on (see [library.md](library.md), Search). Start-year rows have no search and do not open.
+A row opens the library through `searchLibraryFromDetails` with a query the shared search kernel answers: `status:`, `tracker:""`, `category:"Name"`, a `score` range matching the bar `scoreBar` rounds into, `total` bounds, `srcid:` and so on (see [library.md](library.md), Search). A name goes in whichever quote it lacks (`quotedQueryValue`), since the lexer has no escape. Start-year rows, and a name holding both quotes, have no search and do not open; their card is not a button.
 
 ### Reading log
 
-History keeps one row per chapter whose last read is overwritten, so it cannot place time on a day. The reading log (`reading_session` and `novel_reading_session`, `ReadingLogRepository`) stores one row per session: the chapter, when it ended and how long it lasted. Both readers record it beside their history save, after the incognito check. `readingTimeByDay` and `readingTimeByDayAndTitle` split a session at local midnight when the stats are computed; the per-title form keys by `EntryId`, since a manga and a novel can share a row id.
+History keeps one row per chapter whose last read is overwritten, so it cannot place time on a day. The reading log (`reading_session` and `novel_reading_session`, `ReadingLogRepository`) stores one row per session: the chapter, when it ended and how long it lasted. Both readers record it beside their history save, after the incognito check. The novel reader's read aloud is reading too: with the reader off screen, its session runs while speech plays and is saved when it stops. `readingTimeByDay` and `readingTimeByDayAndTitle` split a session at local midnight when the stats are computed; the per-title form keys by `EntryId`, since a manga and a novel can share a row id.
 
-Sessions follow history: clearing all history clears them per type, Clear database's removal of reset manga history takes those chapters' sessions, a backup carries them by chapter url (`BackupReadingSession`, field 701 on `BackupManga`, 28 on `BackupNovel`), a restore puts them on the chapter with that url, and a migration copies them onto each matched chapter. `(chapter_id, ended_at)` is unique, so a restore or migrate repeated over the same data adds nothing.
+Every session counts, library or not: `titleSessions` puts a merged member's under its series, and one on a series outside the library (read from Browse, or left behind by a removal) under that entry and its own title, which the sessions query carries. Only the per-day time, the streaks and the Reading time screen read sessions; the groupings' time comes from history.
+
+Sessions follow history: clearing all history clears them per type, Clear database's removal of reset manga history takes those chapters' sessions, a backup carries them by chapter url (`BackupReadingSession`, field 701 on `BackupManga`, 28 on `BackupNovel`), and a restore puts them on the chapter with that url, dropping one with no time, more than a week of it or an end outside the epoch to the year 3000 (`isLoggableSession`). A migration, copy or replace, and the gallery-version merge move each source chapter's sessions onto one target (`sessionMoves`, the first matched), so the time counts once. `(chapter_id, ended_at)` is unique, so a restore or a move repeated over the same data adds nothing.
+
+A restore keeps the longer of the backup's and the device's history time per chapter, but adds the backup's sessions to the device's. Restoring the same data again changes neither; merging two devices' reading makes the Reading time screen's total for a series exceed its history time.
 
 ### Charts
 

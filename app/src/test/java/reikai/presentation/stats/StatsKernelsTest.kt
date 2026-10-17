@@ -15,7 +15,12 @@ class StatsKernelsTest {
 
     @Test
     fun `a session across midnight is split between the two days`() {
-        val session = EntryReadingSession(1L, endedAt = Instant.parse("2026-10-02T00:10:00Z"), duration = 30 * MINUTE)
+        val session = EntryReadingSession(
+            1L,
+            title = "",
+            endedAt = Instant.parse("2026-10-02T00:10:00Z"),
+            duration = 30 * MINUTE,
+        )
 
         readingTimeByDay(listOf(session), utc) shouldBe mapOf(
             LocalDate(2026, 10, 1) to 20 * MINUTE,
@@ -122,7 +127,6 @@ class StatsKernelsTest {
         meanScore = null,
         trackStatus = null,
         trackerStartedAt = trackerStartedAt,
-        trackerFinishedAt = null,
         readDuration = 0,
         firstLoggedReadAt = firstLoggedReadAt,
     )

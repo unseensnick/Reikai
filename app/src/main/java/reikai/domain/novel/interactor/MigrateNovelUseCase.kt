@@ -25,6 +25,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.sessionMoves
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
@@ -127,7 +128,10 @@ class MigrateNovelUseCase(
                     novelHistoryRepository.getHistoryByNovelId(current.id),
                     novelHistoryRepository.getHistoryByNovelId(target.id),
                 ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
-                readingLog.copy(ContentType.NOVELS, matchedSourceChapters(currentChapters, targetChapters))
+                readingLog.move(
+                    ContentType.NOVELS,
+                    sessionMoves(matchedSourceChapters(currentChapters, targetChapters).toList()),
+                )
             }
 
             // Read here, written once the target is in the library, see the group write below

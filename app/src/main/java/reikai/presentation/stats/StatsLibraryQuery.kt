@@ -1,12 +1,14 @@
 package reikai.presentation.stats
 
+import reikai.presentation.library.quotedQueryValue
 import reikai.presentation.library.sourceKeyQuery
 import reikai.presentation.library.statusQueryWord
 import tachiyomi.domain.category.model.Category
 
 /**
  * The library search that lists a details row's series, or null for a row search cannot express (a start
- * year). [trackerName] and [categoryName] name an id; a null answer leaves the row unopenable. `tag:` and
+ * year, a name holding both quote marks). [trackerName] and [categoryName] name an id; a null answer leaves the
+ * row unopenable. `tag:` and
  * `lang:` match a part of a value, so their search can also find a longer tag or language holding it.
  */
 fun StatsGroupKey.libraryQuery(trackerName: (Long) -> String?, categoryName: (Long) -> String?): String? =
@@ -25,7 +27,7 @@ fun StatsGroupKey.libraryQuery(trackerName: (Long) -> String?, categoryName: (Lo
         }
         is StatsGroupKey.Tracker -> when (trackerId) {
             null -> "tracker:\"\""
-            else -> trackerName(trackerId)?.let { "tracker:\"$it\"" }
+            else -> trackerName(trackerId)?.let(::quotedQueryValue)?.let { "tracker:$it" }
         }
         is StatsGroupKey.Source -> sourceKeyQuery(key)
         is StatsGroupKey.Category -> if (id ==
@@ -33,9 +35,9 @@ fun StatsGroupKey.libraryQuery(trackerName: (Long) -> String?, categoryName: (Lo
         ) {
             "category:\"\""
         } else {
-            categoryName(id)?.let { "category:\"$it\"" }
+            categoryName(id)?.let(::quotedQueryValue)?.let { "category:$it" }
         }
-        is StatsGroupKey.Tag -> "tag:\"$name\""
+        is StatsGroupKey.Tag -> quotedQueryValue(name)?.let { "tag:$it" }
         is StatsGroupKey.Language -> "lang:\"$code\""
         is StatsGroupKey.StartYear -> null
     }

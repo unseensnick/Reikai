@@ -10,7 +10,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
+import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -48,6 +50,7 @@ class EHentaiUpdateHelper(
     private val getHistory: GetHistory,
     // A superseded gallery is unfavorited below, which is a library removal like any other.
     private val mangaMergeManager: MangaMergeManager,
+    private val readingLog: ReadingLogRepository,
 ) {
     val parentLookupTable =
         MemAutoFlushingLookupTable(
@@ -133,10 +136,15 @@ class EHentaiUpdateHelper(
             val newAccepted = ChapterChain(accepted.manga, inserted, emptyList())
             val rootsToMutate = toDiscard + newAccepted
 
-            val (newHistory, deleteHistory) = getHistory(
-                getChaptersByMangaId.await(accepted.manga.id),
-                chainsAsChapters,
-                chainsAsHistory,
+            val acceptedChapters = getChaptersByMangaId.await(accepted.manga.id)
+            val (newHistory, deleteHistory) = getHistory(acceptedChapters, chainsAsChapters, chainsAsHistory)
+            // Each discarded version's chapter hands its reading time to the accepted chapter its history goes to.
+            val acceptedByUrl = acceptedChapters.associateBy { it.url }
+            readingLog.move(
+                ContentType.MANGA,
+                chainsAsChapters.mapNotNull { chapter ->
+                    acceptedByUrl[chapter.url]?.takeIf { it.id != chapter.id }?.let { chapter.id to it.id }
+                }.toMap(),
             )
 
             // Delete the duplicate history first

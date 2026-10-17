@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -121,6 +122,7 @@ class EHentaiUpdateHelperTest {
             removeHistory = RemoveHistory(historyRepository),
             getHistory = GetHistory(historyRepository),
             mangaMergeManager = mockk(relaxed = true),
+            readingLog = NoReadingLog,
         )
 
         val added = helper.findAcceptedRootAndDiscardOthers(SOURCE_ID, listOf(stored, newerVersion))!!.third

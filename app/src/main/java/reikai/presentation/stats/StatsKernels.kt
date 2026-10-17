@@ -42,10 +42,10 @@ fun readingTimeByDayAndTitle(
     timeZone: TimeZone,
 ): Map<LocalDate, Map<EntryId, Long>> {
     val byDay = mutableMapOf<LocalDate, MutableMap<EntryId, Long>>()
-    sessions.forEach { (title, session) ->
+    sessions.forEach { (entryId, _, session) ->
         session.splitByDay(timeZone) { day, ms ->
             val byTitle = byDay.getOrPut(day) { mutableMapOf() }
-            byTitle[title.entryId] = (byTitle[title.entryId] ?: 0L) + ms
+            byTitle[entryId] = (byTitle[entryId] ?: 0L) + ms
         }
     }
     return byDay
@@ -91,12 +91,6 @@ val StatsTitle.startedAt: Instant? get() = trackerStartedAt ?: firstLoggedReadAt
 fun firstLoggedRead(sessions: List<EntryReadingSession>): Map<Long, Instant> = sessions
     .groupBy { it.entryId }
     .mapValues { (_, entry) -> entry.minOf { it.startedAt } }
-
-fun List<StatsTitle>.startedPerYear(timeZone: TimeZone): Map<Int, Int> =
-    mapNotNull { it.startedAt?.toLocalDateTime(timeZone)?.year }.groupingBy { it }.eachCount()
-
-fun List<StatsTitle>.finishedPerYear(timeZone: TimeZone): Map<Int, Int> =
-    mapNotNull { it.trackerFinishedAt?.toLocalDateTime(timeZone)?.year }.groupingBy { it }.eachCount()
 
 enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TAG, LANGUAGE, START_YEAR }
 

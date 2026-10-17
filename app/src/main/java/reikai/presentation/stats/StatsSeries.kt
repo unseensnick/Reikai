@@ -89,7 +89,6 @@ class StatsSeries<T>(
                 trackStatus = groupStatusTrack(groupTracks, trackers.keys)
                     ?.let { track -> trackers[track.trackerId]?.trackStatusOf(track.status) },
                 trackerStartedAt = groupTracks.mapNotNull { it.startDate }.minOrNull(),
-                trackerFinishedAt = groupTracks.mapNotNull { it.finishDate }.maxOrNull(),
                 readDuration = memberIds.sumOf { readDuration[it] ?: 0L },
                 firstLoggedReadAt = memberIds.mapNotNull(firstLoggedRead::get).minOrNull(),
             )

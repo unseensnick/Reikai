@@ -57,7 +57,12 @@ class StatsLibraryQueryTest {
 
     private val trackerNames = mapOf(1L to "AniList", 2L to "MyAnimeList")
 
-    private val categories = listOf(Category(5L, "Read", 0L, 0L), Category(6L, "Reading", 1L, 0L))
+    private val categories = listOf(
+        Category(5L, "Read", 0L, 0L),
+        Category(6L, "Reading", 1L, 0L),
+        // A quote in a name, which the search must not end the value at.
+        Category(7L, "Best \"ever\"", 2L, 0L),
+    )
 
     private val titles = listOf(
         title(1L, status = 1L, score = null, chapters = 0, trackers = emptyList(), categories = emptyList()),
@@ -67,7 +72,7 @@ class StatsLibraryQueryTest {
         // Each on a band's edge, where scoreBar's rounding and the row's search range must agree.
         title(5L, status = 1L, score = 1.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
         title(6L, status = 1L, score = 7.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
-        title(7L, status = 1L, score = 9.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L)),
+        title(7L, status = 1L, score = 9.5, chapters = 2, trackers = listOf(1L), categories = listOf(5L, 7L)),
     )
 
     private fun title(
@@ -82,7 +87,15 @@ class StatsLibraryQueryTest {
         entryId = EntryId.Manga(id),
         status = status,
         sources = listOf(StatsSource("s$id", "Source $id", if (id % 2 == 0L) "en" else "ja")),
-        genres = listOf(if (id % 2 == 0L) "Drama" else "Comedy"),
+        genres = listOf(
+            if (id == 7L) {
+                "Slice \"of\" life"
+            } else if (id % 2 == 0L) {
+                "Drama"
+            } else {
+                "Comedy"
+            },
+        ),
         categoryIds = categories,
         totalChapters = chapters,
         readChapters = 0,
@@ -90,7 +103,6 @@ class StatsLibraryQueryTest {
         meanScore = score,
         trackStatus = null,
         trackerStartedAt = null,
-        trackerFinishedAt = null,
         readDuration = 0,
         firstLoggedReadAt = null as Instant?,
     )

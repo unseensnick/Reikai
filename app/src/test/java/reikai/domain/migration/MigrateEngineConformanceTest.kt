@@ -358,7 +358,21 @@ class MigrateEngineConformanceTest {
             targetChapters = listOf(Ch(10, 1.0), Ch(11, 3.0)),
         )
 
-        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).sessionCopies shouldBe mapOf(10L to 1L)
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).sessionMoves shouldBe mapOf(1L to 10L)
+    }
+
+    /** A target listing one number twice (two releases) would otherwise count the same reading on each. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a chapter's reading sessions move to one target even when its number repeats`(
+        engine: MigrateEngine,
+    ) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0), Ch(11, 1.0)),
+        )
+
+        engine.migrate(setup, replace = false, flags = setOf(Flag.CHAPTER)).sessionMoves shouldBe mapOf(1L to 10L)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -369,7 +383,7 @@ class MigrateEngineConformanceTest {
             targetChapters = listOf(Ch(10, 1.0)),
         )
 
-        engine.migrate(setup, replace = true).sessionCopies shouldBe emptyMap()
+        engine.migrate(setup, replace = true).sessionMoves shouldBe emptyMap()
     }
 
     @ParameterizedTest(name = "{0}")
@@ -567,8 +581,8 @@ class Outcome(
     val targetHistory: List<Hist>,
     /** Every category write, by entry. */
     val categoryWrites: Map<Long, List<Long>>,
-    /** The reading-log copies asked for, target chapter id to source chapter id. */
-    val sessionCopies: Map<Long, Long>,
+    /** The reading-log moves asked for, source chapter id to target chapter id. */
+    val sessionMoves: Map<Long, Long>,
 ) {
     val targetSwap: Swap? get() = swap?.singleOrNull { it.favorite == true }
 
@@ -594,10 +608,10 @@ private class Recorder : Transactions {
     val tracksWritten = mutableListOf<Pair<Long, Long>>()
     val sourceTrackerCalls = mutableListOf<String>()
     val categoryWrites = mutableMapOf<Long, List<Long>>()
-    val sessionCopies = mutableMapOf<Long, Long>()
+    val sessionMoves = mutableMapOf<Long, Long>()
     val readingLog = object : ReadingLogRepository by NoReadingLog {
-        override suspend fun copy(contentType: ContentType, sourceByTargetChapter: Map<Long, Long>) {
-            sessionCopies.putAll(sourceByTargetChapter)
+        override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) {
+            sessionMoves.putAll(targetBySourceChapter)
         }
     }
     private val history = mutableMapOf<Long, Hist>()
@@ -657,7 +671,7 @@ private class Recorder : Transactions {
         sourceTrackerCalls = sourceTrackerCalls,
         targetHistory = historyOf(targetChapters.map { it.id }).sortedBy { it.chapterId },
         categoryWrites = categoryWrites,
-        sessionCopies = sessionCopies,
+        sessionMoves = sessionMoves,
     )
 }
 

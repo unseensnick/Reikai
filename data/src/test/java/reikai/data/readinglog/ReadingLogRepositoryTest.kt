@@ -113,14 +113,60 @@ class ReadingLogRepositoryTest {
         sessionCount(type) shouldBe 0L
     }
 
+    /** A backup is a file: a corrupt length would have Statistics walk its days one at a time. */
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a copy puts the source chapter's sessions on its target once`(type: ContentType) = runTest {
+    fun `a restored session longer than a week is dropped`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+
+        log.restore(type, 1L, listOf(UrlReadingSession("/c1", Instant.fromEpochMilliseconds(1_000L), Long.MAX_VALUE)))
+
+        sessionCount(type) shouldBe 0L
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a restored session with no time spent is dropped`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+
+        log.restore(type, 1L, listOf(UrlReadingSession("/c1", Instant.fromEpochMilliseconds(1_000L), -5L)))
+
+        sessionCount(type) shouldBe 0L
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a move takes the source chapter's sessions to its target`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+        chapter(type, id = 10L, entryId = 2L, url = "/c1")
         log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
 
-        repeat(2) { log.copy(type, sourceByTargetChapter = mapOf(10L to 1L)) }
+        log.move(type, targetBySourceChapter = mapOf(1L to 10L))
 
-        sessionCount(type) shouldBe 2L
+        (log.sessionsByUrl(type, entryId = 1L).size to log.sessionsByUrl(type, entryId = 2L).size) shouldBe (0 to 1)
+    }
+
+    /** A retried migration runs it again, which must add no time. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a move run twice leaves one session`(type: ContentType) = runTest {
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+
+        repeat(2) { log.move(type, targetBySourceChapter = mapOf(1L to 10L)) }
+
+        sessionCount(type) shouldBe 1L
+    }
+
+    /** The target already holding the same session, as a merge of the same reading from two devices can leave it. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a move onto a chapter already holding that session keeps one`(type: ContentType) = runTest {
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+        log.record(type, 10L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+
+        log.move(type, targetBySourceChapter = mapOf(1L to 10L))
+
+        sessionCount(type) shouldBe 1L
     }
 
     private suspend fun chapter(type: ContentType, id: Long, entryId: Long, url: String) = exec(

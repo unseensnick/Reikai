@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelHistory
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -21,14 +22,17 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
-import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import kotlin.time.Instant
 
 /**
  * A backup can carry one history entry per copy of a duplicated chapter (mihon 553762fae). Restore counts
@@ -107,6 +111,19 @@ class RestoreHistoryConformanceTest {
         type.history(database) shouldBe Stored(readAt = 300L, duration = 5L)
     }
 
+    /** Sessions re-link to the chapter by url, since the device's chapter ids are not the backup's. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `the backup's reading sessions restore onto the chapter with their url`(type: Type) = runTest {
+        type.seed(driver, device = null)
+        val session = BackupReadingSession(url = "c", endedAt = 1_000L, duration = 60_000L)
+
+        type.restore(database, copies = emptyList(), sessions = listOf(session))
+
+        ReadingLogRepositoryImpl(database).sessionsByUrl(type.contentType, entryId = 1L) shouldBe
+            listOf(UrlReadingSession("c", Instant.fromEpochMilliseconds(1_000L), 60_000L))
+    }
+
     data class Copy(val readAt: Long, val duration: Long)
 
     /** [readAt] in epoch millis, null for history the user removed. */
@@ -131,8 +148,10 @@ class RestoreHistoryConformanceTest {
                 },
             )
 
-            override suspend fun restore(database: Database, copies: List<Copy>) {
-                mangaRestorer(database).restore(
+            override val contentType = ContentType.MANGA
+
+            override suspend fun restore(database: Database, copies: List<Copy>, sessions: List<BackupReadingSession>) {
+                mangaRestorer(database, readingLog = ReadingLogRepositoryImpl(database)).restore(
                     listOf(
                         BackupManga(
                             source = 1L,
@@ -142,6 +161,7 @@ class RestoreHistoryConformanceTest {
                             history = copies.map {
                                 BackupHistory(url = "c", lastRead = it.readAt, readDuration = it.duration)
                             },
+                            readingSessions = sessions,
                         ),
                     ),
                     emptyList(),
@@ -166,7 +186,9 @@ class RestoreHistoryConformanceTest {
                 },
             )
 
-            override suspend fun restore(database: Database, copies: List<Copy>) {
+            override val contentType = ContentType.NOVELS
+
+            override suspend fun restore(database: Database, copies: List<Copy>, sessions: List<BackupReadingSession>) {
                 NovelRestorer(
                     novelRepository = NovelRepositoryImpl(database),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -176,7 +198,7 @@ class RestoreHistoryConformanceTest {
                     setCustomNovelInfo = mockk(relaxed = true),
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = NoChapterNumberOverrides,
-                    readingLog = NoReadingLog,
+                    readingLog = ReadingLogRepositoryImpl(database),
                 ).restore(
                     BackupNovel(
                         source = "src",
@@ -186,6 +208,7 @@ class RestoreHistoryConformanceTest {
                         history = copies.map {
                             BackupNovelHistory(url = "c", lastRead = it.readAt, readDuration = it.duration)
                         },
+                        readingSessions = sessions,
                     ),
                     emptyList(),
                 )
@@ -199,7 +222,13 @@ class RestoreHistoryConformanceTest {
 
         abstract fun statements(device: Stored?): List<String>
 
-        abstract suspend fun restore(database: Database, copies: List<Copy>)
+        abstract val contentType: ContentType
+
+        abstract suspend fun restore(
+            database: Database,
+            copies: List<Copy>,
+            sessions: List<BackupReadingSession> = emptyList(),
+        )
 
         abstract suspend fun history(database: Database): Stored?
 

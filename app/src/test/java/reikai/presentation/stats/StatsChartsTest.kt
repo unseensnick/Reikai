@@ -45,7 +45,7 @@ class StatsChartsTest {
     )
 
     private fun session(endedAt: Instant, duration: Long) =
-        TitleReadingSession(title, EntryReadingSession(1L, endedAt, duration))
+        TitleReadingSession(title.entryId, title.title, EntryReadingSession(1L, "", endedAt, duration))
 
     private val title = StatsTitle(
         entryId = EntryId.Manga(1L),
@@ -60,7 +60,6 @@ class StatsChartsTest {
         meanScore = null,
         trackStatus = null,
         trackerStartedAt = null,
-        trackerFinishedAt = null,
         readDuration = 0,
         firstLoggedReadAt = null,
     )

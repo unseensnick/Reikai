@@ -203,10 +203,8 @@ class StatsViewModel(
     // StatsSeries.meanScores, the library's per-series mean (libraryTrackerMeans)
 
     // RK --> precomputed stat ingredients, folded per content-type chip selection. A merged series is
-    // one title, represented by its lowest-id member. That member's own status, started state and
-    // local-ness are what the status stats read, so they can differ from the library card, which leads
-    // on the ranked trunk. Re-deriving that ranking here would be a third copy of it. The chapter totals
-    // sum every member's rows, so a merged series counts its shared chapters once per source there;
+    // one title, read off the lead its library card shows (StatsSeries). The chapter totals sum every
+    // member's rows, so a merged series counts its shared chapters once per source there;
     // deduplicating those needs the match-key identities, not a group count.
     private data class StatsIngredients(
         val library: StatsLibrary,

@@ -28,11 +28,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -76,6 +78,7 @@ import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ChapterRetryCooldown
@@ -214,6 +217,10 @@ class NovelReaderViewModel(
     /** When the current chapter began being read, for the novel-history session duration, on the clock
      *  the manga reader shares. Restarted whenever a different chapter loads. */
     private val chapterReadSession = ReadSessionClock()
+
+    /** Whether the reader is on screen: between a pause and a resume only read aloud is reading. */
+    @Volatile
+    private var onScreen = true
 
     /**
      * The chapter this session opens on: the one being read when the process was killed, or the one
@@ -672,6 +679,7 @@ class NovelReaderViewModel(
     )
 
     init {
+        readAloudOffScreen()
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
@@ -875,7 +883,7 @@ class NovelReaderViewModel(
                 if (requested != pendingChapterId) return@launchIO
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
-                if (chapter.value != null && !chapterReadSession.isRunning) restartReadTimer()
+                if (chapter.value != null) chapterReadSession.resume(Clock.System.now())
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = chapter.value != null,
@@ -990,10 +998,32 @@ class NovelReaderViewModel(
         }
     }
 
-    /** [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. */
+    /**
+     * [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. Read aloud playing
+     * on is reading the reader still does, so its session starts again at once and is saved when the speech stops
+     * ([readAloudOffScreen]) or the reader comes back.
+     */
     fun saveHistory() {
+        onScreen = false
         // Immediate so the read time is taken when the reader pauses
-        appScope.launch(Dispatchers.Main.immediate) { updateHistory() }
+        appScope.launch(Dispatchers.Main.immediate) {
+            updateHistory()
+            if (readAloud.state.value.playback == TtsPlayback.Playing) chapterReadSession.resume(Clock.System.now())
+        }
+    }
+
+    /** Off screen, speech starting counts as reading and speech stopping ends the session, so listening with the
+     *  screen off counts for exactly as long as it plays. */
+    private fun readAloudOffScreen() {
+        readAloud.state
+            .map { it.playback == TtsPlayback.Playing }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { playing ->
+                if (onScreen) return@onEach
+                if (playing) chapterReadSession.resume(Clock.System.now()) else updateHistory()
+            }
+            .launchIn(viewModelScope)
     }
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
@@ -1009,9 +1039,10 @@ class NovelReaderViewModel(
     }
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
-     *  [updateHistory] and stopped the clock. */
+     *  [updateHistory] and stopped the clock, unless read aloud kept it running. */
     fun restartReadTimer() {
-        chapterReadSession.start(Clock.System.now())
+        onScreen = true
+        chapterReadSession.resume(Clock.System.now())
     }
 
     /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the

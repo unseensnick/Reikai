@@ -11,7 +11,7 @@ object NoReadingLog : ReadingLogRepository {
 
     override suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>) = Unit
 
-    override suspend fun copy(contentType: ContentType, sourceByTargetChapter: Map<Long, Long>) = Unit
+    override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) = Unit
 
     override suspend fun sessions(contentType: ContentType) = emptyList<EntryReadingSession>()
 

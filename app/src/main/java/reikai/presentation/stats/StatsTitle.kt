@@ -21,9 +21,8 @@ data class StatsTitle(
     val trackerIds: List<Long>,
     val meanScore: Double?,
     val trackStatus: TrackStatus?,
-    /** The earliest start and latest finish a tracker holds for any member. */
+    /** The earliest start a tracker holds for any member. */
     val trackerStartedAt: Instant?,
-    val trackerFinishedAt: Instant?,
     /** Lifetime reading time from history, every member summed. */
     val readDuration: Long,
     /** When the reading log first saw any member read; null before the log existed. */

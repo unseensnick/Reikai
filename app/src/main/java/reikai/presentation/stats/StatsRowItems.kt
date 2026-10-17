@@ -23,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
@@ -148,51 +149,61 @@ fun statsDuration(ms: Long): String {
  */
 @Composable
 fun StatsRowCard(row: StatsRow, onOpen: (String) -> Unit) {
+    // A row with no search (a start year) is not a button, and must not look like a disabled one either.
+    val query = row.query
+    if (query != null) {
+        ElevatedCard(
+            onClick = { onOpen(query) },
+            shape = MaterialTheme.shapes.large,
+            modifier = Modifier.fillMaxWidth(),
+        ) { StatsRowCardContent(row) }
+    } else {
+        ElevatedCard(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
+            StatsRowCardContent(row)
+        }
+    }
+}
+
+@Composable
+private fun StatsRowCardContent(row: StatsRow) {
     val group = row.group
-    ElevatedCard(
-        onClick = { row.query?.let(onOpen) },
-        enabled = row.query != null,
-        shape = MaterialTheme.shapes.large,
-        modifier = Modifier.fillMaxWidth(),
+    Column(
+        modifier = Modifier.padding(MaterialTheme.padding.medium),
+        verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {
-        Column(
-            modifier = Modifier.padding(MaterialTheme.padding.medium),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
         ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-            ) {
-                row.sourceBadge?.let { StatsSourceIcon(it) }
-                Text(
-                    text = group.key.label(row.name),
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = stringResource(MR.strings.stats_series_count, group.count),
-                    style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
-                )
+            row.sourceBadge?.let { StatsSourceIcon(it) }
+            Text(
+                text = group.key.label(row.name),
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = stringResource(MR.strings.stats_series_count, group.count),
+                style = MaterialTheme.typography.bodyLarge.copy(fontFeatureSettings = TABULAR),
+            )
+        }
+        ReadStateBar(group)
+        Row {
+            StatsLabelled(MR.strings.stats_label_finished, Modifier.weight(1f)) {
+                StatsValue(group.finished.toString())
             }
-            ReadStateBar(group)
-            Row {
-                StatsLabelled(MR.strings.stats_label_finished, Modifier.weight(1f)) {
-                    StatsValue(group.finished.toString())
-                }
-                StatsLabelled(MR.strings.reading, Modifier.weight(1f)) {
-                    StatsValue(group.reading.toString())
-                }
-                StatsLabelled(MR.strings.stats_label_not_started, Modifier.weight(1f)) {
-                    StatsValue(group.notStarted.toString())
-                }
+            StatsLabelled(MR.strings.reading, Modifier.weight(1f)) {
+                StatsValue(group.reading.toString())
             }
-            Row {
-                StatsLabelled(MR.strings.score, Modifier.weight(1f)) {
-                    StatsValue(group.meanScore?.let { "%.1f".format(it) })
-                }
-                StatsLabelled(MR.strings.stats_label_time, Modifier.weight(2f)) {
-                    StatsValue(if (group.readDuration > 0) statsDuration(group.readDuration) else null)
-                }
+            StatsLabelled(MR.strings.stats_label_not_started, Modifier.weight(1f)) {
+                StatsValue(group.notStarted.toString())
+            }
+        }
+        Row {
+            StatsLabelled(MR.strings.score, Modifier.weight(1f)) {
+                StatsValue(group.meanScore?.let { "%.1f".format(it) })
+            }
+            StatsLabelled(MR.strings.stats_label_time, Modifier.weight(2f)) {
+                StatsValue(if (group.readDuration > 0) statsDuration(group.readDuration) else null)
             }
         }
     }
@@ -225,7 +236,8 @@ private fun StatsLabelled(label: StringResource, modifier: Modifier = Modifier, 
     Column(modifier) {
         Text(
             text = stringResource(label),
-            style = MaterialTheme.typography.labelLarge,
+            // A long label in a third of a phone's width breaks inside a word rather than off the edge.
+            style = MaterialTheme.typography.labelLarge.copy(hyphens = Hyphens.Auto),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         content()

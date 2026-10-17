@@ -60,8 +60,9 @@ class StatsReadingViewModel(
         sourcePreferences.statsContentType.changes(),
         week,
     ) { library, type, week ->
-        val byDay = readingTimeByDayAndTitle(library.sessions(type), timeZone)
-        val names = library.titles(type).associate { it.entryId to it.title }
+        val sessions = library.sessions(type)
+        val byDay = readingTimeByDayAndTitle(sessions, timeZone)
+        val names = sessions.associate { it.entryId to it.name }
         StatsReadingState(
             days = weekEnding(week.end) { byDay[it].orEmpty().values.sum() },
             selected = week.selected,

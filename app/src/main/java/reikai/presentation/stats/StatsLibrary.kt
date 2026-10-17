@@ -59,31 +59,35 @@ class StatsLibrary(
 
     /** Logged sessions, each keyed to the title it counts under: a merged member's go to its series. */
     fun sessions(type: ContentType): List<TitleReadingSession> = buildList {
-        if (type.includes(ContentType.MANGA)) addAll(mangaSessions.toTitleSessions(manga, mangaTitles, EntryId::Manga))
-        if (type.includes(
-                ContentType.NOVELS,
-            )
-        ) {
-            addAll(novelSessions.toTitleSessions(novels, novelTitles, EntryId::Novel))
+        if (type.includes(ContentType.MANGA)) {
+            addAll(titleSessions(mangaSessions, manga.titleIdByMember, mangaTitles, EntryId::Manga))
         }
-    }
-
-    private fun List<EntryReadingSession>.toTitleSessions(
-        series: StatsSeries<*>,
-        titles: List<StatsTitle>,
-        entryId: (Long) -> EntryId,
-    ): List<TitleReadingSession> {
-        val titleByEntry = titles.associateBy { it.entryId }
-        val titleIdByMember = series.titleIdByMember
-        // A session on a series that has left the library has no title to count under.
-        return mapNotNull { session ->
-            val title = titleIdByMember[session.entryId]?.let { titleByEntry[entryId(it)] } ?: return@mapNotNull null
-            TitleReadingSession(title, session)
+        if (type.includes(ContentType.NOVELS)) {
+            addAll(titleSessions(novelSessions, novels.titleIdByMember, novelTitles, EntryId::Novel))
         }
     }
 }
 
-data class TitleReadingSession(val title: StatsTitle, val session: EntryReadingSession)
+/** A logged session and the series it counts under, named as the library names that series. */
+data class TitleReadingSession(val entryId: EntryId, val name: String, val session: EntryReadingSession)
+
+/**
+ * Keys each session to its library series, so a merged member's count under the series. A session on an entry outside
+ * the library (read from Browse, or removed since) counts under that entry by its own title: reading time is the
+ * reader's whether or not the series stayed.
+ */
+internal fun titleSessions(
+    sessions: List<EntryReadingSession>,
+    titleIdByMember: Map<Long, Long>,
+    titles: List<StatsTitle>,
+    entryId: (Long) -> EntryId,
+): List<TitleReadingSession> {
+    val titleByEntry = titles.associateBy { it.entryId }
+    return sessions.map { session ->
+        val title = titleIdByMember[session.entryId]?.let { titleByEntry[entryId(it)] }
+        TitleReadingSession(title?.entryId ?: entryId(session.entryId), title?.title ?: session.title, session)
+    }
+}
 
 @Inject
 class StatsLibraryLoader(

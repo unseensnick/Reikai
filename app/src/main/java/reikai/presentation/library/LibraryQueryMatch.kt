@@ -250,6 +250,16 @@ private fun termText(value: String): String =
 fun sourceKeyQuery(sourceKey: String): String = "srcid:\"$sourceKey\""
 
 /**
+ * [value] quoted for a `field:` term, in whichever quote it does not hold, since the lexer has no escape.
+ * Null for a value holding both, which no query can name.
+ */
+fun quotedQueryValue(value: String): String? = when {
+    '"' !in value -> "\"$value\""
+    '\'' !in value -> "'$value'"
+    else -> null
+}
+
+/**
  * `source:` / `src:` match the source's display name, upstream's meaning unchanged, plus the `local`
  * keyword. The exact-key form is `srcid:`, which answers identically on both content types; see
  * [LibraryQuerySource.key].

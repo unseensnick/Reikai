@@ -19,6 +19,11 @@ class ReadSessionClock {
         startedAt.set(now)
     }
 
+    /** Starts a session unless one is running, which a reader coming back to the screen keeps: read aloud played on. */
+    fun resume(now: Instant) {
+        startedAt.compareAndSet(null, now)
+    }
+
     /** The session's length up to [now], or 0 when none is running; the clock is stopped after. */
     fun take(now: Instant): Long = startedAt.getAndSet(null)?.let { (now - it).inWholeMilliseconds } ?: 0L
 }

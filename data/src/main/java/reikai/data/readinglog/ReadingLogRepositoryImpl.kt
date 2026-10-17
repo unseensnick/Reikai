@@ -10,6 +10,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.UrlReadingSession
+import reikai.domain.readinglog.isLoggableSession
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 import kotlin.time.Instant
@@ -25,7 +26,7 @@ class ReadingLogRepositoryImpl(
 
     override suspend fun record(contentType: ContentType, chapterId: Long, endedAt: Instant, duration: Long) {
         // A reader opened and closed in the same instant spent no time, and history adds nothing for it either.
-        if (duration <= 0L) return
+        if (!isLoggableSession(endedAt, duration)) return
         val isManga = isManga(contentType)
         try {
             if (isManga) {
@@ -50,10 +51,11 @@ class ReadingLogRepositoryImpl(
     }
 
     override suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>) {
-        if (sessions.isEmpty()) return
+        val loggable = sessions.filter { isLoggableSession(it.endedAt, it.duration) }
+        if (loggable.isEmpty()) return
         val isManga = isManga(contentType)
         database.transaction {
-            sessions.forEach {
+            loggable.forEach {
                 val endedAt = it.endedAt.toEpochMilliseconds()
                 if (isManga) {
                     queries.restoreManga(endedAt, it.duration, entryId, it.chapterUrl)
@@ -64,19 +66,21 @@ class ReadingLogRepositoryImpl(
         }
     }
 
-    override suspend fun copy(contentType: ContentType, sourceByTargetChapter: Map<Long, Long>) {
-        if (sourceByTargetChapter.isEmpty()) return
+    override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) {
+        if (targetBySourceChapter.isEmpty()) return
         val isManga = isManga(contentType)
         database.transaction {
-            sourceByTargetChapter.forEach { (target, source) ->
-                if (isManga) queries.copyManga(target, source) else queries.copyNovel(target, source)
+            targetBySourceChapter.forEach { (source, target) ->
+                if (source == target) return@forEach
+                // A grouped statement runs only when awaited, unlike a single one.
+                if (isManga) queries.moveManga(target, source).await() else queries.moveNovel(target, source).await()
             }
         }
     }
 
     override suspend fun sessions(contentType: ContentType): List<EntryReadingSession> {
-        val mapper = { entryId: Long, endedAt: Long, duration: Long ->
-            EntryReadingSession(entryId, Instant.fromEpochMilliseconds(endedAt), duration)
+        val mapper = { entryId: Long, title: String, endedAt: Long, duration: Long ->
+            EntryReadingSession(entryId, title, Instant.fromEpochMilliseconds(endedAt), duration)
         }
         return if (isManga(contentType)) {
             queries.sessionsOfManga(mapper).awaitAsList()
