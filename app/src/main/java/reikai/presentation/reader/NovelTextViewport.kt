@@ -1588,7 +1588,7 @@ class NovelTextViewport(
                 // the wait for them runs out. A chapter the list has not laid out has nowhere to scroll,
                 // and laying it out comes back here.
                 if (boundsOf(slot) == null) return
-                if (ResumeVeil.waitsForPictures(slot.block.imagesLoading, slot.imageWaitOver)) {
+                if (ResumeVeil.waitsForPictures(landing.fraction, slot.block.imagesLoading, slot.imageWaitOver)) {
                     waitOutImages(slot)
                     return
                 }

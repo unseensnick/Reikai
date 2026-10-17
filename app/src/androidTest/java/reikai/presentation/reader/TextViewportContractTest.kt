@@ -1124,9 +1124,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
     }
 
     /**
-     * A reader who scrolls while the pictures are still on their way has taken over from the saved
-     * position: what they scroll to is reported as they go, and the pictures arriving does not take them
-     * back. The pictures outwait the page's own image cap, so its late seek is covered too.
+     * Pictures slower than the image wait: the saved place lands without them once the wait runs out, which lifts
+     * the veil, and a reader who scrolls on from there has taken over. The pictures arriving later keep the line
+     * they scrolled to rather than taking them back. Until the wait runs out the veil holds their touches.
      */
     @Test
     fun aReaderWhoScrollsBeforeThePicturesArriveIsNotMovedBackWhenTheyDo() {
@@ -1134,6 +1134,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
             viewport.load(illustratedChapter(SAVED_PERCENT, STALLED_IMAGE_DELAYS_MS), readerTestSettings)
         }
         awaitWhile { !textShown() }
+        // The saved place said where it landed, which it does only once the wait for the pictures is over.
+        awaitWhile { reports.none { it.chapterId == FIRST } }
+        assertTrue("the pictures arrived before the wait ran out", !imagesArrived())
         drag(
             fromX = view.width / 2f,
             toX = view.width / 2f,
@@ -1142,35 +1145,38 @@ class TextViewportContractTest(private val renderer: Renderer) {
             holdMs = FLING_FREE_HOLD_MS,
         )
         awaitScrollStill()
-        val reportedWhileWaiting = !imagesArrived() && reports.any { it.chapterId == FIRST }
+        val before = straddledTopLine()
         awaitIllustratedLanding()
-        val landed = landedPercent()
-        assertTrue(
-            "reported while the pictures loaded: $reportedWhileWaiting, landed at $landed%",
-            reportedWhileWaiting && landed < SAVED_PERCENT - EARLY_REPORT_MARGIN_PERCENT,
-        )
+        val after = lineTop(before.paragraph, before.offset)
+        assertEquals("the line at ${before.paragraph} +${before.offset}", before.y, after, HOLD_SLACK_PX)
     }
 
-    /** Footnotes sit above a chapter's pictures as often as below them, and the saved place waits for those. */
+    /**
+     * Footnotes sit above a chapter's pictures as often as below them. While the saved place waits for its pictures
+     * the veil hides the chapter's top and holds the reader's touches, so a tap on a footnote there jumps nowhere and
+     * the reader lands on the saved place.
+     */
     @Test
-    fun aFootnoteJumpWhileTheSavedPlaceWaitsForPicturesStaysAtTheNote() {
+    fun aFootnoteTapWhileTheSavedPlaceWaitsForPicturesIsHeld() {
         runBlocking(Dispatchers.Main) {
             viewport.load(
                 illustratedChapter(
                     SAVED_PERCENT,
-                    STALLED_IMAGE_DELAYS_MS,
-                    // Above the pictures, so they arriving cannot push the note down whatever the landing does.
+                    held = true,
+                    // Above the pictures, so a jump to it would leave the reader far short of the saved place.
                     before = "<p><a href=\"#note\">$JUMP_LINK</a></p>${long("filler")}<p id=\"note\">$NOTE</p>",
                 ),
                 readerTestSettings,
             )
         }
         awaitWhile { !textShown() }
-        settle()
+        // At once, since the wait for the pictures runs out after three seconds and takes the veil with it.
+        assertTrue("the saved place landed before the tap", reports.none { it.chapterId == FIRST })
         tapOn(JUMP_LINK)
-        awaitNoteAtTop()
+        settle()
+        checkNotNull(server).release()
         awaitIllustratedLanding()
-        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+        assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
     }
 
     /** A page that fits never scrolls again, so a position it said before the host listened was never said. */
@@ -3278,14 +3284,15 @@ class TextViewportContractTest(private val renderer: Renderer) {
         /** Short of the saved position by more than a landing's rounding: a report from the top. */
         const val EARLY_REPORT_MARGIN_PERCENT = 5
 
-        /** Arriving apart, so a landing applied at the first arrival measures the chapter short. */
-        val IMAGE_DELAYS_MS = listOf(300L, 900L, 1_500L, 2_100L)
+        /** Arriving apart, so a landing applied at the first arrival measures the chapter short, and all well inside
+         *  the three-second wait, which a loaded emulator otherwise outlasts. */
+        val IMAGE_DELAYS_MS = listOf(150L, 450L, 750L, 1_050L)
 
         /** The last picture still loading long after the others, and inside the ten seconds a wait allows. */
         val ONE_SLOW_PICTURE_DELAYS_MS = listOf(0L, 0L, 0L, 8_000L)
 
         /** Past the page's three-second image cap, and inside the ten seconds a wait here allows. */
-        val STALLED_IMAGE_DELAYS_MS = List(IMAGE_DELAYS_MS.size) { 6_000L }
+        val STALLED_IMAGE_DELAYS_MS = List(IMAGE_DELAYS_MS.size) { 8_000L }
 
         /** A chunk is about 6000 characters, some 27 of these paragraphs, so each picture has its own. */
         val IMAGE_AFTER_PARAGRAPH = listOf(10, 40, 70, 100)
@@ -3303,7 +3310,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val spacedSettings = readerTestSettings.copy(paragraphSpacing = 1.5f, lineHeight = 1.8f)
         val SPACED_PARAGRAPHS = listOf(
             "Opening line.",
-            "lorem ipsum dolor sit amet ".repeat(8).trim(),
+            // Three lines and more on any screen the tests run on, a landscape tablet's included.
+            "lorem ipsum dolor sit amet ".repeat(24).trim(),
             "One short line.",
             "Closing line.",
         )
@@ -3328,7 +3336,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val CHUNK_START_PARAGRAPH = 27
 
         /** A paragraph of [long] on screen near the top, with room below it to scroll it up by [SCROLL_DP]. */
-        const val SCROLLED_PARAGRAPH = 3
+        // Deep enough to stay below the screen's top after the scroll on a landscape tablet, where lines are long.
+        const val SCROLLED_PARAGRAPH = 6
         const val SCROLL_DP = 150
 
         /** A glyph's gaps leave at least this many pixels of the colour in any row the mark covers. */

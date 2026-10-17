@@ -8,17 +8,23 @@ class ResumeVeilTest {
 
     @Test
     fun `a percent landing waits while the chapter's pictures load`() {
-        ResumeVeil.waitsForPictures(picturesLoading = true, waitOver = false) shouldBe true
+        ResumeVeil.waitsForPictures(fraction = 0.4f, picturesLoading = true, waitOver = false) shouldBe true
     }
 
     @Test
     fun `a percent landing stops waiting once the wait for pictures runs out`() {
-        ResumeVeil.waitsForPictures(picturesLoading = true, waitOver = true) shouldBe false
+        ResumeVeil.waitsForPictures(fraction = 0.4f, picturesLoading = true, waitOver = true) shouldBe false
     }
 
     @Test
     fun `a percent landing does not wait once the pictures have landed`() {
-        ResumeVeil.waitsForPictures(picturesLoading = false, waitOver = false) shouldBe false
+        ResumeVeil.waitsForPictures(fraction = 0.4f, picturesLoading = false, waitOver = false) shouldBe false
+    }
+
+    /** The chapter's top is the place whatever height its pictures give it, so nothing is hidden for it. */
+    @Test
+    fun `a landing at the chapter's start never waits for pictures`() {
+        ResumeVeil.waitsForPictures(fraction = 0f, picturesLoading = true, waitOver = false) shouldBe false
     }
 
     @Test

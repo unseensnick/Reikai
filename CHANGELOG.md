@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **In Native text, a novel chapter with pictures opened at its start now shows at once instead of staying blank for up to three seconds.**
 - **In Native text, a tap below the end of the last chapter now reaches the tap zones and the menu.**
 
 ### Backup & restore
