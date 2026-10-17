@@ -97,7 +97,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 
 ## Decisions
 
-- **Both readers offer the same tap layouts.** Manga stores an index into Mihon's six, so the novel reader's Thirds, Center, Large center and Bottom are appended after them (`MangaTapLayouts`) and built by the novel reader's own rule (`NovelTapLayout.navigation`); a zone-only layout (`ZoneOnlyNavigation`) leaves a tap outside its zone to the page in both. The Bottom zone's height is a setting per reader.
+- **Both readers offer the same tap layouts.** Manga stores an index into Mihon's six, so the novel reader's Thirds, Center, Large center and Bottom are appended after them (`MangaTapLayouts`) and built by the novel reader's own rule (`NovelTapLayout.navigation`); a zone-only layout (`ZoneOnlyNavigation`) leaves a tap outside its zone to the page in both. Each reader keeps one layout for paged reading and one for scrolling (manga's pager and long strip, the novel's `readerTapLayout(paged)`), the paged one defaulting to Right and left; the Bottom zone's height is one setting per reader.
 - **One host, a neutral engine, two providers (not novels folded into `ReaderViewModel`, not a second host).** Folding synthesizes manga rows for novels, which the data layer rejected; a second host guarantees two of everything. Void if novels become manga rows.
 - **`ReaderViewModel` stays live as the manga provider.** It is Mihon's engine file with real callers, so absorbing it would turn every upstream reader fix into a hand-port.
 - **The engine floor stays Mihon's**: `ChapterLoader`, the page loaders, `DownloadManager` and the read, history and track interactors, with the novel sinks beside them. The engine orchestrates; it never reimplements them.

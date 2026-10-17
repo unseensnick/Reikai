@@ -133,6 +133,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
                     onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,

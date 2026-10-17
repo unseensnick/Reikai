@@ -55,6 +55,7 @@ import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
 import reikai.presentation.reader.text.NovelWindowReach
+import reikai.presentation.reader.text.PAGE_SWIPE_MIN_DP
 import reikai.presentation.reader.text.ParagraphShape
 import reikai.presentation.reader.text.ReadAloudBoxDecoration
 import reikai.presentation.reader.text.ReadAloudMark
@@ -64,6 +65,7 @@ import reikai.presentation.reader.text.chapterSwipeStep
 import reikai.presentation.reader.text.chunkRange
 import reikai.presentation.reader.text.hasTravelled
 import reikai.presentation.reader.text.linksAt
+import reikai.presentation.reader.text.pageSwipeStep
 import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
 import reikai.presentation.reader.text.shownCharPrefix
@@ -464,6 +466,8 @@ class NovelTextViewport(
     }
 
     override val view: View get() = recycler
+
+    private val slide = PageSlide(recycler)
 
     override val isRtl: Boolean get() = pageLayout.isRtl
 
@@ -1100,8 +1104,8 @@ class NovelTextViewport(
 
     override fun seekTo(progress: ChapterProgress) {
         // A page index is not a scroll position, and reading one as a fraction would seek to a third
-        // of the chapter for page 3 of 10. The twin rejects it the same way.
-        if (progress !is ChapterProgress.Percent) return
+        // of the chapter for page 3 of 10. Paged, it is the slider's own unit. The twin reads both alike.
+        if (progress is ChapterProgress.Pages && !paged) return
         val fraction = progress.fraction
         // A seek names a place of its own, which a short line landing again would take the reader from.
         slots.forEach { it.shortLanding = null }
@@ -1127,6 +1131,8 @@ class NovelTextViewport(
     }
 
     override fun destroy() {
+        // Its copy sits in the host's container, which outlives this viewport.
+        slide.finish()
         autoScroller.run(0f)
         scope.cancel()
         evictAll()
@@ -1221,19 +1227,24 @@ class NovelTextViewport(
         return true
     }
 
-    /** A swipe between chapters, by the rule both renderers take from `ChapterSwipe.kt`. */
+    /** A swipe: paged it turns a page, else it steps chapters, by the rules both renderers take from `ChapterSwipe.kt`. */
     private fun onPointerUp(x: Float, y: Float) {
-        if (settings?.swipeGestures != true || multiTouch) return
+        if (multiTouch) return
+        val density = context.resources.displayMetrics.density
+        if (paged) {
+            // Always on, as a pager's swipe is: the setting is for stepping chapters while scrolling.
+            pageSwipeStep(x - touchDownX, y - touchDownY, PAGE_SWIPE_MIN_DP * density)
+                ?.let { forward -> turnPage(forward = forward != pageLayout.isRtl) }
+            return
+        }
+        if (settings?.swipeGestures != true) return
         chapterSwipeStep(
             dx = x - touchDownX,
             dy = y - touchDownY,
             startX = touchDownX,
             width = recycler.width.toFloat(),
-            minimum = CHAPTER_SWIPE_MIN_DP * context.resources.displayMetrics.density,
-        )?.let { forward ->
-            // Paged, the swipe turns a page the way the pages lie, as a pager's does.
-            if (paged) turnPage(forward = forward != pageLayout.isRtl) else callbacks.onStepChapter(forward)
-        }
+            minimum = CHAPTER_SWIPE_MIN_DP * density,
+        )?.let { callbacks.onStepChapter(it) }
     }
 
     /**
@@ -1483,8 +1494,16 @@ class NovelTextViewport(
      *  stepping chapters, as a scroll's swipe does. */
     private fun turnPage(forward: Boolean) {
         if (resumeVeil.isUp || redraw != null) return
+        if (settings?.pageTransitions == true) {
+            slide.turn(leftward = forward != pageLayout.isRtl) { turnPageNow(forward) }
+        } else {
+            turnPageNow(forward)
+        }
+    }
+
+    private fun turnPageNow(forward: Boolean) {
         readerMoved()
-        val at = pageAt() ?: return
+        val at = pageAt() ?: return slide.finish()
         val window = joined().map { it.chapter.chapterId }
         when (val turn = NovelPaging.turn(window, at.slot.chapter.chapterId, at.index, at.pages.size, forward)) {
             is NovelPaging.Turn.Within -> showPage(at.slot, turned = true) { turn.index }
@@ -1492,7 +1511,10 @@ class NovelTextViewport(
             is NovelPaging.Turn.LastOf -> slotOf(turn.chapterId)?.let { slot ->
                 showPage(slot, turned = true) { it.lastIndex }
             }
-            is NovelPaging.Turn.Beyond -> callbacks.onStepChapter(turn.forward)
+            is NovelPaging.Turn.Beyond -> {
+                slide.finish()
+                callbacks.onStepChapter(turn.forward)
+            }
         }
     }
 
@@ -1552,12 +1574,17 @@ class NovelTextViewport(
         reportEnds()
         showTallPictures()
         markShownPage()
-        if (turned && visibleSlot() === slot) callbacks.onPageTurned()
+        if (turned && visibleSlot() === slot) {
+            // The new page is placed, so it slides in from beside the copy; it draws on the slide's first frame.
+            slide.pageDrawn()
+            callbacks.onPageTurned()
+        }
     }
 
     private fun markShownPage() {
         val at = pageAt() ?: return
         shownPage.value = ShownPage(at.slot.chapter.chapterId to at.index, ready = !at.slot.block.imagesLoading)
+        callbacks.onPageShown(at.index, at.pages.size)
     }
 
     /**

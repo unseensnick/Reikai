@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
@@ -112,22 +113,19 @@ class NovelReaderProvider(
         readerBackgroundColorInt(it.resolvedForSystemTheme(context.isNightMode()).backgroundColor)
     }
 
-    // Hundredths, because that is the unit the stored progress is in.
+    /** The page on screen and the chapter's page count, as the paged viewport last reported them. */
+    private val shownPage = MutableStateFlow<ChapterProgress.Pages?>(null)
+
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.progressPercent,
         viewModel.settings,
         viewModel.chapterNeighbours,
         novelPreferences.readerShowNavigator().changes(),
-    ) { percent, settings, neighbours, show ->
-        ReaderNavigatorState(
-            progress = ChapterProgress.Percent.ofWhole(percent),
-            shape = when {
-                !show -> ReaderNavigatorShape.None
-                settings.useRail -> ReaderNavigatorShape.Rail
-                else -> ReaderNavigatorShape.Slider
-            },
-            railOnLeft = settings.railOnLeft,
-            railHeightPercent = settings.railHeightPercent,
+        combine(novelPreferences.readerPageLayout().changes(), shownPage) { layout, page ->
+            page.takeIf { layout.isPaged }
+        },
+    ) { percent, settings, neighbours, show, page ->
+        novelNavigatorState(percent, page, settings, show).copy(
             hasPrevious = neighbours.previous != null,
             hasNext = neighbours.next != null,
         )
@@ -284,7 +282,10 @@ class NovelReaderProvider(
             onChapterEndSeen = viewModel::reportChapterEndSeen,
             onReaderScrolled = { dy -> if (abs(dy) > hideThreshold) host.hideMenu() },
             onPageTurned = host::pageTurned,
+            onPageShown = { page, count -> shownPage.value = ChapterProgress.Pages(page, count) },
         )
+        // A new viewport reports its own page, and one scrolling reports none.
+        shownPage.value = null
         val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
         val autoScrollInterval = novelPreferences.readerAutoScrollInterval()
         if (built.renderingMode == NovelRenderingMode.NATIVE) {
@@ -436,3 +437,25 @@ internal data class NovelViewportSettings(
         )
     }
 }
+
+/**
+ * The navigator for a novel: hundredths while scrolling, the unit the stored progress is in, on the rail or
+ * slider the setting picks. Paged ([page] reported), the page and count on a horizontal slider, as manga's
+ * pager draws them, the rail being for a scrolled column.
+ */
+internal fun novelNavigatorState(
+    percent: Int,
+    page: ChapterProgress.Pages?,
+    settings: NovelReaderSettings,
+    show: Boolean,
+) = ReaderNavigatorState(
+    progress = page ?: ChapterProgress.Percent.ofWhole(percent),
+    shape = when {
+        !show -> ReaderNavigatorShape.None
+        page != null -> ReaderNavigatorShape.Slider
+        settings.useRail -> ReaderNavigatorShape.Rail
+        else -> ReaderNavigatorShape.Slider
+    },
+    railOnLeft = settings.railOnLeft,
+    railHeightPercent = settings.railHeightPercent,
+)

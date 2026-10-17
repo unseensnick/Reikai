@@ -351,20 +351,32 @@ class NovelPreferences(
         ChapterTitleFormat.NAME,
     )
 
-    /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */
-    fun readerTapLayout() = preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
+    /**
+     * How a tap on the page is read, kept apart for paged and scrolling reading as manga keeps its pager's and
+     * long strip's. Paged defaults to manga's pager layout, so a tap at the side turns the page; scrolling to
+     * Disabled, which toggles the chrome wherever the page is tapped.
+     */
+    fun readerTapLayout(paged: Boolean) = if (paged) {
+        preferenceStore.getEnum("ln_reader_tap_layout_paged", NovelTapLayout.RIGHT_AND_LEFT)
+    } else {
+        preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
+    }
 
     /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
      *  pinned by `ReaderNavigationOverlayView.setNavigation`, which both readers hand it to. */
     fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)
 
-    fun readerTapInvert() = preferenceStore.getEnum("ln_reader_tap_invert", TappingInvertMode.NONE)
+    fun readerTapInvert(paged: Boolean) =
+        preferenceStore.getEnum(
+            if (paged) "ln_reader_tap_invert_paged" else "ln_reader_tap_invert",
+            TappingInvertMode.NONE,
+        )
 
-    /** Sets [layout], replacing an inversion it cannot draw with the nearest one it can, so the choice
-     *  a settings row shows is the one in effect. */
-    fun setReaderTapLayout(layout: NovelTapLayout) {
-        readerTapLayout().set(layout)
-        val invert = readerTapInvert()
+    /** Sets [paged]'s [layout], replacing an inversion it cannot draw with the nearest one it can, so the
+     *  choice a settings row shows is the one in effect. */
+    fun setReaderTapLayout(paged: Boolean, layout: NovelTapLayout) {
+        readerTapLayout(paged).set(layout)
+        val invert = readerTapInvert(paged)
         if (invert.get() in layout.invertModes) return
         val vertical = invert.get().shouldInvertVertical && TappingInvertMode.VERTICAL in layout.invertModes
         invert.set(if (vertical) TappingInvertMode.VERTICAL else TappingInvertMode.NONE)
@@ -379,8 +391,11 @@ class NovelPreferences(
      * the upgrade migration has run.
      */
     fun carryReaderTapToScroll(enabled: Boolean) {
-        readerTapLayout().set(if (enabled) NovelTapLayout.THIRDS else NovelTapLayout.DISABLED)
+        readerTapLayout(paged = false).set(if (enabled) NovelTapLayout.THIRDS else NovelTapLayout.DISABLED)
     }
+
+    /** Slide a paged turn as manga's pager does; off turns at once, which an e-ink screen wants. */
+    fun readerPageTransitions() = preferenceStore.getBoolean("ln_reader_page_transitions", true)
 
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)

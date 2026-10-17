@@ -12,12 +12,26 @@ internal const val CHAPTER_SWIPE_MIN_DP = 180
 internal const val CHAPTER_SWIPE_SIDEWAYS = 2
 
 /**
+ * How far a swipe must travel sideways to turn a page, in dp; reader.js reads it as `PAGE_SWIPE_MIN_PX`. Far
+ * shorter than a chapter step, because paged it is the ordinary way to read on, as in manga's pager.
+ */
+internal const val PAGE_SWIPE_MIN_DP = 48
+
+/**
  * Whether a touch has left where it went down. From there it is a drag, never a tap or a long press
  * however slowly it goes, so a swipe has no time limit. The WebView page has this from its browser;
  * an Android view keeps its press until the finger leaves its bounds, so the native renderer ends
  * the press by this rule.
  */
 internal fun hasTravelled(dx: Float, dy: Float, slop: Int): Boolean = abs(dx) > slop || abs(dy) > slop
+
+/**
+ * Which way a swipe turns a page: true forward (the finger moving left), false back, null for none. Mostly
+ * sideways by [CHAPTER_SWIPE_SIDEWAYS] and past [minimum], from anywhere on the page; reader.js runs the same
+ * rule, so paged reading turns alike in both renderers.
+ */
+internal fun pageSwipeStep(dx: Float, dy: Float, minimum: Float): Boolean? =
+    if (abs(dx) <= minimum || abs(dx) <= abs(dy) * CHAPTER_SWIPE_SIDEWAYS) null else dx < 0
 
 /**
  * Which way a swipe steps chapters: true forward, false back, null for no step. It must be mostly

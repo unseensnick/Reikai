@@ -106,6 +106,7 @@ class NovelTextViewportWindowTest {
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
                     onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
                 autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),

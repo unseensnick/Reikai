@@ -319,6 +319,9 @@ class NovelWebViewport(
         }
     }
 
+    // Below [view], which it slides: a property declared above another is built before it.
+    private val slide = PageSlide(view)
+
     override val isRtl: Boolean
         get() = pageLayout.isRtl
 
@@ -330,7 +333,7 @@ class NovelWebViewport(
      * measured half a page, and could count the chapter's end as seen, which is reported only once.
      */
     override fun seekTo(progress: ChapterProgress) {
-        if (progress !is ChapterProgress.Percent) return
+        if (progress is ChapterProgress.Pages && !paged) return
         if (paged) {
             scope.launch { paging.withLock { seekPage(progress.fraction) } }
             return
@@ -343,6 +346,8 @@ class NovelWebViewport(
     override fun onChapterStepped() = Unit
 
     override fun destroy() {
+        // Its copy sits in the host's container, which outlives this viewport.
+        slide.finish()
         // First: a caller dropPendingCalls resumes can queue again, and a closed gate parks it.
         gate.close()
         dropPendingCalls()
@@ -614,15 +619,25 @@ class NovelWebViewport(
                 val pages = pagesOf(at.chapterId, at) ?: return@withLock
                 val index = NovelPaging.pageAt(pages, at.y)
                 val window = held.map { it.chapterId }
-                when (val turn = NovelPaging.turn(window, at.chapterId, index, pages.size, forward)) {
-                    is NovelPaging.Turn.Within -> showPage(at.chapterId, pages, turn.index)
-                    is NovelPaging.Turn.FirstOf -> pagesOf(turn.chapterId, at)?.let { showPage(turn.chapterId, it, 0) }
-                    is NovelPaging.Turn.LastOf ->
-                        pagesOf(turn.chapterId, at)?.let { showPage(turn.chapterId, it, it.lastIndex) }
-                    is NovelPaging.Turn.Beyond -> {
-                        callbacks.onStepChapter(turn.forward)
-                        return@withLock
+                val turn = NovelPaging.turn(window, at.chapterId, index, pages.size, forward)
+                if (turn is NovelPaging.Turn.Beyond) {
+                    callbacks.onStepChapter(turn.forward)
+                    return@withLock
+                }
+                val sliding = documentSettings?.pageTransitions == true
+                if (sliding) {
+                    suspendCancellableCoroutine { done ->
+                        slide.turn(leftward = forward != pageLayout.isRtl) { done.resume(Unit) }
                     }
+                }
+                when (turn) {
+                    is NovelPaging.Turn.Within -> showPage(at.chapterId, pages, turn.index, sliding)
+                    is NovelPaging.Turn.FirstOf -> pagesOf(turn.chapterId, at)?.let {
+                        showPage(turn.chapterId, it, 0, sliding)
+                    }
+                    is NovelPaging.Turn.LastOf ->
+                        pagesOf(turn.chapterId, at)?.let { showPage(turn.chapterId, it, it.lastIndex, sliding) }
+                    is NovelPaging.Turn.Beyond -> Unit
                 }
                 callbacks.onPageTurned()
             }
@@ -665,7 +680,7 @@ class NovelWebViewport(
     /** The height of the page last shown, which the page's mask was drawn for. */
     private var shownHeight = 0f
 
-    private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int) {
+    private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int, sliding: Boolean = false) {
         val page = pages[index.coerceIn(pages.indices)]
         shownHeight = page.height
         val key = chapterId to index
@@ -679,8 +694,11 @@ class NovelWebViewport(
         ) { answer ->
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
+            callbacks.onPageShown(index.coerceIn(pages.indices), pages.size)
             // The view's own scroll follows the page's a moment later, and until it does the old place shows.
             if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
+            // The copy stays over the old page until the new one is painted, or the old one would slide in.
+            if (sliding) oncePainted(slide::pageDrawn)
             pageSettled(joinsSeen)
         }
     }
@@ -894,9 +912,6 @@ class NovelWebViewport(
         // A paint still owed to an earlier drop must not take this veil down.
         if (up) {
             visualStateRequest++
-            dropOnceViewScrolled = false
-        }
-        if (up) {
             veilCap = scope.launch {
                 delay(VEIL_CAP_MS)
                 resumeVeil.set(false)
@@ -906,38 +921,41 @@ class NovelWebViewport(
 
     private var veilCap: Job? = null
 
-    /**
-     * Drops the veil once the page as it stands is on screen. The page answers as soon as its DOM has moved,
-     * while the view's scroll and the WebView's paint follow later, so dropping on the answer showed the
-     * place it moved from.
-     */
     private fun dropVeilOncePainted() {
+        val request = visualStateRequest
+        oncePainted { if (request == visualStateRequest) raiseVeil(false) }
+    }
+
+    /**
+     * Runs [action] once the page as it stands is on screen. The page answers as soon as its DOM has moved,
+     * while the view's scroll and the WebView's paint follow later, so acting on the answer showed the place
+     * it moved from.
+     */
+    private fun oncePainted(action: () -> Unit) {
         if (viewScrollBehind) {
-            dropOnceViewScrolled = true
+            afterViewScroll += action
             return
         }
-        val request = visualStateRequest
         webView.postVisualStateCallback(
-            request,
+            0L,
             object : WebView.VisualStateCallback() {
-                override fun onComplete(requestId: Long) {
-                    if (requestId == visualStateRequest) raiseVeil(false)
-                }
+                override fun onComplete(requestId: Long) = action()
             },
         )
     }
 
     private var visualStateRequest = 0L
 
-    /** The page moved its column and the view has not followed yet; a drop asked for meanwhile waits for it. */
+    /** The page moved its column and the view has not followed yet; what waits for a paint meanwhile waits for it. */
     private var viewScrollBehind = false
-    private var dropOnceViewScrolled = false
+    private val afterViewScroll = mutableListOf<() -> Unit>()
 
     private fun viewScrollCaughtUp() {
         viewScrollBehind = false
-        if (!dropOnceViewScrolled) return
-        dropOnceViewScrolled = false
-        dropVeilOncePainted()
+        if (afterViewScroll.isEmpty()) return
+        val waiting = afterViewScroll.toList()
+        afterViewScroll.clear()
+        waiting.forEach(::oncePainted)
     }
 
     private fun onPageReady(token: String) {

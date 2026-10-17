@@ -74,6 +74,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
         return listOfNotNull(
             getReadingGroup(novelPreferences = novelPref),
+            getTapGroup(novelPreferences = novelPref, paged = true),
+            getTapGroup(novelPreferences = novelPref, paged = false),
             getTextDisplayGroup(novelPreferences = novelPref),
             getChapterTextGroup(novelPreferences = novelPref),
             getNavigationGroup(novelPreferences = novelPref),
@@ -387,7 +389,8 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
         val fullscreen by novelPreferences.readerFullscreen().collectAsState()
-        val tapLayout by novelPreferences.readerTapLayout().collectAsState()
+        val pagedTaps by novelPreferences.readerTapLayout(paged = true).collectAsState()
+        val scrollTaps by novelPreferences.readerTapLayout(paged = false).collectAsState()
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reading),
@@ -448,36 +451,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_cutout_short),
                     visible = LocalView.current.hasDisplayCutout() && fullscreen,
                 ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerTapLayout(),
-                    entries = NovelTapLayout.entries.associateWith { stringResource(it.titleRes) },
-                    title = stringResource(MR.strings.pref_viewer_nav),
-                    // Stored through the helper, which also drops an inversion the new layout cannot draw.
-                    onValueChanged = {
-                        novelPreferences.setReaderTapLayout(it)
-                        false
-                    },
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowTapZonesOnStart(),
                     title = stringResource(MR.strings.pref_show_navigation_mode),
                     subtitle = stringResource(MR.strings.pref_show_navigation_mode_summary),
-                ).takeIf { tapLayout != NovelTapLayout.DISABLED },
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerTapInvert(),
-                    entries = tapLayout.invertModes.associateWith { stringResource(it.titleRes) },
-                    title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                ).takeIf { tapLayout.offersInvert },
-                Preference.PreferenceItem.SliderPreference(
-                    preference = novelPreferences.readerTapBottomZoneHeight(),
-                    valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
-                    title = stringResource(MR.strings.pref_tap_bottom_zone_height),
-                    valueText = { "$it%" },
-                ).takeIf { tapLayout == NovelTapLayout.BOTTOM },
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerSwipeGestures(),
-                    title = stringResource(MR.strings.pref_swipe_between_chapters),
-                ),
+                ).takeIf { pagedTaps != NovelTapLayout.DISABLED || scrollTaps != NovelTapLayout.DISABLED },
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSkipRead(),
                     title = stringResource(MR.strings.pref_skip_read_chapters),
@@ -520,15 +498,57 @@ object SettingsNovelReaderScreen : SearchableSettings {
         )
     }
 
+    /** One reading mode's tap layout and what shapes it, as manga's Paged and Long strip groups each carry. */
+    @Composable
+    private fun getTapGroup(novelPreferences: NovelPreferences, paged: Boolean): Preference.PreferenceGroup {
+        val tapLayout by novelPreferences.readerTapLayout(paged).collectAsState()
+        return Preference.PreferenceGroup(
+            title = stringResource(if (paged) MR.strings.pager_viewer else MR.strings.novel_page_layout_scroll),
+            preferenceItems = listOfNotNull(
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerTapLayout(paged),
+                    entries = NovelTapLayout.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_viewer_nav),
+                    // Stored through the helper, which also drops an inversion the new layout cannot draw.
+                    onValueChanged = {
+                        novelPreferences.setReaderTapLayout(paged, it)
+                        false
+                    },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerTapInvert(paged),
+                    entries = tapLayout.invertModes.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_read_with_tapping_inverted),
+                ).takeIf { tapLayout.offersInvert },
+                // One height for both modes, as manga keeps one for its pager and long strip.
+                Preference.PreferenceItem.SliderPreference(
+                    preference = novelPreferences.readerTapBottomZoneHeight(),
+                    valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
+                    title = stringResource(MR.strings.pref_tap_bottom_zone_height),
+                    valueText = { "$it%" },
+                ).takeIf { tapLayout == NovelTapLayout.BOTTOM },
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerPageTransitions(),
+                    title = stringResource(MR.strings.pref_page_transitions),
+                ).takeIf { paged },
+                // Paged, a swipe always turns the page, so stepping chapters by one is a scrolling setting.
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerSwipeGestures(),
+                    title = stringResource(MR.strings.pref_swipe_between_chapters),
+                ).takeUnless { paged },
+            ),
+        )
+    }
+
     @Composable
     private fun getNavigationGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val useVolumeButtonsPref = novelPreferences.readerUseVolumeButtons()
         val useVolumeButtons by useVolumeButtonsPref.collectAsState()
         // A press turns a whole page when paged, so there is no distance to choose.
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
-        // Gated on the rail alone, unlike the manga screen's pair: every novel reading mode shows the same rail.
         val useRail by novelPreferences.readerUseRail().collectAsState()
-        val showNavigator by novelPreferences.readerShowNavigator().collectAsState()
+        // Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice.
+        val railOffered = novelPreferences.readerShowNavigator().collectAsState().value && !pageLayout.isPaged
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),
@@ -556,9 +576,9 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerUseRail(),
                     title = stringResource(MR.strings.pref_novel_use_rail),
-                ).takeIf { showNavigator },
-                railOnLeftPreference(novelPreferences.readerRailOnLeft(), visible = showNavigator && useRail),
-                railHeightPreference(novelPreferences.readerRailHeight(), visible = showNavigator && useRail),
+                ).takeIf { railOffered },
+                railOnLeftPreference(novelPreferences.readerRailOnLeft(), visible = railOffered && useRail),
+                railHeightPreference(novelPreferences.readerRailHeight(), visible = railOffered && useRail),
             ),
         )
     }

@@ -22,7 +22,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pick it under Reading mode; a page never cuts a line in half, and a tap, a swipe or a volume key turns it at once.
+- **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pages slide and turn by tap, swipe or volume key as manga's do, with a page slider and their own tap layout.
 - **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.** Auto-scroll turns a page every few seconds while paged.
 - **The manga reader offers the novel reader's Thirds, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
 

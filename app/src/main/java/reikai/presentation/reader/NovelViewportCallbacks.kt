@@ -39,4 +39,6 @@ class NovelViewportCallbacks(
     val onReaderScrolled: (dyPx: Int) -> Unit,
     /** A new page is on screen in paged reading, drawn, which is when an e-ink screen is flashed clean. */
     val onPageTurned: () -> Unit,
+    /** The page on screen and how many the chapter has, whenever either changes in paged reading. */
+    val onPageShown: (page: Int, count: Int) -> Unit,
 )

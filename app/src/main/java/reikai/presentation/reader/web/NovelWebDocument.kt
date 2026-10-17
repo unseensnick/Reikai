@@ -11,6 +11,7 @@ import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.CHAPTER_SWIPE_MIN_DP
 import reikai.presentation.reader.text.CHAPTER_SWIPE_SIDEWAYS
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.PAGE_SWIPE_MIN_DP
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.Locale
@@ -55,6 +56,7 @@ object NovelWebDocument {
                 "__PAGED__" to paged.toString(),
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
                 "__SWIPE_SIDEWAYS__" to CHAPTER_SWIPE_SIDEWAYS.toString(),
+                "__PAGE_SWIPE_MIN_PX__" to PAGE_SWIPE_MIN_DP.toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),

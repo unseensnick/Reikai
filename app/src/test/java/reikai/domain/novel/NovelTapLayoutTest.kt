@@ -12,38 +12,38 @@ class NovelTapLayoutTest {
 
     @Test
     fun `an inversion the new layout can draw is kept`() {
-        preferences.readerTapInvert().set(TappingInvertMode.BOTH)
+        preferences.readerTapInvert(paged = false).set(TappingInvertMode.BOTH)
 
-        preferences.setReaderTapLayout(NovelTapLayout.KINDLISH)
+        preferences.setReaderTapLayout(paged = false, NovelTapLayout.KINDLISH)
 
-        preferences.readerTapInvert().get() shouldBe TappingInvertMode.BOTH
+        preferences.readerTapInvert(paged = false).get() shouldBe TappingInvertMode.BOTH
     }
 
     /** The bottom zone spans the width, so both inversions draw it where vertical alone does. */
     @Test
     fun `the bottom layout keeps the vertical half of both`() {
-        preferences.readerTapInvert().set(TappingInvertMode.BOTH)
+        preferences.readerTapInvert(paged = false).set(TappingInvertMode.BOTH)
 
-        preferences.setReaderTapLayout(NovelTapLayout.BOTTOM)
+        preferences.setReaderTapLayout(paged = false, NovelTapLayout.BOTTOM)
 
-        preferences.readerTapInvert().get() shouldBe TappingInvertMode.VERTICAL
+        preferences.readerTapInvert(paged = false).get() shouldBe TappingInvertMode.VERTICAL
     }
 
     @Test
     fun `the bottom layout drops a horizontal inversion`() {
-        preferences.readerTapInvert().set(TappingInvertMode.HORIZONTAL)
+        preferences.readerTapInvert(paged = false).set(TappingInvertMode.HORIZONTAL)
 
-        preferences.setReaderTapLayout(NovelTapLayout.BOTTOM)
+        preferences.setReaderTapLayout(paged = false, NovelTapLayout.BOTTOM)
 
-        preferences.readerTapInvert().get() shouldBe TappingInvertMode.NONE
+        preferences.readerTapInvert(paged = false).get() shouldBe TappingInvertMode.NONE
     }
 
     @Test
     fun `a centre layout drops any inversion`() {
-        preferences.readerTapInvert().set(TappingInvertMode.VERTICAL)
+        preferences.readerTapInvert(paged = false).set(TappingInvertMode.VERTICAL)
 
-        preferences.setReaderTapLayout(NovelTapLayout.CENTER)
+        preferences.setReaderTapLayout(paged = false, NovelTapLayout.CENTER)
 
-        preferences.readerTapInvert().get() shouldBe TappingInvertMode.NONE
+        preferences.readerTapInvert(paged = false).get() shouldBe TappingInvertMode.NONE
     }
 }

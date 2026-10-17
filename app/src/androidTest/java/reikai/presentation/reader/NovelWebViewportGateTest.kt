@@ -90,6 +90,7 @@ class NovelWebViewportGateTest {
                     onChapterEndSeen = { endsSeen += it },
                     onReaderScrolled = {},
                     onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,

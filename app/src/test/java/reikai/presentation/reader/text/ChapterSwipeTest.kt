@@ -48,4 +48,24 @@ class ChapterSwipeTest {
     fun `a touch exactly the slop from where it went down has not travelled`() {
         hasTravelled(dx = 8f, dy = -8f, slop = 8) shouldBe false
     }
+
+    @Test
+    fun `a page swipe leftwards from anywhere turns forward`() {
+        pageSwipeStep(dx = -60f, dy = 0f, minimum = 48f) shouldBe true
+    }
+
+    @Test
+    fun `a page swipe rightwards turns back`() {
+        pageSwipeStep(dx = 60f, dy = 10f, minimum = 48f) shouldBe false
+    }
+
+    @Test
+    fun `a page swipe of exactly the minimum does not turn`() {
+        pageSwipeStep(dx = -48f, dy = 0f, minimum = 48f) shouldBe null
+    }
+
+    @Test
+    fun `a mostly vertical drag does not turn a page`() {
+        pageSwipeStep(dx = -100f, dy = 50f, minimum = 48f) shouldBe null
+    }
 }

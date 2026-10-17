@@ -32,6 +32,8 @@ internal val readerTestSettings = NovelReaderSettings(
     bionicReading = false,
     tapZones = NovelTapZones(NovelTapLayout.THIRDS, TappingInvertMode.NONE, 12),
     swipeGestures = true,
+    // Instant, so a test reads a turned page without waiting out a slide; the slide has its own case.
+    pageTransitions = false,
     showProgressPercentage = false,
     useVolumeButtons = false,
     volumeButtonsInverted = false,

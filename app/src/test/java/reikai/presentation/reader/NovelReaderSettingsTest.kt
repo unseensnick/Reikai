@@ -1,7 +1,7 @@
 package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
-import io.kotest.matchers.shouldBe
+import io.kotest.matchers.collections.shouldContainAll
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -20,6 +20,7 @@ class NovelReaderSettingsTest {
         }
         val watched = EmittingPreferenceStore().also { NovelReaderSettings.watched(NovelPreferences(it)) }
 
-        watched.getAll().keys shouldBe read.getAll().keys
+        // A superset, not equal: the reader watches both modes' tap layouts and reads the one its page layout picks.
+        watched.getAll().keys shouldContainAll read.getAll().keys
     }
 }

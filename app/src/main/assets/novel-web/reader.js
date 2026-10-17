@@ -29,6 +29,8 @@
   var SWIPE_MIN_PX = __SWIPE_MIN_PX__;
   // How many times its height a swipe must run sideways, CHAPTER_SWIPE_SIDEWAYS in ChapterSwipe.kt.
   var SWIPE_SIDEWAYS = __SWIPE_SIDEWAYS__;
+  // How far a swipe must run sideways to turn a page, PAGE_SWIPE_MIN_DP in ChapterSwipe.kt.
+  var PAGE_SWIPE_MIN_PX = __PAGE_SWIPE_MIN_PX__;
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -914,6 +916,14 @@
       var dy = touch.clientY - startY;
       var elapsed = Date.now() - startAt;
 
+      // pageSwipeStep's rule (ChapterSwipe.kt): paged, a swipe turns the page whatever the setting, as a
+      // pager's does. The host turns it the way the pages lie.
+      if (PAGED) {
+        if (Math.abs(dx) > PAGE_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_SIDEWAYS) {
+          bridge().onStepChapter(DOCUMENT_TOKEN, dx < 0);
+          return;
+        }
+      } else
       // chapterSwipeStep's rule (ChapterSwipe.kt), strict comparisons included: mostly sideways, far
       // enough not to be a stray, and started on the half it moves away from. A swipe that clears the
       // first two but starts on the wrong half falls through to the tap check below, where `moved`

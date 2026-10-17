@@ -256,7 +256,7 @@ class SourcePreferencesBackupTest {
             Arguments.of(
                 DEAD_READER_TAP_TO_SCROLL_KEY,
                 BooleanPreferenceValue(true),
-                { s: PreferenceStore -> NovelPreferences(s).readerTapLayout().isSet() },
+                { s: PreferenceStore -> NovelPreferences(s).readerTapLayout(paged = false).isSet() },
             ),
             Arguments.of(
                 DEAD_READER_AUTO_SCROLL_KEY,

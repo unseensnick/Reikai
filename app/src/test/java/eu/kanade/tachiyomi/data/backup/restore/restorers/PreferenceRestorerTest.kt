@@ -198,7 +198,7 @@ class PreferenceRestorerTest {
             backupCategories = null,
         )
 
-        novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.THIRDS
+        novelPreferences.readerTapLayout(paged = false).get() shouldBe NovelTapLayout.THIRDS
     }
 
     /** Disabled is also the default, so only the stored value shows the off choice was carried. */
@@ -210,7 +210,8 @@ class PreferenceRestorerTest {
             backupCategories = null,
         )
 
-        novelPreferences.readerTapLayout().let { it.get() to it.isSet() } shouldBe (NovelTapLayout.DISABLED to true)
+        novelPreferences.readerTapLayout(paged = false).let { it.get() to it.isSet() } shouldBe
+            (NovelTapLayout.DISABLED to true)
     }
 
     @Test

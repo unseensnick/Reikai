@@ -135,6 +135,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         onChapterEndSeen = { endsSeen += it },
         onReaderScrolled = { scrolls += it },
         onPageTurned = {},
+        onPageShown = { _, _ -> },
     )
 
     @Before

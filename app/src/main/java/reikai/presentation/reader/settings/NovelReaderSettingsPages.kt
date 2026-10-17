@@ -322,11 +322,22 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     }
 
     HeadingItem(MR.strings.pref_category_gestures)
-    NovelTapZonesRows(preferences)
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_swipe_between_chapters),
-        pref = preferences.readerSwipeGestures(),
-    )
+    // The open mode's layout, as manga's sheet shows its open viewer's.
+    val pageLayout by preferences.readerPageLayout().collectAsState()
+    NovelTapZonesRows(preferences, pageLayout.isPaged)
+    if (pageLayout.isPaged) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_page_transitions),
+            pref = preferences.readerPageTransitions(),
+        )
+    }
+    // Paged, a swipe always turns the page.
+    if (!pageLayout.isPaged) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_swipe_between_chapters),
+            pref = preferences.readerSwipeGestures(),
+        )
+    }
     CheckboxItem(
         label = stringResource(MR.strings.pref_novel_text_selectable),
         pref = preferences.readerTextSelectable(),
@@ -338,7 +349,8 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         label = stringResource(MR.strings.pref_show_progress_navigator),
         pref = preferences.readerShowNavigator(),
     )
-    if (showNavigator) {
+    // Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice.
+    if (showNavigator && !pageLayout.isPaged) {
         CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
         val useRail by preferences.readerUseRail().collectAsState()
         if (useRail) {
@@ -350,14 +362,13 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         label = stringResource(MR.strings.pref_read_with_volume_keys),
         pref = preferences.readerUseVolumeButtons(),
     )
-    // A press turns a whole page when paged, so there is no distance to choose.
-    val pageLayout by preferences.readerPageLayout().collectAsState()
     if (volumeKeys) {
         CheckboxItem(
             label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
             pref = preferences.readerVolumeButtonsInverted(),
         )
     }
+    // A press turns a whole page when paged, so there is no distance to choose.
     if (volumeKeys && !pageLayout.isPaged) {
         val percentPref = preferences.readerVolumeButtonsFraction().scaled(ReaderRanges.PERCENT)
         val percent by percentPref.collectAsState()
@@ -374,9 +385,9 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
 
 /** The tap layout, its inversion where it has something to invert, and the bottom layout's zone height. */
 @Composable
-private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
-    val layoutPref = preferences.readerTapLayout()
-    val invertPref = preferences.readerTapInvert()
+private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: Boolean) {
+    val layoutPref = preferences.readerTapLayout(paged)
+    val invertPref = preferences.readerTapInvert(paged)
     val layout by layoutPref.collectAsState()
     val invert by invertPref.collectAsState()
 
@@ -384,7 +395,7 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
         NovelTapLayout.entries.forEach {
             FilterChip(
                 selected = layout == it,
-                onClick = { preferences.setReaderTapLayout(it) },
+                onClick = { preferences.setReaderTapLayout(paged, it) },
                 label = { Text(stringResource(it.titleRes)) },
             )
         }

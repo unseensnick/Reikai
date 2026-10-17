@@ -32,6 +32,7 @@ import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Paged reading in both renderers, driven the way a reader drives it: taps, keys, a drag, the rail, a font
@@ -58,6 +59,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val visible = Collections.synchronizedList(mutableListOf<Long>())
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
     private val turned = AtomicInteger()
+    private val shownPage = AtomicReference<Pair<Int, Int>?>(null)
     private var volumeKeys = false
 
     /** The settings the last chapter opened with, whose top margin is a page's. */
@@ -77,6 +79,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         onChapterEndSeen = {},
         onReaderScrolled = {},
         onPageTurned = { turned.incrementAndGet() },
+        onPageShown = { page, count -> shownPage.set(page to count) },
     )
 
     private fun build(layout: NovelPageLayout) {
@@ -288,6 +291,19 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] and stepped no chapter", steps.isEmpty())
     }
 
+    /** A pager's swipe: with chapter swipes off, short, and starting on the half it moves towards. */
+    @Test
+    fun aShortSwipeTurnsThePageWithChapterSwipesOff() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"), settings = readerTestSettings.copy(swipeGestures = false))
+        val before = lastPercent()
+        val turns = turned.get()
+        swipe(view.width * 0.4f, view.width * 0.2f)
+        awaitWhile { turned.get() == turns }
+        settle()
+        assertTrue("[$renderer] a short swipe to the left read on", lastPercent() > before)
+    }
+
     @Test
     fun aVolumeKeyTurnsAPage() {
         build(NovelPageLayout.PAGED_LTR)
@@ -348,6 +364,51 @@ class PagedReadingTest(private val renderer: Renderer) {
         settle()
         val landed = settled.last().second
         assertTrue("[$renderer] half way lands near half way, at $landed", landed in 40..60)
+        assertWholeLines()
+    }
+
+    /** What the page slider draws: the page on screen and the chapter's count. */
+    @Test
+    fun aTurnReportsTheNextPageOfTheCount() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        awaitWhile { shownPage.get() == null }
+        forwardTap()
+        awaitWhile { shownPage.get()?.first != 1 }
+        val (page, count) = shownPage.get()!!
+        assertEquals("[$renderer] the turn reported the second page", 1, page)
+        assertTrue("[$renderer] of a chapter longer than two pages, $count", count > 2)
+    }
+
+    /** The slide lays a copy of the old page beside the content; once it has run, only the turned page is left. */
+    @Test
+    fun aSlidingTurnLandsOnTheNextPageAndClearsItsCopy() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"), settings = readerTestSettings.copy(pageTransitions = true))
+        awaitWhile { shownPage.get() == null }
+        val parent = view.parent as ViewGroup
+        val children = parent.childCount
+        forwardTap()
+        awaitWhile { shownPage.get()?.first != 1 }
+        awaitWhile { parent.childCount != children || view.translationX != 0f }
+        settle()
+        assertEquals("[$renderer] the second page is on screen", 1, shownPage.get()?.first)
+        assertEquals("[$renderer] the copy is gone", children, parent.childCount)
+        assertEquals("[$renderer] the page is back in place", 0f, view.translationX)
+    }
+
+    @Test
+    fun theSliderLandsOnThePageItNames() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        awaitWhile { shownPage.get() == null }
+        val count = shownPage.get()!!.second
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).seekTo(ChapterProgress.Pages(lastPageRead = 2, pageCount = count))
+        }
+        awaitWhile { shownPage.get()?.first != 2 }
+        settle()
+        assertEquals("[$renderer] the slider's page is on screen", 2 to count, shownPage.get())
         assertWholeLines()
     }
 
