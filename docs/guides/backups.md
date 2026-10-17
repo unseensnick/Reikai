@@ -80,7 +80,7 @@ To ensure a smooth restoration process, remember to:
 1. Log into the [Tracking services](/docs/guides/tracking) you previously used.
 1. Check the repos on the Restore screen. A backup file could come from anyone, so a repo it brings back is never trusted on its own: each one shows with its address and, for an extension store, its signing key, and comes back only if you tick **Trust this repo**.
 
-With **Missing extensions** on, the restore then installs the backup's extension apps and light-novel plugins this install lacks, from the repos you already had and the ones you trusted, one at a time. Android asks you to confirm each app unless you chose another installer. The Restore screen also names anything no repo lists, so you can install it by hand, beside any missing sources and trackers you are not logged into.
+With **Missing extensions** on, the restore then installs the backup's extension apps and light-novel plugins this install lacks, from the repos you already had and the ones you trusted, one at a time. Android asks you to confirm each app unless you chose another installer. The Restore screen also names anything no repo lists, so you can install it by hand, beside any missing sources and trackers you are not logged into. With it off, the screen names the missing ones your repos list, to install later.
 :::
 
 Entries from an extension you have not installed yet reappear in your library but cannot fetch

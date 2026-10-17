@@ -8,6 +8,9 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.Serializable
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.repository.ExtensionStoreRepository
@@ -62,6 +65,7 @@ data class BackupRepo(
 
 /**
  * What a restore would install: [ready] from repos already here, [repos] once trusted, [unavailable] never.
+ * With installs off, [ready] is still named, so the user knows what to install by hand.
  * [unreadRepos] are the backup's repos that could not be read, or now sign with another key, so are not offered.
  */
 data class RestoreInstallPlan(
@@ -81,9 +85,9 @@ data class ApprovedRepos(
 )
 
 /**
- * Sorts [missing]: an item a repo already on the device lists installs after the restore, one only a
- * backup repo lists waits under the first such repo for the user to trust it, and the rest are named.
- * Every backup repo is offered, one listing nothing too, since trusting it is also how it comes back.
+ * Sorts [missing]: an item a repo already on the device lists installs after the restore, one only backup
+ * repos list shows under each of them, since trusting any one installs it, and the rest are named. Every
+ * backup repo is offered once, one listing nothing too, since trusting it is also how it comes back.
  * A backup's own key is never trusted, since a backup can be anyone's file.
  */
 fun planInstalls(
@@ -92,16 +96,14 @@ fun planInstalls(
     backupRepos: List<Pair<BackupRepo, RepoListings>>,
 ): RestoreInstallPlan {
     val (ready, rest) = missing.partition(device::lists)
-    val claimed = HashSet<RestoreItem>()
-    val repos = backupRepos.map { (repo, listings) ->
-        val items = rest.filter { it !in claimed && listings.lists(it) }
-        claimed += items
-        repo.copy(items = items.map { it.name }.sorted())
+    // Two backup entries can name one repo, or redirect to it, and the screen keys its cards by address.
+    val repos = backupRepos.distinctBy { it.first.url }.map { (repo, listings) ->
+        repo.copy(items = rest.filter(listings::lists).map { it.name }.sorted())
     }
     return RestoreInstallPlan(
         ready = ready.map { it.name }.sorted(),
         repos = repos,
-        unavailable = rest.filterNot { it in claimed }.map { it.name }.sorted(),
+        unavailable = rest.filterNot { item -> backupRepos.any { it.second.lists(item) } }.map { it.name }.sorted(),
     )
 }
 
@@ -179,12 +181,17 @@ class RestoreInstallSources(
         val devicePluginRepos = novelPreferences.addedRepoUrls().get()
         val pluginRepos = (preferences[novelPreferences.addedRepoUrls().key()] as? StringSetPreferenceValue)
             ?.value.orEmpty() - devicePluginRepos
-        val read = stores.filterNot { it.indexUrl in deviceStores }.map { it.name to readStore(it) } +
-            pluginRepos.map { it to readPluginRepo(it) }
-        // Nothing missing needs no listings of the device's repos, which are read over the network.
-        val device = if (missing.isEmpty()) RepoListings() else device()
-        return planInstalls(missing, device, read.mapNotNull { it.second })
-            .copy(unreadRepos = read.filter { it.second == null }.map { it.first }.sorted())
+        // Read side by side: Restore stays disabled until this returns, and each read can wait out a timeout.
+        return coroutineScope {
+            val read = stores.filterNot { it.indexUrl in deviceStores }.distinctBy { it.indexUrl }
+                .map { async { it.name to readStore(it) } } +
+                pluginRepos.map { async { it to readPluginRepo(it) } }
+            // Nothing missing needs no listings of the device's repos, which are read over the network.
+            val device = async { if (missing.isEmpty()) RepoListings() else device() }
+            val repos = read.awaitAll()
+            planInstalls(missing, device.await(), repos.mapNotNull { it.second })
+                .copy(unreadRepos = repos.filter { it.second == null }.map { it.first }.sorted())
+        }
     }
 
     // Null when the store can't be read or now signs with another key than the backup recorded.

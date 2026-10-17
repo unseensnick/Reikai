@@ -49,7 +49,7 @@ Yōkai-Y2K and older Yōkai-based Reikai builds use the same format.
 1. In the old app, create a backup. A `.tachibk` or `.proto.gz` file works.
 1. Install Reikai. It installs as a separate app, so the old one stays until you remove it.
 1. Restore the backup from <nav to="data-and-storage">.
-1. On the Restore screen, tick **Trust this repo** for each repo you recognise, so the restore installs your extensions from it. Install by hand anything the screen still lists, and log in to your trackers again unless the backup included your sign-ins. See [Restoring a backup](guides/backups.md#restoring-a-backup).
+1. On the Restore screen, tick **Trust this repo** for each repo you recognise, so it comes back. These apps don't record which extensions you had, so install them again from Browse, and log in to your trackers again. See [Restoring a backup](guides/backups.md#restoring-a-backup).
 
 What comes across: your library, categories, reading history and tracking links.
 

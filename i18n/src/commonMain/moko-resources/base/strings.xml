@@ -1053,6 +1053,7 @@
     <string name="backup_restore_missing_extensions">Extensions to install:</string>
     <string name="restore_install_extensions">Missing extensions</string>
     <string name="restore_installs_ready">Installs after the restore</string>
+    <string name="restore_installs_off">Missing, not installed</string>
     <string name="restore_repo_untrusted">Not on this device. Trust it to add it back and install from it.</string>
     <string name="restore_repo_installs">Installs</string>
     <string name="restore_repo_nothing">Nothing missing comes from this repo</string>

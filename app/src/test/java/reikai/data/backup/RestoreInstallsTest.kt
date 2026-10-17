@@ -58,6 +58,23 @@ class RestoreInstallsTest {
             listOf(kind.item.name)
     }
 
+    /** Trusting either installs it, so neither may claim it from the other. */
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a missing item two backup repos list shows under both`(kind: Kind) {
+        val other = backupRepo.copy(url = "https://other.example", name = "Other")
+
+        planInstalls(listOf(kind.item), RepoListings(), listOf(backupRepo to kind.listing, other to kind.listing))
+            .repos.map { it.items } shouldBe listOf(listOf(kind.item.name), listOf(kind.item.name))
+    }
+
+    // The Restore screen keys its repo cards by address, and a repeated key crashes the list.
+    @Test
+    fun `a repo the backup names twice is offered once`() {
+        planInstalls(emptyList(), RepoListings(), listOf(backupRepo to RepoListings(), backupRepo to RepoListings()))
+            .repos shouldBe listOf(backupRepo)
+    }
+
     @ParameterizedTest
     @EnumSource(Kind::class)
     fun `a missing item no repo lists is named to install by hand`(kind: Kind) {
@@ -110,6 +127,12 @@ class RestoreInstallsTest {
             emptyList()
     }
 
+    @Test
+    fun `a backup store the device already has is not offered`() = runTest {
+        sources(deviceStores = listOf(store(backupStore.indexUrl, KEY)))
+            .plan(emptyList(), listOf(backupStore), emptyMap()).repos shouldBe emptyList()
+    }
+
     private val backupStore = BackupExtensionStore(
         indexUrl = "https://backup.example/index.min.json",
         name = "Backup",
@@ -124,12 +147,13 @@ class RestoreInstallsTest {
     private fun sources(
         liveKey: String = KEY,
         novelPreferences: NovelPreferences = NovelPreferences(EmittingPreferenceStore()),
+        deviceStores: List<ExtensionStore> = emptyList(),
     ): RestoreInstallSources {
         val live = store(backupStore.indexUrl, liveKey)
         return RestoreInstallSources(
             extensionManager = mockk<ExtensionManager>(),
             novelPreferences = novelPreferences,
-            storeRepository = mockk<ExtensionStoreRepository> { coEvery { getAll() } returns emptyList() },
+            storeRepository = mockk<ExtensionStoreRepository> { coEvery { getAll() } returns deviceStores },
             storeService = mockk<ExtensionStoreService> {
                 coEvery { fetch(backupStore.indexUrl) } returns Result.success(live)
                 coEvery { getExtensions(live) } returns Result.success(emptyList())
