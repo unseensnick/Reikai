@@ -8,6 +8,22 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Highlights
+
+Novels can be read a page at a time, in both rendering modes. Pages turn by tap, swipe or volume key
+as manga's do, with a page slider and their own tap layout. The manga reader gets the novel reader's
+extra tap layouts.
+
+Statistics has new charts (publishing status, tracking status, scores), a reading streak, and lists
+of your library by source, tag, category, tracker and a few more. Time read per day is recorded from
+this version on; older reading still counts toward the total.
+
+Restoring a backup can install the extensions and plugins it used, from repos you tick on the
+Restore screen. A few changes aimed at slower phones: a novel chapter you opened before loads from
+the chapter cache instead of the source, and backups take somewhat less time.
+
+Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
+
 ### Library
 
 #### Added
