@@ -33,14 +33,14 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
-- **In Native text, a novel chapter with pictures opened at its start now shows at once instead of staying blank for up to three seconds.**
-- **In Native text, a tap below the end of the last chapter now reaches the tap zones and the menu.**
-- **In WebView mode, a chapter whose own script stalls its loading no longer locks out taps and the menu.**
-- **In WebView mode, a chapter opened partway no longer flashes another part of itself before settling on your place.**
-- **In Native text, a footnote link written as the chapter's own address now jumps to the note instead of opening the browser.**
-- **In Native text, two pictures in one paragraph now each show as their own picture, and a tall one sharpens as it does alone.**
-- **In Native text, a chapter that failed to load no longer keeps its Retry box once it loads.**
-- **In Native text with text selection on, tapping Retry on a failed picture now dims it while it loads.**
+- **A novel chapter with pictures, opened at its start, now shows at once instead of staying blank for up to three seconds (Native text).**
+- **A tap below the end of the last chapter now reaches the tap zones and the menu (Native text).**
+- **A chapter whose own script stalls its loading no longer locks out taps and the menu (WebView mode).**
+- **A chapter opened partway no longer flashes another part of itself before settling on your place (WebView mode).**
+- **A footnote link written as the chapter's own address now jumps to the note instead of opening the browser (Native text).**
+- **Two pictures in one paragraph now each show as their own picture, and a tall one sharpens as it does alone (Native text).**
+- **A chapter that failed to load no longer keeps its Retry box once it loads (Native text).**
+- **Tapping Retry on a failed picture now dims it while it loads, with text selection on (Native text).**
 
 ### Backup & restore
 
@@ -52,10 +52,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Statistics now charts your library's publishing status, tracking status and scores, for manga and novels.** The All, Manga and Novels switch applies to every chart.
-- **Statistics shows your reading streak, when you started each series and, from this version on, how long you read each day.** Older reading still counts toward the total.
-- **Statistics lists your library by source, tag, category, tracker, language, series length and when you started reading, and a tap opens those series in the library.**
-- **Statistics sets its cards side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
+- **New charts show your library's publishing status, tracking status and scores, for manga and novels.** The All, Manga and Novels switch applies to every chart.
+- **See your reading streak, when you started each series and, from this version on, how long you read each day.** Older reading still counts toward the total.
+- **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap opens those series in the library.**
+- **Cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
 
 ### App
 
