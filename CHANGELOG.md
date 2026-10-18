@@ -57,9 +57,29 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Statistics lists your library by source, tag, category, tracker, language, series length and when you started reading, and a tap opens those series in the library.**
 - **Statistics sets its cards side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
 
+### App
+
+#### Added
+
+- **A Time format setting under Settings -> Appearance shows times in 12-hour or 24-hour form, or follows the system or the app's language (from Mihon).** Upstream: mihonapp/mihon#4118.
+
+### Browse & sources
+
+#### Fixed
+
+- **A manga or novel source that sends an Origin header no longer crashes its page in WebView (from Mihon).** Upstream: mihon 5f63c983d.
+- **WebView now sends a source's headers only to that source's own site (from Mihon).** Upstream: mihon a01867dc3.
+
+### Downloads & extensions
+
+#### Fixed
+
+- **Manga downloads are found again for a source that shares its name with a stored source (from Mihon).** Upstream: mihon deeb9b258.
+
 ### Other
 
 - Added the Vico chart library, which draws the Statistics charts.
+- Updated Firebase to 35.0.2 and Kotest to 6.2.6, and took the latest translations (from Mihon).
 
 ## [0.4.1]
 

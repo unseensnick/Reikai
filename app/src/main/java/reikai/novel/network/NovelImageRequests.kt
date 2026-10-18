@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import logcat.LogPriority
 import okhttp3.CacheControl
 import okhttp3.Call
@@ -91,7 +92,7 @@ class NovelImageRequests(
      */
     suspend fun webViewHeaders(sourceId: String?): Map<String, String> =
         runCatchingCancellable {
-            appImages(sourceId)?.headers?.toMultimap()?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty()
+            appImages(sourceId)?.headers?.toWebViewHeaders().orEmpty()
         }
             .onFailure { logcat(LogPriority.ERROR, it) { "Failed to build headers" } }
             .getOrDefault(emptyMap())

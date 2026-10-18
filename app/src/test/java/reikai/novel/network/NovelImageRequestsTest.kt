@@ -149,13 +149,21 @@ class NovelImageRequestsTest {
     @Test
     fun `the WebView gets an APK source's own headers`() = runTest {
         requests(loaded = listOf(apkWithToken())).webViewHeaders("tachiyomi:42") shouldBe
-            mapOf("x-token" to "secret")
+            mapOf("X-Token" to "secret")
+    }
+
+    /** A WebView whose request names an Origin other than its own kills its renderer, as manga's does. */
+    @Test
+    fun `the WebView never gets a source's Origin header`() = runTest {
+        val apk = novelApp(apkSource(headersOf("Origin", "https://apk.example", "X-Token", "secret")))
+
+        requests(loaded = listOf(apk)).webViewHeaders("tachiyomi:42") shouldBe mapOf("X-Token" to "secret")
     }
 
     @Test
     fun `the WebView gets the headers an IReader source's cover request carries`() = runTest {
         requests(loaded = listOf(iReaderApp())).webViewHeaders("ireader:42") shouldBe
-            mapOf("referer" to "https://ir.example/")
+            mapOf("Referer" to "https://ir.example/")
     }
 
     @Test

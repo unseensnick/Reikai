@@ -32,11 +32,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.category.components.ChangeCategoryDialog
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.components.AppBarActions
@@ -50,6 +52,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadIndicator
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.updates.UpdatesDeleteConfirmationDialog
 import eu.kanade.presentation.util.formatChapterNumber
+import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import eu.kanade.tachiyomi.util.lang.toLocalDate
@@ -57,6 +60,7 @@ import eu.kanade.tachiyomi.util.lang.toTimestampString
 import kotlinx.coroutines.launch
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import mihon.app.di.appGraph
 import mihon.feature.upcoming.UpcomingScreen
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Delete
@@ -89,6 +93,8 @@ import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
 import tachiyomi.presentation.core.theme.active
+import tachiyomi.presentation.core.util.collectAsState
+import java.time.format.DateTimeFormatter
 import kotlin.time.Clock
 
 /**
@@ -110,6 +116,15 @@ fun Screen.RecentsScreen(
     val navigator = LocalNavigator.currentOrThrow
     val scope = rememberCoroutineScope()
     var filterSheetOpen by rememberSaveable { mutableStateOf(false) }
+
+    // Built once for every row, as upstream's History screen does: the setting, the app language and the
+    // device's 12/24-hour switch, which can change while the app is in the background.
+    val locale = LocalLocale.current
+    val is24HourSystem = rememberIs24HourSystem()
+    val timeFormat by remember { context.appGraph.uiPreferences.timeFormat }.collectAsState()
+    val timeFormatter = remember(timeFormat, locale, is24HourSystem) {
+        UiPreferences.timeFormat(timeFormat, locale.platformLocale, is24HourSystem)
+    }
 
     val mode by engine.mode.collectAsState()
     val contentType by engine.contentType.collectAsState()
@@ -301,6 +316,7 @@ fun Screen.RecentsScreen(
                                         selectionEnabled = selectionEnabled,
                                         orderedRefs = orderedRefs,
                                         swipeActions = swipeActions,
+                                        timeFormatter = timeFormatter,
                                         onOpen = ::open,
                                         onOpenDetails = ::openDetails,
                                     )
@@ -480,6 +496,7 @@ private fun RecentsMixedLaneRow(
     selected: Boolean,
     selectionActive: Boolean,
     swipeActions: ChapterSwipeActions,
+    timeFormatter: DateTimeFormatter,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -518,6 +535,7 @@ private fun RecentsMixedLaneRow(
         // by chapter id: a merged row's target ref names the sibling that owns it, not this row's entry.
         timeLine = mixedLaneTime(
             item,
+            timeFormatter,
             movedOn = target != null && target.ref.chapterId != ref?.chapterId,
             datesOlderRows = true,
         ),
@@ -618,12 +636,13 @@ private fun mixedLaneChapter(chapter: RecentsChapterUi?): String? = when (chapte
 @Composable
 private fun mixedLaneTime(
     item: RecentsItem,
+    timeFormatter: DateTimeFormatter,
     movedOn: Boolean = false,
     datesOlderRows: Boolean = false,
 ): String {
     val time = when {
         datesOlderRows && !item.isFromToday() -> relativeDateText(item.timestamp)
-        else -> remember(item.timestamp) { item.timestamp.toTimestampString() }
+        else -> remember(item.timestamp, timeFormatter) { item.timestamp.toTimestampString(timeFormatter) }
     }
     val res = when (item.lane) {
         is RecentsLane.Read -> if (movedOn) MR.strings.recents_row_last_read else MR.strings.recents_row_read
@@ -646,6 +665,7 @@ private fun LazyListScope.recentsRows(
     selectionEnabled: Boolean,
     orderedRefs: List<ChapterRef>,
     swipeActions: ChapterSwipeActions,
+    timeFormatter: DateTimeFormatter,
     onOpen: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
 ) {
@@ -687,6 +707,7 @@ private fun LazyListScope.recentsRows(
                 selected = row.item.lane.chapterRef in selection,
                 selectionActive = selection.isNotEmpty(),
                 swipeActions = swipeActions,
+                timeFormatter = timeFormatter,
                 onPress = ::press,
                 onLongPress = ::longPress,
                 onOpenDetails = onOpenDetails,
@@ -775,6 +796,7 @@ private fun RecentsEntryRow(
     selected: Boolean,
     selectionActive: Boolean,
     swipeActions: ChapterSwipeActions,
+    timeFormatter: DateTimeFormatter,
     onPress: (RecentsItem) -> Unit,
     onLongPress: (RecentsItem) -> Unit,
     onOpenDetails: (EntryId) -> Unit,
@@ -791,6 +813,7 @@ private fun RecentsEntryRow(
             selected = selected,
             selectionActive = selectionActive,
             swipeActions = swipeActions,
+            timeFormatter = timeFormatter,
             onPress = onPress,
             onLongPress = onLongPress,
             onOpenDetails = onOpenDetails,
@@ -848,7 +871,7 @@ private fun RecentsEntryRow(
                 cover = ui.cover,
                 title = ui.title,
                 chapterLine = mixedLaneChapter(chapter),
-                timeLine = mixedLaneTime(item),
+                timeLine = mixedLaneTime(item, timeFormatter),
                 progressLine = readProgressLabel(state?.progress),
                 read = state?.read == true,
                 bookmark = state?.bookmark == true,
