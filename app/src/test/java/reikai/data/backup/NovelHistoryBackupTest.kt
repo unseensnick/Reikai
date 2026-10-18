@@ -53,7 +53,7 @@ class NovelHistoryBackupTest {
         ).forEach { driver.execute(null, it, 0).await() }
         val backup = BackupNovel(source = "src", url = "novel")
 
-        creator().history(Novel.create().copy(id = 1L), backup)
+        creator().history(listOf(Novel.create().copy(id = 1L) to backup))
 
         backup.history.map { it.url to it.readDuration } shouldBe listOf("chapter" to 500L)
     }
@@ -70,7 +70,7 @@ class NovelHistoryBackupTest {
         val backup = BackupNovel(source = "src", url = "novel")
 
         // A strict mock: the chapters part already reads the list, so the history part must not.
-        creator(chapters = mockk()).history(Novel.create().copy(id = 1L), backup)
+        creator(chapters = mockk()).history(listOf(Novel.create().copy(id = 1L) to backup))
 
         backup.history.map { Triple(it.url, it.lastRead, it.readDuration) } shouldBe
             listOf(Triple("chapter", 300L, 500L))

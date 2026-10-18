@@ -96,8 +96,8 @@ class GroupMemberBackupConformanceTest {
                 mangaRepository = MangaRepositoryImpl(database),
                 chapterRepository = mockk(),
                 trackRepository = mockk(),
-                getCategories = mockk(),
-                getHistory = mockk(),
+                categoryRepository = mockk(),
+                historyRepository = mockk(),
                 mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
                 customMangaInfoRepository = mockk(),
                 getFavorites = mockk {

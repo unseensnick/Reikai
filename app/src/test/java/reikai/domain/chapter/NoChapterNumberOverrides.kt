@@ -6,6 +6,9 @@ import reikai.domain.library.ContentType
 object NoChapterNumberOverrides : ChapterNumberOverrideRepository {
     override suspend fun getByOwner(type: ContentType, ownerId: Long) = emptyMap<String, ChapterNumberOverride>()
 
+    override suspend fun getByOwners(type: ContentType, ownerIds: List<Long>) =
+        emptyMap<Long, Map<String, ChapterNumberOverride>>()
+
     override suspend fun set(type: ContentType, ownerId: Long, url: String, number: Double) = Unit
 
     override suspend fun clear(type: ContentType, ownerId: Long, url: String) = Unit

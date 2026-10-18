@@ -31,6 +31,16 @@ SELECT url, number, source_number
 FROM novel_chapter_number_override
 WHERE novel_id = :ownerId;
 
+getMangaOverridesOf:
+SELECT manga_id, url, number, source_number
+FROM manga_chapter_number_override
+WHERE manga_id IN :ownerIds;
+
+getNovelOverridesOf:
+SELECT novel_id, url, number, source_number
+FROM novel_chapter_number_override
+WHERE novel_id IN :ownerIds;
+
 -- The first correction keeps the row's number as the source's; a later one only moves the correction.
 setMangaOverride:
 INSERT INTO manga_chapter_number_override(manga_id, url, number, source_number)

@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.domain.db.Transactions
 
 /**
@@ -26,49 +27,66 @@ class BackupEntryDriverTest {
         CUSTOM_INFO({ it.copy(customInfo = false) }),
     }
 
-    /** Writes each part's name onto the entry's set, so a test reads back which parts ran. */
+    /**
+     * Writes each part's name onto every entry's set, so a test reads back which parts ran, and records the
+     * size of each chunk a part was handed.
+     */
     private class FakeParts(
         private val favorites: List<String> = listOf("fav"),
         private val readOnly: List<String> = listOf("read"),
         private val groupMembers: List<String> = emptyList(),
     ) : BackupEntryParts<String, MutableSet<String>> {
+        val chapterChunks = mutableListOf<Int>()
+
         override suspend fun favorites() = favorites
         override suspend fun readNotInLibrary() = readOnly
         override suspend fun groupMembersOutsideLibrary() = groupMembers
-        override suspend fun base(entry: String) = mutableSetOf("base:$entry")
-        override suspend fun chapters(entry: String, backup: MutableSet<String>) {
-            backup += Part.CHAPTERS.name
+        override suspend fun base(entries: List<String>) = entries.map { mutableSetOf("base:$it") }
+        override suspend fun chapters(batch: List<Pair<String, MutableSet<String>>>) {
+            chapterChunks += batch.size
+            mark(batch, Part.CHAPTERS)
         }
-        override suspend fun categories(entry: String, backup: MutableSet<String>) {
-            backup += Part.CATEGORIES.name
-        }
-        override suspend fun tracking(entry: String, backup: MutableSet<String>) {
-            backup += Part.TRACKING.name
-        }
-        override suspend fun history(entry: String, backup: MutableSet<String>) {
-            backup += Part.HISTORY.name
-        }
-        override suspend fun customInfo(entry: String, backup: MutableSet<String>) {
-            backup += Part.CUSTOM_INFO.name
+        override suspend fun categories(batch: List<Pair<String, MutableSet<String>>>) = mark(batch, Part.CATEGORIES)
+        override suspend fun tracking(batch: List<Pair<String, MutableSet<String>>>) = mark(batch, Part.TRACKING)
+        override suspend fun history(batch: List<Pair<String, MutableSet<String>>>) = mark(batch, Part.HISTORY)
+        override suspend fun customInfo(batch: List<Pair<String, MutableSet<String>>>) = mark(batch, Part.CUSTOM_INFO)
+
+        private fun mark(batch: List<Pair<String, MutableSet<String>>>, part: Part) {
+            batch.forEach { (_, backup) -> backup += part.name }
         }
     }
 
     @ParameterizedTest
     @EnumSource(Part::class)
     fun `an option that is on writes its part`(part: Part) = runTest {
-        (part.name in BackupOptions().backupEntry("fav", FakeParts())) shouldBe true
+        (part.name in BackupOptions().backupChunk(listOf("fav"), FakeParts()).single()) shouldBe true
     }
 
     @ParameterizedTest
     @EnumSource(Part::class)
     fun `an option that is off leaves its part out`(part: Part) = runTest {
-        (part.name in part.off(BackupOptions()).backupEntry("fav", FakeParts())) shouldBe false
+        (part.name in part.off(BackupOptions()).backupChunk(listOf("fav"), FakeParts()).single()) shouldBe false
     }
 
     @Test
     fun `every option off still writes the entry itself`() = runTest {
         val allOff = Part.entries.fold(BackupOptions()) { options, part -> part.off(options) }
-        allOff.backupEntry("fav", FakeParts()) shouldBe mutableSetOf("base:fav")
+        allOff.backupChunk(listOf("fav"), FakeParts()) shouldBe listOf(mutableSetOf("base:fav"))
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = [0, 1, BACKUP_CHUNK, BACKUP_CHUNK + 1])
+    fun `every series comes out once and in order across chunks`(count: Int) = runTest {
+        val favorites = List(count) { "s$it" }
+        BackupOptions(readEntries = false).backupEntries(FakeParts(favorites = favorites))
+            .toList().map { it.first() } shouldBe favorites.map { "base:$it" }
+    }
+
+    @Test
+    fun `a part reads a whole chunk at a time`() = runTest {
+        val parts = FakeParts(favorites = List(BACKUP_CHUNK + 1) { "s$it" })
+        BackupOptions(readEntries = false).backupEntries(parts).toList()
+        parts.chapterChunks shouldBe listOf(BACKUP_CHUNK, 1)
     }
 
     @Test

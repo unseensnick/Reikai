@@ -173,7 +173,9 @@ class NovelBackupRoundTripTest {
         )
         val creator = NovelBackupCreator(
             novelRepository = mockk(),
-            novelChapterRepository = mockk { coEvery { getByNovelId(1L) } returns listOf(stored) },
+            novelChapterRepository = mockk {
+                coEvery { getByNovelIds(listOf(1L)) } returns mapOf(1L to listOf(stored))
+            },
             categoryRepository = mockk(),
             novelTrackRepository = mockk(),
             mergeGroupRepository = mockk(),
@@ -184,7 +186,7 @@ class NovelBackupRoundTripTest {
             readingLog = NoReadingLog,
         )
         val backup = BackupNovel(source = "s1", url = "u")
-        creator.chapters(novel(1, "u", "s1"), backup)
+        creator.chapters(listOf(novel(1, "u", "s1") to backup))
 
         val wire = ProtoBuf.encodeToByteArray(BackupNovelChapter.serializer(), backup.chapters.single())
 

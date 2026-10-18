@@ -55,6 +55,18 @@ FROM novel_reading_session S
 INNER JOIN novel_chapters C ON C._id = S.chapter_id
 WHERE C.novel_id = :novelId;
 
+sessionsByUrlOfMangas:
+SELECT C.manga_id, C.remote_url, S.ended_at, S.duration
+FROM reading_session S
+INNER JOIN chapter C ON C.id = S.chapter_id
+WHERE C.manga_id IN :mangaIds;
+
+sessionsByUrlOfNovels:
+SELECT C.novel_id, C.url, S.ended_at, S.duration
+FROM novel_reading_session S
+INNER JOIN novel_chapters C ON C._id = S.chapter_id
+WHERE C.novel_id IN :novelIds;
+
 -- A session whose chapter the restored entry no longer lists inserts nothing.
 restoreManga:
 INSERT OR IGNORE INTO reading_session(chapter_id, ended_at, duration)

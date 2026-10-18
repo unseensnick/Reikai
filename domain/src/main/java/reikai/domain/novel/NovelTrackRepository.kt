@@ -9,6 +9,8 @@ interface NovelTrackRepository {
 
     suspend fun getTracksByNovelId(novelId: Long): List<NovelTrack>
 
+    suspend fun getTracksByNovelIds(novelIds: List<Long>): Map<Long, List<NovelTrack>>
+
     fun getTracksByNovelIdAsFlow(novelId: Long): Flow<List<NovelTrack>>
 
     suspend fun getTracks(): List<NovelTrack>

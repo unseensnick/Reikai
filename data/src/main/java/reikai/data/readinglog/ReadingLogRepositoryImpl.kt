@@ -50,6 +50,20 @@ class ReadingLogRepositoryImpl(
         }
     }
 
+    override suspend fun sessionsByUrl(
+        contentType: ContentType,
+        entryIds: List<Long>,
+    ): Map<Long, List<UrlReadingSession>> {
+        val mapper = { entryId: Long, url: String, endedAt: Long, duration: Long ->
+            entryId to UrlReadingSession(url, Instant.fromEpochMilliseconds(endedAt), duration)
+        }
+        return if (isManga(contentType)) {
+            queries.sessionsByUrlOfMangas(entryIds, mapper).awaitAsList()
+        } else {
+            queries.sessionsByUrlOfNovels(entryIds, mapper).awaitAsList()
+        }.groupBy({ it.first }, { it.second })
+    }
+
     override suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>) {
         val loggable = sessions.filter { isLoggableSession(it.endedAt, it.duration) }
         if (loggable.isEmpty()) return

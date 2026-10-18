@@ -80,13 +80,19 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = MangaBackupCreator(
-                    mangaRepository = mockk(relaxed = true),
-                    chapterRepository = mockk { coEvery { getChapterByMangaId(any(), any()) } returns listOf(chapter) },
-                    trackRepository = mockk { coEvery { getTracksByMangaId(any()) } returns listOf(track) },
-                    getCategories = mockk(relaxed = true),
-                    getHistory = mockk {
-                        coEvery { await(any<Long>()) } returns
-                            listOf(History(1L, CHAPTER_ID, dates.readAt, readDuration = 5L))
+                    mangaRepository = mockk {
+                        coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap()
+                    },
+                    chapterRepository = mockk {
+                        coEvery { getChaptersByMangaIds(any()) } returns mapOf(ID to listOf(chapter))
+                    },
+                    categoryRepository = mockk(relaxed = true),
+                    historyRepository = mockk {
+                        coEvery { getHistoryByMangaIds(any()) } returns
+                            mapOf(ID to listOf(History(1L, CHAPTER_ID, dates.readAt, readDuration = 5L)))
+                    },
+                    trackRepository = mockk {
+                        coEvery { getTracksByMangaIds(any()) } returns mapOf(ID to listOf(track))
                     },
                     mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
                     customMangaInfoRepository = mockk(relaxed = true),
@@ -96,11 +102,11 @@ class BackupDatesConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
                 )
-                val backup = creator.base(manga)
-                creator.chapters(manga, backup)
-                creator.tracking(manga, backup)
-                creator.history(manga, backup)
-                return ProtoBuf.encodeToByteArray(BackupManga.serializer(), backup)
+                val batch = listOf(manga to creator.base(listOf(manga)).single())
+                creator.chapters(batch)
+                creator.tracking(batch)
+                creator.history(batch)
+                return ProtoBuf.encodeToByteArray(BackupManga.serializer(), batch.single().second)
             }
 
             override fun restore(wire: ByteArray): Dates {
@@ -140,24 +146,29 @@ class BackupDatesConformanceTest {
                 )
                 val creator = NovelBackupCreator(
                     novelRepository = mockk(relaxed = true),
-                    novelChapterRepository = mockk { coEvery { getByNovelId(any()) } returns listOf(chapter) },
+                    novelChapterRepository = mockk {
+                        coEvery { getByNovelIds(any()) } returns
+                            mapOf(ID to listOf(chapter))
+                    },
                     categoryRepository = mockk(relaxed = true),
-                    novelTrackRepository = mockk { coEvery { getTracksByNovelId(any()) } returns listOf(track) },
+                    novelTrackRepository = mockk {
+                        coEvery { getTracksByNovelIds(any()) } returns mapOf(ID to listOf(track))
+                    },
                     mergeGroupRepository = mockk(relaxed = true),
                     customNovelInfoRepository = mockk(relaxed = true),
                     novelHistoryRepository = mockk {
-                        coEvery { getUrlKeyedHistoryByNovelId(any()) } returns
-                            listOf(RestoredChapterHistory(CHAPTER_URL, dates.readAt, readDuration = 5L))
+                        coEvery { getUrlKeyedHistoryByNovelIds(any()) } returns
+                            mapOf(ID to listOf(RestoredChapterHistory(CHAPTER_URL, dates.readAt, readDuration = 5L)))
                     },
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
                 )
-                val backup = creator.base(novel)
-                creator.chapters(novel, backup)
-                creator.tracking(novel, backup)
-                creator.history(novel, backup)
-                return ProtoBuf.encodeToByteArray(BackupNovel.serializer(), backup)
+                val batch = listOf(novel to creator.base(listOf(novel)).single())
+                creator.chapters(batch)
+                creator.tracking(batch)
+                creator.history(batch)
+                return ProtoBuf.encodeToByteArray(BackupNovel.serializer(), batch.single().second)
             }
 
             override fun restore(wire: ByteArray): Dates {

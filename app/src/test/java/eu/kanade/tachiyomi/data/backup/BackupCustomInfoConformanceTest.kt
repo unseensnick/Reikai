@@ -157,11 +157,13 @@ class BackupCustomInfoConformanceTest {
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 categoriesBackupCreator = mockk(relaxed = true),
                 mangaBackupCreator = MangaBackupCreator(
-                    mangaRepository = mockk { coEvery { getExcludedScanlators(7) } returns emptySet() },
+                    mangaRepository = mockk {
+                        coEvery { getExcludedScanlatorsByMangaIds(listOf(7)) } returns emptyMap()
+                    },
                     chapterRepository = mockk(),
                     trackRepository = mockk(),
-                    getCategories = mockk(relaxed = true),
-                    getHistory = mockk(relaxed = true),
+                    categoryRepository = mockk(relaxed = true),
+                    historyRepository = mockk(relaxed = true),
                     mangaMetadataRepository = mockk { coEvery { getMetadataById(7) } returns null },
                     customMangaInfoRepository = mangaCustomInfo,
                     getFavorites = mockk {

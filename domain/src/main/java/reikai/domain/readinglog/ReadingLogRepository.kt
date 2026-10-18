@@ -17,6 +17,9 @@ interface ReadingLogRepository {
     /** [entryId]'s sessions keyed by chapter url, the form a backup carries them in. */
     suspend fun sessionsByUrl(contentType: ContentType, entryId: Long): List<UrlReadingSession>
 
+    /** [sessionsByUrl] for each of [entryIds]; an entry with no session is absent. */
+    suspend fun sessionsByUrl(contentType: ContentType, entryIds: List<Long>): Map<Long, List<UrlReadingSession>>
+
     /** Writes [sessions] onto [entryId]'s chapters with the same url; one whose chapter is gone is dropped. */
     suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>)
 

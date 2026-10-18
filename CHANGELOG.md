@@ -47,6 +47,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Changed
 
 - **Restoring a backup installs its missing extensions and plugins again, from repos you trust on the Restore screen.** A repo the backup brings shows its address and signing key and comes back only if you tick it.
+- **Creating a backup is faster on a large library.** It reads a hundred series at a time instead of one, for manga and novels alike.
 
 ### Statistics
 

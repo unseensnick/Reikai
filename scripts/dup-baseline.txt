@@ -33,8 +33,9 @@
 #   EntryDisplayPage, ReikaiLibrarySettings, SettingsMangaReaderScreen, SettingsRecommendationsScreen):
 #   preference declarations and settings DSL lists.
 # - SavedSearchDialogs / FeedDialogs: dialog scaffolding around different fields.
+# - Novel repository implementations: one-line query-and-map methods (by id, by ids, as a flow) over
+#   different tables.
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	4c95e27df5c79ab2
-app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/MangaBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	c7dbc2f375ec0b4d
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomMangaInfo.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomNovelInfo.kt	3f25b0ac5f1f9294
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupManga.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovel.kt	eb95fab0158a498f
 app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadStore.kt	app/src/main/java/reikai/novel/download/NovelDownloadStore.kt	165a5301275c7653
@@ -86,3 +87,4 @@ app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/mai
 app/src/main/java/reikai/presentation/recents/MangaRecentsAdapter.kt	app/src/main/java/reikai/presentation/recents/NovelRecentsAdapter.kt	f15210d87539d1e3
 data/src/main/java/reikai/data/library/updateerror/LibraryUpdateErrorRepositoryImpl.kt	data/src/main/java/reikai/data/novel/updateerror/NovelUpdateErrorRepositoryImpl.kt	2167c4310ae02d35
 data/src/main/java/reikai/data/novel/CustomNovelInfoRepositoryImpl.kt	data/src/main/java/tachiyomi/data/manga/CustomMangaInfoRepositoryImpl.kt	7e211102b55d97e7
+data/src/main/java/reikai/data/novel/NovelChapterRepositoryImpl.kt	data/src/main/java/reikai/data/novel/NovelTrackRepositoryImpl.kt	749db93129acc917

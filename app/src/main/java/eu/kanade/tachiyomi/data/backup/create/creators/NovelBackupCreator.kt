@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.mergeGroupRefs
+import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
@@ -62,8 +63,9 @@ class NovelBackupCreator(
     suspend fun sources(sourceIds: Set<String>): List<BackupNovelSource> =
         sourceIds.map { BackupNovelSource(name = novelSourceManager.nameOf(it), sourceId = it) }
 
-    // The option gates and the choice of which novels to back up live in the driver shared with manga
-    // (reikai.data.backup.backupEntries), so this class answers one part at a time.
+    // The option gates, the choice of which novels to back up and the chunking live in the driver shared
+    // with manga (reikai.data.backup.backupEntries), so this class answers one part at a time for a whole
+    // chunk, reading each table once.
     override suspend fun favorites(): List<Novel> = novelRepository.getFavorites()
 
     override suspend fun readNotInLibrary(): List<Novel> = novelRepository.getReadNovelsNotInLibrary()
@@ -73,49 +75,56 @@ class NovelBackupCreator(
             .mapNotNull { novelRepository.getById(it) }
             .filterNot { it.favorite }
 
-    override suspend fun base(entry: Novel): BackupNovel = entry.toBackupNovel()
+    override suspend fun base(entries: List<Novel>): List<BackupNovel> = entries.map { it.toBackupNovel() }
 
-    override suspend fun chapters(entry: Novel, backup: BackupNovel) {
-        val overrides = chapterNumberOverrides.getByOwner(ContentType.NOVELS, entry.id)
-        novelChapterRepository.getByNovelId(entry.id)
-            .map { it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber) }
-            .takeUnless(List<BackupNovelChapter>::isEmpty)
-            ?.let { backup.chapters = it }
-    }
-
-    override suspend fun categories(entry: Novel, backup: BackupNovel) {
-        val categoriesForNovel = categoryRepository.getCategoriesByNovelId(entry.id)
-        if (categoriesForNovel.isNotEmpty()) {
-            backup.categories = categoriesForNovel.map { it.order }
+    override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
+        val novelIds = batch.map { it.first.id }
+        val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
+        batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
+            val overrides = overridesByNovelId[entry.id].orEmpty()
+            backup.chapters = chapters.map { it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber) }
         }
     }
 
-    override suspend fun tracking(entry: Novel, backup: BackupNovel) {
-        val tracks = novelTrackRepository.getTracksByNovelId(entry.id).map { it.toBackupNovelTracking() }
-        if (tracks.isNotEmpty()) {
-            backup.tracking = tracks
+    override suspend fun categories(batch: List<Pair<Novel, BackupNovel>>) {
+        val categoriesByNovelId = categoryRepository.getCategoriesByNovelIds(batch.map { it.first.id })
+        batch.writeRows(categoriesByNovelId, Novel::id) { _, backup, categories ->
+            backup.categories = categories.map { it.order }
         }
     }
 
-    override suspend fun history(entry: Novel, backup: BackupNovel) {
-        val history = novelHistoryRepository.getUrlKeyedHistoryByNovelId(entry.id).map {
-            BackupNovelHistory(
-                url = it.chapterUrl,
-                lastRead = it.readAt.toEpochMillisOrZero(),
-                readDuration = it.readDuration,
-            )
+    override suspend fun tracking(batch: List<Pair<Novel, BackupNovel>>) {
+        val tracksByNovelId = novelTrackRepository.getTracksByNovelIds(batch.map { it.first.id })
+        batch.writeRows(tracksByNovelId, Novel::id) { _, backup, tracks ->
+            backup.tracking = tracks.map { it.toBackupNovelTracking() }
         }
-        if (history.isNotEmpty()) {
-            backup.history = history
-        }
-        // Sessions ride the history option, keyed by url as history is, as for manga.
-        backup.readingSessions =
-            readingLog.sessionsByUrl(ContentType.NOVELS, entry.id).map { it.toBackupReadingSession() }
     }
 
-    override suspend fun customInfo(entry: Novel, backup: BackupNovel) {
-        customNovelInfoRepository.getByNovelIdAsFlow(entry.id).first()
-            ?.let { backup.customInfo = it.toBackupCustomInfo() }
+    override suspend fun history(batch: List<Pair<Novel, BackupNovel>>) {
+        val novelIds = batch.map { it.first.id }
+        val historyByNovelId = novelHistoryRepository.getUrlKeyedHistoryByNovelIds(novelIds)
+        val sessionsByNovelId = readingLog.sessionsByUrl(ContentType.NOVELS, novelIds)
+        batch.forEach { (entry, backup) ->
+            val history = historyByNovelId[entry.id].orEmpty().map {
+                BackupNovelHistory(
+                    url = it.chapterUrl,
+                    lastRead = it.readAt.toEpochMillisOrZero(),
+                    readDuration = it.readDuration,
+                )
+            }
+            if (history.isNotEmpty()) {
+                backup.history = history
+            }
+            // Sessions ride the history option, keyed by url as history is, as for manga.
+            backup.readingSessions = sessionsByNovelId[entry.id].orEmpty().map { it.toBackupReadingSession() }
+        }
+    }
+
+    override suspend fun customInfo(batch: List<Pair<Novel, BackupNovel>>) {
+        batch.forEach { (entry, backup) ->
+            customNovelInfoRepository.getByNovelIdAsFlow(entry.id).first()
+                ?.let { backup.customInfo = it.toBackupCustomInfo() }
+        }
     }
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {

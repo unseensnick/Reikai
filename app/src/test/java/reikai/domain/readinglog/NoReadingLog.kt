@@ -9,6 +9,9 @@ object NoReadingLog : ReadingLogRepository {
 
     override suspend fun sessionsByUrl(contentType: ContentType, entryId: Long) = emptyList<UrlReadingSession>()
 
+    override suspend fun sessionsByUrl(contentType: ContentType, entryIds: List<Long>) =
+        emptyMap<Long, List<UrlReadingSession>>()
+
     override suspend fun restore(contentType: ContentType, entryId: Long, sessions: List<UrlReadingSession>) = Unit
 
     override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) = Unit

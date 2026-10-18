@@ -139,8 +139,8 @@ class ChapterNumberOverrideBackupTest {
                         mangaRepository = mockk(),
                         chapterRepository = ChapterRepositoryImpl(database),
                         trackRepository = mockk(),
-                        getCategories = mockk(),
-                        getHistory = mockk(),
+                        categoryRepository = mockk(),
+                        historyRepository = mockk(),
                         mangaMetadataRepository = mockk(),
                         customMangaInfoRepository = mockk(),
                         getFavorites = mockk(),
@@ -148,7 +148,7 @@ class ChapterNumberOverrideBackupTest {
                         mergeGroupRepository = mockk(),
                         chapterNumberOverrides = overrides,
                         readingLog = NoReadingLog,
-                    ).chapters(Manga.create().copy(id = 1), backup)
+                    ).chapters(listOf(Manga.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber.toDouble() to it.sourceChapterNumber }
 
             override suspend fun restore(database: Database) {
@@ -189,7 +189,7 @@ class ChapterNumberOverrideBackupTest {
                         novelSourceManager = mockk(),
                         chapterNumberOverrides = overrides,
                         readingLog = NoReadingLog,
-                    ).chapters(Novel.create().copy(id = 1), backup)
+                    ).chapters(listOf(Novel.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber to it.sourceChapterNumber }
 
             override suspend fun restore(database: Database) {
