@@ -10,9 +10,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).
 
-### Backup & restore
+### Performance on slow phones
 
-- **Build backup entries in batches** `[M]` - read chapters, categories, tracks and history for a hundred series per query instead of one series at a time, for manga and novels in the shared `backupEntries` driver, as Mihon `771ba33a3` does for manga. Cuts the queries a large backup makes. [Doc](docs/dev/subsystems/data-and-backup.md).
+- **Return from a series' details without a hitch** `[M]` - on a Samsung A22 release build each return still has one frame near 200 ms, because Voyager disposes the home screen on push and the library grid composes from scratch, the cover badge row an eighth of it. Needs a ruling between keeping the home screen alive and rewriting the badge row. [Doc](docs/dev/subsystems/details.md).
+- **Serve the WebView mode's script and styles by address** `[S]` - each chapter page still inlines the reader script and styles, as it did the font; worth doing only if cold opens on slow phones still lag. [Doc](docs/dev/subsystems/novel-reader-rendering.md).
 
 ## Parked and not building
 
