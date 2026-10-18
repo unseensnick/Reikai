@@ -44,22 +44,8 @@ Lets the page extend under the status and navigation bars.
 ### Show content in cutout area <Badge type="info" text="On" />
 Draws the page into the camera cutout. Only available on a device with a cutout, while **Fullscreen** is on.
 
-### Tap zones <Badge type="info" text="Disabled" />
-How a tap on the page is read. **Disabled** shows or hides the menu wherever you tap.
-
-**Top and bottom**, **L shaped**, **Kindle-ish**, **Edge** and **Right and Left** divide the page into zones that scroll back, scroll forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page, so reading does not flash the menu.
-
-### Invert tap zones <Badge type="info" text="None" />
-Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
-
-### Bottom zone height <Badge type="info" text="12%" />
-How tall the menu zone is. Only shown for the **Bottom** layout.
-
 ### Show tap zones overlay <Badge type="info" text="Off" />
-Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout; this only adds it on opening. Hidden while **Tap zones** is **Disabled**.
-
-### Swipe between chapters <Badge type="info" text="Off" />
-Swipe sideways to move to the previous or next chapter.
+Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout you are reading with; this only adds it on opening. Hidden while both the **Paged** and the **Scrolling** tap zones are **Disabled**.
 
 ### Skip chapters marked read <Badge type="info" text="Off" />
 Skips over already read chapters while reading.
@@ -87,6 +73,42 @@ Which buttons sit in the novel reader's bottom bar, and in what order. View chap
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
+
+## Paged
+
+What a tap does while **Reading mode** is one of the paged choices, kept apart from scrolling as the manga reader keeps its paged and long strip tap zones. A swipe sideways always turns the page here.
+
+### Tap zones <Badge type="info" text="Right and Left" />
+How a tap on the page is read. **Right and Left** turns the page back from the left side, forward from the right side (the other way round in **Paged (right to left)**), and opens the menu from the middle.
+
+**Top and bottom**, **L shaped**, **Kindle-ish** and **Edge** divide the page into other zones that turn back, turn forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page. **Disabled** shows or hides the menu wherever you tap.
+
+### Invert tap zones <Badge type="info" text="None" />
+Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
+
+### Bottom zone height <Badge type="info" text="12%" />
+How tall the menu zone is. Only shown for the **Bottom** layout. One height serves both **Paged** and **Scrolling**.
+
+### Animate page transitions <Badge type="info" text="On" />
+Slides each page across as it turns, as the manga reader does. Turn it off for instant turns, which suit e-ink screens.
+
+## Scrolling
+
+What a tap does while **Reading mode** is **Scrolling**.
+
+### Tap zones <Badge type="info" text="Disabled" />
+How a tap on the page is read. **Disabled** shows or hides the menu wherever you tap.
+
+**Top and bottom**, **L shaped**, **Kindle-ish**, **Edge** and **Right and Left** divide the page into zones that scroll back, scroll forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page, so reading does not flash the menu.
+
+### Invert tap zones <Badge type="info" text="None" />
+Flips the zones horizontally, vertically or both, as under **Paged**.
+
+### Bottom zone height <Badge type="info" text="12%" />
+The same setting as under **Paged**, shown for the **Bottom** layout.
+
+### Swipe between chapters <Badge type="info" text="Off" />
+Swipe sideways to move to the previous or next chapter.
 
 ## Text display
 
@@ -156,7 +178,7 @@ Your own styles and code, added to every chapter page. **WebView** only. A resto
 ## Navigation
 
 ### Volume keys <Badge type="info" text="Off" />
-Scrolls with the volume keys.
+Reads on with the volume keys: a press turns the page while reading a page at a time, and scrolls otherwise. They only work while the menu is hidden.
 
 ### Invert volume keys <Badge type="info" text="Off" />
 Inverts what the volume keys do.
@@ -168,10 +190,10 @@ How much of the screen one press moves. Hidden while reading a page at a time, w
 How quickly you have to scroll before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Show chapter navigator <Badge type="info" text="On" />
-Shows the progress slider or the vertical navigator. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
+Shows the progress slider or the vertical navigator. While reading a page at a time it is always a slider above the buttons, showing the page you are on and the chapter's page count. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
 
 ### Vertical chapter navigator <Badge type="info" text="On" />
-Shows a vertical progress slider at the side of the screen. The two settings below it only appear while it is on.
+Shows a vertical progress slider at the side of the screen while scrolling. Hidden while reading a page at a time, along with the two settings below it, which only appear while it is on.
 
 ### Place vertical navigator on the left side <Badge type="info" text="Off" />
 Moves that slider to the left edge, for left-handed reading.

@@ -27,12 +27,12 @@ Switching from the reader's settings sheet rebuilds the reader at the same place
 **Reading mode**, beside **Rendering mode**, turns a chapter into pages, as an e-book reader does.
 
 * **Scrolling** <Badge type="info" text="Default" /> scrolls the chapter as one long column.
-* **Paged (left to right)** shows one screen of whole lines at a time. A tap on a tap zone, a swipe or a volume key turns the page at once, with no scrolling in between.
+* **Paged (left to right)** shows one screen of whole lines at a time. Tap the right side or swipe to the left to turn the page, as in the manga reader's paged mode, and the page slides across. The slider above the buttons shows the page you are on out of the chapter's pages.
 * **Paged (right to left)** turns the pages the other way, so the left edge and a swipe to the right read on.
 
 A page never cuts a line in half, and both rendering modes break pages in the same places. The marker between two chapters is a page of its own. Your place is the first line on the page, so after rotating or changing the text size you land on the page that holds it.
 
-Paged reading suits e-ink screens. **Flash on page change**, which only appears while reading a page at a time, flashes the screen after each turn to clear ghosting. Auto-scroll turns a page every few seconds instead of scrolling.
+Paged reading has its own tap zones, under **Paged** in <nav to="novel-reader">, and the volume keys turn pages too once **Volume keys** is on. It suits e-ink screens: turn off **Animate page transitions** for instant turns, and **Flash on page change**, which only appears while reading a page at a time, flashes the screen after each turn to clear ghosting. Auto-scroll turns a page every few seconds instead of scrolling.
 
 ## Read straight on to the next chapter
 
@@ -41,7 +41,7 @@ A marker names each boundary between chapters.
 **Add the next chapter at** sets how far into a chapter you have to be before the next one is added, 95% by default.
 
 Turn it off to read one chapter at a time.
-Either way, **Swipe between chapters** lets you swipe sideways to move to the previous or next chapter.
+While scrolling, **Swipe between chapters** lets you swipe sideways to move to the previous or next chapter. Reading a page at a time, a swipe always turns the page, and turning past a chapter's last page moves on to the next one.
 
 ## Read aloud
 
