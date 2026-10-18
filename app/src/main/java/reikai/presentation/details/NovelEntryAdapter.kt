@@ -6,8 +6,10 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.expectedNextUpdate
@@ -67,6 +69,8 @@ class NovelEntryAdapter(
     override val state: StateFlow<EntryDetailsScreenState> =
         model.state
             .map { it.toNeutral() }
+            // Every chapter row is mapped, which on a long series cost frames on the main thread.
+            .flowOn(Dispatchers.Default)
             // Seed with the current mapped value so a screen collecting this renders without a
             // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
             // entry while its sharing coroutine lives in the model's scope, so an eager start left

@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.history
 
-import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -16,6 +14,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.domain.category.RecentsSurface
+import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.recents.HistoryFeedErrors
 import reikai.presentation.recents.RecentsTabBody
 import reikai.presentation.recents.mangaHistoryModel
@@ -35,7 +34,7 @@ data object HistoryTab : Tab {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_history)
+            val image = cachedAnimatedVector(R.drawable.animated_history) // RK
             return TabOptions(
                 index = 2u,
                 title = stringResource(MR.strings.label_recent_manga),

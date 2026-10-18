@@ -1,8 +1,6 @@
 package eu.kanade.tachiyomi.ui.updates
 
-import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import cafe.adriel.voyager.navigator.Navigator
@@ -12,6 +10,7 @@ import eu.kanade.presentation.util.Tab
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.download.DownloadQueueScreen
 import reikai.domain.category.RecentsSurface
+import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.recents.RecentsTabBody
 import reikai.presentation.recents.ShowsUpdatesBadge
 import reikai.presentation.recents.mangaUpdatesModel
@@ -26,7 +25,7 @@ data object UpdatesTab : Tab, ShowsUpdatesBadge {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_updates)
+            val image = cachedAnimatedVector(R.drawable.animated_updates) // RK
             return TabOptions(
                 index = 1u,
                 title = stringResource(MR.strings.label_recent_updates),

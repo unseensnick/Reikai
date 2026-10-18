@@ -3,9 +3,7 @@ package reikai.presentation.details
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
-import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -61,6 +59,7 @@ import mihon.app.di.appGraph
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.findChildOfType
+import reikai.presentation.components.cachedAnimatedVector
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -291,7 +290,7 @@ private fun EntrySummary(
                     modifier = Modifier.background(Brush.verticalGradient(colors = colors)),
                     contentAlignment = Alignment.Center,
                 ) {
-                    val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_caret_flip)
+                    val image = cachedAnimatedVector(R.drawable.animated_caret_flip)
                     Icon(
                         painter = rememberAnimatedVectorPainter(image, !expanded),
                         contentDescription = stringResource(

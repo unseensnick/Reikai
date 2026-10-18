@@ -218,6 +218,8 @@ object HomeScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         val selected = tabNavigator.current::class == tab::class
+        // RK: read once, since each read of the getter parses the tab's animated icon again
+        val options = tab.options
         NavigationSuiteItem(
             navigationSuiteType = navigationSuiteType,
             selected = selected,
@@ -230,13 +232,13 @@ object HomeScreen : Screen() {
             },
             icon = {
                 Icon(
-                    painter = tab.options.icon!!,
-                    contentDescription = tab.options.title,
+                    painter = options.icon!!, // RK
+                    contentDescription = options.title, // RK
                 )
             },
             label = {
                 Text(
-                    text = tab.options.title,
+                    text = options.title, // RK
                     style = MaterialTheme.typography.labelLarge,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,

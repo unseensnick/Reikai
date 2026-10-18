@@ -1,7 +1,5 @@
 package eu.kanade.tachiyomi.ui.browse
 
-import androidx.compose.animation.graphics.res.animatedVectorResource
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -28,6 +26,7 @@ import reikai.presentation.browse.feed.reikaiFeedTab
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.browse.migrate.reikaiMigrateSourceTab
 import reikai.presentation.browse.source.reikaiSourcesTab
+import reikai.presentation.components.cachedAnimatedVector
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -37,8 +36,8 @@ data object BrowseTab : Tab {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val enter = AnimatedImageVector.animatedVectorResource(R.drawable.animated_browse_enter)
-            val exit = AnimatedImageVector.animatedVectorResource(R.drawable.animated_browse_exit)
+            val enter = cachedAnimatedVector(R.drawable.animated_browse_enter) // RK
+            val exit = cachedAnimatedVector(R.drawable.animated_browse_exit) // RK
             return TabOptions(
                 index = 3u,
                 title = stringResource(MR.strings.browse),

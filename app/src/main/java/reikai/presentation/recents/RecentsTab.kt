@@ -1,8 +1,6 @@
 package reikai.presentation.recents
 
-import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -23,6 +21,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
 import reikai.domain.category.RecentsSurface
+import reikai.presentation.components.cachedAnimatedVector
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
@@ -52,7 +51,7 @@ data object RecentsTab : Tab, ShowsUpdatesBadge {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_updates)
+            val image = cachedAnimatedVector(R.drawable.animated_updates)
             return TabOptions(
                 index = 1u,
                 title = stringResource(MR.strings.label_recents),
