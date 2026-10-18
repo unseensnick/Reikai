@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Library
+
+#### Fixed
+
+- **The library's category tabs show their names again, not only their counts.** Broken since 0.4.0 with Show category tabs on.
+
 ## [0.4.1]
 
 ### Highlights
