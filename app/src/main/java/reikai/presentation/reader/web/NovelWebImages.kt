@@ -60,8 +60,9 @@ class NovelWebImages {
             .toString()
     }
 
-    private companion object {
+    companion object {
+        /** The host Android reserves for an app to answer itself, which the reader's fonts use too. */
         const val HOST = "appassets.androidplatform.net"
-        const val PATH = "rk-image"
+        private const val PATH = "rk-image"
     }
 }

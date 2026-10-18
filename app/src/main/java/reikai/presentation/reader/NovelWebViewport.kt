@@ -225,6 +225,7 @@ class NovelWebViewport(
             context,
             { loadedBaseUrl },
             webImages,
+            webFonts,
             scope,
             onRendererGone = ::closeReader,
         ) { image ->
@@ -420,7 +421,7 @@ class NovelWebViewport(
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
-        val fontSource = webFonts.dataUri(context, fontManager, settings.fontFamily)
+        val fontSource = webFonts.url(fontManager, settings.fontFamily)
         val initialFraction = chapter.progressPercent / 100f
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
@@ -511,10 +512,9 @@ class NovelWebViewport(
         faceFamily = family
         faceJob?.cancel()
         faceJob = scope.launch {
-            // The face travels as a data URI, so resolving it reads the file and escaping it copies
-            // megabytes for a CJK one; neither belongs on the thread the reader is scrolling on.
+            // Resolving a user's font can copy it out of their storage folder, which stays off this thread.
             val js = withContext(Dispatchers.Default) {
-                val source = webFonts.dataUri(context, fontManager, family)
+                val source = webFonts.url(fontManager, family)
                 "rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});"
             }
             runOrQueue(js)

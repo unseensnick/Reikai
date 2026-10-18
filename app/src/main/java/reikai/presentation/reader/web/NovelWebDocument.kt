@@ -37,7 +37,7 @@ object NovelWebDocument {
         initialLine: Int? = null,
         settings: NovelReaderSettings,
         statusBarHeightPx: Int,
-        /** The chosen face as a `data:` URI from [NovelWebFonts], or null for a generic family. */
+        /** Where the chosen face loads from, from [NovelWebFonts], or null for a generic family. */
         fontSource: String?,
         useOriginalFonts: Boolean,
         sourceCssPriority: Boolean,

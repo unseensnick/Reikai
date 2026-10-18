@@ -81,6 +81,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - Added the Vico chart library, which draws the Statistics charts.
 - Updated Firebase to 35.0.2 and Kotest to 6.2.6, and took the latest translations (from Mihon).
 - Moving between the library and a series' details does less on the main thread: each tab's icon is parsed once while the app runs, and a details page maps its chapters off the main thread.
+- The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which makes the page a third of its size.
 
 ## [0.4.1]
 
