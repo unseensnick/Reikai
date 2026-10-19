@@ -4,11 +4,11 @@ The animated banner in the README (`.github/readme-images/screens.webp`) is a **
 animated WebP**: five device-framed phones side by side, each cross-fading between its app states.
 Transparent so it blends on GitHub's light or dark theme. Panels:
 
-1. **Library**: manga library, then novels, then All (single list)
-2. **Detail**: manga detail (Unified multi-source + Related carousel) ⟷ novel detail
-3. **Reader**: manga reader ⟷ novel reader
-4. **History**: the unified "All" history, light ⟷ dark theme
-5. **View modes**: tabbed library, then single list, then All (tabbed)
+1. **One-list library**: Manga, then Novels, then All
+2. **Tabbed library**: Manga, then Novels, then All, in step with panel 1
+3. **Detail**: manga detail (Unified multi-source + Related carousel) ⟷ novel detail
+4. **Reader**: manga reader ⟷ novel reader
+5. **History**: the unified "All" history, light ⟷ dark theme
 
 The phone frame is the official **Pixel 10 Pro XL** device-art skin (screen 1344x2992, so the
 emulator must run at that exact resolution for a 1:1 fit).
@@ -17,7 +17,7 @@ emulator must run at that exact resolution for a 1:1 fit).
 
 Everything needed to rebuild lives in `.github/readme-images/showcase/`:
 
-- `stills/` - the 11 source screenshots (1344x2992 PNGs).
+- `stills/` - the 12 source screenshots (1344x2992 PNGs).
 - `demo-library.md` - the demo library the stills are taken from.
 - `frame/back.png`, `frame/mask.png` - the Pixel 10 Pro XL frame (body + corner/cutout mask).
 - `make-frames.sh` - composites each still into the frame, rounds the screen corners, writes `framed/`.
@@ -75,15 +75,16 @@ emulator's own skin doesn't matter for the output.
    What the demo library holds, and how its backup is built, is in
    `.github/readme-images/showcase/demo-library.md`.
 3. **Theme**: app appearance set to **follow system**, then toggle with `adb shell cmd uimode night yes|no`
-   (dark for panels 1-3 and 5, plus both for the panel-4 history light/dark pair).
+   (dark for panels 1-4, plus both for the panel-5 history light/dark pair).
 4. **Scrollbar**: wait ~3s after any scroll before `screencap` so the fading scrollbar is gone.
-   Panels 1 and 5 use the library's single list and tabs (Display, **Show all categories in one
-   list**), and panel 4 the separate History tab (Appearance, **Combine Updates and History** off).
-   A cover the source can no longer serve is migrated or removed in the demo app, never the backup.
-5. Capture the 11 states into `stills/` with these exact names (the scripts depend on them):
-   `p1a_manga_lib`, `p1b_novel_lib`, `p1c_all_lib`, `p2a_manga_detail`, `p2b_novel_detail`,
-   `p3a_manga_reader`, `p3b_novel_reader`, `p4a_history_all_light`, `p4b_history_all_dark`,
-   `p5a_manga_tabbed`, `p5c_all_tabbed`. Panel 5's middle state reuses `p1a_manga_lib`.
+   Panels 1 and 2 use the library's one list and tabs (Display, **Show all categories in one
+   list**), each on its Default tab, and panel 5 the separate History tab (Appearance, **Combine
+   Updates and History** off). A cover the source can no longer serve is migrated or removed in the
+   demo app, never the backup.
+5. Capture the 12 states into `stills/` with these exact names (the scripts depend on them):
+   `p1a_manga_lib`, `p1b_novel_lib`, `p1c_all_lib`, `p2a_manga_tabbed`, `p2b_novel_tabbed`,
+   `p2c_all_tabbed`, `p3a_manga_detail`, `p3b_novel_detail`, `p4a_manga_reader`, `p4b_novel_reader`,
+   `p5a_history_all_light`, `p5b_history_all_dark`.
 
 Capture method (byte-accurate): `adb -s <emu> shell screencap -p /sdcard/x.png` then `adb pull`
 (use PowerShell for `/sdcard` paths; MSYS bash mangles them).

@@ -54,7 +54,7 @@ lists both types' categories side by side.
 - Theme follows the system (`pref_theme_mode_key = SYSTEM`), cover-based theme on, Neutral style.
 - Library: comfortable grid, 3 columns, alphabetical ascending, download and language badges on,
   library content chip on All.
-- Panels 1 and 5 switch **Show all categories in one list**; panel 4 needs **Combine Updates and
+- Panels 1 and 2 switch **Show all categories in one list**; panel 5 needs **Combine Updates and
   History** off.
 - Reader defaults: manga tap zones Default, novel reading mode Scrolling.
 - Tracking: **Update progress after reading** off, **Update progress when marked as read** Never,

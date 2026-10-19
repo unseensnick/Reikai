@@ -2,8 +2,8 @@
 # Build the transparent animated WebP showcase from framed/ -> ../screens.webp
 # 5 phones on a transparent canvas, each cross-fading between its states via animated opacity (preserves
 # the phone alpha / transparent surround so it blends on any README background).
-# Panels: 1 library (manga, novels, all) | 2 detail | 3 reader | 4 history (light<->dark) |
-#         5 view modes (tabbed, single list, all tabbed)
+# Panels: 1 one-list library (manga, novels, all) | 2 tabbed library (manga, novels, all) |
+#         3 detail | 4 reader | 5 history (light<->dark)
 #
 # LOSSLESS is required: lossy WebP uses yuva420p (subsampled/lossy alpha) which leaves a faint tinted
 # background where it should be transparent. Lossless keeps alpha perfect, so the render size is kept
@@ -25,17 +25,17 @@ B3=$(geq 2.8 6.2); C3=$(geq 5.9 9.0); B2=$(geq 4.35 9.0)
 still() { echo "-loop 1 -t $L -i framed/$1.png"; }
 ffmpeg -y -v error \
  $(still p1a_manga_lib) $(still p1b_novel_lib) $(still p1c_all_lib) \
- $(still p2a_manga_detail) $(still p2b_novel_detail) \
- $(still p3a_manga_reader) $(still p3b_novel_reader) \
- $(still p4a_history_all_light) $(still p4b_history_all_dark) \
- $(still p5a_manga_tabbed) $(still p1a_manga_lib) $(still p5c_all_tabbed) \
+ $(still p2a_manga_tabbed) $(still p2b_novel_tabbed) $(still p2c_all_tabbed) \
+ $(still p3a_manga_detail) $(still p3b_novel_detail) \
+ $(still p4a_manga_reader) $(still p4b_novel_reader) \
+ $(still p5a_history_all_light) $(still p5b_history_all_dark) \
  -f lavfi -t $L -i "color=c=black@0.0:s=${CW}x${CHH}:r=$F" \
  -filter_complex "
   [0]$SC[a1];[1]$B3[b1];[2]$C3[c1];[a1][b1]overlay=0:0:format=auto[ab1];[ab1][c1]overlay=0:0:format=auto[p1];
-  [3]$SC[a2];[4]$B2[b2];[a2][b2]overlay=0:0:format=auto[p2];
-  [5]$SC[a3];[6]$B2[b3];[a3][b3]overlay=0:0:format=auto[p3];
-  [7]$SC[a4];[8]$B2[b4];[a4][b4]overlay=0:0:format=auto[p4];
-  [9]$SC[a5];[10]$B3[b5];[11]$C3[c5];[a5][b5]overlay=0:0:format=auto[ab5];[ab5][c5]overlay=0:0:format=auto[p5];
+  [3]$SC[a2];[4]$B3[b2];[5]$C3[c2];[a2][b2]overlay=0:0:format=auto[ab2];[ab2][c2]overlay=0:0:format=auto[p2];
+  [6]$SC[a3];[7]$B2[b3];[a3][b3]overlay=0:0:format=auto[p3];
+  [8]$SC[a4];[9]$B2[b4];[a4][b4]overlay=0:0:format=auto[p4];
+  [10]$SC[a5];[11]$B2[b5];[a5][b5]overlay=0:0:format=auto[p5];
   [12]format=rgba[bg];
   [bg][p1]overlay=0:10:format=auto[c1];
   [c1][p2]overlay=$STEP:10:format=auto[c2];
