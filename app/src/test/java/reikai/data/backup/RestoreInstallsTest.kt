@@ -94,6 +94,15 @@ class RestoreInstallsTest {
         planInstalls(listOf(Kind.Plugin.item), elsewhere, emptyList()).ready shouldBe listOf("Plugin")
     }
 
+    // A plugin the backup never loaded is named by its script's file, which a repo listing it can name properly.
+    @Test
+    fun `a plugin a backup repo lists is named as the repo lists it`() {
+        val unnamed = RestoreItem.Plugin(PLUGIN_URL, "plugin.id", "Plugin%5Bid%5D")
+
+        planInstalls(listOf(unnamed), RepoListings(), listOf(backupRepo to Kind.Plugin.listing))
+            .repos.single().items shouldBe listOf("Plugin")
+    }
+
     @Test
     fun `an app two repos list installs the newer one`() {
         val listings =
@@ -125,6 +134,14 @@ class RestoreInstallsTest {
 
         sources(novelPreferences = novelPreferences).plan(emptyList(), emptyList(), preferences).repos shouldBe
             emptyList()
+    }
+
+    @Test
+    fun `a backup plugin repo is named as the Repos screen names it, not by its address`() = runTest {
+        val key = NovelPreferences(EmittingPreferenceStore()).addedRepoUrls().key()
+
+        sources().plan(emptyList(), emptyList(), mapOf(key to StringSetPreferenceValue(setOf(REPO))))
+            .repos.single().name shouldBe "plugins.example"
     }
 
     @Test

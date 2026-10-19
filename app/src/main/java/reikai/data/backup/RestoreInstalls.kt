@@ -14,6 +14,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.Serializable
 import mihon.data.extension.service.ExtensionStoreService
 import mihon.domain.extension.repository.ExtensionStoreRepository
+import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.install.canonicalizePluginUrl
@@ -51,6 +52,9 @@ data class RepoListings(
         is RestoreItem.App -> find(item) != null
         is RestoreItem.Plugin -> find(item) != null
     }
+
+    /** A plugin the backup never loaded is named by its script's file; a listing names it properly. */
+    fun nameOf(item: RestoreItem): String = (item as? RestoreItem.Plugin)?.let(::find)?.name ?: item.name
 }
 
 /** A repo the backup had and this device lacks, read live, with the names of what only it would install. */
@@ -98,10 +102,10 @@ fun planInstalls(
     val (ready, rest) = missing.partition(device::lists)
     // Two backup entries can name one repo, or redirect to it, and the screen keys its cards by address.
     val repos = backupRepos.distinctBy { it.first.url }.map { (repo, listings) ->
-        repo.copy(items = rest.filter(listings::lists).map { it.name }.sorted())
+        repo.copy(items = rest.filter(listings::lists).map(listings::nameOf).sorted())
     }
     return RestoreInstallPlan(
-        ready = ready.map { it.name }.sorted(),
+        ready = ready.map(device::nameOf).sorted(),
         repos = repos,
         unavailable = rest.filterNot { item -> backupRepos.any { it.second.lists(item) } }.map { it.name }.sorted(),
     )
@@ -205,6 +209,7 @@ class RestoreInstallSources(
 
     private suspend fun readPluginRepo(url: String): Pair<BackupRepo, RepoListings>? {
         val entries = runCatchingCancellable { registryFetcher.fetchRepo(url) }.getOrNull() ?: return null
-        return BackupRepo(url, url, isPluginRepo = true, signingKey = null) to RepoListings(plugins = entries)
+        val name = repoNameFromAddress(url).first
+        return BackupRepo(url, name, isPluginRepo = true, signingKey = null) to RepoListings(plugins = entries)
     }
 }
