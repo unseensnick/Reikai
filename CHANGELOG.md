@@ -76,6 +76,12 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap lists the series behind a row.** They look and sort like your library, and you can narrow them to finished, reading or not started.
 - **Cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
 
+### Tracking
+
+#### Fixed
+
+- **RanobeDB's second sign-in button is now called Log in with WebView, since it opens a page inside Reikai rather than your browser.**
+
 ### App
 
 #### Added

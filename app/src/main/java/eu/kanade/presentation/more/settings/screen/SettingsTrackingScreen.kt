@@ -283,7 +283,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
                     ),
                     // RK: NovelList light-novel tracker. It issues no personal token, so signing in
-                    // goes straight to the browser rather than offering a field nobody can fill.
+                    // goes straight to an in-app sign-in page rather than offering a field nobody can fill.
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.novelList,
                         login = {
@@ -293,7 +293,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.novelList) },
                     ),
-                    // RK: NovelUpdates. Scraped, so the browser sign-in is the only way in.
+                    // RK: NovelUpdates. Scraped, so the in-app sign-in page is the only way in.
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.novelUpdates,
                         login = {

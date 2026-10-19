@@ -1225,7 +1225,7 @@
     <string name="login_token">Personal access token</string>
     <string name="login_token_info">Generate a token on the tracker\'s website, then paste it here.</string>
     <string name="login_get_token">Get a token</string>
-    <string name="login_with_browser">Log in in a browser</string>
+    <string name="login_with_browser">Log in with WebView</string>
     <string name="login_webview_confirm">Finish login</string>
     <string name="login_webview_hint">Sign in, then tap the check to finish</string>
     <string name="login_webview_not_signed_in">Not signed in yet. Finish signing in, then tap the check again.</string>
