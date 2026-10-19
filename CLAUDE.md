@@ -62,15 +62,15 @@ Build in Android Studio. Gradle: JDK 21 (Temurin 21.0.11; matches `.github/.java
 
 **Release-type builds are minified, the `debug` dev build is not**, so R8-only bugs are invisible in the normal dev loop. Metro resolves the graph at compile time and reflects on nothing, so graph-owned code carries no keep of its own. No app package is kept whole, so the hazard is code R8 cannot see being called: reflection, a JS bridge, an extension's call. Each needs a targeted keep (Injekt's `FullTypeReference` tokens already have one). Verify anything touching those on a minified `:app:assembleNightly` build. Full rule: [.claude/rules/architecture.md](.claude/rules/architecture.md) "Minification (R8) and net-new packages".
 
-## Current release target (0.4.1, on `release/0.4.1`)
+## Current release target (0.4.2, on `release/0.4.2`)
 
-**A cut's gate list, when it has one, lives only at the top of [ROADMAP.md](ROADMAP.md)** (owner rulings 2026-08-21 and 2026-08-25). 0.4.1 has none; when to cut is the owner's call. Read it there rather than restating it here, so the two cannot disagree. Nothing else moves the cut.
+**A cut's gate list, when it has one, lives only at the top of [ROADMAP.md](ROADMAP.md)** (owner rulings 2026-08-21 and 2026-08-25). 0.4.2 has none; when to cut is the owner's call. Read it there rather than restating it here, so the two cannot disagree. Nothing else moves the cut.
 
-**0.3.x and 0.4.0 have shipped**, tagged, with their notes in [CHANGELOG.md](CHANGELOG.md); 0.3.2 is the cut that renamed the app to `app.reikai`. **0.4.1 is cut** (the Mihon v0.21.2 fixes, on `release/0.4.1` off the published 0.4.0): `app/build.gradle.kts` reads `versionName 0.4.1` / `versionCode 202` (the `versionCode` climbs mid-cycle whenever a preference migration needs it, see below; `versionName` moves at the next cut). Notes for continuing sessions:
+**0.3.x, 0.4.0 and 0.4.1 have shipped**, tagged, with their notes in [CHANGELOG.md](CHANGELOG.md); 0.3.2 is the cut that renamed the app to `app.reikai`. **0.4.2 is cut** (the library category tabs fix, on `release/0.4.2` off the published 0.4.1): `app/build.gradle.kts` reads `versionName 0.4.2` / `versionCode 203` (the `versionCode` climbs mid-cycle whenever a preference migration needs it, see below; `versionName` moves at the next cut). Notes for continuing sessions:
 
 - New work lands its CHANGELOG entries under `[Unreleased]` and normally bumps nothing: `versionCode` / `versionName` move only at release-cut (see the `feedback_version_bumps` memory). **Standing exception:** a version-gated data migration is a no-op until the shipped `versionCode` reaches its gate, so adding one bumps `versionCode` mid-cycle to make it fire in dev / preview builds and be testable. That is why the 0.4.0 cycle climbed from 0.3.2's `185` to `200` before the cut took it to `201`.
 - **The bump rule covers `mihon.core.migration` only, never a SQLDelight `.sqm`.** A schema migration runs off the database's own `user_version` against the derived `Database.Schema.version` (`DatabaseBindings.providesSqlDriver` in `:data` hands the driver `schema = Database.Schema`), so adding the next-numbered `.sqm` is the whole change and `versionCode` stays put. Verified on an upgraded database, 2026-08-14.
-- **Each preference migration gates on its own `versionCode`, never a reused one.** The current top is `MergedGroupCategoriesMigration` (`version = 200f`) on `versionCode 200`; grep `override val version` under `mihon/core/migration/migrations/` for the ones below it. A new migration gates on 203+ and bumps `versionCode` to match.
+- **Each preference migration gates on its own `versionCode`, never a reused one.** The current top is `MergedGroupCategoriesMigration` (`version = 200f`) on `versionCode 200`; grep `override val version` under `mihon/core/migration/migrations/` for the ones below it. A new migration gates on 204+ and bumps `versionCode` to match.
 
 ## Design context
 
