@@ -26,7 +26,31 @@ concurrency:
 permissions:
   contents: write
 
+# Every job reads the tag from here, so a manual dispatch and a tag push name it the same way.
+env:
+  VERSION_TAG: ${{ github.event_name == 'workflow_dispatch' && format('v{0}', github.event.inputs.version) || github.ref_name }}
+
 jobs:
+  # Tests, the signed release build and the FOSS build run side by side on separate runners, and
+  # publish waits for all three, so a failing test or build still drafts nothing. In one job they
+  # took about 26 minutes in turn.
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Run unit tests
+        run: ./gradlew test
+
   release:
     name: Build signed release
     runs-on: ubuntu-latest
@@ -40,18 +64,6 @@ jobs:
         uses: ./.github/actions/setup-build
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
-
-      - name: Resolve version tag
-        run: |
-          set -e
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "VERSION_TAG=v${{ github.event.inputs.version }}" >> $GITHUB_ENV
-          else
-            echo "VERSION_TAG=${{ github.ref_name }}" >> $GITHUB_ENV
-          fi
-
-      - name: Run unit tests
-        run: ./gradlew test
 
       - name: Write the Firebase config
         env:
@@ -74,9 +86,43 @@ jobs:
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      # The FOSS build is the Firebase-free alternative, so it is a second Gradle run under a
-      # distribution that excludes telemetry, which is a whole-build property rather than a
-      # per-variant one.
+      # Stable builds ship to users, so keep their R8 mapping to deobfuscate crash stacks.
+      - name: Upload R8 mapping
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: mapping-${{ env.VERSION_TAG }}
+          path: app/build/outputs/mapping/release
+
+      # Handed to the publish job only, so it is kept for a day.
+      - name: Hand the APKs to publish
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apks-release-${{ env.VERSION_TAG }}
+          path: app/build/outputs/apk/release/*.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  # The Firebase-free alternative. Its own runner, because telemetry is a whole-build property set by
+  # -Pdist rather than a per-variant one, so it never shared a Gradle run with the release build.
+  foss:
+    name: Build signed FOSS
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Decode the signing keystore
+        run: echo "$SIGNING_KEY" | base64 -d > "${{ runner.temp }}/reikai.keystore"
+        env:
+          SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+
       # Universal only, and the name must keep "-foss" for the in-app updater to match it.
       - name: Build signed FOSS APK
         run: ./gradlew assembleFoss -Pdist=foss
@@ -87,15 +133,44 @@ jobs:
           keyAlias: ${{ secrets.ALIAS }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
 
-      # Stable builds ship to users, so keep their R8 mapping to deobfuscate crash stacks. FOSS
-      # sends no crash reports at all, so its mapping is the only way to read a pasted stack.
+      # FOSS sends no crash reports at all, so its mapping is the only way to read a pasted stack.
       - name: Upload R8 mapping
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: mapping-${{ env.VERSION_TAG }}
-          path: |
-            app/build/outputs/mapping/release
-            app/build/outputs/mapping/foss
+          name: mapping-foss-${{ env.VERSION_TAG }}
+          path: app/build/outputs/mapping/foss
+
+      - name: Hand the APK to publish
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apks-foss-${{ env.VERSION_TAG }}
+          path: app/build/outputs/apk/foss/*.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Draft the release
+    runs-on: ubuntu-latest
+    needs: [test, release, foss]
+    steps:
+      # Full history and tags: the notes link the changes since the previous tag.
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Back where package-apks.sh reads them.
+      - name: Fetch the release APKs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apks-release-${{ env.VERSION_TAG }}
+          path: app/build/outputs/apk/release
+
+      - name: Fetch the FOSS APK
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apks-foss-${{ env.VERSION_TAG }}
+          path: app/build/outputs/apk/foss
 
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog

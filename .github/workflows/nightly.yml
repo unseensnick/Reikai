@@ -72,8 +72,11 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
         run: bash scripts/ci/nightly-guard.sh
 
-  nightly:
-    name: Build signed nightly
+  # Tests and the signed build run side by side on separate runners (they compile different variants,
+  # so they share almost no work), and publish waits for both, so a failing test still publishes
+  # nothing.
+  test:
+    name: Unit tests
     runs-on: ubuntu-latest
     needs: check
     if: needs.check.outputs.skip != 'true'
@@ -105,6 +108,24 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
+  build:
+    name: Build signed nightly
+    runs-on: ubuntu-latest
+    needs: check
+    if: needs.check.outputs.skip != 'true'
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Writes the cache for the same reason as the test job.
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-read-only: false
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
       - name: Write the Firebase config
         env:
           GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
@@ -132,6 +153,35 @@ jobs:
         with:
           name: mapping-nightly-${{ github.sha }}
           path: app/build/outputs/mapping/nightly
+
+      # Handed to the publish job only, so it is kept for a day.
+      - name: Hand the APKs to publish
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: apks-nightly-${{ github.sha }}
+          path: app/build/outputs/apk/nightly/*.apk
+          retention-days: 1
+          if-no-files-found: error
+
+  publish:
+    name: Publish nightly
+    runs-on: ubuntu-latest
+    needs: [check, test, build]
+    if: needs.check.outputs.skip != 'true'
+    steps:
+      # Full history: the release number is the branch's commit count, and the notes diff against
+      # the previous nightly's commit.
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      # Back where package-apks.sh reads them.
+      - name: Fetch the APKs
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: apks-nightly-${{ github.sha }}
+          path: app/build/outputs/apk/nightly
 
       - name: Install parse-changelog
         uses: taiki-e/install-action@parse-changelog

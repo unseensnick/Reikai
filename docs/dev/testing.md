@@ -39,14 +39,15 @@ run them as separate calls. Never run CLI Gradle while Android Studio is buildin
 
 | Workflow | Trigger | Checks |
 |---|---|---|
-| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | `spotlessCheck`, `scripts/di-interop-check.ps1`, `verifySqlDelightMigration`, `test` (JUnit report published), `assembleRelease` |
-| `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | `di-interop-check.ps1`, `verifySqlDelightMigration`, `test`, `assembleNightly`, `scripts/ci/release-notes-test.sh`, then publishes the nightly |
-| `release.yml` | a `v*` tag | `test`, `assembleRelease`, `assembleFoss`, `release-notes-test.sh`, then a draft release |
+| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | three parallel jobs: `spotlessCheck`, `scripts/di-interop-check.ps1` and `verifySqlDelightMigration`; `test` (JUnit report published); `assembleRelease` |
+| `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | the guard, then two parallel jobs (`di-interop-check.ps1`, `verifySqlDelightMigration` and `test`; `assembleNightly`), then `scripts/ci/release-notes-test.sh` and the publish once both pass |
+| `release.yml` | a `v*` tag | three parallel jobs (`test`, `assembleRelease`, `assembleFoss`), then `release-notes-test.sh` and a draft release once all pass |
 | `commit-standards.yml` | every pull request | `.githooks/commit-msg` over each commit, `scripts/commit-msg-test.sh`, `.claude/hooks/tests/run-all.sh` |
 | `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1` against a blobless Mihon clone |
 | `dependency-availability.yml` | weekly, and a pull request touching the version catalogs | `scripts/check-external-artifacts.sh` |
 
-No workflow runs instrumented tests; those run on a device by hand (below). The local `pre-commit`
+Builds and tests run on separate runners because they compile different variants and share almost no
+work, and unit tests run in one process per core, up to four. No workflow runs instrumented tests; those run on a device by hand (below). The local `pre-commit`
 hook runs the staged-content half of the same checks; its list is in
 [.claude/rules/workflow.md](../../.claude/rules/workflow.md).
 

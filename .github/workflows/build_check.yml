@@ -30,6 +30,64 @@ permissions:
   checks: write
 
 jobs:
+  # Three jobs run side by side: the tests build the debug variant and the APK the release one, so
+  # they share almost no work, and one runner doing both in turn took about 21 minutes.
+  checks:
+    name: Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # Matches Mihon's CI.
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
+      # DI ownership. Nothing else catches a type that is both graph-owned and Injekt-registered, or
+      # one handed back to Injekt unscoped: both compile and run, and lose state silently.
+      - name: Check DI ownership
+        run: pwsh -NoProfile -File scripts/di-interop-check.ps1
+
+      # A schema change without its .sqm is invisible until an upgraded install crashes on a
+      # missing table, and this is the only thing that catches it. It checks against the 43.db
+      # snapshot; with no snapshot committed it passes having checked nothing.
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Run unit tests
+        run: ./gradlew test
+
+      - name: Publish test report
+        uses: mikepenz/action-junit-report@v5
+        if: success() || failure()
+        with:
+          include_passed: true
+          detailed_summary: true
+          report_paths: '**/build/test-results/test*/TEST-*.xml'
+
   build:
     name: Build app
     runs-on: ubuntu-latest
@@ -45,37 +103,11 @@ jobs:
         with:
           cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
-      # Fail fast on formatting before the expensive build (matches Mihon's CI).
-      - name: Check formatting
-        run: ./gradlew spotlessCheck
-
-      # DI ownership. Nothing else catches a type that is both graph-owned and Injekt-registered, or
-      # one handed back to Injekt unscoped: both compile and run, and lose state silently.
-      - name: Check DI ownership
-        run: pwsh -NoProfile -File scripts/di-interop-check.ps1
-
-      # A schema change without its .sqm is invisible until an upgraded install crashes on a
-      # missing table, and this is the only thing that catches it. It checks against the 43.db
-      # snapshot; with no snapshot committed it passes having checked nothing.
-      - name: Verify SQLDelight migrations
-        run: ./gradlew verifySqlDelightMigration
-
-      # Tests before the build: a failing test should not cost a full minified release build first.
-      - name: Run unit tests
-        run: ./gradlew test
-
-      - name: Publish test report
-        uses: mikepenz/action-junit-report@v5
-        if: success() || failure()
-        with:
-          include_passed: true
-          detailed_summary: true
-          report_paths: '**/build/test-results/test*/TEST-*.xml'
-
       # Mihon base has no product flavors; the variant is just `release` (debug-signed for now).
       # No -Pdist, so this is the local profile: no telemetry and no updater. Upstream builds its
       # PR check as `ci`, which we cannot, because that applies the Firebase plugins and a pull
-      # request has no google-services.json written for it.
+      # request has no google-services.json written for it. Minified on purpose: R8-only bugs
+      # never show in a debug build.
       - name: Build the app
         run: ./gradlew assembleRelease
 
