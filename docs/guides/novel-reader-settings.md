@@ -66,7 +66,7 @@ When you jump to the next chapter, marks the one you skipped as read.
 Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** checkbox in the reader's Controls tab, and the **Auto-scroll** button once you add it under **Bottom bar buttons**, start or stop it until you leave the reader without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
 
 ### Scroll speed <Badge type="info" text="1.0x" />
-How fast auto-scroll moves the text. While reading a page at a time, **Auto-scroll interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
+How fast auto-scroll moves the text. While reading a page at a time, **Page turn interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
 
 ### Bottom bar buttons
 Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.

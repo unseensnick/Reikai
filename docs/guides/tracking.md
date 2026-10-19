@@ -42,17 +42,17 @@ Three of the services are built for novels rather than manga. They work like eve
 
 ::::tabs
 ==RanobeDB
-* **Signing in**: sign in on [RanobeDB](https://ranobedb.org/login), open **Settings**, and generate a personal access token on the **Account** tab, then paste it into Reikai. The browser button in the same dialog signs you in with a session instead, which works the same way but expires; a token does not.
+* **Signing in**: sign in on [RanobeDB](https://ranobedb.org/login), open **Settings**, and generate a personal access token on the **Account** tab, then paste it into Reikai. **Log in in a browser** in the same dialog opens a sign-in page inside Reikai and signs you in with a session instead, which works the same way but expires; a token does not.
 * Statuses, a 1 to 10 score, and start & finish dates all sync.
 * **Chapter progress is never sent.** RanobeDB counts volumes where a source counts chapters, and nothing converts between them, so progress stays a plain count in Reikai rather than reporting chapter 574 as 574 volumes.
 * **Refresh tracker data** brings back only the title. The site has no way to read your own list entry back, so status and score stay whatever Reikai holds.
 * **Update RanobeDB while you read** in <nav to="tracking"> pushes your status as you read and is on by default. Each push clears that entry's labels, notes and volume count on the site, because there is no way to read them back first. Turn it off to keep them.
 ==NovelList
-* **Signing in**: tap the row and sign in through the browser. There is no token to paste.
+* **Signing in**: tap the row and sign in on the page that opens inside Reikai. There is no token to paste.
 * Statuses and a 1 to 10 score sync. There is **no On hold status** and there are **no reading dates**, because the service stores neither.
 * **NovelList server address** in <nav to="tracking"> exists only for the day NovelList moves its server. Leave it alone until then: a wrong address stops tracking. **Reset NovelList server address** puts the built-in address back.
 ==NovelUpdates
-* **Signing in**: tap the row and sign in through the browser. The session expires after a while, and Reikai then asks you to log in again.
+* **Signing in**: tap the row and sign in on the page that opens inside Reikai. The session expires after a while, and Reikai then asks you to log in again.
 * All five statuses sync. There is **no score and there are no reading dates**, because the site stores neither.
 * **Your progress lives in the note on your NovelUpdates list entry**, written as `total chapters read: 12`, because the site keeps no reading position of its own. Reikai rewrites that one line and leaves the rest of your note alone, and if it cannot read the note it writes nothing rather than risk replacing it.
 * **Use my own NovelUpdates lists** in <nav to="tracking"> sends each status to one of your own reading lists instead of the five NovelUpdates starts with. Pick the list for each status under **Match statuses to lists**.
@@ -115,7 +115,7 @@ It visits only entries carrying a tracker you are signed into, so an untracked l
 1. Go to <nav to="tracking">.
 1. Tap the desired tracker to begin login.
 
-Which login you get depends on the service: most open your browser, a few ask for a username and password in the app, and RanobeDB takes a token you paste (or the browser, if you prefer). NovelList and NovelUpdates only sign in through the browser, because neither issues a token.
+Which login you get depends on the service: most open your browser, a few ask for a username and password in the app, and RanobeDB takes a token you paste (or a sign-in page inside Reikai, if you prefer). NovelList and NovelUpdates only sign in on a page inside Reikai, because neither issues a token.
 
 Each tracker you are signed in to with an account, except MDList, has a refresh button in its row, **Refresh tracker profile**. It reloads your account details, such as a changed nickname or score format, without signing out. It does not touch your tracked entries.
 

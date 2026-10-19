@@ -187,9 +187,18 @@ Right and Left in **Paged (left to right)** and **Paged (right to left)**. L sha
 <img src="/docs/guides/reader-settings/tap-zones_right-and-left.webp" alt="Right and Left" width="247" height="600" loading="lazy" decoding="async" />
 == Disabled
 No tap zones to assist with navigation will be active.
+== Top and bottom
+The top of the page turns back, the bottom turns forward, and the middle opens the menu.
+== Center
+Only the middle of the page opens the menu. A tap anywhere else is left to the page.
+== Large center
+Like **Center**, with a larger menu zone.
+== Bottom
+Only a strip along the bottom opens the menu, as tall as **Bottom zone height** sets. A tap anywhere else is left to the page.
 :::
 
 ### Invert tap zones <Badge type="info" text="None" /> {#invert-tap-zones-pages}
+Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
 
 ::: tabs
 == None
@@ -201,6 +210,9 @@ Changes so that the tap zones are flipped vertically.
 == Both
 Changes so that the tap zones are flipped horizontally and vertically.
 :::
+
+### Bottom zone height <Badge type="info" text="12%" />
+How tall the menu zone is. Only shown for the **Bottom** layout. One height serves both **Paged** and **Long strip**.
 
 ### Crop borders <Badge type="info" text="Off" /> {#crop-borders-pages}
 
