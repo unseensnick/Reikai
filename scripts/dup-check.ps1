@@ -44,26 +44,11 @@ if (-not (Test-Path -LiteralPath $MihonClone)) {
     Write-Host "dup-check: no Mihon clone at $MihonClone, which says which files are Reikai's. Clone mihonapp/mihon there (--filter=blob:none is enough) or pass -MihonClone."
     exit 1
 }
-$base = Get-SyncedMihonBase $RepoRoot
-$mihonPaths = [System.Collections.Generic.HashSet[string]]::new()
-# A hook exports the commit's GIT_DIR and index, which would point these calls back at Reikai.
-$hookGitVars = 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'
-$savedGitVars = @{}
-foreach ($v in $hookGitVars) {
-    $savedGitVars[$v] = [Environment]::GetEnvironmentVariable($v)
-    Remove-Item "Env:$v" -ErrorAction SilentlyContinue
-}
 try {
-    foreach ($rev in $base, 'HEAD') {
-        $paths = @(git -C $MihonClone ls-tree -r --name-only "$rev^{commit}" 2>$null)
-        if ($LASTEXITCODE -ne 0) {
-            Write-Host "dup-check: the Mihon clone at $MihonClone has no commit $rev. Pull it."
-            exit 1
-        }
-        foreach ($p in $paths) { [void]$mihonPaths.Add($p) }
-    }
-} finally {
-    foreach ($v in $hookGitVars) { if ($null -ne $savedGitVars[$v]) { Set-Item "Env:$v" $savedGitVars[$v] } }
+    $mihonPaths = Get-MihonPaths $RepoRoot $MihonClone
+} catch {
+    Write-Host "dup-check: $($_.Exception.Message)"
+    exit 1
 }
 
 # The scope, as git sees it: walking folders instead swept worktree copies under .claude/ in the spike.

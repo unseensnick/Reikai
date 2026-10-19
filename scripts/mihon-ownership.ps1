@@ -62,3 +62,27 @@ function Get-RkIslands([string[]]$Lines) {
     if ($openedAt -and -not $err) { $err = "line $openedAt opens an RK island that is never closed" }
     [pscustomobject]@{ Mask = $mask; Error = $err }
 }
+
+# Every path Mihon has at the synced base or at its HEAD, which Reikai may have ported ahead of the base;
+# a path in neither is Reikai's. Throws, naming the revision, when the clone lacks one.
+function Get-MihonPaths([string]$RepoRoot, [string]$MihonClone) {
+    $base = Get-SyncedMihonBase $RepoRoot
+    $paths = [System.Collections.Generic.HashSet[string]]::new()
+    # A hook exports the commit's GIT_DIR and index, which would point these calls back at Reikai.
+    $hookGitVars = 'GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'
+    $saved = @{}
+    foreach ($v in $hookGitVars) {
+        $saved[$v] = [Environment]::GetEnvironmentVariable($v)
+        Remove-Item "Env:$v" -ErrorAction SilentlyContinue
+    }
+    try {
+        foreach ($rev in $base, 'HEAD') {
+            $listed = @(git -C $MihonClone ls-tree -r --name-only "$rev^{commit}" 2>$null)
+            if ($LASTEXITCODE -ne 0) { throw "the Mihon clone at $MihonClone has no commit $rev. Pull it." }
+            foreach ($p in $listed) { [void]$paths.Add($p) }
+        }
+    } finally {
+        foreach ($v in $hookGitVars) { if ($null -ne $saved[$v]) { Set-Item "Env:$v" $saved[$v] } }
+    }
+    , $paths
+}

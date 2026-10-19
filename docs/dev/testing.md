@@ -43,7 +43,7 @@ run them as separate calls. Never run CLI Gradle while Android Studio is buildin
 | `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | the guard, then two parallel jobs (`di-interop-check.ps1`, `verifySqlDelightMigration` and `test`; `assembleNightly`), then `scripts/ci/release-notes-test.sh` and the publish once both pass |
 | `release.yml` | a `v*` tag | three parallel jobs (`test`, `assembleRelease`, `assembleFoss`), then `release-notes-test.sh` and a draft release once all pass |
 | `commit-standards.yml` | every pull request | `.githooks/commit-msg` over each commit, `scripts/commit-msg-test.sh`, `.claude/hooks/tests/run-all.sh` |
-| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1` against a blobless Mihon clone |
+| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1`, `scripts/comment-cap-test.ps1` and `scripts/comment-cap.ps1` against a blobless Mihon clone |
 | `dependency-availability.yml` | weekly, and a pull request touching the version catalogs | `scripts/check-external-artifacts.sh` |
 
 Builds and tests run on separate runners because they compile different variants and share almost no

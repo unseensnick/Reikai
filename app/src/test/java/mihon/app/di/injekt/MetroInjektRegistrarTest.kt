@@ -31,9 +31,7 @@ import java.lang.reflect.Type
 /**
  * The registrar is the whole Injekt surface: a closed allow-list, so a type it omits throws at
  * runtime where it used to resolve, and nothing outside the app's own code can be compile-checked
- * (installed extensions resolve against `source-api`).
- *
- * The list below is every type with a reader in the tree. Resolution goes through `fullType`, the
+ * (installed extensions resolve against `source-api`). The list below is every type with a reader in the tree. Resolution goes through `fullType`, the
  * same reified path production uses, because the map is keyed on `Type` and matched exactly: a key
  * that did not equal what `fullType` produces would fail only on a device.
  */

@@ -35,7 +35,7 @@ Short, concise, useful: as brief as possible **without losing vital info**. Vita
 
 ### The length cap
 
-**8 lines. A 9th is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole. Scoped to the Reikai-owned trees (`reikai/`, `exh/`); Mihon's own files keep upstream shape, and the `// RK` islands in them already sit far under this. The number is not arbitrary: 97% of Mihon's 1797 comment blocks already fit in 8 lines, so this codifies the surrounding style rather than departing from it.
+**8 lines. A 9th is rejected by the `pre-commit` hook.** The unit is a run of consecutive comment lines, so a KDoc header and an inline paragraph are each measured whole. It covers Reikai's own code: every `.kt`, `.kts`, `.sq` and `.sqm` file `refs/mihon` does not have, and the `// RK` islands of the ones it has; Mihon's own comments keep upstream shape. `scripts/comment-cap.ps1` enforces it in the hook and in CI. The number is not arbitrary: 97% of Mihon's 1797 comment blocks already fit in 8 lines, so this codifies the surrounding style rather than departing from it.
 
 A KDoc tag list (`@param`, `@return`, `@property`) stops the count for the rest of its block: tags are an enumeration keyed to the signature, not narrative, and a function with six documented parameters is not the wall this cap is aimed at. Tags come last in a KDoc, so the prose above them is still measured in full. This is not a loophole to route prose through: a `@param` whose text is three sentences of rationale is the same wall, and belongs in the area's subsystem doc like any other.
 
