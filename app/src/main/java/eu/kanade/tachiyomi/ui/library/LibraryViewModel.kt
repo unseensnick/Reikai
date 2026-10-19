@@ -16,7 +16,6 @@ import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -33,7 +32,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
-import kotlinx.coroutines.withContext
 import mihon.core.common.utils.mutate
 import mihon.core.metro.AppCoroutineScope
 import mihon.domain.library.model.search.QueryNode
@@ -362,21 +360,8 @@ class LibraryViewModel(
 
     // RK: getTrackingFiltersFlow moved into libraryFilterSettingsFlow (LibraryFilterSettings.trackers).
 
-    suspend fun getNextUnreadChapter(manga: Manga): Chapter? {
-        // RK: resume over the whole merge group, not just the entry's own source. The badge counts a
-        //     chapter as read when any source's copy is read, so resolving the next unread from one
-        //     source alone could reopen something the badge already considers finished, or find nothing
-        //     while the badge still shows unread. The provider returns the same deduplicated list the
-        //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
-        //     source. Falls through to the plain per-manga list when the entry is not merged.
-        val group = mergedChapterProvider.load(manga)
-        //     The filters and order are the group's shared chapter settings, the settings owner's.
-        val settings = group.chapterSettingsOf(manga)
-        val hidden = mangaPreferences.hiddenChapters().get()
-        return withContext(Dispatchers.Default) {
-            group.chapters.getNextUnread(settings, downloadManager, group, hidden)
-        }
-    }
+    // RK: resolved by MangaLibraryRows, which a Statistics row's series list resumes through as well
+    suspend fun getNextUnreadChapter(manga: Manga): Chapter? = mangaLibraryRows.nextUnreadChapter(manga) // RK
 
     /**
      * Queues the amount specified of unread chapters from the list of selected manga

@@ -433,12 +433,7 @@ class NovelLibraryViewModel(
     /** The next-unread chapter to resume. For a merged novel this pools the whole group (the unified
      *  cross-source list the details "All" view shows) to find the first unread, narrowed by the novel's
      *  own chapter filters; the reader resolves the group order for prev/next, so only the chapter is returned. */
-    suspend fun getResume(repNovelId: Long): NovelChapter? =
-        getNextNovelChapter.awaitFirstUnreadInGroup(
-            repNovelId,
-            downloadedOnly = basePreferences.downloadedOnly.get(),
-            downloadedIds = novelDownloadCache::downloadedChapterIds,
-        )
+    suspend fun getResume(repNovelId: Long): NovelChapter? = novelLibraryRows.resumeChapter(repNovelId)
 
     // --- settings sheet: LibraryEngine builds the library-wide part, this model only lists categories ---
 

@@ -1,6 +1,7 @@
 package reikai.presentation.library.novels
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.base.BasePreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
@@ -10,7 +11,10 @@ import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.downloadedChapterIds
+import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.LibraryNovel
+import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
@@ -38,6 +42,8 @@ class NovelLibraryRows(
     private val sourceManager: NovelSourceManager,
     private val mergeGroupRepository: MergeGroupRepository,
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
+    private val getNextNovelChapter: GetNextNovelChapter,
+    private val basePreferences: BasePreferences,
 ) {
 
     class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
@@ -110,6 +116,14 @@ class NovelLibraryRows(
         }
         return Rows(groups, items)
     }
+
+    /** The chapter a row's continue-reading opens, the first unread across the novel's merge group. */
+    suspend fun resumeChapter(repNovelId: Long): NovelChapter? =
+        getNextNovelChapter.awaitFirstUnreadInGroup(
+            repNovelId,
+            downloadedOnly = basePreferences.downloadedOnly.get(),
+            downloadedIds = novelDownloadCache::downloadedChapterIds,
+        )
 
     /**
      * Merged chapters with a copy on disk, per group. Only grouped members that have downloaded something

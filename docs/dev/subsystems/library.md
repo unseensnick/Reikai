@@ -80,7 +80,8 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 - `app/src/main/java/reikai/presentation/library/LibraryProvider.kt` and `app/src/main/java/reikai/presentation/library/LibraryBehavior.kt`: the per-type seam, `loadedRows`.
 - `app/src/main/java/reikai/presentation/library/MangaLibraryAdapter.kt` and `app/src/main/java/reikai/presentation/library/NovelLibraryAdapter.kt`: the adapters.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/library/LibraryViewModel.kt` and `app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt`: the per-type providers' models.
-- `app/src/main/java/reikai/presentation/library/MangaLibraryRows.kt` and `app/src/main/java/reikai/presentation/library/novels/NovelLibraryRows.kt`: every entry as a library row, before filters and search.
+- `app/src/main/java/reikai/presentation/library/MangaLibraryRows.kt` and `app/src/main/java/reikai/presentation/library/novels/NovelLibraryRows.kt`: every entry as a library row, before filters and search, and the chapter its continue-reading opens.
+- `app/src/main/java/reikai/presentation/library/LibraryItemsLayout.kt`: rows in a display mode at the library's column count, for the pager and the Statistics list.
 - `app/src/main/java/reikai/presentation/library/LibraryAssembly.kt`: `assembleLibrary`, `LibraryAssembled`, `presentIdsOf`, `mixedLibraryItemSortFields`.
 - `app/src/main/java/reikai/presentation/library/LibraryBucket.kt` and `app/src/main/java/reikai/presentation/library/LibraryDynamicGrouping.kt`: `LibraryBucket`, `libraryDynamicGroupingFeed`, `normalizeDynamicKey`.
 - `app/src/main/java/reikai/presentation/library/LibraryItemFields.kt`, `app/src/main/java/reikai/presentation/library/LibraryFilter.kt`, `app/src/main/java/reikai/presentation/library/LibraryQueryMatch.kt`: `libraryFilterMatches`, `LibraryFilterSettings`, `libraryQueryMatches`, `LibraryQueryOverlay`, `matchesTagTerm`.

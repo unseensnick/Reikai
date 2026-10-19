@@ -6,17 +6,25 @@ import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.util.chapter.getNextUnread
 import exh.source.getMainSource
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.manga.MangaPreferences
+import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
+import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.source.local.isLocal
 
@@ -36,6 +44,8 @@ class MangaLibraryRows(
     private val downloadCache: DownloadCache,
     private val mergeGroupRepository: MergeGroupRepository,
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
+    private val mergedChapterProvider: MergedChapterProvider,
+    private val mangaPreferences: MangaPreferences,
 ) {
 
     fun rows(): Flow<List<LibraryItem>> {
@@ -102,6 +112,22 @@ class MangaLibraryRows(
                 preferredSourceIds = mergePrefs.preferredSources,
                 recognizedChapterCounts = recognizedChapterCounts,
             )
+        }
+    }
+
+    /**
+     * The chapter a row's continue-reading opens, over the whole merge group rather than the entry's own
+     * source: the badge counts a chapter read when any source's copy is, so one source alone could reopen
+     * something the badge considers finished. Each chapter keeps its own mangaId, so the reader opens the
+     * right source; an entry that is not merged reads its own list.
+     */
+    suspend fun nextUnreadChapter(manga: Manga): Chapter? {
+        val group = mergedChapterProvider.load(manga)
+        // The filters and order are the group's shared chapter settings, the settings owner's.
+        val settings = group.chapterSettingsOf(manga)
+        val hidden = mangaPreferences.hiddenChapters().get()
+        return withContext(Dispatchers.Default) {
+            group.chapters.getNextUnread(settings, downloadManager, group, hidden)
         }
     }
 
