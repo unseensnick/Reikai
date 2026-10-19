@@ -140,17 +140,18 @@ fun statsChartCards(
 
 /**
  * The Most read card, then a card of rows per grouping that has any. [onOpenRow] opens the series a row
- * counts, [onOpenEntry] a series' details.
+ * counts, [onOpenEntry] a series' details, [onOpenMostRead] the Most read list in full.
  */
 fun statsGroupCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenRow: (StatsRow) -> Unit,
     onOpenEntry: (EntryId) -> Unit,
+    onOpenMostRead: () -> Unit,
 ): List<StatsCard> = buildList {
     if (charts.mostRead.isNotEmpty()) {
         add { fill ->
-            StatsCardHeader(MR.strings.stats_most_read)
+            StatsCardHeader(MR.strings.stats_most_read, MR.strings.stats_see_all, onOpenMostRead)
             SectionCard(modifier = fill) {
                 charts.mostRead.forEach { StatsTitleLine(it.title, it.readDuration) { onOpenEntry(it.entryId) } }
             }

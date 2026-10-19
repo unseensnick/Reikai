@@ -13,6 +13,7 @@ import eu.kanade.presentation.more.stats.StatsScreenState
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
 import reikai.presentation.stats.details.StatsGroupScreen
+import reikai.presentation.stats.details.StatsMostReadScreen
 import reikai.presentation.stats.details.StatsReadingScreen
 import reikai.presentation.stats.details.StatsSeriesScreen
 import tachiyomi.i18n.MR
@@ -58,6 +59,7 @@ class StatsScreen : Screen() {
                 onOpenKey = { navigator.push(StatsSeriesScreen(it, null, contentType)) },
                 onOpenEntry = { scope.launch { viewModel.detailsScreen(it)?.let(navigator::push) } },
                 onOpenReading = { navigator.push(StatsReadingScreen()) },
+                onOpenMostRead = { navigator.push(StatsMostReadScreen()) },
                 // RK <--
             )
         }

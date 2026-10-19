@@ -50,6 +50,7 @@ fun StatsScreenContent(
     onOpenKey: (StatsGroupKey) -> Unit,
     onOpenEntry: (EntryId) -> Unit,
     onOpenReading: () -> Unit,
+    onOpenMostRead: () -> Unit,
     // RK <--
 ) {
     LazyColumn(
@@ -76,7 +77,12 @@ fun StatsScreenContent(
             )
         }
         item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenKey, onOpenReading)) }
-        item { StatsShelfContent(StatsShelf.LISTS, statsGroupCards(state.charts, onSeeAll, onOpenRow, onOpenEntry)) }
+        item {
+            StatsShelfContent(
+                StatsShelf.LISTS,
+                statsGroupCards(state.charts, onSeeAll, onOpenRow, onOpenEntry, onOpenMostRead),
+            )
+        }
         // RK <--
     }
 }

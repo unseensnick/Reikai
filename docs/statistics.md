@@ -14,10 +14,10 @@ Open <nav to="statistics">. The **All** / **Manga** / **Novels** chips at the to
 The first four cards count your library, chapters and trackers.
 Below them:
 
-* **Publishing status** and **Tracking status** show how your series split, with the counts beside each chart. Tracking status counts series you track, by the status of your first signed-in tracker. Tap a slice or its legend row to list those series.
+* **Publishing status** and **Tracking status** show how your series split, with the counts beside each chart. Tracking status counts series you track, by the status of your first signed-in tracker. Tap a status in the list beside the chart to list those series; the chart itself does not respond to taps.
 * **Scores** shows how many series sit at each mean tracker score from 1 to 10. Tap a bar to list the series at that score.
 * **Reading this week** shows your reading time for the last seven days, your current streak of reading days and your longest one.
-* **Most read** ranks the series you have spent the longest reading. Tap one to open it.
+* **Most read** ranks the series you have spent the longest reading. Tap one to open it, or **See all** for every series you have read.
 * **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Started reading** list your top five in each.
 
 ::: tabs

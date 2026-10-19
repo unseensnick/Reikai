@@ -157,7 +157,7 @@ class StatsReadingScreen : Screen() {
 }
 
 /** How wide the chart and list grow on a tablet, so a bar and its series' times stay within reach of the eye. */
-private val READING_MAX_WIDTH = 720.dp
+internal val READING_MAX_WIDTH = 720.dp
 
 @Composable
 private fun Capped(content: @Composable () -> Unit) {

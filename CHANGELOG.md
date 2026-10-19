@@ -70,9 +70,9 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Added
 
-- **New charts show your library's publishing status, tracking status and scores, for manga and novels, and tapping a slice or bar lists its series.** The All, Manga and Novels switch applies to every chart.
+- **New charts show your library's publishing status, tracking status and scores, for manga and novels, and tapping a status beside a chart or a bar in Scores lists those series.** The All, Manga and Novels switch applies to every chart.
 - **See your reading streak, when you started each series and, from this version on, how long you read by week, month, year or any dates you pick.** Older reading still counts toward the total.
-- **A Most read card ranks the series you have spent the longest reading.**
+- **A Most read card ranks the series you have spent the longest reading, with See all for the full list.**
 - **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap lists the series behind a row.** They look and sort like your library, and you can narrow them to finished, reading or not started.
 - **Cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
 
