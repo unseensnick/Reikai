@@ -26,15 +26,18 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.presentation.manga.components.MangaCover
 import eu.kanade.presentation.util.toDurationString
 import eu.kanade.tachiyomi.util.system.LocaleHelper
 import reikai.presentation.components.entryStatusRes
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.SourceIconBadge
+import reikai.presentation.recents.RECENTS_ROW_HEIGHT
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -103,6 +106,36 @@ fun StatsTitleLine(title: String, readMs: Long, modifier: Modifier = Modifier, o
             text = title,
             style = MaterialTheme.typography.bodyMedium,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = statsDuration(readMs),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** [StatsTitleLine] with the series' cover, at History's row height, for the full reading-time lists. */
+@Composable
+fun StatsCoverTitleLine(title: String, readMs: Long, cover: Any?, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable(onClick = onOpen)
+            .then(modifier)
+            .fillMaxWidth()
+            .height(RECENTS_ROW_HEIGHT)
+            .padding(vertical = MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+    ) {
+        MangaCover.Book(modifier = Modifier.fillMaxHeight(), data = cover)
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )

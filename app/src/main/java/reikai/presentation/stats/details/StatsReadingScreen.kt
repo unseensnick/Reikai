@@ -64,7 +64,7 @@ import reikai.presentation.stats.BarUnit
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
 import reikai.presentation.stats.ReadingWindow
-import reikai.presentation.stats.StatsTitleLine
+import reikai.presentation.stats.StatsCoverTitleLine
 import reikai.presentation.stats.statsDuration
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -141,9 +141,10 @@ class StatsReadingScreen : Screen() {
                     }
                 }
                 items(current.titles) { title ->
-                    StatsTitleLine(
+                    StatsCoverTitleLine(
                         title = title.name,
                         readMs = title.readMs,
+                        cover = title.cover,
                         modifier = Modifier.widthIn(
                             max = READING_MAX_WIDTH,
                         ).padding(horizontal = MaterialTheme.padding.medium),

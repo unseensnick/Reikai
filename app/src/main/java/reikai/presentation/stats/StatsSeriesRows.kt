@@ -5,13 +5,35 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.model.asNovelCover
 import reikai.presentation.novel.details.NovelScreen
+import reikai.util.runCatchingCancellable
+import tachiyomi.domain.manga.model.asMangaCover
+import tachiyomi.domain.manga.repository.MangaRepository
 
 /** A series' details page: a manga by id, a novel by its stored source and url; null for a novel since removed. */
 suspend fun statsDetailsScreen(entryId: EntryId, novelRepository: NovelRepository): Screen? = when (entryId) {
     is EntryId.Manga -> MangaScreen(entryId.rawId)
     is EntryId.Novel -> NovelScreen.forStored(entryId.rawId, novelRepository)
 }
+
+/**
+ * The covers of [ids] for Coil, read by id because a reading-time list also holds series outside the
+ * library. A series since removed has none.
+ */
+suspend fun statsCovers(
+    ids: Collection<EntryId>,
+    mangaRepository: MangaRepository,
+    novelRepository: NovelRepository,
+): Map<EntryId, Any> = ids.mapNotNull { id ->
+    val cover = runCatchingCancellable {
+        when (id) {
+            is EntryId.Manga -> mangaRepository.getMangaById(id.rawId).asMangaCover()
+            is EntryId.Novel -> novelRepository.getById(id.rawId)?.asNovelCover()
+        }
+    }.getOrNull()
+    cover?.let { id to it }
+}.toMap()
 
 /** The rows whose series is [state]; every row when [state] is null. */
 fun List<LibraryItem>.inReadState(state: ReadState?, readStateOf: (EntryId) -> ReadState?): List<LibraryItem> =

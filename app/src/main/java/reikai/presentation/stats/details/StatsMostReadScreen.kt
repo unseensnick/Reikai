@@ -17,7 +17,7 @@ import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
-import reikai.presentation.stats.StatsTitleLine
+import reikai.presentation.stats.StatsCoverTitleLine
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -53,9 +53,10 @@ class StatsMostReadScreen : Screen() {
                 )
                 else -> LazyColumn(contentPadding = paddingValues, horizontalAlignment = Alignment.CenterHorizontally) {
                     items(current, key = { it.entryId.toString() }) { title ->
-                        StatsTitleLine(
+                        StatsCoverTitleLine(
                             title = title.name,
                             readMs = title.readMs,
+                            cover = title.cover,
                             modifier = Modifier.widthIn(
                                 max = READING_MAX_WIDTH,
                             ).padding(horizontal = MaterialTheme.padding.medium),

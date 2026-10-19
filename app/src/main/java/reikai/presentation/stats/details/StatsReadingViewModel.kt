@@ -22,6 +22,7 @@ import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.stats.ReadingBar
@@ -30,8 +31,10 @@ import reikai.presentation.stats.ReadingWindow
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibraryLoader
 import reikai.presentation.stats.readingTimeByDayAndTitle
+import reikai.presentation.stats.statsCovers
 import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.manga.repository.MangaRepository
 import kotlin.time.Clock
 
 /**
@@ -48,9 +51,9 @@ data class StatsReadingState(
     val today: LocalDate,
 )
 
-/** One series read in the chosen dates, and for how long. */
+/** One series read in the chosen dates, how long, and its cover for Coil once loaded. */
 @Immutable
-data class ReadTitle(val entryId: EntryId, val name: String, val readMs: Long)
+data class ReadTitle(val entryId: EntryId, val name: String, val readMs: Long, val cover: Any? = null)
 
 @Inject
 @ViewModelKey
@@ -59,12 +62,14 @@ class StatsReadingViewModel(
     private val loader: StatsLibraryLoader,
     sourcePreferences: ReikaiSourcePreferences,
     private val novelRepository: NovelRepository,
+    private val mangaRepository: MangaRepository,
 ) : ViewModel() {
 
     private val timeZone = TimeZone.currentSystemDefault()
     private val today = Clock.System.now().toLocalDateTime(timeZone).date
 
     private val library = MutableStateFlow<StatsLibrary?>(null)
+    private val covers = MutableStateFlow<Map<EntryId, Any>>(emptyMap())
     private val view = MutableStateFlow(View(ReadingWindow.week(today), selected = null))
 
     /** Null while the library loads. */
@@ -72,7 +77,8 @@ class StatsReadingViewModel(
         library.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
         view,
-    ) { library, type, view ->
+        covers,
+    ) { library, type, view, covers ->
         val sessions = library.sessions(type)
         val byDay = readingTimeByDayAndTitle(sessions, timeZone)
         val names = sessions.associate { it.entryId to it.name }
@@ -86,7 +92,7 @@ class StatsReadingViewModel(
             bars = bars,
             selected = selected,
             titles = byTitle
-                .mapNotNull { (entryId, ms) -> names[entryId]?.let { ReadTitle(entryId, it, ms) } }
+                .mapNotNull { (entryId, ms) -> names[entryId]?.let { ReadTitle(entryId, it, ms, covers[entryId]) } }
                 .sortedByDescending { it.readMs },
             canMoveForward = view.window.last < today,
             today = today,
@@ -96,7 +102,12 @@ class StatsReadingViewModel(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init {
-        viewModelScope.launchIO { library.value = loader.load() }
+        viewModelScope.launchIO {
+            val loaded = loader.load()
+            library.value = loaded
+            val ids = loaded.sessions(ContentType.ALL).mapTo(HashSet()) { it.entryId }
+            covers.value = statsCovers(ids, mangaRepository, novelRepository)
+        }
     }
 
     fun selectPeriod(period: ReadingPeriod) {
