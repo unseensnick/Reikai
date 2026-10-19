@@ -49,8 +49,9 @@ emulator's own skin doesn't matter for the output.
 
 1. **AVD**: 1344x2992, density 480, the `pixel_10_pro_xl` skin. Build `:app:assembleBenchmark` and
    install it: it is `app.reikai.benchmark`, so it sits beside a debug build without touching its
-   library, and it renders as a release build does. Restore the demo backup, ticking the repos on the
-   Restore screen so its extensions and plugins come back. Before every tap, check the demo app is in
+   library, and it renders as a release build does. Before restoring, turn off the tracking settings
+   the demo note lists, then restore the demo backup, ticking every repo on the Restore screen so
+   its extensions and plugins come back. Before every tap, check the demo app is in
    front (`dumpsys activity activities | grep topResumedActivity`): Back out of its last screen lands in
    whatever app was open before.
 2. **Clean status bar** via SystemUI demo mode. Broadcast again right before each capture, since it can
@@ -67,9 +68,11 @@ emulator's own skin doesn't matter for the output.
    ```
 
    `-e fully true` drops the no-internet `!`. Demo mode does not hide another app's notification icon,
-   so dismiss any notification first. A pending extension update badges the Browse tab: remove that
-   repo in the demo app, then trust the extensions the library uses one by one under Extensions.
-   Leave with `-e command exit` when done.
+   so dismiss any notification first. A pending extension update badges the Browse tab: update the
+   extension first. Leave with `-e command exit` when done.
+
+   What the demo library holds, and how its backup is built, is in
+   `.github/readme-images/showcase/demo-library.md`.
 3. **Theme**: app appearance set to **follow system**, then toggle with `adb shell cmd uimode night yes|no`
    (dark for panels 1-3 and 5, plus both for the panel-4 history light/dark pair).
 4. **Scrollbar**: wait ~3s after any scroll before `screencap` so the fading scrollbar is gone.
