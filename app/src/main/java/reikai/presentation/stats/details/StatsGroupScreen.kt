@@ -17,7 +17,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -25,11 +24,9 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
-import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Check
-import reikai.presentation.details.searchLibraryFromDetails
 import reikai.presentation.stats.STATS_CARD_MIN_WIDTH
 import reikai.presentation.stats.StatsDimension
 import reikai.presentation.stats.StatsRowCard
@@ -42,13 +39,12 @@ import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.LoadingScreen
 
-/** Every row of one grouping, each opening the library search for the series it counts. */
+/** Every row of one grouping, each opening the series it counts. */
 class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
 
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        val scope = rememberCoroutineScope()
         val viewModel = assistedMetroViewModel<StatsGroupViewModel, StatsGroupViewModel.Factory> { create(dimension) }
         val state by viewModel.state.collectAsState()
 
@@ -82,9 +78,7 @@ class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
                 horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
             ) {
                 items(current.rows, key = { it.group.key.toString() }) { row ->
-                    StatsRowCard(row) { query ->
-                        scope.launch { navigator.searchLibraryFromDetails(query, current.contentType) }
-                    }
+                    StatsRowCard(row) { navigator.push(StatsSeriesScreen(it.group.key, it.name, current.contentType)) }
                 }
             }
         }

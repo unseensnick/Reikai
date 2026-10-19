@@ -59,12 +59,12 @@ fun StatsCardHeader(title: StringResource, action: StringResource? = null, onAct
 
 /** One grouping row: its source's icon when it has one, its name, and at the end how many series it holds. */
 @Composable
-fun StatsRowLine(row: StatsRow, onOpen: (String) -> Unit) {
+fun StatsRowLine(row: StatsRow, onOpen: (StatsRow) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .heightIn(min = 48.dp)
-            .then(if (row.query != null) Modifier.clickable { onOpen(row.query) } else Modifier),
+            .clickable { onOpen(row) },
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
     ) {
@@ -148,20 +148,12 @@ fun statsDuration(ms: Long): String {
  * one shows None in its place rather than shifting the rest.
  */
 @Composable
-fun StatsRowCard(row: StatsRow, onOpen: (String) -> Unit) {
-    // A row with no search (a start year) is not a button, and must not look like a disabled one either.
-    val query = row.query
-    if (query != null) {
-        ElevatedCard(
-            onClick = { onOpen(query) },
-            shape = MaterialTheme.shapes.large,
-            modifier = Modifier.fillMaxWidth(),
-        ) { StatsRowCardContent(row) }
-    } else {
-        ElevatedCard(shape = MaterialTheme.shapes.large, modifier = Modifier.fillMaxWidth()) {
-            StatsRowCardContent(row)
-        }
-    }
+fun StatsRowCard(row: StatsRow, onOpen: (StatsRow) -> Unit) {
+    ElevatedCard(
+        onClick = { onOpen(row) },
+        shape = MaterialTheme.shapes.large,
+        modifier = Modifier.fillMaxWidth(),
+    ) { StatsRowCardContent(row) }
 }
 
 @Composable

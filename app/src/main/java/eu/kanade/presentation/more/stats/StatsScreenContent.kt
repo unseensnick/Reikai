@@ -23,6 +23,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.stats.StatsCard
 import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsShelf
 import reikai.presentation.stats.StatsShelfContent
 import reikai.presentation.stats.statsChartCards
@@ -43,7 +44,7 @@ fun StatsScreenContent(
     contentType: ContentType,
     onContentTypeSelected: (ContentType) -> Unit,
     onSeeAll: (StatsDimension) -> Unit,
-    onOpenRow: (String) -> Unit,
+    onOpenRow: (StatsRow) -> Unit,
     onOpenReading: () -> Unit,
     // RK <--
 ) {

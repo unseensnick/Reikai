@@ -36,9 +36,7 @@ import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergeScope
-import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelGroupCategories
@@ -66,13 +64,11 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryFilterSettings
-import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.MergeCollapseInputs
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
-import reikai.presentation.library.installedIconsBySite
 import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
@@ -82,9 +78,7 @@ import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIdsOf
-import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.mergedGroupTracks
-import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
@@ -92,7 +86,6 @@ import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
@@ -129,7 +122,6 @@ class NovelLibraryViewModel(
     private val sourceManager: NovelSourceManager,
     private val mergeManager: NovelMergeManager,
     private val mergeGroupRepository: MergeGroupRepository,
-    private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val installer: LnPluginInstaller,
     private val trackerManager: TrackerManager,
@@ -137,6 +129,7 @@ class NovelLibraryViewModel(
     private val getNextNovelChapter: GetNextNovelChapter,
     private val novelPreferences: NovelPreferences,
     private val adultContentChecker: AdultContentChecker,
+    private val novelLibraryRows: NovelLibraryRows,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -162,10 +155,7 @@ class NovelLibraryViewModel(
             // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
             // The custom-info overlay rides with the library so a title/cover edit re-emits too.
             combine(
-                novelRepository.getLibraryNovelAsFlow()
-                    .combine(sourceManager.sources) { library, _ -> library }
-                    // Re-emit when a download/delete changes the disk index so the badge + filter refresh.
-                    .combine(novelDownloadCache.changes.pausedWhileUnsubscribed()) { library, _ -> library },
+                novelLibraryRows.library(),
                 getCustomNovelInfo.subscribeAll(),
                 ::Pair,
             ),
@@ -226,13 +216,7 @@ class NovelLibraryViewModel(
     /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
      *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
     private fun settingsFlow(): Flow<LibrarySettings> {
-        val mergeFlow = mergeCollapseInputsFlow(
-            ContentType.NOVELS,
-            reikaiLibraryPreferences.preferredNovelSources.changes(),
-            reikaiLibraryPreferences,
-            mergeGroupRepository,
-            mergedChapterUnitRepository,
-        )
+        val mergeFlow = novelLibraryRows.mergeInputs()
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
         // group-mode change would rebuild the filtered list for a decision it does not make.
         return combine(
@@ -249,27 +233,6 @@ class NovelLibraryViewModel(
         return node.chapterSearchTerms().associateWith { novelChapterRepository.getNovelIdsWithChapterNameLike(it) }
     }
 
-    /**
-     * Merged chapters with a copy on disk, per group. Only grouped members that have downloaded something
-     * are read and probed, so a library whose merged novels hold no downloads pays nothing. Twin of the
-     * manga library's, pinned by [downloadedUnitsByGroup].
-     */
-    private suspend fun mergedDownloadCounts(
-        library: List<LibraryNovel>,
-        membership: Map<Long, Long>,
-    ): Map<Long, Int> {
-        return downloadedUnitsByGroup(
-            entries = library,
-            membership = membership,
-            idOf = { it.novel.id },
-            downloadCountOf = { it.downloadCount },
-            rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.NOVELS, it) },
-        ) { item, row ->
-            val owner = item.novel
-            novelDownloadCache.isChapterDownloaded(owner.source, owner.title, row.chapterName, row.chapterUrl)
-        }
-    }
-
     private suspend fun buildState(
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
@@ -278,30 +241,11 @@ class NovelLibraryViewModel(
         settings: LibrarySettings,
     ): State {
         val (query, chapterMatches) = search
-        // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
-        // download count from the cache before it feeds the filter, sort, collapse, and badge.
-        val withCounts = library.map {
-            it.copy(downloadCount = novelDownloadCache.getDownloadCount(it.novel).toLong())
+        // The rows the library and Statistics share, before any filter or search, plus the collapsed
+        // groups the tracks and the per-novel metadata below are keyed by.
+        val (groups, allItems) = novelLibraryRows.build(library, settings.badges, settings.merge).let {
+            it.groups to it.items
         }
-        // Collapse merged groups into one representative entry (the top-ranked source) BEFORE
-        // filtering, matching the manga library. Filtering first would test each source separately, so a
-        // group could survive on a member the user never sees, and the representative would be picked
-        // from whichever members happened to pass, changing the cover as filters change.
-        // Each group's unread and downloads are the deduplicated cross-source counts: one unit per chapter
-        // the group covers, which summing the members double-counted for every chapter two of them hold.
-        val groups = NovelMergeCollapse.collapse(
-            withCounts,
-            settings.merge.membership,
-            settings.merge.mergingEnabled,
-            settings.merge.overrideRankings,
-            settings.merge.preferredSources,
-            mergedCountsByGroup = settings.merge.mergedCounts,
-            mergedDownloadsByGroup = if (settings.merge.mergingEnabled) {
-                mergedDownloadCounts(withCounts, settings.merge.membership)
-            } else {
-                emptyMap()
-            },
-        )
         // Each merge group's tracks keyed by the rep's real novel id, so the filter's tracker axis and the
         // grouping read a track bound on ANY grouped source. Synchronous: reads the in-memory group members,
         // never the suspend awaitGroup. Converted once to the shared Track, which the track kernels take.
@@ -318,7 +262,6 @@ class NovelLibraryViewModel(
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors: novels have no local-source concept.
         val filterPrefs = settings.filter.resolve()
-        val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
         // needs the source name and slug, since a novel row has no Mihon Source to read either off.
@@ -328,20 +271,6 @@ class NovelLibraryViewModel(
         // filter, sort, grouping and search all keep reading the source values. Mirrors the manga library,
         // pinned by LibraryProvider.overlaid and withCustomInfo.
         val overlay = customInfo.associateBy { it.novelId }
-        // Build the shared library row BEFORE filtering and sorting, so both content types reach the
-        // shared kernels at the same point in the type chain (the manga library already builds first).
-        // Resolved once per source: a library holds far more novels than sources.
-        val querySources = HashMap<String, LibraryQuerySource>()
-        val allItems = groups.map { group ->
-            // An uninstalled source still gets a badge, as a manga group keeps its stub member.
-            group.toLibraryRow(
-                settings.badges,
-                settings.merge.showSourceIcons,
-                { source -> querySources.getOrPut(source) { querySource(source) } },
-            ) {
-                novelSourceBadge(sourceManager.get(it), iconsBySite)
-            }
-        }
         // The one filter binding both libraries use; the adult rule's source-name list is manga sites.
         val sourceKey = { item: LibraryItem -> novelById[item.id]?.novel?.source.orEmpty() }
         val adultSources = if (filterPrefs.lewd != TriState.DISABLED) {
@@ -519,19 +448,6 @@ class NovelLibraryViewModel(
     val filterPickerCategories: StateFlow<List<Category>> = getNovelCategories.subscribe()
         .sortedByCategoryPref(reikaiLibraryPreferences)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), emptyList())
-
-    // One novel source as the search terms read it, for the row's own source and every merged member's, so
-    // the two cannot resolve a name or language differently. One identity read for both, by the rule
-    // NovelSourceManager.nameOf and langOf keep.
-    private suspend fun querySource(source: String): LibraryQuerySource {
-        val identity = sourceManager.identityOf(source)
-        return LibraryQuerySource(
-            key = source,
-            name = identity.name.lowercase(),
-            language = identity.lang.orEmpty(),
-            isLocal = false,
-        )
-    }
 
     private data class LibrarySettings(
         val badges: LibraryBadgePrefs,

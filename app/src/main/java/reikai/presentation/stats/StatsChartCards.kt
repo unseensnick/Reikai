@@ -115,11 +115,11 @@ fun statsChartCards(
     }
 }
 
-/** A card of rows per grouping that has any, [onOpenRow] opening a row's library search. */
+/** A card of rows per grouping that has any, [onOpenRow] opening the series a row counts. */
 fun statsGroupCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
-    onOpenRow: (String) -> Unit,
+    onOpenRow: (StatsRow) -> Unit,
 ): List<StatsCard> = OVERVIEW_GROUPINGS.mapNotNull { dimension ->
     val rows = charts.groups[dimension].orEmpty()
     if (rows.isEmpty()) return@mapNotNull null

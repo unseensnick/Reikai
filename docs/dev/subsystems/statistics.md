@@ -14,11 +14,11 @@ Statistics summarises the library and the reader's reading for manga and novels 
 
 ### Groupings
 
-`groupsBy` (`StatsKernels.kt`) groups titles by a `StatsDimension` into `StatsGroup`s keyed by a typed `StatsGroupKey`, with count, chapters read and total, mean score and reading time. A title sits in one row per value it has, so source, tag, tracker and language rows can sum past the library. Tags group ignoring case, under the first spelling seen. `StatsLibrary.rows` names each key, orders the rows (score, length and year keep their own order; the rest follow `StatsSort`) and attaches the library search from `StatsGroupKey.libraryQuery`.
+`groupsBy` (`StatsKernels.kt`) groups titles by a `StatsDimension` into `StatsGroup`s keyed by a typed `StatsGroupKey`, with count, chapters read and total, mean score and reading time. A title sits in one row per value it has, so source, tag, tracker and language rows can sum past the library. Tags group ignoring case, under the first spelling seen. `StatsLibrary.rows` names each key, orders the rows (score, length and year keep their own order; the rest follow `StatsSort`).
 
-### Library searches
+### A row's series
 
-A row opens the library through `searchLibraryFromDetails` with a query the shared search kernel answers: `status:`, `tracker:""`, `category:"Name"`, a `score` range matching the bar `scoreBar` rounds into, `total` bounds, `srcid:` and so on (see [library.md](library.md), Search). A name goes in whichever quote it lacks (`quotedQueryValue`), since the lexer has no escape. Start-year rows, and a name holding both quotes, have no search and do not open; their card is not a button.
+Every row opens `StatsSeriesScreen` on top of Statistics, listing the series it counts. `titlesIn` reads them from the same `titlesByGroup` map `groupsBy` counts from, so the list and the number cannot disagree. The rows are the library's own (`MangaLibraryRows`, `NovelLibraryRows`), before its filters and search, with the custom-info overlay applied, so the badges and merged counts match the library card. A library row is matched to its series through `StatsLibrary.titleOf`, which knows every member of a merged series, so a row the library leads on another member than Statistics still lands. `StatsGroupKey` is `Serializable`, since the screen takes one; the length key holds its two ends rather than a `LongRange`.
 
 ### Reading log
 
@@ -39,9 +39,11 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 - `app/src/main/java/reikai/presentation/stats/StatsLibrary.kt`: `StatsLibraryLoader`, `StatsLibrary`, `TitleReadingSession`.
 - `app/src/main/java/reikai/presentation/stats/StatsSeries.kt`: `StatsSeries.statsTitles`, `titleIdByMember`.
 - `app/src/main/java/reikai/presentation/stats/StatsTitle.kt`: `StatsTitle`, `StatsTitleFields`.
-- `app/src/main/java/reikai/presentation/stats/StatsKernels.kt`: `groupsBy`, `readingTimeByDay`, `readingStreaks`, `scoreBar`.
+- `app/src/main/java/reikai/presentation/stats/StatsKernels.kt`: `groupsBy`, `titlesIn`, `readingTimeByDay`, `readingStreaks`, `scoreBar`.
 - `app/src/main/java/reikai/presentation/stats/StatsRows.kt`: `StatsLibrary.rows`, `StatsSort`.
-- `app/src/main/java/reikai/presentation/stats/StatsLibraryQuery.kt`: `StatsGroupKey.libraryQuery`.
+- `app/src/main/java/reikai/presentation/stats/StatsSeriesRows.kt`: `titleOf`, `standingFor`.
+- `app/src/main/java/reikai/presentation/stats/details/StatsSeriesScreen.kt`: `StatsSeriesScreen`.
+- `app/src/main/java/reikai/presentation/stats/details/StatsSeriesViewModel.kt`: `StatsSeriesViewModel`.
 - `app/src/main/java/reikai/presentation/stats/StatsCharts.kt`: `statsCharts`, `OVERVIEW_GROUPINGS`.
 - `app/src/main/java/reikai/presentation/stats/StatsChartCards.kt`: `statsChartCards`, `StatsDonut`, `StatsColumns`.
 - `app/src/main/java/reikai/presentation/stats/details/StatsGroupScreen.kt`: `StatsGroupScreen`.
@@ -53,7 +55,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 **A rule here is written once over `StatsTitle`.** Adding a per-type branch below `statsTitles` is the duplication this layer exists to stop; a new per-entry fact goes into `StatsTitleFields`, which both types must answer.
 
-**A row's search must find exactly the series it counts.** `StatsLibraryQueryTest` runs every row's search over the same titles; a new grouping or a grouping rule changed without its query fails it.
+**A row's list must hold exactly the series it counts.** Both read `titlesByGroup`; a grouping rule written anywhere else would let them drift. `StatsSeriesListTest` checks every dimension.
 
 **Reading time per day starts when the log does.** Never backfill sessions from history: its last read is overwritten, so a backfill would place a chapter's whole time on one day.
 
@@ -63,7 +65,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 - **Merged series count once, except where a series has several values.** Status, categories, score and length read the series as its library row does, through the same lead; sources, tags, trackers and languages list every value, as library search matches any member. A series' tags are one rule for both sides, `seriesGenres`: its Edit info tags when set, else every source's tags.
 - **Start year prefers a tracker's start date.** It is a real date where one exists and reaches back before the log; the log's first session covers the rest.
-- **`tag:` and `lang:` keep Mihon's part-of-a-value match.** A tag row's search can therefore also find a longer tag holding it; `tracker:` and `category:` are Reikai's and match whole names.
+- **A row lists its series in Statistics rather than searching the library.** The library search lost Statistics from the back stack, could not express a start year, and with `tag:` and `lang:` matching part of a value it could find more than the row counted.
 
 ## Upstream divergences
 
@@ -71,11 +73,11 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 ## Extending
 
-A new grouping: add a `StatsDimension` and `StatsGroupKey` case, its key in `groupKeys`, its order in `StatsLibrary.rows`, its search in `libraryQuery` (or null), its label in `StatsRowItems.kt`, and list it in `OVERVIEW_GROUPINGS` for a card. `StatsLibraryQueryTest` then covers it.
+A new grouping: add a `StatsDimension` and `StatsGroupKey` case, its key in `groupKeys`, its order in `StatsLibrary.rows`, its case in `StatsGroupKey.dimension`, its label in `StatsRowItems.kt`, and list it in `OVERVIEW_GROUPINGS` for a card. `StatsSeriesListTest` then covers it.
 
 ## Tests
 
-`StatsKernelsTest`, `StatsChartsTest`, `StatsSeriesTest` (builder cases over both types), `StatsLibraryQueryTest` (each row's search), `LibraryQueryMatchTest` (the search fields), `ReadingLogRepositoryTest` (the log over both tables), and `MigrateEngineConformanceTest` (session copies). Run with `./gradlew :app:testDebugUnitTest --tests "reikai.presentation.stats.*"` and `:data:testDebugUnitTest --tests "reikai.data.readinglog.*"`.
+`StatsKernelsTest`, `StatsChartsTest`, `StatsSeriesTest` (builder cases over both types), `StatsSeriesListTest` (a row's list against its count, and row matching), `ReadingLogRepositoryTest` (the log over both tables), and `MigrateEngineConformanceTest` (session copies). Run with `./gradlew :app:testDebugUnitTest --tests "reikai.presentation.stats.*"` and `:data:testDebugUnitTest --tests "reikai.data.readinglog.*"`.
 
 ## Related
 

@@ -87,7 +87,7 @@ class StatsKernelsTest {
     @Test
     fun `a series with no chapters sits in the first length band`() {
         listOf(title(totalChapters = 0)).groupsBy(StatsDimension.LENGTH, utc).map { it.key } shouldBe
-            listOf(StatsGroupKey.Length(0L..0L))
+            listOf(StatsGroupKey.Length(0L, 0L))
     }
 
     @Test

@@ -1,6 +1,6 @@
 ---
 title: Statistics
-description: Charts of your library and reading, for manga and novels, with lists you can open in the library.
+description: Charts of your library and reading, for manga and novels, with lists of the series behind each one.
 ---
 
 # Statistics
@@ -27,7 +27,7 @@ A series merged from several sources counts once, except in **Sources**, **Tags*
 
 **See all** on a card opens the whole list, one card per row on a phone and several side by side on a wider screen. Each shows how many of its series you have **Finished** (read every chapter), are **Reading** and have **Not started**, then its mean score and reading time. Where the list has no order of its own, the sort button in the top bar orders it by most series, chapters read, mean score or reading time.
 
-Tap a row to open those series in your library. The library opens with a search already typed, such as `srcid:"..."` or `category:"Plan to read"`, which you can edit like any other [library search](library-search.md).
+Tap a row to list the series it counts, with the same badges as your library. Tap one to open it; back returns to the list, then to Statistics where you were.
 
 ## Reading time
 

@@ -12,13 +12,13 @@ enum class StatsSort { COUNT, READ, SCORE, TIME }
  * [sourceBadge] on a source row, the icon its library cover badge shows.
  */
 @Immutable
-data class StatsRow(val group: StatsGroup, val name: String?, val query: String?, val sourceBadge: SourceBadge? = null)
+data class StatsRow(val group: StatsGroup, val name: String?, val sourceBadge: SourceBadge? = null)
 
 /** Groupings with no order of their own, which [StatsSort] reorders; the rest keep their own order. */
 val StatsDimension.isSortable: Boolean
     get() = this !in setOf(StatsDimension.SCORE, StatsDimension.LENGTH, StatsDimension.START_YEAR)
 
-/** [dimension]'s rows for [type], named, ordered and each with the library search that lists it. */
+/** [dimension]'s rows for [type], named and ordered. */
 fun StatsLibrary.rows(
     dimension: StatsDimension,
     type: ContentType,
@@ -29,7 +29,6 @@ fun StatsLibrary.rows(
         StatsRow(
             group = group,
             name = nameOf(group.key),
-            query = group.key.libraryQuery(trackerNames::get, categoryNames::get),
             sourceBadge = (group.key as? StatsGroupKey.Source)?.let { sourceBadges[it.key] },
         )
     }

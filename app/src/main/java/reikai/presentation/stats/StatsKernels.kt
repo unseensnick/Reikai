@@ -11,6 +11,7 @@ import reikai.domain.category.orUncategorized
 import reikai.domain.entry.EntryId
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.recommendation.taste.TrackStatus
+import java.io.Serializable
 import kotlin.math.roundToInt
 import kotlin.time.Instant
 
@@ -94,11 +95,18 @@ fun firstLoggedRead(sessions: List<EntryReadingSession>): Map<Long, Instant> = s
 
 enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TAG, LANGUAGE, START_YEAR }
 
-/** One details row's identity; a null value is the "none" row (unscored, untracked, unknown). */
-sealed interface StatsGroupKey {
+/**
+ * One details row's identity; a null value is the "none" row (unscored, untracked, unknown). Serializable
+ * because the row's series list is a screen that takes one.
+ */
+sealed interface StatsGroupKey : Serializable {
     data class Status(val code: Long) : StatsGroupKey
     data class Score(val bar: Int?) : StatsGroupKey
-    data class Length(val chapters: LongRange) : StatsGroupKey
+
+    // Two ends rather than a LongRange, which cannot be saved with a screen.
+    data class Length(val first: Long, val last: Long) : StatsGroupKey {
+        val chapters: LongRange get() = first..last
+    }
     data class Tracker(val trackerId: Long?) : StatsGroupKey
     data class Source(val key: String, val name: String) : StatsGroupKey
     data class Category(val id: Long) : StatsGroupKey
@@ -106,6 +114,19 @@ sealed interface StatsGroupKey {
     data class Language(val code: String) : StatsGroupKey
     data class StartYear(val year: Int?) : StatsGroupKey
 }
+
+val StatsGroupKey.dimension: StatsDimension
+    get() = when (this) {
+        is StatsGroupKey.Status -> StatsDimension.STATUS
+        is StatsGroupKey.Score -> StatsDimension.SCORE
+        is StatsGroupKey.Length -> StatsDimension.LENGTH
+        is StatsGroupKey.Tracker -> StatsDimension.TRACKER
+        is StatsGroupKey.Source -> StatsDimension.SOURCE
+        is StatsGroupKey.Category -> StatsDimension.CATEGORY
+        is StatsGroupKey.Tag -> StatsDimension.TAG
+        is StatsGroupKey.Language -> StatsDimension.LANGUAGE
+        is StatsGroupKey.StartYear -> StatsDimension.START_YEAR
+    }
 
 data class StatsGroup(
     val key: StatsGroupKey,
@@ -137,18 +158,8 @@ val STATS_LENGTHS = listOf(0L..0L, 1L..1L, 2L..10L, 11L..25L, 26L..50L, 51L..100
  * The details rows for [dimension]. A title sits in one row per value it has, so a series read from two
  * sources, or carrying three tags, counts under each; the rows of those dimensions can sum past the total.
  */
-fun List<StatsTitle>.groupsBy(dimension: StatsDimension, timeZone: TimeZone): List<StatsGroup> {
-    // Tags differ in case from source to source; library search matches them ignoring it, so rows do too.
-    val tagSpelling = flatMap { it.genres }.map { it.trim() }.reversed().associateBy { it.lowercase() }
-    return flatMap { title ->
-        title.groupKeys(dimension, timeZone)
-            .map { key ->
-                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(key.name.lowercase())) else key
-            }
-            .distinct()
-            .map { it to title }
-    }
-        .groupBy({ it.first }, { it.second })
+fun List<StatsTitle>.groupsBy(dimension: StatsDimension, timeZone: TimeZone): List<StatsGroup> =
+    titlesByGroup(dimension, timeZone)
         .map { (key, titles) ->
             StatsGroup(
                 key = key,
@@ -162,13 +173,34 @@ fun List<StatsTitle>.groupsBy(dimension: StatsDimension, timeZone: TimeZone): Li
                 notStarted = titles.count { it.readState == ReadState.NOT_STARTED },
             )
         }
+
+/** The titles a [groupsBy] row of [key] counts, so a row's list can never disagree with its number. */
+fun List<StatsTitle>.titlesIn(key: StatsGroupKey, timeZone: TimeZone): List<StatsTitle> =
+    titlesByGroup(key.dimension, timeZone)[key].orEmpty()
+
+private fun List<StatsTitle>.titlesByGroup(
+    dimension: StatsDimension,
+    timeZone: TimeZone,
+): Map<StatsGroupKey, List<StatsTitle>> {
+    // Tags differ in case from source to source; library search matches them ignoring it, so rows do too.
+    val tagSpelling = flatMap { it.genres }.map { it.trim() }.reversed().associateBy { it.lowercase() }
+    return flatMap { title ->
+        title.groupKeys(dimension, timeZone)
+            .map { key ->
+                if (key is StatsGroupKey.Tag) StatsGroupKey.Tag(tagSpelling.getValue(key.name.lowercase())) else key
+            }
+            .distinct()
+            .map { it to title }
+    }
+        .groupBy({ it.first }, { it.second })
 }
 
 private fun StatsTitle.groupKeys(dimension: StatsDimension, timeZone: TimeZone): List<StatsGroupKey> =
     when (dimension) {
         StatsDimension.STATUS -> listOf(StatsGroupKey.Status(status))
         StatsDimension.SCORE -> listOf(StatsGroupKey.Score(meanScore?.let(::scoreBar)))
-        StatsDimension.LENGTH -> listOf(StatsGroupKey.Length(STATS_LENGTHS.first { totalChapters in it }))
+        StatsDimension.LENGTH ->
+            STATS_LENGTHS.first { totalChapters in it }.let { listOf(StatsGroupKey.Length(it.first, it.last)) }
         StatsDimension.TRACKER ->
             trackerIds.distinct().map { StatsGroupKey.Tracker(it) }.ifEmpty { listOf(StatsGroupKey.Tracker(null)) }
         StatsDimension.SOURCE -> sources.map { StatsGroupKey.Source(it.key, it.name) }
