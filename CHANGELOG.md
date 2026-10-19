@@ -15,9 +15,9 @@ as manga's do, with a page slider and their own tap layout. The manga reader get
 extra tap layouts.
 
 Statistics has new charts (publishing status, tracking status, scores), a reading streak, reading time
-by week, month, year or any dates you pick, a Most read list, and lists
-of your library by source, tag, category, tracker and a few more. Time read per day is recorded from
-this version on; older reading still counts toward the total.
+by week, month, year or any dates you pick, a Most read list, and lists of your library by source,
+tag, category, tracker and a few more. Time read per day is recorded from this version on; older
+reading still counts toward the total, but not toward any day.
 
 Restoring a backup can install the extensions and plugins it used, from repos you tick on the
 Restore screen. A few changes aimed at slower phones: a novel chapter you opened before loads from
@@ -33,30 +33,30 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Changed
 
-- **Library search and Group by tag find a merged series by a tag any of its sources gives it.** Tags set in Edit info still replace the sources' own in search.
+- **Library search and grouping by tag find a merged series by a tag any of its sources gives it, unless you set its tags in Edit info.**
 
 ### Reader
 
 #### Added
 
-- **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pages slide and turn by tap, swipe or volume key as manga's do, with a page slider and their own tap layout.
-- **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.** Auto-scroll turns a page every few seconds while paged.
-- **The manga reader offers the novel reader's Thirds, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
+- **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pages turn by tap, swipe or volume key as manga's do, with a page slider, their own tap layout and auto-scroll.
+- **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.**
+- **The manga reader offers the novel reader's Top and bottom, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
 
 #### Changed
 
 - **A novel chapter you have opened before now opens without fetching it from the source again.** It is kept in the chapter cache, the same one manga uses, and Clear chapter cache empties it.
-- **The novel reader menu now offers Open in WebView, Open in browser and Share on a downloaded chapter, as manga does.** Its source has to be installed.
 
 #### Fixed
 
 - **A novel chapter with pictures, opened at its start, now shows at once instead of staying blank for up to three seconds (Native text).**
-- **A tap below the end of the last chapter now reaches the tap zones and the menu (Native text).**
 - **A chapter whose own script stalls its loading no longer locks out taps and the menu (WebView mode).**
 - **A chapter opened partway no longer flashes another part of itself before settling on your place (WebView mode).**
-- **A footnote link written as the chapter's own address now jumps to the note instead of opening the browser (Native text).**
-- **Two pictures in one paragraph now each show as their own picture, and a tall one sharpens as it does alone (Native text).**
+- **The novel reader menu now also shows Open in WebView, Open in browser and Share on a downloaded chapter whose source is installed, as manga's does.**
 - **A chapter that failed to load no longer keeps its Retry box once it loads (Native text).**
+- **A tap below the end of the last chapter now reaches the tap zones and the menu (Native text).**
+- **A footnote link written as the chapter's own address now jumps to the note instead of opening the browser (Native text).**
+- **Two pictures in one paragraph now each show as their own picture (Native text).**
 - **Tapping Retry on a failed picture now dims it while it loads, with text selection on (Native text).**
 
 ### Backup & restore
@@ -64,7 +64,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Changed
 
 - **Restoring a backup installs its missing extensions and plugins again, from repos you trust on the Restore screen.** A repo the backup brings shows its address and signing key and comes back only if you tick it.
-- **Creating a backup is faster on a large library.** It reads a hundred series at a time instead of one, for manga and novels alike.
+- **Creating a backup is a little faster on a large library.** On a test phone a 25 MB backup took about 7 seconds instead of 8.5.
 
 ### Statistics
 
@@ -93,7 +93,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Fixed
 
-- **Manga downloads are found again for a source that shares its name with a stored source (from Mihon).** Upstream: mihon deeb9b258.
+- **Manga downloads are found again for a source that shares its name with one whose extension is no longer installed (from Mihon).** Upstream: mihon deeb9b258.
 
 ### Other
 
