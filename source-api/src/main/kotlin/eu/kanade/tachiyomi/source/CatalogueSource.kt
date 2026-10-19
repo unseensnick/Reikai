@@ -164,14 +164,9 @@ interface CatalogueSource : Source {
         throw UnsupportedOperationException("Unsupported!")
 
     /**
-     * Split and strip a manga title into searchable keywords for the search fallback.
-     * Drops special characters, digit-only tokens, stop words, and tokens too short to be
-     * distinctive, then keeps only the longest few.
-     *
-     * Each keyword costs one search request against the source, so the count is capped: a long
-     * light-novel title would otherwise fan out to a dozen concurrent searches and starve the
-     * chapter list on a rate-limited source. Short and common words are dropped rather than
-     * truncated at random, because searching "the" returns noise, not related manga.
+     * Split and strip a manga title into searchable keywords for the search fallback: drops special
+     * characters, digit-only tokens, stop words and too-short tokens, then keeps only the longest few.
+     * The count is capped because each keyword costs one search request against the source.
      *
      * @since reikai/extensions-lib 1.6
      */

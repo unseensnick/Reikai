@@ -100,6 +100,14 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - Moving between the library and a series' details does less on the main thread: each tab's icon is parsed once while the app runs, and a details page maps its chapters off the main thread.
 - The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which makes the page a third of its size.
 
+## [0.4.2]
+
+### Library
+
+#### Fixed
+
+- **The library's category tabs show their names again, not only their counts.** Broken since 0.4.0 with Show category tabs on.
+
 ## [0.4.1]
 
 ### Highlights

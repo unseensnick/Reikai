@@ -1,12 +1,10 @@
--- Each stored unit records its chapter's place in its own source's list, since the stitch walks each
--- source in that order, plus the staleness views rebuilt to compare it. See data/merged_chapter_unit.sq
--- for the full rationale. These statements mirror that file exactly: fresh installs build from the .sq
--- via Schema.create(), existing installs reach the same schema here.
---
--- Every existing row takes -1, which no chapter's order is, so every group reads as stale and is
--- restitched once on the next reconciliation. That also applies this version's other stitch rule
--- change: a source matching nothing already placed goes at the end of the walk (MergedChapterOrder).
--- The units stay until then, so counts keep showing meanwhile.
+-- Each stored unit records its chapter's place in its own source's list (the stitch walks each source
+-- in that order), plus the staleness views rebuilt to compare it. Mirrors data/merged_chapter_unit.sq
+-- exactly: fresh installs build from the .sq, existing ones here.
+-- Every existing row takes -1, which no chapter's order is, so every group reads stale and restitches
+-- once on the next reconciliation, which also applies this version's other stitch-rule change (a source
+-- matching nothing already placed goes at the end, MergedChapterOrder). Units stay until then, so
+-- counts keep showing.
 ALTER TABLE merged_chapter_unit ADD COLUMN derived_order INTEGER NOT NULL DEFAULT -1;
 
 ALTER TABLE merged_novel_chapter_unit ADD COLUMN derived_order INTEGER NOT NULL DEFAULT -1;

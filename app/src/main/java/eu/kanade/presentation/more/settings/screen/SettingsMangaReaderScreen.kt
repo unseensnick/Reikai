@@ -36,12 +36,10 @@ import java.text.NumberFormat
 /**
  * Manga reader settings, a top-level Settings entry beside [SettingsNovelReaderScreen].
  *
- * The screen is self-contained: every setting on it applies to the manga reader only. Where the novel
- * reader has a setting of the same name (keep screen on, the volume keys, skip and mark-read-on-skip),
- * the two are deliberately separate values, because the ergonomics of paged images and continuously
- * scrolling text differ. Not twin debt: docs/dev/subsystems/architecture.md. Load ahead only on Wi-Fi
- * has no novel twin either: a novel's next chapter is one text request, already the size of the
- * limited manga window (docs/dev/subsystems/reader.md).
+ * Every setting here applies to the manga reader only. Where the novel reader has a same-named setting
+ * (keep screen on, the volume keys, skip and mark-read-on-skip) the two are deliberately separate values,
+ * not twin debt: docs/dev/subsystems/architecture.md. Load ahead only on Wi-Fi has no novel twin either
+ * (docs/dev/subsystems/reader.md).
  */
 object SettingsMangaReaderScreen : SearchableSettings {
 

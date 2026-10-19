@@ -20,14 +20,12 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 
 /**
- * One-time relocation of novel downloads from the old numeric-id scheme
- * (`novel_downloads/<novelId>/<chapterId>.html`) to the stable-name scheme
- * (`novel_downloads/<source>/<title>/<chapter>_<hash>.html`) that [NovelDownloadProvider] now uses.
+ * One-time relocation of novel downloads from `novel_downloads/<novelId>/<chapterId>.html` to the
+ * stable-name scheme [NovelDownloadProvider] now uses, so an upgrader's downloads are not read as missing
+ * and re-downloaded as duplicates.
  *
- * Without it, an upgrader's existing downloads would look missing (the disk scan reads the new paths)
- * and re-download as duplicates. Best-effort per file: a chapter/novel row that can't be resolved is
- * left in place (no data loss), and a failed move leaves the old file for the user to re-download.
- * File I/O inside the migrations, which MainActivity blocks on, but each file is one chapter's HTML.
+ * Best-effort per file: an unresolvable chapter or novel row is left in place, and a failed move leaves
+ * the old file to re-download. MainActivity blocks on this file I/O, but each file is one chapter's HTML.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

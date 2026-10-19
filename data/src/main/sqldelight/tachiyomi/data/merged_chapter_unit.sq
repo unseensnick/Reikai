@@ -1,33 +1,11 @@
--- What the cross-source stitch decided for a merge group, stored so every surface that has to
--- count or order the group reads one answer instead of restating the stitch's rules in its own terms.
--- A restatement cannot express what the stitch knows anyway: two sources numbering the same chapter
--- differently are matched by position between shared titles, which no per-chapter key can carry.
---
--- A CACHE, NEVER TRUTH. Nothing here cannot be rebuilt from the chapter rows, so a change to the
--- stitch rules is a DELETE in a migration and the next reconciliation pass, not a data conversion.
--- That migration must also put every group in merged_group_pending, or nothing checks them.
---
--- MAINTAINED BY RECONCILIATION, NOT BY WRITE HOOKS IN CODE. Chapter rows are created from several
--- places (the source sync, the gallery-chain reconciler, backup restore, the novel chapter sync), so
--- hooking each one means every future write path has to remember, and a forgotten one is a silently
--- wrong badge. Each row records the values its unit was derived from, and the stale views below find
--- every group whose chapters no longer match what was stitched. Triggers on the tables themselves only
--- name the groups worth that check (merged_group_pending), which covers write paths that do not exist yet.
---
--- derived_order is the chapter's place in its own source's list, which the stitch walks each source
--- in, so a source reordering chapters it already listed restitches like a renumber. It defaults to -1,
--- which no chapter carries, so a row written before it existed reads as stale once.
---
--- Only MERGED entries are maintained: an unmerged entry uses its own per-source count, so a row for it
--- would never be read.
---
--- unit is the chapter's position in the merged list. NULL means the stitch dropped this copy, which
--- happens when nothing identifies it and nothing places it: it renders nowhere and counts nowhere,
--- but it keeps a row so the staleness queries can still see it.
---
--- copy_order ranks the sources holding one merged chapter, 0 being the copy the list shows. A reader
--- that hides a copy for an excluded scanlator takes the lowest surviving one, so that stays a live
--- filter. A source leaving or rejoining the library is a stitch input instead (see the stale view).
+-- The cross-source stitch's decision for a merge group, stored so every surface counts and orders the
+-- group from one answer. A cache, never truth: a stitch-rule change is a migration that clears it (or
+-- adds a column defaulting to a value no row carries) and lists every group in merged_group_pending.
+-- Kept current by reconciliation, not write hooks; the stale views find groups whose inputs changed.
+-- Only merged entries have rows. derived_order is the chapter's place in its own source's list.
+-- unit is the position in the merged list; NULL means the stitch dropped this copy (renders and counts
+-- nowhere, kept so the stale views see it). copy_order 0 is the copy the list shows; a reader hiding an
+-- excluded scanlator's copy takes the lowest survivor. Design: docs/dev/subsystems/merged-series.md.
 CREATE TABLE merged_chapter_unit (
     chapter_id INTEGER NOT NULL PRIMARY KEY,
     group_id INTEGER NOT NULL,
@@ -455,15 +433,12 @@ WHERE group_id = :groupId
 AND unit IS NOT NULL
 ORDER BY unit, copy_order;
 
--- Deduplicated chapter counts per merge group: one unit per chapter the group covers, counted over
--- mergedUnitCopiesView. Nothing here restates the stitch; it reads what the stitch decided, so this
--- cannot come to a different answer than the chapter list. A unit whose every copy is filtered out
--- disappears from these counts and from the list together.
+-- Deduplicated chapter counts per merge group, one unit per chapter, read from mergedUnitCopiesView
+-- so they cannot disagree with the chapter list. A unit whose every copy is filtered out drops from both.
 --
--- CONSUMER CONTRACT: a group with any placed, unfiltered unit has a row, carrying 0 read when nothing
--- is read. An absent group is one not stitched yet (or with every unit filtered out), which the caller
--- must show as its leading source's own counts rather than as zero: reconciliation runs while the
--- library is already on screen, so "no row yet" and "nothing read" have to be told apart.
+-- CONSUMER CONTRACT: a group with any placed, unfiltered unit has a row (0 read when nothing is read).
+-- An absent group is not stitched yet (or fully filtered), and the caller shows its leading source's
+-- own counts rather than zero, since reconciliation runs while the library is already on screen.
 countsByGroup:
 SELECT
     groupId,

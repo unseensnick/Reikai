@@ -13,13 +13,12 @@ import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
- * "Per-category sort" gained a CUSTOMIZED override bit (a category keeps its own sort only when the
- * bit is set, else it follows the global sort). Existing per-category manga sorts are concrete flags
- * with no bit, so without this they'd read as "follow global" and be lost on upgrade. Mark the ones a
- * categorized-display user had explicitly sorted (their decoded sort differs from the global) as
- * overrides so they survive. Categorized-display-OFF users already follow the global, so nothing to do.
+ * "Per-category sort" gained a CUSTOMIZED override bit; without it a category follows the global sort.
+ * Existing per-category manga sorts carry no bit and would read as "follow global" on upgrade, so for a
+ * categorized-display user each category whose decoded sort differs from the global is marked as an
+ * override. Categorized-display-OFF users already follow the global.
  *
- * Gated at 183f (versionCode 183) so it fires for everyone upgrading from <=182.
+ * Gated at 183f so it fires for everyone upgrading from <=182.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

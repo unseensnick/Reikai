@@ -1,18 +1,11 @@
--- Fold the forked novel_categories table into the shared categories table (the "All" library axis).
--- Structural half only: novel category rows move in at content_type 2, the junction is repointed at
--- categories, and the old table is dropped. The moved rows keep their raw novel-layout sort flags here;
--- the companion Kotlin migration (MigrateNovelCategoriesToSharedTableMigration, versionCode 187) translates
--- those flags to the manga layout and remaps the novel category-id preferences.
---
--- Each novel id is shifted by a fixed offset (100000000) so it cannot collide with an existing manga id,
--- and so the junction here and the preferences in the Kotlin migration remap by the same shift without
--- passing a lookup table across the SQL/Kotlin migration boundary. Keep the offset in sync with
--- MigrateNovelCategoriesToSharedTableMigration.NOVEL_CATEGORY_ID_MIGRATION_OFFSET.
---
--- novelLibraryView joins novels_categories, so it is dropped before the junction is recreated (otherwise
--- the RENAME reparses the view mid-recreate and fails with "no such table") and recreated unchanged after.
--- The statement order keeps every foreign key valid at each step even with enforcement on; defer_foreign_keys
--- is set as insurance for the table recreate.
+-- Fold novel_categories into the shared categories table at content_type 2, repoint the junction at
+-- categories, and drop the old table. Sort flags stay in the novel layout here; the Kotlin
+-- MigrateNovelCategoriesToSharedTableMigration translates them and remaps the category-id preferences.
+-- Novel ids shift by 100000000 so they cannot collide with manga ids and so SQL and Kotlin remap by the
+-- same shift. Keep it in sync with MigrateNovelCategoriesToSharedTableMigration.NOVEL_CATEGORY_ID_MIGRATION_OFFSET.
+-- novelLibraryView joins novels_categories, so it is dropped before the junction is recreated (the
+-- RENAME would reparse it and fail with "no such table") and recreated unchanged after.
+-- Statement order keeps every foreign key valid; defer_foreign_keys is insurance for the recreate.
 PRAGMA defer_foreign_keys = 1;
 
 DROP VIEW IF EXISTS novelLibraryView;
