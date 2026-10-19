@@ -47,24 +47,12 @@ android {
         // so later releases upgrade this one in place.
         applicationId = "app.reikai"
 
-        // versionCode climbs mid-cycle whenever a migration needs it, because a version-gated
-        // migration is a no-op until the shipped versionCode reaches its gate and cannot be exercised
-        // in dev builds otherwise. A deliberate exception to the bump-at-release-cut rule; see
-        // CLAUDE.md. 186 gates the novel custom-cover re-key; 187 the category schema unification's
-        // novel-category fold-in; 188 the category-preference content-type cleanup; 189 the
-        // merge-prefs-to-groups migration; 190 gated the chapter-match-key backfill, since deleted,
-        // and stays retired; 191 splits the novel reader's single padding into its four margins;
-        // 192 adds the read-aloud button to a
-        // customised novel reader bar; 193 deletes the keys only the retired novel reader wrote; 194 carries
-        // the novel tap-to-scroll switch into a tap layout; 195 carries the extension NSFW switch into the
-        // allowed content warnings; 196 moves bypass-server credentials out of the stored address; 197
-        // carries the novel auto-scroll switch into start-on-open; 198 carries the custom covers and
-        // downloads of duplicates the upgrade merged away; 199 keeps the hash suffix in chapter file names for
-        // upgraders; 200 files each merged series' sources in one set of categories. All sit above 0.3.2's
-        // 185, so a 0.3.2 install still runs them. 0.4.0 shipped as 201 and 0.4.1 ships as 202, so further
-        // migrations take 203+. versionName tracks the last shipped release until the next cycle is cut.
-        versionCode = 202
-        versionName = "0.4.1"
+        // versionCode also climbs mid-cycle when a preference migration needs it, since a migration is a
+        // no-op until the shipped versionCode reaches its gate (see CLAUDE.md). Each migration's own
+        // `version` names its gate. 0.4.2 ships as 203, so the next migration takes 204+. versionName
+        // tracks the last shipped release until the next cycle is cut.
+        versionCode = 203
+        versionName = "0.4.2"
         // RK <--
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")

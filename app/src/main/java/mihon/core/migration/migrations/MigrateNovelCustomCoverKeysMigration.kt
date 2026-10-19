@@ -18,14 +18,10 @@ import java.nio.file.StandardCopyOption.ATOMIC_MOVE
 /**
  * One-time move of user-set novel covers onto the namespaced file name.
  *
- * Manga and novels share one custom-cover directory, and a novel's file used to be named by its negated
- * id purely so it could not collide with a same-id manga. Now the name carries the content type, so the
- * old files have to move or every custom novel cover would read as missing and silently fall back to the
- * source's cover. Manga names are unchanged, so only novels are touched.
- *
- * One atomic move per novel, best-effort: both names sit in the same directory, so the file is either
- * wholly renamed or left where it was, never half-copied. A failure is only logged and not retried,
- * so a cover it could not move falls back to the source's.
+ * Manga and novels share one custom-cover directory; novel files used to be named by negated id, and
+ * without this move every custom novel cover would read as missing. Manga names are unchanged.
+ * Best-effort: one atomic move per novel within one directory, so a file is never half-copied; a failure
+ * is only logged and that cover falls back to the source's.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

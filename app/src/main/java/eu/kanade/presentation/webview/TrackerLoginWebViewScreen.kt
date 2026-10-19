@@ -35,12 +35,9 @@ import com.kevinnzou.web.WebView as ComposeWebView
 /**
  * Generic sign-in WebView for a [eu.kanade.tachiyomi.data.track.CookieLoginTracker].
  *
- * The check button is the reliable way to finish, not a convenience: these sites route client-side
- * after a sign-in, so `onPageFinished` may never fire again and an automatic capture alone would
- * leave the user re-entering the screen to be noticed. [onPageFinished] still fires so a session
- * that does land on a page load is picked up without a tap.
- *
- * Cookies are deliberately not cleared on entry, so someone already signed in is recognised at once.
+ * The check button is the reliable way to finish: these sites route client-side after a sign-in, so
+ * `onPageFinished` may never fire again. [onPageFinished] still captures a session that does land on a
+ * page load. Cookies are deliberately not cleared on entry, so someone already signed in is recognised.
  */
 @Composable
 fun TrackerLoginWebViewScreen(

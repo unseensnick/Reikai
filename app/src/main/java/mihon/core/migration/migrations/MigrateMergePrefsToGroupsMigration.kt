@@ -19,15 +19,12 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.interactor.GetFavorites
 
 /**
- * One-time migration of the pref-based merge grouping into the persisted merge_group tables. Freezes
- * the groups the prefs describe (manual merges plus same-title auto-groups, honoring deliberate unmerges)
- * as real rows, with nothing in the library un-grouping. Favorites only: a manually merged source already
- * out of the library is dropped, deliberately, since a reused id would otherwise be captured
- * (docs/dev/subsystems/merged-series.md).
+ * One-time move of the pref-based merge grouping (manual merges plus same-title auto-groups, honoring
+ * deliberate unmerges) into the merge_group tables. Favorites only: a merged source already out of the
+ * library is dropped, since a reused id would otherwise be captured (docs/dev/subsystems/merged-series.md).
  *
- * The old prefs are frozen input: this is their only reader, for an install upgrading past 189. Restore
- * skips them and rebuilds a 0.3.x backup's groups from the backup itself, through the same kernel.
- * Best-effort per content type, so a failure on one side does not block startup or the other side.
+ * This is the old prefs' only reader; restore rebuilds a 0.3.x backup's groups from the backup through
+ * the same kernel. Best-effort per content type, so one side failing does not block the other.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

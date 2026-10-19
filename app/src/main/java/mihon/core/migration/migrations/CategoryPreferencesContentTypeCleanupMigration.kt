@@ -16,16 +16,12 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
- * One-time scrub of stale category ids left in preferences after the category schema unification. Two
- * kinds of staleness accumulated: the fold-in migration remapped the novel update/download prefs but not
- * the novel library-filter or Updates-tab prefs, and a backup restore mints fresh category ids without
- * remapping any category-id pref, so a restored filter/default can point at an id that is now the wrong
- * content type (or gone).
+ * One-time scrub of stale category ids in preferences after the category schema unification: the fold-in
+ * migration missed the novel library-filter and Updates-tab prefs, and a backup restore mints fresh
+ * category ids without remapping any category-id pref.
  *
- * Every category-id preference (see [CategoryIdPreferences]) is filtered to the ids that are actually a
- * category of its content type: novel prefs keep only novel/universal ids, manga prefs only manga/universal
- * ids. Single-value default prefs reset to their -1 sentinel when invalid. The universal row 0 is valid for
- * both, so an "uncategorized" selection survives on either side.
+ * Every pref in [CategoryIdPreferences] keeps only its own content type's ids or universal ones, and a
+ * single-value default resets to -1. Universal row 0 is valid for both, so "uncategorized" survives.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

@@ -13,10 +13,9 @@ import mihon.core.migration.MigrationContext
  * Moves `user:password@` out of a stored bypass-server address into its own username and password
  * preferences, which are private and so stay out of a backup.
  *
- * Credentials typed into the address never worked: OkHttp parses userinfo into the URL and then
- * derives no header from it. They did reach every preference backup, because the address key has no
- * private prefix, so anyone who tried this has the password sitting in the backups they already
- * made. Moving it cannot fix those; the docs say to rotate it.
+ * Credentials in the address never worked (OkHttp derives no header from URL userinfo), but the address
+ * key is not private, so they reached every preference backup. Moving them cannot fix those backups;
+ * the docs say to rotate the password.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

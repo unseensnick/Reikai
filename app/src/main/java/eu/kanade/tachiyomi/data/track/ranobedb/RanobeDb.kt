@@ -20,15 +20,12 @@ import reikai.data.track.storeCheckedCredential
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 /**
- * RanobeDB (ranobedb.org), a light-novel database.
+ * RanobeDB (ranobedb.org), a light-novel database. Binds to a **series**, not a book: a series carries
+ * the volume count, publication status and tags, and its delete route needs no book-to-series lookup.
  *
- * Binds to a **series**, not a book: a series carries the volume count, the publication status and
- * the tag taxonomy, and its delete route needs no book-to-series lookup first.
- *
- * No route reads a user's own list entry back: the only GET under `/api/v0/user/` is `me`, and the
- * series detail route never passes the caller's id to its query. So [refresh] can only refresh
- * catalogue metadata, the local row stays authoritative for status and score, and a write cannot
- * preserve fields it does not send. See docs/dev/subsystems/tracking.md for what that costs.
+ * No route reads a user's own list entry back, so [refresh] can only refresh catalogue metadata, the
+ * local row stays authoritative for status and score, and a write cannot preserve fields it does not
+ * send. See docs/dev/subsystems/tracking.md.
  */
 class RanobeDb(id: Long) :
     BaseTracker(id, "RanobeDB"),

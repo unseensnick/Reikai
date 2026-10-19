@@ -5,11 +5,9 @@ import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver.Solve.Phase
 /**
  * The decisions one Turnstile solve makes: when to press, when to accept, and when to give up.
  *
- * Split out of [TurnstileSolver.attach] because the timing decisions need no WebView, so they can be
- * tested without one. The clock, the scheduler and the three effects arrive as
- * lambdas, so a test drives time by hand; what stays in `attach` is the handful of lines that do
- * touch Android. Everything here runs on one thread, the main one, which is why nothing but [phase]
- * is guarded.
+ * Split out of [TurnstileSolver.attach] so it tests without a WebView: the clock, the scheduler and
+ * the effects arrive as lambdas. Everything here runs on the main thread, which is why nothing but
+ * [phase] is guarded.
  */
 internal class SolveMachine(
     private val watching: Boolean,

@@ -18,11 +18,9 @@ import kotlin.random.Random
 /**
  * Presses the checkbox an interactive Cloudflare Turnstile challenge waits on.
  *
- * Sends Tab then Space, with a window or without one. A WebView that was never attached takes the
- * keys once it has been laid out by hand and handed the focus callbacks, provided nothing is
- * scheduled through `View.postDelayed`, which a detached view never drains.
- * The page is polled from an isolated world where the WebView has one, and on a WebView too old for
- * that the solve runs on Cloudflare's own events alone rather than declining. Record:
+ * Sends Tab then Space. A detached WebView takes the keys once laid out by hand and handed the focus
+ * callbacks, provided nothing goes through `View.postDelayed`, which a detached view never drains.
+ * Without an isolated world the solve runs on Cloudflare's own events. See
  * docs/dev/subsystems/cloudflare.md.
  */
 object TurnstileSolver {
@@ -34,11 +32,9 @@ object TurnstileSolver {
      * One solve, and everything the caller may know about it. Returned by [attach], `null` there
      * meaning it did not arm.
      *
-     * Phases only ever move forward. [Verified] is the one the caller reads: it says the challenge
-     * really was passed, either because Cloudflare said so or because the interstitial was watched
-     * going, which is what a clearance arriving late may be trusted against. There is deliberately no
-     * gave-up phase, because a solve can run out its budget after reaching [Verified] and overwriting
-     * it would throw away the only thing the caller needs.
+     * Phases only move forward. [Verified] means the challenge really was passed, the thing a late
+     * clearance is trusted against. There is deliberately no gave-up phase: a solve can run out its
+     * budget after [Verified], and overwriting it would lose what the caller needs.
      */
     class Solve internal constructor() {
         enum class Phase { Watching, Interactive, Verified, Accepted }
@@ -134,14 +130,12 @@ object TurnstileSolver {
     private val canWatch: Boolean get() = hasIsolatedWorld && !forceNoWatch
 
     /**
-     * Starts working any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is
-     * gone or [onGiveUp], which reports whether a wait was still open, when the solve runs out its
-     * budget. Arming suppresses the caller's own aborts, so it owes one. Returns the [Solve] to read
-     * the outcome from, or `null` when it did not arm.
+     * Works any Turnstile checkbox [webView] shows, calling [onSolved] once the challenge is gone or
+     * [onGiveUp] (which reports whether a wait was still open) when the budget runs out. Arming
+     * suppresses the caller's own aborts, so it owes one. Returns null when it did not arm.
      *
-     * [origin] must read `scheme://host[:port]`, port only when not the scheme default, and must be
-     * the origin the challenge is actually served from rather than the one first requested. A script
-     * only reaches later documents, so this runs before `loadUrl`; [detach] runs when the solve ends.
+     * [origin] is `scheme://host[:port]` (port only when non-default) of the page actually serving the
+     * challenge. Runs before `loadUrl`, since a script only reaches later documents.
      */
     fun attach(
         webView: WebView,

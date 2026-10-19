@@ -444,14 +444,10 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         // RK -->
 
         /**
-         * Debug builds only. Enqueues the same manual update [startNow] does, after [delaySeconds],
-         * so the app can be killed in between.
-         *
-         * The point is the process it lands in. Running an update normally keeps a foreground
-         * service up, which makes the process unkillable, and force-stopping instead cancels every
-         * scheduled job that could have restarted it. Nothing runs during the delay, so the app can
-         * be killed there and the job then starts a process with no activity ever created, which is
-         * the only way to reach the solver's no-window path on a real trigger.
+         * Debug builds only. Enqueues the same manual update [startNow] does, after [delaySeconds], so the app
+         * can be killed in between: the job then starts a process with no activity ever created, the only way to
+         * reach the solver's no-window path on a real trigger. A normal run's foreground service makes the
+         * process unkillable, and force-stopping cancels every scheduled job.
          */
         fun startDelayed(workManager: WorkManager, delaySeconds: Long) {
             val request = OneTimeWorkRequestBuilder<LibraryUpdateWorker>()

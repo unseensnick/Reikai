@@ -8,13 +8,11 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
 /**
- * Reikai: user-selectable reader bottom-bar buttons, shared by the manga and novel readers.
- * Ported from Komikku, trimmed to the buttons backed by existing reader actions. The two-page-spread
- * buttons (page layout, shift double page) are deliberately omitted; that feature is not ported.
+ * Reader bottom-bar buttons the user picks, shared by the manga and novel readers. Ported from Komikku,
+ * trimmed to buttons backed by existing reader actions; the two-page-spread buttons are omitted.
  *
- * [scope] gates which content type may offer a button: [Scope.Manga]-only, [Scope.Novel]-only, or [Scope.Both].
- * [arranged] filters to it for the settings pickers and the bar alike, and is the only guard: the action row
- * draws every button it is handed, so a mis-scoped value reaching it would show.
+ * [scope] gates which content type may offer a button. [arranged] filters by it for the settings pickers
+ * and the bar alike, and is the only guard: the action row draws every button it is handed.
  */
 enum class ReaderBottomButton(val value: String, val stringRes: StringResource, val scope: Scope) {
     ViewChapters("vc", MR.strings.action_view_chapters, Scope.Both),

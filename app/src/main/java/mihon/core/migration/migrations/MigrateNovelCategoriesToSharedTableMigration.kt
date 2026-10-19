@@ -17,14 +17,10 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.repository.CategoryRepository
 
 /**
- * Second half of the category schema unification (companion to migration 33.sqm). The .sqm moved novel
- * categories into the shared `categories` table with a fixed id offset but left two things for here,
- * because neither can be done in the SQL migration: the moved rows still carry the novel sort-flag layout,
- * and the novel category-id preferences still name the pre-move ids.
- *
- * Fixes the moved rows' flags to the manga layout (the two content types stored Downloaded and TrackerMean
- * on swapped bits) using the pinned [novelCategoryFlagsToMangaLayout], and shifts the novel category-id
- * preferences by the same offset the .sqm applied to the ids.
+ * Second half of the category schema unification (companion to 33.sqm), for the two things SQL cannot do:
+ * the moved novel rows' flags are translated to the manga layout (the types stored Downloaded and
+ * TrackerMean on swapped bits) via the pinned [novelCategoryFlagsToMangaLayout], and the novel
+ * category-id preferences are shifted by the same id offset the .sqm applied.
  */
 @Inject
 @ContributesIntoSet(AppScope::class)

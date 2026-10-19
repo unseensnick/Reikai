@@ -245,24 +245,19 @@ abstract class HttpSource : CatalogueSource {
     // RK -->
 
     /**
-     * Ported from Komikku's HttpSource baseline. Every HTTP-backed extension opts in to
-     * related-mangas by default so the source-native flow and cross-recommendation have a real
-     * signal to consume. Extensions whose details page doesn't parse cleanly as a listing can opt
-     * out via [disableRelatedMangas]; extensions that ship overrides for [relatedMangaListRequest] /
-     * [relatedMangaListParse] light up automatically via JVM virtual dispatch.
+     * Every HTTP-backed extension opts in to related mangas by default. Opt out via [disableRelatedMangas]
+     * when the details page doesn't parse cleanly as a listing; overrides of [relatedMangaListRequest] /
+     * [relatedMangaListParse] are picked up automatically.
      *
      * @since reikai/extensions-lib 1.6
      */
     override val supportsRelatedMangas: Boolean get() = true
 
     /**
-     * Default related-mangas fetch: requests [relatedMangaListRequest] (the manga details URL
-     * by default) and runs [relatedMangaListParse] on the response (which reuses
-     * [popularMangaParse] by default). Override either hook to customize.
-     *
-     * A source implementing neither parse hook is skipped before the request is issued: the default
-     * chain ends at [popularMangaParse], which throws, so fetching first would spend a details
-     * request per carousel load only to discard it.
+     * Default related-mangas fetch: requests [relatedMangaListRequest] (the manga details URL by default)
+     * and runs [relatedMangaListParse] (which reuses [popularMangaParse] by default). Override either hook.
+     * A source implementing neither parse hook is skipped before any request, since [popularMangaParse]
+     * throws.
      *
      * @since reikai/extensions-lib 1.6
      */

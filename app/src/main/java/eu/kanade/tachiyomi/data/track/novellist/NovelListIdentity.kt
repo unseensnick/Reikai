@@ -8,9 +8,8 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * NovelList identifies a novel by UUID, but `remote_id` is a `Long`, so the UUID rides in the
  * tracking URL's fragment and `remote_id` holds a derived surrogate.
  *
- * The fragment rather than the path because the site answers 404 for `/novels/{uuid}` and only
- * resolves a slug, so a UUID path would break the link the user opens. Browsers ignore a fragment,
- * so one URL serves both. The surrogate exists because a shared `remote_id` of 0 would make the
+ * Not the path: the site answers 404 for `/novels/{uuid}` and resolves only a slug, while browsers
+ * ignore a fragment. The surrogate exists because a shared `remote_id` of 0 would make the
  * merge-group propagation guard treat unrelated novels as the same entry.
  */
 
