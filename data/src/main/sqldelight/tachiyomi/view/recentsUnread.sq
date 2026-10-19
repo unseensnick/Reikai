@@ -1,26 +1,15 @@
--- Which entries still have something left to read, for the recents surface's "show read" filter.
--- Declares no view or table, so it needs no .sqm: these are queries over tables and views declared
--- elsewhere.
---
--- The answer has to be the one a tap on the row resolves, or the filter keeps a row whose tap opens
--- nothing and drops one with chapters left. The tap resolves over the merge group with excluded
--- scanlators left out, so this does too: a library member of a stitched group answers with its group,
--- unread while any unit has no read copy, read off the counted copies countsByGroup also reads.
--- Everything else answers with its own chapters: an entry in no group, a member outside the library
--- (the group counts read library members only), a group not stitched yet, and every entry while
--- series merging is off.
---
--- Not restricted to favorites. The read lane shows entries that are no longer in the library, and
--- excluding them here would file them as caught up and hide them.
---
--- One query per emission, never one per row: RecentsProvider.targetChapter is deliberately resolved
--- per rendered row, and filtering the feed cannot pay that per row on every re-emission.
+-- Which entries still have something left to read, for the recents "show read" filter. Queries only,
+-- so no .sqm. The answer must match what a tap on the row resolves: over the merge group, excluded
+-- scanlators left out. A library member of a stitched group answers with its group (unread while any
+-- unit has no read copy, from the copies countsByGroup reads); everything else answers with its own
+-- chapters (no group, a member outside the library, a group not stitched yet, series merging off).
+-- Not restricted to favorites: the read lane shows entries no longer in the library.
+-- One query per emission, never per row: RecentsProvider.targetChapter is resolved per rendered row.
 
---
--- It runs again on every chapter write, so neither half may read the whole library: a group is unread
--- when one of its unread counted copies has no read copy beside it (the readCopies = 0 that
--- mergedUnitCopiesView would compute), found from the unread chapters by index rather than by
--- aggregating every unit, and the unmerged half reads the partial unread index.
+-- Runs again on every chapter write, so neither half may read the whole library: a group is unread
+-- when one of its unread counted copies has no read copy beside it (mergedUnitCopiesView's
+-- readCopies = 0), found by index from the unread chapters, and the unmerged half reads the partial
+-- unread index.
 getMangaIdsWithUnread:
 WITH
 judged AS (

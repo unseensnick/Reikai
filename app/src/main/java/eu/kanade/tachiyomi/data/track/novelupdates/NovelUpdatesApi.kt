@@ -23,12 +23,10 @@ import kotlin.time.Duration.Companion.minutes
 /**
  * NovelUpdates has no API, so every call fetches a page and hands it to a parser in `NovelUpdatesParser.kt`.
  *
- * Cookies come from the shared jar, which is the WebView's own store, so the sign-in session and
- * the Cloudflare clearance both ride along without being resent by hand. Nothing here sets a
- * User-Agent either: the clearance is bound to the one the app already sends.
- *
- * Every body read and parse runs on IO, because the await resumes on the caller's dispatcher and
- * the settings screen calls in from composition.
+ * Cookies come from the shared jar (the WebView's store), so the session and Cloudflare clearance ride
+ * along; nothing sets a User-Agent because the clearance is bound to the one the app already sends.
+ * Every body read and parse runs on IO: the await resumes on the caller's dispatcher, and the settings
+ * screen calls in from composition.
  */
 class NovelUpdatesApi(client: OkHttpClient) {
 

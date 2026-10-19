@@ -20,11 +20,8 @@ data class FlareSolverrAddress(
  * username nor a password is configured. A password alone goes with an empty username, as curl and
  * browsers send `http://:password@host`.
  *
- * UTF-8 is deliberate. OkHttp's default is ISO-8859-1, and the two encodings produce different
- * bytes for a non-ASCII password, so only one of them matches what the server stored. A proxy
- * configured through a web UI holds the UTF-8 bytes the browser submitted, which is the setup this
- * was built against; a hand-built ISO-8859-1 htpasswd will reject such a password, and the docs
- * say so. For an ASCII password both encodings are byte-identical and the choice cannot matter.
+ * UTF-8 over OkHttp's ISO-8859-1 default is deliberate: it matches what a proxy's web UI stores, so
+ * only a hand-built ISO-8859-1 htpasswd rejects a non-ASCII password (the docs say so).
  */
 fun flareSolverrAuthHeader(username: String, password: String): String? {
     if (username.isBlank() && password.isEmpty()) return null
@@ -71,10 +68,8 @@ const val FLARESOLVERR_URL_KEY = "flaresolverr_url"
  * Store [rawUrl] with any embedded credentials moved into the username and password preferences.
  *
  * Called from both the upgrade migration and the backup restorer, because a fresh install marks
- * every migration done without running it, so a restored address would otherwise keep its password
- * where nothing reads it and every later backup copies it. A backup may be someone else's, so the
- * saved login never follows an address to another server, and an address the settings field would
- * refuse is not stored.
+ * every migration done without running it. A backup may be someone else's, so the saved login never
+ * follows an address to another server, and an address the settings field would refuse is not stored.
  */
 fun NetworkPreferences.carryFlareSolverrUserInfo(rawUrl: String) {
     val split = splitFlareSolverrUserInfo(rawUrl)

@@ -1,16 +1,9 @@
--- Precomputed cross-source chapter identity, backing the deduplicated unread count on a merged
--- library entry. See data/chapter_match_key.sq for the full rationale. These CREATE statements
--- mirror that file exactly: fresh installs build from the .sq via Schema.create(), existing installs
--- reach the same schema through this migration.
---
--- No backfill here: seeding in a migration is against the project's database rules. The keys are
--- derived data, and the app's reconciliation pass fills them, which is the same code that keeps them
--- up to date afterwards rather than a second implementation.
---
--- An existing install therefore starts with these tables EMPTY, and empty does not degrade to the
--- old behaviour: with no keys every chapter falls back to its own row id, becomes its own unit, and
--- a merged entry's count reads as the sum across its sources rather than the deduplicated total. So
--- the count must not be surfaced before the first reconciliation has run.
+-- Precomputed cross-source chapter identity, backing the deduplicated unread count on a merged entry.
+-- Mirrors data/chapter_match_key.sq exactly (fresh installs build from the .sq, existing ones here);
+-- see that file for the rationale.
+-- No backfill (migrations do not seed): reconciliation fills the keys. Until it runs every chapter is
+-- its own unit and a merged count reads as the sum across sources, so the count must not be surfaced
+-- before the first reconciliation.
 CREATE TABLE chapter_match_key (
     chapter_id INTEGER NOT NULL PRIMARY KEY,
     match_key TEXT,

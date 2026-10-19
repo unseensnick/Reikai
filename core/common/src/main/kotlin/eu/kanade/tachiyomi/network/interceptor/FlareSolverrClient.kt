@@ -299,15 +299,11 @@ class FlareSolverrClient(
     ): Response {
         val targetUrl = request.url.toString()
 
-        // Full-response mode (returnOnlyCookies defaults to false). FS returns the page body its
-        // headless Chrome fetched, so we can serve it directly and avoid replaying cf_clearance
-        // through OkHttp, a path Cloudflare's TLS / __cf_bm fingerprinting often rejects. The
-        // session keeps cleared cookies in-memory so follow-up calls skip the JS challenge.
-        //
-        // A Cloudflare-gated POST must be replayed as a POST with the original body, otherwise FS
-        // would GET the URL and return the wrong page. FS can only send postData as
-        // application/x-www-form-urlencoded, so [flareSolverrPostData] re-encodes the body's
-        // fields. Build the command via the JSON DSL so the body can't break the envelope.
+        // Full-response mode: serve the page FS fetched rather than replay cf_clearance through
+        // OkHttp, which Cloudflare's TLS / __cf_bm fingerprinting often rejects.
+        // A gated POST is replayed as a POST (FS would otherwise GET the wrong page); FS sends only
+        // form-urlencoded postData, so [flareSolverrPostData] re-encodes the body. The JSON DSL
+        // keeps the body from breaking the envelope.
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
         val forwarded = if (isPrivateChannel(flareSolverrUrl)) {
@@ -558,14 +554,11 @@ internal fun flareSolverrCommand(
 }
 
 /**
- * A browser-based Cloudflare solver renders a JSON-API response inside the browser's built-in
- * JSON / plaintext viewer, e.g. `<html>...<body><pre>{json}</pre>...</body></html>`
- * (Firefox / Camoufox, used by Byparr) or the same shape with a json-formatter div (Chrome, used by
- * FlareSolverr). A JSON manga source or light-novel plugin then receives HTML and fails to parse.
+ * A browser-based solver wraps a JSON-API response in the browser's JSON viewer (a `<pre>` holding
+ * the JSON, in Firefox and Chrome alike), which a JSON source then fails to parse.
  *
- * If [response] is such a wrapper, return the raw JSON it holds; otherwise null (serve as-is).
- * Detection is browser-agnostic: the body is markup whose first `<pre>` (entity-decoded via Jsoup's
- * [org.jsoup.nodes.Element.wholeText], so `&lt;` in string values is restored) is itself JSON.
+ * Returns the raw JSON when [response] is such a wrapper, else null (serve as-is): markup whose
+ * first `<pre>`, entity-decoded via [org.jsoup.nodes.Element.wholeText], is itself JSON.
  */
 // internal so the unwrap is unit-testable, like FlareSolverrCookie below.
 internal fun unwrapBrowserJsonViewer(response: String): String? {

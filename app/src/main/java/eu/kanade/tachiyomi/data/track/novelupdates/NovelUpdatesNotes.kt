@@ -7,10 +7,9 @@ import kotlinx.serialization.json.Json
  * NovelUpdates stores no reading position, so progress lives inside the user's own free-text note
  * and every update is a read-modify-write over something a person typed.
  *
- * The note is therefore decoded as real JSON rather than captured with a regex. The reference fork
- * matches `"notes"\s*:\s*"([^"]+)"`, which stops at the first escaped quote, so a note containing
- * one is truncated and the truncation written back; it also treats a failed parse as an empty note
- * and replaces the whole thing. Both are silent data loss, and neither is reproduced here.
+ * The note is decoded as real JSON, never captured with a regex: a regex stops at the first escaped
+ * quote and writes the truncation back. A failed parse must not be treated as an empty note either,
+ * or the whole note is replaced. Both are silent data loss.
  */
 @Serializable
 data class NovelUpdatesNotes(
