@@ -22,6 +22,11 @@ fun List<StatsTitle>.statusCounts(): Map<Long, Int> = groupingBy { it.status }.e
 fun List<StatsTitle>.scoreCounts(): Map<Int, Int> =
     mapNotNull { it.meanScore?.let(::scoreBar) }.groupingBy { it }.eachCount()
 
+/** Titles by lifetime reading time, longest first; a title with none is left out. */
+fun List<StatsTitle>.mostRead(): List<StatsTitle> = filter {
+    it.readDuration > 0
+}.sortedByDescending { it.readDuration }
+
 /** The bar a mean score sits in: rounded, and kept on the chart, as Yōkai's score chart bins it. */
 fun scoreBar(mean: Double): Int = mean.roundToInt().coerceIn(1, 10)
 
@@ -93,7 +98,7 @@ fun firstLoggedRead(sessions: List<EntryReadingSession>): Map<Long, Instant> = s
     .groupBy { it.entryId }
     .mapValues { (_, entry) -> entry.minOf { it.startedAt } }
 
-enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TAG, LANGUAGE, START_YEAR }
+enum class StatsDimension { STATUS, SCORE, LENGTH, TRACKER, SOURCE, CATEGORY, TAG, LANGUAGE, START_YEAR, TRACK_STATUS }
 
 /**
  * One details row's identity; a null value is the "none" row (unscored, untracked, unknown). Serializable
@@ -113,6 +118,7 @@ sealed interface StatsGroupKey : Serializable {
     data class Tag(val name: String) : StatsGroupKey
     data class Language(val code: String) : StatsGroupKey
     data class StartYear(val year: Int?) : StatsGroupKey
+    data class TrackingStatus(val status: TrackStatus) : StatsGroupKey
 }
 
 val StatsGroupKey.dimension: StatsDimension
@@ -126,6 +132,7 @@ val StatsGroupKey.dimension: StatsDimension
         is StatsGroupKey.Tag -> StatsDimension.TAG
         is StatsGroupKey.Language -> StatsDimension.LANGUAGE
         is StatsGroupKey.StartYear -> StatsDimension.START_YEAR
+        is StatsGroupKey.TrackingStatus -> StatsDimension.TRACK_STATUS
     }
 
 data class StatsGroup(
@@ -209,8 +216,10 @@ private fun StatsTitle.groupKeys(dimension: StatsDimension, timeZone: TimeZone):
         StatsDimension.TAG -> genres.map { StatsGroupKey.Tag(it.trim()) }
         StatsDimension.LANGUAGE -> sources.map { StatsGroupKey.Language(it.language) }.distinct()
         StatsDimension.START_YEAR -> listOf(StatsGroupKey.StartYear(startedAt?.toLocalDateTime(timeZone)?.year))
+        // An untracked series has no tracking status, so it sits in no row, as the chart leaves it out.
+        StatsDimension.TRACK_STATUS -> listOfNotNull(trackStatus?.let(StatsGroupKey::TrackingStatus))
     }
 
-/** The seven days ending on [end], oldest first, each with its [total]: one reading week as both screens show it. */
+/** The seven days ending on [end], oldest first, each with its [total]: the week the reading screen opens on. */
 fun weekEnding(end: LocalDate, total: (LocalDate) -> Long): List<Pair<LocalDate, Long>> =
-    (6 downTo 0).map { back -> end.minus(back, DateTimeUnit.DAY).let { day -> day to total(day) } }
+    ReadingWindow.week(end).days().map { it to total(it) }

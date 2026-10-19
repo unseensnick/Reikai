@@ -19,10 +19,12 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.stats.StatsCard
 import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsShelf
 import reikai.presentation.stats.StatsShelfContent
@@ -45,6 +47,8 @@ fun StatsScreenContent(
     onContentTypeSelected: (ContentType) -> Unit,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenRow: (StatsRow) -> Unit,
+    onOpenKey: (StatsGroupKey) -> Unit,
+    onOpenEntry: (EntryId) -> Unit,
     onOpenReading: () -> Unit,
     // RK <--
 ) {
@@ -71,8 +75,8 @@ fun StatsScreenContent(
                 ),
             )
         }
-        item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenReading)) }
-        item { StatsShelfContent(StatsShelf.LISTS, statsGroupCards(state.charts, onSeeAll, onOpenRow)) }
+        item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenKey, onOpenReading)) }
+        item { StatsShelfContent(StatsShelf.LISTS, statsGroupCards(state.charts, onSeeAll, onOpenRow, onOpenEntry)) }
         // RK <--
     }
 }

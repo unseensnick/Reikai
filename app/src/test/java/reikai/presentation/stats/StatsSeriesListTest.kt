@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
+import reikai.domain.recommendation.taste.TrackStatus
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Instant
@@ -48,6 +49,34 @@ class StatsSeriesListTest {
         listOf(row(EntryId.Manga(2L))).standingFor(setOf(EntryId.Manga(1L)), titleOf = { it }) shouldBe emptyList()
     }
 
+    @Test
+    fun `a tracking status row lists only the series tracked with it`() {
+        LIBRARY.titlesIn(StatsGroupKey.TrackingStatus(TrackStatus.READING), UTC).map { it.entryId } shouldBe
+            listOf(EntryId.Manga(1L))
+    }
+
+    @Test
+    fun `an untracked series sits in no tracking status row`() {
+        LIBRARY.groupsBy(StatsDimension.TRACK_STATUS, UTC).sumOf { it.count } shouldBe 2
+    }
+
+    @Test
+    fun `most read ranks by reading time and leaves out series never read`() {
+        LIBRARY.mostRead().map { it.entryId } shouldBe listOf(EntryId.Manga(3L), EntryId.Manga(1L))
+    }
+
+    @Test
+    fun `narrowing to a read state keeps only that state's rows`() {
+        val states = mapOf(EntryId.Manga(1L) to ReadState.FINISHED, EntryId.Manga(2L) to ReadState.READING)
+        listOf(row(EntryId.Manga(1L)), row(EntryId.Manga(2L))).inReadState(ReadState.READING) { states[it] }
+            .map { it.entryId } shouldBe listOf(EntryId.Manga(2L))
+    }
+
+    @Test
+    fun `no read state keeps every row`() {
+        listOf(row(EntryId.Manga(1L)), row(EntryId.Manga(2L))).inReadState(null) { null }.size shouldBe 2
+    }
+
     private fun row(entryId: EntryId, members: List<Long> = emptyList()) = LibraryItem(
         libraryManga = LibraryManga(
             manga = Manga.create().copy(id = entryId.rawId),
@@ -79,6 +108,9 @@ class StatsSeriesListTest {
             trackerIds: List<Long>,
             meanScore: Double?,
             startedAt: Instant?,
+            trackStatus: TrackStatus? = null,
+            readDuration: Long = 0,
+            readChapters: Long = 1,
         ) = StatsTitle(
             entryId = entryId,
             title = "",
@@ -87,12 +119,12 @@ class StatsSeriesListTest {
             genres = genres,
             categoryIds = categoryIds,
             totalChapters = totalChapters,
-            readChapters = 1,
+            readChapters = readChapters,
             trackerIds = trackerIds,
             meanScore = meanScore,
-            trackStatus = null,
+            trackStatus = trackStatus,
             trackerStartedAt = startedAt,
-            readDuration = 0,
+            readDuration = readDuration,
             firstLoggedReadAt = null,
         )
 
@@ -108,6 +140,9 @@ class StatsSeriesListTest {
                 trackerIds = listOf(1L, 2L),
                 meanScore = 8.0,
                 startedAt = Instant.fromEpochMilliseconds(1_600_000_000_000L),
+                trackStatus = TrackStatus.READING,
+                readDuration = 5_000L,
+                readChapters = 30,
             ),
             title(
                 EntryId.Novel(1L),
@@ -128,6 +163,8 @@ class StatsSeriesListTest {
                 trackerIds = listOf(1L),
                 meanScore = 3.4,
                 startedAt = Instant.fromEpochMilliseconds(1_700_000_000_000L),
+                trackStatus = TrackStatus.COMPLETED,
+                readDuration = 9_000L,
             ),
         )
     }

@@ -14,7 +14,8 @@ Novels can be read a page at a time, in both rendering modes. Pages turn by tap,
 as manga's do, with a page slider and their own tap layout. The manga reader gets the novel reader's
 extra tap layouts.
 
-Statistics has new charts (publishing status, tracking status, scores), a reading streak, and lists
+Statistics has new charts (publishing status, tracking status, scores), a reading streak, reading time
+by week, month, year or any dates you pick, a Most read list, and lists
 of your library by source, tag, category, tracker and a few more. Time read per day is recorded from
 this version on; older reading still counts toward the total.
 
@@ -69,9 +70,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Added
 
-- **New charts show your library's publishing status, tracking status and scores, for manga and novels.** The All, Manga and Novels switch applies to every chart.
-- **See your reading streak, when you started each series and, from this version on, how long you read each day.** Older reading still counts toward the total.
-- **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap lists the series behind a row.** They look and sort like your library, and back returns to Statistics.
+- **New charts show your library's publishing status, tracking status and scores, for manga and novels, and tapping a slice or bar lists its series.** The All, Manga and Novels switch applies to every chart.
+- **See your reading streak, when you started each series and, from this version on, how long you read by week, month, year or any dates you pick.** Older reading still counts toward the total.
+- **A Most read card ranks the series you have spent the longest reading.**
+- **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap lists the series behind a row.** They look and sort like your library, and you can narrow them to finished, reading or not started.
 - **Cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
 
 ### App

@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.stats
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -19,12 +20,14 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateProgressSkip
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
@@ -35,6 +38,7 @@ import reikai.presentation.stats.StatsSeries
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.rows
 import reikai.presentation.stats.statsCharts
+import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
@@ -56,6 +60,7 @@ class StatsViewModel(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelDownloadManager: () -> NovelDownloadManager,
     private val statsLibraryLoader: StatsLibraryLoader,
+    private val novelRepository: NovelRepository,
     // RK <--
 ) : ViewModel() {
 
@@ -69,6 +74,8 @@ class StatsViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.statsContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.statsContentType.set(type)
+
+    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
     // RK <--
 
     init {

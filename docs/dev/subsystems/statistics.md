@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Statistics summarises the library and the reader's reading for manga and novels together, behind the same All / Manga / Novels switch: counts, charts of status, tracking status and scores, reading time per day with streaks, and lists of the library by one grouping at a time whose rows open those series in the library.
+Statistics summarises the library and the reader's reading for manga and novels together, behind the same All / Manga / Novels switch: counts, charts of status, tracking status and scores, reading time per day with streaks, lists of the library by one grouping at a time whose rows open the series they count, and the series read longest.
 
 ## How it works
 
@@ -32,7 +32,7 @@ A restore keeps the longer of the backup's and the device's history time per cha
 
 ### Charts
 
-Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed through `rememberM3VicoTheme`. Slice colours are fixed theme roles per value (`statusColor`, `TrackStatus.color`), so a status keeps its colour between chips. The Reading time screen's bars are plain Compose (`WeekBars`) so each day is a selectable target. Source rows show the library's cover badge (`SourceIconBadge`, resolved once per source in the loader through `badgeSource` and `novelSourceBadge`), drawn scaled to list size so every badge case keeps the library's own drawing. Every chart carries a spoken description or, for a donut, leaves it to the legend beside it. The overview is three shelves (`StatsShelf`): the number cards, the charts and the lists. Each shelf picks a column count its cards divide into evenly from the screen width, so a phone gets one column and no shelf titles, and a tablet two columns of numbers and charts and three of lists. Cards in a row stretch to the tallest, and number and chart cards centre their content in the stretch. Mihon's `SectionCard` takes a modifier and an arrangement for this, and its small stat items use the overview's type sizes so the number cards read alike. See all is a plain grid by `STATS_CARD_MIN_WIDTH` (340dp), since its cards are near equal.
+Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed through `rememberM3VicoTheme`. Slice colours are fixed theme roles per value (`statusColor`, `TrackStatus.color`), so a status keeps its colour between chips. The Reading time screen's bars are plain Compose (`Bars`) so each is a selectable target. Its periods are `ReadingWindow` (`StatsReadingPeriods.kt`): a week is the seven days ending today, a month and a year are calendar ones, a custom range is any dates up to today, and the arrows step by the window's own length. A window gets a bar per day under two months, per month under three years and per year past that, so a bar stays wide enough to tap. Donut slices, legend rows and score columns open the series behind them. Vico hands a tap to its marker controller only while the chart has a marker, so the score chart carries an invisible one whose controller reports the tapped column. Source rows show the library's cover badge (`SourceIconBadge`, resolved once per source in the loader through `badgeSource` and `novelSourceBadge`), drawn scaled to list size so every badge case keeps the library's own drawing. Every chart carries a spoken description or, for a donut, leaves it to the legend beside it. The overview is three shelves (`StatsShelf`): the number cards, the charts and the lists. Each shelf picks a column count its cards divide into evenly from the screen width, so a phone gets one column and no shelf titles, and a tablet two columns of numbers and charts and three of lists. Cards in a row stretch to the tallest, and number and chart cards centre their content in the stretch. Mihon's `SectionCard` takes a modifier and an arrangement for this, and its small stat items use the overview's type sizes so the number cards read alike. See all is a plain grid by `STATS_CARD_MIN_WIDTH` (340dp), since its cards are near equal.
 
 ## Key files
 
@@ -48,6 +48,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 - `app/src/main/java/reikai/presentation/stats/StatsChartCards.kt`: `statsChartCards`, `StatsDonut`, `StatsColumns`.
 - `app/src/main/java/reikai/presentation/stats/details/StatsGroupScreen.kt`: `StatsGroupScreen`.
 - `app/src/main/java/reikai/presentation/stats/details/StatsReadingScreen.kt`: `StatsReadingScreen`.
+- `app/src/main/java/reikai/presentation/stats/StatsReadingPeriods.kt`: `ReadingWindow`, `ReadingPeriod`.
 - `domain/src/main/java/reikai/domain/readinglog/ReadingLogRepository.kt`: `ReadingLogRepository`.
 - `data/src/main/sqldelight/tachiyomi/data/reading_session.sq`: the two session tables and their queries.
 
@@ -77,7 +78,7 @@ A new grouping: add a `StatsDimension` and `StatsGroupKey` case, its key in `gro
 
 ## Tests
 
-`StatsKernelsTest`, `StatsChartsTest`, `StatsSeriesTest` (builder cases over both types), `StatsSeriesListTest` (a row's list against its count, and row matching), `ReadingLogRepositoryTest` (the log over both tables), and `MigrateEngineConformanceTest` (session copies). Run with `./gradlew :app:testDebugUnitTest --tests "reikai.presentation.stats.*"` and `:data:testDebugUnitTest --tests "reikai.data.readinglog.*"`.
+`StatsKernelsTest`, `StatsReadingPeriodsTest` (windows, bars and steps), `StatsChartsTest`, `StatsSeriesTest` (builder cases over both types), `StatsSeriesListTest` (a row's list against its count, and row matching), `ReadingLogRepositoryTest` (the log over both tables), and `MigrateEngineConformanceTest` (session copies). Run with `./gradlew :app:testDebugUnitTest --tests "reikai.presentation.stats.*"` and `:data:testDebugUnitTest --tests "reikai.data.readinglog.*"`.
 
 ## Related
 

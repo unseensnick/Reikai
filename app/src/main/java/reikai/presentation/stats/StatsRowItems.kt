@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -20,8 +21,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +87,33 @@ fun StatsRowLine(row: StatsRow, onOpen: (StatsRow) -> Unit) {
     }
 }
 
+/** One series and how long it was read, opening its details: the Most read card and a day's reading. */
+@Composable
+fun StatsTitleLine(title: String, readMs: Long, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .clickable(onClick = onOpen)
+            .then(modifier)
+            .fillMaxWidth()
+            .heightIn(min = 48.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = statsDuration(readMs),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
 /**
  * A source's library cover badge at list size. The badge lays itself out at its cover-corner size, so it
  * is drawn scaled inside a fixed box: every badge case (installed, built-in logo, generic, missing) keeps
@@ -129,6 +159,7 @@ fun StatsGroupKey.label(name: String?): String = when (this) {
             LocaleHelper.getSourceDisplayName(code, LocalContext.current)
         }
     is StatsGroupKey.StartYear -> year?.toString() ?: stringResource(MR.strings.unknown)
+    is StatsGroupKey.TrackingStatus -> stringResource(status.label)
 }
 
 /**
@@ -156,8 +187,16 @@ fun StatsRowCard(row: StatsRow, onOpen: (StatsRow) -> Unit) {
     ) { StatsRowCardContent(row) }
 }
 
+/**
+ * A row's card body. With [onReadState], its three read counts are a filter: tapping one narrows to it,
+ * tapping the [selected] one again clears it.
+ */
 @Composable
-private fun StatsRowCardContent(row: StatsRow) {
+fun StatsRowCardContent(
+    row: StatsRow,
+    selected: ReadState? = null,
+    onReadState: ((ReadState?) -> Unit)? = null,
+) {
     val group = row.group
     Column(
         modifier = Modifier.padding(MaterialTheme.padding.medium),
@@ -179,22 +218,36 @@ private fun StatsRowCardContent(row: StatsRow) {
             )
         }
         ReadStateBar(group)
-        Row {
-            StatsLabelled(MR.strings.stats_label_finished, Modifier.weight(1f)) {
-                StatsValue(group.finished.toString())
-            }
-            StatsLabelled(MR.strings.reading, Modifier.weight(1f)) {
-                StatsValue(group.reading.toString())
-            }
-            StatsLabelled(MR.strings.stats_label_not_started, Modifier.weight(1f)) {
-                StatsValue(group.notStarted.toString())
+        // A filter cell is filled and inset so it reads as tappable; Score and Time take the same inset to
+        // stay in line with the counts above them.
+        val inset = if (onReadState != null) Modifier.padding(MaterialTheme.padding.extraSmall) else Modifier
+        Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
+            listOf(
+                Triple(ReadState.FINISHED, MR.strings.stats_label_finished, group.finished),
+                Triple(ReadState.READING, MR.strings.reading, group.reading),
+                Triple(ReadState.NOT_STARTED, MR.strings.stats_label_not_started, group.notStarted),
+            ).forEach { (state, label, count) ->
+                val picked = state == selected
+                val filter = onReadState?.let {
+                    Modifier
+                        .clip(MaterialTheme.shapes.small)
+                        .background(
+                            with(MaterialTheme.colorScheme) {
+                                if (picked) secondaryContainer else surfaceContainerHighest
+                            },
+                        )
+                        .selectable(selected = picked, role = Role.Tab) { it(if (picked) null else state) }
+                        .then(inset)
+                } ?: Modifier
+                StatsLabelled(label, Modifier.weight(1f).then(filter)) { StatsValue(count.toString()) }
             }
         }
-        Row {
-            StatsLabelled(MR.strings.score, Modifier.weight(1f)) {
+        // Spaced as the counts are, so Time, two cells wide, starts under Reading.
+        Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
+            StatsLabelled(MR.strings.score, Modifier.weight(1f).then(inset)) {
                 StatsValue(group.meanScore?.let { "%.1f".format(it) })
             }
-            StatsLabelled(MR.strings.stats_label_time, Modifier.weight(2f)) {
+            StatsLabelled(MR.strings.stats_label_time, Modifier.weight(2f).then(inset)) {
                 StatsValue(if (group.readDuration > 0) statsDuration(group.readDuration) else null)
             }
         }
@@ -271,4 +324,5 @@ val StatsDimension.title: StringResource
         StatsDimension.TAG -> MR.strings.stats_group_tag
         StatsDimension.LANGUAGE -> MR.strings.stats_group_language
         StatsDimension.START_YEAR -> MR.strings.stats_group_start_year
+        StatsDimension.TRACK_STATUS -> MR.strings.stats_tracking_status
     }

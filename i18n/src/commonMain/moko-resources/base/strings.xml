@@ -1951,6 +1951,7 @@
     <string name="stats_tracking_status">Tracking status</string>
     <string name="stats_scores">Scores</string>
     <string name="stats_reading_week">Reading this week</string>
+    <string name="stats_most_read">Most read</string>
     <string name="stats_current_streak">Current streak</string>
     <string name="stats_longest_streak">Longest streak</string>
     <string name="stats_logged_since">Logged since %1$s</string>
@@ -1976,7 +1977,11 @@
     <string name="stats_label_not_started">Not started</string>
     <string name="stats_series_count">%1$d series</string>
     <string name="stats_label_time">Time</string>
-    <string name="stats_nothing_read">Nothing read this day</string>
-    <string name="stats_previous_week">Previous week</string>
-    <string name="stats_next_week">Next week</string>
+    <string name="stats_nothing_read">Nothing read</string>
+    <string name="stats_previous_period">Previous period</string>
+    <string name="stats_next_period">Next period</string>
+    <string name="stats_period_week">Week</string>
+    <string name="stats_period_month">Month</string>
+    <string name="stats_period_year">Year</string>
+    <string name="stats_period_custom">Custom</string>
 </resources>

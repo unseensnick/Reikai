@@ -1,6 +1,7 @@
 package reikai.presentation.stats
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
@@ -15,7 +17,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -25,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
+import com.patrykandpatrick.vico.compose.cartesian.Zoom
 import com.patrykandpatrick.vico.compose.cartesian.axis.HorizontalAxis
 import com.patrykandpatrick.vico.compose.cartesian.axis.VerticalAxis
 import com.patrykandpatrick.vico.compose.cartesian.data.CartesianChartModelProducer
@@ -32,12 +37,16 @@ import com.patrykandpatrick.vico.compose.cartesian.data.CartesianValueFormatter
 import com.patrykandpatrick.vico.compose.cartesian.data.columnModel
 import com.patrykandpatrick.vico.compose.cartesian.layer.ColumnCartesianLayer
 import com.patrykandpatrick.vico.compose.cartesian.layer.rememberColumnCartesianLayer
+import com.patrykandpatrick.vico.compose.cartesian.marker.CartesianMarkerController
+import com.patrykandpatrick.vico.compose.cartesian.marker.Interaction
+import com.patrykandpatrick.vico.compose.cartesian.marker.rememberDefaultCartesianMarker
 import com.patrykandpatrick.vico.compose.cartesian.rememberCartesianChart
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.ProvideVicoTheme
 import com.patrykandpatrick.vico.compose.common.component.rememberLineComponent
+import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
 import com.patrykandpatrick.vico.compose.m3.common.rememberM3VicoTheme
 import com.patrykandpatrick.vico.compose.pie.PieChart
 import com.patrykandpatrick.vico.compose.pie.PieChartHost
@@ -47,6 +56,7 @@ import com.patrykandpatrick.vico.compose.pie.data.pieModel
 import com.patrykandpatrick.vico.compose.pie.rememberPieChart
 import eu.kanade.presentation.more.stats.components.StatsItem
 import kotlinx.datetime.toJavaLocalDate
+import reikai.domain.entry.EntryId
 import reikai.domain.recommendation.taste.TrackStatus
 import reikai.presentation.components.EntryStatus
 import reikai.presentation.components.entryStatusRes
@@ -67,6 +77,7 @@ typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
 fun statsChartCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
+    onOpenKey: (StatsGroupKey) -> Unit,
     onOpenReading: () -> Unit,
 ): List<StatsCard> = buildList {
     if (charts.status.isNotEmpty()) {
@@ -77,7 +88,9 @@ fun statsChartCards(
             SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsDonut(
                     charts.status.toSortedMap().map { (code, count) ->
-                        DonutSlice(stringResource(entryStatusRes(code)), count, statusColor(code))
+                        DonutSlice(stringResource(entryStatusRes(code)), count, statusColor(code)) {
+                            onOpenKey(StatsGroupKey.Status(code))
+                        }
                     },
                 )
             }
@@ -85,11 +98,17 @@ fun statsChartCards(
     }
     if (charts.trackStatus.isNotEmpty()) {
         add { fill ->
-            StatsCardHeader(MR.strings.stats_tracking_status)
+            StatsCardHeader(MR.strings.stats_tracking_status, MR.strings.stats_see_all) {
+                onSeeAll(StatsDimension.TRACK_STATUS)
+            }
             SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsDonut(
                     TrackStatus.entries.mapNotNull { status ->
-                        charts.trackStatus[status]?.let { DonutSlice(stringResource(status.label), it, status.color) }
+                        charts.trackStatus[status]?.let {
+                            DonutSlice(stringResource(status.label), it, status.color) {
+                                onOpenKey(StatsGroupKey.TrackingStatus(status))
+                            }
+                        }
                     },
                 )
             }
@@ -103,6 +122,10 @@ fun statsChartCards(
                     values = (1..10).map { charts.scores[it] ?: 0 },
                     label = { (it + 1).toString() },
                     description = (1..10).joinToString { "$it: ${charts.scores[it] ?: 0}" },
+                    // Column x is the bar less one; an empty bar has no series to list.
+                    onColumnClick = { x ->
+                        (x + 1).takeIf { charts.scores[it] != null }?.let { onOpenKey(StatsGroupKey.Score(it)) }
+                    },
                 )
             }
         }
@@ -115,25 +138,42 @@ fun statsChartCards(
     }
 }
 
-/** A card of rows per grouping that has any, [onOpenRow] opening the series a row counts. */
+/**
+ * The Most read card, then a card of rows per grouping that has any. [onOpenRow] opens the series a row
+ * counts, [onOpenEntry] a series' details.
+ */
 fun statsGroupCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenRow: (StatsRow) -> Unit,
-): List<StatsCard> = OVERVIEW_GROUPINGS.mapNotNull { dimension ->
-    val rows = charts.groups[dimension].orEmpty()
-    if (rows.isEmpty()) return@mapNotNull null
-    val card: StatsCard = { fill ->
-        StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
-        SectionCard(modifier = fill) {
-            rows.forEach { StatsRowLine(it, onOpenRow) }
+    onOpenEntry: (EntryId) -> Unit,
+): List<StatsCard> = buildList {
+    if (charts.mostRead.isNotEmpty()) {
+        add { fill ->
+            StatsCardHeader(MR.strings.stats_most_read)
+            SectionCard(modifier = fill) {
+                charts.mostRead.forEach { StatsTitleLine(it.title, it.readDuration) { onOpenEntry(it.entryId) } }
+            }
         }
     }
-    card
+    OVERVIEW_GROUPINGS.forEach { dimension ->
+        val rows = charts.groups[dimension].orEmpty()
+        if (rows.isNotEmpty()) {
+            add { fill ->
+                StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
+                SectionCard(modifier = fill) {
+                    rows.forEach { StatsRowLine(it, onOpenRow) }
+                }
+            }
+        }
+    }
 }
 
 /** The narrowest a See all card gets before its grid drops a column, so a phone keeps one column. */
 val STATS_CARD_MIN_WIDTH: Dp = 340.dp
+
+// Tall enough to aim at, short enough that a six-slice legend stays beside its pie.
+private val LEGEND_ROW_HEIGHT: Dp = 32.dp
 
 @Composable
 private fun StatsReadingWeek(charts: StatsCharts) {
@@ -178,14 +218,16 @@ private fun StatsReadingWeek(charts: StatsCharts) {
     )
 }
 
-/** One slice and its legend row. */
-data class DonutSlice(val label: String, val count: Int, val color: Color)
+/** One slice and its legend row; [onClick] makes the legend row open the slice's series. */
+data class DonutSlice(val label: String, val count: Int, val color: Color, val onClick: (() -> Unit)? = null)
 
 /** A donut of [slices] beside its legend; the legend carries the numbers. */
 @Composable
 fun StatsDonut(slices: List<DonutSlice>) {
     val producer = remember { PieChartModelProducer() }
-    LaunchedEffect(slices) { producer.runTransaction { pieModel { series(slices.map { it.count }) } } }
+    // Keyed on the counts: a slice's click lambda is new on every composition and must not redraw the pie.
+    val counts = slices.map { it.count }
+    LaunchedEffect(counts) { producer.runTransaction { pieModel { series(counts) } } }
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
@@ -205,7 +247,12 @@ fun StatsDonut(slices: List<DonutSlice>) {
         }
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
             slices.forEach { slice ->
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier
+                        .heightIn(min = LEGEND_ROW_HEIGHT)
+                        .then(slice.onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(Modifier.size(10.dp).background(slice.color, CircleShape))
                     Text(
                         text = "${slice.label}  ${slice.count}",
@@ -220,8 +267,26 @@ fun StatsDonut(slices: List<DonutSlice>) {
 
 /** Columns of [values], labelled by index along the bottom; [description] is what a screen reader hears. */
 @Composable
-fun StatsColumns(values: List<Number>, label: (Int) -> String, description: String) {
+fun StatsColumns(
+    values: List<Number>,
+    label: (Int) -> String,
+    description: String,
+    onColumnClick: ((Int) -> Unit)? = null,
+) {
     val producer = remember { CartesianChartModelProducer() }
+    // Vico hands touches to the marker controller only when the chart has a marker, so a tappable chart
+    // gets one that never shows: the controller reports a tap's column and always answers false.
+    val currentOnColumnClick by rememberUpdatedState(onColumnClick)
+    val marker = if (onColumnClick != null) rememberDefaultCartesianMarker(label = rememberTextComponent()) else null
+    val tapController = remember {
+        CartesianMarkerController { interaction, targets ->
+            if (interaction is Interaction.Tap) {
+                targets.firstOrNull()?.let { currentOnColumnClick?.invoke(it.x.toInt()) }
+            }
+            false
+        }
+    }
+    val pressController = CartesianMarkerController.rememberShowOnPress()
     LaunchedEffect(values) { producer.runTransaction { columnModel { series(values) } } }
     val bottomFormatter = remember(label) { CartesianValueFormatter { _, x, _ -> label(x.toInt()) } }
     ProvideVicoTheme(rememberM3VicoTheme()) {
@@ -235,6 +300,8 @@ fun StatsColumns(values: List<Number>, label: (Int) -> String, description: Stri
                 // Counts and minutes are whole, so the axis steps by whole units (wider when labels crowd).
                 startAxis = VerticalAxis.rememberStart(itemPlacer = remember { VerticalAxis.ItemPlacer.step({ 1.0 }) }),
                 bottomAxis = HorizontalAxis.rememberBottom(valueFormatter = bottomFormatter),
+                marker = marker,
+                markerController = if (onColumnClick != null) tapController else pressController,
             ),
             modelProducer = producer,
             modifier = Modifier
@@ -242,7 +309,11 @@ fun StatsColumns(values: List<Number>, label: (Int) -> String, description: Stri
                 .height(160.dp)
                 .semantics { contentDescription = description },
             scrollState = rememberVicoScrollState(scrollEnabled = false),
-            zoomState = rememberVicoZoomState(zoomEnabled = false),
+            // Vico's default zoom only grows the chart, so on a narrow card the last columns ran off the edge.
+            zoomState = rememberVicoZoomState(
+                zoomEnabled = false,
+                initialZoom = remember { Zoom.min(Zoom.fixed(), Zoom.Content) },
+            ),
         )
     }
 }
@@ -274,7 +345,7 @@ private val TrackStatus.color: Color
         }
     }
 
-private val TrackStatus.label
+internal val TrackStatus.label
     get() = when (this) {
         TrackStatus.READING -> MR.strings.reading
         TrackStatus.COMPLETED -> MR.strings.completed

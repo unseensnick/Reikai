@@ -21,6 +21,8 @@ data class StatsCharts(
     val loggedSince: LocalDate?,
     /** Each overview grouping's first rows, as its card shows them. */
     val groups: Map<StatsDimension, List<StatsRow>>,
+    /** The series read longest, most first; one never read is left out. */
+    val mostRead: List<StatsTitle>,
 )
 
 /** The groupings the overview shows a card of rows for; status and score have charts of their own. */
@@ -54,5 +56,6 @@ fun statsCharts(
         loggedSince = sessions.minOfOrNull { it.session.startedAt }
             ?.toLocalDateTime(timeZone)?.date,
         groups = groups.mapValues { (_, rows) -> rows.take(OVERVIEW_ROWS) },
+        mostRead = titles.mostRead().take(OVERVIEW_ROWS),
     )
 }

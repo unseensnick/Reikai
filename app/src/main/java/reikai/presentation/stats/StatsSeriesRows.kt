@@ -1,7 +1,21 @@
 package reikai.presentation.stats
 
+import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.NovelRepository
+import reikai.presentation.novel.details.NovelScreen
+
+/** A series' details page: a manga by id, a novel by its stored source and url; null for a novel since removed. */
+suspend fun statsDetailsScreen(entryId: EntryId, novelRepository: NovelRepository): Screen? = when (entryId) {
+    is EntryId.Manga -> MangaScreen(entryId.rawId)
+    is EntryId.Novel -> NovelScreen.forStored(entryId.rawId, novelRepository)
+}
+
+/** The rows whose series is [state]; every row when [state] is null. */
+fun List<LibraryItem>.inReadState(state: ReadState?, readStateOf: (EntryId) -> ReadState?): List<LibraryItem> =
+    if (state == null) this else filter { readStateOf(it.entryId) == state }
 
 /** The title a series is counted under, read off any of its members. */
 fun StatsLibrary.titleOf(member: EntryId): EntryId? = when (member) {

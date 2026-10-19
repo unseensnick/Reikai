@@ -3,6 +3,7 @@ package reikai.presentation.stats.details
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cafe.adriel.voyager.core.screen.Screen
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
@@ -17,28 +18,39 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.datetime.DateTimeUnit
 import kotlinx.datetime.LocalDate
 import kotlinx.datetime.TimeZone
-import kotlinx.datetime.minus
-import kotlinx.datetime.plus
 import kotlinx.datetime.toLocalDateTime
+import reikai.domain.entry.EntryId
+import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.presentation.stats.ReadingBar
+import reikai.presentation.stats.ReadingPeriod
+import reikai.presentation.stats.ReadingWindow
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibraryLoader
 import reikai.presentation.stats.readingTimeByDayAndTitle
-import reikai.presentation.stats.weekEnding
+import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
 import kotlin.time.Clock
 
-/** Seven days ending on [days]' last, and the chosen day's series with how long each was read. */
+/**
+ * A window of reading time cut into [bars], and the series read in it with how long each was read: across
+ * the whole window, or only the [selected] bar's dates once one is picked.
+ */
 @Immutable
 data class StatsReadingState(
-    val days: List<Pair<LocalDate, Long>>,
-    val selected: LocalDate,
-    val titles: List<Pair<String, Long>>,
-    val isCurrentWeek: Boolean,
+    val window: ReadingWindow,
+    val bars: List<ReadingBar>,
+    val selected: ReadingBar?,
+    val titles: List<ReadTitle>,
+    val canMoveForward: Boolean,
+    val today: LocalDate,
 )
+
+/** One series read in the chosen dates, and for how long. */
+@Immutable
+data class ReadTitle(val entryId: EntryId, val name: String, val readMs: Long)
 
 @Inject
 @ViewModelKey
@@ -46,30 +58,38 @@ data class StatsReadingState(
 class StatsReadingViewModel(
     private val loader: StatsLibraryLoader,
     sourcePreferences: ReikaiSourcePreferences,
+    private val novelRepository: NovelRepository,
 ) : ViewModel() {
 
     private val timeZone = TimeZone.currentSystemDefault()
     private val today = Clock.System.now().toLocalDateTime(timeZone).date
 
     private val library = MutableStateFlow<StatsLibrary?>(null)
-    private val week = MutableStateFlow(Week(end = today, selected = today))
+    private val view = MutableStateFlow(View(ReadingWindow.week(today), selected = null))
 
     /** Null while the library loads. */
     val state: StateFlow<StatsReadingState?> = combine(
         library.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
-        week,
-    ) { library, type, week ->
+        view,
+    ) { library, type, view ->
         val sessions = library.sessions(type)
         val byDay = readingTimeByDayAndTitle(sessions, timeZone)
         val names = sessions.associate { it.entryId to it.name }
+        val bars = view.window.bars { byDay[it].orEmpty().values.sum() }
+        val selected = bars.firstOrNull { it.first == view.selected }
+        val dates = selected?.let { ReadingWindow(view.window.period, it.first, it.last) } ?: view.window
+        val byTitle = mutableMapOf<EntryId, Long>()
+        dates.days().forEach { day -> byDay[day]?.forEach { (id, ms) -> byTitle[id] = (byTitle[id] ?: 0L) + ms } }
         StatsReadingState(
-            days = weekEnding(week.end) { byDay[it].orEmpty().values.sum() },
-            selected = week.selected,
-            titles = byDay[week.selected].orEmpty()
-                .mapNotNull { (entryId, ms) -> names[entryId]?.let { it to ms } }
-                .sortedByDescending { it.second },
-            isCurrentWeek = week.end == today,
+            window = view.window,
+            bars = bars,
+            selected = selected,
+            titles = byTitle
+                .mapNotNull { (entryId, ms) -> names[entryId]?.let { ReadTitle(entryId, it, ms) } }
+                .sortedByDescending { it.readMs },
+            canMoveForward = view.window.last < today,
+            today = today,
         )
     }
         .flowOn(Dispatchers.Default)
@@ -79,13 +99,22 @@ class StatsReadingViewModel(
         viewModelScope.launchIO { library.value = loader.load() }
     }
 
-    fun selectDay(day: LocalDate) = week.update { it.copy(selected = day) }
-
-    /** Moves the week back, or on ([forward]) by seven days, never past today; its last day is chosen. */
-    fun moveWeek(forward: Boolean) = week.update {
-        val end = if (forward) minOf(it.end.plus(7, DateTimeUnit.DAY), today) else it.end.minus(7, DateTimeUnit.DAY)
-        Week(end = end, selected = end)
+    fun selectPeriod(period: ReadingPeriod) {
+        view.value = View(ReadingWindow.current(period, today), selected = null)
     }
 
-    private data class Week(val end: LocalDate, val selected: LocalDate)
+    fun selectRange(first: LocalDate, last: LocalDate) {
+        view.value = View(ReadingWindow(ReadingPeriod.CUSTOM, first, last), selected = null)
+    }
+
+    /** Narrows the list to [bar]'s dates; picking the chosen bar again widens it back to the window. */
+    fun selectBar(bar: ReadingBar) = view.update {
+        it.copy(selected = if (it.selected == bar.first) null else bar.first)
+    }
+
+    fun move(forward: Boolean) = view.update { View(it.window.shifted(forward, today), selected = null) }
+
+    suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
+
+    private data class View(val window: ReadingWindow, val selected: LocalDate?)
 }
