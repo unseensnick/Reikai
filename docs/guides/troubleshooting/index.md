@@ -107,8 +107,8 @@ For crash investigations, navigate to <nav to="advanced"> and tap **Share crash 
   class="only-light"
   src="/docs/guides/troubleshooting/share-crash-logs.light.webp"
   alt="Share crash logs"
-  width="672"
-  height="360"
+  width="414"
+  height="204"
   loading="lazy"
   decoding="async"
 />
@@ -116,8 +116,8 @@ For crash investigations, navigate to <nav to="advanced"> and tap **Share crash 
   class="only-dark"
   src="/docs/guides/troubleshooting/share-crash-logs.dark.webp"
   alt="Share crash logs"
-  width="672"
-  height="360"
+  width="414"
+  height="204"
   loading="lazy"
   decoding="async"
 />

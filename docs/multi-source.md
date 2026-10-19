@@ -14,6 +14,25 @@ On this page, a merged series' group means the sources behind it.
 
 Merged series work the same way for manga and for light novels.
 
+<img
+  class="only-light"
+  src="/docs/multi-source/merged-details.light.webp"
+  alt="A merged series' details, with a chip for each of its sources"
+  width="414"
+  height="458"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/multi-source/merged-details.dark.webp"
+  alt="A merged series' details, with a chip for each of its sources"
+  width="414"
+  height="458"
+  loading="lazy"
+  decoding="async"
+/>
+
 ::: info A series is only merged when you ask
 Nothing is merged behind your back.
 An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a merged series: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.

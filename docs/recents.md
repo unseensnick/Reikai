@@ -14,6 +14,25 @@ You can keep them as two tabs, or combine them into one **Recents** tab.
 
 Go to <nav to="appearance"> and turn on **Combine Updates and History**. The bottom bar swaps the two tabs for <nav to="main_recents"> straight away, with no restart. Turning it off brings the two tabs back.
 
+<img
+  class="only-light"
+  src="/docs/recents/recents.light.webp"
+  alt="The Recents tab in Feed mode"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/recents/recents.dark.webp"
+  alt="The Recents tab in Feed mode"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+
 The first time you turn it on, Recents takes the content chip and category filter Updates had. After that, Recents keeps its own.
 
 Recents has four modes along the top, and remembers the one you last used:

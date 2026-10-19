@@ -20,6 +20,47 @@ Below them:
 * **Most read** ranks the series you have spent the longest reading. Tap one to open it.
 * **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Started reading** list your top five in each.
 
+::: tabs
+== Charts
+<img
+  class="only-light"
+  src="/docs/statistics/charts.light.webp"
+  alt="Publishing status, tracking status and score charts"
+  width="414"
+  height="644"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/charts.dark.webp"
+  alt="Publishing status, tracking status and score charts"
+  width="414"
+  height="644"
+  loading="lazy"
+  decoding="async"
+/>
+== Reading
+<img
+  class="only-light"
+  src="/docs/statistics/most-read.light.webp"
+  alt="Reading this week and the Most read card"
+  width="414"
+  height="638"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/most-read.dark.webp"
+  alt="Reading this week and the Most read card"
+  width="414"
+  height="638"
+  loading="lazy"
+  decoding="async"
+/>
+:::
+
 On a tablet or an unfolded phone the cards sit side by side in three groups, **At a glance**, **Charts** and **Your library by**, with every card in a row the same height. A phone shows one column.
 
 A series merged from several sources counts once, except in **Sources**, **Tags**, **Trackers** and **Languages**, where it counts under each one it has. Those lists can add up to more than your library.
@@ -30,9 +71,47 @@ A series merged from several sources counts once, except in **Sources**, **Tags*
 
 Tap a row to list the series it counts, drawn as your library draws them: the same display mode, columns, sort and badges, but none of its filters, so the list always matches the row. The row's card sits on top; tap **Finished**, **Reading** or **Not started** on it to narrow the list, and again to clear it. Tap a series to open it; back returns to the list, then to Statistics where you were.
 
+<img
+  class="only-light"
+  src="/docs/statistics/series-list.light.webp"
+  alt="A row's series list under its summary card"
+  width="414"
+  height="432"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/series-list.dark.webp"
+  alt="A row's series list under its summary card"
+  width="414"
+  height="432"
+  loading="lazy"
+  decoding="async"
+/>
+
 ## Reading time
 
 **Open** on **Reading this week** shows your reading time with the series you read and for how long. Pick **Week** (the last seven days, a bar per day), **Month** (a bar per day) or **Year** (a bar per month), or **Custom** to choose any dates: up to two months gets a bar per day, up to three years a bar per month, and longer a bar per year. The arrows step back or forward by the same length. Tap a bar to list only its dates, and tap it again to see the whole period. Tap a series to open it.
+
+<img
+  class="only-light"
+  src="/docs/statistics/reading-time.light.webp"
+  alt="Reading time for a month, a bar per day"
+  width="414"
+  height="616"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/reading-time.dark.webp"
+  alt="Reading time for a month, a bar per day"
+  width="414"
+  height="616"
+  loading="lazy"
+  decoding="async"
+/>
 
 Reading time per day is recorded from version 0.5.0 on. Reading from before that still counts toward the overview's total, but not toward any day, streak or the reading-time lists, since earlier versions kept only each chapter's total.
 Clearing all of your history clears the daily record too.

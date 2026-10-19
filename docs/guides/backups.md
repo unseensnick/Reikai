@@ -18,8 +18,8 @@ You can transfer and restore backup files between devices, and between **Reikai*
   class="only-light"
   src="/docs/guides/backups/backup.light.webp"
   alt="Backup and restore"
-  width="672"
-  height="190"
+  width="414"
+  height="118"
   loading="lazy"
   decoding="async"
 />
@@ -27,8 +27,8 @@ You can transfer and restore backup files between devices, and between **Reikai*
   class="only-dark"
   src="/docs/guides/backups/backup.dark.webp"
   alt="Backup and restore"
-  width="672"
-  height="190"
+  width="414"
+  height="118"
   loading="lazy"
   decoding="async"
 />
@@ -83,6 +83,25 @@ To ensure a smooth restoration process, remember to:
 With **Missing extensions** on, the restore then installs the backup's extension apps and light-novel plugins this install lacks, from the repos you already had and the ones you trusted, one at a time. Android asks you to confirm each app unless you chose another installer. The Restore screen also names anything no repo lists, so you can install it by hand, beside any missing sources and trackers you are not logged into. With it off, the screen names the missing ones your repos list, to install later.
 :::
 
+<img
+  class="only-light"
+  src="/docs/guides/backups/restore.light.webp"
+  alt="The Restore screen, with a repo from the backup to trust"
+  width="414"
+  height="724"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/guides/backups/restore.dark.webp"
+  alt="The Restore screen, with a repo from the backup to trust"
+  width="414"
+  height="724"
+  loading="lazy"
+  decoding="async"
+/>
+
 Entries from an extension you have not installed yet reappear in your library but cannot fetch
 chapters until you install it. A repo that has nothing to install still shows on the Restore screen,
 since trusting it there is how it comes back.
@@ -108,8 +127,8 @@ It is highly recommended to enable automatic backups to ensure you can recover i
   class="only-light"
   src="/docs/guides/backups/automatic_backups.light.webp"
   alt="Automatic backups"
-  width="672"
-  height="530"
+  width="414"
+  height="326"
   loading="lazy"
   decoding="async"
 />
@@ -117,8 +136,8 @@ It is highly recommended to enable automatic backups to ensure you can recover i
   class="only-dark"
   src="/docs/guides/backups/automatic_backups.dark.webp"
   alt="Automatic backups"
-  width="672"
-  height="530"
+  width="414"
+  height="326"
   loading="lazy"
   decoding="async"
 />

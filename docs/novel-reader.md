@@ -10,6 +10,27 @@ Light novels open in the same reader as manga, drawn as text instead of pages.
 This page covers what you can do while reading.
 Every setting it mentions, with its default, is listed in [novel reader settings](/docs/guides/novel-reader-settings).
 
+::: tabs
+== Reading
+<img
+  src="/docs/novel-reader/scrolling.webp"
+  alt="A novel chapter in the reader"
+  width="270"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+== Menu
+<img
+  src="/docs/novel-reader/menu.webp"
+  alt="The novel reader's menu"
+  width="270"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+:::
+
 Tap the middle of the screen to show the menu, and the gear icon in it to change settings without leaving the chapter.
 
 ## Choose how chapters are drawn
@@ -25,6 +46,15 @@ Switching from the reader's settings sheet rebuilds the reader at the same place
 ## Read a page at a time
 
 **Reading mode**, beside **Rendering mode**, turns a chapter into pages, as an e-book reader does.
+
+<img
+  src="/docs/novel-reader/paged.webp"
+  alt="Paged reading, with the page slider in the menu"
+  width="270"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
 
 * **Scrolling** <Badge type="info" text="Default" /> scrolls the chapter as one long column.
 * **Paged (left to right)** shows one screen of whole lines at a time. Tap the right side or swipe to the left to turn the page, as in the manga reader's paged mode, and the page slides across. The slider above the buttons shows the page you are on out of the chapter's pages.
