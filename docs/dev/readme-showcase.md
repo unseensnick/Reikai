@@ -22,7 +22,8 @@ Everything needed to rebuild lives in `.github/readme-images/showcase/`:
 - `make-frames.sh` - composites each still into the frame, rounds the screen corners, writes `framed/`.
 - `make-webp.sh` - builds the transparent animated WebP from `framed/` into `../screens.webp`.
 
-`framed/` and the `_capture/` scratch folder are git-ignored (regenerated, not committed).
+`framed/` and the `.github/readme-images/_capture/` scratch folder are git-ignored (regenerated, not
+committed).
 
 ### Rebuild from the existing stills (no device needed)
 
@@ -46,15 +47,35 @@ Captures are driven over `adb` against a **Pixel 10 Pro XL** AVD (Android Studio
 The screenshots are just the device framebuffer (1344x2992); the frame is composited later, so the
 emulator's own skin doesn't matter for the output.
 
-1. **AVD**: 1344x2992, density 480, the `pixel_10_pro_xl` skin. Install the debug app
-   (`app.reikai.dev`) and restore a backup so the library/history have content.
-2. **Clean status bar** via SystemUI demo mode (re-broadcast before each capture, it can lapse). See
-   the `clean-status-bar-capture` note in the agent memory for the full recipe; the key flags:
-   `adb shell settings put global sysui_demo_allowed 1` then the demo broadcasts with
-   `network ... wifi show level 4 fully true` (drops the no-internet `!`) and `notifications visible false`.
+1. **AVD**: 1344x2992, density 480, the `pixel_10_pro_xl` skin. Build `:app:assembleBenchmark` and
+   install it: it is `app.reikai.benchmark`, so it sits beside a debug build without touching its
+   library, and it renders as a release build does. Restore the demo backup, ticking the repos on the
+   Restore screen so its extensions and plugins come back. Before every tap, check the demo app is in
+   front (`dumpsys activity activities | grep topResumedActivity`): Back out of its last screen lands in
+   whatever app was open before.
+2. **Clean status bar** via SystemUI demo mode. Broadcast again right before each capture, since it can
+   lapse:
+
+   ```
+   adb shell settings put global sysui_demo_allowed 1
+   adb shell am broadcast -a com.android.systemui.demo -e command enter
+   adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 1000
+   adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
+   adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4 -e fully true
+   adb shell am broadcast -a com.android.systemui.demo -e command network -e mobile hide
+   adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
+   ```
+
+   `-e fully true` drops the no-internet `!`. Demo mode does not hide another app's notification icon,
+   so dismiss any notification first. A pending extension update badges the Browse tab: remove that
+   repo in the demo app, then trust the extensions the library uses one by one under Extensions.
+   Leave with `-e command exit` when done.
 3. **Theme**: app appearance set to **follow system**, then toggle with `adb shell cmd uimode night yes|no`
    (dark for panels 1-3 and 5, plus both for the panel-4 history light/dark pair).
 4. **Scrollbar**: wait ~3s after any scroll before `screencap` so the fading scrollbar is gone.
+   Panels 1 and 5 use the library's single list and tabs (Display, **Show all categories in one
+   list**), and panel 4 the separate History tab (Appearance, **Combine Updates and History** off).
+   A cover the source can no longer serve is migrated or removed in the demo app, never the backup.
 5. Capture the 9 states into `stills/` with these exact names (the scripts depend on them):
    `p1a_manga_lib`, `p1b_novel_lib`, `p2a_manga_detail`, `p2b_novel_detail`, `p3a_manga_reader`,
    `p3b_novel_reader`, `p4a_history_all_light`, `p4b_history_all_dark`, `p5a_manga_tabbed`.
