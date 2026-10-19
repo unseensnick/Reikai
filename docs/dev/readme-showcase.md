@@ -1,14 +1,14 @@
 # README showcase animation
 
 The animated banner in the README (`.github/readme-images/screens.webp`) is a **transparent
-animated WebP**: five device-framed phones side by side, each cross-fading between two app states.
+animated WebP**: five device-framed phones side by side, each cross-fading between its app states.
 Transparent so it blends on GitHub's light or dark theme. Panels:
 
-1. **Library**: manga library ⟷ novels library
+1. **Library**: manga library, then novels, then All (single list)
 2. **Detail**: manga detail (Unified multi-source + Related carousel) ⟷ novel detail
 3. **Reader**: manga reader ⟷ novel reader
 4. **History**: the unified "All" history, light ⟷ dark theme
-5. **View modes**: tabbed library ⟷ single-list library
+5. **View modes**: tabbed library, then single list, then All (tabbed)
 
 The phone frame is the official **Pixel 10 Pro XL** device-art skin (screen 1344x2992, so the
 emulator must run at that exact resolution for a 1:1 fit).
@@ -17,7 +17,8 @@ emulator must run at that exact resolution for a 1:1 fit).
 
 Everything needed to rebuild lives in `.github/readme-images/showcase/`:
 
-- `stills/` - the 9 source screenshots (1344x2992 PNGs).
+- `stills/` - the 11 source screenshots (1344x2992 PNGs).
+- `demo-library.md` - the demo library the stills are taken from.
 - `frame/back.png`, `frame/mask.png` - the Pixel 10 Pro XL frame (body + corner/cutout mask).
 - `make-frames.sh` - composites each still into the frame, rounds the screen corners, writes `framed/`.
 - `make-webp.sh` - builds the transparent animated WebP from `framed/` into `../screens.webp`.
@@ -79,19 +80,23 @@ emulator's own skin doesn't matter for the output.
    Panels 1 and 5 use the library's single list and tabs (Display, **Show all categories in one
    list**), and panel 4 the separate History tab (Appearance, **Combine Updates and History** off).
    A cover the source can no longer serve is migrated or removed in the demo app, never the backup.
-5. Capture the 9 states into `stills/` with these exact names (the scripts depend on them):
-   `p1a_manga_lib`, `p1b_novel_lib`, `p2a_manga_detail`, `p2b_novel_detail`, `p3a_manga_reader`,
-   `p3b_novel_reader`, `p4a_history_all_light`, `p4b_history_all_dark`, `p5a_manga_tabbed`.
+5. Capture the 11 states into `stills/` with these exact names (the scripts depend on them):
+   `p1a_manga_lib`, `p1b_novel_lib`, `p1c_all_lib`, `p2a_manga_detail`, `p2b_novel_detail`,
+   `p3a_manga_reader`, `p3b_novel_reader`, `p4a_history_all_light`, `p4b_history_all_dark`,
+   `p5a_manga_tabbed`, `p5c_all_tabbed`. Panel 5's middle state reuses `p1a_manga_lib`.
 
 Capture method (byte-accurate): `adb -s <emu> shell screencap -p /sdcard/x.png` then `adb pull`
 (use PowerShell for `/sdcard` paths; MSYS bash mangles them).
 
 ## Tuning
 
-- **Timing** (`make-webp.sh`): the per-state hold and cross-fade are hardcoded as constants in the `OP`
-  opacity expression (hold A, fade, hold B, fade back), not separate variables. Current: hold 2.8s, fade
-  0.3s, full loop `L` = 6.2s, frame rate `F` = 20. To retime, edit the `2.8 / 3.1 / 5.9 / 0.3` constants
-  in `OP` and keep `L` equal to the full cycle.
+- **Timing** (`make-webp.sh`): every panel shares one loop, `L` = 9.3s at frame rate `F` = 20. `op` gives a
+  layer's opacity from the times it fades in and out (0.3s fades). Three-state panels hold each state
+  2.8s (`B3`, `C3`); two-state panels hold each about 4.35s (`B2`). To retime, change those times and
+  keep `L` equal to the full cycle.
+- **Checking a build**: Pillow cannot read the frame timing of this file, and ffmpeg cannot decode it,
+  so render single frames from the filter graph instead: swap the output for
+  `-ss <t> -frames:v 1 out.png` in a copy of `make-webp.sh`.
 - **Layout**: `H` = render height per phone, `GAP` = gap between phones, and `STEP` (`PW + GAP`) =
   horizontal spacing between phones.
 - **Frame fit**: `make-frames.sh` places the screen at (60,55) and rounds corners to radius 108 (from

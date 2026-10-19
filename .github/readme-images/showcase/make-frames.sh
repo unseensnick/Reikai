@@ -15,9 +15,9 @@ frame_one() { # filename in stills/
     -map "[o]" -frames:v 1 "framed/$1"
 }
 
-for n in p1a_manga_lib p1b_novel_lib p2a_manga_detail p2b_novel_detail \
+for n in p1a_manga_lib p1b_novel_lib p1c_all_lib p2a_manga_detail p2b_novel_detail \
          p3a_manga_reader p3b_novel_reader p4a_history_all_light p4b_history_all_dark \
-         p5a_manga_tabbed; do
+         p5a_manga_tabbed p5c_all_tabbed; do
   frame_one "$n.png"
 done
-echo "framed 9 stills"
+echo "framed 11 stills"
