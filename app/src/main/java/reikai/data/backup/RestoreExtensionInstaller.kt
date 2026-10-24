@@ -60,7 +60,7 @@ class RestoreExtensionInstaller(
                 is RestoreItem.App -> listings.find(item)?.let { install(it) }
                 is RestoreItem.Plugin -> listings.find(item)?.let { install(it) }
             } ?: Reason.NotListed
-            NotInstalled(item.name, reason).takeUnless { reason == Reason.Installed }
+            NotInstalled(listings.nameOf(item), reason).takeUnless { reason == Reason.Installed }
         }
     }
 
