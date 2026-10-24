@@ -219,9 +219,9 @@
   }
 
   /*
-   * Runs once el's images have landed, or once IMAGE_WAIT_MS has passed, plus a frame so the layout
-   * they changed has been through it. The cap is there because a request that never answers must not
-   * strand the reader at the top of the chapter.
+   * Runs once el's images have landed, a frame later so the layout they changed has been through it,
+   * or at once when they already have. IMAGE_WAIT_MS caps the wait, since a request that never answers
+   * must not strand the reader at the top of the chapter.
    */
   function whenImagesLanded(el, run) {
     if (imagesLanded(el)) {
