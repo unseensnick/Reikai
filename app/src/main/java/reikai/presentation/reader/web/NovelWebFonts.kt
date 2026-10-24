@@ -5,8 +5,6 @@ import android.webkit.WebResourceResponse
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
-import okhttp3.HttpUrl
-import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.font.NovelFontManager
 import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.readerFontSource
@@ -40,10 +38,7 @@ class NovelWebFonts {
                 null
             }
             val type = if (family.endsWith(".otf", ignoreCase = true)) "font/otf" else "font/ttf"
-            HttpUrl.Builder()
-                .scheme("https")
-                .host(NovelWebImages.HOST)
-                .addPathSegment(PATH)
+            NovelWebImages.appAddress(PATH)
                 .addQueryParameter("f", family)
                 // A replaced file gets a new address, so the WebView never answers it from its cache.
                 .apply { file?.let { addQueryParameter("v", "${it.length()}-${it.lastModified()}") } }
@@ -55,8 +50,7 @@ class NovelWebFonts {
 
     /** The face behind an address from [url], read on the WebView's worker thread; null for any other address. */
     fun response(context: Context, url: String): WebResourceResponse? {
-        val parsed = url.toHttpUrlOrNull() ?: return null
-        if (parsed.host != NovelWebImages.HOST || parsed.pathSegments != listOf(PATH)) return null
+        NovelWebImages.appAddressAt(url, PATH) ?: return null
         val face = served[url] ?: return null
         val bytes = runCatching {
             when (val source = face.source) {

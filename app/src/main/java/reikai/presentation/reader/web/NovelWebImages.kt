@@ -41,8 +41,7 @@ class NovelWebImages {
 
     /** The picture an address from [rewrite] stands for, or null for any other address. */
     fun imageFor(url: String): NovelImage? {
-        val parsed = url.toHttpUrlOrNull() ?: return null
-        if (parsed.host != HOST || parsed.pathSegments != listOf(PATH)) return null
+        val parsed = appAddressAt(url, PATH) ?: return null
         val image = parsed.queryParameter("u") ?: return null
         return NovelImage(image, parsed.queryParameter("s")).takeIf { it in routed }
     }
@@ -50,10 +49,7 @@ class NovelWebImages {
     private fun routed(url: String, sourceId: String?): String? {
         if (!NovelChapterAddress.isWebAddress(url)) return null
         routed += NovelImage(url, sourceId)
-        return HttpUrl.Builder()
-            .scheme("https")
-            .host(HOST)
-            .addPathSegment(PATH)
+        return appAddress(PATH)
             .addQueryParameter("u", url)
             .apply { sourceId?.let { addQueryParameter("s", it) } }
             .build()
@@ -64,5 +60,13 @@ class NovelWebImages {
         /** The host Android reserves for an app to answer itself, which the reader's fonts use too. */
         const val HOST = "appassets.androidplatform.net"
         private const val PATH = "rk-image"
+
+        /** An address on [HOST] at [path], which the reader's `shouldInterceptRequest` answers. */
+        internal fun appAddress(path: String): HttpUrl.Builder =
+            HttpUrl.Builder().scheme("https").host(HOST).addPathSegment(path)
+
+        /** [url] when it is an [appAddress] at [path], else null. */
+        internal fun appAddressAt(url: String, path: String): HttpUrl? =
+            url.toHttpUrlOrNull()?.takeIf { it.host == HOST && it.pathSegments == listOf(path) }
     }
 }
