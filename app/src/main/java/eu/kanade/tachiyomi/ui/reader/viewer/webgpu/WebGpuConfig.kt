@@ -109,8 +109,6 @@ class WebGpuConfig(
         readerPreferences.landscapeZoom.register({ landscapeZoom = it }, { imagePropertyChangedListener?.invoke() })
 
         readerPreferences.navigationModePager.register({ navigationMode = it }, { updateNavigation(navigationMode) })
-        readerPreferences.tapBottomZoneHeight // RK: the Bottom layout's zone height
-            .register({ tapBottomZoneHeight = it }, { updateNavigation(navigationMode) })
 
         readerPreferences.pagerNavInverted.register({ tappingInverted = it }, { navigator.invertMode = it })
         readerPreferences.pagerNavInverted.changes().drop(1).onEach { navigationModeChangedListener?.invoke() }
@@ -210,8 +208,6 @@ class WebGpuConfig(
             else -> ReaderPageImageView.ZoomStartPosition.CENTER
         }
     }
-
-    private var tapBottomZoneHeight = 0 // RK
 
     override var navigator: ViewerNavigation = defaultNavigation()
         set(value) {

@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import tachiyomi.core.common.preference.Preference
@@ -44,6 +45,21 @@ abstract class ViewerConfig(readerPreferences: ReaderPreferences, private val sc
 
     abstract var navigator: ViewerNavigation
         protected set
+
+    // RK --> the Bottom layout's zone height, for every viewer. Seeded here so only a later change rebuilds:
+    // each rebuild fades the tap-zone overlay in, and the navigation mode already rebuilds on open.
+    protected var tapBottomZoneHeight = readerPreferences.tapBottomZoneHeight.get()
+
+    init {
+        readerPreferences.tapBottomZoneHeight.changes()
+            .filter { it != tapBottomZoneHeight }
+            .onEach {
+                tapBottomZoneHeight = it
+                updateNavigation(navigationMode)
+            }
+            .launchIn(scope)
+    }
+    // RK <--
 
     init {
         readerPreferences.readWithLongTap

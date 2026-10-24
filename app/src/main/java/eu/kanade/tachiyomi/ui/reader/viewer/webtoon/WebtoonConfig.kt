@@ -61,8 +61,6 @@ class WebtoonConfig(
 
         readerPreferences.navigationModeWebtoon
             .register({ navigationMode = it }, { updateNavigation(it) })
-        readerPreferences.tapBottomZoneHeight // RK: the Bottom layout's zone height
-            .register({ tapBottomZoneHeight = it }, { updateNavigation(navigationMode) })
 
         readerPreferences.webtoonNavInverted
             .register({ tappingInverted = it }, { navigator.invertMode = it })
@@ -107,8 +105,6 @@ class WebtoonConfig(
             .onEach { themeChangedListener?.invoke() }
             .launchIn(scope)
     }
-
-    private var tapBottomZoneHeight = 0 // RK
 
     override var navigator: ViewerNavigation = defaultNavigation()
         set(value) {

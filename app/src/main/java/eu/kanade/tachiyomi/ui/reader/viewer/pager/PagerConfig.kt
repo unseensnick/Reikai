@@ -74,8 +74,6 @@ class PagerConfig(
 
         readerPreferences.navigationModePager
             .register({ navigationMode = it }, { updateNavigation(navigationMode) })
-        readerPreferences.tapBottomZoneHeight // RK: the Bottom layout's zone height
-            .register({ tapBottomZoneHeight = it }, { updateNavigation(navigationMode) })
 
         readerPreferences.pagerNavInverted
             .register({ tappingInverted = it }, { navigator.invertMode = it })
@@ -125,8 +123,6 @@ class PagerConfig(
             else -> ReaderPageImageView.ZoomStartPosition.CENTER
         }
     }
-
-    private var tapBottomZoneHeight = 0 // RK
 
     override var navigator: ViewerNavigation = defaultNavigation()
         set(value) {
