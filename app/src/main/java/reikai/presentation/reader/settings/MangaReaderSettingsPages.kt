@@ -397,10 +397,9 @@ private fun ColumnScope.TapZonesRows(
             )
         }
     }
-    val invertModes = MangaTapLayouts.invertModes(selected)
-    if (invertModes.size > 1) {
+    if (MangaTapLayouts.offersInvert(selected)) {
         SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            invertModes.map {
+            MangaTapLayouts.invertModes(selected).map {
                 FilterChip(
                     selected = it == invertMode,
                     onClick = { onSelectInvertMode(it) },

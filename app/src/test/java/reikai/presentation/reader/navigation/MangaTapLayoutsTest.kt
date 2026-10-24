@@ -29,6 +29,11 @@ class MangaTapLayoutsTest {
         (0..5).mapNotNull(MangaTapLayouts::added) shouldBe emptyList()
     }
 
+    @Test
+    fun `Mihon's Disabled follows the novel reader's Disabled`() {
+        MangaTapLayouts.layout(5) shouldBe NovelTapLayout.DISABLED
+    }
+
     /** One rule with the novel reader's, so the two settings offer the same choice for a layout. */
     @Test
     fun `an added layout offers the inversions the novel reader offers for it`() {
@@ -36,8 +41,18 @@ class MangaTapLayoutsTest {
     }
 
     @Test
+    fun `an added layout offers the inversion choice when the novel reader does`() {
+        (6..9).map(MangaTapLayouts::offersInvert) shouldBe (6..9).map { MangaTapLayouts.added(it)!!.offersInvert }
+    }
+
+    @Test
     fun `disabled offers no inversion`() {
-        MangaTapLayouts.invertModes(5) shouldBe emptyList()
+        MangaTapLayouts.offersInvert(5) shouldBe false
+    }
+
+    @Test
+    fun `Mihon's zoned layouts offer the inversion choice`() {
+        (0..4).map(MangaTapLayouts::offersInvert) shouldBe List(5) { true }
     }
 
     @Test

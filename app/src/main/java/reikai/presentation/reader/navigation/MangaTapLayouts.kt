@@ -21,7 +21,7 @@ object MangaTapLayouts {
         NovelTapLayout.BOTTOM,
     )
 
-    /** Mihon's Disabled, which has no zones to invert. */
+    /** Mihon's Disabled, which is the novel reader's Disabled. */
     private const val DISABLED = 5
 
     /** Every layout's name, by stored index. */
@@ -34,9 +34,15 @@ object MangaTapLayouts {
     fun navigation(index: Int, bottomZoneHeightPercent: Int): ViewerNavigation? =
         added(index)?.navigation(bottomZoneHeightPercent)
 
-    /** The inversions that change the layout at [index]; one or none is no choice to offer. */
-    fun invertModes(index: Int): List<TappingInvertMode> = when (index) {
-        DISABLED -> emptyList()
-        else -> added(index)?.invertModes ?: TappingInvertMode.entries
-    }
+    /**
+     * The novel reader's layout the one at [index] answers the inversion rules with, null for Default and
+     * Mihon's four zoned layouts, which every inversion changes.
+     */
+    fun layout(index: Int): NovelTapLayout? = if (index == DISABLED) NovelTapLayout.DISABLED else added(index)
+
+    /** The inversions that change the layout at [index]. */
+    fun invertModes(index: Int): List<TappingInvertMode> = layout(index)?.invertModes ?: TappingInvertMode.entries
+
+    /** Whether the layout at [index] offers an inversion choice, by the novel reader's rule. */
+    fun offersInvert(index: Int): Boolean = layout(index)?.offersInvert ?: true
 }

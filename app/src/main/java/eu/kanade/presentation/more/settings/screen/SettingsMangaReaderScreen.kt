@@ -247,7 +247,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     entries = MangaTapLayouts.invertModes(navMode)
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    visible = MangaTapLayouts.invertModes(navMode).size > 1, // RK
+                    visible = MangaTapLayouts.offersInvert(navMode), // RK
                 ),
                 // RK -->
                 Preference.PreferenceItem.SliderPreference(
@@ -349,7 +349,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     entries = MangaTapLayouts.invertModes(navMode)
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    visible = MangaTapLayouts.invertModes(navMode).size > 1, // RK
+                    visible = MangaTapLayouts.offersInvert(navMode), // RK
                 ),
                 // RK -->
                 Preference.PreferenceItem.SliderPreference(
