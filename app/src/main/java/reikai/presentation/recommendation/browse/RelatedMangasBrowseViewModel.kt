@@ -28,7 +28,6 @@ import reikai.domain.recommendation.localIdOf
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
-import reikai.presentation.browse.batchCategories
 import reikai.presentation.browse.catalogue.BrowseColumns
 import reikai.presentation.browse.catalogue.trackBrowseColumns
 import reikai.presentation.selection.EntrySelection
@@ -162,12 +161,7 @@ class RelatedMangasBrowseViewModel(
                 return@launchIO
             }
 
-            when (
-                val batch = batchCategories(
-                    libraryAdder.getUserCategories(),
-                    libraryPreferences.defaultCategory.get(),
-                )
-            ) {
+            when (val batch = libraryAdder.resolveBatchCategories()) {
                 is BatchCategories.Default -> addAndReport(resolved, batch.categoryIds, skipped = trackerOrigin.size)
                 is BatchCategories.Ask -> state.update {
                     it.copy(dialog = Dialog.ChangeCategory(resolved, batch.initialSelection, trackerOrigin.size))
@@ -182,7 +176,7 @@ class RelatedMangasBrowseViewModel(
 
     private suspend fun addAndReport(mangas: List<Manga>, categoryIds: List<Long>, skipped: Int) {
         // Per entry, so one failing favorite write skips only that entry, and it reports as skipped.
-        val added = mangas.count { libraryAdder.confirmAddCategories(it.id, categoryIds) == AddOutcome.Added }
+        val added = mangas.count { libraryAdder.addToBatch(it.id, categoryIds) == AddOutcome.Added }
         finishAdd(added, skipped + mangas.size - added)
     }
 

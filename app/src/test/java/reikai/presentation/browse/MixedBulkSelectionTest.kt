@@ -44,8 +44,8 @@ class MixedBulkSelectionTest {
     @BeforeEach
     fun setUp() {
         Dispatchers.setMain(dispatcher)
-        manga = BulkFavoriteViewModel(mangaLibrary.adder, mangaLibrary.libraryPreferences)
-        novels = NovelBulkFavoriteViewModel(novelLibrary.adder, novelLibrary.novelPreferences)
+        manga = BulkFavoriteViewModel(mangaLibrary.adder)
+        novels = NovelBulkFavoriteViewModel(novelLibrary.adder)
         selection = MixedBulkSelection(manga, novels, manga.state.asState(), novels.state.asState())
     }
 

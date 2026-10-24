@@ -6,8 +6,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import tachiyomi.domain.category.model.Category
-import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -22,23 +20,14 @@ import tachiyomi.domain.manga.model.Manga
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class BulkFavoriteViewModel(
     private val libraryAdder: MangaLibraryAdder,
-    private val libraryPreferences: LibraryPreferences,
 ) : EntryBulkFavoriteViewModel<Manga>() {
 
     override fun keyOf(item: Manga): Any = item.id
 
-    override suspend fun userCategories(): List<Category> = libraryAdder.getUserCategories()
-
-    override suspend fun defaultCategoryId(): Int = libraryPreferences.defaultCategory.get()
+    override suspend fun resolveBatchCategories(): BatchCategories = libraryAdder.resolveBatchCategories()
 
     override suspend fun addToLibrary(items: List<Manga>, categoryIds: List<Long>) {
-        items.forEach { manga ->
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { libraryAdder.favoriteFromBrowse(manga.id) },
-                fileCategories = { _, ids -> libraryAdder.fileAdded(manga.id, ids) },
-            )
-        }
+        items.forEach { libraryAdder.addToBatch(it.id, categoryIds) }
     }
 
     override suspend fun isInLibrary(item: Manga): Boolean = libraryAdder.isInLibrary(item.id)

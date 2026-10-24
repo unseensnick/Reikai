@@ -7,11 +7,9 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
-import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.NovelItem
+import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.EntryBulkFavoriteViewModel
-import reikai.presentation.browse.finishAdd
-import tachiyomi.domain.category.model.Category
 
 /**
  * The novel facade of [EntryBulkFavoriteViewModel], used by the novel browse surfaces (per-source
@@ -24,23 +22,14 @@ import tachiyomi.domain.category.model.Category
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class NovelBulkFavoriteViewModel(
     private val libraryAdder: NovelLibraryAdder,
-    private val novelPreferences: NovelPreferences,
 ) : EntryBulkFavoriteViewModel<SelectedNovel>() {
 
     override fun keyOf(item: SelectedNovel): Any = item.key
 
-    override suspend fun userCategories(): List<Category> = libraryAdder.userCategories()
-
-    override suspend fun defaultCategoryId(): Int = novelPreferences.defaultNovelCategory().get()
+    override suspend fun resolveBatchCategories(): BatchCategories = libraryAdder.resolveBatchCategories()
 
     override suspend fun addToLibrary(items: List<SelectedNovel>, categoryIds: List<Long>) {
-        items.forEach { selected ->
-            finishAdd(
-                categoryIds = categoryIds,
-                favorite = { libraryAdder.favoriteReturningId(selected.item, selected.sourceId) },
-                fileCategories = { id, ids -> libraryAdder.fileAdded(id, ids) },
-            )
-        }
+        items.forEach { libraryAdder.addToBatch(it.item, it.sourceId, categoryIds) }
     }
 
     override suspend fun isInLibrary(item: SelectedNovel): Boolean = libraryAdder.isInLibrary(item.item, item.sourceId)
