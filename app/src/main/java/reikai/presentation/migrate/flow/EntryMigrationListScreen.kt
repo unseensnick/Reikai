@@ -207,35 +207,54 @@ class EntryMigrationListScreen(
             }
         }
 
-        // Both of these are derived in the state (see visibleProgress / visibleDialog), so at most one
-        // is non-null: the screen renders the rule, it does not decide it. A per-row commit shows its
-        // spinner on the row and no modal at all.
-        state.visibleProgress?.let { batch ->
-            ProgressDialog(
-                done = batch.done,
-                total = batch.total,
-                onCancel = viewModel::cancelCommit,
-            )
-        }
-        when (val dialog = state.visibleDialog) {
-            is EntryMigrationListViewModel.Dialog.Confirm -> ConfirmDialog(
-                dialog = dialog,
-                onDismissRequest = viewModel::dismissDialog,
-                onConfirm = { flags -> viewModel.commit(dialog.replace, flags) },
-            )
-            EntryMigrationListViewModel.Dialog.ExitConfirm -> ExitDialog(
-                onDismissRequest = viewModel::dismissDialog,
-                // Stopping abandons the flow, so it unwinds to wherever the flow was started,
-                // the same as finishing: one pop would land on a stale flow step.
-                onConfirm = {
-                    // A commit still running would otherwise be cancelled halfway by the pop, with
-                    // nothing said about what had already been written.
-                    viewModel.cancelCommit()
-                    navigator.popUntil { it !is MigrationFlowScreen }
-                },
-            )
-            null -> {}
-        }
+        MigrationListDialogs(
+            state = state,
+            onCancelCommit = viewModel::cancelCommit,
+            onDismissDialog = viewModel::dismissDialog,
+            onCommit = viewModel::commit,
+            // Stopping abandons the flow, so it unwinds to wherever the flow was started,
+            // the same as finishing: one pop would land on a stale flow step.
+            onExit = {
+                // A commit still running would otherwise be cancelled halfway by the pop, with
+                // nothing said about what had already been written.
+                viewModel.cancelCommit()
+                navigator.popUntil { it !is MigrationFlowScreen }
+            },
+        )
+    }
+}
+
+/**
+ * The modal over the list. Both kinds are derived in the state (see visibleProgress / visibleDialog),
+ * so at most one is non-null: this renders the rule, it does not decide it. A per-row commit shows
+ * its spinner on the row and no modal at all.
+ */
+@Composable
+internal fun MigrationListDialogs(
+    state: EntryMigrationListViewModel.State,
+    onCancelCommit: () -> Unit,
+    onDismissDialog: () -> Unit,
+    onCommit: (replace: Boolean, flags: Set<MigrationDataFlag>) -> Unit,
+    onExit: () -> Unit,
+) {
+    state.visibleProgress?.let { batch ->
+        ProgressDialog(
+            done = batch.done,
+            total = batch.total,
+            onCancel = onCancelCommit,
+        )
+    }
+    when (val dialog = state.visibleDialog) {
+        is EntryMigrationListViewModel.Dialog.Confirm -> ConfirmDialog(
+            dialog = dialog,
+            onDismissRequest = onDismissDialog,
+            onConfirm = { flags -> onCommit(dialog.replace, flags) },
+        )
+        EntryMigrationListViewModel.Dialog.ExitConfirm -> ExitDialog(
+            onDismissRequest = onDismissDialog,
+            onConfirm = onExit,
+        )
+        null -> {}
     }
 }
 
