@@ -36,11 +36,21 @@ fun libraryNeedsTracks(
     globalSort.type == LibrarySort.Type.TrackerMean ||
     categories.any { sortForCategory(it, globalSort).type == LibrarySort.Type.TrackerMean }
 
+/** What a library filters and searches on: everything it reads from [libraryTracksFlow], and nothing else. */
+data class LibrarySearchInputs<Q, T>(
+    val search: Q,
+    val filters: LibraryFilterSettings,
+    /** Each `category:` term's matching category ids, resolved against the current category table. */
+    val categoryMatches: Map<String, Set<Long>>,
+    val tracks: Map<Long, List<T>>,
+)
+
 /**
- * Each [search] (the debounced query, with whatever the caller resolved for it) paired with the library's
- * tracks, by entry id, while [libraryNeedsTracks] says something reads them, else none. A search is held
- * back until the tracks it needs have loaded, and a search that stops needing them arrives with none, so a
- * library never filters a tracker or score query against the wrong tracks.
+ * Each [search] (the debounced query, with whatever the caller resolved for it) with the library's
+ * [filters], its `category:` matches and its tracks, by entry id, while [libraryNeedsTracks] says something
+ * reads them, else none. A value is held back until the tracks it needs have loaded, so a library never
+ * filters a tracker filter or query against the wrong tracks, and a sort, grouping or category change that
+ * alters none of these sends nothing, so it does not rebuild a library that would come out the same.
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 fun <Q, T> libraryTracksFlow(
@@ -51,25 +61,34 @@ fun <Q, T> libraryTracksFlow(
     search: Flow<Q>,
     queryOf: (Q) -> String?,
     tracks: () -> Flow<Map<Long, List<T>>>,
-): Flow<Pair<Q, Map<Long, List<T>>>> = channelFlow {
+): Flow<LibrarySearchInputs<Q, T>> = channelFlow {
     // Shared, since the tracks' loading and the pairing both read it, and the caller's search can query.
     val inputs = combine(
-        filters.map { it.trackers.values },
+        filters,
         libraryPreferences.sortingMode.changes(),
         categories,
         reikaiLibraryPreferences.groupLibraryBy.changes(),
         search,
-    ) { trackers, sort, categoryList, groupBy, query ->
-        val readsTracks = queryOf(query)?.takeUnless { it.isBlank() }?.let(QueryNode::from)?.readsTracks() == true
-        query to libraryNeedsTracks(trackers, sort, categoryList, groupBy, readsTracks)
+    ) { filterSettings, sort, categoryList, groupBy, query ->
+        val queryNode = queryOf(query)?.takeUnless { it.isBlank() }?.let(QueryNode::from)
+        val needsTracks = libraryNeedsTracks(
+            filterSettings.trackers.values,
+            sort,
+            categoryList,
+            groupBy,
+            queryNode?.readsTracks() == true,
+        )
+        val categoryMatches = queryNode?.categoryMatches(categoryList).orEmpty()
+        LibrarySearchInputs<Q, T>(query, filterSettings, categoryMatches, emptyMap()) to needsTracks
     }.shareIn(this, SharingStarted.Eagerly, replay = 1)
     // Loaded once while needed, not once per search, and tagged with the answer it was loaded for.
     val loaded = inputs.map { it.second }
         .distinctUntilChanged()
         .flatMapLatest { needsTracks -> if (needsTracks) tracks().map { true to it } else flowOf(false to emptyMap()) }
-    combine(inputs, loaded) { (query, needsTracks), (loadedFor, trackMap) ->
-        (query to trackMap).takeIf { needsTracks == loadedFor }
+    combine(inputs, loaded) { (searchInputs, needsTracks), (loadedFor, trackMap) ->
+        searchInputs.copy(tracks = trackMap).takeIf { needsTracks == loadedFor }
     }
         .filterNotNull()
+        .distinctUntilChanged()
         .collect { send(it) }
 }

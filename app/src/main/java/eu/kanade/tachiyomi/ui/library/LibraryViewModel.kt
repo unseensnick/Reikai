@@ -61,7 +61,6 @@ import reikai.presentation.library.LibraryQueryFields
 import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
-import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.gallerySearchIndexFor
 import reikai.presentation.library.libraryFilterMatches
@@ -166,7 +165,7 @@ class LibraryViewModel(
         .distinctUntilChanged()
 
     // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
-    // novel library asks too. The debounced query rides it, so a search waits for the tracks it reads.
+    // novel library asks too. The debounced query and the filters ride it, so both wait for the tracks they read.
     // The query carries its resolved `chapter:` id sets alongside it, so a chapter lookup runs once per
     // query change rather than on every favorites tick.
     private val searchAndTracks = libraryTracksFlow(
@@ -192,11 +191,11 @@ class LibraryViewModel(
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            filterSettings, // RK
+            // RK: no filter input either: the filters ride searchAndTracks, so a tracker filter waits for
+            //     the tracks it reads instead of filtering against none while they load.
         ) {
-                (search, tracksMap),
+                (search, filters, categoryMatches, tracksMap), // RK
                 (favorites, customInfo),
-                filters,
             ->
             val (searchQuery, chapterMatches) = search // RK
             val filteredFavorites = favorites
@@ -220,7 +219,7 @@ class LibraryViewModel(
                             chapterMatches,
                             customInfo,
                             gallery,
-                            queryNode.categoryMatches(getCategories.await()),
+                            categoryMatches,
                             tracksMap,
                             filters.trackers.keys,
                         )

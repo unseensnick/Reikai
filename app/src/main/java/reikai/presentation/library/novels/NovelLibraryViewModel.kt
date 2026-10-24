@@ -63,11 +63,10 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
-import reikai.presentation.library.LibraryFilterSettings
+import reikai.presentation.library.LibrarySearchInputs
 import reikai.presentation.library.MergeCollapseInputs
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
-import reikai.presentation.library.categoryMatches
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
@@ -179,17 +178,22 @@ class NovelLibraryViewModel(
             // No collapse input: collapse only feeds grouping, which LibraryEngine owns, and as an
             // input here every collapse tap would rebuild the whole filtered novel list for nothing.
             settingsFlow(),
-        ) { (library, customInfo), (search, tracks), settings ->
-            buildState(library, customInfo, tracks, search, settings)
+        ) { (library, customInfo), searchInputs, settings ->
+            buildState(library, customInfo, searchInputs, settings)
         }
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope + subscriberGate, SharingStarted.Eagerly, null)
 
-    val state: StateFlow<State> = combine(built, searchQuery) { built, searchQuery ->
+    val state: StateFlow<State> = combine(
+        built,
+        searchQuery,
+        filterSettings.map { it.isActive }.distinctUntilChanged(),
+    ) { built, searchQuery, hasActiveFilters ->
         // The query comes from its own holder, never from [built]: that lags the user by a debounce plus
         // a query, so taking its copy resets the search field to a stale value mid-input and scrambles
-        // fast keystrokes. The selection is not here at all; the engine owns it.
-        (built ?: State()).copy(searchQuery = searchQuery)
+        // fast keystrokes. The selection is not here at all; the engine owns it. The filter icon reads
+        // the preferences directly, as the manga one does, rather than waiting on the tracks [built] waits on.
+        (built ?: State()).copy(searchQuery = searchQuery, hasActiveFilters = hasActiveFilters)
     }
         .stateIn(viewModelScope + subscriberGate, subscriberGate.whileSubscribed(5.seconds), State())
 
@@ -213,8 +217,9 @@ class NovelLibraryViewModel(
         }
     }
 
-    /** Folds the badge and filter prefs into one flow so the main combine stays at its 5-arg max. Sorting
-     *  is LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. */
+    /** Folds the badge prefs into one flow so the main combine stays at its 5-arg max. Sorting is
+     *  LibraryEngine's, so no sort input rides here: it would rebuild this list for nothing. The filters
+     *  ride the tracks gate instead, so a tracker filter waits for the tracks it reads. */
     private fun settingsFlow(): Flow<LibrarySettings> {
         val mergeFlow = novelLibraryRows.mergeInputs()
         // No group-by input: grouping is LibraryEngine's, and re-running this whole pipeline on a
@@ -222,9 +227,8 @@ class NovelLibraryViewModel(
         return combine(
             libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences),
             libraryPreferences.showContinueReadingButton.changes(),
-            filterSettings,
             mergeFlow,
-        ) { badges, showContinue, filter, merge -> LibrarySettings(badges, showContinue, filter, merge) }
+        ) { badges, showContinue, merge -> LibrarySettings(badges, showContinue, merge) }
     }
 
     /** One chapter-table LIKE scan per distinct `chapter:` term, resolved once per query change. */
@@ -236,10 +240,10 @@ class NovelLibraryViewModel(
     private suspend fun buildState(
         library: List<LibraryNovel>,
         customInfo: List<CustomNovelInfo>,
-        tracks: Map<Long, List<NovelTrack>>,
-        search: Pair<String?, Map<String, Set<Long>>>,
+        searchInputs: LibrarySearchInputs<Pair<String?, Map<String, Set<Long>>>, NovelTrack>,
         settings: LibrarySettings,
     ): State {
+        val (search, filter, categoryMatches, tracks) = searchInputs
         val (query, chapterMatches) = search
         // The rows the library and Statistics share, before any filter or search, plus the collapsed
         // groups the tracks and the per-novel metadata below are keyed by.
@@ -249,7 +253,7 @@ class NovelLibraryViewModel(
         // Each merge group's tracks keyed by the rep's real novel id, so the filter's tracker axis and the
         // grouping read a track bound on ANY grouped source. Synchronous: reads the in-memory group members,
         // never the suspend awaitGroup. Converted once to the shared Track, which the track kernels take.
-        val loggedInTrackerIds = settings.filter.trackers.keys
+        val loggedInTrackerIds = filter.trackers.keys
         val uiTracks = tracks.mapValues { (_, novelTracks) -> novelTracks.map { it.toUiTrack() } }
         val membersByRep = groups.associate { it.representative.novel.id to it.memberIds }
         val tracksByRep = membersByRep.mapValues { (_, memberIds) -> mergedGroupTracks(memberIds, uiTracks) }
@@ -261,7 +265,7 @@ class NovelLibraryViewModel(
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
         // novels at once. The per-type seams live in the accessors: novels have no local-source concept.
-        val filterPrefs = settings.filter.resolve()
+        val filterPrefs = filter.resolve()
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search
         // needs the source name and slug, since a novel row has no Mihon Source to read either off.
@@ -294,7 +298,7 @@ class NovelLibraryViewModel(
             // Search matches what the card shows, so a renamed novel is findable by the name you gave it.
             // The rows stay override-free: filter, sort and grouping deliberately read the source values.
             overlay = overlay.mapValues { (_, custom) -> custom.toQueryOverlay() },
-            categoryMatches = queryNode?.categoryMatches(getNovelCategories.await()).orEmpty(),
+            categoryMatches = categoryMatches,
             tracksById = uiTracks,
             trackers = scoringTrackers,
         )
@@ -323,7 +327,6 @@ class NovelLibraryViewModel(
             favoritesById = byId,
             customInfo = overlay,
             novelRoutes = routes,
-            hasActiveFilters = settings.filter.isActive,
             showContinueButton = settings.showContinue,
         )
     }
@@ -447,7 +450,6 @@ class NovelLibraryViewModel(
     private data class LibrarySettings(
         val badges: LibraryBadgePrefs,
         val showContinue: Boolean,
-        val filter: LibraryFilterSettings,
         val merge: MergeCollapseInputs<String>,
     )
 
