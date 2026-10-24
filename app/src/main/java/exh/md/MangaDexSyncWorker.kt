@@ -38,6 +38,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.mainActivityPendingIntent
 import reikai.domain.manga.AdultContentChecker
+import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.MangaLibraryAdder
@@ -50,8 +51,8 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.domain.track.interactor.UpsertTrack
+import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
 import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
@@ -79,7 +80,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
 
     @Inject private lateinit var getLibraryManga: GetLibraryManga
 
-    @Inject private lateinit var getTracks: GetTracks
+    @Inject private lateinit var getTracksInGroup: GetTracksInGroup
 
     @Inject private lateinit var upsertTrack: UpsertTrack
 
@@ -262,7 +263,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
         return SyncResult(imported, skipped, failed)
     }
 
-    // Push each library MangaDex favorite that is UNFOLLOWED on the account up as a READING follow.
+    // Push each library MangaDex favorite that is UNFOLLOWED on the account up as a follow (followToPush).
     private suspend fun pushFavorites(): SyncResult {
         if (!trackerManager.mdList.isLoggedIn) return SyncResult(0)
         val favourites = getLibraryManga.await()
@@ -277,13 +278,14 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
             val name = shownName(manga)
             showProgress(name, i, favourites.size)
             runCatchingCancellable {
-                val tracks = getTracks.await(manga.id)
-                var tracker = tracks.firstOrNull { it.trackerId == TrackerManager.MDLIST }
-                    ?: trackerManager.mdList.createInitialTracker(manga).toDomainTrack(idRequired = false)
-
-                if (tracker?.status == FollowStatus.UNFOLLOWED.long) {
-                    tracker = tracker.copy(status = FollowStatus.READING.long)
-                    val updated = trackerManager.mdList.update(tracker.toDbTrack())
+                // A binding on another member of the series counts, so a merged entry is not bound twice.
+                val bound = getTracksInGroup.await(manga.id).firstOrNull { it.trackerId == TrackerManager.MDLIST }
+                    ?: trackerManager.mdList.createInitialTracker(manga).toDomainTrack(idRequired = false)!!
+                // Read only: a refreshed row carries the account's dates and no progress, so it is never saved.
+                val account = trackerManager.mdList.refresh(bound.toDbTrack())
+                val pushing = followToPush(bound, account.status, account.score)
+                if (pushing != null) {
+                    val updated = trackerManager.mdList.update(pushing.toDbTrack())
                     upsertTrack.await(updated.toDomainTrack(idRequired = false)!!)
                     pushed++
                 }
@@ -329,4 +331,17 @@ internal fun syncDetail(summary: String, sections: List<Pair<String, List<String
         append("\n")
         append(shown.joinToString("\n"))
     }
+}
+
+/**
+ * The follow Push favorites sends for [bound], or null when the account already follows the title, so a
+ * follow set on the site is never reset. A bound row keeps its own status and rating; a fresh one follows
+ * as Reading and takes the account's rating, which the push would otherwise delete.
+ */
+internal fun followToPush(bound: Track, accountStatus: Long, accountScore: Double): Track? {
+    if (accountStatus != FollowStatus.UNFOLLOWED.long) return null
+    return bound.copy(
+        status = bound.status.takeUnless { it == FollowStatus.UNFOLLOWED.long } ?: FollowStatus.READING.long,
+        score = bound.score.takeUnless { it == 0.0 } ?: accountScore,
+    )
 }
