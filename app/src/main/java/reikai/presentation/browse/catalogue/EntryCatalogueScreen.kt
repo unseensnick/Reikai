@@ -541,35 +541,6 @@ class EntryCatalogueScreen(
         )
     }
 
-    /**
-     * A saved search: tap to apply, long-press to delete.
-     *
-     * The gesture rides the label rather than the chip's own modifier, because a chip applies its
-     * clickable inside whatever modifier it is given. That makes the chip's handler the deeper node,
-     * so a long press on the outside is swallowed before it can be seen.
-     */
-    @Composable
-    private fun SavedSearchChip(
-        selected: Boolean,
-        label: String,
-        onClick: () -> Unit,
-        onLongClick: () -> Unit,
-    ) {
-        FilterChip(
-            selected = selected,
-            onClick = onClick,
-            leadingIcon = {
-                Icon(MaterialSymbols.RoundedFilled.Bookmark, null, Modifier.size(FilterChipDefaults.IconSize))
-            },
-            label = {
-                Text(
-                    text = label,
-                    modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
-                )
-            },
-        )
-    }
-
     /** Loading, or a source that cannot serve a catalogue: a missing extension has no retry, a plugin
      *  that threw while loading does. */
     @Composable
@@ -628,4 +599,33 @@ class EntryCatalogueScreen(
 private sealed interface SavedSearchDialog {
     data object Create : SavedSearchDialog
     data class Delete(val id: Long, val name: String) : SavedSearchDialog
+}
+
+/**
+ * A saved search: tap to apply, long-press to delete.
+ *
+ * The gesture rides the label rather than the chip's own modifier, because a chip applies its
+ * clickable inside whatever modifier it is given. That makes the chip's handler the deeper node,
+ * so a long press on the outside is swallowed before it can be seen.
+ */
+@Composable
+internal fun SavedSearchChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit,
+    onLongClick: () -> Unit,
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        leadingIcon = {
+            Icon(MaterialSymbols.RoundedFilled.Bookmark, null, Modifier.size(FilterChipDefaults.IconSize))
+        },
+        label = {
+            Text(
+                text = label,
+                modifier = Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+            )
+        },
+    )
 }
