@@ -53,6 +53,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Changed
 
 - **A novel chapter you have opened before now opens without fetching it from the source again.** It is kept in the chapter cache, the same one manga uses, and Clear chapter cache empties it.
+- **With the high quality renderer, a failed page or chapter shows a Retry button, a failed page also Open in WebView, and chapter changes look as in the other reading modes (from Mihon).** Upstream: mihonapp/mihon#4146.
 
 #### Fixed
 

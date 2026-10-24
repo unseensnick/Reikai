@@ -74,7 +74,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 - `app/src/main/java/reikai/presentation/reader/settings/ReaderSettingsSheet.kt`, `app/src/main/java/reikai/presentation/reader/settings/MangaReaderSettingsPages.kt`, `app/src/main/java/reikai/presentation/reader/settings/NovelReaderSettingsPages.kt`, `app/src/main/java/reikai/presentation/reader/settings/ReaderFiltersPage.kt`.
 - `app/src/main/java/reikai/presentation/reader/ViewportAutoScroll.kt`, `app/src/main/java/reikai/presentation/reader/FrameScroller.kt`, `app/src/main/java/reikai/presentation/reader/ScrollCarry.kt`, `app/src/main/java/reikai/presentation/reader/StripAutoScroll.kt`: auto-scroll.
 - `app/src/main/java/exh/util/MangaType.kt`: `mangaType`, `defaultReaderType`.
-- `app/src/main/java/reikai/presentation/reader/WebGpuRetryRules.kt`, `app/src/main/java/reikai/presentation/reader/WebGpuPageCache.kt`, `app/src/main/java/reikai/presentation/reader/WebGpuSpreadPlaceholder.kt`: the rules the WebGPU islands call.
+- `app/src/main/java/reikai/presentation/reader/WebGpuRetryRules.kt`, `app/src/main/java/reikai/presentation/reader/WebGpuPageCache.kt`: the rules the WebGPU islands call.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/reader/loader/HttpPageLoader.kt`: parallel page loading and the limited window off Wi-Fi.
 - `app/src/main/java/reikai/domain/reader/ChapterRetryCooldown.kt`: the wait before an unprompted retry of a failed chapter, both readers.
 - `app/src/main/java/reikai/domain/reader/ReaderProgressWrites.kt`: the order progress saves land in, both readers.
