@@ -3,9 +3,11 @@ package reikai.presentation.stats
 import cafe.adriel.voyager.core.screen.Screen
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.asNovelCover
+import reikai.presentation.library.withCustomInfo
 import reikai.presentation.novel.details.NovelScreen
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.manga.model.asMangaCover
@@ -51,3 +53,12 @@ fun StatsLibrary.titleOf(member: EntryId): EntryId? = when (member) {
  */
 fun List<LibraryItem>.standingFor(titles: Set<EntryId>, titleOf: (EntryId) -> EntryId?): List<LibraryItem> =
     filter { titleOf(it.entryId) in titles }
+
+/**
+ * [this] in [comparator]'s order, then with each row's Edit info laid over it, so a custom title is drawn
+ * but sorts where the library sorts it, by the source title.
+ */
+fun List<LibraryItem>.sortedForDisplay(
+    comparator: Comparator<LibraryItem>,
+    customInfo: Map<EntryId, EntryCustomInfo>,
+): List<LibraryItem> = sortedWith(comparator).map { it.withCustomInfo(customInfo[it.entryId]) }

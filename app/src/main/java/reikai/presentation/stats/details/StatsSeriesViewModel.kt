@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
@@ -39,7 +40,6 @@ import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.mixedLibraryItemSortFields
 import reikai.presentation.library.novels.NovelLibraryRows
-import reikai.presentation.library.withCustomInfo
 import reikai.presentation.stats.ReadState
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsLibrary
@@ -50,6 +50,7 @@ import reikai.presentation.stats.dimension
 import reikai.presentation.stats.inReadState
 import reikai.presentation.stats.readState
 import reikai.presentation.stats.rows
+import reikai.presentation.stats.sortedForDisplay
 import reikai.presentation.stats.standingFor
 import reikai.presentation.stats.statsDetailsScreen
 import reikai.presentation.stats.titleOf
@@ -97,14 +98,13 @@ class StatsSeriesViewModel(
         val timeZone = TimeZone.currentSystemDefault()
         val titles = library.titles(contentType).titlesIn(key, timeZone)
         val readStates = titles.associate { it.entryId to it.readState }
-        // The display overlay the library applies at its own display read.
+        // Raw rows: the library sorts by source values and overlays Edit info only at its display read.
         val rows = (manga + novels).standingFor(readStates.keys, library::titleOf)
-            .map { it.withCustomInfo(customInfo[it.entryId]) }
         val summary = library.rows(key.dimension, contentType, StatsSort.COUNT, timeZone).firstOrNull {
             it.group.key ==
                 key
         }
-        Loaded(library, rows, readStates, summary)
+        Loaded(library, rows, customInfo, readStates, summary)
     }
 
     /** Null while the library loads. */
@@ -123,7 +123,7 @@ class StatsSeriesViewModel(
             readState = readState,
             rows = loaded.rows
                 .inReadState(readState) { loaded.library.titleOf(it)?.let(loaded.readStates::get) }
-                .sortedWith(comparator),
+                .sortedForDisplay(comparator, loaded.customInfo),
         )
     }
         .flowOn(Dispatchers.Default)
@@ -156,6 +156,7 @@ class StatsSeriesViewModel(
     private class Loaded(
         val library: StatsLibrary,
         val rows: List<LibraryItem>,
+        val customInfo: Map<EntryId, EntryCustomInfo>,
         val readStates: Map<EntryId, ReadState>,
         val summary: StatsRow?,
     )

@@ -7,9 +7,15 @@ import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
+import reikai.domain.library.librarySortComparator
+import reikai.domain.library.toSortMode
 import reikai.domain.recommendation.taste.TrackStatus
+import reikai.presentation.library.mixedLibraryItemSortFields
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.model.LibrarySort
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Instant
 
@@ -77,9 +83,24 @@ class StatsSeriesListTest {
         listOf(row(EntryId.Manga(1L)), row(EntryId.Manga(2L))).inReadState(null) { null }.size shouldBe 2
     }
 
-    private fun row(entryId: EntryId, members: List<Long> = emptyList()) = LibraryItem(
+    /** The library sorts by the source title and only draws the Edit info one, so this list must too. */
+    @Test
+    fun `a custom title is drawn but sorted by the source title`() {
+        val rows = listOf(row(EntryId.Manga(1L), title = "Beta"), row(EntryId.Manga(2L), title = "Gamma"))
+        val custom = mapOf<EntryId, EntryCustomInfo>(EntryId.Manga(1L) to CustomMangaInfo(mangaId = 1L, title = "Zeta"))
+        val alphabetical = librarySortComparator(
+            LibrarySort.Type.Alphabetical.toSortMode(),
+            true,
+            0L,
+            mixedLibraryItemSortFields { -1.0 },
+        )
+        rows.sortedForDisplay(alphabetical, custom).map { it.libraryManga.manga.title } shouldBe
+            listOf("Zeta", "Gamma")
+    }
+
+    private fun row(entryId: EntryId, members: List<Long> = emptyList(), title: String = "") = LibraryItem(
         libraryManga = LibraryManga(
-            manga = Manga.create().copy(id = entryId.rawId),
+            manga = Manga.create().copy(id = entryId.rawId, title = title),
             categories = emptyList(),
             totalChapters = 0,
             readCount = 0,
