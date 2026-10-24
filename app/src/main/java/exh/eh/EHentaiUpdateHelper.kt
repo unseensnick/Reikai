@@ -4,15 +4,15 @@ import android.content.Context
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
 import reikai.domain.library.ContentType
-import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.presentation.browse.MangaLibraryAdder
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
@@ -28,9 +28,7 @@ import tachiyomi.domain.history.model.History
 import tachiyomi.domain.history.model.HistoryUpdate
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.model.MangaUpdate
 import java.io.File
-import kotlin.time.Clock
 
 data class ChapterChain(val manga: Manga, val chapters: List<Chapter>, val history: List<History>)
 
@@ -41,15 +39,14 @@ class EHentaiUpdateHelper(
     private val getChapterByUrl: GetChapterByUrl,
     private val getChaptersByMangaId: GetChaptersByMangaId,
     private val getManga: GetManga,
-    private val updateManga: UpdateManga,
+    private val libraryAdder: MangaLibraryAdder,
+    private val removeMangaFromLibrary: RemoveMangaFromLibrary,
     private val setMangaCategories: SetMangaCategories,
     private val getCategories: GetCategories,
     private val chapterRepository: ChapterRepository,
     private val upsertHistory: UpsertHistory,
     private val removeHistory: RemoveHistory,
     private val getHistory: GetHistory,
-    // A superseded gallery is unfavorited below, which is a library removal like any other.
-    private val mangaMergeManager: MangaMergeManager,
     private val readingLog: ReadingLogRepository,
 ) {
     val parentLookupTable =
@@ -100,7 +97,6 @@ class EHentaiUpdateHelper(
         val accepted = chains.minByOrNull { it.manga.id } ?: return null
 
         val toDiscard = chains.filter { it.manga.favorite && it.manga.id != accepted.manga.id }
-        val mangaUpdates = mutableListOf<MangaUpdate>()
 
         val chainsAsChapters = chains.flatMap { it.chapters }
         val chainsAsHistory = chains.flatMap { it.history }
@@ -109,22 +105,12 @@ class EHentaiUpdateHelper(
             // Copy chain chapters to curChapters
             val (chapterUpdates, chapterRenames, newChapters) = getChapterList(accepted, toDiscard, chainsAsChapters)
 
-            // The discarded galleries leave the library, so each is handed its own copy of its group's
-            // shared tracker first; the hand-out skips non-favorites.
-            mangaMergeManager.handOutTrackersBeforeRemoval(toDiscard.map { it.manga.id })
-            toDiscard.forEach {
-                mangaUpdates += MangaUpdate(it.manga.id) {
-                    favoriteAt = null
-                }
-            }
-            if (!accepted.manga.favorite) {
-                mangaUpdates += MangaUpdate(accepted.manga.id) {
-                    favoriteAt = Clock.System.now()
-                }
-            }
+            // Through the library's own add and removal, so the source's account hears of both. The add
+            // goes first: if it fails the discarded versions stay, and nothing else is changed. The
+            // removal keeps covers, since a custom cover on a discarded version is not carried over.
+            libraryAdder.favoriteForAdd(accepted.manga.id) ?: return Triple(accepted, emptyList(), emptyList())
+            removeMangaFromLibrary.takeOut(toDiscard.map { it.manga.id })
 
-            // Apply changes to all manga
-            updateManga.awaitAll(mangaUpdates)
             chapterRepository.updateAll(chapterUpdates)
             // The stored rows, not newChapters (still id -1), go back to the caller: the update
             // notification opens, marks read and downloads them by id.
@@ -133,7 +119,8 @@ class EHentaiUpdateHelper(
                 added = newChapters,
                 updated = chapterRenames,
             )
-            val newAccepted = ChapterChain(accepted.manga, inserted, emptyList())
+            // Re-read, since the add above changed the row and callers redirect only to a favorite.
+            val newAccepted = ChapterChain(getManga.await(accepted.manga.id) ?: accepted.manga, inserted, emptyList())
             val rootsToMutate = toDiscard + newAccepted
 
             val acceptedChapters = getChaptersByMangaId.await(accepted.manga.id)
