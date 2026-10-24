@@ -62,6 +62,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
     private val turned = AtomicInteger()
     private val shownPage = AtomicReference<Pair<Int, Int>?>(null)
+    private val lastShare = AtomicReference<ChapterProgress.Percent?>(null)
     private var volumeKeys = false
     private var openedAt = 0L
 
@@ -70,7 +71,10 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     private val callbacks = NovelViewportCallbacks(
         volumeKeysActive = { volumeKeys },
-        onProgressChanged = { id, percent -> progress += id to percent.wholePercent.toInt() },
+        onProgressChanged = { id, percent ->
+            progress += id to percent.wholePercent.toInt()
+            lastShare.set(percent)
+        },
         onProgressSettled = { id, percent -> settled += id to percent.wholePercent.toInt() },
         onTopLine = { id, line -> topLines += id to line },
         onToggleMenu = {},
@@ -456,6 +460,26 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] and the next starts after it", checkNotNull(lastTopLine()) > saved)
     }
 
+    /** A reopen lands a stored share on its page by the scrolled column's measure, not by the page count. */
+    @Test
+    fun aShareSavedWhileScrollingOpensPagedOnThePageHoldingItsLine() {
+        build(NovelPageLayout.SCROLL)
+        openScrolled(1L, long("first"))
+        scrollDown(SCROLLED_DP)
+        val saved = checkNotNull(lastTopLine())
+        val share = checkNotNull(lastShare.get())
+        rebuild(NovelPageLayout.PAGED_LTR)
+        topLines.clear()
+        open(1L, long("first"), share = share)
+        val pageStart = checkNotNull(lastTopLine())
+        assertTrue(
+            "[$renderer] the page holding $saved at $share starts at or before it, at $pageStart",
+            pageStart <= saved,
+        )
+        forwardTap()
+        assertTrue("[$renderer] and the next starts after it", checkNotNull(lastTopLine()) > saved)
+    }
+
     /** The margin below a page hides the next page's first lines, links among them; a tap there turns the page. */
     @Test
     fun aTapOverAHiddenLinkBelowThePageTurnsIt() {
@@ -548,16 +572,45 @@ class PagedReadingTest(private val renderer: Renderer) {
         percent: Int = 0,
         topLine: Int? = null,
         settings: NovelReaderSettings = readerTestSettings,
+        share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(percent),
     ) {
         fits.remove(id)
         openedWith = settings
-        runBlocking(Dispatchers.Main) { viewport.load(chapter(id, html, percent, topLine), settings) }
+        runBlocking(Dispatchers.Main) { viewport.load(chapter(id, html, percent, topLine, share), settings) }
         awaitWhile { !fits.containsKey(id) }
         assertTrue("[$renderer] chapter $id never rendered", fits.containsKey(id))
         awaitWhile { !pageShown() }
         settle()
         assertTrue("[$renderer] no page shown", pageShown())
         assertWholeLines()
+    }
+
+    /** Opens [id] in a scrolling column, which draws no page and so has no mask to wait on. */
+    private fun openScrolled(id: Long, html: String) {
+        fits.remove(id)
+        runBlocking(Dispatchers.Main) { viewport.load(chapter(id, html, 0, null), readerTestSettings) }
+        awaitWhile { !fits.containsKey(id) }
+        settle()
+        assertTrue("[$renderer] chapter $id never rendered", fits.containsKey(id))
+    }
+
+    private fun scrollDown(dp: Int) {
+        when (renderer) {
+            Renderer.NATIVE -> instrumentation.runOnMainSync {
+                val px = dp * instrumentation.targetContext.resources.displayMetrics.density
+                (view as RecyclerView).scrollBy(0, px.toInt())
+            }
+            Renderer.WEB -> evalString("window.scrollBy({ top: $dp, behavior: 'instant' }); ''")
+        }
+        settle()
+        settle()
+    }
+
+    /** A new viewport in [layout], as reopening the reader in another mode builds one. */
+    private fun rebuild(layout: NovelPageLayout) {
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
+        scenario.close()
+        build(layout)
     }
 
     private fun append(id: Long, html: String) {
@@ -708,13 +761,19 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     // region plumbing
 
-    private fun chapter(id: Long, html: String, percent: Int, topLine: Int?) = NovelReaderViewModel.LoadedChapter(
+    private fun chapter(
+        id: Long,
+        html: String,
+        percent: Int,
+        topLine: Int?,
+        share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(percent),
+    ) = NovelReaderViewModel.LoadedChapter(
         chapterId = id,
         title = "Chapter $id",
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
-        progress = ChapterProgress.Percent.ofWhole(percent),
+        progress = share,
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,
@@ -812,5 +871,8 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** A saved line a little way into its page, so landing on the page's start would not pass by luck. */
         const val SAVED_LINE_INTO_PAGE = 40
+
+        /** Far enough down a chapter of [long] to sit some pages in, and no multiple of a page. */
+        const val SCROLLED_DP = 4_321
     }
 }
