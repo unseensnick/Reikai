@@ -205,8 +205,12 @@ android {
     }
 
     lint {
-        abortOnError = false
+        abortOnError = true // RK: CI runs lintDebug; only errors past the baseline fail it
         checkReleaseBuilds = false
+        // RK --> the library modules are checked through the app; see docs/dev/testing.md
+        checkDependencies = true
+        baseline = file("lint-baseline.xml")
+        // RK <--
     }
 }
 

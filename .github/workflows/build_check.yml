@@ -30,7 +30,7 @@ permissions:
   checks: write
 
 jobs:
-  # Three jobs run side by side: the tests build the debug variant and the APK the release one, so
+  # Four jobs run side by side: the tests build the debug variant and the APK the release one, so
   # they share almost no work, and one runner doing both in turn took about 21 minutes.
   checks:
     name: Checks
@@ -96,6 +96,34 @@ jobs:
           include_passed: true
           detailed_summary: true
           report_paths: '**/build/test-results/test*/TEST-*.xml'
+
+  # Android Lint over the app and, through checkDependencies, its library modules. Only an error the
+  # baseline (app/lint-baseline.xml) does not list fails it; release builds still skip lint.
+  lint:
+    name: Android Lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - name: Run Android Lint
+        run: ./gradlew :app:lintDebug
+
+      - name: Upload lint report
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: lint-report
+          path: app/build/reports/lint-results-debug.html
+          if-no-files-found: ignore
 
   build:
     name: Build app
