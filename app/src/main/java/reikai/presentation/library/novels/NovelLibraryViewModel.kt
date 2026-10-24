@@ -151,7 +151,6 @@ class NovelLibraryViewModel(
         combine(
             // No category-table input: grouping, its only reader, is LibraryEngine's, which reads the
             // table itself. Membership still reaches the filter through each row's own categories.
-            // Re-emit when sources (un)register so `sourceManager.get(...)` resolves once loaded.
             // The custom-info overlay rides with the library so a title/cover edit re-emits too.
             combine(
                 novelLibraryRows.library(),
@@ -199,7 +198,7 @@ class NovelLibraryViewModel(
 
     init {
         // Load the plugin host so the library can resolve each novel's source (lang + source-icon
-        // badges); the source flow above re-emits the build once the sources register.
+        // badges); NovelLibraryRows.library() re-emits the build once the sources register.
         viewModelScope.launchIO { runCatchingCancellable { installer.ensureLoaded() } }
         // A newly grouped entry's chapters have no cross-source identities yet, so the deduplicated
         // unread count would be wrong until something wrote them. Reconciling off the membership flow

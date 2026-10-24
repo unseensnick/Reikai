@@ -31,8 +31,9 @@ import tachiyomi.source.local.isLocal
 /**
  * Every manga in the library as the library's rows: badges, merge groups collapsed to one row, nothing
  * filtered or searched. The library filters these, and Statistics lists them as they are, so a badge or
- * a merged count reads the same on both. The novel twin is [reikai.presentation.library.novels.NovelLibraryRows],
- * pinned by MergedLibraryRowConformanceTest.
+ * a merged count reads the same on both. Twin of [reikai.presentation.library.novels.NovelLibraryRows], pinned by
+ * MergedLibraryRowConformanceTest (each type's collapse and merged-row stamp, not these classes),
+ * [LibraryBadgePrefs.badges] and [downloadedUnitsByGroup].
  */
 @Inject
 class MangaLibraryRows(

@@ -31,7 +31,8 @@ import tachiyomi.domain.library.service.LibraryPreferences
  * Every novel in the library as the library's rows: badges, merge groups collapsed to one row, nothing
  * filtered or searched. The novel library builds from [library] and [mergeInputs] through [build], since it
  * also needs the collapsed groups; Statistics takes [rows]. Twin of
- * [reikai.presentation.library.MangaLibraryRows], pinned by MergedLibraryRowConformanceTest.
+ * [reikai.presentation.library.MangaLibraryRows], pinned by MergedLibraryRowConformanceTest (each type's
+ * collapse and merged-row stamp, not these classes), [LibraryBadgePrefs.badges] and [downloadedUnitsByGroup].
  */
 @Inject
 class NovelLibraryRows(
