@@ -59,7 +59,7 @@ object SettingsBrowseScreen : SearchableSettings {
             value = SettingsMangaDexScreen.isEnabled()
         }
 
-        // RK: page previews are a source capability (four sources implement PagePreviewSource), so the
+        // RK: page previews are a source capability (a few sources implement PagePreviewSource), so the
         // row lives with sources rather than with the app-wide look in Appearance.
         val uiPreferences = remember { context.appGraph.uiPreferences }
 

@@ -102,6 +102,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 ### Browse & sources
 
+#### Added
+
+- **One more adult content source gets gallery details, searchable tags, page previews and link import once its extension is installed (from TachiyomiSY).** See the enhanced rows in the built-in sources guide.
+
 #### Changed
 
 - **An adult content source's list view now shows each gallery's artist, uploader, language, rating, page count and age beside a taller cover (ported from TachiyomiSY).**

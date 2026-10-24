@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.english.EightMuses
+import eu.kanade.tachiyomi.source.online.english.HentaiNexus
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
@@ -158,6 +159,7 @@ class LayeredMangaUpdateTest {
             Arguments.of("HentaiFox", { d: HttpSource -> HentaiFox(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("AsmHentai", { d: HttpSource -> AsmHentai(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("Koharu", { d: HttpSource -> Koharu(d, mockk(relaxed = true)) }, "{}"),
+            Arguments.of("HentaiNexus", { d: HttpSource -> HentaiNexus(d, mockk(relaxed = true)) }, "<html></html>"),
         )
 
         // The wrappers whose metadata names no title from an empty page, so the stored one stands.

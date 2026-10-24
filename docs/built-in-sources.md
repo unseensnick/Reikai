@@ -32,6 +32,7 @@ That keeps the tracker readable without turning issue titles into a list of site
 | Asm | AsmHentai | Enhanced | Adult |
 | SN  | SchaleNetwork (Koharu) | Enhanced | Adult |
 | 8M  | 8Muses | Enhanced | Adult |
+| HN  | HentaiNexus | Enhanced | Adult |
 | LRR | LANraragi | Enhanced | Adult |
 | MD  | MangaDex | Enhanced | Mainstream |
 

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-The adult-source subsystem (the `exh` packages, ported from Komikku and re-typed onto Mihon) gives a handful of gallery sites first-class treatment: E-Hentai, ExHentai, Pururin and nhentai.net ship built in, and installed extensions for nHentai, 8Muses, LANraragi, HentaiFox, AsmHentai and SchaleNetwork (Koharu) are wrapped so their galleries gain namespaced tag metadata. That metadata powers library tag search, rich browse rows and a metadata viewer. The same wrapping machinery carries the MangaDex enhanced source, which adds login, an MDList tracker and follows sync; it lives under `exh/md` for parity with Komikku, and is not adult-specific. Everything here is manga only.
+The adult-source subsystem (the `exh` packages, ported from Komikku and re-typed onto Mihon) gives a handful of gallery sites first-class treatment: E-Hentai, ExHentai, Pururin and nhentai.net ship built in, and installed extensions for nHentai, 8Muses, LANraragi, HentaiFox, AsmHentai, SchaleNetwork (Koharu) and HentaiNexus are wrapped so their galleries gain namespaced tag metadata. That metadata powers library tag search, rich browse rows and a metadata viewer. The same wrapping machinery carries the MangaDex enhanced source, which adds login, an MDList tracker and follows sync; it lives under `exh/md` for parity with Komikku, and is not adult-specific. Everything here is manga only.
 
 ## How it works
 
@@ -14,7 +14,7 @@ The adult-source subsystem (the `exh` packages, ported from Komikku and re-typed
 
 `AndroidSourceManager` (`// RK`) rebuilds its source map whenever the extensions or either gate change. With adult sources on it registers one `EHentai` per language id in `EHENTAI_EXT_SOURCES` (and `EXHENTAI_EXT_SOURCES` with ExHentai on), plus `Pururin` and `NHentaiNet`; while built-in EH is on the stock E-Hentai extension's sources are skipped (`BlacklistedSources`), since they share ids and would shadow it. `ExtensionManager` hides that extension from the list too.
 
-Every other installed source passes through `toEnhancedSource`, which looks it up in `DELEGATED_SOURCES` **by source name first**, then by qualified class name or factory package prefix, and wraps a match in `EnhancedHttpSource` over a `DelegatedHttpSource` subclass (`NHentai`, `EightMuses`, `Lanraragi`, `HentaiFox`, `AsmHentai`, `Koharu`, `MangaDex`). The match is recorded in `currentDelegatedSources`, from which `nHentaiDelegatedSourceIds` is derived, because the nHentai extension's id varies by version.
+Every other installed source passes through `toEnhancedSource`, which looks it up in `DELEGATED_SOURCES` **by source name first**, then by qualified class name or factory package prefix, and wraps a match in `EnhancedHttpSource` over a `DelegatedHttpSource` subclass (`NHentai`, `EightMuses`, `Lanraragi`, `HentaiFox`, `AsmHentai`, `Koharu`, `HentaiNexus`, `MangaDex`). The match is recorded in `currentDelegatedSources`, from which `nHentaiDelegatedSourceIds` is derived, because the nHentai extension's id varies by version.
 
 ### Metadata
 
@@ -36,7 +36,7 @@ The site's `next=` parameter is a gallery-id cursor, not a page number. `EHentai
 
 `LibraryUpdateWorker` (`// RK`) drops `LIBRARY_UPDATE_EXCLUDED_SOURCES` (every EH and ExH id, Pururin, nhentai.net) and `nHentaiDelegatedSourceIds` from the sweep, since re-fetching saved galleries on every update risks rate limits and bans.
 
-Import entry points: `InterceptActivity` opens a tapped gallery or MangaDex link, and `BatchAddScreen` adds a list of gallery URLs (`UrlImportableSource`, implemented by `EHentai`, `NHentai`, `NHentaiNet`, `EightMuses`, `Pururin` and `MangaDex`). Both resolve the link through `GalleryAdder.pickSource`, which reaches a delegate through `getMainSource`, so a delegate stops importing when delegation is off. When no source imports a tapped link, `InterceptActivity` hands it to the installed extension that also opens it, which sends the app its own search intent; with no such extension the import fails with a message. Built-in sources draw bundled logos from `BuiltInSourceLogo`.
+Import entry points: `InterceptActivity` opens a tapped gallery or MangaDex link, and `BatchAddScreen` adds a list of gallery URLs (`UrlImportableSource`, implemented by `EHentai`, `NHentai`, `NHentaiNet`, `EightMuses`, `HentaiNexus`, `Pururin` and `MangaDex`). Both resolve the link through `GalleryAdder.pickSource`, which reaches a delegate through `getMainSource`, so a delegate stops importing when delegation is off. When no source imports a tapped link, `InterceptActivity` hands it to the installed extension that also opens it, which sends the app its own search intent; with no such extension the import fails with a message. Built-in sources draw bundled logos from `BuiltInSourceLogo`.
 
 ### MangaDex enhanced source
 
@@ -95,7 +95,9 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 - **The MangaDex similar carousel is dropped.** Its only data source is frozen and unmaintained, and `/relation` returns exact relations, not discovery.
 - **Sync is a dedicated worker**, never a `LibraryUpdateWorker` target.
 - **Two Komikku debug functions are not ported.** `killSyncJobs` has no library sync to kill, and `migrateLangNhentaiToMultiLangSource` has no fixed multi-language nHentai id to move to. `addAllMangaInDatabaseToLibrary` adds through `MangaLibraryAdder`, so categories and trackers apply as for any add.
-- **Four candidate adult sites (Luscious, HentaiNexus, 3Hentai, Hitomi.la) are not wrapped**: no stock extension to wrap, or too little structured metadata.
+- **Three candidate adult sites (Luscious, 3Hentai, Hitomi.la) are not wrapped**: no stock extension to wrap, or too little structured metadata.
+- **Keiyoushi's newer extensions need no new match.** They are obfuscated and all load as `keiyoushi.source.Generated`, so TachiyomiSY added an id match; the name-first match already finds them, so it is not ported.
+- **Metadata renders through `GalleryInfoBox`, not per-source panels.** TachiyomiSY ships a description adapter per gallery site; Reikai shows a wrapper's `getExtraInfoPairs`, so a new wrapper needs no UI of its own.
 - **A link no source imports goes back to its extension, not to an error.** With delegation off the MangaDex extension's own link activity still claims the link, and handing it on gives the extension's search scoped to that title, so turning delegation off never strands a link.
 
 ## Upstream divergences
@@ -110,7 +112,7 @@ Settings, Advanced, Debugging opens Komikku's debug menu whole: `DebugFunctions`
 
 ## Tests
 
-Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `SourceHelpersTest`, `EnhancedEhViewTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexLinkImportTest`, `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
+Sources and metadata: `LayeredMangaUpdateTest`, `GalleryMangaUpdateTest`, `MetadataSourceTagSearchTest`, `SearchEngineTest`, `SearchMetadataChipsTest`, `MangaRestoreSearchMetadataTest`, `NHentaiApiTest`, `HentaiNexusTest`, `SourceHelpersTest`, `EnhancedEhViewTest`, `BuiltInSourceLogoTest`, `SourceApiContractTest`. E-Hentai account: `EHentaiUpdateHelperTest`, `EHentaiUpdateWorkerSkipTest`, `EhGalleryRemovalTest`, `EHentaiAccountBackupTest`, `ThrottleManagerTest`, `GalleryAdderTest`. MangaDex: `MangaDexLinkImportTest`, `MangaDexAuthInterceptorTest`, `MangaDexSyncDetailTest`, `MangaDexTrackCoverTest`, `MdUtilTest`. Debug: `DebugTogglesTest`, `SettingsDebugViewModelTest`, `DebugDatabaseRepositoryImplTest`.
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`.
 
