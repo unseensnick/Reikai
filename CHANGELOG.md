@@ -34,6 +34,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Changed
 
 - **Library search and grouping by tag find a merged series by a tag any of its sources gives it, unless you set its tags in Edit info.**
+- **Manga library updates now check the sources with the most series first, so a big update finishes sooner (from Mihon).** Upstream: mihon b8070cdc9.
 
 ### Reader
 
@@ -88,6 +89,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - **A Time format setting under Settings -> Appearance shows times in 12-hour or 24-hour form, or follows the system or the app's language (from Mihon).** Upstream: mihonapp/mihon#4118.
 
+#### Fixed
+
+- **The More tab's icon now animates when you leave the tab, as the other tabs do (from Mihon).** Upstream: mihon 2ca6961e1.
+
 ### Browse & sources
 
 #### Fixed
@@ -104,7 +109,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 ### Other
 
 - Added the Vico chart library, which draws the Statistics charts.
-- Updated Firebase to 35.0.2 and Kotest to 6.2.6, and took the latest translations (from Mihon).
+- Updated Firebase to 35.0.2, Kotest to 6.2.6, Gradle to 9.8.2, kotlinx.serialization to 1.12.0, AboutLibraries to 15.3.0 and the Markdown renderer to 0.46.0, and took the latest translations (from Mihon).
 - Moving between the library and a series' details does less on the main thread: each tab's icon is parsed once while the app runs, and a details page maps its chapters off the main thread.
 - The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which makes the page a third of its size.
 
