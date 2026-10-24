@@ -51,6 +51,19 @@ class StatsSeriesTest {
         series(type, mergingOn = false).titles.size shouldBe 2
     }
 
+    /** A member's sessions and its library row reach Statistics' series through this map. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `every member of a merged series maps to the series' title`(type: ContentType) = runTest {
+        series(type, mergingOn = true).titleIdByMember shouldBe mapOf(1L to 1L, 2L to 1L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `with series merging off each member maps to itself`(type: ContentType) = runTest {
+        series(type, mergingOn = false).titleIdByMember shouldBe mapOf(1L to 1L, 2L to 2L)
+    }
+
     /** Chapter totals and downloads are per-source rows and files, so they sum every member. */
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
