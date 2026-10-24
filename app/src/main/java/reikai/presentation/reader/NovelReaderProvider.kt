@@ -122,10 +122,10 @@ class NovelReaderProvider(
         viewModel.chapterNeighbours,
         novelPreferences.readerShowNavigator().changes(),
         combine(novelPreferences.readerPageLayout().changes(), shownPage) { layout, page ->
-            page.takeIf { layout.isPaged }
+            layout to page.takeIf { layout.isPaged }
         },
-    ) { percent, settings, neighbours, show, page ->
-        novelNavigatorState(percent, page, settings, show).copy(
+    ) { percent, settings, neighbours, show, (layout, page) ->
+        novelNavigatorState(percent, page, layout, settings, show).copy(
             hasPrevious = neighbours.previous != null,
             hasNext = neighbours.next != null,
         )
@@ -440,19 +440,21 @@ internal data class NovelViewportSettings(
 
 /**
  * The navigator for a novel: hundredths while scrolling, the unit the stored progress is in, on the rail or
- * slider the setting picks. Paged ([page] reported), the page and count on a horizontal slider, as manga's
- * pager draws them, the rail being for a scrolled column.
+ * slider the setting picks. Paged, the page and count on a horizontal slider, as manga's pager draws them,
+ * the rail being for a scrolled column. By [layout] as well as [page], since a paged viewport has reported
+ * no page until its first one is shown, and the rail must not flash up meanwhile.
  */
 internal fun novelNavigatorState(
     percent: Int,
     page: ChapterProgress.Pages?,
+    layout: NovelPageLayout,
     settings: NovelReaderSettings,
     show: Boolean,
 ) = ReaderNavigatorState(
     progress = page ?: ChapterProgress.Percent.ofWhole(percent),
     shape = when {
         !show -> ReaderNavigatorShape.None
-        page != null -> ReaderNavigatorShape.Slider
+        page != null || !layout.offersRail -> ReaderNavigatorShape.Slider
         settings.useRail -> ReaderNavigatorShape.Rail
         else -> ReaderNavigatorShape.Slider
     },

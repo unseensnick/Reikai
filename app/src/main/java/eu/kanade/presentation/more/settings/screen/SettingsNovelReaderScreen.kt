@@ -547,8 +547,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         // A press turns a whole page when paged, so there is no distance to choose.
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
         val useRail by novelPreferences.readerUseRail().collectAsState()
-        // Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice.
-        val railOffered = novelPreferences.readerShowNavigator().collectAsState().value && !pageLayout.isPaged
+        val railOffered = novelPreferences.readerShowNavigator().collectAsState().value && pageLayout.offersRail
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_reader_navigation),

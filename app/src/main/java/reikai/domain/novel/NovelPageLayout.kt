@@ -16,4 +16,7 @@ enum class NovelPageLayout(val titleRes: StringResource) {
     val isPaged: Boolean get() = this != SCROLL
 
     val isRtl: Boolean get() = this == PAGED_RTL
+
+    /** Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice. */
+    val offersRail: Boolean get() = !isPaged
 }

@@ -122,6 +122,7 @@ class NovelReaderProviderTest {
         val state = novelNavigatorState(
             percent = 40,
             page = ChapterProgress.Pages(lastPageRead = 3, pageCount = 9),
+            layout = NovelPageLayout.PAGED_LTR,
             settings = readerSettings(useRail = true),
             show = true,
         )
@@ -132,9 +133,29 @@ class NovelReaderProviderTest {
     @Test
     fun `scrolling, the navigator keeps the rail and the percent`() {
         val state =
-            novelNavigatorState(percent = 40, page = null, settings = readerSettings(useRail = true), show = true)
+            novelNavigatorState(
+                percent = 40,
+                page = null,
+                layout = NovelPageLayout.SCROLL,
+                settings = readerSettings(useRail = true),
+                show = true,
+            )
 
         (state.shape to state.progress) shouldBe (ReaderNavigatorShape.Rail to ChapterProgress.Percent.ofWhole(40))
+    }
+
+    /** A paged viewport reports no page until its first is shown, which a chapter too short to cut never is. */
+    @Test
+    fun `paged, the navigator is a slider before any page is reported`() {
+        val state = novelNavigatorState(
+            percent = 40,
+            page = null,
+            layout = NovelPageLayout.PAGED_LTR,
+            settings = readerSettings(useRail = true),
+            show = true,
+        )
+
+        state.shape shouldBe ReaderNavigatorShape.Slider
     }
 
     private fun readerSettings(useRail: Boolean) =

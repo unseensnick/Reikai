@@ -349,8 +349,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         label = stringResource(MR.strings.pref_show_progress_navigator),
         pref = preferences.readerShowNavigator(),
     )
-    // Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice.
-    if (showNavigator && !pageLayout.isPaged) {
+    if (showNavigator && pageLayout.offersRail) {
         CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
         val useRail by preferences.readerUseRail().collectAsState()
         if (useRail) {
