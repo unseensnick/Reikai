@@ -15,9 +15,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -246,7 +244,7 @@ class NovelTextViewportWindowTest {
         scrollToTop("current 60.")
         val line = checkNotNull(topLine)
         val drawn = drawnTopsOf("current 60.") {
-            runBlocking(Dispatchers.Main) {
+            onMain {
                 viewport.load(chapter(LONG, long("current")).copy(topLine = line), readerTestSettings)
             }
             awaitRendered(LONG)
@@ -263,7 +261,7 @@ class NovelTextViewportWindowTest {
         PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).use { server ->
             val html = "<p><img src=\"${server.url("slow", delayMs = SLOW_PICTURE_MS)}\"></p>" + long("current")
             val drawn = drawnTopsOf("current 60.") {
-                runBlocking(Dispatchers.Main) {
+                onMain {
                     viewport.load(chapter(LONG, html).copy(topLine = line), readerTestSettings)
                 }
                 Thread.sleep(SLOW_PICTURE_MS + PICTURE_SETTLE_MS)
@@ -346,7 +344,7 @@ class NovelTextViewportWindowTest {
     @Test
     fun aChapterStillRenderingWhenTheColourChangesTakesTheNewColour() {
         open(SHORT, "<p>short</p>")
-        runBlocking(Dispatchers.Main) {
+        onMain {
             val arriving = launch(start = CoroutineStart.UNDISPATCHED) {
                 viewport.append(chapter(NEXT, long("next")))
             }
@@ -473,19 +471,19 @@ class NovelTextViewportWindowTest {
         settings: NovelReaderSettings = readerTestSettings,
         isLast: Boolean = false,
     ) {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(id, html, isLast), settings)
         }
         awaitRendered(id)
     }
 
     private fun append(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.append(chapter(id, html)) }
+        onMain { viewport.append(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 
     private fun prepend(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.prepend(chapter(id, html)) }
+        onMain { viewport.prepend(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 

@@ -12,17 +12,16 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assume.assumeTrue
 import org.junit.Test
 import reikai.presentation.reader.WebViewHostActivity
+import reikai.presentation.reader.onMain
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -252,7 +251,7 @@ class NovelImageFailureTest {
                 activity.setContentView(block.container)
             }
         }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html = "<img src=\"${failing.url("retry", delayMs = RETRY_DELAY_MS)}\"><p>lorem ipsum</p>",

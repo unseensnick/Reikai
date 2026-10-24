@@ -6,10 +6,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.junit.After
@@ -88,7 +86,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
             renderer = NovelTextRenderer(activity, scope) { _, _ -> }
             activity.setContentView(block.container)
         }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html = html,
@@ -144,7 +142,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
             activity.setContentView(viewport.view)
         }
         try {
-            runBlocking(Dispatchers.Main) { viewport.load(chapter(html), readerTestSettings) }
+            onMain { viewport.load(chapter(html), readerTestSettings) }
             rendered.await(TIMEOUT_S, TimeUnit.SECONDS)
             val quoted = eval(viewport.webView, "document.querySelector('.rk-chapter[data-rk-chapter-id]').innerText")
             return lines(JSONArray("[$quoted]").getString(0))

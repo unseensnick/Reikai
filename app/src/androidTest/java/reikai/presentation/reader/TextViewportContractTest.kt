@@ -32,10 +32,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
-import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
@@ -535,9 +532,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** The WebView's load returns before its page is ready, so this question is held for the page. */
     @Test
     fun paragraphsAskedWhileTheChapterLoadsAreAnsweredOnceItHasRendered() {
-        val answer = runBlocking(Dispatchers.Main) {
+        val answer = onMain {
             viewport.load(chapter(FIRST, "<p>first a</p><p>first b</p>"), readerTestSettings)
-            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.paragraphs(FIRST) }
+            viewport.readAloud.paragraphs(FIRST)
         }
         assertEquals(listOf("first a", "first b"), answer)
     }
@@ -547,11 +544,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun paragraphsHeldForAPageStillLoadingAreAnsweredNullWhenAnotherChapterReplacesIt() {
         assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
-        val answer = runBlocking(Dispatchers.Main) {
+        val answer = onMain {
             viewport.load(chapter(FIRST, long("first")), readerTestSettings)
             val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
             viewport.load(chapter(SECOND, "<p>second</p>"), readerTestSettings)
-            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+            asked.await()
         }
         assertEquals(null, answer)
     }
@@ -560,10 +557,10 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun paragraphsThePageIsAnsweringAreAnsweredNullWhenAnotherChapterReplacesIt() {
         assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
         open(chapter(FIRST, long("first")))
-        val answer = runBlocking(Dispatchers.Main) {
+        val answer = onMain {
             val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
             viewport.load(chapter(SECOND, "<p>second</p>"), readerTestSettings)
-            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+            asked.await()
         }
         assertEquals(null, answer)
     }
@@ -572,11 +569,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun paragraphsThePageIsAnsweringAreAnsweredNullWhenTheViewportIsDestroyed() {
         assumeTrue("only the page answers asynchronously", renderer == Renderer.WEB)
         open(chapter(FIRST, long("first")))
-        val answer = runBlocking(Dispatchers.Main) {
+        val answer = onMain {
             val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
             (viewport as ReaderViewport).destroy()
             destroyed = true
-            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+            asked.await()
         }
         assertEquals(null, answer)
     }
@@ -595,11 +592,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun paragraphsAskedDuringATextSizeDragAreAnsweredOnceTheLastStepHasRedrawn() {
         open(chapter(FIRST, "<p>one</p><p>two</p>"))
-        val answer = runBlocking(Dispatchers.Main) {
+        val answer = onMain {
             viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 2))
             val asked = async(start = CoroutineStart.UNDISPATCHED) { viewport.readAloud.paragraphs(FIRST) }
             viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 4))
-            withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { asked.await() }
+            asked.await()
         }
         assertEquals(listOf("one", "two"), answer)
     }
@@ -986,7 +983,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun aChapterOpenedBeforeItCanBeLaidOutLandsAtItsSavedPositionOnceItCan() {
         setViewHeight(0)
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(FIRST, long("first"), progressPercent = SAVED_PERCENT), readerTestSettings)
         }
         instrumentation.waitForIdleSync()
@@ -1034,7 +1031,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val picture = PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).also { server = it }
         val html = "<p><img src=\"${picture.url("slow", delayMs = SLOW_PICTURE_MS)}\"></p>" + long("first")
         topLines.clear()
-        runBlocking(Dispatchers.Main) { viewport.load(chapter(FIRST, html).copy(topLine = line), readerTestSettings) }
+        onMain { viewport.load(chapter(FIRST, html).copy(topLine = line), readerTestSettings) }
         Thread.sleep(BEFORE_PICTURE_MS)
         val beforePicture = topLines.lastOrNull { it.first == FIRST }?.second
         Thread.sleep(SLOW_PICTURE_MS)
@@ -1172,7 +1169,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
             "the page holds a settings push until it is ready, which is after its landing, so none is pending",
             renderer == Renderer.NATIVE,
         )
-        runBlocking(Dispatchers.Main) { viewport.load(illustratedChapter(SAVED_PERCENT), readerTestSettings) }
+        onMain { viewport.load(illustratedChapter(SAVED_PERCENT), readerTestSettings) }
         instrumentation.runOnMainSync { viewport.applySettings(readerTestSettings.copy(fontSize = LARGER_FONT)) }
         awaitIllustratedLanding()
         assertEquals(SAVED_PERCENT.toFloat(), landedPercent(), LANDING_SLACK_PERCENT)
@@ -1185,7 +1182,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
      */
     @Test
     fun aReaderWhoScrollsBeforeThePicturesArriveIsNotMovedBackWhenTheyDo() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(SAVED_PERCENT, STALLED_IMAGE_DELAYS_MS), readerTestSettings)
         }
         awaitWhile { !textShown() }
@@ -1213,7 +1210,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
      */
     @Test
     fun aFootnoteTapWhileTheSavedPlaceWaitsForPicturesIsHeld() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(
                 illustratedChapter(
                     SAVED_PERCENT,
@@ -1269,7 +1266,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun aSavedPlaceLandsWithinTheImageWaitWhenAPictureNeverArrives() {
         val openedAt = SystemClock.uptimeMillis()
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(SAVED_PERCENT, held = true), readerTestSettings)
         }
         awaitWhile { reports.none { it.chapterId == FIRST } }
@@ -1297,7 +1294,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** The veil over a saved place still waiting for its pictures holds touches, which would cancel the landing. */
     @Test
     fun aTapWhileASavedPlaceWaitsForItsPicturesIsHeld() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(SAVED_PERCENT, held = true), readerTestSettings)
         }
         awaitWhile { !textShown() }
@@ -1310,7 +1307,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun anIllustratedChapterSaysNothingAboutItsEndWhileItsPicturesLoad() {
         val pictures = PngServer(pngOf(400, 1600), held = true).also { server = it }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${pictures.url}\">"), readerTestSettings)
         }
         awaitWhile { !textShown() }
@@ -1327,7 +1324,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     @Test
     fun anIllustratedChapterSaysWhetherItFitsOnlyOnceItsPicturesArrive() {
         val pictures = PngServer(pngOf(400, 1600), held = true).also { server = it }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${pictures.url}\">"), readerTestSettings)
         }
         awaitWhile { !textShown() }
@@ -1347,7 +1344,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     fun aFailedPictureAboveTheTopLineAddsNothingToItsCount() {
         val picture = PngServer(pngOf(SMALL_IMAGE_PX, SMALL_IMAGE_PX), failFirst = Int.MAX_VALUE, held = true)
             .also { server = it }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(
                 chapter(FIRST, "<p>$SHORT_PARAGRAPH</p><img src=\"${picture.url}\">" + long("first")),
                 readerTestSettings,
@@ -2075,7 +2072,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     }
 
     private fun assertTopLineHeldAsPicturesArrive() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(0, held = true), readerTestSettings)
         }
         awaitWhile { !textShown() }
@@ -2106,7 +2103,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** A picture shows once it arrives, as the page shows it, rather than once the slowest one has. */
     @Test
     fun aPictureThatHasArrivedIsDrawnWhileASlowerOneIsStillLoading() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(0, delaysMs = ONE_SLOW_PICTURE_DELAYS_MS), readerTestSettings)
         }
         awaitWhile { firstImageWidth() == 0f }
@@ -2117,7 +2114,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** Drawn before its line was measured for it, an arrived picture spilled over the boxes still loading. */
     @Test
     fun aPictureThatHasArrivedTakesItsOwnHeightWhileASlowerOneIsStillLoading() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(illustratedChapter(0, delaysMs = ONE_SLOW_PICTURE_DELAYS_MS), readerTestSettings)
         }
         awaitWhile { firstImageWidth() == 0f }
@@ -2600,14 +2597,9 @@ class TextViewportContractTest(private val renderer: Renderer) {
         return (-top).coerceIn(0f, height - viewport) / (height - viewport) * 100f
     }
 
-    /** Bounded, since the web renderer answers only once the page does, and a page that never does would hang. */
-    private fun paragraphs(chapterId: Long): List<String>? = runBlocking(Dispatchers.Main) {
-        withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.paragraphs(chapterId) }
-    }
+    private fun paragraphs(chapterId: Long): List<String>? = onMain { viewport.readAloud.paragraphs(chapterId) }
 
-    private fun firstVisibleParagraph(): ReadAloudPosition? = runBlocking(Dispatchers.Main) {
-        withTimeout(TimeUnit.SECONDS.toMillis(TIMEOUT_S)) { viewport.readAloud.firstVisibleParagraph() }
-    }
+    private fun firstVisibleParagraph(): ReadAloudPosition? = onMain { viewport.readAloud.firstVisibleParagraph() }
 
     private fun highlight(position: ReadAloudPosition?, range: IntRange? = null) {
         instrumentation.runOnMainSync { viewport.readAloud.highlight(position, range) }
@@ -3057,7 +3049,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** Opens [chapter] and waits for its first fit report, each renderer's sign that it has rendered.
      *  Asserted, since a case that expects nothing to happen would otherwise pass on a blank screen. */
     private fun open(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings = readerTestSettings) {
-        runBlocking(Dispatchers.Main) { viewport.load(chapter, settings) }
+        onMain { viewport.load(chapter, settings) }
         awaitWhile { !fits.containsKey(chapter.chapterId) }
         assertTrue("chapter ${chapter.chapterId} never rendered", fits.containsKey(chapter.chapterId))
         settle()
@@ -3068,13 +3060,13 @@ class TextViewportContractTest(private val renderer: Renderer) {
      *  for: native lays out nothing entirely above the screen, so a long chapter there sends none. */
     private fun prepend(chapter: NovelReaderViewModel.LoadedChapter) {
         val before = chapterCount()
-        runBlocking(Dispatchers.Main) { viewport.window.prepend(chapter) }
+        onMain { viewport.window.prepend(chapter) }
         awaitChapters(before + 1)
     }
 
     private fun append(chapter: NovelReaderViewModel.LoadedChapter) {
         val before = chapterCount()
-        runBlocking(Dispatchers.Main) { viewport.window.append(chapter) }
+        onMain { viewport.window.append(chapter) }
         awaitChapters(before + 1)
     }
 

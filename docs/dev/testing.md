@@ -159,7 +159,9 @@ Not covered yet, among the larger surfaces: details, the library grid and lists,
 `app/src/androidTest` holds the reader and WebView tests that need real views, layout passes or a real
 WebView, plus the headless LN-plugin host test; `data/src/androidTest` holds `ForeignKeyEnforcementTest`,
 which opens the driver with production's `sqlDriverConfiguration`. Both use `AndroidJUnitRunner`. These
-may use `runBlocking`, bounded by real timeouts.
+may use `runBlocking`, bounded by real timeouts. A reader test calls a viewport or renderer on the main
+thread through `onMain` (`ReaderTestFixtures.kt`), which bounds the wait, rather than a bare
+`runBlocking(Dispatchers.Main)`.
 
 Prefer installing and instrumenting over `connectedAndroidTest`, which uninstalls the app (and its
 library) afterwards and cannot fetch its UTP artifacts offline:

@@ -13,8 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.junit.After
@@ -158,7 +156,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         open(1L, long("first"))
         repeat(5) { forwardTap() }
         val character = checkNotNull(lastTopLine())
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6))
         }
         settle()
@@ -524,7 +522,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         build(NovelPageLayout.PAGED_LTR)
         openJoining(2L, percent = 50)
 
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.window.prepend(chapter(1L, long("first"), 0, null))
             viewport.window.setPreviousJoining(false)
         }
@@ -543,7 +541,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         fits.remove(id)
         // Before load, which starts the veil's cap, so the cap cannot fire before openedAt + VEIL_CAP_MS.
         openedAt = SystemClock.uptimeMillis()
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(id, long("second"), percent, null), readerTestSettings)
             viewport.window.setPreviousJoining(true)
         }
@@ -576,7 +574,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     ) {
         fits.remove(id)
         openedWith = settings
-        runBlocking(Dispatchers.Main) { viewport.load(chapter(id, html, percent, topLine, share), settings) }
+        onMain { viewport.load(chapter(id, html, percent, topLine, share), settings) }
         awaitWhile { !fits.containsKey(id) }
         assertTrue("[$renderer] chapter $id never rendered", fits.containsKey(id))
         awaitWhile { !pageShown() }
@@ -588,7 +586,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     /** Opens [id] in a scrolling column, which draws no page and so has no mask to wait on. */
     private fun openScrolled(id: Long, html: String) {
         fits.remove(id)
-        runBlocking(Dispatchers.Main) { viewport.load(chapter(id, html, 0, null), readerTestSettings) }
+        onMain { viewport.load(chapter(id, html, 0, null), readerTestSettings) }
         awaitWhile { !fits.containsKey(id) }
         settle()
         assertTrue("[$renderer] chapter $id never rendered", fits.containsKey(id))
@@ -614,7 +612,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     private fun append(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.window.append(chapter(id, html, 0, null)) }
+        onMain { viewport.window.append(chapter(id, html, 0, null)) }
         awaitWhile { !fits.containsKey(id) }
         settle()
     }
