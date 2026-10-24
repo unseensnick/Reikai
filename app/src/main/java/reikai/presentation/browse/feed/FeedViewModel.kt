@@ -33,6 +33,7 @@ import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.MangaAddFlow
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.fillEntryRows
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
@@ -135,7 +136,7 @@ class FeedViewModel(
                 row = row?.copy(id = feed.id.toString(), name = search?.name ?: row.name)
                     ?: unavailableRow(feed, search, sourceName),
                 sourceName = sourceName,
-                supportsLatest = row != null && provider.supportsLatest(row),
+                listing = row?.let { provider.listing(it) },
             )
         }
         mutableState.update { it.copy(entries = entries, loaded = true) }
@@ -195,7 +196,7 @@ class FeedViewModel(
             val searches = savedSearchRepository.getBySource(source.key)
             val provider = providers.first { it.contentType == source.key.contentType }
             mutableState.update {
-                it.copy(dialog = FeedDialog.PickSearch(source, searches, provider.supportsLatest(source)))
+                it.copy(dialog = FeedDialog.PickSearch(source, searches, provider.listing(source)))
             }
         }
     }
@@ -255,8 +256,8 @@ data class FeedEntry(
     val row: BrowseSearchRow,
     /** Named separately because a saved-search row is titled by the search, not by its source. */
     val sourceName: String,
-    /** Where opening this row lands: its Latest, or Popular where the source has no latest. */
-    val supportsLatest: Boolean,
+    /** What the row shows without a saved search, and where opening it lands; null once its source is gone. */
+    val listing: EntryBrowseListing?,
 )
 
 @Immutable
@@ -276,7 +277,7 @@ sealed interface FeedDialog {
         val source: BrowseSearchRow,
         val searches: List<SavedSearch>,
         /** Names the plain-listing option for what it will show, Latest or Popular. */
-        val supportsLatest: Boolean,
+        val listing: EntryBrowseListing,
     ) : FeedDialog
     data class Remove(val entry: FeedEntry) : FeedDialog
     data object TooManyRows : FeedDialog

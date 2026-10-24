@@ -19,6 +19,7 @@ import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.listedNovels
+import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
@@ -54,8 +55,15 @@ interface FeedProvider {
     /** The name [key]'s source was stored with, for a row whose source is no longer installed. */
     suspend fun missingName(key: SourceKey): String
 
-    /** Whether the source behind [row] can serve a Latest listing, which decides where a tap lands. */
+    /** Whether the source behind [row] can serve a Latest listing. */
     fun supportsLatest(row: BrowseSearchRow): Boolean
+
+    /**
+     * The listing a row with no saved search shows, and so where its picker label and its tap point:
+     * Latest, falling back to Popular where the source has no latest listing.
+     */
+    fun listing(row: BrowseSearchRow): EntryBrowseListing =
+        if (supportsLatest(row)) EntryBrowseListing.Latest else EntryBrowseListing.Popular
 
     /**
      * Page one of what the row shows: [savedSearch] when it carries one, else the source's Latest,
@@ -101,7 +109,7 @@ class MangaFeedProvider(
                 savedSearch.query.orEmpty(),
                 filters.restore(savedSearch.filtersJson, source::getFilterList),
             )
-            source.supportsLatest -> source.getLatestUpdates(1)
+            listing(row) == EntryBrowseListing.Latest -> source.getLatestUpdates(1)
             else -> source.getPopularManga(1)
         }
         return storedMangaRows(page, source.id, networkToLocalManga, getManga)
@@ -143,14 +151,18 @@ class NovelFeedProvider(
 
     override suspend fun load(row: BrowseSearchRow, savedSearch: SavedSearch?): List<EntryBrowseRow> {
         val source = row.source as NovelSource
-        return page(source, savedSearch).map { novelBrowseRow(it, source.id, favorited) }
+        return page(source, listing(row), savedSearch).map { novelBrowseRow(it, source.id, favorited) }
     }
 
-    private suspend fun page(source: NovelSource, savedSearch: SavedSearch?): List<NovelItem> {
+    private suspend fun page(
+        source: NovelSource,
+        listing: EntryBrowseListing,
+        savedSearch: SavedSearch?,
+    ): List<NovelItem> {
         val defaults = source.filters?.defaultState()
         if (savedSearch == null) {
-            val listing = if (source.supportsLatest) NovelListing.Latest else NovelListing.Popular
-            return source.browse(listing, page = 1, defaults).listedNovels()
+            val novelListing = if (listing == EntryBrowseListing.Latest) NovelListing.Latest else NovelListing.Popular
+            return source.browse(novelListing, page = 1, defaults).listedNovels()
         }
         val stored = source.filters?.let { filters.restore(savedSearch.filtersJson, it::defaultState) }
         return when (val run = NovelSavedSearchRun.of(source.filters?.applyToSearch == true, savedSearch.query)) {

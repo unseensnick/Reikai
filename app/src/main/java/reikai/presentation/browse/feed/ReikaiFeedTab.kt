@@ -31,6 +31,7 @@ import mihon.icons.materialsymbols.rounded.SelectAll
 import reikai.presentation.browse.EntryAddDialogs
 import reikai.presentation.browse.MixedBulkSelection
 import reikai.presentation.browse.SearchResultSection
+import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.BulkSelectionToolbar
@@ -192,7 +193,8 @@ private fun Screen.FeedContent(
                                     sourceKey = entry.row.key,
                                     // Where the row's own results came from, so opening it shows
                                     // more of the same rather than an unrelated listing.
-                                    startLatest = entry.savedSearch == null && entry.supportsLatest,
+                                    startLatest =
+                                    entry.savedSearch == null && entry.listing == EntryBrowseListing.Latest,
                                     savedSearchId = entry.savedSearch?.id,
                                 ),
                             )
@@ -224,7 +226,7 @@ private fun FeedDialogs(dialog: FeedDialog?, model: FeedViewModel) {
         is FeedDialog.PickSearch -> FeedSearchPickerDialog(
             source = dialog.source,
             searches = dialog.searches,
-            supportsLatest = dialog.supportsLatest,
+            listing = dialog.listing,
             onDismissRequest = model::dismissDialog,
             onPick = { search -> model.add(dialog.source, search) },
         )
