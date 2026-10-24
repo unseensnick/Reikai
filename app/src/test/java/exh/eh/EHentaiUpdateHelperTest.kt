@@ -140,6 +140,16 @@ class EHentaiUpdateHelperTest {
     }
 
     @Test
+    @DisplayName("the categories a reconcile hands the accepted version reach the rest of its group")
+    fun acceptedCategoriesReachItsGroup(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = true, groupOfAccepted = listOf(1L, 5L))
+
+        reconcile.run(newerVersion)
+
+        reconcile.library.filed.getValue(5L).toSet() shouldBe setOf(1L, 2L)
+    }
+
+    @Test
     @DisplayName("a discarded version's reading time moves to the chapter the merge inserts")
     fun readingTimeMovesToInsertedChapter(@TempDir dir: File) = runTest {
         val reconcile = Reconcile(dir, acceptedInLibrary = true)
@@ -165,11 +175,10 @@ class EHentaiUpdateHelperTest {
      * chapter read answers, as the database would.
      */
     private inner class Reconcile(dir: File, acceptedInLibrary: Boolean, groupOfAccepted: List<Long> = listOf(1L)) {
-        val library = FakeMangaLibrary(
-            mergeManager = fakeGrouping<MangaMergeManager>().apply {
-                coEvery { computeRelatedIds(1L) } returns groupOfAccepted.toLongArray()
-            },
-        ).apply {
+        private val mergeManager = fakeGrouping<MangaMergeManager>().apply {
+            coEvery { computeRelatedIds(1L) } returns groupOfAccepted.toLongArray()
+        }
+        val library = FakeMangaLibrary(mergeManager = mergeManager).apply {
             put(1L, favorite = acceptedInLibrary, categories = listOf(1L))
             put(2L, favorite = true, categories = listOf(2L))
             groupOfAccepted.drop(1).forEach { put(it, favorite = true, categories = listOf(3L)) }
@@ -216,6 +225,7 @@ class EHentaiUpdateHelperTest {
                 upsertHistory = UpsertHistory(historyRepository),
                 removeHistory = RemoveHistory(historyRepository),
                 getHistory = GetHistory(historyRepository),
+                mangaMergeManager = mergeManager,
                 readingLog = readingLog,
             )
             return helper.findAcceptedRootAndDiscardOthers(FakeMangaLibrary.SOURCE_ID, listOf(stored, other))

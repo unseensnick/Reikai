@@ -10,6 +10,8 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.JsonObject
 import mihon.core.common.extensions.EMPTY
 import reikai.domain.library.ContentType
+import reikai.domain.manga.MangaGroupCategories
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.presentation.browse.MangaLibraryAdder
@@ -41,14 +43,17 @@ class EHentaiUpdateHelper(
     private val getManga: GetManga,
     private val libraryAdder: MangaLibraryAdder,
     private val removeMangaFromLibrary: RemoveMangaFromLibrary,
-    private val setMangaCategories: SetMangaCategories,
+    setMangaCategories: SetMangaCategories,
     private val getCategories: GetCategories,
     private val chapterRepository: ChapterRepository,
     private val upsertHistory: UpsertHistory,
     private val removeHistory: RemoveHistory,
     private val getHistory: GetHistory,
+    private val mangaMergeManager: MangaMergeManager,
     private val readingLog: ReadingLogRepository,
 ) {
+    private val groupCategories = MangaGroupCategories(getCategories, setMangaCategories)
+
     val parentLookupTable =
         MemAutoFlushingLookupTable(
             File(context.filesDir, "exh-plt.maftable"),
@@ -152,7 +157,7 @@ class EHentaiUpdateHelper(
                 getCategories.await(chapterChain.manga.id).map { it.id }
             }.distinct()
             rootsToMutate.forEach {
-                setMangaCategories.await(it.manga.id, newCategories)
+                groupCategories.set(it.manga.id, newCategories, mangaMergeManager)
             }
 
             Triple(newAccepted, toDiscard, inserted)
