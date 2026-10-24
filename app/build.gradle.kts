@@ -411,7 +411,6 @@ dependencies {
 
     // RK: screenshot comparison for the Compose UI tests, see docs/dev/testing.md
     testImplementation(libs.roborazzi)
-    testImplementation(libs.roborazzi.compose)
 }
 
 composeUiTests() // RK

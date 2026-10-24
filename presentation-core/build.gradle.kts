@@ -44,10 +44,7 @@ dependencies {
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
 
-    // RK -->
-    testImplementation(libs.bundles.test)
-    testRuntimeOnly(libs.junit.platform.launcher)
-    // RK <--
+    testRuntimeOnly(libs.junit.platform.launcher) // RK
 }
 
 composeUiTests() // RK

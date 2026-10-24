@@ -718,17 +718,6 @@
 
     <issue
         id="NewerVersionAvailable"
-        message="A newer version of io.github.takahirom.roborazzi:roborazzi-compose than 1.76.0 is available: 1.77.0"
-        errorLine1="roborazzi = &quot;1.76.0&quot;"
-        errorLine2="            ~~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="71"
-            column="13"/>
-    </issue>
-
-    <issue
-        id="NewerVersionAvailable"
         message="A newer version of io.github.pdvrieze.xmlutil:core-android than 1.0.2 is available: 1.0.2.1"
         errorLine1="xmlutil = &quot;1.0.2&quot;"
         errorLine2="          ~~~~~~~">
