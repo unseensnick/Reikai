@@ -6,10 +6,9 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.lang.Hash
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import okhttp3.Request
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
 import java.nio.file.Files
@@ -28,7 +27,7 @@ class LnPluginLoader(
     private val networkHelper: NetworkHelper,
 ) {
     /** The script [url] serves now. Stores nothing: the caller decides whether it becomes installed. */
-    suspend fun download(url: String): String = withContext(Dispatchers.IO) {
+    suspend fun download(url: String): String = withIOContext {
         logcat(LogPriority.INFO) { "downloading plugin from $url" }
         val req = Request.Builder()
             .url(url)
@@ -46,22 +45,22 @@ class LnPluginLoader(
     }
 
     /** The installed script for [url], or null when there is none to load. */
-    suspend fun installed(url: String): String? = withContext(Dispatchers.IO) {
+    suspend fun installed(url: String): String? = withIOContext {
         val file = fileFor(url)
         if (!file.exists()) adoptCachedScript(file)
-        if (!file.exists()) return@withContext null
+        if (!file.exists()) return@withIOContext null
         val script = file.readText()
         // Written whole since scripts left the cache folder, but one adopted from there can be a partial
         // download. The compiled plugin always carries its default export, so without it nothing loads.
         if (!script.contains(PLUGIN_EXPORT_MARKER)) {
             logcat(LogPriority.WARN) { "installed plugin ${file.name} looks truncated for $url" }
-            return@withContext null
+            return@withIOContext null
         }
         script
     }
 
     /** Makes [script] the installed one for [url], replacing the file whole so a crash can't leave half. */
-    suspend fun store(url: String, script: String): Unit = withContext(Dispatchers.IO) {
+    suspend fun store(url: String, script: String): Unit = withIOContext {
         val file = fileFor(url)
         // Named apart per write: a self-heal load and a reinstall can store one plugin at once.
         val partial = File.createTempFile(file.name, ".tmp", file.parentFile)
@@ -74,18 +73,18 @@ class LnPluginLoader(
         }
     }
 
-    suspend fun delete(url: String) = withContext(Dispatchers.IO) {
+    suspend fun delete(url: String) = withIOContext {
         fileFor(url).delete()
         fileFor(url, STYLESHEET_EXTENSION).delete()
     }
 
     /** The chapter stylesheet stored for the plugin at [url], or null when it ships none. */
-    suspend fun installedStylesheet(url: String): String? = withContext(Dispatchers.IO) {
+    suspend fun installedStylesheet(url: String): String? = withIOContext {
         fileFor(url, STYLESHEET_EXTENSION).takeIf { it.exists() }?.readText()
     }
 
     /** Makes [css] the plugin's chapter stylesheet, or removes the stored one when it ships none. */
-    suspend fun storeStylesheet(url: String, css: String?): Unit = withContext(Dispatchers.IO) {
+    suspend fun storeStylesheet(url: String, css: String?): Unit = withIOContext {
         val file = fileFor(url, STYLESHEET_EXTENSION)
         if (css == null) file.delete() else file.writeText(css)
     }
