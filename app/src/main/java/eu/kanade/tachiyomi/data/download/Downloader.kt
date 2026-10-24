@@ -514,7 +514,8 @@ class Downloader(
                 pageList.forEach { page ->
                     slots.acquire()
                     // Released on completion, since a page canceled before it starts never runs its body
-                    launch(Dispatchers.IO) {
+                    // RK: coroutine helper in place of upstream's raw dispatcher
+                    launchIO {
                         // Fetch image URL if necessary
                         if (page.imageUrl.isNullOrEmpty()) {
                             page.status = Page.State.LoadPage

@@ -55,7 +55,6 @@ import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
@@ -65,6 +64,7 @@ import reikai.domain.library.LibraryExportRow
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
+import tachiyomi.core.common.util.lang.launchUI
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
@@ -403,7 +403,8 @@ object SettingsDataScreen : SearchableSettings {
                         favorites = favorites,
                         options = exportOptions,
                         onExportComplete = {
-                            scope.launch(Dispatchers.Main) {
+                            // RK: coroutine helper in place of upstream's raw dispatcher
+                            scope.launchUI {
                                 context.toast(MR.strings.library_exported)
                             }
                         },
