@@ -72,31 +72,19 @@ class StatsReadingViewModel(
     private val covers = MutableStateFlow<Map<EntryId, Any>>(emptyMap())
     private val view = MutableStateFlow(View(ReadingWindow.week(today), selected = null))
 
-    /** Null while the library loads. */
-    val state: StateFlow<StatsReadingState?> = combine(
+    // Each day's time per series and each series' name, over the whole log: rebuilt only when the log or the
+    // content type changes, so a bar tap or a step only slices it.
+    private val byDayAndNames = combine(
         library.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
-        view,
-        covers,
-    ) { library, type, view, covers ->
+    ) { library, type ->
         val sessions = library.sessions(type)
-        val byDay = readingTimeByDayAndTitle(sessions, timeZone)
-        val names = sessions.associate { it.entryId to it.name }
-        val bars = view.window.bars { byDay[it].orEmpty().values.sum() }
-        val selected = bars.firstOrNull { it.first == view.selected }
-        val dates = selected?.let { ReadingWindow(view.window.period, it.first, it.last) } ?: view.window
-        val byTitle = mutableMapOf<EntryId, Long>()
-        dates.days().forEach { day -> byDay[day]?.forEach { (id, ms) -> byTitle[id] = (byTitle[id] ?: 0L) + ms } }
-        StatsReadingState(
-            window = view.window,
-            bars = bars,
-            selected = selected,
-            titles = byTitle
-                .mapNotNull { (entryId, ms) -> names[entryId]?.let { ReadTitle(entryId, it, ms, covers[entryId]) } }
-                .sortedByDescending { it.readMs },
-            canMoveForward = view.window.last < today,
-            today = today,
-        )
+        readingTimeByDayAndTitle(sessions, timeZone) to sessions.associate { it.entryId to it.name }
+    }
+
+    /** Null while the library loads. */
+    val state: StateFlow<StatsReadingState?> = combine(byDayAndNames, view, covers) { (byDay, names), view, covers ->
+        readingState(byDay, names, view.window, view.selected, covers, today)
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -128,4 +116,33 @@ class StatsReadingViewModel(
     suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
 
     private data class View(val window: ReadingWindow, val selected: LocalDate?)
+}
+
+/**
+ * The reading-time screen over [window], its list narrowed to the [selected] bar's dates when one is picked.
+ * [byDay] and [names] cover the whole log, keyed by the series each session counts under.
+ */
+internal fun readingState(
+    byDay: Map<LocalDate, Map<EntryId, Long>>,
+    names: Map<EntryId, String>,
+    window: ReadingWindow,
+    selected: LocalDate?,
+    covers: Map<EntryId, Any>,
+    today: LocalDate,
+): StatsReadingState {
+    val bars = window.bars { byDay[it].orEmpty().values.sum() }
+    val selectedBar = bars.firstOrNull { it.first == selected }
+    val dates = selectedBar?.let { ReadingWindow(window.period, it.first, it.last) } ?: window
+    val byTitle = mutableMapOf<EntryId, Long>()
+    dates.days().forEach { day -> byDay[day]?.forEach { (id, ms) -> byTitle[id] = (byTitle[id] ?: 0L) + ms } }
+    return StatsReadingState(
+        window = window,
+        bars = bars,
+        selected = selectedBar,
+        titles = byTitle
+            .mapNotNull { (entryId, ms) -> names[entryId]?.let { ReadTitle(entryId, it, ms, covers[entryId]) } }
+            .sortedByDescending { it.readMs },
+        canMoveForward = window.last < today,
+        today = today,
+    )
 }
