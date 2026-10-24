@@ -117,7 +117,8 @@ class NovelReaderProvider(
     private val shownPage = MutableStateFlow<ChapterProgress.Pages?>(null)
 
     override val navigator: Flow<ReaderNavigatorState> = combine(
-        viewModel.progressPercent,
+        // In whole percents, as the navigator labels them, rather than a state on every scroll frame.
+        viewModel.progress.map { it.wholePercent.toInt() }.distinctUntilChanged(),
         viewModel.settings,
         viewModel.chapterNeighbours,
         novelPreferences.readerShowNavigator().changes(),

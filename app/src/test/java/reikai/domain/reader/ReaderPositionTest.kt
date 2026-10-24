@@ -214,15 +214,22 @@ class ReaderPositionTest {
     }
 
     // Both novel renderers report a scroll fraction through this one rounding, which decides when the
-    // completion threshold is reached.
+    // completion threshold is reached and where a reopen lands.
 
     @Test
-    fun `a scroll fraction reports the nearest whole percent`() {
-        ChapterProgress.Percent.wholeOf(0.966) shouldBe 97
+    fun `a scroll fraction reports the hundredth below it`() {
+        ChapterProgress.Percent.of(0.96669) shouldBe ChapterProgress.Percent(hundredths = 9666)
+    }
+
+    /** A paged share goes out to the page and comes back as a double, which can land a hair under it. */
+    @Test
+    fun `a hundredth echoed back through a double reads as itself`() {
+        ChapterProgress.Percent.of(1234.0 / 10_000 - 1e-13) shouldBe ChapterProgress.Percent(hundredths = 1234)
     }
 
     @Test
     fun `a scroll fraction past either end reports the end`() {
-        listOf(ChapterProgress.Percent.wholeOf(-0.2), ChapterProgress.Percent.wholeOf(1.3)) shouldBe listOf(0, 100)
+        listOf(ChapterProgress.Percent.of(-0.2), ChapterProgress.Percent.of(1.3)) shouldBe
+            listOf(ChapterProgress.Percent(0), ChapterProgress.Percent.END)
     }
 }

@@ -621,10 +621,15 @@
         }
       });
       var m = margins();
+      var text = el.getBoundingClientRect();
       return {
         bands: bands,
         height: item.bottom - item.top,
         contentHeight: viewportHeight() - m.top - m.bottom,
+        // The chapter's own top in its item and its scroll range, the two state() measures a scroll
+        // position against, so a page's share reopens the same while scrolling.
+        textTop: text.top + y - item.top,
+        scrollable: text.height - viewportHeight(),
       };
     }
 

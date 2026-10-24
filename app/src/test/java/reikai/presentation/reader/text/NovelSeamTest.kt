@@ -3,6 +3,7 @@ package reikai.presentation.reader.text
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.NovelReaderViewModel.LoadedChapter
 
 /**
@@ -136,7 +137,7 @@ class NovelSeamTest {
         url = "",
         html = "",
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = number,
         novelId = novelId,
         sourceId = null,

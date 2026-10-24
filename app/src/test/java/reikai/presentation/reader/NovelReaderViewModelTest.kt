@@ -20,6 +20,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
 import kotlin.time.Clock
@@ -241,8 +242,8 @@ class NovelReaderViewModelTest {
         model.rendererLanded(model.window.value.generation)
 
         // An earlier chapter's first report is where the landing put the reader; a second that moved is theirs.
-        model.saveProgress(previous.id, 40)
-        model.saveProgress(previous.id, 45)
+        model.saveProgress(previous.id, ChapterProgress.Percent.ofWhole(40))
+        model.saveProgress(previous.id, ChapterProgress.Percent.ofWhole(45))
         advanceUntilIdle()
 
         harness.progressOf(previous) shouldBe 0L

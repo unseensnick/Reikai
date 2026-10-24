@@ -11,7 +11,7 @@ package reikai.presentation.reader
 interface TextViewport {
 
     /**
-     * Starts over on [chapter] alone, at its [NovelReaderViewModel.LoadedChapter.progressPercent].
+     * Starts over on [chapter] alone, at its [NovelReaderViewModel.LoadedChapter.progress].
      * Once this returns, nothing the renderer reports is about the chapters it held before: the host
      * tells the model so, and the model takes the renderer's word again from there.
      *

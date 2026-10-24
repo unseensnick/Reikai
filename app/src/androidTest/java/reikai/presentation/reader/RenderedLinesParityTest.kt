@@ -21,6 +21,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
 import reikai.presentation.reader.text.ChapterTextBlock
@@ -163,7 +164,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         url = CHAPTER_URL,
         html = html,
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = 1.0,
         novelId = 1L,
         sourceId = null,

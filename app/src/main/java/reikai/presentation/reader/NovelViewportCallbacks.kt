@@ -1,5 +1,7 @@
 package reikai.presentation.reader
 
+import reikai.domain.reader.ChapterProgress
+
 /**
  * What a novel viewport reports to its session and asks of its host, one contract for both renderers.
  * The provider builds one value and hands it to whichever viewport the rendering mode picks, so the two
@@ -12,8 +14,8 @@ class NovelViewportCallbacks(
     /** Both carry the chapter measured, not just the number: at a boundary the reader is already in
      *  the next chapter while the model still has the previous one, and an unnamed percentage lands
      *  on whichever the model happens to hold. */
-    val onProgressChanged: (chapterId: Long, percent: Int) -> Unit,
-    val onProgressSettled: (chapterId: Long, percent: Int) -> Unit,
+    val onProgressChanged: (chapterId: Long, progress: ChapterProgress.Percent) -> Unit,
+    val onProgressSettled: (chapterId: Long, progress: ChapterProgress.Percent) -> Unit,
     /** The line at the top of the screen as characters into its chapter (`shownCharPrefix`), null while
      *  the chapter's text starts on screen. Sent when it changes. */
     val onTopLine: (chapterId: Long, line: Int?) -> Unit,

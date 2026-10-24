@@ -185,8 +185,8 @@ class NovelTextViewport(
 
     /** Where a chapter is put once its text has a height. */
     private sealed interface Landing {
-        /** A share of the chapter, which a stored percent and the rail name. */
-        data class Share(val fraction: Float) : Landing
+        /** A share of the chapter, which a stored percent and the rail name, or the paged slider's page. */
+        data class Share(val progress: ChapterProgress) : Landing
 
         /**
          * The line holding character [offset] of chunk [chunk], put back at [y] in the recycler, which a
@@ -198,9 +198,9 @@ class NovelTextViewport(
         /**
          * The line holding counted character [line] of the chapter (`shownCharPrefix`), put at the top: what a
          * rebuilt renderer is handed, where the chunking and the width may both have changed. A line the
-         * text does not reach lands on the saved [fraction] instead, as the page falls back to it.
+         * text does not reach lands on the saved [progress] instead, as the page falls back to it.
          */
-        data class Text(val line: Int, val fraction: Float) : Landing
+        data class Text(val line: Int, val progress: ChapterProgress.Percent) : Landing
     }
 
     /**
@@ -489,8 +489,7 @@ class NovelTextViewport(
         reportedFits.clear()
         reportedEnds.clear()
         reportedTopLine = null
-        val share = chapter.progressPercent / 100f
-        val landing = chapter.topLine?.let { Landing.Text(it, share) } ?: Landing.Share(share)
+        val landing = chapter.topLine?.let { Landing.Text(it, chapter.progress) } ?: Landing.Share(chapter.progress)
         add(chapter, atEnd = true, landing = landing)
     }
 
@@ -751,9 +750,9 @@ class NovelTextViewport(
         if (previous == failedPrevious && next == failedNext) return
         failedPrevious = previous
         failedNext = next
-        // The bound holders are updated in place rather than through the adapter. A rebind detaches
-        // and re-adds the chapter's text container, re-measuring every chunk of the chapter the
-        // reader is inside, which is the one thing this container must never do while it is showing.
+        // Through a markers-only change notice, never a rebind: a rebind detaches and re-adds the
+        // chapter's text container, re-measuring every chunk of the chapter the reader is inside,
+        // which is the one thing this container must never do while it is showing.
         adapter.refreshMarkers()
     }
 
@@ -780,8 +779,6 @@ class NovelTextViewport(
         val seamsToggled =
             previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         if (recoloured || seamsToggled) adapter.refreshMarkers()
-        // A cached holder is rebound whole by the notice above; the bound ones need their failures redrawn.
-        if (recoloured) adapter.refreshMarkers()
         if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         // A chapter still rendering built its pictures at the old size and joins with a restyle.
@@ -845,7 +842,7 @@ class NovelTextViewport(
     /** Where the reader is in [slot], the chapter being read: the line at the top of the screen, or a
      *  share while the chapter's text starts on screen. */
     private fun landingOf(slot: ChapterSlot): Landing {
-        val line = lineAtTop() ?: return Landing.Share(fractionOf(slot))
+        val line = lineAtTop() ?: return Landing.Share(progressOf(slot))
         return Landing.Line(slot.block.chunkViews.indexOf(line.view), line.offset, line.y)
     }
 
@@ -1104,9 +1101,9 @@ class NovelTextViewport(
 
     override fun seekTo(progress: ChapterProgress) {
         // A page index is not a scroll position, and reading one as a fraction would seek to a third
-        // of the chapter for page 3 of 10. Paged, it is the slider's own unit. The twin reads both alike.
+        // of the chapter for page 3 of 10. Paged, it is the slider's own unit, and a percent lands on the
+        // page holding that share of the scroll, as a reopen does. The twin reads both alike.
         if (progress is ChapterProgress.Pages && !paged) return
-        val fraction = progress.fraction
         // A seek names a place of its own, which a short line landing again would take the reader from.
         slots.forEach { it.shortLanding = null }
         val slot = visibleSlot() ?: slots.firstOrNull() ?: return
@@ -1115,9 +1112,9 @@ class NovelTextViewport(
         if (slot.rendered &&
             slot.landing == null
         ) {
-            scrollWithin(slot, fraction)
+            scrollWithin(slot, progress)
         } else {
-            slot.landing = Landing.Share(fraction)
+            slot.landing = Landing.Share(progress)
         }
     }
 
@@ -1254,10 +1251,10 @@ class NovelTextViewport(
      * reader really is. The chapter named is right either way, so [reportVisibleChapter] is not held; nor
      * is a fit, which is height alone, or [reportEnds], since a chapter's start shows no end its landing hides.
      */
-    private fun report(sink: (Long, Int) -> Unit) {
+    private fun report(sink: (Long, ChapterProgress.Percent) -> Unit) {
         val slot = visibleSlot() ?: return
         if (slot.landing == null) {
-            sink(slot.chapter.chapterId, percentOf(slot))
+            sink(slot.chapter.chapterId, progressOf(slot))
             reportTopLine(slot)
         }
         reportFits(slot)
@@ -1359,21 +1356,24 @@ class NovelTextViewport(
         }
     }
 
-    private fun percentOf(slot: ChapterSlot): Int = ChapterProgress.Percent.wholeOf(fractionOf(slot).toDouble())
-
     /**
      * Zero rather than a whole while the chapter has no measured height. Reporting completion there
      * would mark the chapter read and retire its download before it had been seen.
      */
-    private fun fractionOf(slot: ChapterSlot): Float {
-        if (!slot.rendered) return 0f
+    private fun progressOf(slot: ChapterSlot): ChapterProgress.Percent {
+        val none = ChapterProgress.Percent(0)
+        if (!slot.rendered) return none
         if (paged) {
-            val (pages, itemTop) = pagesOf(slot) ?: return 0f
-            return NovelPaging.fractionOf(NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat()), pages.size)
+            val (pages, itemTop) = pagesOf(slot) ?: return none
+            val index = NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat())
+            return NovelPaging.progressOf(pages, index, slot.block.container.top.toFloat(), scrollableOf(slot))
         }
-        val (top, height) = boundsOf(slot) ?: return 0f
-        return ChapterScrollProgress.fractionOf(top, height, recycler.height)
+        val (top, height) = boundsOf(slot) ?: return none
+        return ChapterProgress.Percent.of(ChapterScrollProgress.fractionOf(top, height, recycler.height).toDouble())
     }
+
+    /** [slot]'s scroll range, which a paged position is a share of so it reopens the same either way. */
+    private fun scrollableOf(slot: ChapterSlot): Float = (slot.block.container.height - recycler.height).toFloat()
 
     /** Only a change is announced, because the scroll listener runs on every frame. */
     private fun reportVisibleChapter() {
@@ -1418,13 +1418,24 @@ class NovelTextViewport(
      * room to seek inside itself, so any fraction lands on its start, as the WebView page's seek does.
      * That start is its first line rather than its item: the marker above means the two differ.
      */
-    private fun scrollWithin(slot: ChapterSlot, fraction: Float) {
+    private fun scrollWithin(slot: ChapterSlot, progress: ChapterProgress) {
         if (paged) {
-            showPage(slot) { NovelPaging.indexFor(fraction, it.size) }
+            showPage(slot) { pages ->
+                when (progress) {
+                    is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages.size)
+                    is ChapterProgress.Percent ->
+                        NovelPaging.landingIndex(
+                            pages,
+                            progress,
+                            slot.block.container.top.toFloat(),
+                            scrollableOf(slot),
+                        )
+                }
+            }
             return
         }
         val (top, height) = boundsOf(slot) ?: return
-        scrollColumnBy(ChapterScrollProgress.offsetFor(fraction, height, recycler.height) + top)
+        scrollColumnBy(ChapterScrollProgress.offsetFor(progress.fraction, height, recycler.height) + top)
     }
 
     /** Where reading starts down the screen: in paged reading the top of a page, which keeps a chapter's own top
@@ -1671,7 +1682,8 @@ class NovelTextViewport(
                 // the wait for them runs out. A chapter the list has not laid out has nowhere to scroll,
                 // and laying it out comes back here.
                 if (boundsOf(slot) == null) return
-                if (ResumeVeil.waitsForPictures(landing.fraction, slot.block.imagesLoading, slot.imageWaitOver)) {
+                val share = landing.progress.fraction
+                if (ResumeVeil.waitsForPictures(share, slot.block.imagesLoading, slot.imageWaitOver)) {
                     waitOutImages(slot)
                     return
                 }
@@ -1679,7 +1691,7 @@ class NovelTextViewport(
                 // Before the scroll, so the report the scroll sends is the landed position's.
                 slot.landing = null
                 val before = scrolled
-                scrollWithin(slot, landing.fraction)
+                scrollWithin(slot, landing.progress)
                 // A chapter with no room to move sends no scroll, and a scroll is all that reports, so the
                 // held position is said here: without it the model kept the saved one, as the page did.
                 if (scrolled == before) report(callbacks.onProgressChanged)
@@ -1691,7 +1703,7 @@ class NovelTextViewport(
                 val (view, offset) = textLineOf(slot, landing.line) ?: run {
                     // Past the text, as a count taken from other text can be. Landing at its end read the
                     // chapter; the saved share is where the reader was, and it waits for the pictures.
-                    slot.landing = Landing.Share(landing.fraction)
+                    slot.landing = Landing.Share(landing.progress)
                     land(slot)
                     return
                 }

@@ -2,6 +2,10 @@ package reikai.presentation.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
+import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.fraction
 import reikai.presentation.reader.NovelPaging.Band
 import reikai.presentation.reader.NovelPaging.Page
 import reikai.presentation.reader.NovelPaging.Turn
@@ -124,17 +128,66 @@ class NovelPagingTest {
     }
 
     @Test
-    fun `the last page is all of the chapter`() {
-        NovelPaging.fractionOf(index = 4, count = 5) shouldBe 1f
+    fun `the paged slider's page names that page`() {
+        NovelPaging.indexFor(ChapterProgress.Pages(lastPageRead = 7, pageCount = 19).fraction, count = 19) shouldBe 7
     }
 
+    @Test
+    fun `the last page is all of the chapter`() {
+        val pages = uniform(5)
+        NovelPaging.progressOf(pages, index = 4, textTop = 0f, scrollable = scrollableOf(pages)) shouldBe
+            ChapterProgress.Percent(ChapterProgress.Percent.FULL)
+    }
+
+    /** As a chapter that fits on one screen reads while scrolling, so it is not read the moment it opens. */
     @Test
     fun `a single page is the chapter's start`() {
-        NovelPaging.fractionOf(index = 0, count = 1) shouldBe 0f
+        NovelPaging.progressOf(uniform(1), index = 0, textTop = 0f, scrollable = 0f) shouldBe
+            ChapterProgress.Percent(0)
     }
 
+    /** Hundredths of a large chapter's scroll still fall inside one of its pages, which whole percents do not. */
+    @ParameterizedTest
+    @ValueSource(ints = [2, 3, 10, 33, 101, 1000, 5000])
+    fun `a line read while scrolling never reopens on a page after it`(count: Int) {
+        val pages = uniform(count)
+        val scrollable = scrollableOf(pages)
+        val lines = pages.flatMap { listOf(it.top - 3f, it.top + 3f, it.top + PAGE / 2) }
+            .filter { it >= 0f && it < scrollable }
+        lines.filter { y ->
+            val saved = ChapterProgress.Percent.of(y.toDouble() / scrollable)
+            NovelPaging.landingIndex(pages, saved, textTop = 0f, scrollable) > NovelPaging.pageAt(pages, y)
+        } shouldBe emptyList()
+    }
+
+    /** Holds while a hundredth of the scroll is shorter than the last full page's room, about 8,800 pages here. */
+    @ParameterizedTest
+    @ValueSource(ints = [2, 3, 10, 33, 101, 1000, 5000])
+    fun `every page reopens on itself`(count: Int) {
+        val pages = uniform(count)
+        val scrollable = scrollableOf(pages)
+        pages.indices.filter { index ->
+            val saved = NovelPaging.progressOf(pages, index, textTop = 0f, scrollable)
+            NovelPaging.landingIndex(pages, saved, textTop = 0f, scrollable) != index
+        } shouldBe emptyList()
+    }
+
+    /** Past the scroll's end every position reads all of the chapter, so the page there stands for the rest. */
     @Test
-    fun `a stored share names the page it was saved on`() {
-        NovelPaging.indexFor(NovelPaging.fractionOf(index = 7, count = 19), count = 19) shouldBe 7
+    fun `a page past the scroll's end reopens no later than the page holding that end`() {
+        val pages = uniform(10) + Page(10 * PAGE, 10 * PAGE + 30f)
+        val scrollable = scrollableOf(pages)
+        val saved = NovelPaging.progressOf(pages, index = 9, textTop = 0f, scrollable)
+        NovelPaging.landingIndex(pages, saved, textTop = 0f, scrollable) shouldBe 8
+    }
+
+    /** Pages of [PAGE] from the text's top, which a screen of [PAGE] plus margins shows one at a time. */
+    private fun uniform(count: Int) = List(count) { Page(it * PAGE, (it + 1) * PAGE) }
+
+    private fun scrollableOf(pages: List<Page>) = pages.last().bottom - (PAGE + MARGINS)
+
+    private companion object {
+        const val PAGE = 1000f
+        const val MARGINS = 120f
     }
 }

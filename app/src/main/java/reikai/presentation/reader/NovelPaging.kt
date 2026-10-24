@@ -1,8 +1,8 @@
 package reikai.presentation.reader
 
 import reikai.domain.reader.ChapterProgress
-import reikai.domain.reader.fraction
 import reikai.domain.reader.seekTo
+import kotlin.math.ceil
 
 /**
  * The page rule both novel renderers read when paging: each measures where its lines sit in a chapter's
@@ -95,11 +95,34 @@ object NovelPaging {
         data class Beyond(val forward: Boolean) : Turn
     }
 
-    /** How far through the chapter page [index] of [count] is, by the manga pager's own rule, so the last
-     *  page reads as all of it, as the scrolled column's end does. */
-    fun fractionOf(index: Int, count: Int): Float = ChapterProgress.Pages(index, count).fraction
+    /**
+     * How far through the chapter page [index] is, in the scrolled column's own unit: how far its first line,
+     * [Page.top] less the text's top [textTop], is through the [scrollable] range (the text's height less one
+     * screen). Rounded up, so the page's own report lands back on it. As in the manga pager, the first page
+     * reads none of it, below the chapter's top margin, and only the last page reads all of it; a chapter of
+     * one page reads none, as one that fits reads while scrolling.
+     */
+    fun progressOf(pages: List<Page>, index: Int, textTop: Float, scrollable: Float): ChapterProgress.Percent {
+        val full = ChapterProgress.Percent.FULL
+        if (pages.size <= 1 || index <= 0) return ChapterProgress.Percent(0)
+        if (index >= pages.lastIndex) return ChapterProgress.Percent.END
+        if (scrollable <= 0f) return ChapterProgress.Percent(0)
+        val share = (pages[index].top - textTop).toDouble() / scrollable
+        return ChapterProgress.Percent(ceil(share * full).toLong().coerceIn(0L, full - 1))
+    }
 
-    /** The page a stored [fraction] names, the inverse of [fractionOf]. */
+    /**
+     * The page a stored [progress] reopens on, whichever mode saved it: the page holding the line that far
+     * through the [scrollable] range below [textTop], and the last page for all of it. A share past the
+     * scroll's end lands on the page holding that end, never later.
+     */
+    fun landingIndex(pages: List<Page>, progress: ChapterProgress.Percent, textTop: Float, scrollable: Float): Int {
+        if (progress.hundredths >= ChapterProgress.Percent.FULL) return pages.lastIndex.coerceAtLeast(0)
+        val within = scrollable.coerceAtLeast(0f) * progress.hundredths.toDouble() / ChapterProgress.Percent.FULL
+        return pageAt(pages, (textTop + within).toFloat())
+    }
+
+    /** The page the paged slider's [fraction] names, the inverse of [ChapterProgress.Pages]' own. */
     fun indexFor(fraction: Float, count: Int): Int =
         (ChapterProgress.Pages(0, count).seekTo(fraction.coerceIn(0f, 1f)) as ChapterProgress.Pages).lastPageRead
 

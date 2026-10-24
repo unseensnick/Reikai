@@ -459,7 +459,7 @@ class NovelTextViewportWindowTest {
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,

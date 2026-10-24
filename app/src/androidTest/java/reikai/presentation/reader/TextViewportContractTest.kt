@@ -123,8 +123,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
     /** What either renderer reports, recorded into the fields above. */
     private val callbacks = NovelViewportCallbacks(
         volumeKeysActive = { volumeKeysOn },
-        onProgressChanged = { id, percent -> reports += ProgressReport(id, percent, settled = false) },
-        onProgressSettled = { id, percent -> reports += ProgressReport(id, percent, settled = true) },
+        onProgressChanged = { id, progress ->
+            reports +=
+                ProgressReport(id, progress.wholePercent.toInt(), settled = false)
+        },
+        onProgressSettled = { id, progress ->
+            reports +=
+                ProgressReport(id, progress.wholePercent.toInt(), settled = true)
+        },
         onTopLine = { id, line -> topLines += id to line },
         onToggleMenu = { menuToggles.incrementAndGet() },
         onStepChapter = { steps += it },
@@ -3024,7 +3030,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         url = "/chapter/$id",
         html = html,
         baseUrl = baseUrl,
-        progressPercent = progressPercent,
+        progress = ChapterProgress.Percent.ofWhole(progressPercent),
         chapterNumber = number,
         novelId = 1L,
         sourceId = null,
@@ -3324,8 +3330,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val LATE_PERCENT = 80
 
         /**
-         * A stored percent is whole, so an exact landing sits within half a point of it and its report
-         * rounds the same way; two points leaves room for pixel rounding, while a landing measured before
+         * A report is read here in whole percents, rounded down, so an exact landing reads up to a point
+         * under the stored one; two points leaves room for pixel rounding, while a landing measured before
          * the pictures arrived misses by far more (each is several screens tall against a 200dp stand-in).
          */
         const val LANDING_SLACK_PERCENT = 2f

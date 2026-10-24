@@ -99,7 +99,14 @@ class NovelWebViewport(
     /** Each chapter's pages as last measured, kept while its item and the page keep their heights. */
     private val measuredPages = mutableMapOf<Long, MeasuredPages>()
 
-    private class MeasuredPages(val height: Double, val contentHeight: Double, val pages: List<NovelPaging.Page>)
+    /** [textTop] and [scrollable] place the chapter's text in its item, which a page's share is measured on. */
+    private class MeasuredPages(
+        val height: Double,
+        val contentHeight: Double,
+        val pages: List<NovelPaging.Page>,
+        val textTop: Float,
+        val scrollable: Float,
+    )
 
     /** One turn, seek or snap at a time, each reading where the last one left the page. */
     private val paging = Mutex()
@@ -108,7 +115,7 @@ class NovelWebViewport(
     private var snapQueued = false
 
     /** A saved share the opening document lands on once it is up, since only this side knows its pages. */
-    private var openingShare: Float? = null
+    private var openingShare: ChapterProgress.Percent? = null
 
     /** The page a stepped auto-scroll counts on, changed whenever another page shows. */
     private val shownPage = MutableStateFlow(ShownPage(Unit, ready = false))
@@ -257,8 +264,8 @@ class NovelWebViewport(
                     visibleChapterId = id
                     callbacks.onVisibleChapter(id)
                 },
-                onProgress = { id, f -> callbacks.onProgressChanged(id, f.toPercent()) },
-                onProgressSettled = { id, f -> callbacks.onProgressSettled(id, f.toPercent()) },
+                onProgress = { id, f -> callbacks.onProgressChanged(id, ChapterProgress.Percent.of(f)) },
+                onProgressSettled = { id, f -> callbacks.onProgressSettled(id, ChapterProgress.Percent.of(f)) },
                 onTopLine = callbacks.onTopLine,
                 onRetryBoundary = callbacks.onRetryBoundary,
                 onTap = ::onPageTap,
@@ -329,14 +336,15 @@ class NovelWebViewport(
     /**
      * Seeks inside the chapter being read rather than across the document, because with a window the
      * two stopped being the same thing: a rail at half way means half of this chapter, not half of
-     * everything loaded around it. A paged progress is not this medium's unit and is ignored. Queued
+     * everything loaded around it. A page index, the paged slider's unit, is honoured only while paged;
+     * paged, a percent lands on the page holding that share of the scroll, as a reopen does. Queued
      * like a window verb: the engine runs ahead of the chapter, so a seek while a long one still parses
      * measured half a page, and could count the chapter's end as seen, which is reported only once.
      */
     override fun seekTo(progress: ChapterProgress) {
         if (progress is ChapterProgress.Pages && !paged) return
         if (paged) {
-            scope.launch { paging.withLock { seekPage(progress.fraction) } }
+            scope.launch { paging.withLock { seekPage(progress) } }
             return
         }
         val chapterId = visibleChapterId ?: return
@@ -417,12 +425,12 @@ class NovelWebViewport(
         shownPage.value = ShownPage(Unit, ready = false)
         opening = if (paged) Opening() else null
         // A line lands on its page wherever the page stops; a share has to name a page, which the page cannot.
-        openingShare = (chapter.progressPercent / 100f).takeIf { paged && chapter.topLine == null && it > 0f }
+        openingShare = chapter.progress.takeIf { paged && chapter.topLine == null && it.hasStarted }
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
         val fontSource = webFonts.url(fontManager, settings.fontFamily)
-        val initialFraction = chapter.progressPercent / 100f
+        val initialFraction = chapter.progress.fraction
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -603,7 +611,13 @@ class NovelWebViewport(
                 NovelPaging.Band(box.getDouble(0).toFloat(), box.getDouble(1).toFloat(), box.getBoolean(2))
             }
             val contentHeight = result.getDouble("contentHeight")
-            MeasuredPages(result.getDouble("height"), contentHeight, NovelPaging.cut(bands, contentHeight.toFloat()))
+            MeasuredPages(
+                result.getDouble("height"),
+                contentHeight,
+                NovelPaging.cut(bands, contentHeight.toFloat()),
+                textTop = result.getDouble("textTop").toFloat(),
+                scrollable = result.getDouble("scrollable").toFloat(),
+            )
         }.getOrNull() ?: return null
         measuredPages[chapterId] = measured
         return measured.pages.takeIf { it.isNotEmpty() }
@@ -644,10 +658,17 @@ class NovelWebViewport(
         }
     }
 
-    private suspend fun seekPage(fraction: Float) {
+    private suspend fun seekPage(progress: ChapterProgress) {
         val at = where() ?: return
         val pages = pagesOf(at.chapterId, at) ?: return
-        showPage(at.chapterId, pages, NovelPaging.indexFor(fraction, pages.size))
+        val index = when (progress) {
+            is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages.size)
+            is ChapterProgress.Percent -> {
+                val measured = measuredPages[at.chapterId] ?: return
+                NovelPaging.landingIndex(pages, progress, measured.textTop, measured.scrollable)
+            }
+        }
+        showPage(at.chapterId, pages, index)
     }
 
     /** Puts the page holding the reading line back on screen whole, after anything but a page being shown moved
@@ -681,6 +702,9 @@ class NovelWebViewport(
     private var shownHeight = 0f
 
     private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int, sliding: Boolean = false) {
+        // Gone only once a new document cleared them, which leaves nothing of this chapter to show.
+        val measured = measuredPages[chapterId] ?: return
+        val progress = NovelPaging.progressOf(pages, index, measured.textTop, measured.scrollable)
         val page = pages[index.coerceIn(pages.indices)]
         shownHeight = page.height
         val key = chapterId to index
@@ -690,7 +714,7 @@ class NovelWebViewport(
         // counts a page's time from then, as the native renderer does.
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
-                "${NovelPaging.fractionOf(index, pages.size)});",
+                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL});",
         ) { answer ->
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
@@ -999,8 +1023,6 @@ class NovelWebViewport(
         }
         runOrQueue("rkReader.setBoundaryFailure($atStart, ${json ?: "null"});")
     }
-
-    private fun Double.toPercent(): Int = ChapterProgress.Percent.wholeOf(this)
 }
 
 /** How much of a script error a toast shows, which is enough to find it in the inspector. */

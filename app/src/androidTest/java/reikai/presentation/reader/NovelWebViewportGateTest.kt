@@ -19,6 +19,7 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.domain.novel.NovelPageLayout
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.web.NovelWebSnippets
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -301,7 +302,7 @@ class NovelWebViewportGateTest {
         url = "",
         html = "<p>lorem ipsum</p>".repeat(50),
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,
