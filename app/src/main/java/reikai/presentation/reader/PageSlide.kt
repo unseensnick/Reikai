@@ -93,9 +93,9 @@ class PageSlide(private val content: View) {
         handler.postDelayed(giveUp, GIVE_UP_MS)
     }
 
-    private companion object {
-        const val DURATION_MS = 250L
+    internal companion object {
+        private const val DURATION_MS = 250L
         const val GIVE_UP_MS = 1000L
-        val EASE = DecelerateInterpolator()
+        private val EASE = DecelerateInterpolator()
     }
 }

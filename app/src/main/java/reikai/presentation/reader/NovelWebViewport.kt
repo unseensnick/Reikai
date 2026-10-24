@@ -1008,4 +1008,4 @@ private const val CONSOLE_TOAST_CHARS = 120
 
 /** Longer than the page's own wait for a landing's pictures, [CHAPTER_IMAGE_WAIT_MS] counted from its parse, so
  *  the veil drops on the page's ready report whenever there is one. */
-private const val VEIL_CAP_MS = CHAPTER_IMAGE_WAIT_MS * 2
+internal const val VEIL_CAP_MS = CHAPTER_IMAGE_WAIT_MS * 2

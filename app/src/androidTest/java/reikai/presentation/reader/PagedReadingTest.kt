@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.webkit.WebView
+import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.view.children
 import androidx.recyclerview.widget.RecyclerView
@@ -32,6 +33,7 @@ import java.util.Collections
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -61,6 +63,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val turned = AtomicInteger()
     private val shownPage = AtomicReference<Pair<Int, Int>?>(null)
     private var volumeKeys = false
+    private var openedAt = 0L
 
     /** The settings the last chapter opened with, whose top margin is a page's. */
     private var openedWith = readerTestSettings
@@ -380,21 +383,39 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] of a chapter longer than two pages, $count", count > 2)
     }
 
-    /** The slide lays a copy of the old page beside the content; once it has run, only the turned page is left. */
+    /**
+     * The slide lays a copy of the old page beside the content and slides it off once the turned page is drawn.
+     * A copy never drawn over is cleared by [PageSlide.GIVE_UP_MS] instead, so only a clear inside it passes.
+     */
     @Test
-    fun aSlidingTurnLandsOnTheNextPageAndClearsItsCopy() {
+    fun aSlidingTurnSlidesItsCopyOffAndLandsOnTheNextPage() {
         build(NovelPageLayout.PAGED_LTR)
         open(1L, long("first"), settings = readerTestSettings.copy(pageTransitions = true))
         awaitWhile { shownPage.get() == null }
-        val parent = view.parent as ViewGroup
-        val children = parent.childCount
+        val laidAt = AtomicLong(-1)
+        val clearedAt = AtomicLong(-1)
+        instrumentation.runOnMainSync {
+            (view.parent as ViewGroup).setOnHierarchyChangeListener(
+                object : ViewGroup.OnHierarchyChangeListener {
+                    override fun onChildViewAdded(parent: View, child: View) {
+                        if (child is ImageView) laidAt.set(SystemClock.uptimeMillis())
+                    }
+
+                    override fun onChildViewRemoved(parent: View, child: View) {
+                        if (child is ImageView) clearedAt.set(SystemClock.uptimeMillis())
+                    }
+                },
+            )
+        }
         forwardTap()
         awaitWhile { shownPage.get()?.first != 1 }
-        awaitWhile { parent.childCount != children || view.translationX != 0f }
+        awaitWhile { clearedAt.get() < 0 }
         settle()
         assertEquals("[$renderer] the second page is on screen", 1, shownPage.get()?.first)
-        assertEquals("[$renderer] the copy is gone", children, parent.childCount)
-        assertEquals("[$renderer] the page is back in place", 0f, view.translationX)
+        assertTrue(
+            "[$renderer] the copy was laid at ${laidAt.get()} and cleared at ${clearedAt.get()}",
+            laidAt.get() >= 0 && clearedAt.get() - laidAt.get() < PageSlide.GIVE_UP_MS,
+        )
     }
 
     @Test
@@ -467,7 +488,10 @@ class PagedReadingTest(private val renderer: Renderer) {
         build(NovelPageLayout.PAGED_LTR)
         openJoining(2L, percent = 50)
 
-        assertTrue("[$renderer] the veil dropped before the chapter before joined", veiled())
+        // Past the cap the veil drops by itself, so a slow open fails naming the cap rather than the join.
+        val up = veiled()
+        val after = SystemClock.uptimeMillis() - openedAt
+        assertTrue("[$renderer] veil up $up at ${after}ms, cap $VEIL_CAP_MS", up && after < VEIL_CAP_MS)
     }
 
     @Test
@@ -480,14 +504,21 @@ class PagedReadingTest(private val renderer: Renderer) {
             viewport.window.prepend(chapter(1L, long("first"), 0, null))
             viewport.window.setPreviousJoining(false)
         }
-        awaitWhile { veiled() }
+        // The cap drops the veil on its own, so only a drop before it proves the join lifted it.
+        var droppedAfter = Long.MAX_VALUE
+        awaitWhile { veiled().also { up -> if (!up) droppedAfter = SystemClock.uptimeMillis() - openedAt } }
 
-        assertTrue("[$renderer] the veil is still up once the chapter before joined", !veiled())
+        assertTrue(
+            "[$renderer] the veil came down only by its cap, ${droppedAfter}ms after the open",
+            droppedAfter < VEIL_CAP_MS,
+        )
     }
 
     /** Opens [id] as the provider does while the chapter before is still loading, and waits for its first page. */
     private fun openJoining(id: Long, percent: Int) {
         fits.remove(id)
+        // Before load, which starts the veil's cap, so the cap cannot fire before openedAt + VEIL_CAP_MS.
+        openedAt = SystemClock.uptimeMillis()
         runBlocking(Dispatchers.Main) {
             viewport.load(chapter(id, long("second"), percent, null), readerTestSettings)
             viewport.window.setPreviousJoining(true)
