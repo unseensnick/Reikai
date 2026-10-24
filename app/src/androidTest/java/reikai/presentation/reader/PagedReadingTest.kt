@@ -70,8 +70,8 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     private val callbacks = NovelViewportCallbacks(
         volumeKeysActive = { volumeKeys },
-        onProgressChanged = { id, percent -> progress += id to percent },
-        onProgressSettled = { id, percent -> settled += id to percent },
+        onProgressChanged = { id, percent -> progress += id to percent.wholePercent.toInt() },
+        onProgressSettled = { id, percent -> settled += id to percent.wholePercent.toInt() },
         onTopLine = { id, line -> topLines += id to line },
         onToggleMenu = {},
         onStepChapter = { steps += it },
@@ -714,7 +714,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
-        progressPercent = percent,
+        progress = ChapterProgress.Percent.ofWhole(percent),
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,
