@@ -45,21 +45,18 @@ import tachiyomi.presentation.core.i18n.stringResource
 import kotlin.time.DurationUnit
 import kotlin.time.toDuration
 
-/**
- * A section title, with a link at its end when it has [action], set where SectionCard sets its title. It
- * keeps the link's height without one, so cards side by side start level.
- */
+/** A section title with the [action] link at its end, set where SectionCard sets its title. */
 @Composable
-fun StatsCardHeader(title: StringResource, action: StringResource? = null, onAction: () -> Unit = {}) {
+fun StatsCardHeader(title: StringResource, action: StringResource, onAction: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().heightIn(min = HEADER_HEIGHT).padding(
+        modifier = Modifier.fillMaxWidth().padding(
             start = MaterialTheme.padding.extraLarge,
             end = MaterialTheme.padding.medium,
         ),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(stringResource(title), style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
-        if (action != null) TextButton(onClick = onAction) { Text(stringResource(action)) }
+        TextButton(onClick = onAction) { Text(stringResource(action)) }
     }
 }
 
@@ -90,13 +87,12 @@ fun StatsRowLine(row: StatsRow, onOpen: (StatsRow) -> Unit) {
     }
 }
 
-/** One series and how long it was read, opening its details: the Most read card and a day's reading. */
+/** One series and how long it was read, opening its details, as the Most read card lists it. */
 @Composable
-fun StatsTitleLine(title: String, readMs: Long, modifier: Modifier = Modifier, onOpen: () -> Unit) {
+fun StatsTitleLine(title: String, readMs: Long, onOpen: () -> Unit) {
     Row(
         modifier = Modifier
             .clickable(onClick = onOpen)
-            .then(modifier)
             .fillMaxWidth()
             .heightIn(min = 48.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -338,9 +334,6 @@ private const val TABULAR = "tnum"
 internal const val MS_PER_MINUTE = 60_000L
 
 private val SOURCE_ICON_SIZE = 24.dp
-
-// A TextButton's touch target, so a header without a link is as tall as one with it.
-private val HEADER_HEIGHT = 48.dp
 
 // The library badge is 18dp square (LoadedSourceIconBadge), so this brings it to SOURCE_ICON_SIZE.
 private const val SOURCE_ICON_SCALE = 24f / 18f

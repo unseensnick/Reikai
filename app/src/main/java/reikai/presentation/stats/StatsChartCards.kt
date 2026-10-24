@@ -219,8 +219,8 @@ private fun StatsReadingWeek(charts: StatsCharts) {
     )
 }
 
-/** One slice and its legend row; [onClick] makes the legend row open the slice's series. */
-data class DonutSlice(val label: String, val count: Int, val color: Color, val onClick: (() -> Unit)? = null)
+/** One slice and its legend row; [onClick] opens the slice's series from its legend row. */
+data class DonutSlice(val label: String, val count: Int, val color: Color, val onClick: () -> Unit)
 
 /** A donut of [slices] beside its legend; the legend carries the numbers. */
 @Composable
@@ -251,7 +251,7 @@ fun StatsDonut(slices: List<DonutSlice>) {
                 Row(
                     modifier = Modifier
                         .heightIn(min = LEGEND_ROW_HEIGHT)
-                        .then(slice.onClick?.let { Modifier.clickable(onClick = it) } ?: Modifier),
+                        .clickable(onClick = slice.onClick),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(Modifier.size(10.dp).background(slice.color, CircleShape))

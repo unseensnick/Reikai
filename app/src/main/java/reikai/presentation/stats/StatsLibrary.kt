@@ -45,7 +45,7 @@ class StatsLibrary(
     val mangaTracks: Map<Long, List<Track>>,
     val novelTracks: Map<Long, List<Track>>,
     val loggedInTrackers: List<Tracker>,
-    /** Every tracker's and category's name by id, for the groupings' rows and their library searches. */
+    /** Every tracker's and category's name by id, for the groupings' rows. */
     val trackerNames: Map<Long, String>,
     val categoryNames: Map<Long, String>,
     /** Each source's icon by its search key, drawn as the library's cover badges draw it. */
