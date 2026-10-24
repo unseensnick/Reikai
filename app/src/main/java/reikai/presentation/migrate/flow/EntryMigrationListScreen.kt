@@ -112,116 +112,130 @@ class EntryMigrationListScreen(
             return
         }
 
-        // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
-        LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) viewModel.collectPendingPick()
-        }
+        EntryMigrationList(state = state, viewModel = viewModel)
+    }
+}
 
-        PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
+/**
+ * Everything the list draws and every way out of it, over the model the screen resolved. Split from
+ * the screen so a test can host it over a fake adapter, which the app graph lookup above prevents.
+ */
+@Composable
+internal fun EntryMigrationList(
+    state: EntryMigrationListViewModel.State,
+    viewModel: EntryMigrationListViewModel,
+) {
+    val navigator = LocalNavigator.currentOrThrow
 
-        // Back is guarded all the way through the commit: rows are being mutated.
-        val guardExit = !state.finished && state.rows.isNotEmpty()
-        BackHandler(enabled = guardExit) { viewModel.showExitConfirm() }
+    // A deep pick is made on a screen pushed over this one, so it is collected on the way back.
+    LaunchedEffect(state.isLoading) {
+        if (!state.isLoading) viewModel.collectPendingPick()
+    }
 
-        if (state.isLoading) {
-            LoadingScreen()
-            return
-        }
+    PickOutcomeToast(state.pickOutcome, viewModel::consumePickOutcome)
 
-        Scaffold(
-            topBar = { scrollBehavior ->
-                AppBar(
-                    title = stringResource(MR.strings.migrationListScreenTitle),
-                    subtitle = if (state.rows.size > 1) "${state.searchedCount} / ${state.rows.size}" else null,
-                    navigateUp = {
-                        if (guardExit) {
-                            viewModel.showExitConfirm()
-                        } else {
-                            navigator.popUntil { it !is MigrationFlowScreen }
-                        }
-                    },
-                    scrollBehavior = scrollBehavior,
-                    actions = {
-                        AppBarActions(
-                            listOf(
-                                AppBar.Action(
-                                    title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
-                                    icon = MaterialSymbols.Rounded.DoneAll,
-                                    onClick = viewModel::acceptAll,
-                                    // Matches acceptAll's own guard: it refuses while anything is
-                                    // committing, so an enabled icon there would be a dead tap.
-                                    enabled = state.hasUnaccepted && !state.isBusy,
-                                ),
-                            ),
-                        )
-                    },
-                )
-            },
-            bottomBar = {
-                if (state.allSearched && state.committableCount > 0 && !state.isBusy) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(MaterialTheme.padding.medium),
-                        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                    ) {
-                        OutlinedButton(
-                            onClick = { viewModel.showConfirm(replace = false) },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(text = "${stringResource(MR.strings.copy)} (${state.committableCount})")
-                        }
-                        Button(
-                            onClick = { viewModel.showConfirm(replace = true) },
-                            modifier = Modifier.weight(1f),
-                        ) {
-                            Text(text = "${stringResource(MR.strings.migrate)} (${state.committableCount})")
-                        }
+    // Back is guarded all the way through the commit: rows are being mutated.
+    val guardExit = !state.finished && state.rows.isNotEmpty()
+    BackHandler(enabled = guardExit) { viewModel.showExitConfirm() }
+
+    if (state.isLoading) {
+        LoadingScreen()
+        return
+    }
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            AppBar(
+                title = stringResource(MR.strings.migrationListScreenTitle),
+                subtitle = if (state.rows.size > 1) "${state.searchedCount} / ${state.rows.size}" else null,
+                navigateUp = {
+                    if (guardExit) {
+                        viewModel.showExitConfirm()
+                    } else {
+                        navigator.popUntil { it !is MigrationFlowScreen }
                     }
-                }
-            },
-        ) { contentPadding ->
-            val emptyReason = state.emptyReason
-            if (emptyReason != null) {
-                // Never a bare blank list: each way of ending up with nothing says which one it was.
-                EmptyScreen(
-                    stringRes = when (emptyReason) {
-                        EntryMigrationListViewModel.EmptyReason.NoEntries ->
-                            MR.strings.migrationFlow_emptyNoEntries
-                        EntryMigrationListViewModel.EmptyReason.NoSources ->
-                            MR.strings.migrationFlow_emptyNoSources
-                    },
-                    modifier = Modifier.padding(contentPadding),
-                )
-            } else {
-                LazyColumn(contentPadding = contentPadding) {
-                    items(items = state.rows, key = { it.entry.id.toString() }) { row ->
-                        MigrationRow(
-                            row = row,
-                            busy = state.isBusy,
-                            viewModel = viewModel,
-                            modifier = Modifier.animateItem(),
-                        )
+                },
+                scrollBehavior = scrollBehavior,
+                actions = {
+                    AppBarActions(
+                        listOf(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.migrationFlow_acceptAllLabel),
+                                icon = MaterialSymbols.Rounded.DoneAll,
+                                onClick = viewModel::acceptAll,
+                                // Matches acceptAll's own guard: it refuses while anything is
+                                // committing, so an enabled icon there would be a dead tap.
+                                enabled = state.hasUnaccepted && !state.isBusy,
+                            ),
+                        ),
+                    )
+                },
+            )
+        },
+        bottomBar = {
+            if (state.allSearched && state.committableCount > 0 && !state.isBusy) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(MaterialTheme.padding.medium),
+                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+                ) {
+                    OutlinedButton(
+                        onClick = { viewModel.showConfirm(replace = false) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(text = "${stringResource(MR.strings.copy)} (${state.committableCount})")
+                    }
+                    Button(
+                        onClick = { viewModel.showConfirm(replace = true) },
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(text = "${stringResource(MR.strings.migrate)} (${state.committableCount})")
                     }
                 }
             }
+        },
+    ) { contentPadding ->
+        val emptyReason = state.emptyReason
+        if (emptyReason != null) {
+            // Never a bare blank list: each way of ending up with nothing says which one it was.
+            EmptyScreen(
+                stringRes = when (emptyReason) {
+                    EntryMigrationListViewModel.EmptyReason.NoEntries ->
+                        MR.strings.migrationFlow_emptyNoEntries
+                    EntryMigrationListViewModel.EmptyReason.NoSources ->
+                        MR.strings.migrationFlow_emptyNoSources
+                },
+                modifier = Modifier.padding(contentPadding),
+            )
+        } else {
+            LazyColumn(contentPadding = contentPadding) {
+                items(items = state.rows, key = { it.entry.id.toString() }) { row ->
+                    MigrationRow(
+                        row = row,
+                        busy = state.isBusy,
+                        viewModel = viewModel,
+                        modifier = Modifier.animateItem(),
+                    )
+                }
+            }
         }
-
-        MigrationListDialogs(
-            state = state,
-            onCancelCommit = viewModel::cancelCommit,
-            onDismissDialog = viewModel::dismissDialog,
-            onCommit = viewModel::commit,
-            // Stopping abandons the flow, so it unwinds to wherever the flow was started,
-            // the same as finishing: one pop would land on a stale flow step.
-            onExit = {
-                // A commit still running would otherwise be cancelled halfway by the pop, with
-                // nothing said about what had already been written.
-                viewModel.cancelCommit()
-                navigator.popUntil { it !is MigrationFlowScreen }
-            },
-        )
     }
+
+    MigrationListDialogs(
+        state = state,
+        onCancelCommit = viewModel::cancelCommit,
+        onDismissDialog = viewModel::dismissDialog,
+        onCommit = viewModel::commit,
+        // Stopping abandons the flow, so it unwinds to wherever the flow was started,
+        // the same as finishing: one pop would land on a stale flow step.
+        onExit = {
+            // A commit still running would otherwise be cancelled halfway by the pop, with
+            // nothing said about what had already been written.
+            viewModel.cancelCommit()
+            navigator.popUntil { it !is MigrationFlowScreen }
+        },
+    )
 }
 
 /**
