@@ -11,8 +11,13 @@ class NovelWebBridgeTest {
     private val calls = mutableListOf<String>()
 
     /** A bridge over a page that has not reported ready: the report gate holds everything it gets. */
-    private val bridge = NovelWebBridge(
-        fromDocument = { _, _ -> },
+    private val bridge = bridge(fromDocument = { _, _ -> })
+
+    /** A bridge over a page that has reported ready, so each report reaches its handler. */
+    private val readyBridge = bridge(fromDocument = { _, call -> call() })
+
+    private fun bridge(fromDocument: (String, () -> Unit) -> Unit) = NovelWebBridge(
+        fromDocument = fromDocument,
         fromReader = { _, call -> call() },
         onVisibleChapter = { calls += "visible" },
         onProgress = { _, _ -> calls += "progress" },
@@ -29,15 +34,15 @@ class NovelWebBridgeTest {
     )
 
     /** What the document reports about itself, which means nothing until the page is ready. */
-    enum class DocumentReport(val send: NovelWebBridge.() -> Unit) {
-        VISIBLE_CHAPTER({ onVisibleChapter("token", "1") }),
-        PROGRESS({ onProgress("token", "1", 0.5) }),
-        PROGRESS_SETTLED({ onProgressSettled("token", "1", 0.5) }),
-        TOP_LINE({ onTopLine("token", "1", 3) }),
-        CHAPTER_FITS({ onChapterFits("token", "1", true) }),
-        CHAPTER_END_SEEN({ onChapterEndSeen("token", "1") }),
-        PAGED_MOVED({ onPagedMoved("token") }),
-        PAGED_PICTURES_LANDED({ onPagedPicturesLanded("token", "1") }),
+    enum class DocumentReport(val send: NovelWebBridge.() -> Unit, val reaches: String) {
+        VISIBLE_CHAPTER({ onVisibleChapter("token", "1") }, "visible"),
+        PROGRESS({ onProgress("token", "1", 0.5) }, "progress"),
+        PROGRESS_SETTLED({ onProgressSettled("token", "1", 0.5) }, "settled"),
+        TOP_LINE({ onTopLine("token", "1", 3) }, "line"),
+        CHAPTER_FITS({ onChapterFits("token", "1", true) }, "fits"),
+        CHAPTER_END_SEEN({ onChapterEndSeen("token", "1") }, "end"),
+        PAGED_MOVED({ onPagedMoved("token") }, "paged"),
+        PAGED_PICTURES_LANDED({ onPagedPicturesLanded("token", "1") }, "pictures"),
     }
 
     /** What the reader's own finger does, which a chapter script holding up the parse must not block. */
@@ -52,6 +57,13 @@ class NovelWebBridgeTest {
     fun `a document report waits for the page to report ready`(report: DocumentReport) {
         bridge.(report.send)()
         calls shouldBe emptyList()
+    }
+
+    @ParameterizedTest
+    @EnumSource(DocumentReport::class)
+    fun `a document report reaches its own handler once the page is ready`(report: DocumentReport) {
+        readyBridge.(report.send)()
+        calls shouldBe listOf(report.reaches)
     }
 
     @ParameterizedTest
