@@ -29,7 +29,7 @@ set -u
 # A tracker that shares a site's name is written as "<Name> tracker", and that phrase is dropped
 # before matching, so the tracker can be named while the bare site name is still caught.
 ALLOWED_TRACKERS='comick tracker'
-DENY='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick'
+DENY='e-hentai|ehentai|exhentai|nhentai|pururin|8muses|hentaifox|asmhentai|koharu|schalenetwork|mangadex|comick|hentainexus|ninehentai|9hentai'
 
 # A bare '#N' auto-links to a Reikai issue. A '#' + digits not preceded by an alphanumeric; the
 # owner/repo#N form is fine.
