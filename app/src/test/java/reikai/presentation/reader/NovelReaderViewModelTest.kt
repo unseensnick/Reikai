@@ -4,6 +4,9 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -19,6 +22,11 @@ import org.junit.jupiter.api.Test
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /** The novel reader's session rules that only show once a real model is driven, over [NovelReaderViewModelHarness]. */
 class NovelReaderViewModelTest {
@@ -383,5 +391,72 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.settings.value.orientation shouldBe ReaderOrientation.LOCKED_LANDSCAPE.flagValue
+    }
+
+    /** The reader sits paused under the in-app browser when its save reloads the chapter. */
+    @Test
+    fun `a chapter reloaded while the reader is away does not count the time away as read`() =
+        readTimeTest { harness, clock ->
+            val novel = harness.novel(harness.source("src"))
+            val opened = harness.chapter(novel, 1.0)
+            val model = harness.open(novel, opened.id)
+            model.awaitIdleOn(opened)
+            model.saveHistory()
+            advanceUntilIdle()
+            harness.download(opened, "<p>From the page</p>")
+            harness.pageSaves.emit(opened.id)
+            model.chapter.first { it?.html.orEmpty().contains("From the page") }
+            model.loadState.first { it == ReaderLoadState.Idle }
+
+            clock.advance(1.hours)
+            model.restartReadTimer()
+            clock.advance(10.minutes)
+            model.saveHistory()
+            advanceUntilIdle()
+
+            harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
+        }
+
+    @Test
+    fun `a chapter opened on screen counts the time it is read`() = readTimeTest { harness, clock ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        model.awaitIdleOn(opened)
+
+        clock.advance(10.minutes)
+        model.saveHistory()
+        advanceUntilIdle()
+
+        harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
+    }
+
+    /** The load runs on the real IO dispatcher, so the commit is awaited rather than advanced to. */
+    private suspend fun NovelReaderViewModel.awaitIdleOn(chapter: SeededChapter) {
+        this.chapter.first { it?.chapterId == chapter.id }
+        loadState.first { it == ReaderLoadState.Idle }
+    }
+
+    /** [readerTest] with the wall clock the read time is taken from under the test's hand. */
+    private fun readTimeTest(block: suspend TestScope.(NovelReaderViewModelHarness, TestClock) -> Unit) =
+        readerTest { harness ->
+            val clock = TestClock()
+            mockkObject(Clock.System)
+            try {
+                every { Clock.System.now() } answers { clock.now }
+                block(harness, clock)
+            } finally {
+                unmockkObject(Clock.System)
+            }
+        }
+
+    private class TestClock {
+        @Volatile
+        var now: Instant = Instant.fromEpochMilliseconds(1_000_000_000_000L)
+            private set
+
+        fun advance(by: Duration) {
+            now += by
+        }
     }
 }

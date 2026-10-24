@@ -810,7 +810,7 @@ class NovelReaderViewModel(
         updateHistory()
         currentChapterId = target
         currentNovelId = owner
-        chapterReadSession.start(Clock.System.now())
+        startReadSession()
         this.bookmarked.value = bookmarked
         chapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
@@ -889,7 +889,7 @@ class NovelReaderViewModel(
                 if (requested != pendingChapterId) return@launchIO
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
-                if (chapter.value != null) chapterReadSession.resume(Clock.System.now())
+                if (chapter.value != null) startReadSession(resume = true)
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = chapter.value != null,
@@ -916,7 +916,7 @@ class NovelReaderViewModel(
         // A reload of the chapter already open, after a chapter-text setting changed, keeps its timer
         // and its place: restarting either lost what the reader had done since it opened.
         val reloading = row.id == currentChapterId && chapter.value != null
-        if (!reloading || !chapterReadSession.isRunning) chapterReadSession.start(Clock.System.now())
+        if (!reloading || !chapterReadSession.isRunning) startReadSession()
         currentChapterId = row.id
         currentNovelId = row.novelId
         this.bookmarked.value = bookmarked
@@ -1049,6 +1049,17 @@ class NovelReaderViewModel(
     fun restartReadTimer() {
         onScreen = true
         chapterReadSession.resume(Clock.System.now())
+    }
+
+    /**
+     * Starts the read clock, or [resume]s it, only while something is reading, by the rule [saveHistory] and
+     * [readAloudOffScreen] apply. A chapter landing while the reader is away (a page saved in the in-app
+     * browser, a slow open) otherwise starts it, and [restartReadTimer]'s resume then keeps that start.
+     */
+    private fun startReadSession(resume: Boolean = false) {
+        if (!onScreen && readAloud.state.value.playback != TtsPlayback.Playing) return
+        val now = Clock.System.now()
+        if (resume) chapterReadSession.resume(now) else chapterReadSession.start(now)
     }
 
     /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the

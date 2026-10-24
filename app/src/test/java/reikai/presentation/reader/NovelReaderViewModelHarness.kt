@@ -278,6 +278,10 @@ class NovelReaderViewModelHarness private constructor(
     /** The chapters of [novelId] reading has put in history. */
     suspend fun historyOf(novelId: Long): List<Long> = history.getHistoryByNovelId(novelId).map { it.chapterId }
 
+    /** The time read history holds for [chapter] of [novelId], in milliseconds. */
+    suspend fun readTimeOf(novelId: Long, chapter: SeededChapter): Long? =
+        history.getHistoryByNovelId(novelId).firstOrNull { it.chapterId == chapter.id }?.readDuration
+
     /** Where the reader stored its place in [chapter], in hundredths of a percent. */
     suspend fun progressOf(chapter: SeededChapter): Long? = chapterRepo.getById(chapter.id)?.lastTextProgress
 
