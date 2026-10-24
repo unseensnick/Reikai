@@ -64,7 +64,25 @@ class LibraryDynamicGroupingFeedTest {
     fun `language groups read the row's source language`(type: ContentType) = runTest {
         val row = row(type)
 
-        feed(row, LibraryGroup.BY_LANGUAGE).languageCodes shouldBe mapOf(row.entryId to "ja")
+        feed(row, LibraryGroup.BY_LANGUAGE).languageCodes shouldBe mapOf(row.entryId to listOf("ja"))
+    }
+
+    /** As library search and Statistics read a merged series. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series groups under every member's language`(type: ContentType) = runTest {
+        val row = row(type).copy(memberSources = listOf(member("7", "ja"), member("8", "en")))
+
+        feed(row, LibraryGroup.BY_LANGUAGE).languageCodes shouldBe mapOf(row.entryId to listOf("ja", "en"))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merged series groups under every member's source`(type: ContentType) = runTest {
+        val row = row(type).copy(memberSources = listOf(member("7", "ja"), member("8", "en")))
+
+        feed(row, LibraryGroup.BY_SOURCE).sourceMeta shouldBe
+            mapOf(row.entryId to listOf("Site 7" to "7", "Site 8" to "8"))
     }
 
     @ParameterizedTest
@@ -80,7 +98,7 @@ class LibraryDynamicGroupingFeedTest {
     fun `source groups take the adapter's source label`(type: ContentType) = runTest {
         val row = row(type)
 
-        feed(row, LibraryGroup.BY_SOURCE).sourceMeta shouldBe mapOf(row.entryId to ("Site" to "7"))
+        feed(row, LibraryGroup.BY_SOURCE).sourceMeta shouldBe mapOf(row.entryId to listOf("Site 7" to "7"))
     }
 
     @ParameterizedTest
@@ -97,13 +115,17 @@ class LibraryDynamicGroupingFeedTest {
         return libraryDynamicGroupingFeed(
             rows = listOf(row),
             groupType = groupType,
-            sourceOf = { "Site" to "7" },
+            sourceKey = { "7" },
+            sourceOf = { key -> "Site $key" to key },
             groupTracks = { listOf(track) },
             loggedInTrackerIds = setOf(5L),
             trackerManager = trackerManager,
             context = context,
         )
     }
+
+    // A member's name is the lowercased search form, so a label must come from sourceOf, never from here.
+    private fun member(key: String, language: String) = LibraryQuerySource(key, "site $key", language, false)
 
     private val track = Track(
         id = 1L,

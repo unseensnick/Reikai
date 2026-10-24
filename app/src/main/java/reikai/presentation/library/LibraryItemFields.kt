@@ -108,7 +108,7 @@ fun seriesGenres(custom: List<String>?, memberGenres: List<List<String>?>): List
 fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)
 
 /** Every source this row stands for: a merged series' distinct member sources, else its own under [ownKey]. */
-private fun LibraryItem.allSources(ownKey: String) = memberSources.ifEmpty { listOf(querySource(ownKey)) }
+internal fun LibraryItem.allSources(ownKey: String) = memberSources.ifEmpty { listOf(querySource(ownKey)) }
 
 /** Maps onto the neutral overlay here rather than either content type learning about the query kernel. */
 fun EntryCustomInfo.toQueryOverlay() = LibraryQueryOverlay(title, author, artist, description, genre)
