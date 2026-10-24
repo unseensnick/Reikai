@@ -1597,6 +1597,19 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(at[1].toFloat(), textBox(NOTE).top, textSizePx() * 3)
     }
 
+    /** The chapter's own address plus a fragment is the same jump, which the page left to the browser's. */
+    @Test
+    fun aLinkToTheChaptersOwnAddressAndAPlaceScrollsWithinItsOwnChapter() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        val link = "<p><a href=\"$BASE_URL#note\">$JUMP_LINK</a></p>"
+        open(chapter(SECOND, "$link${long("filler")}$target${long("after")}", baseUrl = BASE_URL))
+        prepend(chapter(FIRST, "${long("before")}<p id=\"note\">$OTHER_NOTE</p>", baseUrl = BASE_URL))
+        awaitScrollStill()
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
     @Test
     fun aLinkToAPlaceInTheChapterScrollsThere() {
         val target = "<p id=\"note\">$NOTE</p>"

@@ -47,6 +47,8 @@ object NovelWebDocument {
         paged: Boolean,
         /** The chapter source's own stylesheet, which the page sets ahead of the user's snippets. */
         sourceStylesheet: String? = null,
+        /** The trusted base the document loads under, whose address plus a fragment is a jump in the chapter. */
+        baseUrl: String? = null,
     ): String {
         val css = NovelWebAssets.read(context, "reader.css")
         val js = NovelWebAssets.readWith(
@@ -73,6 +75,9 @@ object NovelWebDocument {
                 "__LABEL_DOWNLOADED__" to context.label(MR.strings.label_downloaded),
                 "__LABEL_IMAGE_ERROR__" to context.label(MR.strings.decode_image_error),
                 "__LABEL_RETRY__" to context.label(MR.strings.action_retry),
+                // Through the stylesheet's literal, which carries no underscore, so a token the address names
+                // is never filled in.
+                "__BASE_URL__" to (baseUrl?.let(::sourceCssLiteral) ?: "null"),
                 "__SOURCE_CSS__" to sourceCssLiteral(sourceStylesheet.orEmpty()),
                 // Last, because the tokens are replaced in order and a stylesheet naming one of the
                 // tokens above would otherwise have it filled in, the document token included.

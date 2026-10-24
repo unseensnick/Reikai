@@ -19,6 +19,11 @@
   // in every frame) can reach the bridge too, and none of them has this.
   var DOCUMENT_TOKEN = __DOCUMENT_TOKEN__;
 
+  // The trusted base the document loaded under, the opened chapter's, or null for none. A chapter added
+  // later brings its own (chapterBases), so each chapter's links are read against the base it came with.
+  var DOCUMENT_BASE = __BASE_URL__;
+  var chapterBases = Object.create(null);
+
   var CHAPTER_SELECTOR = '.rk-chapter';
   var CHAPTER_ID_ATTR = 'data-rk-chapter-id';
   // Text in a chapter that is not the chapter's words: ruby readings, code, and a failed picture's box.
@@ -863,6 +868,18 @@
     document.documentElement.classList.toggle('rk-bionic-on', !!settings.bionic);
   }
 
+  /* A link's fragment when it points into its own chapter, else null: a bare #name, or the chapter's trusted
+     base with one, the rule NovelChapterAddress.fragmentInDocument gives the native reader. */
+  function fragmentWithin(link, chapter) {
+    var href = link.getAttribute('href');
+    if (href.charAt(0) === '#') return href.substring(1);
+    var id = chapter.getAttribute(CHAPTER_ID_ATTR);
+    var base = id in chapterBases ? chapterBases[id] : DOCUMENT_BASE;
+    var address = link.href;
+    if (!base || address.indexOf(base + '#') !== 0) return null;
+    return address.substring(address.indexOf('#') + 1);
+  }
+
   /* pageSwipeStep's gate (ChapterSwipe.kt), strict comparisons included: true forward (the finger moving
      left), false back, null for none. */
   function swipeStep(dx, dy, minimum) {
@@ -906,11 +923,12 @@
     // Sources number footnotes per chapter, so the chapters one page holds repeat ids and the browser's
     // own jump lands on the first, often in the chapter above. The target is looked up in the link's own.
     document.addEventListener('click', function (e) {
-      var link = e.target && e.target.closest && e.target.closest('a[href^="#"]');
+      var link = e.target && e.target.closest && e.target.closest('a[href]');
       var chapter = link && link.closest(CHAPTER_SELECTOR);
-      if (!chapter) return;
+      var fragment = chapter ? fragmentWithin(link, chapter) : null;
+      if (fragment === null) return;
       e.preventDefault();
-      var target = anchorTarget(chapter, link.getAttribute('href').substring(1));
+      var target = anchorTarget(chapter, fragment);
       if (!target) return;
       onReaderMove();
       window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - readingTop(), behavior: 'instant' });
@@ -1553,6 +1571,7 @@
       return;
     }
     var chapter = buildChapter(id, html, baseUrl);
+    chapterBases[String(id)] = baseUrl || null;
     // Between the two chapters either way: below the arriving one on a prepend, above it on an append.
     var marker = seam ? buildSeam(seam) : null;
     if (atStart) {

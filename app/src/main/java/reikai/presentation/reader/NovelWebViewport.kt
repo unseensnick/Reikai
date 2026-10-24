@@ -431,6 +431,7 @@ class NovelWebViewport(
         // in front of it.
         val fontSource = webFonts.url(fontManager, settings.fontFamily)
         val initialFraction = chapter.progress.fraction
+        val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -449,9 +450,9 @@ class NovelWebViewport(
                 textSelectable = textSelectable,
                 paged = paged,
                 sourceStylesheet = chapter.sourceStylesheet?.css,
+                baseUrl = safeBaseUrl,
             )
         }
-        val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         loadedBaseUrl = safeBaseUrl
         // Paged, also until the first page is shown: the column lands by scrolling and is masked and moved
         // onto a page frames later, so its opening frames would show between them.
