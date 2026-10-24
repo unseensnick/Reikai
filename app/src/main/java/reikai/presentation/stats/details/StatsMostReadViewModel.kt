@@ -22,7 +22,6 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibraryLoader
-import reikai.presentation.stats.mostRead
 import reikai.presentation.stats.statsCovers
 import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
@@ -48,7 +47,7 @@ class StatsMostReadViewModel(
         sourcePreferences.statsContentType.changes(),
         covers,
     ) { library, type, covers ->
-        library.titles(type).mostRead().map { ReadTitle(it.entryId, it.title, it.readDuration, covers[it.entryId]) }
+        library.mostRead(type).map { it.copy(cover = covers[it.entryId]) }
     }
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -57,7 +56,7 @@ class StatsMostReadViewModel(
         viewModelScope.launchIO {
             val loaded = loader.load()
             library.value = loaded
-            val ids = loaded.titles(ContentType.ALL).mostRead().map { it.entryId }
+            val ids = loaded.mostRead(ContentType.ALL).map { it.entryId }
             covers.value = statsCovers(ids, loaded, mangaRepository, novelRepository)
         }
     }

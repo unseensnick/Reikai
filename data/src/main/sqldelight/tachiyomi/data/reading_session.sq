@@ -94,14 +94,16 @@ FROM novel_reading_session S
 INNER JOIN novel_chapters C ON C._id = S.chapter_id
 INNER JOIN novels N ON N._id = C.novel_id;
 
--- Each entry's lifetime reading time from history, which predates the log, for the details screen.
+-- Each entry's own title and lifetime reading time from history, which predates the log, for Statistics.
 readDurationByManga:
-SELECT manga_id, coalesce(sum(read_duration), 0)
-FROM history
-GROUP BY manga_id;
+SELECT H.manga_id, M.remote_title AS title, coalesce(sum(H.read_duration), 0)
+FROM history H
+INNER JOIN manga M ON M.id = H.manga_id
+GROUP BY H.manga_id;
 
 readDurationByNovel:
-SELECT C.novel_id, coalesce(sum(H.time_read), 0)
+SELECT C.novel_id, N.title, coalesce(sum(H.time_read), 0)
 FROM novel_history H
 INNER JOIN novel_chapters C ON C._id = H.chapter_id
+INNER JOIN novels N ON N._id = C.novel_id
 GROUP BY C.novel_id;

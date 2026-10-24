@@ -16,5 +16,5 @@ object NoReadingLog : ReadingLogRepository {
 
     override suspend fun sessions(contentType: ContentType) = emptyList<EntryReadingSession>()
 
-    override suspend fun readDurationByEntry(contentType: ContentType) = emptyMap<Long, Long>()
+    override suspend fun readDurationByEntry(contentType: ContentType) = emptyList<EntryReadDuration>()
 }

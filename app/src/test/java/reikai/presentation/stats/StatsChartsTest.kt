@@ -39,6 +39,7 @@ class StatsChartsTest {
     private fun charts(sessions: List<TitleReadingSession>) = statsCharts(
         listOf(title),
         sessions,
+        emptyList(),
         emptyMap(),
         today,
         TimeZone.UTC,

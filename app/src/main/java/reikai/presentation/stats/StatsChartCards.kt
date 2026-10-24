@@ -153,7 +153,7 @@ fun statsGroupCards(
         add { fill ->
             StatsCardHeader(MR.strings.stats_most_read, MR.strings.stats_see_all, onOpenMostRead)
             SectionCard(modifier = fill) {
-                charts.mostRead.forEach { StatsTitleLine(it.title, it.readDuration) { onOpenEntry(it.entryId) } }
+                charts.mostRead.forEach { StatsTitleLine(it.name, it.readMs) { onOpenEntry(it.entryId) } }
             }
         }
     }

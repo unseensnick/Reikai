@@ -7,6 +7,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.EntryReadDuration
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.UrlReadingSession
@@ -92,12 +93,12 @@ class ReadingLogRepositoryImpl(
         }
     }
 
-    override suspend fun readDurationByEntry(contentType: ContentType): Map<Long, Long> {
-        val mapper = { entryId: Long, duration: Long -> entryId to duration }
+    override suspend fun readDurationByEntry(contentType: ContentType): List<EntryReadDuration> {
+        val mapper = { entryId: Long, title: String, duration: Long -> EntryReadDuration(entryId, title, duration) }
         return if (isManga(contentType)) {
-            queries.readDurationByManga(mapper).awaitAsList().toMap()
+            queries.readDurationByManga(mapper).awaitAsList()
         } else {
-            queries.readDurationByNovel(mapper).awaitAsList().toMap()
+            queries.readDurationByNovel(mapper).awaitAsList()
         }
     }
 

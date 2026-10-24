@@ -10,6 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.EntryReadDuration
 import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -182,6 +183,41 @@ class ReadingLogRepositoryTest {
 
         sessionCount(type) shouldBe 1L
     }
+
+    /** Most read ranks by this, and names a series that left the library by the title it carries. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `lifetime reading time sums an entry's history under its own title`(type: ContentType) = runTest {
+        entry(type, id = 5L, title = "Own")
+        chapter(type, id = 1L, entryId = 5L, url = "/1")
+        chapter(type, id = 2L, entryId = 5L, url = "/2")
+        history(type, entryId = 5L, chapterId = 1L, duration = 60_000L)
+        history(type, entryId = 5L, chapterId = 2L, duration = 30_000L)
+
+        log.readDurationByEntry(type) shouldBe listOf(EntryReadDuration(5L, "Own", 90_000L))
+    }
+
+    private suspend fun entry(type: ContentType, id: Long, title: String) = exec(
+        if (type == ContentType.MANGA) {
+            "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, " +
+                "state_initialized, user_reader_flags, user_chapter_flags, " +
+                "state_cover_last_modified, user_favorite_at, remote_update_strategy, " +
+                "state_chapter_fetch_interval, user_notes, remote_memo) VALUES ($id, 1, " +
+                "'m', '$title', 0, 0, 0, 0, 0, 0, 0, 0, '', '{}')"
+        } else {
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, " +
+                "favorite_at) VALUES ($id, 'src', 'n', '$title', 0, 0, 0, 0)"
+        },
+    )
+
+    private suspend fun history(type: ContentType, entryId: Long, chapterId: Long, duration: Long) = exec(
+        if (type == ContentType.MANGA) {
+            "INSERT INTO history(manga_id, chapter_id, read_at, read_duration) " +
+                "VALUES ($entryId, $chapterId, 1000, $duration)"
+        } else {
+            "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES ($chapterId, 1000, $duration)"
+        },
+    )
 
     private suspend fun chapter(type: ContentType, id: Long, entryId: Long, url: String) = exec(
         if (type == ContentType.MANGA) {

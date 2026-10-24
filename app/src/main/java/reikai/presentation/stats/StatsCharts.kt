@@ -7,6 +7,7 @@ import kotlinx.datetime.TimeZone
 import kotlinx.datetime.minus
 import kotlinx.datetime.toLocalDateTime
 import reikai.domain.recommendation.taste.TrackStatus
+import reikai.presentation.stats.details.ReadTitle
 
 /** What the overview's charts draw for the selected content type. */
 @Immutable
@@ -22,7 +23,7 @@ data class StatsCharts(
     /** Each overview grouping's first rows, as its card shows them. */
     val groups: Map<StatsDimension, List<StatsRow>>,
     /** The series read longest, most first; one never read is left out. */
-    val mostRead: List<StatsTitle>,
+    val mostRead: List<ReadTitle>,
 )
 
 /** The groupings the overview shows a card of rows for; status and score have charts of their own. */
@@ -42,6 +43,7 @@ const val OVERVIEW_ROWS = 5
 fun statsCharts(
     titles: List<StatsTitle>,
     sessions: List<TitleReadingSession>,
+    mostRead: List<ReadTitle>,
     groups: Map<StatsDimension, List<StatsRow>>,
     today: LocalDate,
     timeZone: TimeZone,
@@ -56,6 +58,6 @@ fun statsCharts(
         loggedSince = sessions.minOfOrNull { it.session.startedAt }
             ?.toLocalDateTime(timeZone)?.date,
         groups = groups.mapValues { (_, rows) -> rows.take(OVERVIEW_ROWS) },
-        mostRead = titles.mostRead().take(OVERVIEW_ROWS),
+        mostRead = mostRead.take(OVERVIEW_ROWS),
     )
 }

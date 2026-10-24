@@ -9,7 +9,6 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
-import reikai.domain.merge.MergeBucket
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.LibraryNovel
@@ -69,21 +68,8 @@ class StatsCoversTest {
             CustomNovelInfo(novelId = LEAD, thumbnailUrl = url)
         }
 
-    private fun library(custom: Map<EntryId, EntryCustomInfo>) = StatsLibrary(
-        manga = StatsSeries(listOf(MergeBucket(null, listOf(manga(LEAD)))), emptyMap()) { it.manga.id },
-        novels = StatsSeries(listOf(MergeBucket(null, listOf(novel(LEAD)))), emptyMap()) { it.novel.id },
-        mangaTracks = emptyMap(),
-        novelTracks = emptyMap(),
-        loggedInTrackers = emptyList(),
-        trackerNames = emptyMap(),
-        categoryNames = emptyMap(),
-        sourceBadges = emptyMap(),
-        customInfo = custom,
-        mangaTitles = emptyList(),
-        novelTitles = emptyList(),
-        mangaSessions = emptyList(),
-        novelSessions = emptyList(),
-    )
+    private fun library(custom: Map<EntryId, EntryCustomInfo>) =
+        statsLibrary(manga = listOf(manga(LEAD)), novels = listOf(novel(LEAD)), customInfo = custom)
 
     private fun manga(id: Long) = LibraryManga(
         manga = Manga.create().copy(id = id, thumbnailUrl = "lead"),

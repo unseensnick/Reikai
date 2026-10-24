@@ -32,8 +32,11 @@ interface ReadingLogRepository {
     /** Every logged session, with the entry its chapter belongs to. */
     suspend fun sessions(contentType: ContentType): List<EntryReadingSession>
 
-    /** Each entry's lifetime reading time from history, which predates the log; an entry never read is absent. */
-    suspend fun readDurationByEntry(contentType: ContentType): Map<Long, Long>
+    /**
+     * Each entry's lifetime reading time from history, which predates the log, with its own title; an entry never
+     * read is absent.
+     */
+    suspend fun readDurationByEntry(contentType: ContentType): List<EntryReadDuration>
 }
 
 data class UrlReadingSession(val chapterUrl: String, val endedAt: Instant, val duration: Long)
@@ -59,6 +62,9 @@ private const val MAX_SESSION_MS = 7L * 24 * 60 * 60 * 1000
 
 /** 3000-01-01T00:00:00Z. */
 private const val LATEST_SESSION_END_MS = 32_503_680_000_000L
+
+/** [title] is the entry's own, which names it when it is not in the library. */
+data class EntryReadDuration(val entryId: Long, val title: String, val duration: Long)
 
 /** [title] is the entry's own, which names it when it is not in the library. */
 data class EntryReadingSession(val entryId: Long, val title: String, val endedAt: Instant, val duration: Long) {

@@ -21,6 +21,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.track.toUiTrack
+import reikai.domain.readinglog.EntryReadDuration
 import reikai.domain.readinglog.EntryReadingSession
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.novel.source.NovelSourceManager
@@ -28,6 +29,7 @@ import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.badgeSource
 import reikai.presentation.library.installedIconsBySite
 import reikai.presentation.library.novelSourceBadge
+import reikai.presentation.stats.details.ReadTitle
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.interactor.GetLibraryManga
@@ -54,6 +56,8 @@ class StatsLibrary(
     private val novelTitles: List<StatsTitle>,
     private val mangaSessions: List<EntryReadingSession>,
     private val novelSessions: List<EntryReadingSession>,
+    private val mangaReadDurations: List<EntryReadDuration>,
+    private val novelReadDurations: List<EntryReadDuration>,
 ) {
     fun titles(type: ContentType): List<StatsTitle> = buildList {
         if (type.includes(ContentType.MANGA)) addAll(mangaTitles)
@@ -69,6 +73,16 @@ class StatsLibrary(
             addAll(titleSessions(novelSessions, novels.titleIdByMember, novelTitles, EntryId::Novel))
         }
     }
+
+    /** Every series read, by lifetime reading time from history, longest first, keyed as [sessions] are. */
+    fun mostRead(type: ContentType): List<ReadTitle> = buildList {
+        if (type.includes(ContentType.MANGA)) {
+            addAll(titleReadDurations(mangaReadDurations, manga.titleIdByMember, mangaTitles, EntryId::Manga))
+        }
+        if (type.includes(ContentType.NOVELS)) {
+            addAll(titleReadDurations(novelReadDurations, novels.titleIdByMember, novelTitles, EntryId::Novel))
+        }
+    }.sortedByDescending { it.readMs }
 }
 
 /** A logged session and the series it counts under, named as the library names that series. */
@@ -85,10 +99,36 @@ internal fun titleSessions(
     titles: List<StatsTitle>,
     entryId: (Long) -> EntryId,
 ): List<TitleReadingSession> {
-    val titleByEntry = titles.associateBy { it.entryId }
+    val titleOf = titleKeys(titleIdByMember, titles, entryId)
     return sessions.map { session ->
-        val title = titleIdByMember[session.entryId]?.let { titleByEntry[entryId(it)] }
-        TitleReadingSession(title?.entryId ?: entryId(session.entryId), title?.title ?: session.title, session)
+        val (id, name) = titleOf(session.entryId, session.title)
+        TitleReadingSession(id, name, session)
+    }
+}
+
+/** Each entry's history time summed under the title [titleSessions] keys it to; one never read is left out. */
+internal fun titleReadDurations(
+    durations: List<EntryReadDuration>,
+    titleIdByMember: Map<Long, Long>,
+    titles: List<StatsTitle>,
+    entryId: (Long) -> EntryId,
+): List<ReadTitle> {
+    val titleOf = titleKeys(titleIdByMember, titles, entryId)
+    return durations.groupBy { titleOf(it.entryId, it.title) }
+        .map { (key, rows) -> ReadTitle(key.first, key.second, rows.sumOf { it.duration }) }
+        .filter { it.readMs > 0 }
+}
+
+/** An entry's series and its name: its library title when it is in one, else itself under [ownTitle]. */
+private fun titleKeys(
+    titleIdByMember: Map<Long, Long>,
+    titles: List<StatsTitle>,
+    entryId: (Long) -> EntryId,
+): (member: Long, ownTitle: String) -> Pair<EntryId, String> {
+    val titleByEntry = titles.associateBy { it.entryId }
+    return { member, ownTitle ->
+        val title = titleIdByMember[member]?.let { titleByEntry[entryId(it)] }
+        (title?.entryId ?: entryId(member)) to (title?.title ?: ownTitle)
     }
 }
 
@@ -136,6 +176,8 @@ class StatsLibraryLoader(
         val novelTracks = getNovelTrackMap(novels.members, trackers.keys)
         val mangaSessions = readingLog.sessions(ContentType.MANGA)
         val novelSessions = readingLog.sessions(ContentType.NOVELS)
+        val mangaReadDurations = readingLog.readDurationByEntry(ContentType.MANGA)
+        val novelReadDurations = readingLog.readDurationByEntry(ContentType.NOVELS)
         val customInfo = getEntryCustomInfo.awaitAll()
 
         val mangaSources = manga.members.map { it.manga.source }.distinct().associateWith { id ->
@@ -163,7 +205,7 @@ class StatsLibraryLoader(
             ),
             mangaTracks,
             trackers,
-            readingLog.readDurationByEntry(ContentType.MANGA),
+            mangaReadDurations.associate { it.entryId to it.duration },
             firstLoggedRead(mangaSessions),
         )
         val novelTitles = novels.statsTitles(
@@ -180,7 +222,7 @@ class StatsLibraryLoader(
             ),
             novelTracks,
             trackers,
-            readingLog.readDurationByEntry(ContentType.NOVELS),
+            novelReadDurations.associate { it.entryId to it.duration },
             firstLoggedRead(novelSessions),
         )
 
@@ -199,6 +241,8 @@ class StatsLibraryLoader(
             novelTitles = novelTitles,
             mangaSessions = mangaSessions,
             novelSessions = novelSessions,
+            mangaReadDurations = mangaReadDurations,
+            novelReadDurations = novelReadDurations,
         )
     }
 

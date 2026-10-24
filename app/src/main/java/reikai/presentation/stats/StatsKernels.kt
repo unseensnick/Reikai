@@ -22,11 +22,6 @@ fun List<StatsTitle>.statusCounts(): Map<Long, Int> = groupingBy { it.status }.e
 fun List<StatsTitle>.scoreCounts(): Map<Int, Int> =
     mapNotNull { it.meanScore?.let(::scoreBar) }.groupingBy { it }.eachCount()
 
-/** Titles by lifetime reading time, longest first; a title with none is left out. */
-fun List<StatsTitle>.mostRead(): List<StatsTitle> = filter {
-    it.readDuration > 0
-}.sortedByDescending { it.readDuration }
-
 /** The bar a mean score sits in: rounded, and kept on the chart, as Yōkai's score chart bins it. */
 fun scoreBar(mean: Double): Int = mean.roundToInt().coerceIn(1, 10)
 

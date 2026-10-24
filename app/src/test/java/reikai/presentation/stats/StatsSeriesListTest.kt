@@ -67,11 +67,6 @@ class StatsSeriesListTest {
     }
 
     @Test
-    fun `most read ranks by reading time and leaves out series never read`() {
-        LIBRARY.mostRead().map { it.entryId } shouldBe listOf(EntryId.Manga(3L), EntryId.Manga(1L))
-    }
-
-    @Test
     fun `narrowing to a read state keeps only that state's rows`() {
         val states = mapOf(EntryId.Manga(1L) to ReadState.FINISHED, EntryId.Manga(2L) to ReadState.READING)
         listOf(row(EntryId.Manga(1L)), row(EntryId.Manga(2L))).inReadState(ReadState.READING) { states[it] }
