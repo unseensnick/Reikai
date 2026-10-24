@@ -17,6 +17,7 @@ import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.reader.readerDarkPreset
@@ -429,7 +430,10 @@ class NovelPreferences(
 
     /** How far one volume press scrolls, as a fraction of the screen height (LNReader's default is
      *  0.75, leaving a quarter-screen overlap for reading continuity). */
-    fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
+    fun readerVolumeButtonsFraction() = preferenceStore.getFloat(
+        "ln_reader_volume_buttons_fraction",
+        VOLUME_KEY_SCROLL_DEFAULT_FRACTION,
+    )
 
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
      *  `readerHideThreshold`. Both read the distance off the shared [ReaderHideThreshold]. No pin: manga's

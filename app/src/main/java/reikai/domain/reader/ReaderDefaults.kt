@@ -5,3 +5,6 @@ package reikai.domain.reader
  * height, but both offer the same layouts, so they start from the same one.
  */
 const val BOTTOM_ZONE_DEFAULT_PERCENT = 12
+
+/** How far one volume-key press scrolls by default, as a fraction of the screen, in both readers' own setting. */
+const val VOLUME_KEY_SCROLL_DEFAULT_FRACTION = 0.75f

@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.presentation.reader.navigation.MangaTapLayouts
 
 /**
@@ -44,7 +45,7 @@ class WebtoonConfig(
     val theme = readerPreferences.readerTheme.get()
 
     // RK: user-settable volume-key scroll distance as a fraction of the screen (novel-reader parity).
-    var volumeKeysScrollFraction = 0.75f
+    var volumeKeysScrollFraction = VOLUME_KEY_SCROLL_DEFAULT_FRACTION
         private set
 
     init {
