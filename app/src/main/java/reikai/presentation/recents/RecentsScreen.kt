@@ -361,7 +361,7 @@ fun Screen.RecentsScreen(
  * its normal actions the moment the counter rises. So the bar swaps rather than growing a branch.
  */
 @Composable
-private fun RecentsToolbar(
+internal fun RecentsToolbar(
     title: String,
     query: String?,
     onQueryChange: (String?) -> Unit,
