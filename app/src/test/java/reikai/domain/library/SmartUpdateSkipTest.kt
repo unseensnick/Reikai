@@ -103,6 +103,26 @@ class SmartUpdateSkipTest {
         smartUpdateSkip(entry.facts(nextUpdate = null), setOf(MANGA_OUTSIDE_RELEASE_PERIOD), WINDOW_END) shouldBe null
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `an entry in an excluded category is outside the global update`(entry: SmartUpdateEntry) {
+        inGlobalUpdate(listOf(3L), entry.facts(), emptySet(), setOf(3L), emptySet()) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `a completed entry is outside the global update under the completed restriction`(entry: SmartUpdateEntry) {
+        val facts = entry.facts(completed = true)
+
+        inGlobalUpdate(emptyList(), facts, emptySet(), emptySet(), setOf(MANGA_NON_COMPLETED)) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("entries")
+    fun `an entry no rule leaves out is inside the global update`(entry: SmartUpdateEntry) {
+        inGlobalUpdate(listOf(3L), entry.facts(), setOf(3L), emptySet(), setOf(MANGA_NON_COMPLETED)) shouldBe true
+    }
+
     companion object {
         private val WINDOW_END = Instant.fromEpochMilliseconds(2_000L)
 

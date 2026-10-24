@@ -19,12 +19,11 @@ import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
-import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.inGlobalUpdate
 import reikai.domain.library.includes
 import reikai.domain.library.smartUpdateFacts
-import reikai.domain.library.smartUpdateProgressSkip
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -185,8 +184,13 @@ class StatsViewModel(
 
         // RK --> merged series counted once through the shared kernel
         return libraryManga.globalUpdateCount {
-            matchesCategoryFilter(it.categories, includedCategories, excludedCategories) &&
-                smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) == null
+            inGlobalUpdate(
+                it.categories,
+                it.smartUpdateFacts(),
+                includedCategories,
+                excludedCategories,
+                updateRestrictions,
+            )
         }
         // RK <--
     }
@@ -200,8 +204,13 @@ class StatsViewModel(
         val updateRestrictions = novelPreferences.novelUpdateRestrictions().get()
 
         return libraryNovels.globalUpdateCount {
-            matchesCategoryFilter(it.categories, includedCategories, excludedCategories) &&
-                smartUpdateProgressSkip(it.smartUpdateFacts(), updateRestrictions) == null
+            inGlobalUpdate(
+                it.categories,
+                it.smartUpdateFacts(),
+                includedCategories,
+                excludedCategories,
+                updateRestrictions,
+            )
         }
     }
     // RK <--
