@@ -72,12 +72,15 @@ class NovelChapterTextLoader(
         return html to baseUrl
     }
 
-    /** A copy on disk when there is one, unless [fromSource] asks the source regardless. */
+    /** A copy on disk when there is one, unless [fromSource] asks the source regardless and drops the cached text. */
     private suspend fun fetch(chapter: NovelChapter, fromSource: Boolean): Pair<String, String?> {
         if (!fromSource) {
             val novel = novelRepo.getById(chapter.novelId)
             if (novel != null) readDownloaded(novel, chapter)?.let { return it to null }
             textCache.get(chapter)?.let { return it.text to it.baseUrl }
+        } else {
+            // Dropped before anything can fail, so a bad answer cached earlier is not served after a failed reload.
+            textCache.remove(chapter)
         }
         val src = resolveSource(chapter.novelId)
         // A blank page reads as the reader failing to draw, so an empty answer fails the load instead.

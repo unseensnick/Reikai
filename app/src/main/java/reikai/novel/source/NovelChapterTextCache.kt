@@ -23,7 +23,7 @@ class NovelChapterTextCache(
     /** Null when the chapter was never fetched, was evicted, or its entry cannot be read. */
     fun get(chapter: NovelChapter): CachedChapterText? = runCatching {
         chapterCache.getText(key(chapter))?.let { json.decodeFromString<CachedChapterText>(it) }
-    }.getOrNull()
+    }.onFailure { logcat(LogPriority.WARN, it) { "Failed to read cached novel chapter text" } }.getOrNull()
 
     /** A failed write costs only the next open's speed, so it is logged rather than failing the read. */
     fun put(chapter: NovelChapter, text: CachedChapterText) {
@@ -31,8 +31,13 @@ class NovelChapterTextCache(
             .onFailure { logcat(LogPriority.WARN, it) { "Failed to cache novel chapter text" } }
     }
 
-    // Prefixed, since a novel id and a manga id can be the same number in the cache they share.
-    private fun key(chapter: NovelChapter) = "novel/${chapter.novelId}${chapter.url}"
+    fun remove(chapter: NovelChapter) {
+        chapterCache.removeText(key(chapter))
+    }
+
+    // Prefixed, since a novel id and a manga id can be the same number in the cache they share. The slash after the id
+    // keeps novel 1's path "2/ch" and novel 12's "/ch" apart.
+    private fun key(chapter: NovelChapter) = "novel/${chapter.novelId}/${chapter.url}"
 }
 
 /** [baseUrl] is the source site the text's relative links resolve against. */

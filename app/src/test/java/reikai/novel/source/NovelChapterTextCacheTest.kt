@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coEvery
 import io.mockk.every
@@ -83,10 +84,34 @@ class NovelChapterTextCacheTest {
         html shouldContain "second answer"
     }
 
-    private fun chapter(novelId: Long) = NovelChapter(
+    /** The text a source answered badly is dropped when asked for again, as manga drops its pages first. */
+    @Test
+    fun `a failed load from the source leaves no cached text behind`() = runTest {
+        loader().load(chapter(novelId = 1L))
+        answer = ""
+        shouldThrow<EmptyChapterException> { loader().load(chapter(novelId = 1L), fromSource = true) }
+        answer = "<p>second answer</p>"
+
+        val (html, _) = loader().load(chapter(novelId = 1L))
+
+        html shouldContain "second answer"
+    }
+
+    /** Without a separator, novel 1's path "2/ch.html" and novel 12's "/ch.html" make the same key. */
+    @Test
+    fun `a novel whose id runs into another's chapter path is not read from its cache`() = runTest {
+        loader().load(chapter(novelId = 1L, url = "2/ch.html"))
+        answer = "<p>second answer</p>"
+
+        val (html, _) = loader().load(chapter(novelId = 12L, url = "/ch.html"))
+
+        html shouldContain "second answer"
+    }
+
+    private fun chapter(novelId: Long, url: String = "/book/ch1.html") = NovelChapter(
         id = novelId,
         novelId = novelId,
-        url = "/book/ch1.html",
+        url = url,
         name = "Chapter 1",
         read = false,
         bookmark = false,

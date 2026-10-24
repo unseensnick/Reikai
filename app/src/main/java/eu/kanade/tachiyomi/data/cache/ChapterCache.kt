@@ -202,6 +202,10 @@ class ChapterCache(
     // A novel chapter's text, kept by NovelChapterTextCache in this cache so its cap and clearing cover both
     fun getText(key: String): String? = diskCache.get(DiskUtil.hashKeyForDisk(key))?.use { it.getString(0) }
 
+    fun removeText(key: String) {
+        runCatching { diskCache.remove(DiskUtil.hashKeyForDisk(key)) }
+    }
+
     fun putText(key: String, text: String) {
         val hashed = DiskUtil.hashKeyForDisk(key)
         // A commit renames its new file over the old one, which Windows refuses, so an entry is replaced by removing it first
