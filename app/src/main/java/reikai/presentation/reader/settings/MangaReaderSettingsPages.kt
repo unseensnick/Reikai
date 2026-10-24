@@ -370,6 +370,8 @@ private fun ColumnScope.MangaTapZones(preferences: ReaderPreferences, pager: Boo
         selected = selected,
         onSelect = { preferences.setTapLayout(pager, it) },
         layout = MangaTapLayouts.layout(selected),
+        offersInvert = MangaTapLayouts.offersInvert(selected),
+        invertModes = MangaTapLayouts.invertModes(selected),
         invert = invert,
         onInvert = invertPref::set,
         bottomZoneHeight = preferences.tapBottomZoneHeight,

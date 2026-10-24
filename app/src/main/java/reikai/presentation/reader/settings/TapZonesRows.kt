@@ -19,8 +19,8 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /**
  * Either reader's tap layout, its inversion where it has something to invert, and the Bottom layout's zone height.
- * [layout] is the novel layout the [selected] one follows the rules of, null for one of Mihon's zoned layouts,
- * which every inversion changes.
+ * [layout] is the novel layout the [selected] one is, null for one the novel reader lacks; [offersInvert] and
+ * [invertModes] come from the reader's own rule for [selected].
  */
 @Composable
 internal fun ColumnScope.TapZonesRows(
@@ -28,6 +28,8 @@ internal fun ColumnScope.TapZonesRows(
     selected: Int,
     onSelect: (Int) -> Unit,
     layout: NovelTapLayout?,
+    offersInvert: Boolean,
+    invertModes: List<TappingInvertMode>,
     invert: TappingInvertMode,
     onInvert: (TappingInvertMode) -> Unit,
     bottomZoneHeight: Preference<Int>,
@@ -41,9 +43,9 @@ internal fun ColumnScope.TapZonesRows(
             )
         }
     }
-    if (layout?.offersInvert != false) {
+    if (offersInvert) {
         SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            (layout?.invertModes ?: TappingInvertMode.entries).forEach {
+            invertModes.forEach {
                 FilterChip(
                     selected = it == invert,
                     onClick = { onInvert(it) },

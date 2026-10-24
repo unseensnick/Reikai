@@ -36,6 +36,8 @@ class TapZonesRowsTest(private val probe: TapZonesProbe) {
                     selected = index,
                     onSelect = {},
                     layout = probe.layoutAt(index),
+                    offersInvert = probe.offersInvert(index),
+                    invertModes = probe.invertModes(index),
                     invert = TappingInvertMode.NONE,
                     onInvert = {},
                     bottomZoneHeight = HEIGHT,
@@ -88,12 +90,16 @@ interface TapZonesProbe {
     val names: List<StringResource>
     fun indexOf(layout: NovelTapLayout): Int
     fun layoutAt(index: Int): NovelTapLayout?
+    fun offersInvert(index: Int): Boolean
+    fun invertModes(index: Int): List<TappingInvertMode>
 }
 
 object MangaTapZonesProbe : TapZonesProbe {
     override val names = MangaTapLayouts.names
     override fun indexOf(layout: NovelTapLayout) = (names.indices).first { MangaTapLayouts.added(it) == layout }
     override fun layoutAt(index: Int) = MangaTapLayouts.layout(index)
+    override fun offersInvert(index: Int) = MangaTapLayouts.offersInvert(index)
+    override fun invertModes(index: Int) = MangaTapLayouts.invertModes(index)
     override fun toString() = "manga"
 }
 
@@ -101,5 +107,7 @@ object NovelTapZonesProbe : TapZonesProbe {
     override val names = NovelTapLayout.entries.map { it.titleRes }
     override fun indexOf(layout: NovelTapLayout) = layout.ordinal
     override fun layoutAt(index: Int) = NovelTapLayout.entries[index]
+    override fun offersInvert(index: Int) = NovelTapLayout.entries[index].offersInvert
+    override fun invertModes(index: Int) = NovelTapLayout.entries[index].invertModes
     override fun toString() = "novels"
 }

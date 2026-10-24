@@ -393,6 +393,8 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: 
         selected = layout.ordinal,
         onSelect = { preferences.setReaderTapLayout(paged, NovelTapLayout.entries[it]) },
         layout = layout,
+        offersInvert = layout.offersInvert,
+        invertModes = layout.invertModes,
         invert = invert,
         onInvert = invertPref::set,
         bottomZoneHeight = preferences.readerTapBottomZoneHeight(),
