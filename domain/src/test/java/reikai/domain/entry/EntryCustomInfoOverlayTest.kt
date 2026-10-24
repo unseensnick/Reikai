@@ -2,10 +2,13 @@ package reikai.domain.entry
 
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
-import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
+import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.model.CustomNovelInfo
+import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.recents.RecentlyAddedManga
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
@@ -13,33 +16,41 @@ import tachiyomi.domain.manga.model.MangaCover
 import kotlin.time.Instant
 
 /**
- * The display overlay, pinned once over both content types' override rows: the novel library draws a
- * novel as a manga-shaped row, so [Manga.withCustomInfo] is fed both.
+ * The display overlay, pinned once over both models ([Manga.withCustomInfo] and [Novel.withCustomInfo])
+ * and both content types' override rows: the novel library draws a novel as a manga-shaped row, so the
+ * manga overlay is fed both.
  */
 class EntryCustomInfoOverlayTest {
 
-    @Test
-    fun `a null overlay passes the source through unchanged`() {
-        source.withCustomInfo(null) shouldBe source
+    @ParameterizedTest
+    @EnumSource(Model::class)
+    fun `a null overlay passes the source through unchanged`(model: Model) {
+        model.overlay(null) shouldBe model.source
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `an all-null overlay passes every field through`(info: InfoType) {
-        source.withCustomInfo(info.create()) shouldBe source
+    @ParameterizedTest(name = "{0}, {1}")
+    @MethodSource("modelsAndInfoTypes")
+    fun `an all-null overlay passes every field through`(model: Model, info: InfoType) {
+        model.overlay(info.create()) shouldBe model.source
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `an unset field keeps the source value even when another is overridden`(info: InfoType) {
-        source.withCustomInfo(info.create(title = "My Title")).author shouldBe "Source Author"
+    @ParameterizedTest(name = "{0}, {1}")
+    @MethodSource("modelsAndInfoTypes")
+    fun `a set field wins over the source value`(model: Model, info: InfoType) {
+        model.fields(model.overlay(info.create(title = "My Title"))).title shouldBe "My Title"
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("infoTypes")
-    fun `every field can be overridden at once`(info: InfoType) {
-        source.withCustomInfo(info.create(title = "T", thumbnailUrl = "u", allOthers = true)) shouldBe
-            source.copy(
+    @ParameterizedTest(name = "{0}, {1}")
+    @MethodSource("modelsAndInfoTypes")
+    fun `an unset field keeps the source value even when another is overridden`(model: Model, info: InfoType) {
+        model.fields(model.overlay(info.create(title = "My Title"))).author shouldBe "Source Author"
+    }
+
+    @ParameterizedTest(name = "{0}, {1}")
+    @MethodSource("modelsAndInfoTypes")
+    fun `every field can be overridden at once`(model: Model, info: InfoType) {
+        model.fields(model.overlay(info.create(title = "T", thumbnailUrl = "u", allOthers = true))) shouldBe
+            OverlayFields(
                 title = "T",
                 author = "Au",
                 artist = "Ar",
@@ -139,15 +150,61 @@ class EntryCustomInfoOverlayTest {
         ): EntryCustomInfo
     }
 
-    private val source = Manga.create().copy(
-        id = 1L,
-        title = "Source Title",
-        author = "Source Author",
-        artist = "Source Artist",
-        description = "Source description",
-        genre = listOf("Action", "Drama"),
-        status = 1L,
-        thumbnailUrl = "https://example.com/source.jpg",
+    /** One model's half: a source entry with the same values on both, its overlay, and the fields it may change. */
+    enum class Model {
+        MANGA {
+            override val source = Manga.create().copy(
+                id = 1L,
+                title = "Source Title",
+                author = "Source Author",
+                artist = "Source Artist",
+                description = "Source description",
+                genre = listOf("Action", "Drama"),
+                status = 1L,
+                thumbnailUrl = "https://example.com/source.jpg",
+            )
+
+            override fun overlay(custom: EntryCustomInfo?): Any = source.withCustomInfo(custom)
+
+            override fun fields(entry: Any) = with(entry as Manga) {
+                OverlayFields(title, author, artist, description, genre, status, thumbnailUrl)
+            }
+        },
+        NOVEL {
+            override val source = Novel.create().copy(
+                id = 1L,
+                title = "Source Title",
+                author = "Source Author",
+                artist = "Source Artist",
+                description = "Source description",
+                genre = listOf("Action", "Drama"),
+                status = 1L,
+                thumbnailUrl = "https://example.com/source.jpg",
+            )
+
+            override fun overlay(custom: EntryCustomInfo?): Any = source.withCustomInfo(custom)
+
+            override fun fields(entry: Any) = with(entry as Novel) {
+                OverlayFields(title, author, artist, description, genre, status, thumbnailUrl)
+            }
+        },
+        ;
+
+        abstract val source: Any
+
+        abstract fun overlay(custom: EntryCustomInfo?): Any
+
+        abstract fun fields(entry: Any): OverlayFields
+    }
+
+    data class OverlayFields(
+        val title: String,
+        val author: String?,
+        val artist: String?,
+        val description: String?,
+        val genre: List<String>?,
+        val status: Long,
+        val thumbnailUrl: String?,
     )
 
     private fun row(id: Long) = RecentlyAddedManga(
@@ -166,5 +223,8 @@ class EntryCustomInfoOverlayTest {
     companion object {
         @JvmStatic
         fun infoTypes() = InfoType.entries
+
+        @JvmStatic
+        fun modelsAndInfoTypes() = Model.entries.flatMap { model -> InfoType.entries.map { Arguments.of(model, it) } }
     }
 }
