@@ -12,3 +12,10 @@ import kotlin.time.Instant
  */
 fun coverCacheKey(customCoverOwner: EntryId?, url: String?, lastModified: Instant?): String =
     "${customCoverOwner?.customCoverKey() ?: url};$lastModified"
+
+/**
+ * The owner [coverCacheKey] keys a custom cover by, or null. Only a library entry's custom cover is
+ * served, so one left behind by a removal never is.
+ */
+fun libraryCustomCoverOwner(entry: EntryId, isFavorite: Boolean, hasCustomCover: (EntryId) -> Boolean): EntryId? =
+    entry.takeIf { isFavorite && hasCustomCover(it) }

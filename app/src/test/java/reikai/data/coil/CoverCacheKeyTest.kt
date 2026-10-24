@@ -4,6 +4,7 @@ import android.content.Context
 import coil3.request.Options
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverKeyer
+import eu.kanade.tachiyomi.data.coil.MangaKeyer
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import io.mockk.every
@@ -15,6 +16,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.novelResultCover
 import reikai.util.idleAppScope
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import java.io.File
 import kotlin.time.Instant
@@ -83,6 +85,29 @@ class CoverCacheKeyTest {
 
         novelKey(novel(id = 7L, favorite = false)) shouldBe
             novelKey(novelResultCover(null, URL, SOURCE).copy(lastModified = LAST_MODIFIED))
+    }
+
+    @Test
+    fun `MangaKeyer keys a manga outside the library by its address`() {
+        customCover(EntryId.Manga(7L))
+        val manga = Manga.create().copy(id = 7L, thumbnailUrl = URL, coverLastModified = LAST_MODIFIED)
+
+        MangaKeyer().key(manga, options) shouldBe "$URL;1970-01-01T00:00:00.042Z"
+    }
+
+    @Test
+    fun `an entry outside the library owns no custom cover`() {
+        libraryCustomCoverOwner(EntryId.Manga(7L), isFavorite = false) { true } shouldBe null
+    }
+
+    @Test
+    fun `a library entry owns the custom cover it has`() {
+        libraryCustomCoverOwner(EntryId.Novel(7L), isFavorite = true) { true } shouldBe EntryId.Novel(7L)
+    }
+
+    @Test
+    fun `a library entry without a custom cover owns none`() {
+        libraryCustomCoverOwner(EntryId.Novel(7L), isFavorite = true) { false } shouldBe null
     }
 
     private fun customCover(owner: EntryId) {

@@ -5,6 +5,7 @@ import coil3.request.Options
 import eu.kanade.domain.manga.model.hasCustomCover
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.data.coil.coverCacheKey
+import reikai.data.coil.libraryCustomCoverOwner
 import reikai.domain.entry.EntryId
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.manga.model.Manga as DomainManga
@@ -12,7 +13,7 @@ import tachiyomi.domain.manga.model.Manga as DomainManga
 class MangaKeyer : Keyer<DomainManga> {
     override fun key(data: DomainManga, options: Options): String {
         // RK --> one key rule for manga and novel covers (coverCacheKey); the strings are upstream's
-        val owner = EntryId.Manga(data.id).takeIf { data.favorite && data.hasCustomCover() }
+        val owner = libraryCustomCoverOwner(EntryId.Manga(data.id), data.favorite) { data.hasCustomCover() }
         return coverCacheKey(owner, data.thumbnailUrl, data.coverLastModified)
         // RK <--
     }
@@ -23,9 +24,8 @@ class MangaCoverKeyer(
 ) : Keyer<MangaCover> {
     override fun key(data: MangaCover, options: Options): String {
         // RK --> one key rule for manga and novel covers (coverCacheKey); the strings are upstream's
-        val owner = EntryId.Manga(data.mangaId).takeIf {
-            data.isMangaFavorite && coverCache.hasCustomCover(data.mangaId)
-        }
+        val owner =
+            libraryCustomCoverOwner(EntryId.Manga(data.mangaId), data.isMangaFavorite, coverCache::hasCustomCover)
         return coverCacheKey(owner, data.url, data.lastModified)
         // RK <--
     }
