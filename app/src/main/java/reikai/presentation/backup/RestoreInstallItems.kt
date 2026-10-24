@@ -8,7 +8,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import reikai.data.backup.BackupRepo
 import reikai.data.backup.RestoreInstallPlan
-import reikai.domain.extension.NO_SIGNING_KEY
+import reikai.domain.extension.shownSigningKey
 import reikai.presentation.browse.repos.DetailLine
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -46,8 +46,7 @@ fun LazyListScope.restoreInstallItems(
                 )
                 Text(stringResource(MR.strings.restore_repo_untrusted), style = MaterialTheme.typography.bodyMedium)
                 DetailLine(stringResource(MR.strings.repo_address), repo.url)
-                // A keyless store's sentinel is no key, as the Repositories screen shows it.
-                repo.signingKey?.takeIf { it != NO_SIGNING_KEY }?.let {
+                repo.signingKey?.let(::shownSigningKey)?.let {
                     DetailLine(stringResource(MR.strings.repo_signing_key), it)
                 }
                 DetailLine(

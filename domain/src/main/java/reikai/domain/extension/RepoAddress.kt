@@ -6,7 +6,10 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 /** The signing key of a store that publishes none, which matches no extension's signature. */
 const val NO_SIGNING_KEY = "NO_SIGNING_KEY"
 
-val ExtensionStore.hasSigningKey: Boolean get() = signingKey != NO_SIGNING_KEY
+/** A store's key as a screen shows it: none for a keyless store. */
+fun shownSigningKey(key: String): String? = key.takeUnless { it == NO_SIGNING_KEY }
+
+val ExtensionStore.hasSigningKey: Boolean get() = shownSigningKey(signingKey) != null
 
 /** The keys an apk from these stores can be signed with; a keyless store adds none. */
 val Collection<ExtensionStore>.signingKeys: Set<String>

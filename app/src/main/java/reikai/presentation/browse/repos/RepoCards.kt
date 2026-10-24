@@ -2,8 +2,8 @@ package reikai.presentation.browse.repos
 
 import mihon.domain.extension.model.ExtensionStore
 import reikai.domain.extension.RepoStatus
-import reikai.domain.extension.hasSigningKey
 import reikai.domain.extension.repoNameFromAddress
+import reikai.domain.extension.shownSigningKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.mixesContentTypes
 import java.io.IOException
@@ -49,7 +49,7 @@ fun repoCards(
             name = store.name,
             website = store.contact.website,
             discord = store.contact.discord,
-            signingKey = store.signingKey.takeIf { store.hasSigningKey },
+            signingKey = shownSigningKey(store.signingKey),
             status = storeStatuses?.get(store.indexUrl) ?: RepoStatus.Checking,
         )
     }

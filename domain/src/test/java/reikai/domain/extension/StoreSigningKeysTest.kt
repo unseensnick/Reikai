@@ -11,6 +11,16 @@ class StoreSigningKeysTest {
         listOf(store(KEY), store(NO_SIGNING_KEY)).signingKeys shouldBe setOf(KEY)
     }
 
+    @Test
+    fun `a keyless store shows no key`() {
+        shownSigningKey(NO_SIGNING_KEY) shouldBe null
+    }
+
+    @Test
+    fun `a store's key is shown as it is`() {
+        shownSigningKey(KEY) shouldBe KEY
+    }
+
     private fun store(signingKey: String) = ExtensionStore(
         indexUrl = "https://$signingKey.example/index.min.json",
         name = "Store",
