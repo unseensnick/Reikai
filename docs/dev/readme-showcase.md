@@ -34,9 +34,7 @@ bash make-frames.sh    # stills/ + frame -> framed/
 bash make-webp.sh      # framed/ -> ../screens.webp
 ```
 
-Needs `ffmpeg` with the `libwebp_anim` encoder on PATH. Note: ffmpeg can **encode** animated WebP
-but cannot decode it back, so verify the result by opening `screens.webp` in a browser/viewer (or
-render a frame straight from the filtergraph in `make-webp.sh` with `-ss <t> -frames:v 1 out.png`).
+Needs `ffmpeg` with the `libwebp_anim` encoder on PATH.
 
 The WebP **must be lossless** (`-lossless 1`): lossy WebP encodes alpha as subsampled `yuva420p`,
 which leaves a faint tinted background where it should be transparent. Lossless keeps alpha perfect,
@@ -51,7 +49,8 @@ emulator's own skin doesn't matter for the output.
 1. **AVD**: 1344x2992, density 480, the `pixel_10_pro_xl` skin. Build `:app:assembleBenchmark` and
    install it: it is `app.reikai.benchmark`, so it sits beside a debug build without touching its
    library, and it renders as a release build does. Before restoring, turn off the tracking settings
-   the demo note lists, then restore the demo backup, ticking every repo on the Restore screen so
+   the demo note lists, then restore the demo backup (where to get it: "The saved backup" in
+   `demo-library.md`), ticking every repo on the Restore screen so
    its extensions and plugins come back. Before every tap, check the demo app is in
    front (`dumpsys activity activities | grep topResumedActivity`): Back out of its last screen lands in
    whatever app was open before.
@@ -95,9 +94,9 @@ Capture method (byte-accurate): `adb -s <emu> shell screencap -p /sdcard/x.png` 
   layer's opacity from the times it fades in and out (0.3s fades). Three-state panels hold each state
   2.8s (`B3`, `C3`); two-state panels hold each about 4.35s (`B2`). To retime, change those times and
   keep `L` equal to the full cycle.
-- **Checking a build**: Pillow cannot read the frame timing of this file, and ffmpeg cannot decode it,
-  so render single frames from the filter graph instead: swap the output for
-  `-ss <t> -frames:v 1 out.png` in a copy of `make-webp.sh`.
+- **Checking a build**: ffmpeg cannot decode animated WebP and Pillow cannot read its frame timing,
+  so open `screens.webp` in a browser, or render single frames from the filter graph: swap the
+  output for `-ss <t> -frames:v 1 out.png` in a copy of `make-webp.sh`.
 - **Layout**: `H` = render height per phone, `GAP` = gap between phones, and `STEP` (`PW + GAP`) =
   horizontal spacing between phones.
 - **Frame fit**: `make-frames.sh` places the screen at (60,55) and rounds corners to radius 108 (from

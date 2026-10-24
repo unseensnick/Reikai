@@ -32,16 +32,17 @@ Novels:
 | Cultivation Online | Novel Fire, Novel Arrow | Novels to read |
 | E-class is the Weakest? My Clones are All God-level! | Novel Fire, Novel Arrow | Novels to read |
 
-The June 2026 demo backup (`demo_2026-06-21_04-51.tachibk`) had the same titles on fewer sources,
-plus The Ranker's Guide to Live an Ordinary Life on Aqua Manga, which that source no longer loads.
-Novel Bin is gone: its cover address no longer resolves.
+Left out on purpose: The Ranker's Guide to Live an Ordinary Life, which Aqua Manga no longer loads,
+and anything from Novel Bin, whose cover addresses no longer resolve.
 
 ## The saved backup
 
 `demo_2026-10-19_showcase.tachibk` holds no logins: the tracker sign-ins, the self-hosted servers'
 addresses and passwords, and plugin data for series outside the demo are stripped. Restoring it gives
 the library and settings; sign in to the trackers again for the tracking charts, and set the server
-sources up again for The Beginning After the End's Suwayomi entries.
+sources up again for The Beginning After the End's Suwayomi entries. The file is not in the
+repository: the maintainer keeps it, since it still carries reading history, and it is available
+on request.
 
 ## Categories
 
