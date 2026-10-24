@@ -249,7 +249,9 @@ class MangaAddFlowProbe : AddFlowProbe() {
     }
 
     override fun storeDuplicate(): Long {
-        library.insert(library.put(DUPLICATE, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE))
+        library.insert(
+            library.put(DUPLICATE, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE),
+        )
         library.duplicateIds += DUPLICATE
         return DUPLICATE
     }
@@ -300,7 +302,11 @@ class NovelAddFlowProbe : AddFlowProbe() {
 
     override fun storeDuplicate(): Long {
         library.rows[DUPLICATE] =
-            library.put(DUPLICATE, DUPLICATE_PATH, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE)
+            library.put(
+                DUPLICATE,
+                DUPLICATE_PATH,
+                favorite = true,
+            ).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE)
         library.duplicateIds += DUPLICATE
         return DUPLICATE
     }
