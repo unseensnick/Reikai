@@ -67,7 +67,6 @@ class UpdatesFeedFilterConformanceTest {
         val started: Boolean? = null,
         val bookmarked: Boolean? = null,
         val included: List<Long> = emptyList(),
-        val excluded: List<Long> = emptyList(),
         val expected: List<Long>,
     ) {
         NONE(expected = listOf(1L, 2L, 3L, 4L, 5L, 6L)),
@@ -121,7 +120,7 @@ class UpdatesFeedFilterConformanceTest {
                     bookmarked = case.bookmarked,
                     hideExcludedScanlators = false,
                     includedCategories = case.included,
-                    excludedCategories = case.excluded,
+                    excludedCategories = emptyList(),
                 )
                 .first()
                 .map { it.chapterId }
@@ -155,7 +154,7 @@ class UpdatesFeedFilterConformanceTest {
                     started = case.started,
                     bookmarked = case.bookmarked,
                     includedCategories = case.included,
-                    excludedCategories = case.excluded,
+                    excludedCategories = emptyList(),
                 )
                 .first()
                 .map { it.chapterId }
