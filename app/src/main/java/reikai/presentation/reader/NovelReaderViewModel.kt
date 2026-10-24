@@ -917,7 +917,7 @@ class NovelReaderViewModel(
         // A reload of the chapter already open, after a chapter-text setting changed, keeps its timer
         // and its place: restarting either lost what the reader had done since it opened.
         val reloading = row.id == currentChapterId && chapter.value != null
-        if (!reloading || !chapterReadSession.isRunning) startReadSession()
+        startReadSession(resume = reloading)
         currentChapterId = row.id
         currentNovelId = row.novelId
         this.bookmarked.value = bookmarked

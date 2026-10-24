@@ -12,9 +12,6 @@ class ReadSessionClock {
 
     private val startedAt = AtomicReference<Instant?>(null)
 
-    val isRunning: Boolean
-        get() = startedAt.get() != null
-
     fun start(now: Instant) {
         startedAt.set(now)
     }

@@ -418,6 +418,26 @@ class NovelReaderViewModelTest {
             harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
         }
 
+    /** A chapter-text setting reloads the chapter on screen, which is still the same read. */
+    @Test
+    fun `a chapter reloaded on screen keeps the time read before the reload`() = readTimeTest { harness, clock ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        model.awaitIdleOn(opened)
+        clock.advance(10.minutes)
+
+        harness.download(opened, "<p>Reloaded</p>")
+        model.reloadChapter(fromSource = false)
+        model.chapter.first { it?.html.orEmpty().contains("Reloaded") }
+        model.loadState.first { it == ReaderLoadState.Idle }
+        clock.advance(5.minutes)
+        model.saveHistory()
+        advanceUntilIdle()
+
+        harness.readTimeOf(novel, opened) shouldBe 15.minutes.inWholeMilliseconds
+    }
+
     @Test
     fun `a chapter opened on screen counts the time it is read`() = readTimeTest { harness, clock ->
         val novel = harness.novel(harness.source("src"))
