@@ -162,6 +162,7 @@ class EntryAddFlowConformanceTest {
     companion object {
         const val PICKED_CATEGORY = 3L
         const val DUPLICATE_GROUP = 70L
+        const val DUPLICATE_TITLE = "duplicate entry"
 
         @JvmStatic
         fun probes() = listOf(MangaAddFlowProbe(), NovelAddFlowProbe())
@@ -248,7 +249,7 @@ class MangaAddFlowProbe : AddFlowProbe() {
     }
 
     override fun storeDuplicate(): Long {
-        library.put(DUPLICATE, favorite = true)
+        library.insert(library.put(DUPLICATE, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE))
         library.duplicateIds += DUPLICATE
         return DUPLICATE
     }
@@ -298,7 +299,8 @@ class NovelAddFlowProbe : AddFlowProbe() {
     }
 
     override fun storeDuplicate(): Long {
-        library.put(DUPLICATE, DUPLICATE_PATH, favorite = true)
+        library.rows[DUPLICATE] =
+            library.put(DUPLICATE, DUPLICATE_PATH, favorite = true).copy(title = EntryAddFlowConformanceTest.DUPLICATE_TITLE)
         library.duplicateIds += DUPLICATE
         return DUPLICATE
     }
