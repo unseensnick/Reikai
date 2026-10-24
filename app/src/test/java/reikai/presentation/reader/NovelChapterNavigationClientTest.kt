@@ -12,7 +12,8 @@ import reikai.presentation.reader.NovelChapterNavigationClient.Decision
  */
 class NovelChapterNavigationClientTest {
 
-    private val base = "https://source.example/novel/ch1"
+    /** The document base is the source's site, as the reader loads a chapter under. */
+    private val base = NovelChapterAddress.trustedBase("https://source.example")!!
 
     /** An empty `href` resolves to the document's own URL, and following it loads the live page from
      *  the source's site into the reader. */

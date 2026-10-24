@@ -45,8 +45,8 @@ internal object NovelChapterTags : Html.TagHandler {
         }
     }
 
-    /** A link's fragment when it points into this chapter: a bare `#name`, or the chapter's own address with
-     *  one, which the page reads as the same document. */
+    /** A link's fragment when it points into this chapter: a bare `#name`, or the document's base (the
+     *  source's site) with one, which the page reads as the same document. */
     private fun fragmentWithin(href: String, baseUrl: String?): String? {
         val absolute = NovelChapterAddress.absolute(baseUrl, href)
         if (absolute.startsWith("#")) return absolute.substring(1)

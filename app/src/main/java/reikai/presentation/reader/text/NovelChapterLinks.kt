@@ -21,8 +21,8 @@ import reikai.presentation.reader.NovelChapterNavigationClient
  */
 object NovelChapterLinks {
 
-    /** [baseUrl] is the chapter's address, against which the policy blocks a link to the chapter itself, as
-     *  the WebView's document base does. */
+    /** [baseUrl] is the document's base, the source's site, against which the policy blocks a link to the
+     *  document itself, as the WebView's document base does. */
     fun apply(spannable: Spannable, context: Context, baseUrl: String?, onAnchor: (TextView, Int) -> Unit) {
         val base = NovelChapterAddress.trustedBase(baseUrl)
         val urls = spannable.getSpans(0, spannable.length, URLSpan::class.java)
@@ -43,7 +43,7 @@ object NovelChapterLinks {
     ) : ClickableSpan() {
 
         override fun onClick(widget: View) {
-            // A jump within the chapter, by fragment or by the chapter's own address, was rewritten to an
+            // A jump within the chapter, by fragment or by the document's base with one, was rewritten to an
             // anchor the renderer placed, so only a fragment naming nothing reaches the policy.
             if (url.startsWith(NovelChapterTags.ANCHOR_HREF)) {
                 url.removePrefix(NovelChapterTags.ANCHOR_HREF).toIntOrNull()?.let { onAnchor(widget as TextView, it) }

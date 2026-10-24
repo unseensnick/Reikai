@@ -6,7 +6,8 @@ import org.junit.jupiter.api.Test
 
 class NovelChapterTagsTest {
 
-    private val baseUrl = "https://site.example/novel/chapter-5.html"
+    /** A source's site as a plugin names it, which is the base the reader hands a chapter. */
+    private val baseUrl = "https://site.example"
 
     private fun hrefsAfterPrepare(html: String): List<String> {
         val doc = Jsoup.parse(html)
@@ -34,16 +35,11 @@ class NovelChapterTagsTest {
             "${NovelChapterTags.ANCHOR_HREF}0"
     }
 
-    /** A plugin can make every href absolute; the page jumps within itself for one, and so must the text. */
+    /** The document's base is the source's site, which a link can name with a fragment; the page jumps
+     *  within itself for one, and so must the text. */
     @Test
-    fun `a link to the chapter's own address with a fragment jumps within it`() {
-        hrefsAfterPrepare("<a href=\"$baseUrl#n\">note</a><p id=\"n\">text</p>").single() shouldBe
-            "${NovelChapterTags.ANCHOR_HREF}0"
-    }
-
-    @Test
-    fun `a relative link to the chapter's own file with a fragment jumps within it`() {
-        hrefsAfterPrepare("<a href=\"chapter-5.html#n\">note</a><p id=\"n\">text</p>").single() shouldBe
+    fun `a link to the document's base with a fragment jumps within it`() {
+        hrefsAfterPrepare("<a href=\"https://site.example/#n\">note</a><p id=\"n\">text</p>").single() shouldBe
             "${NovelChapterTags.ANCHOR_HREF}0"
     }
 
