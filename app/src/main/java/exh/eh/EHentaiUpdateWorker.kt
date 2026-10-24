@@ -2,24 +2,19 @@ package exh.eh
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.net.NetworkCapabilities
-import android.net.NetworkRequest
 import android.os.Build
-import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ForegroundInfo
-import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
-import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.PeriodicWorkRequest
 import androidx.work.WorkerParameters
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.library.LibraryUpdateNotifier
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.util.storage.getUriCompat
-import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import exh.debug.DebugToggles
@@ -34,6 +29,8 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.addNewUpdates
+import reikai.data.library.libraryUpdatePeriodicRequest
+import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
@@ -44,15 +41,11 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_NETWORK_NOT_METERED
-import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
 import tachiyomi.domain.manga.interactor.GetFlatMetadataById
 import tachiyomi.domain.manga.interactor.InsertFlatMetadata
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
-import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.days
 
 class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerParameters) :
@@ -94,12 +87,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         // A WorkManager start has no MainActivity to wait for the migrations first
         Migrator.await()
         return try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P &&
-                requiresWifiConnection(exhPreferences) &&
-                !context.isConnectedToWifi()
-            ) {
-                // Retry again later in next periodic run due to missing Wi-Fi connection.
-                Result.success()
+            if (shouldDeferLibraryUpdate(exhPreferences.exhAutoUpdateRequirements().get(), AUTO_TAG, MANUAL_TAG)) {
+                Result.retry()
             } else {
                 setForegroundSafely()
                 startUpdating()
@@ -260,11 +249,6 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         }
     }
 
-    private fun requiresWifiConnection(exhPreferences: ExhPreferences): Boolean {
-        val restrictions = exhPreferences.exhAutoUpdateRequirements().get()
-        return DEVICE_ONLY_ON_WIFI in restrictions
-    }
-
     companion object {
         private const val MAX_UPDATE_FAILURES = 5
         private const val UPDATES_PER_ITERATION = 50
@@ -272,6 +256,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         private val MIN_BACKGROUND_UPDATE_FREQ = 1.days.inWholeMilliseconds
 
         private const val TAG = "EHBackgroundUpdater"
+        internal const val AUTO_TAG = "EHBackgroundUpdaterAuto"
+        private const val MANUAL_TAG = "EHBackgroundUpdaterManual"
 
         /** A dead gallery is never checked, and one checked within a day waits unless the debug menu lifts that. */
         internal fun isSkipped(meta: EHentaiSearchMetadata, now: Long, restrictFrequency: Boolean): Boolean =
@@ -282,6 +268,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                 OneTimeWorkRequestBuilder<EHentaiUpdateWorker>()
                     .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                     .addTag(TAG)
+                    .addTag(MANUAL_TAG)
                     .build(),
             )
         }
@@ -291,44 +278,16 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
             val interval = prefInterval ?: exhPreferences.exhAutoUpdateFrequency().get()
             if (interval > 0) {
                 val restrictions = exhPreferences.exhAutoUpdateRequirements().get()
-                val networkType = if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                    NetworkType.UNMETERED
-                } else {
-                    NetworkType.CONNECTED
-                }
-                val networkRequest = NetworkRequest.Builder().apply {
-                    removeCapability(NetworkCapabilities.NET_CAPABILITY_NOT_VPN)
-                    if (DEVICE_ONLY_ON_WIFI in restrictions) {
-                        addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
-                    }
-                    if (DEVICE_NETWORK_NOT_METERED in restrictions) {
-                        addCapability(NetworkCapabilities.NET_CAPABILITY_NOT_METERED)
-                    }
-                }
-                    .build()
-
-                val constraints = Constraints.Builder()
-                    // 'networkRequest' only applies to Android 9+, otherwise 'networkType' is used.
-                    .setRequiredNetworkRequest(networkRequest, networkType)
-                    .setRequiresCharging(DEVICE_CHARGING in restrictions)
-                    .setRequiresBatteryNotLow(true)
-                    .build()
-
-                val request = PeriodicWorkRequestBuilder<EHentaiUpdateWorker>(
-                    interval.toLong(),
-                    TimeUnit.HOURS,
-                    10,
-                    TimeUnit.MINUTES,
-                )
-                    .addTag(TAG)
-                    .setConstraints(constraints)
-                    .build()
-
+                val request = updateRequest(interval, restrictions)
                 context.workManager.enqueueUniquePeriodicWork(TAG, ExistingPeriodicWorkPolicy.UPDATE, request)
             } else {
                 cancelBackground(context)
             }
         }
+
+        /** Tagged [AUTO_TAG] too, which is what lets only the scheduled run wait for Wi-Fi. */
+        internal fun updateRequest(interval: Int, restrictions: Set<String>): PeriodicWorkRequest =
+            libraryUpdatePeriodicRequest<EHentaiUpdateWorker>(interval, restrictions, TAG, AUTO_TAG)
 
         fun cancelBackground(context: Context) {
             context.workManager.cancelAllWorkByTag(TAG)
