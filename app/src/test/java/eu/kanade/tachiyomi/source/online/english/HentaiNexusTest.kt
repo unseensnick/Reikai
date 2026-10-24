@@ -1,12 +1,11 @@
 package eu.kanade.tachiyomi.source.online.english
 
-import android.net.Uri
 import eu.kanade.tachiyomi.source.online.HttpSource
 import exh.metadata.metadata.HentaiNexusSearchMetadata
 import exh.metadata.metadata.base.RaisedTag
+import exh.util.linkUri
 import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
-import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.jsoup.Jsoup
@@ -14,20 +13,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
-import java.net.URI
 
 /** A HentaiNexus gallery link imports as its gallery, and its page parses into namespaced metadata. */
 class HentaiNexusTest {
 
     private val source = HentaiNexus(mockk<HttpSource>(relaxed = true), mockk(relaxed = true))
-
-    private fun uri(url: String): Uri {
-        val parsed = URI(url)
-        return mockk {
-            every { host } returns parsed.host
-            every { pathSegments } returns parsed.path.split('/').filter { it.isNotEmpty() }
-        }
-    }
 
     private suspend fun parsed() = HentaiNexusSearchMetadata().also {
         source.parseIntoMetadata(it, Jsoup.parse(GALLERY, "https://hentainexus.com/view/$ID"))
@@ -36,7 +26,7 @@ class HentaiNexusTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("links")
     fun `a link maps to its gallery`(url: String, expected: String?) = runTest {
-        source.mapUrlToMangaUrl(uri(url)) shouldBe expected
+        source.mapUrlToMangaUrl(linkUri(url)) shouldBe expected
     }
 
     @Test
