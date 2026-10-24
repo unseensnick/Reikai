@@ -58,7 +58,7 @@ class StatsMostReadViewModel(
             val loaded = loader.load()
             library.value = loaded
             val ids = loaded.titles(ContentType.ALL).mostRead().map { it.entryId }
-            covers.value = statsCovers(ids, mangaRepository, novelRepository)
+            covers.value = statsCovers(ids, loaded, mangaRepository, novelRepository)
         }
     }
 

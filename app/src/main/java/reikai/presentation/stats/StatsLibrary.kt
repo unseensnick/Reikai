@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.flow.first
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
@@ -47,6 +48,8 @@ class StatsLibrary(
     val categoryNames: Map<Long, String>,
     /** Each source's icon by its search key, drawn as the library's cover badges draw it. */
     val sourceBadges: Map<String, SourceBadge>,
+    /** Edit info by entry, for what Statistics draws of a series beyond its title (its cover). */
+    val customInfo: Map<EntryId, EntryCustomInfo>,
     private val mangaTitles: List<StatsTitle>,
     private val novelTitles: List<StatsTitle>,
     private val mangaSessions: List<EntryReadingSession>,
@@ -191,6 +194,7 @@ class StatsLibraryLoader(
             // One table holds both types' categories; each getter adds the universal ones.
             categoryNames = (getCategories.await() + getNovelCategories.await()).associate { it.id to it.name },
             sourceBadges = sourceBadges,
+            customInfo = customInfo,
             mangaTitles = mangaTitles,
             novelTitles = novelTitles,
             mangaSessions = mangaSessions,

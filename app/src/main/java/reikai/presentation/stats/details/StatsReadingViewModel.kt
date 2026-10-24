@@ -106,7 +106,7 @@ class StatsReadingViewModel(
             val loaded = loader.load()
             library.value = loaded
             val ids = loaded.sessions(ContentType.ALL).mapTo(HashSet()) { it.entryId }
-            covers.value = statsCovers(ids, mangaRepository, novelRepository)
+            covers.value = statsCovers(ids, loaded, mangaRepository, novelRepository)
         }
     }
 

@@ -5,8 +5,10 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
+import reikai.domain.entry.withCustomInfo
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.asNovelCover
+import reikai.domain.novel.model.withCustomInfo
 import reikai.presentation.library.withCustomInfo
 import reikai.presentation.novel.details.NovelScreen
 import reikai.util.runCatchingCancellable
@@ -20,22 +22,32 @@ suspend fun statsDetailsScreen(entryId: EntryId, novelRepository: NovelRepositor
 }
 
 /**
- * The covers of [ids] for Coil, read by id because a reading-time list also holds series outside the
- * library. A series since removed has none.
+ * The covers of [ids] for Coil. A library series draws its lead's, with its Edit info cover, as the library
+ * does; one outside the library (a reading-time list holds those too) is read by id under its own cover,
+ * as it is named by its own title. A series since removed has none.
  */
 suspend fun statsCovers(
     ids: Collection<EntryId>,
+    library: StatsLibrary,
     mangaRepository: MangaRepository,
     novelRepository: NovelRepository,
-): Map<EntryId, Any> = ids.mapNotNull { id ->
-    val cover = runCatchingCancellable {
-        when (id) {
-            is EntryId.Manga -> mangaRepository.getMangaById(id.rawId).asMangaCover()
-            is EntryId.Novel -> novelRepository.getById(id.rawId)?.asNovelCover()
-        }
-    }.getOrNull()
-    cover?.let { id to it }
-}.toMap()
+): Map<EntryId, Any> {
+    val mangaLeads = library.manga.titles.associateBy { it.manga.id }
+    val novelLeads = library.novels.titles.associateBy { it.novel.id }
+    return ids.mapNotNull { id ->
+        val custom = library.customInfo[id]
+        val cover = when (id) {
+            is EntryId.Manga -> mangaLeads[id.rawId]?.manga?.withCustomInfo(custom)?.asMangaCover()
+            is EntryId.Novel -> novelLeads[id.rawId]?.novel?.withCustomInfo(custom)?.asNovelCover()
+        } ?: runCatchingCancellable {
+            when (id) {
+                is EntryId.Manga -> mangaRepository.getMangaById(id.rawId).asMangaCover()
+                is EntryId.Novel -> novelRepository.getById(id.rawId)?.asNovelCover()
+            }
+        }.getOrNull()
+        cover?.let { id to it }
+    }.toMap()
+}
 
 /** The rows whose series is [state]; every row when [state] is null. */
 fun List<LibraryItem>.inReadState(state: ReadState?, readStateOf: (EntryId) -> ReadState?): List<LibraryItem> =
