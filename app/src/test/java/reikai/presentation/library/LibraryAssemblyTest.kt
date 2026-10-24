@@ -203,6 +203,22 @@ class LibraryAssemblyTest {
     }
 
     @Test
+    fun `an unscored series sorts below a zero score`() {
+        // Titled so the A-Z tiebreak would put the unscored row second if the two tied.
+        val means = mapOf(1L to 0.0)
+        val result = assembleLibrary(
+            rows = listOf(
+                item(1, title = "A", categories = listOf(10)),
+                item(2, title = "B", categories = listOf(10)),
+            ),
+            categories = listOf(category(10)),
+            inputs = inputs(sort = LibrarySort(LibrarySort.Type.TrackerMean, LibrarySort.Direction.Ascending)),
+            fields = mixedLibraryItemSortFields { means[it.id] },
+        )
+        titlesByCategory(result) shouldBe listOf(10L to listOf("B", "A"))
+    }
+
+    @Test
     fun `a manga and a novel sharing a raw id both survive`() {
         val result = assembleLibrary(
             rows = listOf(

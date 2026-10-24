@@ -116,7 +116,7 @@ class StatsSeriesViewModel(
     ) { loaded, sort, seed, readState ->
         // Lazy, so only the tracker-score sort pays for the means, as in the library.
         val means = lazy { loaded.library.trackerMeans(loaded.rows) }
-        val fields = mixedLibraryItemSortFields { item -> means.value[item.entryId] ?: -1.0 }
+        val fields = mixedLibraryItemSortFields { item -> means.value[item.entryId] }
         val comparator = librarySortComparator(sort.type.toSortMode(), sort.isAscending, seed.toLong(), fields)
         StatsSeriesState(
             summary = loaded.summary,

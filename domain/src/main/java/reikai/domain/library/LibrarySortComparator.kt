@@ -26,8 +26,8 @@ enum class LibrarySortMode {
 /**
  * Per-entry field accessors [librarySortComparator] reads, so it never depends on the concrete row type
  * (the manga `LibraryItem` vs the novel `LibraryNovel`). Each library supplies getters over its own row.
- * [trackerMean] is a precomputed mean 0-10 score with the unscored default (-1.0) folded in by the caller,
- * an unknown date is null and sorts as the earliest,
+ * [trackerMean] is a precomputed mean 0-10 score with the unscored default (-1.0) folded in by the app's
+ * sort-field builder, an unknown date is null and sorts as the earliest,
  * and [unreadCount] already carries each side's merged / deduplicated count, so the comparator stays pure.
  */
 class LibrarySortFields<T>(

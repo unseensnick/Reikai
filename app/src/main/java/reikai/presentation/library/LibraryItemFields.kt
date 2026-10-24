@@ -122,10 +122,10 @@ fun LibraryItem.withCustomInfo(custom: EntryCustomInfo?): LibraryItem {
 /**
  * The sort counterpart of [libraryItemFilterFields]. Every key reads the row, so the only seam is the tracker
  * mean, which each content type precomputes over its own track table (deduped per tracker, unrated
- * scores dropped) and hands in keyed by the row's own id.
+ * scores dropped) and hands in keyed by the row's own id, null for a series with no score.
  */
 fun libraryItemSortFields(
-    trackerMean: (LibraryItem) -> Double,
+    trackerMean: (LibraryItem) -> Double?,
 ) = LibrarySortFields<LibraryItem>(
     id = { it.id },
     title = { it.libraryManga.manga.title },
@@ -137,5 +137,8 @@ fun libraryItemSortFields(
     chapterFetchedAt = { it.libraryManga.chapterFetchedAt },
     dateAdded = { it.libraryManga.manga.favoriteAt },
     downloadCount = { it.downloadCount.toLong() },
-    trackerMean = trackerMean,
+    trackerMean = { trackerMean(it) ?: NO_TRACKER_MEAN },
 )
+
+// Sorts an unscored series below every score, as Mihon's defaultTrackerScoreSortValue does.
+private const val NO_TRACKER_MEAN = -1.0
