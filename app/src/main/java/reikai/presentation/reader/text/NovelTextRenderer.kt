@@ -283,8 +283,6 @@ class NovelTextRenderer(
      * image outside a paragraph gets; a side left with nothing to show is dropped. A paragraph showing
      * only the image is centred where it stands.
      */
-    private fun Element.isOrHoldsImage() = tagName() == "img" || selectFirst("img") != null
-
     private fun liftOutOfText(img: Element, parent: Element) {
         val siblings = parent.childNodes()
         // Another picture counts: two in one paragraph each take their own block, as the page lays them out.
@@ -300,9 +298,11 @@ class NovelTextRenderer(
         parent.after(after)
         parent.after(Element("p").attr("style", "text-align:center;").appendChild(img))
         listOf(parent, after)
-            .filter { !it.hasText() && it.selectFirst("img") == null }
+            .filter { !it.hasText() && !it.isOrHoldsImage() }
             .forEach(Element::remove)
     }
+
+    private fun Element.isOrHoldsImage() = tagName() == "img" || selectFirst("img") != null
 
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {
         var i = 0
