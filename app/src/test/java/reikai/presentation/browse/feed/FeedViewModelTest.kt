@@ -1,10 +1,12 @@
 package reikai.presentation.browse.feed
 
+import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -49,8 +51,15 @@ class FeedViewModelTest {
     @BeforeEach
     fun setUp() = Dispatchers.setMain(dispatcher)
 
+    private val models = mutableListOf<FeedViewModel>()
+
+    // Before resetMain: a model's IO collectors otherwise resume onto a Main that is gone, and the
+    // failure lands in whichever test class runs next.
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() {
+        models.forEach { it.viewModelScope.cancel() }
+        Dispatchers.resetMain()
+    }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -121,7 +130,7 @@ class FeedViewModelTest {
         networkToLocalManga = mockk(relaxed = true),
         novelSourceManager = probe.novelRegistry,
         getEnabledNovelSources = mockk(relaxed = true),
-    )
+    ).also(models::add)
 
     companion object {
         const val SOURCE_NAME = "Installed later"
