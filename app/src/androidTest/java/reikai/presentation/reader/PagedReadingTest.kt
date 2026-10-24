@@ -133,6 +133,15 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] every turn moves on: $percents", percents.zipWithNext().all { (a, b) -> b > a })
     }
 
+    /** A report of the column's start before the saved page lands reads to the model as the reader moving. */
+    @Test
+    fun aSavedShareReportsNoPlaceBeforeItsPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"), percent = 50)
+        val first = synchronized(progress) { progress.first { it.first == 1L }.second }
+        assertTrue("[$renderer] the first report is the saved page's, not $first", first in 40..60)
+    }
+
     @Test
     fun turningBackRetracesEveryPage() {
         build(NovelPageLayout.PAGED_LTR)
