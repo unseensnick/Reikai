@@ -188,7 +188,7 @@ interface MigrationFlowAdapter {
      *  was last seen with (its stored rows still migrate). */
     suspend fun sourceDisplayName(sourceKey: String): String
 
-    /** The library favorites belonging to one source, title-sorted, for the favorites picker. */
+    /** The library favorites belonging to one source, for the favorites picker, which sorts them by title. */
     fun favorites(sourceKey: String): Flow<List<MigrationFavorite>>
 
     fun readTuning(): MigrationTuning
