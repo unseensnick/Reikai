@@ -1,6 +1,7 @@
 package reikai.presentation.reader.web
 
 import android.content.Context
+import android.view.ViewConfiguration
 import com.google.android.material.color.MaterialColors
 import dev.icerock.moko.resources.StringResource
 import org.json.JSONObject
@@ -57,6 +58,7 @@ object NovelWebDocument {
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
                 "__SWIPE_SIDEWAYS__" to CHAPTER_SWIPE_SIDEWAYS.toString(),
                 "__PAGE_SWIPE_MIN_PX__" to PAGE_SWIPE_MIN_DP.toString(),
+                "__TOUCH_SLOP_PX__" to touchSlopDp(context).toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
@@ -209,6 +211,13 @@ $sizedElements
     private infix fun String.em(size: Float) = ".rk-chapter $this { font-size: ${size.toString().removeSuffix(
         ".0",
     )}em !important; }"
+
+    /**
+     * The slop [reikai.presentation.reader.text.hasTravelled] gives the native renderer, in the page's
+     * CSS pixels, which are dp at initial-scale=1.
+     */
+    private fun touchSlopDp(context: Context): Float =
+        ViewConfiguration.get(context).scaledTouchSlop / context.resources.displayMetrics.density
 
     private fun Context.label(resource: StringResource): String = NovelWebSnippets.jsLiteral(stringResource(resource))
 

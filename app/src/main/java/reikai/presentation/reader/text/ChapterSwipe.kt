@@ -19,9 +19,9 @@ internal const val PAGE_SWIPE_MIN_DP = 48
 
 /**
  * Whether a touch has left where it went down. From there it is a drag, never a tap or a long press
- * however slowly it goes, so a swipe has no time limit. The WebView page has this from its browser;
- * an Android view keeps its press until the finger leaves its bounds, so the native renderer ends
- * the press by this rule.
+ * however slowly it goes, so a swipe has no time limit. An Android view keeps its press until the
+ * finger leaves its bounds, so the native renderer ends the press by this rule. reader.js runs it too,
+ * over [slop] in dp, which NovelWebDocument fills in as `TOUCH_SLOP_PX`.
  */
 internal fun hasTravelled(dx: Float, dy: Float, slop: Int): Boolean = abs(dx) > slop || abs(dy) > slop
 
@@ -41,11 +41,7 @@ internal fun pageSwipeStep(dx: Float, dy: Float, minimum: Float): Boolean? =
  * nor takes a tap, for a touch that ever had a second finger down (TextViewportContractTest pins it).
  */
 internal fun chapterSwipeStep(dx: Float, dy: Float, startX: Float, width: Float, minimum: Float): Boolean? {
-    if (abs(dx) <= minimum || abs(dx) <= abs(dy) * CHAPTER_SWIPE_SIDEWAYS) return null
+    val forward = pageSwipeStep(dx, dy, minimum) ?: return null
     val middle = width / 2
-    return when {
-        dx < 0 && startX >= middle -> true
-        dx > 0 && startX <= middle -> false
-        else -> null
-    }
+    return forward.takeIf { if (it) startX >= middle else startX <= middle }
 }

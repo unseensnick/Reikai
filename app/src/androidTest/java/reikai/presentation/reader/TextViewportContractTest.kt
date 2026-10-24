@@ -474,6 +474,18 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(0, menuToggles.get())
     }
 
+    /** Past the system's touch slop yet under 10dp, where a hand-copied threshold would still read a tap.
+     *  Sideways, so the page neither scrolls nor turns. */
+    @Test
+    fun aDragJustPastTheTouchSlopIsNotATap() {
+        val slop = ViewConfiguration.get(view.context).scaledTouchSlop
+        assumeTrue("the slop leaves no room under 10dp", slop < dp(10))
+        open(chapter(FIRST, long("first")))
+        drag(fromX = view.width / 2f, toX = view.width / 2f + (slop + dp(10)) / 2)
+        Thread.sleep(QUIET_MS)
+        assertEquals(0, menuToggles.get())
+    }
+
     @Test
     fun aTwoFingerTapDoesNotToggleTheMenu() {
         open(chapter(FIRST, long("first")))

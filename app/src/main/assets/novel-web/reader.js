@@ -31,6 +31,8 @@
   var SWIPE_SIDEWAYS = __SWIPE_SIDEWAYS__;
   // How far a swipe must run sideways to turn a page, PAGE_SWIPE_MIN_DP in ChapterSwipe.kt.
   var PAGE_SWIPE_MIN_PX = __PAGE_SWIPE_MIN_PX__;
+  // How far a touch travels before it is a drag, the system touch slop the native renderer reads, in dp.
+  var TOUCH_SLOP_PX = __TOUCH_SLOP_PX__;
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -856,6 +858,13 @@
     document.documentElement.classList.toggle('rk-bionic-on', !!settings.bionic);
   }
 
+  /* pageSwipeStep's gate (ChapterSwipe.kt), strict comparisons included: true forward (the finger moving
+     left), false back, null for none. */
+  function swipeStep(dx, dy, minimum) {
+    if (Math.abs(dx) <= minimum || Math.abs(dx) <= Math.abs(dy) * SWIPE_SIDEWAYS) return null;
+    return dx < 0;
+  }
+
   function installGestures() {
     // `multi`: the touch has had a second finger down, so it is neither a tap nor a swipe (ChapterSwipe.kt).
     var startX = 0, startY = 0, startAt = 0, moved = false, multi = false;
@@ -878,10 +887,10 @@
 
     document.addEventListener('touchmove', function (e) {
       if (!e.isTrusted || e.touches.length !== 1) return;
-      // A touch that has travelled is a drag and never a tap, the rule hasTravelled (ChapterSwipe.kt)
-      // gives the native renderer.
-      if (Math.abs(e.touches[0].clientX - startX) > 10 ||
-        Math.abs(e.touches[0].clientY - startY) > 10) moved = true;
+      // A touch that has travelled past TOUCH_SLOP_PX is a drag and never a tap, the rule and the slop
+      // hasTravelled (ChapterSwipe.kt) gives the native renderer.
+      if (Math.abs(e.touches[0].clientX - startX) > TOUCH_SLOP_PX ||
+        Math.abs(e.touches[0].clientY - startY) > TOUCH_SLOP_PX) moved = true;
       if (moved) onReaderMove();
     }, { passive: true });
 
@@ -919,23 +928,19 @@
       // pageSwipeStep's rule (ChapterSwipe.kt): paged, a swipe turns the page whatever the setting, as a
       // pager's does. The host turns it the way the pages lie.
       if (PAGED) {
-        if (Math.abs(dx) > PAGE_SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_SIDEWAYS) {
-          bridge().onStepChapter(DOCUMENT_TOKEN, dx < 0);
+        var page = swipeStep(dx, dy, PAGE_SWIPE_MIN_PX);
+        if (page !== null) {
+          bridge().onStepChapter(DOCUMENT_TOKEN, page);
           return;
         }
-      } else
-      // chapterSwipeStep's rule (ChapterSwipe.kt), strict comparisons included: mostly sideways, far
-      // enough not to be a stray, and started on the half it moves away from. A swipe that clears the
-      // first two but starts on the wrong half falls through to the tap check below, where `moved`
-      // discards it.
-      if (settings.swipe && Math.abs(dx) > SWIPE_MIN_PX && Math.abs(dx) > Math.abs(dy) * SWIPE_SIDEWAYS) {
+      } else if (settings.swipe) {
+        // chapterSwipeStep's rule (ChapterSwipe.kt): the page turn's gate, and started on the half it
+        // moves away from. A swipe that clears the gate but starts on the wrong half falls through to
+        // the tap check below, where `moved` discards it.
+        var forward = swipeStep(dx, dy, SWIPE_MIN_PX);
         var middle = window.innerWidth / 2;
-        if (dx < 0 && startX >= middle) {
-          bridge().onStepChapter(DOCUMENT_TOKEN, true);
-          return;
-        }
-        if (dx > 0 && startX <= middle) {
-          bridge().onStepChapter(DOCUMENT_TOKEN, false);
+        if (forward !== null && (forward ? startX >= middle : startX <= middle)) {
+          bridge().onStepChapter(DOCUMENT_TOKEN, forward);
           return;
         }
       }
