@@ -102,6 +102,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 ### Browse & sources
 
+#### Changed
+
+- **An adult content source's list view now shows each gallery's artist, uploader, language, rating, page count and age beside a taller cover (ported from TachiyomiSY).**
+
 #### Fixed
 
 - **A manga or novel source that sends an Origin header no longer crashes its page in WebView (from Mihon).** Upstream: mihon 5f63c983d.
