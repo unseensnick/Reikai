@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
+import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -33,7 +34,7 @@ import tachiyomi.data.track.TrackRepositoryImpl
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * A chunk reads each table once for all its series, so a row has to land on the series it belongs to.
+ * A chunk reads its rows for all its series at once, so a row has to land on the series it belongs to.
  * Two series backed up in one chunk come out exactly as each does in a chunk of its own, for both types,
  * over the real queries.
  */
@@ -79,6 +80,15 @@ class BackupChunkConformanceTest {
             type.backUp(BackupOptions(customInfo = false), database, listOf(2L, 1L)).reversed()
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `each series in a chunk carries its own reading sessions`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.sessions(database, listOf(1L, 2L)) shouldBe
+            listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
+    }
+
     enum class Type {
         MANGA {
             override val statements = listOf(
@@ -100,9 +110,18 @@ class BackupChunkConformanceTest {
                 "INSERT INTO history(id, manga_id, chapter_id, read_at, read_duration) VALUES " +
                     "(1, 1, 10, 1000, 5), (2, 2, 11, 2000, 6)",
                 "INSERT INTO reading_session(chapter_id, ended_at, duration) VALUES (10, 1000, 5), (11, 2000, 6)",
+                "INSERT INTO manga_chapter_number_override(manga_id, url, number, source_number) VALUES " +
+                    "(1, '/a1', 1.5, 1.0), (2, '/b1', 2.5, 7.0)",
+                "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (1, 'X'), (2, 'Y')",
             )
 
-            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>): List<String> {
+            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>) =
+                chunk(options, database, ids).map { ProtoBuf.encodeToHexString(BackupManga.serializer(), it) }
+
+            override suspend fun sessions(database: Database, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
+
+            private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupManga> {
                 val creator = MangaBackupCreator(
                     mangaRepository = MangaRepositoryImpl(database),
                     chapterRepository = ChapterRepositoryImpl(database),
@@ -118,7 +137,6 @@ class BackupChunkConformanceTest {
                     readingLog = ReadingLogRepositoryImpl(database),
                 )
                 return options.backupChunk(ids.map { Manga.create().copy(id = it, url = "u$it", source = 1L) }, creator)
-                    .map { ProtoBuf.encodeToHexString(BackupManga.serializer(), it) }
             }
         },
         NOVELS {
@@ -136,9 +154,17 @@ class BackupChunkConformanceTest {
                     "(1, 1, 1, 100, 'T1', 1.0, 0, 1, 0.0, ''), (2, 2, 1, 200, 'T2', 1.0, 0, 1, 0.0, '')",
                 "INSERT INTO novel_history(chapter_id, last_read, time_read) VALUES (10, 1000, 5), (11, 2000, 6)",
                 "INSERT INTO novel_reading_session(chapter_id, ended_at, duration) VALUES (10, 1000, 5), (11, 2000, 6)",
+                "INSERT INTO novel_chapter_number_override(novel_id, url, number, source_number) VALUES " +
+                    "(1, '/a1', 1.5, 1.0), (2, '/b1', 2.5, 7.0)",
             )
 
-            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>): List<String> {
+            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>) =
+                chunk(options, database, ids).map { ProtoBuf.encodeToHexString(BackupNovel.serializer(), it) }
+
+            override suspend fun sessions(database: Database, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
+
+            private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupNovel> {
                 val creator = NovelBackupCreator(
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -157,7 +183,6 @@ class BackupChunkConformanceTest {
                     },
                     creator,
                 )
-                    .map { ProtoBuf.encodeToHexString(BackupNovel.serializer(), it) }
             }
         },
         ;
@@ -168,5 +193,10 @@ class BackupChunkConformanceTest {
 
         /** Each series' backup on the wire, so two are compared field by field without a data class. */
         abstract suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>): List<String>
+
+        /** Each series' reading sessions as (url, endedAt, duration), since the backup class has no equals. */
+        abstract suspend fun sessions(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
+
+        protected fun List<BackupReadingSession>.asTriples() = map { Triple(it.url, it.endedAt, it.duration) }
     }
 }
