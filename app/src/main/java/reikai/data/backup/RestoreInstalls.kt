@@ -189,7 +189,12 @@ class RestoreInstallSources(
         return coroutineScope {
             val read = stores.filterNot { it.indexUrl in deviceStores }.distinctBy { it.indexUrl }
                 .map { async { it.name to readStore(it) } } +
-                pluginRepos.map { async { it to readPluginRepo(it) } }
+                pluginRepos.map { url ->
+                    async {
+                        val name = repoNameFromAddress(url).first
+                        name to readPluginRepo(url, name)
+                    }
+                }
             // Nothing missing needs no listings of the device's repos, which are read over the network.
             val device = async { if (missing.isEmpty()) RepoListings() else device() }
             val repos = read.awaitAll()
@@ -207,9 +212,8 @@ class RestoreInstallSources(
             RepoListings(apps = apps)
     }
 
-    private suspend fun readPluginRepo(url: String): Pair<BackupRepo, RepoListings>? {
+    private suspend fun readPluginRepo(url: String, name: String): Pair<BackupRepo, RepoListings>? {
         val entries = runCatchingCancellable { registryFetcher.fetchRepo(url) }.getOrNull() ?: return null
-        val name = repoNameFromAddress(url).first
         return BackupRepo(url, name, isPluginRepo = true, signingKey = null) to RepoListings(plugins = entries)
     }
 }

@@ -19,6 +19,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.presentation.recents.EmittingPreferenceStore
+import java.io.IOException
 
 /** Where a restore installs each of the backup's missing apps and plugins from, and which repos it offers. */
 class RestoreInstallsTest {
@@ -145,6 +146,15 @@ class RestoreInstallsTest {
     }
 
     @Test
+    fun `a backup plugin repo that can't be read is named as the Repos screen names it`() = runTest {
+        val key = NovelPreferences(EmittingPreferenceStore()).addedRepoUrls().key()
+
+        sources(registryFetcher = LnRegistryFetcher { throw IOException() })
+            .plan(emptyList(), emptyList(), mapOf(key to StringSetPreferenceValue(setOf(REPO))))
+            .unreadRepos shouldBe listOf("plugins.example")
+    }
+
+    @Test
     fun `a backup store the device already has is not offered`() = runTest {
         sources(deviceStores = listOf(store(backupStore.indexUrl, KEY)))
             .plan(emptyList(), listOf(backupStore), emptyMap()).repos shouldBe emptyList()
@@ -165,6 +175,7 @@ class RestoreInstallsTest {
         liveKey: String = KEY,
         novelPreferences: NovelPreferences = NovelPreferences(EmittingPreferenceStore()),
         deviceStores: List<ExtensionStore> = emptyList(),
+        registryFetcher: LnRegistryFetcher = LnRegistryFetcher { emptyList() },
     ): RestoreInstallSources {
         val live = store(backupStore.indexUrl, liveKey)
         return RestoreInstallSources(
@@ -175,7 +186,7 @@ class RestoreInstallsTest {
                 coEvery { fetch(backupStore.indexUrl) } returns Result.success(live)
                 coEvery { getExtensions(live) } returns Result.success(emptyList())
             },
-            registryFetcher = LnRegistryFetcher { emptyList() },
+            registryFetcher = registryFetcher,
         )
     }
 
