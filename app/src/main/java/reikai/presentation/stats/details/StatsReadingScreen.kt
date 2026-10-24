@@ -39,6 +39,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -272,7 +273,7 @@ private fun Bars(state: StatsReadingState, onSelect: (ReadingBar) -> Unit) {
 @Composable
 private fun BarTicks(bars: List<ReadingBar>, unit: BarUnit, gap: Dp) {
     val step = ceil(bars.size / maxTicks(unit).toDouble()).toInt().coerceAtLeast(1)
-    val locale = Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     Layout(
         content = {
             bars.forEachIndexed { index, bar ->

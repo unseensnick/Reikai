@@ -24,17 +24,6 @@
     </issue>
 
     <issue
-        id="MissingPermission"
-        message="Call requires permission which may be rejected by user: code should explicitly check to see if permission is available (with `checkPermission`) or explicitly handle a potential `SecurityException`"
-        errorLine1="        NotificationManagerCompat.from(this).notify(Notifications.ID_NOVEL_TTS, buildNotification(state))"
-        errorLine2="        ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/reikai/data/novel/tts/NovelTtsService.kt"
-            line="287"
-            column="9"/>
-    </issue>
-
-    <issue
         id="DefaultLocale"
         message="Implicitly using the default locale is a common source of bugs: Use `String.format(Locale, ...)` instead"
         errorLine1="        return String.format(&quot;%.1f %sB&quot;, bytes / unit.toDouble().pow(exp.toDouble()), pre)"
@@ -54,17 +43,6 @@
             file="src/main/java/reikai/data/track/TrackerRefreshWorker.kt"
             line="93"
             column="9"/>
-    </issue>
-
-    <issue
-        id="MissingDefaultResource"
-        message="The color &quot;splash&quot; in values-night has no declaration in the base `values` folder; this can lead to crashes when the resource is queried in a configuration that does not match this qualifier"
-        errorLine1="    &lt;color name=&quot;splash&quot;>#202125&lt;/color>"
-        errorLine2="           ~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values-night/colors.xml"
-            line="3"
-            column="12"/>
     </issue>
 
     <issue
@@ -461,28 +439,6 @@
             file="src/main/java/mihon/feature/upcoming/components/calendar/CalendarHeader.kt"
             line="95"
             column="62"/>
-    </issue>
-
-    <issue
-        id="NonObservableLocale"
-        message="Reading locale in a non-observable way in a composable function"
-        errorLine1="    val locale = Locale.getDefault()"
-        errorLine2="                 ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/reikai/presentation/stats/StatsChartCards.kt"
-            line="189"
-            column="18"/>
-    </issue>
-
-    <issue
-        id="NonObservableLocale"
-        message="Reading locale in a non-observable way in a composable function"
-        errorLine1="    val locale = Locale.getDefault()"
-        errorLine2="                 ~~~~~~~~~~~~~~~~~~~">
-        <location
-            file="src/main/java/reikai/presentation/stats/details/StatsReadingScreen.kt"
-            line="275"
-            column="18"/>
     </issue>
 
     <issue
@@ -2086,28 +2042,6 @@
             file="src/main/java/exh/pagepreview/components/PagePreviewScreen.kt"
             line="128"
             column="9"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.color.splash` appears to be unused"
-        errorLine1="    &lt;color name=&quot;splash&quot;>@color/accent_blue&lt;/color>"
-        errorLine2="           ~~~~~~~~~~~~~">
-        <location
-            file="src/main/res/values/colors.xml"
-            line="3"
-            column="12"/>
-    </issue>
-
-    <issue
-        id="UnusedResources"
-        message="The resource `R.color.splash` appears to be unused"
-        errorLine1="    &lt;color name=&quot;splash&quot;>#202125&lt;/color>"
-        errorLine2="           ~~~~~~~~~~~~~">
-        <location
-            file="../presentation-core/src/main/res/values-night/colors.xml"
-            line="3"
-            column="12"/>
     </issue>
 
     <issue

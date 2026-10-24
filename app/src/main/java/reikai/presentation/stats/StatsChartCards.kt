@@ -23,6 +23,7 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -68,7 +69,6 @@ import tachiyomi.presentation.core.i18n.stringResource
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
-import java.util.Locale
 
 /** One overview card; [fill] goes on its card body, so a shelf can stretch the body to its row's height. */
 typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
@@ -186,7 +186,7 @@ private fun StatsReadingWeek(charts: StatsCharts) {
         )
         return
     }
-    val locale = Locale.getDefault()
+    val locale = LocalLocale.current.platformLocale
     val days = charts.lastWeek.map { (day, _) ->
         day.toJavaLocalDate().dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
     }
