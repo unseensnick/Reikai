@@ -4,7 +4,7 @@ package reikai.domain.category
  * Shared include/exclude category-filter math for the library (manga + novel), plus the picker's
  * merge of a confirmed selection. Kept pure (no Android, no coroutines, ids as Long) so it
  * unit-tests directly. The Recents feeds filter in SQL instead (their `includedEmpty` clauses),
- * which restates [matchesCategoryFilter]: change one, mirror the other.
+ * pinned to [matchesCategoryFilter] by RecentsCategoryFilterConformanceTest.
  *
  * Callers convert their stored Set<String> prefs to Set<Long> first (category ids are Long).
  */

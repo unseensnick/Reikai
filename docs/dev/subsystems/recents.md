@@ -138,13 +138,13 @@ Updates draws the 56dp row (`UpdatesRowShell`), with group and child rows from `
 - **A new per-type affordance**: add a `RecentsTypeCapability` case every provider must answer, and hide the control where `chipCapabilities` lacks it.
 - **A new chapter verb**: add it to `RecentsChapterActions` for both types, dispatch through `actingChapters`, and pin it in `RecentsChapterActionsConformanceTest`.
 - **A new input to a target** (a table or preference a resolve reads): add it to the provider's `targetInputs`, or rows keep naming a stale chapter.
-- **A new feed query**: carry the category predicate and pin it in `RecentsFilterQueriesTest` for both types.
+- **A new feed query**: carry the category predicate and add the feed to `RecentsCategoryFilterConformanceTest`, which pins every feed to the category kernel.
 
 ## Tests
 
-Kernel and policies: `RecentsAssemblyTest`, `RecentsTargetTest`, `RecentsTargetRowTest`, `RecentsRowGateTest`, `RecentsChapterFiltersTest`, `RecentsSweepOrderTest`, `RecentsListTopTest`. Engine: `RecentsEngineTest` over `FakeRecentsProvider`, `RecentsTargetInputsTest`, `RecentsFeedSurfaceTest`. Mapping and verbs: `RecentsMappingTest`, `RecentsAddedLaneTest`, `RecentsChapterActionsConformanceTest`, `RecentsRowDownloadTest`, `RecentsRowCopiesIndexTest`. Queries: `RecentsFilterQueriesTest`, `HistoryFeedConformanceTest`, `RecentsUnreadRepositoryTest`, `ChapterCopiesQueryTest`, `RecentsStartedConformanceTest`. Preferences and sheet: `RecentsCategoryFilterPrefsTest`, `UpdatesSettingsViewModelTest`, `TriStateToBooleanTest`. History failure: `HistoryFeedFailureConformanceTest`. Widget: `UnifiedWidgetUpdatesTest`, `UnifiedWidgetRefreshesTest`.
+Kernel and policies: `RecentsAssemblyTest`, `RecentsTargetTest`, `RecentsTargetRowTest`, `RecentsRowGateTest`, `RecentsChapterFiltersTest`, `RecentsSweepOrderTest`, `RecentsListTopTest`. Engine: `RecentsEngineTest` over `FakeRecentsProvider`, `RecentsTargetInputsTest`, `RecentsFeedSurfaceTest`. Mapping and verbs: `RecentsMappingTest`, `RecentsAddedLaneTest`, `RecentsChapterActionsConformanceTest`, `RecentsRowDownloadTest`, `RecentsRowCopiesIndexTest`. Queries: `RecentsCategoryFilterConformanceTest`, `UpdatesFeedFilterConformanceTest`, `RecentsFilterQueriesTest`, `HistoryFeedConformanceTest`, `RecentsUnreadRepositoryTest`, `ChapterCopiesQueryTest`, `RecentsStartedConformanceTest`. Preferences and sheet: `RecentsCategoryFilterPrefsTest`, `UpdatesSettingsViewModelTest`, `TriStateToBooleanTest`. History failure: `HistoryFeedFailureConformanceTest`. Widget: `UnifiedWidgetUpdatesTest`, `UnifiedWidgetRefreshesTest`.
 
-The adapters cannot be built in a unit test (their factories need live models), so the seam is pinned at the engine over fakes, and no Compose UI test covers the rows. Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:data:test` for the query tests.
+The adapters cannot be built in a unit test (their factories need live models), so the seam is pinned at the engine over fakes, and no Compose UI test covers the rows. Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:data:test` for the query tests in `:data` (`RecentsCategoryFilterConformanceTest` and `RecentsStartedConformanceTest` sit in `:app`, beside the kernels they bind to).
 
 ## Related
 

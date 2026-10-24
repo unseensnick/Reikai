@@ -1,7 +1,6 @@
 package reikai.data.recents
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -17,11 +16,10 @@ import tachiyomi.data.updates.UpdatesRepositoryImpl
 import kotlin.time.Instant
 
 /**
- * The recents feeds filter in SQL, and both content types must answer a filter the same way: the
- * selection is one id space over both libraries, so a rule holding on one side only hides rows
- * silently. Hence a twin per test. The repositories are under test with the queries, being what
- * turns an empty id list into the "no constraint" flag. Category id 0 is the uncategorized
- * sentinel: an entry with no membership rows matches an include set only when 0 is in it.
+ * Recents feed filter cases the category conformance (RecentsCategoryFilterConformanceTest, in :app) does
+ * not reach: the Started filter on the updates feeds, and a history row whose entry was never added. The
+ * repositories are under test with the queries, being what turns an empty id list into the "no constraint"
+ * flag. Category id 0 is the uncategorized sentinel.
  */
 class RecentsFilterQueriesTest {
 
@@ -51,194 +49,67 @@ class RecentsFilterQueriesTest {
         driver.close()
     }
 
-    private suspend fun mangaUpdateIds(
-        included: List<Long> = emptyList(),
-        excluded: List<Long> = emptyList(),
-        started: Boolean? = null,
-    ): List<Long> = updates.subscribeAll(
+    private suspend fun mangaUpdateIds(started: Boolean?): List<Long> = updates.subscribeAll(
         after = Instant.fromEpochMilliseconds(0),
         limit = 100,
         unread = null,
         started = started,
         bookmarked = null,
         hideExcludedScanlators = false,
-        includedCategories = included,
-        excludedCategories = excluded,
+        includedCategories = emptyList(),
+        excludedCategories = emptyList(),
     ).first().map { it.mangaId }
 
-    private suspend fun novelUpdateIds(
-        included: List<Long> = emptyList(),
-        excluded: List<Long> = emptyList(),
-        started: Boolean? = null,
-    ): List<Long> = novels.getFilteredNovelUpdatesAsFlow(
+    private suspend fun novelUpdateIds(started: Boolean?): List<Long> = novels.getFilteredNovelUpdatesAsFlow(
         after = Instant.fromEpochMilliseconds(0),
         limit = 100,
         unread = null,
         started = started,
         bookmarked = null,
-        includedCategories = included,
-        excludedCategories = excluded,
+        includedCategories = emptyList(),
+        excludedCategories = emptyList(),
     ).first().map { it.novelId }
 
-    private suspend fun mangaHistoryIds(
-        included: List<Long> = emptyList(),
-        excluded: List<Long> = emptyList(),
-    ): List<Long> = history.getHistory("", included, excluded).first().map { it.mangaId }
+    private suspend fun mangaHistoryIds(included: List<Long>): List<Long> =
+        history.getHistory("", included, emptyList()).first().map { it.mangaId }
 
-    private suspend fun novelHistoryIds(
-        included: List<Long> = emptyList(),
-        excluded: List<Long> = emptyList(),
-    ): List<Long> = novelHistory.getNovelHistory("", included, excluded).first().map { it.novelId }
-
-    @Test
-    fun `an empty selection constrains no manga update`() = runTest {
-        seedManga(id = 1, categoryId = 1)
-        seedManga(id = 2, categoryId = null)
-
-        // Both rows share a fetch date, and the feed orders by nothing else
-        mangaUpdateIds().shouldContainExactlyInAnyOrder(1L, 2L)
-    }
-
-    @Test
-    fun `an empty selection constrains no novel update`() = runTest {
-        seedNovel(id = 1, categoryId = 2)
-        seedNovel(id = 2, categoryId = null)
-
-        novelUpdateIds().shouldContainExactlyInAnyOrder(1L, 2L)
-    }
-
-    @Test
-    fun `an included category keeps only its manga`() = runTest {
-        seedManga(id = 1, categoryId = 1)
-        seedManga(id = 2, categoryId = 3)
-
-        mangaUpdateIds(included = listOf(1)) shouldBe listOf(1L)
-    }
-
-    @Test
-    fun `an included category keeps only its novels`() = runTest {
-        seedNovel(id = 1, categoryId = 2)
-        seedNovel(id = 2, categoryId = 3)
-
-        novelUpdateIds(included = listOf(2)) shouldBe listOf(1L)
-    }
-
-    @Test
-    fun `an excluded category drops its manga`() = runTest {
-        seedManga(id = 1, categoryId = 1)
-        seedManga(id = 2, categoryId = 3)
-
-        mangaUpdateIds(excluded = listOf(1)) shouldBe listOf(2L)
-    }
-
-    @Test
-    fun `an excluded category drops its novels`() = runTest {
-        seedNovel(id = 1, categoryId = 2)
-        seedNovel(id = 2, categoryId = 3)
-
-        novelUpdateIds(excluded = listOf(2)) shouldBe listOf(2L)
-    }
-
-    @Test
-    fun `an uncategorized manga survives only when the default id is included`() = runTest {
-        seedManga(id = 1, categoryId = null)
-
-        mangaUpdateIds(included = listOf(1)) shouldBe emptyList()
-        mangaUpdateIds(included = listOf(0)) shouldBe listOf(1L)
-        mangaUpdateIds(excluded = listOf(0)) shouldBe emptyList()
-    }
-
-    @Test
-    fun `an uncategorized novel survives only when the default id is included`() = runTest {
-        seedNovel(id = 1, categoryId = null)
-
-        novelUpdateIds(included = listOf(2)) shouldBe emptyList()
-        novelUpdateIds(included = listOf(0)) shouldBe listOf(1L)
-        novelUpdateIds(excluded = listOf(0)) shouldBe emptyList()
-    }
-
-    @Test
-    fun `excluding beats including for a manga in both categories`() = runTest {
-        seedManga(id = 1, categoryId = 1)
-        addMangaCategory(mangaId = 1, categoryId = 3)
-
-        mangaUpdateIds(included = listOf(1), excluded = listOf(3)) shouldBe emptyList()
-    }
-
-    @Test
-    fun `excluding beats including for a novel in both categories`() = runTest {
-        seedNovel(id = 1, categoryId = 2)
-        addNovelCategory(novelId = 1, categoryId = 3)
-
-        novelUpdateIds(included = listOf(2), excluded = listOf(3)) shouldBe emptyList()
-    }
-
-    /** The sheet lists a universal category once, so its one pick has to land on both feeds as is. */
-    @Test
-    fun `one pick on a universal category filters both types`() = runTest {
-        seedManga(id = 1, categoryId = 3)
-        seedManga(id = 2, categoryId = 1)
-        seedNovel(id = 1, categoryId = 3)
-        seedNovel(id = 2, categoryId = 2)
-        val pick = listOf(3L)
-
-        (mangaUpdateIds(included = pick) to novelUpdateIds(included = pick)) shouldBe (listOf(1L) to listOf(1L))
-    }
+    private suspend fun novelHistoryIds(included: List<Long>): List<Long> =
+        novelHistory.getNovelHistory("", included, emptyList()).first().map { it.novelId }
 
     @Test
     fun `not started hides a read manga chapter`() = runTest {
-        seedManga(id = 1, categoryId = null, read = true)
+        seedManga(id = 1, read = true)
 
         mangaUpdateIds(started = false) shouldBe emptyList()
     }
 
     @Test
     fun `not started hides a read novel chapter`() = runTest {
-        seedNovel(id = 1, categoryId = null, read = true)
+        seedNovel(id = 1, read = true)
 
         novelUpdateIds(started = false) shouldBe emptyList()
     }
 
     @Test
     fun `not started keeps an untouched manga chapter`() = runTest {
-        seedManga(id = 1, categoryId = null)
+        seedManga(id = 1)
 
         mangaUpdateIds(started = false) shouldBe listOf(1L)
     }
 
     @Test
     fun `not started keeps an untouched novel chapter`() = runTest {
-        seedNovel(id = 1, categoryId = null)
+        seedNovel(id = 1)
 
         novelUpdateIds(started = false) shouldBe listOf(1L)
-    }
-
-    @Test
-    fun `an included category keeps only its manga history`() = runTest {
-        seedManga(id = 1, categoryId = 1, withHistory = true)
-        seedManga(id = 2, categoryId = 3, withHistory = true)
-
-        mangaHistoryIds() shouldBe listOf(1L, 2L)
-        mangaHistoryIds(included = listOf(1)) shouldBe listOf(1L)
-        mangaHistoryIds(excluded = listOf(1)) shouldBe listOf(2L)
-    }
-
-    @Test
-    fun `an included category keeps only its novel history`() = runTest {
-        seedNovel(id = 1, categoryId = 2, withHistory = true)
-        seedNovel(id = 2, categoryId = 3, withHistory = true)
-
-        novelHistoryIds() shouldBe listOf(1L, 2L)
-        novelHistoryIds(included = listOf(2)) shouldBe listOf(1L)
-        novelHistoryIds(excluded = listOf(2)) shouldBe listOf(2L)
     }
 
     @Test
     fun `a read entry that was never added to the library reads as uncategorized`() = runTest {
         // historyView has no favorite gate, so these rows are in the feed with no membership rows at
         // all. Accepted behaviour, pinned here because it is invisible until someone hits it.
-        seedManga(id = 1, categoryId = null, favorite = false, withHistory = true)
-        seedNovel(id = 1, categoryId = null, favorite = false, withHistory = true)
+        seedManga(id = 1, favorite = false, withHistory = true)
+        seedNovel(id = 1, favorite = false, withHistory = true)
 
         mangaHistoryIds(included = listOf(1)) shouldBe emptyList()
         mangaHistoryIds(included = listOf(0)) shouldBe listOf(1L)
@@ -246,11 +117,10 @@ class RecentsFilterQueriesTest {
         novelHistoryIds(included = listOf(0)) shouldBe listOf(1L)
     }
 
-    // A favorited entry with one chapter fetched after it was added, which is what puts it in the
-    // updates feed. Category ids 1 and 2 are seeded manga-side and novel-side, 3 is universal.
+    // An uncategorized entry with one chapter fetched after it was added, which is what puts a favorited
+    // one in the updates feed.
     private suspend fun seedManga(
         id: Long,
-        categoryId: Long?,
         read: Boolean = false,
         favorite: Boolean = true,
         withHistory: Boolean = false,
@@ -273,7 +143,6 @@ class RecentsFilterQueriesTest {
                 "$id, 'c-url-$id', 'name', NULL, ${read.toSql()}, 0, 0, 1.0, 0, 1000, 1000, '{}')",
             0,
         ).await()
-        if (categoryId != null) addMangaCategory(id, categoryId)
         if (withHistory) {
             driver.execute(
                 null,
@@ -286,7 +155,6 @@ class RecentsFilterQueriesTest {
 
     private suspend fun seedNovel(
         id: Long,
-        categoryId: Long?,
         read: Boolean = false,
         favorite: Boolean = true,
         withHistory: Boolean = false,
@@ -305,7 +173,6 @@ class RecentsFilterQueriesTest {
                 "VALUES ($id, $id, 'c-url-$id', 'name', ${read.toSql()}, 0, 0, 1.0, 0, 1000, 1000)",
             0,
         ).await()
-        if (categoryId != null) addNovelCategory(id, categoryId)
         if (withHistory) {
             driver.execute(
                 null,
@@ -313,33 +180,6 @@ class RecentsFilterQueriesTest {
                 0,
             ).await()
         }
-    }
-
-    private suspend fun addMangaCategory(mangaId: Long, categoryId: Long) {
-        ensureCategory(categoryId)
-        driver.execute(
-            null,
-            "INSERT INTO manga_category(manga_id, category_id) VALUES ($mangaId, $categoryId)",
-            0,
-        ).await()
-    }
-
-    private suspend fun addNovelCategory(novelId: Long, categoryId: Long) {
-        ensureCategory(categoryId)
-        driver.execute(
-            null,
-            "INSERT INTO novels_categories(novel_id, category_id) VALUES ($novelId, $categoryId)",
-            0,
-        ).await()
-    }
-
-    private suspend fun ensureCategory(id: Long) {
-        driver.execute(
-            null,
-            "INSERT OR IGNORE INTO category(id, name, `order`, flags, content_type) " +
-                "VALUES ($id, 'cat $id', $id, 0, ${if (id == 1L || id == 2L) id else 0})",
-            0,
-        ).await()
     }
 
     private fun Boolean.toSql(): Int = if (this) 1 else 0
