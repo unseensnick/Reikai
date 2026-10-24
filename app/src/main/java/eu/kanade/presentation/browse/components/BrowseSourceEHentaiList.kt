@@ -113,7 +113,6 @@ private fun BrowseSourceEHentaiListItem(
     // From the tags, which a browse result carries before its details are fetched, unlike metadata.language.
     val language = remember(metadata) {
         metadata.tagNames(EHentaiSearchMetadata.EH_LANGUAGE_NAMESPACE, LANGUAGE_FLAGS, capitalize = true)
-            ?.let { listOfNotNull(SourceTagsUtil.ehLanguageFlag(metadata), it).joinToString(" ") }
     }
     val translated = remember(metadata) {
         metadata.tags.any { it.namespace == EHentaiSearchMetadata.EH_LANGUAGE_NAMESPACE && it.name == TRANSLATED }
@@ -192,7 +191,11 @@ private fun BrowseSourceEHentaiListItem(
                     )
                     language?.let {
                         GalleryFact(
-                            text = if (translated) "$it (${stringResource(MR.strings.translated)})" else it,
+                            text = SourceTagsUtil.ehLanguageLabel(
+                                metadata,
+                                it,
+                                stringResource(MR.strings.translated).takeIf { translated },
+                            ),
                             icon = MaterialSymbols.Rounded.Translate,
                         )
                     }

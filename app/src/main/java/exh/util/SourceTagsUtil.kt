@@ -48,6 +48,11 @@ object SourceTagsUtil {
         .firstNotNullOfOrNull { getLocaleSourceUtil(it.name) }
         ?.let { getEmojiLangFlag(it.toLanguageTag()) }
 
+    /** [language] led by the gallery's flag, then "([translatedLabel])" for a translated gallery. */
+    fun ehLanguageLabel(metadata: EHentaiSearchMetadata, language: String, translatedLabel: String?): String =
+        listOfNotNull(ehLanguageFlag(metadata), language).joinToString(" ")
+            .let { if (translatedLabel != null) "$it ($translatedLabel)" else it }
+
     fun getLocaleSourceUtil(language: String?) = when (language) {
         "english", "eng" -> Locale.forLanguageTag("en")
         "japanese" -> Locale.forLanguageTag("ja")
