@@ -11,7 +11,7 @@ import kotlin.time.Instant
  */
 interface ReadingLogRepository {
 
-    /** Records a session of [duration] ms on [chapterId] ending at [endedAt]; a non-positive one is dropped. */
+    /** Records [duration] ms on [chapterId] ending at [endedAt]; one [isLoggableSession] rejects is dropped. */
     suspend fun record(contentType: ContentType, chapterId: Long, endedAt: Instant, duration: Long)
 
     /**
