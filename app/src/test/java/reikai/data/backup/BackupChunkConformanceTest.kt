@@ -89,6 +89,15 @@ class BackupChunkConformanceTest {
             listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `each series in a chunk carries its own history`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.history(database, listOf(1L, 2L)) shouldBe
+            listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
+    }
+
     enum class Type {
         MANGA {
             override val statements = listOf(
@@ -120,6 +129,11 @@ class BackupChunkConformanceTest {
 
             override suspend fun sessions(database: Database, ids: List<Long>) =
                 chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
+
+            override suspend fun history(database: Database, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), database, ids).map { backup ->
+                    backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
+                }
 
             private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupManga> {
                 val creator = MangaBackupCreator(
@@ -164,6 +178,11 @@ class BackupChunkConformanceTest {
             override suspend fun sessions(database: Database, ids: List<Long>) =
                 chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
 
+            override suspend fun history(database: Database, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), database, ids).map { backup ->
+                    backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
+                }
+
             private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupNovel> {
                 val creator = NovelBackupCreator(
                     novelRepository = mockk(),
@@ -196,6 +215,9 @@ class BackupChunkConformanceTest {
 
         /** Each series' reading sessions as (url, endedAt, duration), since the backup class has no equals. */
         abstract suspend fun sessions(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
+
+        /** Each series' history as (url, lastRead, readDuration). */
+        abstract suspend fun history(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
 
         protected fun List<BackupReadingSession>.asTriples() = map { Triple(it.url, it.endedAt, it.duration) }
     }
