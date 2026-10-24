@@ -20,4 +20,7 @@ object TitleNormalizer {
         val noMarks = combiningMarks.replace(decomposed, "")
         return noMarks.lowercase().replace(nonAlphanumeric, " ").trim()
     }
+
+    /** [title]'s dedup key, or null when nothing is left to match on (a blank or punctuation-only title). */
+    fun key(title: String): String? = normalize(title).ifEmpty { null }
 }

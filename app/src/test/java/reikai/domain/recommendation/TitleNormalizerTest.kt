@@ -39,4 +39,14 @@ class TitleNormalizerTest {
     fun `blank input yields empty key`() {
         norm("   ") shouldBe ""
     }
+
+    @Test
+    fun `a punctuation-only title has no key`() {
+        TitleNormalizer.key("!!!") shouldBe null
+    }
+
+    @Test
+    fun `a title's key is its normalized form`() {
+        TitleNormalizer.key("Spice & Wolf") shouldBe norm("Spice & Wolf")
+    }
 }

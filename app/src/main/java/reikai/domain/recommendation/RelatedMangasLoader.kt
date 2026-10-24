@@ -136,7 +136,7 @@ class RelatedMangasLoader(
 
         init {
             // Never recommend the manga back to itself.
-            TitleNormalizer.normalize(manga.title).takeIf { it.isNotEmpty() }?.let { seenTitleKeys += it }
+            TitleNormalizer.key(manga.title)?.let { seenTitleKeys += it }
         }
 
         suspend fun add(candidates: List<RelatedMangaCandidate>): RelatedPool? =

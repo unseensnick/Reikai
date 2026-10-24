@@ -99,7 +99,7 @@ class BuildRecommendationHideFilter(
         }
 
         fun addTitle(title: String) {
-            TitleNormalizer.normalize(title).takeIf { it.isNotEmpty() }?.let { titles += it }
+            TitleNormalizer.key(title)?.let { titles += it }
         }
 
         fun addManga(manga: Manga) {
