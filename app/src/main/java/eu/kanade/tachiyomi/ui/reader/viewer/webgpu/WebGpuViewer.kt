@@ -563,11 +563,10 @@ open class WebGpuViewer(
             val chapters = onScreen.filterIsInstance<ViewerTransitionPage>()
                 .mapNotNull { chapterToRetry(it.prevChapter, it.nextChapter) }
                 .distinct()
-            chapters.forEach { failedChapterPreloads.remove(it.chapter.id) }
             pages to chapters
         }
         pages.forEach(::retryPage)
-        chapters.forEach { preloadChapterThenRetry(it, userAsked = true) } // RK: a Retry tap skips the wait
+        chapters.forEach(::retryChapter)
         return pages.isNotEmpty() || chapters.isNotEmpty()
     }
 
@@ -592,7 +591,7 @@ open class WebGpuViewer(
     /** [TransitionPage]'s Retry for a neighbour chapter that failed to load. */
     internal fun retryChapter(chapter: ReaderChapter) {
         synchronized(lock) { failedChapterPreloads.remove(chapter.chapter.id) }
-        preloadChapterThenRetry(chapter, userAsked = true)
+        preloadChapterThenRetry(chapter, userAsked = true) // a Retry tap skips the wait
     }
 
     /** A page turn gives every failed neighbour one more automatic try. */
