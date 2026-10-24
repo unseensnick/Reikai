@@ -14,6 +14,7 @@ import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.source.NovelIconHints
@@ -379,7 +380,10 @@ class NovelPreferences(
     }
 
     /** The bottom layout's zone, as a percentage of the page's height. */
-    fun readerTapBottomZoneHeight() = preferenceStore.getInt("ln_reader_tap_bottom_zone_height", 12)
+    fun readerTapBottomZoneHeight() = preferenceStore.getInt(
+        "ln_reader_tap_bottom_zone_height",
+        BOTTOM_ZONE_DEFAULT_PERCENT,
+    )
 
     /**
      * Carries the retired [DEAD_READER_TAP_TO_SCROLL_KEY] switch into [readerTapLayout]: on was the thirds

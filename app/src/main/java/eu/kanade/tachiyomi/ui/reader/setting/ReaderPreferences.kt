@@ -8,6 +8,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
+import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
@@ -223,7 +224,10 @@ class ReaderPreferences(
     val navigationModePager: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_pager", 0)
 
     // RK: the Bottom tap layout's zone height in percent, which the novel reader keeps its own of
-    val tapBottomZoneHeight: Preference<Int> = preferenceStore.getInt("reader_tap_bottom_zone_height", 12)
+    val tapBottomZoneHeight: Preference<Int> = preferenceStore.getInt(
+        "reader_tap_bottom_zone_height",
+        BOTTOM_ZONE_DEFAULT_PERCENT,
+    )
 
     val navigationModeWebtoon: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_webtoon", 0)
 
