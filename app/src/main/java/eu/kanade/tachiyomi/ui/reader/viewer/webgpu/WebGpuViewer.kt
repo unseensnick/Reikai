@@ -1078,6 +1078,8 @@ open class WebGpuViewer(
         }
     }
 
+    // RK: retryLoad sits beside retryPage above, through its download path
+
     /** Downloads [page] if needed, then re-queues it for decode once ready. */
     private fun startPageLoad(page: ViewerReaderPage) {
         val loader = page.page.chapter.pageLoader ?: run {
@@ -1153,6 +1155,15 @@ open class WebGpuViewer(
                 downloadProgressJob.cancel()
 
                 synchronized(lock) {
+                    val status = page.page.status
+                    if (pageInCache(page) && status is Page.State.Error && !page.streaming) {
+                        val old = page.imagePage
+                        if (old is ProgressPage) {
+                            page.imagePage = ErrorPage(this@WebGpuViewer, page, status.error)
+                            cleanupImage(old)
+                            pager.state.invalidate()
+                        }
+                    }
                     if (pageInCache(page) && page.state == PageState.LOADING) {
                         page.state = PageState.IDLE
                         if (page.page.status == Page.State.Ready && !page.isDecoded && !page.streaming) {
@@ -1285,11 +1296,12 @@ open class WebGpuViewer(
             } finally {
                 synchronized(lock) {
                     page.streaming = false
-                    // Failed download: back to the ring for a retry.
+                    // Failed download: the error, with Retry.
                     val preview = page.preview
-                    if (pageInCache(page) && page.imagePage === preview && page.page.status is Page.State.Error) {
+                    val status = page.page.status
+                    if (pageInCache(page) && page.imagePage === preview && status is Page.State.Error) {
                         page.preview = null
-                        page.imagePage = ProgressPage(this@WebGpuViewer)
+                        page.imagePage = ErrorPage(this@WebGpuViewer, page, status.error)
                         cleanupImage(preview)
                         pager.state.invalidate()
                     }
