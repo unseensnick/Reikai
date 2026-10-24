@@ -2,7 +2,8 @@
 .SYNOPSIS
     Which code is Mihon's and which is Reikai's: where the Mihon clone lives, which upstream commit
     Reikai is synced through, and which lines of a Mihon file Reikai fenced as its own. Dot-sourced by
-    dup-check.ps1 and rk-fence-report.ps1, so the two read these rules from one place.
+    dup-check.ps1, rk-fence-report.ps1 and comment-cap.ps1, so the three read these rules from one
+    place.
 #>
 
 # refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.

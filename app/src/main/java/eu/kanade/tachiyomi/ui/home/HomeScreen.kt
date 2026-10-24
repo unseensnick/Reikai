@@ -218,7 +218,7 @@ object HomeScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         val scope = rememberCoroutineScope()
         val selected = tabNavigator.current::class == tab::class
-        // RK: read once, since each read of the getter parses the tab's animated icon again
+        // RK: read once, since each read of the getter builds the tab's icon painter again
         val options = tab.options
         NavigationSuiteItem(
             navigationSuiteType = navigationSuiteType,

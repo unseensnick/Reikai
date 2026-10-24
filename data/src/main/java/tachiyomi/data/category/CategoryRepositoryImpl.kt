@@ -75,8 +75,8 @@ class CategoryRepositoryImpl(
 
     override suspend fun getCategoriesByMangaIds(mangaIds: List<Long>): Map<Long, List<Category>> {
         return database.categoryQueries
+            // RK: the row carries its content type
             .getCategoriesByMangaIds(mangaIds) { mangaId, id, name, order, flags, contentType ->
-                // RK
                 mangaId to mapCategory(id, name, order, flags, contentType) // RK
             }
             .awaitAsList()

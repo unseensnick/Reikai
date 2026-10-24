@@ -5,7 +5,7 @@
 # group.
 #
 # Why each pair group is kept:
-# - Backup creators and models (Manga/Novel BackupCreator, BackupManga/BackupNovel, custom info): the
+# - Backup models (BackupManga/BackupNovel, custom info): the
 #   proto shapes share field numbers on purpose; pinned by BackupCustomInfoConformanceTest and
 #   BackupDatesConformanceTest.
 # - DownloadStore / NovelDownloadStore: upstream's queue store copied for the separate novel engine,
