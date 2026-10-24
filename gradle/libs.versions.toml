@@ -68,6 +68,7 @@ okio = "3.18.2"
 photoView = "2.3.0"
 reorderable = "3.1.0"
 robolectric = "4.17"
+roborazzi = "1.76.0"
 rxJava = "1.3.8"
 shizuku = "13.1.5"
 spotless = "8.10.4"
@@ -196,6 +197,8 @@ photoView = { module = "com.github.chrisbanes:PhotoView", version.ref = "photoVi
 quickjs-kt = { module = "io.github.dokar3:quickjs-kt", version = "1.0.5" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
 robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+roborazzi-compose = { module = "io.github.takahirom.roborazzi:roborazzi-compose", version.ref = "roborazzi" }
 vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
 rxJava = { module = "io.reactivex:rxjava", version.ref = "rxJava" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
@@ -237,6 +240,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 valkyrie = { id = "io.github.composegears.valkyrie", version.ref = "valkyrie" }
 moko-resources = { id = "dev.icerock.mobile.multiplatform-resources", version.ref = "moko-resources" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 

@@ -39,7 +39,7 @@ run them as separate calls. Never run CLI Gradle while Android Studio is buildin
 
 | Workflow | Trigger | Checks |
 |---|---|---|
-| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | three parallel jobs: `spotlessCheck`, `scripts/di-interop-check.ps1` and `verifySqlDelightMigration`; `test` (JUnit report published); `assembleRelease` |
+| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | three parallel jobs: `spotlessCheck`, `scripts/di-interop-check.ps1` and `verifySqlDelightMigration`; `test` with the screenshot comparison (JUnit report published); `assembleRelease` |
 | `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | the guard, then two parallel jobs (`di-interop-check.ps1`, `verifySqlDelightMigration` and `test`; `assembleNightly`), then `scripts/ci/release-notes-test.sh` and the publish once both pass |
 | `release.yml` | a `v*` tag | three parallel jobs (`test`, `assembleRelease`, `assembleFoss`), then `release-notes-test.sh` and a draft release once all pass |
 | `commit-standards.yml` | every pull request | `.githooks/commit-msg` over each commit, `scripts/commit-msg-test.sh`, `.claude/hooks/tests/run-all.sh` |
@@ -116,7 +116,20 @@ Screens and components are tested on the JVM, in the module's ordinary unit suit
 - **Write the class in JUnit 4**: `@RunWith(RobolectricTestRunner::class)`, `@get:Rule val compose = createComposeRule()`, `org.junit.Test`. Kotest assertions still work. For one test over both content types use `ParameterizedRobolectricTestRunner`, since JUnit 6's `@ParameterizedTest` is not available there (`ReaderSettingsSheetTest` is the model).
 - **Host app screens with `ComposeTestHost`** (`app/src/test/java/reikai/presentation/`): the preview theme, the app's text locals, and a view-model factory over the models the test built. `app/src/test/resources/robolectric.properties` runs a plain `Application`, since the app's own builds the whole graph, and turns Robolectric's Conscrypt off, since the app's `conscrypt-android` breaks it.
 - **Assert on the unmerged tree for a child's size.** A `Tab` (and any clickable that merges its children) answers `onNodeWithText` with its own node, so `TabTextTest` reads the label with `useUnmergedTree = true`; on the merged node the zero-width label it guards against passed.
+- **A screen that needs the app graph is split, not faked.** Its `Screen.Content()` keeps the graph lookup and the model, and an internal composable takes the state and the model; the test hosts that over a fake adapter (`EntryMigrationListTest`). A private composable a test needs becomes `internal`.
+- **Build stateful parameters per test.** `ParameterizedRobolectricTestRunner` hands every test the same parameter objects, so pass a factory, as `EntryAddDialogsTest` does, when a parameter holds state.
+- **Scroll before tapping in a sheet.** Robolectric's default screen is 320x470 dp, so a dialog's buttons can sit below the fold, where a click lands nowhere: `performScrollTo()` first.
+- **Freeze the clock for timing.** With `compose.mainClock.autoAdvance = false`, `advanceTimeBy` steps the frames and the composition's delays together (`LibraryUpdatePullRefreshTest`).
+- **Cancel a model built outside a ViewModelStore** in `@After` (`model.viewModelScope.cancel()`), or its work outlives the test.
 - **Not here:** read-aloud needs a real TTS engine, and anything drawn by the reader's View-based viewers needs a device; those stay instrumented or manual.
+
+### Screenshot tests
+
+`ScreenshotTest` (`app/src/test/java/reikai/presentation/`) captures each covered screen with Roborazzi into `app/src/test/screenshots/`, and CI's `build_check.yml` compares them with `-Proborazzi.test.verify=true`, uploading the actual and diff images as `screenshot-diffs` when one changes. A plain `./gradlew test` renders them without comparing. Robolectric's native graphics bring their own fonts and renderer, so Windows and Linux produce the same pixels and the images can be recorded anywhere.
+
+- **Add one** as a test in `ScreenshotTest` (or any class under `@GraphicsMode(NATIVE)`) ending in `captureScreenRoboImage()`, which draws every window, dialogs and sheets included.
+- **Record after an intended change:** `./gradlew :app:recordRoborazziDebug --tests "*ScreenshotTest"`, look at the new images, and commit them with the change.
+- **Check locally:** `./gradlew :app:testDebugUnitTest --tests "*ScreenshotTest" -Proborazzi.test.verify=true`; diffs land in `app/build/outputs/roborazzi/`.
 
 ## Instrumented tests
 

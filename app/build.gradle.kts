@@ -21,6 +21,7 @@ plugins {
     alias(libs.plugins.androidx.baselineProfile)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.apollo)
+    alias(libs.plugins.roborazzi) // RK: screenshot tests
 }
 
 if (Config.includeTelemetry) {
@@ -403,9 +404,19 @@ dependencies {
     // through :data, so the SQLDelight runtime those tests compile against is test-only here too.
     testImplementation(libs.sqldelight.sqliteDriver)
     testImplementation(libs.bundles.sqldelight)
+
+    // RK: screenshot comparison for the Compose UI tests, see docs/dev/testing.md
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
 }
 
 composeUiTests() // RK
+
+// RK --> reference images sit beside the tests; CI compares them, see docs/dev/testing.md
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
+}
+// RK <--
 
 apollo {
     val schemaBasePath = "src/main/graphql/mihon/graphql"
