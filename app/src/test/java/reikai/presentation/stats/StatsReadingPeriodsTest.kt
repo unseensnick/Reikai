@@ -9,6 +9,15 @@ class StatsReadingPeriodsTest {
 
     private val today = LocalDate(2026, 10, 19)
 
+    /** The picker allows no date past today, so stepping must not reach one either. */
+    @Test
+    fun `a custom range steps forward no further than today`() {
+        val range = ReadingWindow(ReadingPeriod.CUSTOM, LocalDate(2026, 10, 1), LocalDate(2026, 10, 10))
+
+        range.shifted(forward = true, today = LocalDate(2026, 10, 13)).let { it.first to it.last } shouldBe
+            (LocalDate(2026, 10, 4) to LocalDate(2026, 10, 13))
+    }
+
     @Test
     fun `the current month runs from its first to its last day`() {
         ReadingWindow.current(ReadingPeriod.MONTH, today).let { it.first to it.last } shouldBe

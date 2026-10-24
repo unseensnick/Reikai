@@ -44,7 +44,7 @@ data class ReadingWindow(val period: ReadingPeriod, val first: LocalDate, val la
         }
     }
 
-    /** The window before, or after ([forward]), this one; a week never runs past [today]. */
+    /** The window before, or after ([forward]), this one; a week or a custom range never runs past [today]. */
     fun shifted(forward: Boolean, today: LocalDate): ReadingWindow {
         val step = if (forward) 1 else -1
         return when (period) {
@@ -53,10 +53,8 @@ data class ReadingWindow(val period: ReadingPeriod, val first: LocalDate, val la
             ReadingPeriod.YEAR -> year(first.year + step)
             ReadingPeriod.CUSTOM -> {
                 val length = first.daysUntil(last) + 1
-                copy(
-                    first = first.plus(length * step, DateTimeUnit.DAY),
-                    last = last.plus(length * step, DateTimeUnit.DAY),
-                )
+                val newLast = minOf(last.plus(length * step, DateTimeUnit.DAY), today)
+                copy(first = newLast.minus(length - 1, DateTimeUnit.DAY), last = newLast)
             }
         }
     }
