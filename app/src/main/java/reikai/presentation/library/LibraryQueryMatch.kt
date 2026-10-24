@@ -125,9 +125,6 @@ fun QueryNode.readsTracks(): Boolean = when (this) {
     else -> false
 }
 
-/** The word `status:` matches a publishing status by; both content types share the codes. */
-fun statusQueryWord(code: Long): String = EntryStatus.of(code).queryWord
-
 /** Whether [row] satisfies the parsed [node]. Pure over the [fields] accessors. */
 fun <T> libraryQueryMatches(
     node: QueryNode,
@@ -201,7 +198,7 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
             if (value.isEmpty()) {
                 EntryStatus.of(code) == EntryStatus.UNKNOWN
             } else {
-                statusQueryWord(code).startsWith(value, ignoreCase = true) || value == code.toString()
+                EntryStatus.of(code).queryWord.startsWith(value, ignoreCase = true) || value == code.toString()
             }
         }
 
