@@ -16,11 +16,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.produceState
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +38,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import reikai.presentation.reader.chapterToRetry
+import reikai.presentation.reader.NeighbourChapterRetry
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
 import tachiyomi.presentation.core.i18n.stringResource
@@ -134,7 +132,7 @@ class ErrorPage internal constructor(
 
 /** `reader_error.xml`, in Compose. */
 @Composable
-private fun ReaderError(
+internal fun ReaderError( // RK: internal, the transition's NeighbourChapterRetry draws it too
     message: String?,
     onRetry: () -> Unit,
     onOpenInWebView: (() -> Unit)?,
@@ -244,20 +242,7 @@ class TransitionPage(
                         currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
                         goingToChapterDownloaded = goingToChapterDownloaded,
                     )
-                    val prevState = prevChapter?.stateFlow?.collectAsState()?.value
-                    val nextState = nextChapter?.stateFlow?.collectAsState()?.value
-                    val failed = remember(prevState, nextState) { chapterToRetry(prevChapter, nextChapter) }
-                    (failed?.state as? ReaderChapter.State.Error)?.let { error ->
-                        val context = LocalContext.current
-                        ReaderError(
-                            message = stringResource(
-                                MR.strings.transition_pages_error,
-                                with(context) { error.error.formattedMessage },
-                            ),
-                            onRetry = { viewer.retryChapter(failed) },
-                            onOpenInWebView = null,
-                        )
-                    }
+                    NeighbourChapterRetry(prevChapter, nextChapter, onRetry = viewer::retryChapter)
                 }
                 // RK <--
             }
