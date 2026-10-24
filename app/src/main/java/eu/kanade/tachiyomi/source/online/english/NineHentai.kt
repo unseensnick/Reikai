@@ -137,10 +137,9 @@ class NineHentai(delegate: HttpSource, val context: Context) :
         "www.9hentai.so",
     )
 
+    // The path rather than SY's whole link, so a query carrying "/g/<id>" names no gallery.
     override suspend fun mapUrlToMangaUrl(uri: Uri): String? {
-        val segments = uri.pathSegments
-        if (segments.firstOrNull() != "g") return null
-        return segments.getOrNull(1)?.toIntOrNull()?.let { "/g/$it" }
+        return uri.path?.let(::galleryId)?.let { "/g/$it" }
     }
 
     override suspend fun getPagePreviewList(manga: SManga, chapters: List<SChapter>, page: Int): PagePreviewPage {

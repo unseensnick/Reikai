@@ -10,6 +10,7 @@ fun linkUri(url: String): Uri {
     val parsed = URI(url)
     return mockk {
         every { host } returns parsed.host
+        every { path } returns parsed.path
         every { pathSegments } returns parsed.path.split('/').filter { it.isNotEmpty() }
     }
 }
