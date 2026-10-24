@@ -13,6 +13,7 @@ import logcat.LogPriority
 import okhttp3.FormBody
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 class MangaDexLoginHelper(
@@ -37,7 +38,7 @@ class MangaDexLoginHelper(
             .add("redirect_uri", MdConstants.Login.redirectUri)
             .build()
 
-        val error = kotlin.runCatching {
+        val error = runCatchingCancellable {
             val data = with(MdUtil.jsonParser) {
                 client.newCall(
                     POST(MdApi.baseAuthUrl + MdApi.token, headers = headers, body = loginFormBody),
@@ -72,7 +73,7 @@ class MangaDexLoginHelper(
             .add("redirect_uri", MdConstants.Login.redirectUri)
             .build()
 
-        val error = kotlin.runCatching {
+        val error = runCatchingCancellable {
             client.newCall(
                 POST(
                     url = MdApi.baseAuthUrl + MdApi.logout,

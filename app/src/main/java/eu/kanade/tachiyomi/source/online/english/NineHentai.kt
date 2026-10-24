@@ -35,6 +35,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import org.jsoup.nodes.Document
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import java.util.Calendar
 
@@ -89,7 +90,7 @@ class NineHentai(delegate: HttpSource, val context: Context) :
     private suspend fun galleryInput(manga: SManga, response: Response): GalleryInput {
         val document = response.asJsoup()
         val book = galleryId(manga.url)?.let { id ->
-            runCatching {
+            runCatchingCancellable {
                 val request = POST("$baseUrl/api/getBookByID", headers, """{"id":$id}""".toRequestBody(JSON_MEDIA_TYPE))
                 val body = client.newCall(request).awaitSuccess().body.string()
                 jsonParser.decodeFromString<BookResponse>(body).results

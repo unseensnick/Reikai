@@ -39,6 +39,7 @@ import exh.source.DelegatedHttpSource
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import okhttp3.OkHttpClient
+import reikai.util.runCatchingCancellable
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
 import uy.kohesive.injekt.injectLazy
@@ -221,7 +222,9 @@ class MangaDex(delegate: HttpSource, val context: Context) :
         return coroutineScope {
             val details = async { mangadexService.viewMangas(ids) }
             val ratings = async {
-                runCatching { mangadexService.mangasRating(*ids.toTypedArray()).statistics }.getOrElse { emptyMap() }
+                runCatchingCancellable {
+                    mangadexService.mangasRating(*ids.toTypedArray()).statistics
+                }.getOrElse { emptyMap() }
             }
             val byId = details.await().data.associateBy { it.id }
             val ratingById = ratings.await()

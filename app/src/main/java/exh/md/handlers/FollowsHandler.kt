@@ -15,6 +15,7 @@ import exh.md.utils.asMdMap
 import exh.md.utils.mdListCall
 import exh.metadata.metadata.MangaDexSearchMetadata
 import kotlinx.coroutines.async
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 
 // Per-title tracking for the MDList tracker plus the library follows-listing (fetchFollows /
@@ -97,7 +98,7 @@ class FollowsHandler(
     suspend fun updateRating(track: Track): Boolean {
         return withIOContext {
             val mangaId = MdUtil.getMangaId(track.tracking_url)
-            val result = runCatching {
+            val result = runCatchingCancellable {
                 if (track.score == 0.0) {
                     service.deleteMangaRating(mangaId)
                 } else {

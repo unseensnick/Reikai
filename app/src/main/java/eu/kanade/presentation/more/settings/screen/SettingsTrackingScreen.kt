@@ -79,6 +79,7 @@ import reikai.presentation.components.RevealableSecureTextField
 import reikai.presentation.settings.resetToDefaultPreference
 import reikai.presentation.track.TrackerError
 import reikai.presentation.track.trackerErrorMessage
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -702,7 +703,7 @@ private fun NovelUpdatesListMappingDialogContent(
     var openFor by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching { tracker.readingLists() }
+        runCatchingCancellable { tracker.readingLists() }
             .onSuccess { lists = it }
             .onFailure { withUIContext { context.toastListsFailed(tracker.name, it) } }
         loading = false
@@ -731,7 +732,7 @@ private fun NovelUpdatesListMappingDialogContent(
                         onClick = {
                             loading = true
                             scope.launchIO {
-                                val fetched = runCatching { tracker.readingLists() }
+                                val fetched = runCatchingCancellable { tracker.readingLists() }
                                 withUIContext {
                                     fetched
                                         .onSuccess { lists = it }
