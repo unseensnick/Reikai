@@ -67,7 +67,7 @@ Settings live at the end of Advanced's Network group (`bypassPreferenceItems`): 
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WebViewFetcher.kt`: `fetch`, `FETCH_PAGE`, `collect`, `redirectTarget`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/WebViewFetch.kt`: `webViewFetchMessage`, `webViewFetchResponse`, `decodedBodyHeaders`, `webViewFetchFollowUp`, `webViewFetchChallengedHop`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FlareSolverrClient.kt`: `resolve`, `test`, `isPrivateChannel`, `flareSolverrCommand`, `unwrapBrowserJsonViewer`.
-- `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FlareSolverrAuth.kt`: `flareSolverrLoginFor`, `carryFlareSolverrUserInfo`.
+- `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FlareSolverrAuth.kt`: `flareSolverrLoginFor`, `splitFlareSolverrUserInfo`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/interceptor/FlareSolverrUserAgentPin.kt`: `pinFlareSolverrUserAgents`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/AndroidCookieJar.kt`: `remove`, `scopesOf`.
 - `core/common/src/main/kotlin/eu/kanade/tachiyomi/network/NetworkPreferences.kt`: the bypass server and solver preferences.
@@ -107,7 +107,7 @@ Settings live at the end of Advanced's Network group (`bypassPreferenceItems`): 
 - **Press cadence is ported from Byparr and Solverr**: a 4-second cooldown and no press while a token is present, which both measured as restarting verification.
 - **`ForegroundActivity` still returns a backgrounded activity.** The windowed path cleared challenges with the app backgrounded where the no-window path cleared none without a foreground service.
 - **The proxy login is basic auth in UTF-8, in two private preferences, added by an interceptor.** UTF-8 matches a proxy configured through a web interface; private keys keep it out of a default backup; the interceptor covers the banner probe, whose 401 would latch the client sessionless.
-- **Credentials typed into the address are refused, and old ones are moved.** The upgrade migration runs `carryFlareSolverrUserInfo`.
+- **Credentials typed into the address are refused, and old ones are moved.** The upgrade migration, `FlareSolverrCredentialsMigration`, moves them into the sign-in.
 - **A restore never touches the FlareSolverr setup.** `AppPreferenceCarry` skips the switch, the address and the sign-in, because a backup may be someone else's and the solver it names would receive the sites' cookies.
 - **The debug rows are permanent.** `forceHeadless`, `forceNoWatch` and `startDelayed` reach paths a current device cannot otherwise enter.
 - Open: on a WebView with no isolated world the event listener is injected at page finish, so an `interactiveBegin` posted before that is lost and the solve runs to its deadline. Upstream accepts the same gap.
