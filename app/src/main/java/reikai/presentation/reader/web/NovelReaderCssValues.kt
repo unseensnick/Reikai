@@ -48,11 +48,3 @@ fun cssFontFamilyValue(family: String): String {
     val name = cssFontName(family)
     return if (name.isEmpty()) "" else "'$name'"
 }
-
-/**
- * Whether a path can go inside a quoted `url('...')`. The font mirror's path carries a file name the
- * user chose, and a quote or a backslash in it would end the token early. A space is fine, since the
- * quotes are what it is inside.
- */
-fun isSafeInCssUrl(url: String): Boolean =
-    url.none { it == '\'' || it == '"' || it == '\\' || it == '\n' || it == '\r' }

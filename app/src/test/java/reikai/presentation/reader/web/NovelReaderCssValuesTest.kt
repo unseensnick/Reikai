@@ -105,22 +105,4 @@ class NovelReaderCssValuesTest {
     fun `an empty family stays empty`() {
         cssFontFamily("") shouldBe ""
     }
-
-    /** A picked font lands in the app-private mirror under the name the user gave it, spaces and all. */
-    @Test
-    fun `a mirror path with a space is usable`() {
-        isSafeInCssUrl("file:///data/user/0/app.reikai/files/fonts/Noto Serif.ttf") shouldBe true
-    }
-
-    @Test
-    fun `a path carrying a quote is not usable`() {
-        isSafeInCssUrl("""file:///x/a'); } </style><script>alert(1)</script>.ttf""") shouldBe false
-    }
-
-    /** Either quote, an escape, or a line break would end the `url('...')` token early. */
-    @ParameterizedTest
-    @ValueSource(strings = ["'", "\"", "\\", "\n", "\r"])
-    fun `a path carrying a token-ending character is not usable`(character: String) {
-        isSafeInCssUrl("file:///x/a${character}b.ttf") shouldBe false
-    }
 }

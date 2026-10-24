@@ -254,12 +254,11 @@ $sizedElements
 
     /**
      * The face behind the chosen family, bundled or the user's own. None for a generic family. Its
-     * own style block, so a font changed with a chapter open swaps the face without a rebuild.
+     * own style block, so a font changed with a chapter open swaps the face without a rebuild. [source] is
+     * an address from [NovelWebFonts.url], whose encoding is what keeps it inside the quoted `url('...')`.
      */
     fun fontFace(family: String, source: String?): String {
         if (source == null) return ""
-        // Dropping the declaration loses the face; letting it through loses the whole style block.
-        if (!isSafeInCssUrl(source)) return ""
         return "@font-face { font-family: '${cssFontName(family)}'; src: url('$source'); }"
     }
 }
