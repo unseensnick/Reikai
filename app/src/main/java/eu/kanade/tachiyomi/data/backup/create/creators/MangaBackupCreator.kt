@@ -56,7 +56,7 @@ class MangaBackupCreator(
 
     // RK --> the option gates, the choice of which manga to back up and the chunking live in the driver
     // shared with novels (reikai.data.backup.backupEntries), so this class answers one part at a time for
-    // a whole chunk, reading each table once, as upstream's backupMangas does.
+    // a whole chunk.
     override suspend fun favorites(): List<Manga> = getFavorites.await()
 
     override suspend fun readNotInLibrary(): List<Manga> = mangaRepository.getReadMangaNotInLibrary()

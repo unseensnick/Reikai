@@ -15,7 +15,7 @@ import reikai.domain.db.Transactions
  * One content type's half of writing its series into a backup. The driver owns which series are backed
  * up, which optional parts each carries and how many are read at once; the type owns what a part holds,
  * since manga and novels are separate messages in a frozen wire format and cannot share fields. Each part
- * answers a whole chunk with one read per table and writes onto each [B] itself.
+ * answers a whole chunk and writes onto each [B] itself.
  */
 interface BackupEntryParts<E, B> {
     suspend fun favorites(): List<E>
