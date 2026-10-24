@@ -1,10 +1,17 @@
 package reikai.presentation.details
 
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.track.model.Track
@@ -21,6 +28,21 @@ sealed interface EntryDownloadProgress {
     /** The novel downloader, which tracks no per-chapter progress. */
     data object Unsupported : EntryDownloadProgress
 }
+
+/**
+ * [source] mapped to the neutral state, off the main thread since every chapter row is mapped. Seeded
+ * with the current mapped value so a screen renders without a Loading frame. WhileSubscribed, not
+ * Eagerly: an adapter is rebuilt per composition entry while this sharing coroutine lives in the
+ * model's scope, so an eager start left one orphaned mapper running per re-entry (rotation, reader
+ * round-trips).
+ */
+internal fun <S> ViewModel.neutralDetailsState(
+    source: StateFlow<S>,
+    toNeutral: (S) -> EntryDetailsScreenState,
+): StateFlow<EntryDetailsScreenState> =
+    source.map(toNeutral)
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value))
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the

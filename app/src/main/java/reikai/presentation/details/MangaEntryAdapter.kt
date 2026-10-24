@@ -1,7 +1,6 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
-import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
@@ -13,12 +12,7 @@ import eu.kanade.tachiyomi.ui.manga.MangaViewModel
 import eu.kanade.tachiyomi.ui.manga.PagePreviewState
 import exh.metadata.metadata.RaisedSearchMetadata
 import exh.source.getMainSource
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.entry.EntryId
@@ -48,16 +42,7 @@ class MangaEntryAdapter(
     private val coverViewModelFactory: MangaEntryCoverViewModel.Factory,
 ) : EntryDetailsBehavior {
 
-    override val state: StateFlow<EntryDetailsScreenState> =
-        model.state
-            .map { it.toNeutral() }
-            // Every chapter row is mapped, which on a long series cost frames on the main thread.
-            .flowOn(Dispatchers.Default)
-            // Seed with the current mapped value so a screen collecting this renders without a
-            // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
-            // entry while its sharing coroutine lives in the model's scope, so an eager start left
-            // one orphaned mapper running per re-entry (rotation, reader round-trips).
-            .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
+    override val state: StateFlow<EntryDetailsScreenState> = model.neutralDetailsState(model.state) { it.toNeutral() }
 
     override val downloadProgress = EntryDownloadProgress.Live(model::getDownloadProgress)
 
