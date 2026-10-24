@@ -106,6 +106,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 ### Downloads & extensions
 
+#### Changed
+
+- **Settings -> Downloads no longer has Split tall images, since the long strip reader now draws tall pages in strips itself and splitting turned PNG and WebP pages into JPEG (from Mihon).** Upstream: mihon 8b9faa383.
+
 #### Fixed
 
 - **Manga downloads are found again for a source that shares its name with one whose extension is no longer installed (from Mihon).** Upstream: mihon deeb9b258.
