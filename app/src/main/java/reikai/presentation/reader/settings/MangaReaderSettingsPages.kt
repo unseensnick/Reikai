@@ -255,6 +255,10 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
                 )
             } else if (!webGpu.isDualPageMode()) {
                 CheckboxItem(label = stringResource(MR.strings.pref_navigate_pan), pref = preferences.navigateToPan)
+                CheckboxItem(
+                    label = stringResource(MR.strings.pref_disable_double_tap_gestures),
+                    pref = preferences.disableDoubleTapGestures,
+                )
             }
         }
     }

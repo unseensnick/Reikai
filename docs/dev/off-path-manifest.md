@@ -105,6 +105,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsReaderScreen.kt | mihon | eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/ReaderSettingsDialog.kt | mihon | reikai/presentation/reader/settings/ReaderSettingsSheet.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/ReadingModePage.kt | mihon | reikai/presentation/reader/settings/MangaReaderSettingsPages.kt |
+| app/src/main/java/eu/kanade/tachiyomi/ui/reader/viewer/webgpu/WebGpuViewerSettings.kt | mihon | reikai/presentation/reader/settings/MangaReaderSettingsPages.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/GeneralSettingsPage.kt | mihon | reikai/presentation/reader/settings/MangaReaderSettingsPages.kt |
 | app/src/main/java/eu/kanade/presentation/reader/settings/ColorFilterPage.kt | mihon | reikai/presentation/reader/settings/ReaderFiltersPage.kt |
 | app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderBottomBar.kt | mihon | reikai/presentation/reader/ReaderActionRow.kt |

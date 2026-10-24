@@ -47,6 +47,8 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pages turn by tap, swipe or volume key as manga's do, with a page slider, their own tap layout and auto-scroll.
 - **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.**
 - **The manga reader offers the novel reader's Top and bottom, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
+- **With the high quality renderer, the reader's Filters tab can load your own WGSL shader files as image or tile filters (from Mihon).** Upstream: mihonapp/mihon#4146.
+- **With the high quality renderer, Controls has a switch to turn off double tap zoom in paged modes (from Mihon).** Upstream: mihonapp/mihon#4146.
 
 #### Changed
 

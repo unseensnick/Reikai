@@ -159,7 +159,10 @@ fun ReaderSettingsSheet(
                     ReaderSettingsTab.ReadAloud -> if (pages is ReaderSettingsPages.Novel) {
                         NovelReadAloudPage(pages.preferences)
                     }
-                    ReaderSettingsTab.Filters -> ReaderFiltersPage(pages.filters)
+                    ReaderSettingsTab.Filters -> {
+                        ReaderFiltersPage(pages.filters)
+                        if (pages is ReaderSettingsPages.Manga) MangaShaderFilters(pages.viewModel)
+                    }
                 }
             }
         }
