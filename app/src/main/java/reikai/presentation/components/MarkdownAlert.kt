@@ -28,6 +28,7 @@ import com.mikepenz.markdown.compose.components.MarkdownComponentModel
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.manga.components.MarkdownRender
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
+import org.intellij.markdown.MarkdownTokenTypes.Companion.BLOCK_QUOTE
 import org.intellij.markdown.MarkdownTokenTypes.Companion.EOL
 import org.intellij.markdown.MarkdownTokenTypes.Companion.WHITE_SPACE
 import org.intellij.markdown.ast.ASTNode
@@ -72,13 +73,14 @@ internal fun alertTypeOf(alert: ASTNode, content: String): GitHubAlertType? {
 
 /**
  * The blocks to draw inside the callout. An alert's first two children are the bare `>` marker and
- * the title token, and its blocks are separated by end-of-line and whitespace tokens that carry the
- * `>` of each continued line; all of those would draw as stray quote bars and gaps.
+ * the title token, and its blocks are separated by end-of-line tokens and the `>` of each continued
+ * line, which markdown 0.46 emits as its own quote token; all of those would draw as stray quote bars
+ * and gaps.
  */
 internal fun alertBodyNodes(alert: ASTNode): List<ASTNode> = alert.children
     .dropWhile { it.type != GFMTokenTypes.ALERT_TITLE }
     .drop(1)
-    .filterNot { it.type == EOL || it.type == WHITE_SPACE }
+    .filterNot { it.type == EOL || it.type == WHITE_SPACE || it.type == BLOCK_QUOTE }
 
 /**
  * GitHub's `> [!WARNING]` callouts, wherever markdown is rendered (release notes, series descriptions).
