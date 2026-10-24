@@ -108,6 +108,16 @@ A new test is done only when the production clause it names has been deleted, th
 the clause restored. There is no tool for this; do it by hand and say so in the commit. The
 `/deep-audit` skill can run a few mutation checks in a throwaway worktree.
 
+## Compose UI tests
+
+Screens and components are tested on the JVM, in the module's ordinary unit suite, so CI's `./gradlew test` runs them with no device. Robolectric stands in for Android and Compose's `createComposeRule` hosts the composable; both only run under JUnit 4, which the vintage engine runs beside the JUnit 6 suite.
+
+- **Opt a module in** with `composeUiTests()` in its `build.gradle.kts` (build-logic `ComposeUiTests.kt`): it adds Robolectric, Compose ui-test and the vintage engine, turns on Android resources for unit tests, and passes the JDK flags Robolectric's Android 16 sandbox needs. `presentation-core` and `app` are opted in.
+- **Write the class in JUnit 4**: `@RunWith(RobolectricTestRunner::class)`, `@get:Rule val compose = createComposeRule()`, `org.junit.Test`. Kotest assertions still work. For one test over both content types use `ParameterizedRobolectricTestRunner`, since JUnit 6's `@ParameterizedTest` is not available there (`ReaderSettingsSheetTest` is the model).
+- **Host app screens with `ComposeTestHost`** (`app/src/test/java/reikai/presentation/`): the preview theme, the app's text locals, and a view-model factory over the models the test built. `app/src/test/resources/robolectric.properties` runs a plain `Application`, since the app's own builds the whole graph, and turns Robolectric's Conscrypt off, since the app's `conscrypt-android` breaks it.
+- **Assert on the unmerged tree for a child's size.** A `Tab` (and any clickable that merges its children) answers `onNodeWithText` with its own node, so `TabTextTest` reads the label with `useUnmergedTree = true`; on the merged node the zero-width label it guards against passed.
+- **Not here:** read-aloud needs a real TTS engine, and anything drawn by the reader's View-based viewers needs a device; those stay instrumented or manual.
+
 ## Instrumented tests
 
 `app/src/androidTest` holds the reader and WebView tests that need real views, layout passes or a real

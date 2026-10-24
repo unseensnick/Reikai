@@ -2,6 +2,7 @@ import com.android.build.api.variant.ApplicationVariant
 import com.android.build.api.variant.BuildConfigField
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import mihon.gradle.Config
+import mihon.gradle.extensions.composeUiTests
 import mihon.gradle.getCurrentTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
@@ -403,6 +404,8 @@ dependencies {
     testImplementation(libs.sqldelight.sqliteDriver)
     testImplementation(libs.bundles.sqldelight)
 }
+
+composeUiTests() // RK
 
 apollo {
     val schemaBasePath = "src/main/graphql/mihon/graphql"

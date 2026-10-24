@@ -67,6 +67,7 @@ okhttp = "5.5.0"
 okio = "3.18.2"
 photoView = "2.3.0"
 reorderable = "3.1.0"
+robolectric = "4.17"
 rxJava = "1.3.8"
 shizuku = "13.1.5"
 spotless = "8.10.4"
@@ -104,6 +105,8 @@ androidx-compose-runtimeAnnotation = { module = "androidx.compose.runtime:runtim
 androidx-compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-uiToolingPreview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-uiUtil = { module = "androidx.compose.ui:ui-util" }
+androidx-compose-uiTest = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-uiTestManifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-constraintLayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintLayout" }
 androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
 androidx-coreSplashScreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-coreSplashScreen" }
@@ -156,6 +159,7 @@ ireader-ktor-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = 
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest-assertions" }
 kotlin-compose-compiler-gradle = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin-gradle" }
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle" }
@@ -191,6 +195,7 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 photoView = { module = "com.github.chrisbanes:PhotoView", version.ref = "photoView" }
 quickjs-kt = { module = "io.github.dokar3:quickjs-kt", version = "1.0.5" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
 vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
 rxJava = { module = "io.reactivex:rxjava", version.ref = "rxJava" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
