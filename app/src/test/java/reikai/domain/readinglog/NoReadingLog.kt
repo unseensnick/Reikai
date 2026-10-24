@@ -7,8 +7,6 @@ import kotlin.time.Instant
 object NoReadingLog : ReadingLogRepository {
     override suspend fun record(contentType: ContentType, chapterId: Long, endedAt: Instant, duration: Long) = Unit
 
-    override suspend fun sessionsByUrl(contentType: ContentType, entryId: Long) = emptyList<UrlReadingSession>()
-
     override suspend fun sessionsByUrl(contentType: ContentType, entryIds: List<Long>) =
         emptyMap<Long, List<UrlReadingSession>>()
 

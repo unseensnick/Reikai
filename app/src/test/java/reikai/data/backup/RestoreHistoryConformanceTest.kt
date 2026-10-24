@@ -120,8 +120,8 @@ class RestoreHistoryConformanceTest {
 
         type.restore(database, copies = emptyList(), sessions = listOf(session))
 
-        ReadingLogRepositoryImpl(database).sessionsByUrl(type.contentType, entryId = 1L) shouldBe
-            listOf(UrlReadingSession("c", Instant.fromEpochMilliseconds(1_000L), 60_000L))
+        ReadingLogRepositoryImpl(database).sessionsByUrl(type.contentType, listOf(1L)) shouldBe
+            mapOf(1L to listOf(UrlReadingSession("c", Instant.fromEpochMilliseconds(1_000L), 60_000L)))
     }
 
     data class Copy(val readAt: Long, val duration: Long)

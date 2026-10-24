@@ -39,17 +39,6 @@ class ReadingLogRepositoryImpl(
         }
     }
 
-    override suspend fun sessionsByUrl(contentType: ContentType, entryId: Long): List<UrlReadingSession> {
-        val mapper = { url: String, endedAt: Long, duration: Long ->
-            UrlReadingSession(url, Instant.fromEpochMilliseconds(endedAt), duration)
-        }
-        return if (isManga(contentType)) {
-            queries.sessionsByUrlOfManga(entryId, mapper).awaitAsList()
-        } else {
-            queries.sessionsByUrlOfNovel(entryId, mapper).awaitAsList()
-        }
-    }
-
     override suspend fun sessionsByUrl(
         contentType: ContentType,
         entryIds: List<Long>,

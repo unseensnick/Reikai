@@ -30,10 +30,7 @@ interface NovelHistoryRepository {
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
     suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory>
 
-    /** Every history row of the novel keyed by its chapter's url, as a backup carries it. */
-    suspend fun getUrlKeyedHistoryByNovelId(novelId: Long): List<RestoredChapterHistory>
-
-    /** [getUrlKeyedHistoryByNovelId] for each of [novelIds]. */
+    /** Every history row of each of [novelIds], keyed by its chapter's url, as a backup carries it. */
     suspend fun getUrlKeyedHistoryByNovelIds(novelIds: List<Long>): Map<Long, List<RestoredChapterHistory>>
 
     /** Backup restore of one chapter's history: the later read time and the longer duration win. */

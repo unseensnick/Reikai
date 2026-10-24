@@ -83,11 +83,6 @@ class NovelHistoryRepositoryImpl(
             NovelHistory(chapterId, readAt, readDuration)
         }.awaitAsList()
 
-    override suspend fun getUrlKeyedHistoryByNovelId(novelId: Long): List<RestoredChapterHistory> =
-        database.novel_historyQueries.getUrlKeyedHistoryByNovelId(novelId) { url, readAt, readDuration ->
-            RestoredChapterHistory(url, readAt, readDuration)
-        }.awaitAsList()
-
     override suspend fun getUrlKeyedHistoryByNovelIds(novelIds: List<Long>): Map<Long, List<RestoredChapterHistory>> =
         database.novel_historyQueries.getUrlKeyedHistoryByNovelIds(novelIds) { novelId, url, readAt, readDuration ->
             novelId to RestoredChapterHistory(url, readAt, readDuration)

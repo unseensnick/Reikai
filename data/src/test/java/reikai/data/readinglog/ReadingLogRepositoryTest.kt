@@ -97,10 +97,24 @@ class ReadingLogRepositoryTest {
         chapter(type, id = 2L, entryId = 2L, url = "/c1")
         log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
 
-        log.restore(type, entryId = 2L, sessions = log.sessionsByUrl(type, entryId = 1L))
+        log.restore(type, entryId = 2L, sessions = sessionsOf(type, entryId = 1L))
 
-        log.sessionsByUrl(type, entryId = 2L) shouldBe
+        sessionsOf(type, entryId = 2L) shouldBe
             listOf(UrlReadingSession("/c1", Instant.fromEpochMilliseconds(1_000L), 60_000L))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `sessions read for several entries land on their own entry`(type: ContentType) = runTest {
+        chapter(type, id = 1L, entryId = 1L, url = "/c1")
+        chapter(type, id = 2L, entryId = 2L, url = "/c2")
+        log.record(type, 1L, Instant.fromEpochMilliseconds(1_000L), 60_000L)
+        log.record(type, 2L, Instant.fromEpochMilliseconds(2_000L), 30_000L)
+
+        log.sessionsByUrl(type, listOf(1L, 2L, 3L)) shouldBe mapOf(
+            1L to listOf(UrlReadingSession("/c1", Instant.fromEpochMilliseconds(1_000L), 60_000L)),
+            2L to listOf(UrlReadingSession("/c2", Instant.fromEpochMilliseconds(2_000L), 30_000L)),
+        )
     }
 
     @ParameterizedTest
@@ -143,7 +157,7 @@ class ReadingLogRepositoryTest {
 
         log.move(type, targetBySourceChapter = mapOf(1L to 10L))
 
-        (log.sessionsByUrl(type, entryId = 1L).size to log.sessionsByUrl(type, entryId = 2L).size) shouldBe (0 to 1)
+        (sessionsOf(type, entryId = 1L).size to sessionsOf(type, entryId = 2L).size) shouldBe (0 to 1)
     }
 
     /** A retried migration runs it again, which must add no time. */
@@ -179,6 +193,9 @@ class ReadingLogRepositoryTest {
                 "date_fetch) VALUES ($id, $entryId, '$url', 'c', 0, 0, 1, 0, 0)"
         },
     )
+
+    private suspend fun sessionsOf(type: ContentType, entryId: Long) =
+        log.sessionsByUrl(type, listOf(entryId))[entryId].orEmpty()
 
     private suspend fun exec(sql: String) {
         driver.execute(null, sql, 0).await()
