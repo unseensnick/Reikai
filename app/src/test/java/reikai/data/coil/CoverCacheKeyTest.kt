@@ -70,6 +70,21 @@ class CoverCacheKeyTest {
         mangaKey(manga(id = 7L)) shouldBe "$URL;1970-01-01T00:00:00.042Z"
     }
 
+    @Test
+    fun `a manga's custom cover left outside the library is not keyed`() {
+        customCover(EntryId.Manga(7L))
+
+        mangaKey(manga(id = 7L, favorite = false)) shouldBe "$URL;1970-01-01T00:00:00.042Z"
+    }
+
+    @Test
+    fun `a novel's custom cover left outside the library is not keyed`() {
+        customCover(EntryId.Novel(7L))
+
+        novelKey(novel(id = 7L, favorite = false)) shouldBe
+            novelKey(novelResultCover(null, URL, SOURCE).copy(lastModified = LAST_MODIFIED))
+    }
+
     private fun customCover(owner: EntryId) {
         coverCache.getCustomCoverFile(owner).writeText("cover")
     }
@@ -78,11 +93,11 @@ class CoverCacheKeyTest {
 
     private fun mangaKey(cover: MangaCover) = MangaCoverKeyer(coverCache).key(cover, options)
 
-    private fun novel(id: Long, url: String = URL, lastModified: Instant? = LAST_MODIFIED) =
-        NovelCover(url = url, sourceId = SOURCE, isNovelFavorite = true, lastModified = lastModified, novelId = id)
+    private fun novel(id: Long, url: String = URL, lastModified: Instant? = LAST_MODIFIED, favorite: Boolean = true) =
+        NovelCover(url = url, sourceId = SOURCE, isNovelFavorite = favorite, lastModified = lastModified, novelId = id)
 
-    private fun manga(id: Long) =
-        MangaCover(mangaId = id, sourceId = 1L, isMangaFavorite = true, url = URL, lastModified = LAST_MODIFIED)
+    private fun manga(id: Long, favorite: Boolean = true) =
+        MangaCover(mangaId = id, sourceId = 1L, isMangaFavorite = favorite, url = URL, lastModified = LAST_MODIFIED)
 
     private companion object {
         const val URL = "https://example.org/cover.jpg"

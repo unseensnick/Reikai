@@ -7,8 +7,7 @@ import kotlin.time.Instant
 
 /**
  * Taking entries out of the library, one sequence for both content types and every surface, in the
- * order of Mihon's details heart: one all-or-nothing favourite write, then the covers, stamped only when
- * one was deleted. Each leaving entry first gets its own copy of its group's shared tracker, since the
+ * order of Mihon's details heart: one all-or-nothing favourite write, then the covers. Each leaving entry first gets its own copy of its group's shared tracker, since the
  * hand-out skips non-favourites. Manage sources splits the steps around its Undo window: [takeOut]
  * at once, then [restore] or [dropCovers] when the window closes.
  */
@@ -37,7 +36,7 @@ abstract class EntryLibraryRemoval(
     }
 
     suspend fun dropCovers(ids: List<Long>) {
-        ids.forEach { if (deleteCovers(it)) stampCover(it) }
+        ids.forEach { deleteCovers(it) }
     }
 
     private suspend fun write(favoriteAt: Map<Long, Instant?>): Boolean = writeFavoriteAt(favoriteAt).also { written ->
@@ -56,9 +55,9 @@ abstract class EntryLibraryRemoval(
     /** Writes every library date in [favoriteAt] or none of them. */
     protected abstract suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean
 
-    /** Deletes the cached and custom covers, answering whether either was deleted. */
-    protected abstract suspend fun deleteCovers(id: Long): Boolean
-
-    /** A new cover key, so a cover still in memory is not served once the entry is added again. */
-    protected abstract suspend fun stampCover(id: Long)
+    /**
+     * Deletes the cached and custom covers without a new cover key, so the cover on screen does not
+     * reload; the key leaves out a custom cover once the entry is out of the library.
+     */
+    protected abstract suspend fun deleteCovers(id: Long)
 }

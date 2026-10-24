@@ -62,7 +62,7 @@ app/src/main/java/reikai/domain/library/ReikaiLibraryPreferences.kt	app/src/main
 app/src/main/java/reikai/domain/library/updateerror/LibraryUpdateErrorInteractors.kt	app/src/main/java/reikai/domain/novel/updateerror/NovelUpdateErrorInteractors.kt	2f49a3018a725c47
 app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt	app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt	f0956868e35685e6
 app/src/main/java/reikai/domain/manga/PropagateTrackerLinks.kt	app/src/main/java/reikai/domain/novel/track/PropagateNovelTrackerLinks.kt	e388e1016493e46c
-app/src/main/java/reikai/domain/manga/RemoveMangaFromLibrary.kt	app/src/main/java/reikai/domain/novel/interactor/RemoveNovelsFromLibrary.kt	4ec3d32354a71d92
+app/src/main/java/reikai/domain/manga/RemoveMangaFromLibrary.kt	app/src/main/java/reikai/domain/novel/interactor/RemoveNovelsFromLibrary.kt	fa13e70e1b167a79
 app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt	d8aab149a550040d
 app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	d8aab149a550040d
 app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	app/src/main/java/reikai/presentation/reader/NovelReaderViewModel.kt	d8aab149a550040d

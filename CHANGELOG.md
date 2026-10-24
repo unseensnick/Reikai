@@ -36,6 +36,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **Library search and grouping by tag find a merged series by a tag any of its sources gives it, unless you set its tags in Edit info.**
 - **Manga library updates now check the sources with the most series first, so a big update finishes sooner (from Mihon).** Upstream: mihon b8070cdc9.
 
+#### Fixed
+
+- **Removing a manga or novel from the library no longer makes its cover reload (from Mihon).** Upstream: mihon a42428284.
+
 ### Reader
 
 #### Added

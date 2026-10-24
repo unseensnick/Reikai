@@ -17,7 +17,6 @@ import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
-import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.track.source.SourceTrackerDispatcher
@@ -32,7 +31,7 @@ import kotlin.time.Instant
 /**
  * The one library removal both content types and every surface take entries out through, run over each
  * type's half against rows in memory and a real cover cache on disk. Mihon's heart order: the write,
- * then the covers, stamped only when one was deleted.
+ * then the covers, with no new cover stamp so the cover on screen does not reload.
  */
 class EntryLibraryRemovalConformanceTest {
 
@@ -93,19 +92,9 @@ class EntryLibraryRemovalConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a deleted cover gets a new cover stamp`(type: ContentType) = runTest {
+    fun `deleting a cover leaves the cover stamp alone`(type: ContentType) = runTest {
         val table = table(type).apply { put(ID) }
         table.cachedCover(ID).writeText("x")
-
-        table.removal.await(listOf(ID))
-
-        table.coverStamps shouldBe listOf(ID)
-    }
-
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `no cover deleted means no cover stamp`(type: ContentType) = runTest {
-        val table = table(type).apply { put(ID) }
 
         table.removal.await(listOf(ID))
 
@@ -294,7 +283,6 @@ class EntryLibraryRemovalConformanceTest {
             },
             sourceTracker = sourceTracker,
             novelRepository = repository,
-            updateNovel = UpdateNovel(repository, mockk(relaxed = true)),
             coverCache = cache,
         )
 
