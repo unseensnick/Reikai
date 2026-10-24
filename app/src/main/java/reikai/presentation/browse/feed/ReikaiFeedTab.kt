@@ -8,13 +8,13 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -52,7 +52,7 @@ import tachiyomi.presentation.core.screens.LoadingScreen
 @Composable
 fun Screen.reikaiFeedTab(): TabContent {
     val model = metroViewModel<FeedViewModel>()
-    val state by model.state.collectAsState()
+    val state by model.state.collectAsStateWithLifecycle()
 
     // Reordering is a mode over the same rows rather than a screen of its own, because the resolved
     // rows live on this model and a pushed screen gets its own store, so it would resolve them again.

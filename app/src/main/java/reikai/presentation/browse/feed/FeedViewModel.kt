@@ -15,7 +15,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.plus
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
@@ -37,10 +39,13 @@ import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.novel.browse.NovelAddFlow
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.source.service.SourceManager
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * The Browse feed: a row per source the reader added, showing what it has right now.
@@ -76,8 +81,13 @@ class FeedViewModel(
         NovelFeedProvider(novelSourceManager, getEnabledNovelSources, favoritedNovels),
     )
 
-    val state: StateFlow<FeedState>
-        field = MutableStateFlow(FeedState())
+    private val subscriberGate = SubscriberGate()
+
+    private val mutableState = MutableStateFlow(FeedState())
+
+    // Every feed change refetches every row, so changes made while the feed is hidden wait until it is shown.
+    val state: StateFlow<FeedState> = mutableState
+        .stateIn(viewModelScope + subscriberGate, subscriberGate.whileSubscribed(5.seconds), FeedState())
 
     /** Adding from a cover, the same flow every browse surface runs, one per content type. */
     val mangaAddFlow = MangaAddFlow(mangaAdder, viewModelScope, appScope)
@@ -86,16 +96,17 @@ class FeedViewModel(
     private var loadJob: Job? = null
 
     init {
-        viewModelScope.launchIO {
+        (viewModelScope + subscriberGate).launchIO {
             // Every type's registry as well as the table, since a source installed or removed later
             // changes which rows can be shown and the table does not emit for that.
             combine(
                 feedRepository.subscribeGlobal(),
                 combine(providers.map { it.sourceChanges }) {},
             ) { feeds, _ -> feeds }
+                .pausedWhileUnsubscribed()
                 .collectLatest(::onFeedChanged)
         }
-        viewModelScope.launchIO {
+        (viewModelScope + subscriberGate).launchIO {
             novelRepository.getFavoritedKeysAsFlow().collectLatest { favoritedNovels.value = it }
         }
     }
@@ -127,7 +138,7 @@ class FeedViewModel(
                 supportsLatest = row != null && provider.supportsLatest(row),
             )
         }
-        state.update { it.copy(entries = entries, loaded = true) }
+        mutableState.update { it.copy(entries = entries, loaded = true) }
         startFilling(entries)
     }
 
@@ -150,7 +161,7 @@ class FeedViewModel(
                 rows = entries.map { it.row },
                 group = { it.key.contentType },
                 updateRows = { transform ->
-                    state.update { current -> current.copy(entries = current.entries.withRows(transform)) }
+                    mutableState.update { current -> current.copy(entries = current.entries.withRows(transform)) }
                 },
                 load = { row ->
                     val entry = entries.first { it.row.id == row.id }
@@ -170,11 +181,11 @@ class FeedViewModel(
     fun openAddDialog() {
         viewModelScope.launchIO {
             if (feedRepository.isGlobalFeedFull()) {
-                state.update { it.copy(dialog = FeedDialog.TooManyRows) }
+                mutableState.update { it.copy(dialog = FeedDialog.TooManyRows) }
                 return@launchIO
             }
             val sources = providers.flatMap { it.sources() }.sortedBy { it.name.lowercase() }
-            state.update { it.copy(dialog = FeedDialog.PickSource(sources)) }
+            mutableState.update { it.copy(dialog = FeedDialog.PickSource(sources)) }
         }
     }
 
@@ -183,7 +194,7 @@ class FeedViewModel(
         viewModelScope.launchIO {
             val searches = savedSearchRepository.getBySource(source.key)
             val provider = providers.first { it.contentType == source.key.contentType }
-            state.update {
+            mutableState.update {
                 it.copy(dialog = FeedDialog.PickSearch(source, searches, provider.supportsLatest(source)))
             }
         }
@@ -192,7 +203,7 @@ class FeedViewModel(
     fun add(source: BrowseSearchRow, savedSearch: SavedSearch?) {
         viewModelScope.launchIO {
             feedRepository.insert(source.key, savedSearch?.id, global = true)
-            state.update { it.copy(dialog = null) }
+            mutableState.update { it.copy(dialog = null) }
         }
     }
 
@@ -202,13 +213,13 @@ class FeedViewModel(
     }
 
     fun confirmRemove(entry: FeedEntry) {
-        state.update { it.copy(dialog = FeedDialog.Remove(entry)) }
+        mutableState.update { it.copy(dialog = FeedDialog.Remove(entry)) }
     }
 
     fun remove(entry: FeedEntry) {
         viewModelScope.launchIO {
             feedRepository.delete(entry.feedId)
-            state.update { it.copy(dialog = null) }
+            mutableState.update { it.copy(dialog = null) }
         }
     }
 
@@ -220,7 +231,7 @@ class FeedViewModel(
         // Read and written in one update, so a row list arriving from the table between the two
         // cannot be filled from the stale snapshot and left showing a spinner that never clears.
         lateinit var entries: List<FeedEntry>
-        state.update { current ->
+        mutableState.update { current ->
             entries = current.entries.map {
                 if (it.row.state is EntrySearchState.Unavailable) {
                     it
@@ -233,7 +244,7 @@ class FeedViewModel(
         startFilling(entries)
     }
 
-    fun dismissDialog() = state.update { it.copy(dialog = null) }
+    fun dismissDialog() = mutableState.update { it.copy(dialog = null) }
 }
 
 /** One row of the feed: what it shows, and what it was built from. */
