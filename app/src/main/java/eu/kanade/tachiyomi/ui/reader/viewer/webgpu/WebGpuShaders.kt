@@ -4,10 +4,10 @@ import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
 import ca.mpreg.webgpuviewer.renderer.ImageFilterWgsl
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.util.lang.withIOContext
 import java.io.File
 import java.util.UUID
 
@@ -44,7 +44,8 @@ object WebGpuShaders {
      * it is not a filter this device runs.
      */
     suspend fun import(context: Context, uri: Uri, pref: Preference<List<WebGpuShader>>) =
-        withContext(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        withIOContext {
             val resolver = context.contentResolver
             val name = resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME), null, null, null)?.use {
                 if (it.moveToFirst()) it.getString(0) else null
@@ -90,7 +91,8 @@ object WebGpuShaders {
      * backup, or a crash between the two.
      */
     suspend fun prune(context: Context, prefs: List<Preference<List<WebGpuShader>>>) =
-        withContext(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        withIOContext {
             synchronized(lock) {
                 val dir = dir(context)
                 val present = dir.list()?.toSet().orEmpty()

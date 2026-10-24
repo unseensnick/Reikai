@@ -66,6 +66,7 @@ import reikai.presentation.reader.requeueForRetry
 import reikai.presentation.reader.shouldAutoPreload
 import reikai.presentation.reader.showsTransition
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.FilterInputStream
 import java.lang.ref.WeakReference
@@ -1014,7 +1015,8 @@ open class WebGpuViewer(
     private var tileFiltersJob: Job? = null
 
     /** Fresh instances: one belongs to one viewer and one chain. Skips any that fail to load. */
-    private suspend fun loadFilters(shaders: List<WebGpuShader>) = withContext(Dispatchers.IO) {
+    private suspend fun loadFilters(shaders: List<WebGpuShader>) = withIOContext {
+        // RK: coroutine helper in place of upstream's raw dispatcher
         shaders.mapNotNull { shader ->
             try {
                 WebGpuShaders.load(activity, shader)

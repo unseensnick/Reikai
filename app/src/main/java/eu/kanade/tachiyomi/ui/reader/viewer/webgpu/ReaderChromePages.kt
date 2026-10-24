@@ -36,9 +36,8 @@ import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import reikai.presentation.reader.NeighbourChapterRetry
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
 import tachiyomi.presentation.core.i18n.stringResource
@@ -215,7 +214,7 @@ class TransitionPage(
         val transition = transition ?: return
         val goingToChapterDownloaded by produceState(false, transition) {
             // RK: the chapter's own merged source, from the download cache, as PagerTransitionHolder
-            value = withContext(Dispatchers.IO) { viewer.activity.viewModel.isChapterDownloaded(transition.to) }
+            value = withIOContext { viewer.activity.viewModel.isChapterDownloaded(transition.to) }
         }
 
         CompositionLocalProvider(

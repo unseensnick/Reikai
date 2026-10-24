@@ -28,16 +28,17 @@ import coil3.request.ImageRequest
 import coil3.size.Precision
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.novel.content.NovelChapterAddress
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.launchUI
+import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.File
@@ -157,7 +158,7 @@ class NovelImageGetter(
      * Lives with this render's scope, which the chapter ends, so a retry after the last load still lands.
      */
     private fun landArrivals() {
-        scope.launch(Dispatchers.Main) {
+        scope.launchUI {
             while (true) {
                 arrivals.receive()
                 val batch = swaps.toList()
@@ -176,7 +177,7 @@ class NovelImageGetter(
      *  the device's animations are off, as the rest of the app is. */
     private fun pulse(wrappers: List<DrawableWrapper>) {
         if (!ValueAnimator.areAnimatorsEnabled()) return
-        scope.launch(Dispatchers.Main) {
+        scope.launchUI {
             val start = SystemClock.uptimeMillis()
             try {
                 while (outstandingLoads.get() > 0) {
@@ -292,13 +293,13 @@ class NovelImageGetter(
             try {
                 val landed = fetch(imageUrl)?.let { prepare(imageUrl, it) }
                 try {
-                    withContext(Dispatchers.Main) { arrive(imageUrl, wrapper, landed) }
+                    withUIContext { arrive(imageUrl, wrapper, landed) }
                 } catch (e: CancellationException) {
                     landed?.reader?.close()
                     throw e
                 }
             } finally {
-                withContext(Dispatchers.Main) { onLoadFinished() }
+                withUIContext { onLoadFinished() }
             }
         }
     }
@@ -310,10 +311,10 @@ class NovelImageGetter(
      * Off the main thread, since both read the cached file: the picture's size at the source, and the
      * reader for its slices, opened only for a picture the loader had to shrink. Null for nothing to draw.
      */
-    private suspend fun prepare(imageUrl: String, drawable: Drawable): Landed? = withContext(Dispatchers.IO) {
+    private suspend fun prepare(imageUrl: String, drawable: Drawable): Landed? = withIOContext {
         val bounds = sourceBoundsOf(imageUrl)
         val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density) }
-        val picture = fitted(drawable, box) ?: return@withContext null
+        val picture = fitted(drawable, box) ?: return@withIOContext null
         val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
         val reader = if (slice) readerFor(imageUrl) else null
         val standIn = if (reader != null && box != null) {

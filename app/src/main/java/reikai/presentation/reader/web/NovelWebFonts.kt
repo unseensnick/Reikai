@@ -2,12 +2,11 @@ package reikai.presentation.reader.web
 
 import android.content.Context
 import android.webkit.WebResourceResponse
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.novel.font.NovelFontManager
 import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.readerFontSource
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.ByteArrayInputStream
 import java.io.File
@@ -30,10 +29,10 @@ class NovelWebFonts {
     suspend fun url(fonts: NovelFontManager, family: String): String? {
         val source = readerFontSource(family)
         if (source == ReaderFontSource.SourceDefault || source is ReaderFontSource.Generic) return null
-        return withContext(Dispatchers.IO) {
+        return withIOContext {
             val file = if (source is ReaderFontSource.UserFile) {
                 // Copies the file out of the user's storage folder on first use, which is why this is off main.
-                fonts.localFile(source.fileName) ?: return@withContext null
+                fonts.localFile(source.fileName) ?: return@withIOContext null
             } else {
                 null
             }

@@ -794,8 +794,9 @@ class ReaderViewModel(
     private fun preloadNextChapterAfter(chapters: ViewerChapters) {
         val nextChapter = chapters.nextChapter ?: return
         nextChapterPreloadJob?.cancel()
-        nextChapterPreloadJob = viewModelScope.launch(Dispatchers.IO) {
-            if (!canLoadAhead()) return@launch
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        nextChapterPreloadJob = viewModelScope.launchIO {
+            if (!canLoadAhead()) return@launchIO // RK
             val current = chapters.currChapter
             // Only online pages load in the background; other loaders load a page once it's shown
             if (current.pageLoader is HttpPageLoader) {

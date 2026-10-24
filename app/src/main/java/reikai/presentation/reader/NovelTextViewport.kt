@@ -70,6 +70,7 @@ import reikai.presentation.reader.text.readAloudParagraphs
 import reikai.presentation.reader.text.shownCharOffset
 import reikai.presentation.reader.text.shownCharPrefix
 import tachiyomi.core.common.preference.Preference
+import tachiyomi.core.common.util.lang.withUIContext
 import kotlin.math.abs
 import kotlin.math.roundToInt
 
@@ -553,7 +554,7 @@ class NovelTextViewport(
             } else if (lookedAgain) {
                 return
             } else {
-                withContext(Dispatchers.Main) {}
+                withUIContext {}
                 lookedAgain = true
             }
         }
