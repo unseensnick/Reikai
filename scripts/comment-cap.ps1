@@ -25,11 +25,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'mihon-ownership.ps1')
 $Cap = 8
 
-if (-not $MihonClone) { $MihonClone = Join-Path (Get-DefaultRefsRoot $RepoRoot) 'mihon' }
-if (-not (Test-Path -LiteralPath $MihonClone)) {
-    Write-Host "comment-cap: no Mihon clone at $MihonClone, which says which files are Reikai's. Clone mihonapp/mihon there (--filter=blob:none is enough) or pass -MihonClone."
-    exit 1
-}
+$MihonClone = Resolve-MihonClone $RepoRoot $MihonClone 'comment-cap'
 try {
     $mihonPaths = Get-MihonPaths $RepoRoot $MihonClone
 } catch {

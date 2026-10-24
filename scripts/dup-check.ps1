@@ -39,11 +39,7 @@ $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'mihon-ownership.ps1')
 $baselinePath = Join-Path $RepoRoot 'scripts/dup-baseline.txt'
 
-if (-not $MihonClone) { $MihonClone = Join-Path (Get-DefaultRefsRoot $RepoRoot) 'mihon' }
-if (-not (Test-Path -LiteralPath $MihonClone)) {
-    Write-Host "dup-check: no Mihon clone at $MihonClone, which says which files are Reikai's. Clone mihonapp/mihon there (--filter=blob:none is enough) or pass -MihonClone."
-    exit 1
-}
+$MihonClone = Resolve-MihonClone $RepoRoot $MihonClone 'dup-check'
 try {
     $mihonPaths = Get-MihonPaths $RepoRoot $MihonClone
 } catch {

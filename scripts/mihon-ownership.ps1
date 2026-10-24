@@ -2,14 +2,25 @@
 .SYNOPSIS
     Which code is Mihon's and which is Reikai's: where the Mihon clone lives, which upstream commit
     Reikai is synced through, and which lines of a Mihon file Reikai fenced as its own. Dot-sourced by
-    dup-check.ps1, rk-fence-report.ps1 and comment-cap.ps1, so the three read these rules from one
-    place.
+    dup-check.ps1, rk-fence-report.ps1, comment-cap.ps1 and off-path-check.ps1, so the four read these
+    rules from one place.
 #>
 
 # refs/ sits beside the main worktree, and a linked worktree's own root is somewhere else.
 function Get-DefaultRefsRoot([string]$RepoRoot) {
     $mainWorktree = Split-Path (git -C $RepoRoot rev-parse --path-format=absolute --git-common-dir) -Parent
     Join-Path (Split-Path $mainWorktree -Parent) 'refs'
+}
+
+# The Mihon clone a check reads ownership from: the one passed, else refs/mihon beside the main
+# worktree. A missing clone ends the calling check with exit 1, since it cannot tell whose a file is.
+function Resolve-MihonClone([string]$RepoRoot, [string]$MihonClone, [string]$Check) {
+    if (-not $MihonClone) { $MihonClone = Join-Path (Get-DefaultRefsRoot $RepoRoot) 'mihon' }
+    if (-not (Test-Path -LiteralPath $MihonClone)) {
+        Write-Host "${Check}: no Mihon clone at $MihonClone, which says which files are Reikai's. Clone mihonapp/mihon there (--filter=blob:none is enough) or pass -MihonClone."
+        exit 1
+    }
+    $MihonClone
 }
 
 # The synced base is the Base cell of the top (newest) row of the ledger in docs/dev/upstream-sync.md,
