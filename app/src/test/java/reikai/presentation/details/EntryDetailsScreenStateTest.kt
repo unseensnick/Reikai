@@ -90,6 +90,7 @@ class EntryDetailsScreenStateTest {
             ),
             favorite = true,
             trackingCount = 0,
+            hasLoggedInTrackers = false,
             nextUpdate = null,
             isUserIntervalMode = false,
             description = null,

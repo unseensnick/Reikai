@@ -104,6 +104,7 @@ interface EntryDetailsBehavior {
     fun resetInfo()
 
     // Tracking (the two suspend calls back the shared "Fill from tracker" button).
+    fun showTrackDialog()
     suspend fun autofillCandidates(): List<Pair<Track, Tracker>>
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata
 

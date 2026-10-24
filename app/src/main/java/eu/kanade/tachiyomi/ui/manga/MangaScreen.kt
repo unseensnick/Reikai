@@ -147,12 +147,8 @@ class MangaScreen(
                         onTagSearch = { genre ->
                             scope.launch { performGenreSearch(navigator, genre, successState.shownSource) }
                         },
-                        onTracking = {
-                            if (!successState.hasLoggedInTrackers) {
-                                navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
-                            } else {
-                                viewModel.showTrackDialog()
-                            }
+                        onOpenTrackingSettings = {
+                            navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                         },
                         onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
                         onOpenFilterSettings = viewModel::showSettingsDialog,
@@ -161,9 +157,8 @@ class MangaScreen(
                             navigator.push(
                                 EntryMigrationSourcePickScreen(ContentType.MANGA, listOf(successState.manga.id)),
                             )
-                        }.takeIf { successState.manga.favorite },
-                        onEditInterval = viewModel::showSetFetchIntervalDialog
-                            .takeIf { successState.manga.favorite },
+                        },
+                        onEditInterval = viewModel::showSetFetchIntervalDialog,
                         onRelatedClick = { candidate ->
                             scope.launch {
                                 val id = viewModel.resolveRelatedToLocalId(candidate)

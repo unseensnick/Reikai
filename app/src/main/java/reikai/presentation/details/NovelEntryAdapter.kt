@@ -102,6 +102,7 @@ class NovelEntryAdapter(
                 ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
+                hasLoggedInTrackers = hasLoggedInTrackers,
                 nextUpdate = intervalNovel.expectedNextUpdate(),
                 isUserIntervalMode = intervalNovel.fetchInterval < 0,
                 description = display.description,
@@ -258,6 +259,9 @@ class NovelEntryAdapter(
     }
     override fun resetInfo() {
         model.resetNovelInfo()
+    }
+    override fun showTrackDialog() {
+        model.showTrackDialog()
     }
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()
 

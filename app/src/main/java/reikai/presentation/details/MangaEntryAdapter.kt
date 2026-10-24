@@ -88,6 +88,7 @@ class MangaEntryAdapter(
                 ),
                 favorite = manga.favorite,
                 trackingCount = trackingCount,
+                hasLoggedInTrackers = hasLoggedInTrackers,
                 nextUpdate = intervalManga.expectedNextUpdate,
                 isUserIntervalMode = intervalManga.fetchInterval < 0,
                 description = shown.description,
@@ -280,6 +281,10 @@ class MangaEntryAdapter(
     override fun resetInfo() {
         val manga = successState()?.manga ?: return
         model.resetMangaInfo(manga)
+    }
+
+    override fun showTrackDialog() {
+        model.showTrackDialog()
     }
 
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()

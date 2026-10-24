@@ -15,6 +15,8 @@ data class EntryDetailsUiState(
     val header: EntryHeaderUi,
     val favorite: Boolean,
     val trackingCount: Int,
+    /** Decides where the Tracking button goes: the track sheet, or tracker settings to log in to one. */
+    val hasLoggedInTrackers: Boolean,
     val nextUpdate: Instant?,
     val isUserIntervalMode: Boolean,
     val description: String?,
