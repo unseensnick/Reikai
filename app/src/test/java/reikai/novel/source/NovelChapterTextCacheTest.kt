@@ -1,6 +1,8 @@
 package reikai.novel.source
 
+import eu.kanade.tachiyomi.source.model.Page
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coEvery
 import io.mockk.every
@@ -11,6 +13,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.chapter.model.Chapter
 import kotlin.time.Instant
 
 class NovelChapterTextCacheTest {
@@ -19,7 +22,8 @@ class NovelChapterTextCacheTest {
     private var answer = "<p>first answer</p>"
     private var site = "https://example.test"
 
-    private val cache = testChapterTextCache()
+    private val chapterCache = testChapterCache()
+    private val cache = testChapterTextCache(chapterCache)
 
     private fun loader(): NovelChapterTextLoader {
         val source = mockk<NovelSource> {
@@ -106,6 +110,17 @@ class NovelChapterTextCacheTest {
         val (html, _) = loader().load(chapter(novelId = 12L, url = "/ch.html"))
 
         html shouldContain "second answer"
+    }
+
+    /** Manga's page lists share the cache, and a plugin's path can be a manga's without its leading slash. */
+    @Test
+    fun `a novel chapter's text leaves a manga chapter's cached pages alone`() {
+        val mangaChapter = Chapter.create().copy(mangaId = 1L, url = "/book/ch1.html")
+        chapterCache.putPageListToCache(mangaChapter, listOf(Page(0, "https://example.test/1")))
+
+        cache.put(chapter(novelId = 1L, url = "book/ch1.html"), CachedChapterText("x", null))
+
+        chapterCache.getPageListFromCache(mangaChapter).map { it.url } shouldBe listOf("https://example.test/1")
     }
 
     private fun chapter(novelId: Long, url: String = "/book/ch1.html") = NovelChapter(
