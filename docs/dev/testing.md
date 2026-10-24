@@ -117,9 +117,10 @@ the clause restored. There is no tool for this; do it by hand and say so in the 
 Screens and components are tested on the JVM, in the module's ordinary unit suite, so CI's `./gradlew test` runs them with no device. Robolectric stands in for Android and Compose's `createComposeRule` hosts the composable; both only run under JUnit 4, which the vintage engine runs beside the JUnit 6 suite.
 
 - **Opt a module in** with `composeUiTests()` in its `build.gradle.kts` (build-logic `ComposeUiTests.kt`): it adds Robolectric, Compose ui-test and the vintage engine, turns on Android resources for unit tests, and passes the JDK flags Robolectric's Android 16 sandbox needs. `presentation-core` and `app` are opted in.
-- **Write the class in JUnit 4**: `@RunWith(RobolectricTestRunner::class)`, `@get:Rule val compose = createComposeRule()`, `org.junit.Test`. Kotest assertions still work. For one test over both content types use `ParameterizedRobolectricTestRunner`, since JUnit 6's `@ParameterizedTest` is not available there (`ReaderSettingsSheetTest` is the model).
+- **Write the class in JUnit 4**: `@RunWith(RobolectricTestRunner::class)`, `@get:Rule val compose = createComposeRule()`, `org.junit.Test`. Kotest assertions still work in `app`; `presentation-core` has no kotest, so assert there with JUnit. For one test over both content types use `ParameterizedRobolectricTestRunner`, since JUnit 6's `@ParameterizedTest` is not available there (`ReaderSettingsSheetTest` is the model).
 - **Host app screens with `ComposeTestHost`** (`app/src/test/java/reikai/presentation/`): the preview theme, the app's text locals, and a view-model factory over the models the test built. `app/src/test/resources/robolectric.properties` runs a plain `Application`, since the app's own builds the whole graph, and turns Robolectric's Conscrypt off, since the app's `conscrypt-android` breaks it.
 - **Assert on the unmerged tree for a child's size.** A `Tab` (and any clickable that merges its children) answers `onNodeWithText` with its own node, so `TabTextTest` reads the label with `useUnmergedTree = true`; on the merged node the zero-width label it guards against passed.
+- **Measure text under native graphics.** Robolectric's default legacy graphics measures text far narrower than it draws, so a test that reads a text's width or position takes `@GraphicsMode(GraphicsMode.Mode.NATIVE)`, as `TabTextTest`'s narrow-tab case does; under legacy graphics it passed with the clause it guards deleted.
 - **A screen that needs the app graph is split, not faked.** Its `Screen.Content()` keeps the graph lookup and the model, and an internal composable takes the state and the model; the test hosts that over a fake adapter (`EntryMigrationListTest`). A private composable a test needs becomes `internal`.
 - **Build stateful parameters per test.** `ParameterizedRobolectricTestRunner` hands every test the same parameter objects, so pass a factory, as `EntryAddDialogsTest` does, when a parameter holds state.
 - **Scroll before tapping in a sheet.** Robolectric's default screen is 320x470 dp, so a dialog's buttons can sit below the fold, where a click lands nowhere: `performScrollTo()` first.
@@ -134,7 +135,7 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 
 | Surface | Test | Pins |
 |---|---|---|
-| Library category tabs | `TabTextTest` (`presentation-core`) | a label keeps its width and count in a scrollable row |
+| Library category tabs | `TabTextTest` (`presentation-core`) | a label keeps its width and count in a scrollable row, and a long label gives way to its count in a narrow tab |
 | Library pull-to-refresh | `LibraryUpdatePullRefreshTest` | a pull starts an update and holds the spinner until it runs |
 | Reader settings sheet | `ReaderSettingsSheetTest` | every tab's rows, for manga and novels |
 | Reader error page, failed-chapter Retry | `ReaderErrorPagesTest` | Retry runs and follows the chapter's state |
