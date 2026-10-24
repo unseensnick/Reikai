@@ -95,7 +95,7 @@ class NovelChapterNavigationClient(
          * null base means the document has no origin worth trusting, and then nothing is same-document.
          */
         fun decide(requestUrl: String, baseUrl: String?, hasGesture: Boolean): Decision {
-            if (baseUrl != null && requestUrl.startsWith("$baseUrl#")) return Decision.ALLOW
+            if (NovelChapterAddress.fragmentInDocument(requestUrl, baseUrl) != null) return Decision.ALLOW
             if (requestUrl == baseUrl) return Decision.BLOCK
             val isWeb = NovelChapterAddress.isWebAddress(requestUrl)
             // Without a gesture the page is navigating itself, which a chapter has no reason to do.

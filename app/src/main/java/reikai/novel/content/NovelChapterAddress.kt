@@ -16,6 +16,13 @@ object NovelChapterAddress {
     fun trustedBase(baseUrl: String?): String? = baseUrl?.toHttpUrlOrNull()?.toString()
 
     /**
+     * The fragment of [address] when it names the document at [trustedBase] with one, which a page reads as a
+     * jump within itself, so both readers' links answer it alike. Null for any other address or no base.
+     */
+    fun fragmentInDocument(address: String, trustedBase: String?): String? =
+        address.takeIf { trustedBase != null && it.startsWith("$trustedBase#") }?.substringAfter('#')
+
+    /**
      * [address] against [baseUrl] when that is a web address. A protocol-relative address with no base
      * is https. A blank address, a fragment (a jump within the chapter) and any other scheme stay as given.
      */

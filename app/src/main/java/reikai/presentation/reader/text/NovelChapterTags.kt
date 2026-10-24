@@ -50,8 +50,7 @@ internal object NovelChapterTags : Html.TagHandler {
     private fun fragmentWithin(href: String, baseUrl: String?): String? {
         val absolute = NovelChapterAddress.absolute(baseUrl, href)
         if (absolute.startsWith("#")) return absolute.substring(1)
-        val base = NovelChapterAddress.trustedBase(baseUrl) ?: return null
-        return absolute.takeIf { it.startsWith("$base#") }?.substringAfter('#')
+        return NovelChapterAddress.fragmentInDocument(absolute, NovelChapterAddress.trustedBase(baseUrl))
     }
 
     /**
