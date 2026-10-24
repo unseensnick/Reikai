@@ -1694,7 +1694,9 @@ class NovelTextViewport(
                 scrollWithin(slot, landing.progress)
                 // A chapter with no room to move sends no scroll, and a scroll is all that reports, so the
                 // held position is said here: without it the model kept the saved one, as the page did.
-                if (scrolled == before) report(callbacks.onProgressChanged)
+                // Paged, the jump lays out later and pageShown reports the landed page; a report now would
+                // be the column's old place, which the model reads as the reader moving.
+                if (!paged && scrolled == before) report(callbacks.onProgressChanged)
             }
             is Landing.Text -> {
                 // Held for a layout but not for the images: once landed, one arriving above the line is
