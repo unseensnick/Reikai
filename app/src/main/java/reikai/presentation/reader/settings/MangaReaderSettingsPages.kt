@@ -18,8 +18,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
-import reikai.domain.novel.NovelTapLayout
-import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.navigation.setTapLayout
@@ -224,19 +222,11 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
 
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {
-            PagerTapZones(preferences)
+            MangaTapZones(preferences, pager = true)
             CheckboxItem(label = stringResource(MR.strings.pref_navigate_pan), pref = preferences.navigateToPan)
         }
         RunningViewer.Webtoon -> {
-            val navigationModeWebtoon by preferences.navigationModeWebtoon.collectAsState()
-            val webtoonNavInverted by preferences.webtoonNavInverted.collectAsState()
-            TapZonesRows(
-                selected = navigationModeWebtoon,
-                onSelect = { preferences.setTapLayout(pager = false, it) },
-                invertMode = webtoonNavInverted,
-                onSelectInvertMode = preferences.webtoonNavInverted::set,
-                bottomZoneHeight = preferences.tapBottomZoneHeight,
-            )
+            MangaTapZones(preferences, pager = false)
             CheckboxItem(
                 label = stringResource(MR.strings.pref_double_tap_zoom),
                 pref = preferences.webtoonDoubleTapZoomEnabled,
@@ -247,7 +237,7 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
             )
         }
         is RunningViewer.WebGpu -> {
-            PagerTapZones(preferences)
+            MangaTapZones(preferences, pager = true)
             val webGpu = running.viewer
             if (webGpu.isContinuous) {
                 CheckboxItem(
@@ -368,56 +358,20 @@ private fun ColumnScope.CutoutModeRow(
     }
 }
 
+/** The pager's tap zones, which WebGPU reads too, or the long strip's. */
 @Composable
-private fun ColumnScope.PagerTapZones(preferences: ReaderPreferences) {
-    val navigationModePager by preferences.navigationModePager.collectAsState()
-    val pagerNavInverted by preferences.pagerNavInverted.collectAsState()
+private fun ColumnScope.MangaTapZones(preferences: ReaderPreferences, pager: Boolean) {
+    val layoutPref = if (pager) preferences.navigationModePager else preferences.navigationModeWebtoon
+    val invertPref = if (pager) preferences.pagerNavInverted else preferences.webtoonNavInverted
+    val selected by layoutPref.collectAsState()
+    val invert by invertPref.collectAsState()
     TapZonesRows(
-        selected = navigationModePager,
-        onSelect = { preferences.setTapLayout(pager = true, it) },
-        invertMode = pagerNavInverted,
-        onSelectInvertMode = preferences.pagerNavInverted::set,
+        names = MangaTapLayouts.names,
+        selected = selected,
+        onSelect = { preferences.setTapLayout(pager, it) },
+        layout = MangaTapLayouts.layout(selected),
+        invert = invert,
+        onInvert = invertPref::set,
         bottomZoneHeight = preferences.tapBottomZoneHeight,
     )
-}
-
-@Composable
-private fun ColumnScope.TapZonesRows(
-    selected: Int,
-    onSelect: (Int) -> Unit,
-    invertMode: ReaderPreferences.TappingInvertMode,
-    onSelectInvertMode: (ReaderPreferences.TappingInvertMode) -> Unit,
-    bottomZoneHeight: Preference<Int>,
-) {
-    SettingsChipRow(MR.strings.pref_viewer_nav) {
-        MangaTapLayouts.names.mapIndexed { index, it ->
-            FilterChip(
-                selected = selected == index,
-                onClick = { onSelect(index) },
-                label = { Text(stringResource(it)) },
-            )
-        }
-    }
-    if (MangaTapLayouts.offersInvert(selected)) {
-        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            MangaTapLayouts.invertModes(selected).map {
-                FilterChip(
-                    selected = it == invertMode,
-                    onClick = { onSelectInvertMode(it) },
-                    label = { Text(stringResource(it.titleRes)) },
-                )
-            }
-        }
-    }
-    if (MangaTapLayouts.added(selected) == NovelTapLayout.BOTTOM) {
-        val height by bottomZoneHeight.collectAsState()
-        SliderItem(
-            value = height,
-            valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
-            label = stringResource(MR.strings.pref_tap_bottom_zone_height),
-            valueString = "$height%",
-            onChange = bottomZoneHeight::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
 }

@@ -57,7 +57,6 @@ import reikai.presentation.icons.FormatAlignJustify
 import reikai.presentation.icons.FormatAlignLeft
 import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
-import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderFont
@@ -389,39 +388,15 @@ private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: 
     val invertPref = preferences.readerTapInvert(paged)
     val layout by layoutPref.collectAsState()
     val invert by invertPref.collectAsState()
-
-    SettingsChipRow(MR.strings.pref_viewer_nav) {
-        NovelTapLayout.entries.forEach {
-            FilterChip(
-                selected = layout == it,
-                onClick = { preferences.setReaderTapLayout(paged, it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
-    if (layout.offersInvert) {
-        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            layout.invertModes.forEach {
-                FilterChip(
-                    selected = it == invert,
-                    onClick = { invertPref.set(it) },
-                    label = { Text(stringResource(it.titleRes)) },
-                )
-            }
-        }
-    }
-    if (layout == NovelTapLayout.BOTTOM) {
-        val heightPref = preferences.readerTapBottomZoneHeight()
-        val height by heightPref.collectAsState()
-        SliderItem(
-            value = height,
-            valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
-            label = stringResource(MR.strings.pref_tap_bottom_zone_height),
-            valueString = "$height%",
-            onChange = heightPref::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
+    TapZonesRows(
+        names = NovelTapLayout.entries.map { it.titleRes },
+        selected = layout.ordinal,
+        onSelect = { preferences.setReaderTapLayout(paged, NovelTapLayout.entries[it]) },
+        layout = layout,
+        invert = invert,
+        onInvert = invertPref::set,
+        bottomZoneHeight = preferences.readerTapBottomZoneHeight(),
+    )
 }
 
 /** One page colour with its swatch and hex, picked by hand; [color] is what the page draws, and [onPick]
