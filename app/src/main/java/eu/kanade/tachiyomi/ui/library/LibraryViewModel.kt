@@ -228,6 +228,7 @@ class LibraryViewModel(
                 }
 
             LibraryData(
+                // RK: showSystemCategory and categories went to LibraryEngine, which owns grouping
                 favorites = filteredFavorites,
                 tracksMap = tracksMap,
                 loggedInTrackerIds = filters.trackers.keys, // RK
@@ -457,6 +458,7 @@ class LibraryViewModel(
                 )
             }
         }
+        // RK: the ids are the engine's selection, which LibraryEngine.dispatchAndClear clears
     }
 
     /**

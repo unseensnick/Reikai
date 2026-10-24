@@ -53,6 +53,7 @@ fun LibraryContent(
             end = contentPadding.calculateEndPadding(LocalLayoutDirection.current),
         ),
     ) {
+        // RK: pagerState is the caller's now, passed in as the pagerState parameter
         val scope = rememberCoroutineScope()
 
         // RK: a lone dynamic group still gets tabs; only a lone real Default category hides them.

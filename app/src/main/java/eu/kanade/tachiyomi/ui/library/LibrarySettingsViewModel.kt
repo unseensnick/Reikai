@@ -39,13 +39,15 @@ class LibrarySettingsViewModel(
             initialValue = trackerManager.loggedInTrackers(),
         )
 
+    // RK: toggleFilter and toggleTracker moved to LibraryEngine's LibrarySettingsBinding, as below
+
     fun setDisplayMode(mode: LibraryDisplayMode) {
         setDisplayMode.await(mode)
     }
 
     // RK --> Reikai settings-sheet actions still on the Display tab. The filter, sort and group actions
     // that used to live here moved to LibraryEngine's LibrarySettingsBinding, which the one shared
-    // sheet drives, so upstream's own toggleFilter / toggleTracker / setSort went with them.
+    // sheet drives, so upstream's own setSort went with them.
 
     fun setCategorySortOrder(value: CategorySortOrder) {
         reikaiLibraryPreferences.categorySortOrder.set(value)
