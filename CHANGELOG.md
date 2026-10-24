@@ -35,10 +35,18 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - **Library search and grouping by tag find a merged series by a tag any of its sources gives it, unless you set its tags in Edit info.**
 - **Manga library updates now check the sources with the most series first, so a big update finishes sooner (from Mihon).** Upstream: mihon b8070cdc9.
+- **Group by source and Group by language now list a merged series under each of its sources and languages, for manga and novels.** A series can appear in several groups, as it already does under Group by tag.
 
 #### Fixed
 
 - **Removing a manga or novel from the library no longer makes its cover reload (from Mihon).** Upstream: mihon a42428284.
+
+### Merged series
+
+#### Fixed
+
+- **Adding a merged series' removed source back from a Related "See all" list keeps the series in its categories.**
+- **A gallery version an adult content source swaps into a merged series now keeps the series in one set of categories.**
 
 ### Reader
 
@@ -63,7 +71,8 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **The novel reader menu now also shows Open in WebView, Open in browser and Share on a downloaded chapter whose source is installed, as manga's does.**
 - **A chapter that failed to load no longer keeps its Retry box once it loads (Native text).**
 - **A tap below the end of the last chapter now reaches the tap zones and the menu (Native text).**
-- **A footnote link written as the chapter's own address now jumps to the note instead of opening the browser (Native text).**
+- **A footnote link written as the chapter's own address now jumps to the note in that chapter, in both rendering modes.** Native text opened the browser, and WebView mode could jump into another chapter.
+- **A short drag on a novel page no longer counts as a tap (WebView mode).**
 - **Two pictures in one paragraph now each show as their own picture (Native text).**
 - **Tapping Retry on a failed picture now dims it while it loads, with text selection on (Native text).**
 
@@ -89,6 +98,8 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Fixed
 
 - **RanobeDB's second sign-in button is now called Log in with WebView, since it opens a page inside Reikai rather than your browser.**
+- **Pushing your library to an enhanced source's follows no longer resets a title you already follow there, or deletes its rating.**
+- **Backing out of an enhanced source's sign-in while it is still connecting no longer signs you out.**
 
 ### App
 
@@ -115,6 +126,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - **A manga or novel source that sends an Origin header no longer crashes its page in WebView (from Mihon).** Upstream: mihon 5f63c983d.
 - **WebView now sends a source's headers only to that source's own site (from Mihon).** Upstream: mihon a01867dc3.
+- **When an adult content source swaps a gallery for another version, its account favorites backup now gets the version that stays in your library.**
 
 ### Downloads & extensions
 
