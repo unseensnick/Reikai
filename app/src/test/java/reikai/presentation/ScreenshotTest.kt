@@ -22,6 +22,7 @@ import reikai.presentation.browse.catalogue.SavedSearchChip
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.CommitActivity
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.Dialog
 import reikai.presentation.migrate.flow.EntryMigrationListViewModel.State
+import reikai.presentation.migrate.flow.MigrationDataFlag
 import reikai.presentation.migrate.flow.MigrationListDialogs
 import reikai.presentation.reader.NeighbourChapterRetry
 import reikai.presentation.reader.settings.MangaSheetProbe
@@ -70,7 +71,15 @@ class ScreenshotTest {
     }
 
     private fun showMigrationConfirm() {
-        val confirm = Dialog.Confirm(replace = true, count = 3, untouched = 1, loadingFlags = false)
+        // Two of the five saved, so the image carries checked and unchecked boxes.
+        val confirm = Dialog.Confirm(
+            replace = true,
+            count = 3,
+            untouched = 1,
+            applicableFlags = MigrationDataFlag.entries.toSet(),
+            savedFlags = setOf(MigrationDataFlag.CHAPTER, MigrationDataFlag.CATEGORY),
+            loadingFlags = false,
+        )
         show { MigrationListDialogs(State(dialog = confirm), {}, {}, { _, _ -> }, {}) }
     }
 
