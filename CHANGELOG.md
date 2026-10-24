@@ -104,7 +104,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Added
 
-- **One more adult content source gets gallery details, searchable tags, page previews and link import once its extension is installed (from TachiyomiSY).** See the enhanced rows in the built-in sources guide.
+- **Two more adult content sources get gallery details, searchable tags, page previews and link import once their extensions are installed (from TachiyomiSY).** See the enhanced rows in the built-in sources guide.
 
 #### Changed
 

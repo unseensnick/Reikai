@@ -184,7 +184,7 @@
             android:exported="false" />
 
         <!-- RK: import a gallery shared/opened from a browser. Hosts mirror each adult source's
-             matchingHosts: E-Hentai/ExHentai/NHentai use /g/, Pururin uses /gallery/, 8Muses
+             matchingHosts: E-Hentai/ExHentai/NHentai/NineHentai use /g/, Pururin uses /gallery/, 8Muses
              uses /comics/, HentaiNexus uses /view/ and /read/, MangaDex uses /title/, /manga/ and
              /chapter/. -->
         <activity
@@ -204,6 +204,8 @@
                 <data android:host="g.e-hentai.org" />
                 <data android:host="exhentai.org" />
                 <data android:host="nhentai.net" />
+                <data android:host="9hentai.so" />
+                <data android:host="www.9hentai.so" />
 
                 <data android:pathPattern="/g/.*" />
             </intent-filter>

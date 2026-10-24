@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.all.NHentaiNet
 import eu.kanade.tachiyomi.source.online.english.EightMuses
 import eu.kanade.tachiyomi.source.online.english.HentaiNexus
+import eu.kanade.tachiyomi.source.online.english.NineHentai
 import eu.kanade.tachiyomi.source.online.english.Pururin
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -52,6 +53,7 @@ class MetadataSourceTagSearchTest {
             Arguments.of("Koharu", grammarOf<Koharu>(), "tag", "big breasts", "big breasts"),
             Arguments.of("8muses", grammarOf<EightMuses>(), "tag", "big breasts", "big breasts"),
             Arguments.of("HentaiNexus", grammarOf<HentaiNexus>(), "artist", "someone", "artist:someone"),
+            Arguments.of("NineHentai", grammarOf<NineHentai>(), "tags", "big breasts", "big breasts"),
         )
     }
 }

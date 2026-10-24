@@ -5,6 +5,7 @@ package exh.source
 const val PURURIN_SOURCE_ID = 2221515250486218861L
 const val EIGHTMUSES_SOURCE_ID = 1802675169972965535L
 const val HENTAINEXUS_SOURCE_ID = 7719798645438596394L
+const val NINEHENTAI_SOURCE_ID = 7689490563697355048L
 
 // E-Hentai / ExHentai built-in source IDs. The "Multi" (all-languages) variants
 // double as the built-in source IDs; the language-specific entries map the stock E-Hentai

@@ -1714,6 +1714,8 @@
     <string name="final_chapter">Final chapter</string>
     <string name="date_posted">Date posted</string>
     <string name="total_favorites">Total favorites</string>
+    <string name="total_views">Total views</string>
+    <string name="total_downloads">Total downloads</string>
     <string name="media_id">Media id</string>
     <string name="japanese_title">Japanese Title</string>
     <string name="english_title">English Title</string>
