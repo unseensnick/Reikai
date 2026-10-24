@@ -92,6 +92,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Added
 
 - **A Time format setting under Settings -> Appearance shows times in 12-hour or 24-hour form, or follows the system or the app's language (from Mihon).** Upstream: mihonapp/mihon#4118.
+- **Settings -> Advanced has a Redact sensitive headers switch, on by default, that hides cookies and sign-in tokens in verbose logs (from Mihon).** Upstream: mihonapp/mihon#4156.
 
 #### Fixed
 

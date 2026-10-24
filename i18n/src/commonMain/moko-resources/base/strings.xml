@@ -1175,6 +1175,8 @@
     <string name="pref_tablet_ui_mode">Tablet UI</string>
     <string name="pref_verbose_logging">Verbose logging</string>
     <string name="pref_verbose_logging_summary">Print verbose logs to system log (reduces app performance)</string>
+    <string name="pref_redact_sensitive_headers">Redact sensitive headers</string>
+    <string name="pref_redact_sensitive_headers_summary">Redacts certain sensitive values in the logs. Keep enabled for your security when sharing logs with other people.</string>
     <string name="pref_track_update_errors">Track update errors</string>
     <string name="pref_track_update_errors_summary">Keep a list of entries that fail to update, opened from the notification</string>
     <string name="label_update_errors">Update errors</string>

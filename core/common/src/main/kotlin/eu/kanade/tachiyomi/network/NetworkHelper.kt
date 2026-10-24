@@ -52,13 +52,14 @@ class NetworkHelper(
         if (preferences.verboseLogging.get()) {
             val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
                 level = HttpLoggingInterceptor.Level.HEADERS
-                // RK: keep session secrets out of the verbose-logging dump (logcat / bug reports) so
-                //     enabling the diagnostic toggle can't leak source cookies or tracker OAuth tokens.
-                redactHeader("Authorization")
-                redactHeader("Cookie")
-                redactHeader("Set-Cookie")
-                //     Hikka sends its OAuth token in a header of its own name.
-                redactHeader("auth")
+                if (preferences.redactSensitiveHeaders.get()) {
+                    redactHeader("Authorization")
+                    redactHeader("Auth")
+                    // RK --> source cookies too; Hikka's OAuth token rides the Auth header above
+                    redactHeader("Cookie")
+                    redactHeader("Set-Cookie")
+                    // RK <--
+                }
             }
             builder.addNetworkInterceptor(httpLoggingInterceptor)
         }
