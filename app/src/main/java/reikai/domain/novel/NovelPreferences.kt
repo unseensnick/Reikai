@@ -372,14 +372,10 @@ class NovelPreferences(
             TappingInvertMode.NONE,
         )
 
-    /** Sets [paged]'s [layout], replacing an inversion it cannot draw with the nearest one it can, so the
-     *  choice a settings row shows is the one in effect. */
+    /** Sets [paged]'s [layout], replacing an inversion it cannot draw as manga's `setTapLayout` does. */
     fun setReaderTapLayout(paged: Boolean, layout: NovelTapLayout) {
         readerTapLayout(paged).set(layout)
-        val invert = readerTapInvert(paged)
-        if (invert.get() in layout.invertModes) return
-        val vertical = invert.get().shouldInvertVertical && TappingInvertMode.VERTICAL in layout.invertModes
-        invert.set(if (vertical) TappingInvertMode.VERTICAL else TappingInvertMode.NONE)
+        readerTapInvert(paged).fitTo(layout)
     }
 
     /** The bottom layout's zone, as a percentage of the page's height. */

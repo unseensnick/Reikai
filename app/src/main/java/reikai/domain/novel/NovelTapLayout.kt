@@ -2,6 +2,7 @@ package reikai.domain.novel
 
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
+import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
 /**
@@ -32,4 +33,20 @@ enum class NovelTapLayout(val titleRes: StringResource) {
     /** Whether the inversion choice is offered: Disabled has no zones to invert, and one inversion is no choice. */
     val offersInvert: Boolean
         get() = this != DISABLED && invertModes.size > 1
+
+    /** [invert] when this layout can draw it, else the nearest inversion it can: the vertical half, or none. */
+    fun nearestInvert(invert: TappingInvertMode): TappingInvertMode = when {
+        invert in invertModes -> invert
+        invert.shouldInvertVertical && TappingInvertMode.VERTICAL in invertModes -> TappingInvertMode.VERTICAL
+        else -> TappingInvertMode.NONE
+    }
+}
+
+/**
+ * Replaces an inversion [layout] cannot draw with its [NovelTapLayout.nearestInvert], so the choice a settings row
+ * shows is the one in effect, in either reader. One it can draw is left unwritten, so the key stays unset.
+ */
+fun Preference<TappingInvertMode>.fitTo(layout: NovelTapLayout) {
+    val nearest = layout.nearestInvert(get())
+    if (nearest != get()) set(nearest)
 }

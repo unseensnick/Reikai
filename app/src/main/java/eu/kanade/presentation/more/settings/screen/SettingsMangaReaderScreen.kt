@@ -21,6 +21,7 @@ import reikai.presentation.reader.autoScrollIntervalPreference
 import reikai.presentation.reader.autoScrollSpeedPreference
 import reikai.presentation.reader.hideThresholdPreference
 import reikai.presentation.reader.navigation.MangaTapLayouts
+import reikai.presentation.reader.navigation.setTapLayout
 import reikai.presentation.reader.railHeightPreference
 import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
@@ -240,6 +241,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         .mapIndexed { index, it -> index to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_viewer_nav),
+                    // RK --> stored through the helper, which also drops an inversion the new layout cannot draw
+                    onValueChanged = {
+                        readerPreferences.setTapLayout(pager = true, it)
+                        false
+                    },
+                    // RK <--
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.pagerNavInverted,
@@ -342,6 +349,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         .mapIndexed { index, it -> index to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_viewer_nav),
+                    // RK --> stored through the helper, which also drops an inversion the new layout cannot draw
+                    onValueChanged = {
+                        readerPreferences.setTapLayout(pager = false, it)
+                        false
+                    },
+                    // RK <--
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.webtoonNavInverted,

@@ -22,6 +22,7 @@ import reikai.domain.novel.NovelTapLayout
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.navigation.MangaTapLayouts
+import reikai.presentation.reader.navigation.setTapLayout
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -231,7 +232,7 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
             val webtoonNavInverted by preferences.webtoonNavInverted.collectAsState()
             TapZonesRows(
                 selected = navigationModeWebtoon,
-                onSelect = preferences.navigationModeWebtoon::set,
+                onSelect = { preferences.setTapLayout(pager = false, it) },
                 invertMode = webtoonNavInverted,
                 onSelectInvertMode = preferences.webtoonNavInverted::set,
                 bottomZoneHeight = preferences.tapBottomZoneHeight,
@@ -373,7 +374,7 @@ private fun ColumnScope.PagerTapZones(preferences: ReaderPreferences) {
     val pagerNavInverted by preferences.pagerNavInverted.collectAsState()
     TapZonesRows(
         selected = navigationModePager,
-        onSelect = preferences.navigationModePager::set,
+        onSelect = { preferences.setTapLayout(pager = true, it) },
         invertMode = pagerNavInverted,
         onSelectInvertMode = preferences.pagerNavInverted::set,
         bottomZoneHeight = preferences.tapBottomZoneHeight,

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import reikai.domain.novel.NovelTapLayout
+import reikai.domain.novel.fitTo
 import reikai.presentation.reader.navigation
 
 /**
@@ -45,4 +46,13 @@ object MangaTapLayouts {
 
     /** Whether the layout at [index] offers an inversion choice, by the novel reader's rule. */
     fun offersInvert(index: Int): Boolean = layout(index)?.offersInvert ?: true
+}
+
+/**
+ * Sets the pager's or the long strip's layout to [index], replacing an inversion it cannot draw as the novel
+ * reader's `setReaderTapLayout` does. WebGPU reads the pager's.
+ */
+fun ReaderPreferences.setTapLayout(pager: Boolean, index: Int) {
+    (if (pager) navigationModePager else navigationModeWebtoon).set(index)
+    MangaTapLayouts.layout(index)?.let { (if (pager) pagerNavInverted else webtoonNavInverted).fitTo(it) }
 }
