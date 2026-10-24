@@ -14,6 +14,9 @@ import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
@@ -26,6 +29,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.novel.content.NovelChapterAddress
+import reikai.presentation.reader.LORA_LOADED
+import reikai.presentation.reader.NovelChapterNavigationClient
 import reikai.presentation.reader.WebViewHostActivity
 import reikai.presentation.reader.readerTestSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
@@ -89,8 +94,6 @@ class NovelWebDocumentTest {
 
         /** A failure as the viewport sends one, with the source's reason. */
         const val FAILURE = "{ heading: \"Couldn't load\", message: 'no luck', retry: 'Retry' }"
-        const val LORA_LOADED =
-            "[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"
     }
 
     /**
@@ -164,8 +167,21 @@ class NovelWebDocumentTest {
     @Volatile
     private var imageGate: CountDownLatch? = null
 
-    /** Serves a face the way the reader's own client does, for the font cases. */
+    /** The face the font cases hand out, served through the reader's own client. */
     private val webFonts = NovelWebFonts()
+
+    /** Cancelled in [tearDown]; declared above [navigation], which reads it at construction. */
+    private val scope = CoroutineScope(SupervisorJob())
+
+    /** The reader's own client, so a face goes through its intercept; it routes none of these cases' pictures. */
+    private val navigation = NovelChapterNavigationClient(
+        instrumentation.targetContext,
+        { null },
+        NovelWebImages(),
+        webFonts,
+        scope,
+        {},
+    ) { error("no chapter pictures here") }
 
     /** The last fit answer the page sent per chapter. */
     private val fitsReports = mutableMapOf<String, Boolean>()
@@ -215,6 +231,7 @@ class NovelWebDocumentTest {
     fun tearDown() {
         // A failed case can leave an image request parked on the gate.
         imageGate?.countDown()
+        scope.cancel()
         if (::scenario.isInitialized) scenario.close()
     }
 
@@ -1066,7 +1083,7 @@ class NovelWebDocumentTest {
                 override fun onPageFinished(view: WebView, url: String?) = finished.countDown()
 
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
-                    webFonts.response(instrumentation.targetContext, request.url.toString())?.let { return it }
+                    navigation.shouldInterceptRequest(view, request)?.let { return it }
                     val gate = imageGate ?: return null
                     gate.await(TIMEOUT_S, TimeUnit.SECONDS)
                     val png = if (request.url.toString().contains(TALL_IMAGE)) tallPng() else onePixelPng()

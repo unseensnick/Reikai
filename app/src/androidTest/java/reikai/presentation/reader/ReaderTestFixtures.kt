@@ -43,3 +43,7 @@ internal val readerTestSettings = NovelReaderSettings(
     useRail = true,
     alwaysShowChapterTransition = true,
 )
+
+/** True once the page reports the bundled Lora face loaded, not just named. */
+internal const val LORA_LOADED =
+    "[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"

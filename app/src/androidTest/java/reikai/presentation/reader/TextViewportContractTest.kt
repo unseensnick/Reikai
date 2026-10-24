@@ -563,6 +563,16 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(null, answer)
     }
 
+    /** The page loads the reading font from the app's own address, which only the viewport's client serves.
+     *  Native resolves its typeface in-process, so it has no address to serve. */
+    @Test
+    fun aPickedReadingFontReachesThePageAsALoadedFace() {
+        assumeTrue("only the page loads its face from an address", renderer == Renderer.WEB)
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(fontFamily = "lora"))
+        awaitWhile { eval(LORA_LOADED) != "true" }
+        assertEquals("the picked face did not load", "true", eval(LORA_LOADED))
+    }
+
     /** A text-size drag redraws on every step, so the question can outlive the redraw it waited on. */
     @Test
     fun paragraphsAskedDuringATextSizeDragAreAnsweredOnceTheLastStepHasRedrawn() {
