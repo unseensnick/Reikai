@@ -81,12 +81,7 @@ class MangaDownloadQueueProvider(
     override suspend fun sort(key: DownloadQueueSortKey, descending: Boolean) {
         val sorted = downloadManager.queueState.value.sortedWithinSeries(
             seriesOf = { it.manga.id },
-            keyOf = {
-                when (key) {
-                    DownloadQueueSortKey.UPLOAD_DATE -> it.chapter.dateUpload?.toEpochMilliseconds()?.toDouble()
-                    DownloadQueueSortKey.CHAPTER_NUMBER -> it.chapter.chapterNumber
-                }
-            },
+            keyOf = { key.sortValue(it.chapter.dateUpload, it.chapter.chapterNumber) },
             descending = descending,
         )
         downloadManager.reorderQueue(sorted)

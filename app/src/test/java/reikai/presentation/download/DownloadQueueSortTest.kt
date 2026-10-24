@@ -2,6 +2,7 @@ package reikai.presentation.download
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import kotlin.time.Instant
 
 /** The queue sort is a one-shot reorder, so the sheet opens with no key active and a tap never guesses. */
 class DownloadQueueSortTest {
@@ -24,5 +25,25 @@ class DownloadQueueSortTest {
         DownloadQueueSort(DownloadQueueSortKey.CHAPTER_NUMBER, descending = true)
             .next(DownloadQueueSortKey.UPLOAD_DATE) shouldBe
             DownloadQueueSort(DownloadQueueSortKey.UPLOAD_DATE, descending = false)
+    }
+
+    @Test
+    fun `upload date orders by the upload instant`() {
+        DownloadQueueSortKey.UPLOAD_DATE.sortValue(Instant.fromEpochMilliseconds(5_000L), chapterNumber = 2.0) shouldBe
+            5_000.0
+    }
+
+    @Test
+    fun `chapter number orders by the number`() {
+        DownloadQueueSortKey.CHAPTER_NUMBER.sortValue(
+            Instant.fromEpochMilliseconds(5_000L),
+            chapterNumber = 2.0,
+        ) shouldBe
+            2.0
+    }
+
+    @Test
+    fun `an undated chapter has no upload-date value`() {
+        DownloadQueueSortKey.UPLOAD_DATE.sortValue(dateUpload = null, chapterNumber = 2.0) shouldBe null
     }
 }
