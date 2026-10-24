@@ -116,6 +116,12 @@ class NovelPagingTest {
         NovelPaging.cut(listOf(Band(0f, 1_000_000f)), height = 1e-6f) shouldBe emptyList()
     }
 
+    @ParameterizedTest
+    @ValueSource(floats = [Float.NaN, Float.POSITIVE_INFINITY])
+    fun `a page height that is not a finite number has no pages`(height: Float) {
+        NovelPaging.cut(listOf(Band(0f, 40f)), height = height) shouldBe emptyList()
+    }
+
     @Test
     fun `a band too tall for any chapter stops at the page cap`() {
         NovelPaging.cut(listOf(Band(0f, Float.MAX_VALUE)), height = 1f).size shouldBe 10_000
