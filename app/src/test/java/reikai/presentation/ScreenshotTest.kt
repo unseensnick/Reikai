@@ -50,29 +50,67 @@ class ScreenshotTest {
         }
     }
 
-    @Test
-    fun `library tabs`() {
-        show {
-            PrimaryScrollableTabRow(selectedTabIndex = 0) {
-                listOf("Reading" to 5, "Plan to read" to 12, "Completed" to 40).forEachIndexed { index, (name, count) ->
-                    Tab(selected = index == 0, onClick = {}, text = { TabText(name, count) })
-                }
+    // The capture itself does not wait for Compose, so a pager or dialog still animating is caught mid-way.
+    private fun capture() {
+        compose.waitForIdle()
+        captureScreenRoboImage()
+    }
+
+    private fun showLibraryTabs() = show {
+        PrimaryScrollableTabRow(selectedTabIndex = 0) {
+            listOf("Reading" to 5, "Plan to read" to 12, "Completed" to 40).forEachIndexed { index, (name, count) ->
+                Tab(selected = index == 0, onClick = {}, text = { TabText(name, count) })
             }
         }
-        captureScreenRoboImage()
+    }
+
+    private fun showMangaSheetFilters() {
+        show { ReaderSettingsSheet(MangaSheetProbe().pages(), false, {}, null, {}, {}, {}) }
+        compose.onNodeWithContentDescription("Filters").performClick()
+    }
+
+    private fun showMigrationConfirm() {
+        val confirm = Dialog.Confirm(replace = true, count = 3, untouched = 1, loadingFlags = false)
+        show { MigrationListDialogs(State(dialog = confirm), {}, {}, { _, _ -> }, {}) }
+    }
+
+    @Test
+    fun `library tabs`() {
+        showLibraryTabs()
+        capture()
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun `library tabs dark`() {
+        showLibraryTabs()
+        capture()
+    }
+
+    @Test
+    @Config(qualifiers = TABLET)
+    fun `library tabs tablet`() {
+        showLibraryTabs()
+        capture()
     }
 
     @Test
     fun `migration exit confirm`() {
         show { MigrationListDialogs(State(dialog = Dialog.ExitConfirm), {}, {}, { _, _ -> }, {}) }
-        captureScreenRoboImage()
+        capture()
     }
 
     @Test
     fun `migration commit confirm`() {
-        val confirm = Dialog.Confirm(replace = true, count = 3, untouched = 1, loadingFlags = false)
-        show { MigrationListDialogs(State(dialog = confirm), {}, {}, { _, _ -> }, {}) }
-        captureScreenRoboImage()
+        showMigrationConfirm()
+        capture()
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun `migration commit confirm dark`() {
+        showMigrationConfirm()
+        capture()
     }
 
     @Test
@@ -80,27 +118,40 @@ class ScreenshotTest {
         show {
             MigrationListDialogs(State(commit = CommitActivity.Batch(done = 2, total = 5)), {}, {}, { _, _ -> }, {})
         }
-        captureScreenRoboImage()
+        capture()
     }
 
     @Test
     fun `manga reader settings filters`() {
-        show { ReaderSettingsSheet(MangaSheetProbe().pages(), false, {}, null, {}, {}, {}) }
-        compose.onNodeWithContentDescription("Filters").performClick()
-        captureScreenRoboImage()
+        showMangaSheetFilters()
+        capture()
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun `manga reader settings filters dark`() {
+        showMangaSheetFilters()
+        capture()
+    }
+
+    @Test
+    @Config(qualifiers = TABLET)
+    fun `manga reader settings filters tablet`() {
+        showMangaSheetFilters()
+        capture()
     }
 
     @Test
     fun `novel reader settings reading`() {
         show { ReaderSettingsSheet(NovelSheetProbe().pages(), false, {}, null, {}, {}, {}) }
-        captureScreenRoboImage()
+        capture()
     }
 
     @Test
     fun `reader failed chapter retry`() {
         val next = ReaderChapter(Chapter.create()).apply { state = ReaderChapter.State.Error(Exception("HTTP 503")) }
         show { NeighbourChapterRetry(prevChapter = null, nextChapter = next, onRetry = {}) }
-        captureScreenRoboImage()
+        capture()
     }
 
     @Test
@@ -124,7 +175,7 @@ class ScreenshotTest {
                 onClearHistory = {},
             )
         }
-        captureScreenRoboImage()
+        capture()
     }
 
     @Test
@@ -135,6 +186,11 @@ class ScreenshotTest {
                 SavedSearchChip(selected = false, label = "New this week", onClick = {}, onLongClick = {})
             }
         }
-        captureScreenRoboImage()
+        capture()
+    }
+
+    private companion object {
+        // A landscape tablet at medium density, so the image stays small.
+        const val TABLET = "w1280dp-h800dp-land-mdpi"
     }
 }
