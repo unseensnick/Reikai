@@ -23,6 +23,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -31,10 +32,12 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 
 /**
- * Whether a sync found a release, which the next update is counted from, through each type's real sync
- * over a real database. Both reach the rule through [foundRelease].
+ * What each type's real sync over a real database reports back: whether it found a release, which the
+ * next update is counted from, and which chapters it calls new. Both reach the rules through
+ * [chapterArrivals] and [foundRelease]; the glue around them (the duplicate setting, and leaving a
+ * changed or duplicate arrival out of the new chapters) is written in each sync, so it is pinned here.
  */
-class FoundReleaseSyncConformanceTest {
+class ChapterSyncConformanceTest {
 
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: Database
@@ -56,7 +59,7 @@ class FoundReleaseSyncConformanceTest {
     fun `a first fetch is the back catalogue, not a release`(type: Type) = runTest {
         type.seed(driver)
 
-        type.sync(database, Listed("/c1", 1.0), Listed("/c2", 2.0)) shouldBe false
+        type.sync(database, Listed("/c1", 1.0), Listed("/c2", 2.0)).foundRelease shouldBe false
     }
 
     @ParameterizedTest
@@ -65,7 +68,7 @@ class FoundReleaseSyncConformanceTest {
         type.seed(driver)
         type.sync(database, Listed("/c1", 1.0))
 
-        type.sync(database, Listed("/c2", 2.0), Listed("/c1", 1.0)) shouldBe true
+        type.sync(database, Listed("/c2", 2.0), Listed("/c1", 1.0)).foundRelease shouldBe true
     }
 
     @ParameterizedTest
@@ -74,7 +77,7 @@ class FoundReleaseSyncConformanceTest {
         type.seed(driver)
         type.sync(database, Listed("/c2", 2.0), Listed("/c1", 1.0))
 
-        type.sync(database, Listed("/c2-new", 2.0), Listed("/c1", 1.0)) shouldBe false
+        type.sync(database, Listed("/c2-new", 2.0), Listed("/c1", 1.0)).foundRelease shouldBe false
     }
 
     @ParameterizedTest
@@ -84,10 +87,51 @@ class FoundReleaseSyncConformanceTest {
         type.seed(driver)
         type.sync(database, Listed("/c1", 1.0))
 
-        type.sync(database, Listed("/c2", 2.0, EXCLUDED), Listed("/c1", 1.0)) shouldBe false
+        type.sync(database, Listed("/c2", 2.0, EXCLUDED), Listed("/c1", 1.0)).foundRelease shouldBe false
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a new chapter numbered like a read one arrives read and is not reported new`(type: Type) = runTest {
+        type.seed(driver)
+        type.sync(database, Listed("/c5-a", 5.0))
+        type.markRead(driver, "/c5-a")
+
+        val synced = type.sync(database, Listed("/c5-b", 5.0), Listed("/c5-a", 5.0))
+
+        (type.isRead(database, "/c5-b") to synced.newUrls) shouldBe (true to emptyList())
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `with duplicate marking off, a new chapter numbered like a read one is unread and new`(type: Type) =
+        runTest {
+            type.seed(driver)
+            type.sync(database, Listed("/c5-a", 5.0))
+            type.markRead(driver, "/c5-a")
+
+            val synced = type.sync(database, Listed("/c5-b", 5.0), Listed("/c5-a", 5.0), markDuplicates = false)
+
+            (type.isRead(database, "/c5-b") to synced.newUrls) shouldBe (false to listOf("/c5-b"))
+        }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter re-listed under a removed number keeps its read state and is not reported new`(type: Type) =
+        runTest {
+            type.seed(driver)
+            type.sync(database, Listed("/c2", 2.0), Listed("/c1", 1.0))
+            type.markRead(driver, "/c2")
+
+            val synced = type.sync(database, Listed("/c2-new", 2.0), Listed("/c1", 1.0))
+
+            (type.isRead(database, "/c2-new") to synced.newUrls) shouldBe (true to emptyList())
+        }
+
     data class Listed(val url: String, val number: Double, val scanlator: String? = null)
+
+    /** What a sync reports: whether it found a release, and the urls of the chapters it calls new. */
+    data class Synced(val foundRelease: Boolean, val newUrls: List<String>)
 
     enum class Type(val excludesGroups: Boolean) {
         MANGA(excludesGroups = true) {
@@ -102,7 +146,7 @@ class FoundReleaseSyncConformanceTest {
                 ).await()
             }
 
-            override suspend fun sync(database: Database, vararg chapters: Listed): Boolean {
+            override suspend fun sync(database: Database, vararg chapters: Listed, markDuplicates: Boolean): Synced {
                 val found = slot<Boolean>()
                 val updateManga = mockk<UpdateManga> {
                     coEvery {
@@ -111,14 +155,14 @@ class FoundReleaseSyncConformanceTest {
                         true
                 }
                 val excluded = mockk<GetExcludedScanlators> { coEvery { await(OWNER) } returns setOf(EXCLUDED) }
-                SyncChaptersWithSource(
+                val new = SyncChaptersWithSource(
                     downloadManager = mockk(relaxed = true),
                     downloadProvider = mockk(relaxed = true),
                     chapterRepository = ChapterRepositoryImpl(database),
                     shouldUpdateDbChapter = ShouldUpdateDbChapter(),
                     updateManga = updateManga,
                     getExcludedScanlators = excluded,
-                    libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+                    libraryPreferences = libraryPreferences(markDuplicates),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                 ).await(
                     chapters.map { listed ->
@@ -132,8 +176,15 @@ class FoundReleaseSyncConformanceTest {
                     Manga.create().copy(id = OWNER, title = "T", source = 1),
                     mockk<Source> { every { id } returns 1L },
                 )
-                return found.captured
+                return Synced(found.captured, new.map { it.url })
             }
+
+            override suspend fun markRead(driver: JdbcSqliteDriver, url: String) {
+                driver.execute(null, "UPDATE chapter SET user_read = 1 WHERE remote_url = '$url'", 0).await()
+            }
+
+            override suspend fun isRead(database: Database, url: String) =
+                ChapterRepositoryImpl(database).getChapterByMangaId(OWNER).single { it.url == url }.read
         },
         NOVEL(excludesGroups = false) {
             override suspend fun seed(driver: JdbcSqliteDriver) {
@@ -145,28 +196,52 @@ class FoundReleaseSyncConformanceTest {
                 ).await()
             }
 
-            override suspend fun sync(database: Database, vararg chapters: Listed): Boolean =
-                syncChaptersWithNovelSource(
+            override suspend fun sync(database: Database, vararg chapters: Listed, markDuplicates: Boolean): Synced {
+                val result = syncChaptersWithNovelSource(
                     chapters.map {
                         ChapterItem(name = "Chapter ${it.number}", path = it.url, chapterNumber = it.number)
                     },
                     NovelRepositoryImpl(database).getById(OWNER)!!,
                     NovelChapterRepositoryImpl(database),
                     NovelRepositoryImpl(database),
-                    LibraryPreferences(InMemoryPreferenceStore()),
+                    libraryPreferences(markDuplicates),
                     ChapterNumberOverrideRepositoryImpl(database),
-                ).foundRelease
+                )
+                return Synced(result.foundRelease, result.newChapters.map { it.url })
+            }
+
+            override suspend fun markRead(driver: JdbcSqliteDriver, url: String) {
+                driver.execute(null, "UPDATE novel_chapters SET read = 1 WHERE url = '$url'", 0).await()
+            }
+
+            override suspend fun isRead(database: Database, url: String) =
+                NovelChapterRepositoryImpl(database).getByNovelId(OWNER).single { it.url == url }.read
         },
         ;
 
         abstract suspend fun seed(driver: JdbcSqliteDriver)
 
-        /** Syncs a source listing [chapters], newest first, and returns whether the sync found a release. */
-        abstract suspend fun sync(database: Database, vararg chapters: Listed): Boolean
+        /** Syncs a source listing [chapters], newest first; [markDuplicates] is the "mark duplicate read" setting. */
+        abstract suspend fun sync(database: Database, vararg chapters: Listed, markDuplicates: Boolean = true): Synced
+
+        abstract suspend fun markRead(driver: JdbcSqliteDriver, url: String)
+
+        abstract suspend fun isRead(database: Database, url: String): Boolean
     }
 
     private companion object {
         const val OWNER = 1L
         const val EXCLUDED = "Excluded group"
+
+        // The default turns both duplicate modes on; a write to the in-memory store is silent, so off is seeded.
+        fun libraryPreferences(markDuplicates: Boolean) = LibraryPreferences(
+            if (markDuplicates) {
+                InMemoryPreferenceStore()
+            } else {
+                InMemoryPreferenceStore(
+                    sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", emptySet<String>(), emptySet())),
+                )
+            },
+        )
     }
 }
