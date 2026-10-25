@@ -28,19 +28,22 @@ import org.junit.jupiter.params.provider.MethodSource
 /** A Hitomi gallery script parses into namespaced metadata, and a link imports as its gallery. */
 class HitomiTest {
 
-    private val fragments = mutableListOf<String?>()
+    private val hosts = mutableListOf<String>()
 
-    // Serves the galleries script for whichever id was asked, as the extension's api does.
+    // Serves the galleries script for whichever id was asked, as the extension's api does, and every
+    // small thumbnail but the gif's, which only the b host has.
     private val delegate = mockk<HttpSource>(relaxed = true) {
         every { versionId } returns 1
         every { lang } returns "all"
         every { headers } returns Headers.headersOf()
         every { client } returns OkHttpClient.Builder().addInterceptor { chain ->
             val url = chain.request().url
-            fragments += url.fragment
+            hosts += url.host
             val id = GALLERY_SCRIPT.find(url.encodedPath)?.groupValues?.get(1)
+            val thumbnail = url.encodedPath.startsWith("/avifsmalltn/") &&
+                !(url.host.startsWith("atn.") && url.encodedPath.contains(HASH_GIF))
             Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1)
-                .code(if (id != null || url.host == "127.0.0.1") 200 else 404).message("")
+                .code(if (id != null || thumbnail) 200 else 404).message("")
                 .body(gallery(id.orEmpty()).toResponseBody("application/javascript".toMediaType())).build()
         }.build()
         // The extension reads the gallery id after its url's last dash.
@@ -117,23 +120,30 @@ class HitomiTest {
         source.mapUrlToMangaUrl(linkUri(url)) shouldBe expected
     }
 
+    // The site keeps a big thumbnail for the cover alone, so a preview is each page's small one.
     @Test
-    fun `each preview is the extension's loopback thumbnail`() = runTest {
+    fun `each preview is its page's small thumbnail on the extension's cdn`() = runTest {
         val manga = SManga.create().apply { url = galleryUrl("$ID") }
 
         source.getPagePreviewList(manga, emptyList(), 1).pagePreviews.map { it.imageUrl } shouldBe listOf(
-            "https://127.0.0.1/?is_thumbnail=true&is_gif=false#$HASH_JPG",
-            "https://127.0.0.1/?is_thumbnail=true&is_gif=true#$HASH_GIF",
+            "https://atn.example/avifsmalltn/a/12/$HASH_JPG.avif",
+            "https://atn.example/avifsmalltn/d/fe/$HASH_GIF.avif",
         )
     }
 
     @Test
-    fun `a preview reaches the extension's client with its hash intact`() = runTest {
-        val url = "https://127.0.0.1/?is_thumbnail=true&is_gif=false#$HASH_JPG"
+    fun `a thumbnail the a host lacks is fetched from the b host`() = runTest {
+        val url = "https://atn.example/avifsmalltn/d/fe/$HASH_GIF.avif"
 
-        source.fetchPreviewImage(PagePreviewInfo(1, url), null).close()
+        source.fetchPreviewImage(PagePreviewInfo(2, url), null).code shouldBe 200
+    }
 
-        fragments shouldBe listOf(HASH_JPG)
+    @Test
+    fun `a thumbnail the a host has is fetched once`() = runTest {
+        source.fetchPreviewImage(PagePreviewInfo(1, "https://atn.example/avifsmalltn/a/12/$HASH_JPG.avif"), null)
+            .close()
+
+        hosts shouldBe listOf("atn.example")
     }
 
     @ParameterizedTest(name = "{0}")

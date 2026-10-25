@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.source.online.all
 import android.content.Context
 import android.net.Uri
 import eu.kanade.tachiyomi.network.GET
+import eu.kanade.tachiyomi.network.HttpException
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
@@ -28,6 +29,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonPrimitive
 import okhttp3.CacheControl
 import okhttp3.HttpUrl
+import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Response
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -148,23 +150,31 @@ class Hitomi(delegate: HttpSource, val context: Context) :
         val metadata = fetchOrLoadMetadata(manga.id()) {
             client.newCall(mangaDetailsRequest(manga)).awaitSuccess().body.string()
         }
+        val cdn = galleryRequest(0).url.host.removePrefix("ltn.")
         val previews = metadata.images.mapIndexed { index, image ->
-            PagePreviewInfo(index + 1, imageUrl = thumbnailUrl(image))
+            PagePreviewInfo(index + 1, imageUrl = previewUrl(cdn, image.hash))
         }
         return PagePreviewPage(page, previews, false, 1)
     }
 
-    // The url is the extension's loopback address, which its own client's interceptor resolves.
+    // The site's gg.js puts each thumbnail on the a or b host; trying a, then b on a 404, covers
+    // both without porting that script, which the extension keeps private.
     override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {
-        return client.newCachelessCallWithProgress(
-            if (cacheControl != null) {
-                GET(page.imageUrl, headers, cache = cacheControl)
-            } else {
-                GET(page.imageUrl, headers)
-            },
+        return try {
+            previewCall(page.imageUrl, page, cacheControl)
+        } catch (e: HttpException) {
+            val other = page.imageUrl.toHttpUrl().takeIf { it.host.startsWith("atn.") }
+                ?.let { it.newBuilder().host("btn." + it.host.removePrefix("atn.")).build().toString() }
+            if (e.code != 404 || other == null) throw e
+            previewCall(other, page, cacheControl)
+        }
+    }
+
+    private suspend fun previewCall(url: String, page: PagePreviewInfo, cacheControl: CacheControl?): Response =
+        client.newCachelessCallWithProgress(
+            if (cacheControl != null) GET(url, headers, cache = cacheControl) else GET(url, headers),
             page,
         ).awaitSuccess()
-    }
 
     // Asks the extension for the request, so its api host stays the extension's to change.
     private fun galleryRequest(id: Int) = mangaDetailsRequest(SManga.create().apply { url = "/galleries/-$id.html" })
@@ -179,6 +189,11 @@ class Hitomi(delegate: HttpSource, val context: Context) :
         tag.male?.content == "1" -> GallerySiteSearchMetadata.MALE_NAMESPACE
         else -> GallerySiteSearchMetadata.TAGS_NAMESPACE
     }
+
+    // Every page has a small thumbnail; the extension's loopback thumbnail is the cover's big one,
+    // which the site keeps for the first page only.
+    private fun previewUrl(cdn: String, hash: String): String =
+        "https://atn.$cdn/avifsmalltn/${hash.takeLast(1)}/${hash.takeLast(3).take(2)}/$hash.avif"
 
     // The same loopback shape the extension gives its covers; see its imageUrlInterceptor.
     private fun thumbnailUrl(image: HitomiSearchMetadata.Image): String = HttpUrl.Builder()
