@@ -11,6 +11,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
+import eu.kanade.tachiyomi.source.online.all.Hitomi
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
@@ -302,6 +303,13 @@ class AndroidSourceManager(
                 NINEHENTAI_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.en.ninehentai.NineHentai",
                 ::NineHentai,
+            ),
+            DelegatedSource(
+                "Hitomi",
+                FILL_IN_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.all.hitomi.Hitomi",
+                ::Hitomi,
+                factory = true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }
 

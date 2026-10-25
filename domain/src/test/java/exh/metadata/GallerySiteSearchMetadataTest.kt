@@ -4,6 +4,7 @@ import exh.metadata.metadata.AsmHentaiSearchMetadata
 import exh.metadata.metadata.GallerySiteSearchMetadata
 import exh.metadata.metadata.HentaiFoxSearchMetadata
 import exh.metadata.metadata.HentaiNexusSearchMetadata
+import exh.metadata.metadata.HitomiSearchMetadata
 import exh.metadata.metadata.KoharuSearchMetadata
 import exh.metadata.metadata.NineHentaiSearchMetadata
 import exh.metadata.metadata.base.FlatMetadata
@@ -46,6 +47,7 @@ class GallerySiteSearchMetadataTest {
             Arguments.of("KoharuSearchMetadata", KoharuSearchMetadata::class),
             Arguments.of("HentaiNexusSearchMetadata", HentaiNexusSearchMetadata::class),
             Arguments.of("NineHentaiSearchMetadata", NineHentaiSearchMetadata::class),
+            Arguments.of("HitomiSearchMetadata", HitomiSearchMetadata::class),
         )
     }
 }

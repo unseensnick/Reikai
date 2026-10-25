@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
+import eu.kanade.tachiyomi.source.online.all.Hitomi
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
@@ -54,6 +55,7 @@ class MetadataSourceTagSearchTest {
             Arguments.of("8muses", grammarOf<EightMuses>(), "tag", "big breasts", "big breasts"),
             Arguments.of("HentaiNexus", grammarOf<HentaiNexus>(), "artist", "someone", "artist:someone"),
             Arguments.of("NineHentai", grammarOf<NineHentai>(), "tags", "big breasts", "big breasts"),
+            Arguments.of("Hitomi", grammarOf<Hitomi>(), "female", "big breasts", "female:big_breasts"),
         )
     }
 }

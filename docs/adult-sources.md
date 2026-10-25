@@ -80,10 +80,10 @@ It runs daily by default, can be limited to Wi-Fi, an unmetered network or while
 
 <nav to="batch-add"> adds a list of galleries to your library in one go. It only shows in the More tab while adult sources are on.
 
-1. Paste the gallery links, one per line. Links from E-Hentai, NHentai and Pururin work, ExHentai links once ExHentai is on, and 8Muses, HentaiNexus and NineHentai links once their extensions are installed. Data exported from the E-H Visited browser extension works too.
+1. Paste the gallery links, one per line. Links from E-Hentai, NHentai and Pururin work, ExHentai links once ExHentai is on, and 8Muses, HentaiNexus, NineHentai and Hitomi links once their extensions are installed. Data exported from the E-H Visited browser extension works too.
 1. Tap **Add galleries**.
 
-Each link is matched to an installed, enabled source for its site, preferring sources in the languages you have turned on, and tried up to twice. A link to a single page of a gallery on E-Hentai, ExHentai, NHentai, 8Muses or HentaiNexus adds the whole gallery. Galleries go into your default category, if you have set one; with the default set to always ask, they get no category.
+Each link is matched to an installed, enabled source for its site, preferring sources in the languages you have turned on, and tried up to twice. A link to a single page of a gallery on E-Hentai, ExHentai, NHentai, 8Muses, HentaiNexus or Hitomi adds the whole gallery. Galleries go into your default category, if you have set one; with the default set to always ask, they get no category.
 
 The screen then lists each link as **[OK]** with the gallery's title, or **[ERROR]** with the reason, and ends with how many were added and how many failed. **Finish** clears it for another batch.
 

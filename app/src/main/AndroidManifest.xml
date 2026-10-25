@@ -185,8 +185,8 @@
 
         <!-- RK: import a gallery shared/opened from a browser. Hosts mirror each adult source's
              matchingHosts: E-Hentai/ExHentai/NHentai/NineHentai use /g/, Pururin uses /gallery/, 8Muses
-             uses /comics/, HentaiNexus uses /view/ and /read/, MangaDex uses /title/, /manga/ and
-             /chapter/. -->
+             uses /comics/, HentaiNexus uses /view/ and /read/, Hitomi uses its gallery-type paths
+             and /reader/, MangaDex uses /title/, /manga/ and /chapter/. -->
         <activity
             android:name="exh.ui.intercept.InterceptActivity"
             android:exported="true"
@@ -251,6 +251,27 @@
 
                 <data android:pathPattern="/view/.*" />
                 <data android:pathPattern="/read/.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="hitomi.la" />
+                <data android:host="www.hitomi.la" />
+
+                <data android:pathPattern="/galleries/.*" />
+                <data android:pathPattern="/reader/.*" />
+                <data android:pathPattern="/doujinshi/.*" />
+                <data android:pathPattern="/manga/.*" />
+                <data android:pathPattern="/cg/.*" />
+                <data android:pathPattern="/gamecg/.*" />
+                <data android:pathPattern="/imageset/.*" />
+                <data android:pathPattern="/anime/.*" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

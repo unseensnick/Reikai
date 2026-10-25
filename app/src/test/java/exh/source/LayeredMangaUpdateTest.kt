@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
+import eu.kanade.tachiyomi.source.online.all.Hitomi
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.NHentai
@@ -162,6 +163,7 @@ class LayeredMangaUpdateTest {
             Arguments.of("Koharu", { d: HttpSource -> Koharu(d, mockk(relaxed = true)) }, "{}"),
             Arguments.of("HentaiNexus", { d: HttpSource -> HentaiNexus(d, mockk(relaxed = true)) }, "<html></html>"),
             Arguments.of("NineHentai", { d: HttpSource -> NineHentai(d, mockk(relaxed = true)) }, "<html></html>"),
+            Arguments.of("Hitomi", { d: HttpSource -> Hitomi(d, mockk(relaxed = true)) }, "var galleryinfo = {}"),
         )
 
         // The wrappers whose metadata names no title from an empty page, so the stored one stands.
