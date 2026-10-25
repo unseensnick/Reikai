@@ -130,6 +130,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **A manga or novel source that sends an Origin header no longer crashes its page in WebView (from Mihon).** Upstream: mihon 5f63c983d.
 - **WebView now sends a source's headers only to that source's own site (from Mihon).** Upstream: mihon a01867dc3.
 - **When an adult content source swaps a gallery for another version, its account favorites backup now gets the version that stays in your library.**
+- **Bangla novel plugin sources are now listed with the Bangla manga sources.**
 
 ### Downloads & extensions
 

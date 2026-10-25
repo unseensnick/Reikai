@@ -38,6 +38,7 @@ fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List
 // Multi maps onto Mihon's "all", so a multi-language plugin shares the manga sources' Multi section.
 private val LANGUAGE_CODES = mapOf(
     "العربية" to "ar",
+    "বাংলা" to "bn",
     "中文, 汉语, 漢語" to "zh",
     "English" to "en",
     "Français" to "fr",
