@@ -5,7 +5,8 @@ name: Smoke test
 # crashes only a minified build, which no other job ever launches.
 #
 # Weekly rather than per pull request, because emulator jobs are slow and can hang. GitHub runs a
-# schedule only on the default branch; run it by hand from any branch with the dispatch trigger.
+# schedule only on the default branch, and dispatches a workflow only once its file is there too;
+# after that it can be run by hand against any branch.
 
 on:
   schedule:
