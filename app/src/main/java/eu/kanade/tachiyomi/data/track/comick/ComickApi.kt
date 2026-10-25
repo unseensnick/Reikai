@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.database.models.Track
+import eu.kanade.tachiyomi.data.track.comick.dto.ComickComicDetails
 import eu.kanade.tachiyomi.data.track.comick.dto.ComickLibraryEntry
 import eu.kanade.tachiyomi.data.track.comick.dto.ComickOAuth
 import eu.kanade.tachiyomi.data.track.comick.dto.ComickSearchResult
@@ -216,6 +217,29 @@ class ComickApi(
             }
         }
     }
+
+    // RK --> creators for autofill: public, so the plain client, and a missing page is no creators
+    suspend fun getComicDetails(hid: String): ComickComicDetails? {
+        return withIOContext {
+            val url = "$API_BASE_URL/v1.0/comic/".toUri().buildUpon()
+                .appendPath(hid)
+                .build()
+
+            with(json) {
+                try {
+                    client.newCall(GET(url.toString()))
+                        .awaitSuccess()
+                        .parseAs<ComickComicDetails>()
+                } catch (e: HttpException) {
+                    if (e.code == 404) {
+                        return@with null
+                    }
+                    throw e
+                }
+            }
+        }
+    }
+    // RK <--
 
     suspend fun getCurrentUser(): ComickUser {
         return withIOContext {

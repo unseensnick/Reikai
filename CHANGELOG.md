@@ -98,6 +98,10 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 ### Tracking
 
+#### Changed
+
+- **Fill from tracker now fills in authors and artists from the Comick tracker too.**
+
 #### Fixed
 
 - **RanobeDB's second sign-in button is now called Log in with WebView, since it opens a page inside Reikai rather than your browser.**
