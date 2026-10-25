@@ -194,6 +194,8 @@ class HitomiTest {
             Arguments.of("https://www.hitomi.la/doujinshi/gallery-title-english-$ID.html", galleryUrl("$ID")),
             Arguments.of("https://hitomi.la/reader/$ID.html?page=3", galleryUrl("$ID")),
             Arguments.of("https://hitomi.la/tag/female:big_breasts-all.html", null),
+            // Digits in a non-gallery page's name are not a gallery id.
+            Arguments.of("https://hitomi.la/series/nier-2b-all.html", null),
         )
 
         @JvmStatic
