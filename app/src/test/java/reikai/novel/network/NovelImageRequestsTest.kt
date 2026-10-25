@@ -167,8 +167,24 @@ class NovelImageRequestsTest {
     }
 
     @Test
-    fun `the WebView gets no headers for an LNReader source, without waiting for the extension scan`() = runTest {
-        requests(scanDone = false).webViewHeaders("p") shouldBe emptyMap()
+    fun `an LNReader source's WebView headers come without waiting for the extension scan`() = runTest {
+        (requests(scanDone = false).webViewHeaders("p").keys - "user-agent") shouldBe emptySet()
+    }
+
+    /** A Cloudflare clearance is tied to the agent that earned it, so the WebView must pass as the fetches. */
+    @Test
+    fun `an LNReader source's WebView sends the user agent its fetches send`() {
+        pluginWebViewHeaders("p") { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
+    }
+
+    @Test
+    fun `an app source's WebView takes no plugin user agent`() {
+        pluginWebViewHeaders("tachiyomi:42") { "Device UA" } shouldBe emptyMap()
+    }
+
+    @Test
+    fun `an unknown device user agent sends none rather than an empty one`() {
+        pluginWebViewHeaders("p") { "" } shouldBe emptyMap()
     }
 
     private fun apkWithToken() = novelApp(apkSource(headersOf("X-Token", "secret")))
