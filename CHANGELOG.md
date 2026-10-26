@@ -151,7 +151,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - Added the Vico chart library, which draws the Statistics charts.
 - The Feed tab no longer refetches every row while Browse is out of view; a change made meanwhile lands when you return. Ported from TachiyomiSY.
-- Updated Firebase to 35.0.2, Kotest to 6.2.6, Gradle to 9.8.2, kotlinx.serialization to 1.12.0, AboutLibraries to 15.3.0 and the Markdown renderer to 0.46.0, and took the latest translations (from Mihon).
+- Updated Firebase to 35.1.0, OkHttp to 5.5.1, AndroidX WebKit to 1.18.0, Conscrypt to 2.8.0, Compose to the 2026.10.01 BOM, Kotest to 6.2.6, Gradle to 9.8.2, kotlinx.serialization to 1.12.0, AboutLibraries to 15.3.0 and the Markdown renderer to 0.46.0, and took the latest translations (from Mihon).
 - Moving between the library and a series' details does less on the main thread: each tab's icon is parsed once while the app runs, and a details page maps its chapters off the main thread.
 - The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which makes the page a third of its size.
 
