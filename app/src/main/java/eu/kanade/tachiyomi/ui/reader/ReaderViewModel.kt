@@ -112,7 +112,7 @@ import reikai.domain.reader.duplicatesOfRead
 import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
-import reikai.domain.reader.neighbourChapter
+import reikai.domain.reader.neighbourChapters
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey // RK
@@ -679,11 +679,10 @@ class ReaderViewModel(
         val chapterPos = fullChapterList.indexOfFirst { it.chapter.id == chapter.chapter.id }
         val forwardIds = chapterList.mapTo(HashSet()) { it.chapter.id }
         val eligible = { candidate: ReaderChapter -> candidate.chapter.id in forwardIds }
-        val newChapters = ViewerChapters(
-            chapter,
-            fullChapterList.neighbourChapter(chapterPos, forward = false, eligible),
-            fullChapterList.neighbourChapter(chapterPos, forward = true, eligible),
-        )
+        // RK: a page switch keeps the chapter the strip still shows beside this one, see neighbourChapters
+        val departed = pageSwitch?.let { state.value.viewerChapters?.currChapter }
+        val (previous, next) = fullChapterList.neighbourChapters(chapterPos, departed, eligible)
+        val newChapters = ViewerChapters(chapter, previous, next)
         // RK: the bar shows the group's answer, as the details list does: a bookmark on another
         // source's copy of this chapter counts.
         val bookmarked = isBookmarkedInGroup(chapter.chapter.id)

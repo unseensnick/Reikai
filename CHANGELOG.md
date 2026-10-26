@@ -8,6 +8,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Reader
+
+#### Fixed
+
+- **Long strip with the high quality renderer no longer jumps ahead when you scroll into the next or previous chapter.**
+- **Scrolling back up from a chapter now returns to the one you just read, even when Skip read chapters stepped over a read one between them.** Applies to manga and novels.
+
 ## [0.5.0]
 
 ### Highlights

@@ -60,6 +60,7 @@ import mihon.app.di.appGraph
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
 import reikai.presentation.reader.isCachedPageCurrent
+import reikai.presentation.reader.keepsShownPage
 import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
@@ -1805,14 +1806,12 @@ open class WebGpuViewer(
         // RK --> a chapter the reader jumped to has to beat the page already on screen. Keeping that
         // page unconditionally left the old chapter rendered while the model, the app bar and the
         // page count moved on, so picking a chapter from the list did nothing visible. Scrolling
-        // into the next chapter is not a jump: there the page on screen already belongs to the new
-        // chapter, so it still wins and the reader does not lurch. Upstream has the same defect.
+        // across a boundary is not a jump and keeps the page on screen (keepsShownPage), or the strip
+        // lands on the new chapter's saved page. Upstream has the same defect.
         val shown = when (val current = currentPage) {
             null -> null
-            // Not a page the chapter replaced by loading again: the reload lands on its requested page.
             is ViewerReaderPage -> current.takeIf {
-                it.page.chapter.chapter.id == chapters.currChapter.chapter.id &&
-                    isCachedPageCurrent(it.page, pages.getOrNull(it.page.index))
+                keepsShownPage(it.page, chapters, readerAt = activity.viewModel.state.value.position?.chapterId)
             }
             else -> current.takeIf {
                 it.prevChapter?.chapter?.id == chapters.currChapter.chapter.id ||
@@ -1820,10 +1819,12 @@ open class WebGpuViewer(
             }
         }
         val page = shown ?: getPage(pages[min(chapters.currChapter.requestedPage, pages.lastIndex)])
-        // RK <--
         val anchor = getSpreadAnchor(page)
         currentPage = anchor
-        progressPage(anchor)?.let { activity.onPageSelected(it.page) }
+        // A kept page was reported already. Reported again from a strip, whose top page can still be
+        // in the chapter it just scrolled out of, it switched the reader straight back.
+        if (shown == null) progressPage(anchor)?.let { activity.onPageSelected(it.page) }
+        // RK <--
         preloadPages(anchor)
 
         pager.state.apply {

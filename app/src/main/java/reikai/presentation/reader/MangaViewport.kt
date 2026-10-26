@@ -54,7 +54,7 @@ class MangaViewport(
 
     // A picked chapter resumes where it was left, which is what the arriving chapter's requestedPage
     // says. The pager and the webtoon recycler read that field only on their own first layout, and the
-    // WebGPU viewer only while its anchor page still belongs to the new chapter, so the seek is issued
+    // WebGPU viewer only when the reader did not scroll into the chapter, so the seek is issued
     // from out here rather than by diverging the three viewers.
     override fun onChapterOpened() {
         val chapter = activeChapter() ?: return
