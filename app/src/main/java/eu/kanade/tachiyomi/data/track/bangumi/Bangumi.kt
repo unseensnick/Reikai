@@ -162,5 +162,7 @@ class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
 
         private val SCORE_LIST = IntRange(0, 10)
             .map(Int::toString)
+
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 }

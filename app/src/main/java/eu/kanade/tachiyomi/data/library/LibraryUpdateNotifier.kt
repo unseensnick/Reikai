@@ -112,7 +112,7 @@ class LibraryUpdateNotifier(
     /**
      * Shows the notification containing the currently updating manga and the progress.
      *
-     * Called from several update coroutines at once, so it skips updates that come faster than the system would
+     * RK: called from several update coroutines at once, so it skips updates that come faster than the system would
      * show them anyway.
      *
      * @param manga the manga that are being updated.

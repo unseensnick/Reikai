@@ -49,7 +49,7 @@ class FetchInterval(
 
         return MangaUpdate(manga.id) {
             this.nextUpdate = nextUpdate
-            fetchInterval = interval
+            fetchInterval = interval // RK
         }
     }
 

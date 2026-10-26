@@ -91,6 +91,7 @@ import reikai.domain.reader.isChapterComplete
 import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
+import reikai.domain.reader.neighbourChapters
 import reikai.domain.reader.readerChapterFilters
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
@@ -801,7 +802,7 @@ class NovelReaderViewModel(
         // Read before anything moves, so a failure leaves the session on the chapter it was reading.
         val owner = chapterRepo.getById(target)?.novelId ?: currentNovelId
         val bookmarked = isBookmarkedInGroup(target)
-        val around = neighboursOf(target)
+        val around = neighboursOf(target, departed = currentChapterId)
         // The window re-centres on where the reader now is, which warms the chapter beyond and
         // lets the one two behind go.
         val recentred = buildWindow(arriving, around, openGeneration)
@@ -1285,13 +1286,14 @@ class NovelReaderViewModel(
         novelDownloadCache.downloadedChapterIds(pooled, novels)
     }
 
-    /** Both chapters a step from [chapterId] lands on; a forward one honours the skip settings. */
-    private fun neighboursOf(chapterId: Long): Neighbours {
-        val index = orderedIds.indexOf(chapterId)
-        return Neighbours(
-            previous = orderedIds.neighbourChapter(index, forward = false) { it in forwardEligibleIds },
-            next = orderedIds.neighbourChapter(index, forward = true) { it in forwardEligibleIds },
-        )
+    /**
+     * Both chapters a step from [chapterId] lands on; a forward one honours the skip settings. After a
+     * scroll out of [departed], that chapter stays beside it, see [neighbourChapters].
+     */
+    private fun neighboursOf(chapterId: Long, departed: Long? = null): Neighbours {
+        val (previous, next) =
+            orderedIds.neighbourChapters(orderedIds.indexOf(chapterId), departed) { it in forwardEligibleIds }
+        return Neighbours(previous, next)
     }
 
     /**

@@ -60,6 +60,8 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
                 twentyScale = (2..20).toList(), // 2, 3, ..., 19, 20
             ),
         )
+
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 
     override val supportsReadingDates: Boolean = true

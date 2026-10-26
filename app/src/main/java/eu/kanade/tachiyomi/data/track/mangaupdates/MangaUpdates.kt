@@ -36,6 +36,8 @@ class MangaUpdates(id: Long) : BaseTracker(id, "MangaUpdates"), DeletableTracker
                     }
                 }
             }
+
+        // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 
     private val interceptor by lazy { MangaUpdatesInterceptor(this) }

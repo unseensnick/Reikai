@@ -48,6 +48,7 @@ data object HistoryTab : Tab {
 
     @Composable
     override fun Content() {
+        // RK: the navigator moved to the shared recents screen, see RecentsScreen
         val context = LocalContext.current
         val engine = rememberHistoryEngine()
         // RK: both models stay resolved for their event channels, which report a failed write and a

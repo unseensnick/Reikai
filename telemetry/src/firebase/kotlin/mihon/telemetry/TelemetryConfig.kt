@@ -50,6 +50,7 @@ object TelemetryConfig {
         crashlytics?.isCrashlyticsCollectionEnabled = enabled
     }
 
+    // RK: the app scope's handler reports its uncaught failures here
     fun recordException(throwable: Throwable) {
         crashlytics?.recordException(throwable)
     }

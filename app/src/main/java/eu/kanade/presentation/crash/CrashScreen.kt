@@ -29,6 +29,7 @@ fun CrashScreen(
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    // RK: crashLogUtil is read off the graph at the call, see onAcceptClick
 
     InfoScreen(
         icon = MaterialSymbols.Rounded.BugReport,

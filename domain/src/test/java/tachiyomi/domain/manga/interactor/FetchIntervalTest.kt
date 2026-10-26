@@ -151,6 +151,7 @@ class FetchIntervalTest {
             .toList()
         val chapters = chaptersOn(mondaysAndThursdays)
 
+        // RK: plain dates, see toDates
         ReleaseSchedule.estimate(chapters.toDates(), testTimeZone, LocalDate.parse("2020-01-21")).pattern shouldBe
             ReleasePattern.Weekdays(setOf(DayOfWeek.MONDAY, DayOfWeek.THURSDAY))
         nextUpdate(today = "2020-01-21", chapters) shouldBe LocalDate.parse("2020-01-23")
@@ -182,6 +183,7 @@ class FetchIntervalTest {
             listOf("2019-10-01", "2019-10-15", "2019-11-01", "2019-11-16", "2019-12-01", "2019-12-15", "2020-01-01")
         val chapters = chaptersOn((days + "2020-01-15").map(LocalDate::parse), perDay = 2)
 
+        // RK: plain dates, see toDates
         ReleaseSchedule.estimate(chapters.toDates(), testTimeZone, LocalDate.parse("2020-01-20")).pattern shouldBe
             ReleasePattern.DaysOfMonth(setOf(1, 15))
         nextUpdate(today = "2020-01-20", chapters) shouldBe LocalDate.parse("2020-02-01")
@@ -360,7 +362,7 @@ class FetchIntervalTest {
 
     private fun interval(chapters: List<Chapter>): Int {
         return ReleaseSchedule.estimate(
-            chapters.toDates(),
+            chapters.toDates(), // RK
             testTimeZone,
             Clock.System.now().toLocalDateTime(testTimeZone).date,
         ).interval

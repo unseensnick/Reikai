@@ -278,7 +278,7 @@ class MangaViewModel(
 
     private val subscriberGate = SubscriberGate()
 
-    val snackbarHostState = SnackbarHostState()
+    val snackbarHostState = SnackbarHostState() // RK: moved up, addToLibraryOffer shows on it
     private val addToLibraryOffer = AddToLibraryOffer(snackbarHostState, context) // RK
 
     // RK: a gallery id to open in this screen's place, see observeExhRootRedirect
@@ -1386,6 +1386,7 @@ class MangaViewModel(
 
         viewModelScope.launch {
             // The queueing outlives the screen, the add to library prompt doesn't
+            // RK: awaited, so nothing more happens when nothing was queued
             val queued = appScope.async {
                 // RK: a row whose source is gone fetches an installed source's copy of it, or nothing
                 val copies = state.downloadTargets.of(chapters, { it.id }, ::groupChaptersIn)
@@ -2064,6 +2065,8 @@ class MangaViewModel(
             val processedChapters by lazy {
                 chapters.applyFilters(manga).toList()
             }
+
+            // RK: isAnySelected and its siblings moved to EntryDetailsScreenState (selectionMode, hasStarted)
 
             val chapterListItems by lazy {
                 if (hideMissingChapters) {

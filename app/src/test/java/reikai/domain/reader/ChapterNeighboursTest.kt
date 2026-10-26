@@ -20,6 +20,34 @@ class ChapterNeighboursTest {
     private fun prev(from: Int) = chapters.neighbourChapter(from, forward = false, eligible)
 
     @Test
+    fun `scrolling forward past a skipped chapter keeps the one scrolled out of behind`() {
+        chapters.neighbourChapters(2, departed = "a", eligible) shouldBe ("a" to "e")
+    }
+
+    /** A fling from "a" carried the reader through "c", which is on screen behind "e". */
+    @Test
+    fun `scrolling past a chapter the reader passed through keeps that one behind`() {
+        chapters.neighbourChapters(4, departed = "a", eligible) shouldBe ("c" to null)
+    }
+
+    /** "d" is skipped going forward, yet the reader was in it, as in a read chapter opened on purpose. */
+    @Test
+    fun `scrolling back out of a skipped chapter keeps it ahead`() {
+        chapters.neighbourChapters(2, departed = "d", eligible) shouldBe ("b" to "d")
+    }
+
+    /** Scrolling back walks every chapter, so "b" was on screen though a forward step skips it. */
+    @Test
+    fun `scrolling back through several chapters keeps the next one ahead`() {
+        chapters.neighbourChapters(0, departed = "e", eligible) shouldBe (null to "b")
+    }
+
+    @Test
+    fun `a step or a pick takes the neighbours a step would reach`() {
+        chapters.neighbourChapters(2, departed = null, eligible) shouldBe ("b" to "e")
+    }
+
+    @Test
     fun `going forward skips a chapter the reader is set to skip`() {
         next(from = 0) shouldBe "c"
     }
