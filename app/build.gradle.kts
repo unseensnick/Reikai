@@ -51,10 +51,10 @@ android {
 
         // versionCode also climbs mid-cycle when a preference migration needs it, since a migration is a
         // no-op until the shipped versionCode reaches its gate (see CLAUDE.md). Each migration's own
-        // `version` names its gate. 0.5.0 ships as 204, so the next migration takes 205+. versionName
+        // `version` names its gate. 0.5.1 ships as 205, so the next migration takes 206+. versionName
         // tracks the last shipped release until the next cycle is cut.
-        versionCode = 204
-        versionName = "0.5.0"
+        versionCode = 205
+        versionName = "0.5.1"
         // RK <--
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")

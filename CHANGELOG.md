@@ -8,6 +8,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.5.1]
+
 ### Reader
 
 #### Fixed
