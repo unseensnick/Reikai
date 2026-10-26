@@ -20,7 +20,7 @@ tag, category, tracker and a few more. Time read per day is recorded from this v
 reading still counts toward the total, but not toward any day.
 
 Restoring a backup can install the extensions and plugins it used, from repos you tick on the
-Restore screen. A few changes aimed at slower phones: a novel chapter you opened before loads from
+Restore screen. A few changes aimed at slower phones: a novel chapter you opened recently loads from
 the chapter cache instead of the source, and backups take somewhat less time.
 
 Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
@@ -33,8 +33,8 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Changed
 
-- **Library search and grouping by tag find a merged series by a tag any of its sources gives it, unless you set its tags in Edit info.**
-- **Manga library updates now check the sources with the most series first, so a big update finishes sooner (from Mihon).** Upstream: mihon b8070cdc9.
+- **Library search and Group by tag find a merged series by a tag any of its sources gives it; in search, tags you set in Edit info replace them.**
+- **Manga library updates now check the sources with the most series first, which can make a big update finish sooner (from Mihon).** Upstream: mihon b8070cdc9.
 - **Group by source and Group by language now list a merged series under each of its sources and languages, for manga and novels.** A series can appear in several groups, as it already does under Group by tag.
 
 #### Fixed
@@ -54,25 +54,25 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - **Novels can be read a page at a time, left to right or right to left, in both rendering modes.** Pages turn by tap, swipe or volume key as manga's do, with a page slider, their own tap layout and auto-scroll.
 - **The novel reader can flash the screen after each page turn to clear e-ink ghosting, with settings apart from manga's.**
-- **The manga reader offers the novel reader's Top and bottom, Center, Large center and Bottom tap layouts.** With Center or Bottom, a tap outside the menu zone does nothing.
+- **The manga reader offers the novel reader's Top and bottom, Center, Large center and Bottom tap layouts.** With Center, Large center or Bottom, only a tap in the zone opens the menu.
 - **With the high quality renderer, the reader's Filters tab can load your own WGSL shader files as image or tile filters (from Mihon).** Upstream: mihonapp/mihon#4146.
 - **With the high quality renderer, Controls has a switch to turn off double tap zoom in paged modes (from Mihon).** Upstream: mihonapp/mihon#4146.
 
 #### Changed
 
-- **A novel chapter you have opened before now opens without fetching it from the source again.** It is kept in the chapter cache, the same one manga uses, and Clear chapter cache empties it.
+- **A recently opened novel chapter now opens from the chapter cache instead of fetching it from the source again.** It is kept in the chapter cache, the same one manga uses, and Clear chapter cache empties it.
 - **With the high quality renderer, a failed page or chapter shows a Retry button, a failed page also Open in WebView, and chapter changes look as in the other reading modes (from Mihon).** Upstream: mihonapp/mihon#4146.
 
 #### Fixed
 
 - **A novel chapter with pictures, opened at its start, now shows at once instead of staying blank for up to three seconds (Native text).**
-- **A chapter whose own script stalls its loading no longer locks out taps and the menu (WebView mode).**
+- **A chapter whose own script stalls its loading now frees taps and the menu within six seconds instead of locking them out (WebView mode).**
 - **A chapter opened partway no longer flashes another part of itself before settling on your place (WebView mode).**
 - **The novel reader menu now also shows Open in WebView, Open in browser and Share on a downloaded chapter whose source is installed, as manga's does.**
 - **A chapter that failed to load no longer keeps its Retry box once it loads (Native text).**
 - **A tap below the end of the last chapter now reaches the tap zones and the menu (Native text).**
-- **A footnote link written as the chapter's own address now jumps to the note in that chapter, in both rendering modes.** Native text opened the browser, and WebView mode could jump into another chapter.
-- **A short drag on a novel page no longer counts as a tap (WebView mode).**
+- **A footnote link written as the chapter's own address now jumps to the note in that chapter, in both rendering modes, for chapters not downloaded.** Native text opened the browser, and WebView mode could jump into another chapter.
+- **A drag on a novel page now stops counting as a tap at the same distance as in Native text (WebView mode).**
 - **Two pictures in one paragraph now each show as their own picture (Native text).**
 - **Tapping Retry on a failed picture now dims it while it loads, with text selection on (Native text).**
 
@@ -88,13 +88,13 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Added
 
 - **New charts show your library's publishing status, tracking status and scores, for manga and novels, and tapping a status beside a chart or a bar in Scores lists those series.** The All, Manga and Novels switch applies to every chart.
-- **See your reading streak, when you started each series and, from this version on, how long you read by week, month, year or any dates you pick.** Older reading still counts toward the total.
+- **From this version on, see your reading streak, how long you read by week, month, year or any dates you pick, and when you started each series.** A tracker's start date counts for older series, and older reading still counts toward the total.
 - **A Most read card ranks the series you have spent the longest reading, with See all for the full list.**
 - **Lists break your library down by source, tag, category, tracker, language, series length and when you started reading, and a tap lists the series behind a row.** They look and sort like your library, and you can narrow them to finished, reading or not started.
 
 #### Changed
 
-- **Statistics cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on every card.
+- **Statistics cards sit side by side on a tablet or an unfolded phone, grouped into numbers, charts and lists.** A phone keeps one column, with larger numbers on the Titles, Chapters and Trackers cards.
 
 ### Tracking
 
@@ -127,16 +127,16 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 #### Changed
 
-- **An adult content source's list view now shows each gallery's artist, uploader, language, rating, page count and age beside a taller cover (ported from TachiyomiSY).**
+- **One adult content source's list view now shows each gallery's artist, uploader, language, rating, page count and age beside a taller cover (ported from TachiyomiSY).**
 
 #### Fixed
 
 - **A manga or novel source that sends an Origin header no longer crashes its page in WebView (from Mihon).** Upstream: mihon 5f63c983d.
 - **WebView now sends a source's headers only to that source's own site (from Mihon).** Upstream: mihon a01867dc3.
-- **When an adult content source swaps a gallery for another version, its account favorites backup now gets the version that stays in your library.**
-- **Passing a Cloudflare check in WebView for a novel plugin source now lets that source load, as it already did for manga sources.** WebView now identifies itself to the site the way the source's own requests do.
-- **Bangla novel plugin sources are now listed with the Bangla manga sources.**
 - **Novel plugin sources that send their own cookies, such as an adult-content switch or a reading token, no longer lose them once the site has stored cookies of its own.**
+- **When an adult content source swaps a gallery for another version, its account favorites backup now gets the version that stays in your library.**
+- **Passing a Cloudflare check in WebView for a novel plugin source can now let that source load, as it does for manga sources.** WebView now identifies itself to the site the way the source's own requests do.
+- **Bangla novel plugin sources are now listed with the Bangla manga sources.**
 
 ### Downloads & extensions
 
@@ -148,7 +148,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 
 - **Manga downloads are found again for a source that shares its name with one whose extension is no longer installed (from Mihon).** Upstream: mihon deeb9b258.
 - **An extension update that fails to install now keeps the version you had, for manga and novel extensions (from Mihon).** Upstream: mihon cdc7d69c9.
-- **The Shizuku installer now works with Sui (from Mihon).** Upstream: mihonapp/mihon#3785.
+- **The Shizuku installer now recognises Sui as a Shizuku provider (from Mihon).** Upstream: mihonapp/mihon#3785.
 
 ### Other
 
@@ -156,7 +156,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - The Feed tab no longer refetches every row while Browse is out of view; a change made meanwhile lands when you return. Ported from TachiyomiSY.
 - Updated Firebase to 35.1.0, OkHttp to 5.5.1, AndroidX WebKit to 1.18.0, Conscrypt to 2.8.0, Compose to the 2026.10.01 BOM, Kotest to 6.2.6, Gradle to 9.8.2, kotlinx.serialization to 1.12.0, AboutLibraries to 15.3.0 and the Markdown renderer to 0.46.0, and took the latest translations (from Mihon).
 - Moving between the library and a series' details does less on the main thread: each tab's icon is parsed once while the app runs, and a details page maps its chapters off the main thread.
-- The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which makes the page a third of its size.
+- The novel reader's WebView mode loads the reading font separately instead of inside every chapter page, which made a test chapter's page about a third of its size.
 
 ## [0.4.2]
 
