@@ -35,7 +35,7 @@ Android treats it as a different app, so 0.3.2 and later install next to an olde
 1. In the old app, go to <nav to="data-and-storage"> and tap **Create backup**. Tick **Include sensitive settings** so your tracker logins come along.
 1. Install the new Reikai.
 1. When it asks for a storage location, pick the same folder the old app used, so your downloads are found.
-1. Restore the backup in the new app, from <nav to="data-and-storage">.
+1. Restore the backup in the new app, from <nav to="data-and-storage">. On the Restore screen, tick **Trust this repo** for each repo you recognise, and Reikai reinstalls the extensions and plugins the backup lists from it.
 1. Check your library, then uninstall the old app.
 
 Covers you set from an image on your device are not in a backup, so set those again.

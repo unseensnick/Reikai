@@ -273,7 +273,7 @@ TBA
 
 ## Long strip
 
-**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above.
+**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, every mode uses the **Paged** answers for all of these apart from **Crop borders**, so changing them here has no effect.
 
 ### Side padding <Badge type="info" text="0%" />
 Adds the specified padding to the left and right of the screen. Shown while **Use high quality renderer** in <nav to="advanced"> is off.
@@ -285,7 +285,7 @@ How wide the strip is drawn, as a share of the screen. Shown in place of **Side 
 How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Double tap to zoom <Badge type="info" text="On" />
-Zooms into the image on double tap.
+Zooms into the image on double tap. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Disable zoom out <Badge type="info" text="Off" />
 Stops a pinch from zooming a long strip out smaller than its normal width.
@@ -305,6 +305,12 @@ On the **Appearance** tab, paged modes only. How the page turns: **Basic**, **Pa
 
 ### Display cutout mode <Badge type="info" text="Avoid" />
 On the **Appearance** tab, paged modes only. How the page sits around the camera cutout: **Ignore** draws under it, while **Avoid** and **Shift** keep the page clear of it. While two pages are shown, **Display cutout mode (dual)** <Badge type="info" text="Ignore" /> takes over.
+
+### Disable double tap gestures <Badge type="info" text="Off" />
+On the **Controls** tab, paged modes only, and not while two pages are shown. Turns off double tap zoom.
+
+### Image filters and Tile filters
+On the **Filters** tab. **Add shader** loads a WGSL shader file from your device. Image filters run on the whole page and tile filters on each tile, in list order, and you can drag or delete them.
 
 ## Navigation
 
