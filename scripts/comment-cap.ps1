@@ -33,16 +33,19 @@ try {
     exit 1
 }
 
-$globs = '*.kt', '*.kts', '*.sq', '*.sqm'
+# Filtered here rather than passed to git as wildcards: PowerShell on Linux can expand an unquoted
+# `*.kts` against the working directory first, which dropped every nested build script in CI.
+$extensions = '.kt', '.kts', '.sq', '.sqm'
 if ($Staged) {
-    $paths = @(git -C $RepoRoot diff --cached --name-only --diff-filter=ACMR -- @globs)
+    $listed = @(git -C $RepoRoot diff --cached --name-only --diff-filter=ACMR)
 } else {
-    $paths = @(git -C $RepoRoot ls-files -- @globs)
+    $listed = @(git -C $RepoRoot ls-files)
 }
 if ($LASTEXITCODE -ne 0) {
     Write-Error 'comment-cap: git could not list the files.'
     exit 1
 }
+$paths = @($listed | Where-Object { [IO.Path]::GetExtension($_) -in $extensions })
 
 # Returns "path:line: N lines" for each run past the cap among the lines Counted marks (1-based).
 function Find-LongRuns([string]$path, [string[]]$lines, [bool[]]$counted) {
@@ -94,9 +97,9 @@ foreach ($path in $paths) {
     foreach ($hit in Find-LongRuns $path $lines $counted) { $found.Add($hit) }
 }
 
-# A glob that stops matching, or an ownership read that claims everything for Mihon, reads as clean.
+# A filter that stops matching, or an ownership read that claims everything for Mihon, reads as clean.
 if (-not $Staged -and $owned -lt 300) {
-    Write-Error "comment-cap: only $owned Reikai-owned files in scope. The globs or the Mihon clone are stale."
+    Write-Error "comment-cap: only $owned Reikai-owned files in scope. The extension filter or the Mihon clone is stale."
     exit 1
 }
 if ($found.Count -gt 0) {
