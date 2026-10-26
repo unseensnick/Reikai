@@ -136,6 +136,7 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 - **When an adult content source swaps a gallery for another version, its account favorites backup now gets the version that stays in your library.**
 - **Passing a Cloudflare check in WebView for a novel plugin source now lets that source load, as it already did for manga sources.** WebView now identifies itself to the site the way the source's own requests do.
 - **Bangla novel plugin sources are now listed with the Bangla manga sources.**
+- **Novel plugin sources that send their own cookies, such as an adult-content switch or a reading token, no longer lose them once the site has stored cookies of its own.**
 
 ### Downloads & extensions
 

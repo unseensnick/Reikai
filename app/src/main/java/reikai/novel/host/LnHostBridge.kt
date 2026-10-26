@@ -9,6 +9,9 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import logcat.LogPriority
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -73,7 +76,11 @@ class LnHostBridge(
                         ?.let { builder.header("X-XSRF-TOKEN", URLDecoder.decode(it.value, "UTF-8")) }
                 }
             }
-            val res = client.newCall(builder.build()).execute()
+            val pluginCookie = opts.headers?.entries?.firstOrNull { it.key.equals("Cookie", ignoreCase = true) }?.value
+            val callClient =
+                pluginCookie?.let { client.newBuilder().cookieJar(WithPluginCookies(client.cookieJar, it)).build() }
+                    ?: client
+            val res = callClient.newCall(builder.build()).execute()
             // A browser's fetch resolves on an error status too, so the plugin gets the page as it is.
             httpFailure(res.code)?.let(onFailure)
             // Final URL after redirects. lnreader's Response shim exposes this as `response.url`;
@@ -185,4 +192,25 @@ class LnHostBridge(
             encodeDefaults = true
         }
     }
+}
+
+/**
+ * The jar's cookies plus the ones a plugin set in its own Cookie header, the plugin's winning by name.
+ * OkHttp replaces a request's Cookie header with the jar's whenever the jar holds any for the url, so
+ * without this a plugin's age gate or read token never reached a site that had set a cookie itself.
+ */
+private class WithPluginCookies(private val jar: CookieJar, header: String) : CookieJar {
+    private val pairs = header.split(';').mapNotNull { part ->
+        part.trim().takeIf { '=' in it }?.let { it.substringBefore('=').trim() to it.substringAfter('=').trim() }
+    }
+
+    override fun loadForRequest(url: HttpUrl): List<Cookie> {
+        val own = pairs.mapNotNull { (name, value) ->
+            runCatching { Cookie.Builder().name(name).value(value).domain(url.host).build() }.getOrNull()
+        }
+        val names = own.mapTo(HashSet()) { it.name }
+        return jar.loadForRequest(url).filterNot { it.name in names } + own
+    }
+
+    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = jar.saveFromResponse(url, cookies)
 }

@@ -1,14 +1,21 @@
 package reikai.novel.host
 
+import com.sun.net.httpserver.HttpServer
 import eu.kanade.tachiyomi.network.HttpException
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.mockk
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
+import java.net.InetAddress
+import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * Plugins hand the host a JSON `FetchInit`. When strict decoding fails (a field has a shape the
@@ -72,6 +79,44 @@ class LnHostBridgeTest {
         answering(200).runFetch("https://example.org/browse", "{}") { failure = it }
 
         failure shouldBe null
+    }
+
+    // OkHttp replaces a request's Cookie header with the jar's whenever the jar holds any, so a cookie
+    // a plugin sets itself (an age gate, a read token) never reached a site that had set one of its own.
+    @Test
+    fun `a cookie the plugin sets reaches the site beside the ones it stored`() {
+        cookieSeen("""{"headers":{"Cookie":"fr_read=token"}}""") shouldBe "session=stored; fr_read=token"
+    }
+
+    @Test
+    fun `a cookie the plugin sets wins over a stored one of the same name`() {
+        cookieSeen("""{"headers":{"Cookie":"session=mine"}}""") shouldBe "session=mine"
+    }
+
+    // The Cookie header a local server receives for one fetch, with the jar holding `session=stored`.
+    private fun cookieSeen(optsJson: String): String? {
+        val seen = AtomicReference<String?>()
+        val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
+            createContext("/") { exchange ->
+                seen.set(exchange.requestHeaders.getFirst("Cookie"))
+                exchange.sendResponseHeaders(200, -1)
+                exchange.close()
+            }
+            start()
+        }
+        try {
+            val stored = object : CookieJar {
+                override fun loadForRequest(url: HttpUrl) =
+                    listOf(Cookie.Builder().name("session").value("stored").domain(url.host).build())
+
+                override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = Unit
+            }
+            LnHostBridge(mockk(relaxed = true), OkHttpClient.Builder().cookieJar(stored).build()) { "agent" }
+                .runFetch("http://127.0.0.1:${server.address.port}/chapter", optsJson) {}
+        } finally {
+            server.stop(0)
+        }
+        return seen.get()
     }
 
     // Answers every request with [code] itself, so no request reaches the network.
