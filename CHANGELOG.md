@@ -8,6 +8,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+## [0.5.0]
+
 ### Highlights
 
 Novels can be read a page at a time in both rendering modes, turning by tap, swipe or volume key as
