@@ -448,6 +448,7 @@ class Downloader(
                         NotificationHandler.openUrl(context, LibraryUpdateNotifier.HELP_WARNING_URL),
                     )
                 }
+                // RK: no early return, the start rule below decides
             }
         }
         // RK: (re)start whenever the downloader isn't already running, not only on an empty queue,
@@ -851,6 +852,8 @@ class Downloader(
         val chapterIds = chapters.map { it.id }
         removeFromQueueIf { it.chapter.id in chapterIds }
     }
+
+    // RK: removeFromQueue(manga) is DownloadManager.removeQueuedManga now
 
     private fun internalClearQueue() {
         _queueState.update {

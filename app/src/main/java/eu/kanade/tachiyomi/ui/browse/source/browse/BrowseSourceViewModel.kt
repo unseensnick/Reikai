@@ -69,7 +69,7 @@ open class BrowseSourceViewModel(
     @Assisted private val sourceId: Long,
     @Assisted listingQuery: String?,
     @AppCoroutineScope private val appScope: CoroutineScope,
-    sourceManager: SourceManager,
+    sourceManager: SourceManager, // RK: only init reads it
     sourcePreferences: SourcePreferences,
     private val libraryPreferences: LibraryPreferences,
     private val getRemoteManga: GetRemoteManga,

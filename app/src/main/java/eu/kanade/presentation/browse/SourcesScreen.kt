@@ -96,3 +96,5 @@ fun SourcePinButton( // RK: public, the novel source row draws it too
         )
     }
 }
+
+// RK: SourceOptionsDialog moved to EntrySourceOptionsDialog, SourceUiModel to SourcesListItem

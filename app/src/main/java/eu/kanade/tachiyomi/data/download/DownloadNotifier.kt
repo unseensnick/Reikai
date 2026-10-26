@@ -215,6 +215,7 @@ class DownloadNotifier(
     /**
      * Resets the state once downloads are completed.
      */
+    // RK: no @Synchronized, onProgressChange guards with progressLock instead
     fun onComplete() {
         dismissProgress()
 

@@ -21,6 +21,7 @@ class OnboardingScreen : Screen() {
 
     @Composable
     override fun Content() {
+        // RK: context is read below, after the navigator
         val navigator = LocalNavigator.currentOrThrow
 
         // RK: placed by Reikai's own graph conversion; upstream's order is equivalent

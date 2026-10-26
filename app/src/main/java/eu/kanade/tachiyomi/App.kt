@@ -105,17 +105,21 @@ class App :
         createGraphFactory<AppGraph.Factory>().create(context = this, isDebugBuild = isDebugBuildType)
     }
 
+    // RK: preferenceStore and migrations are read off the graph in initializeMigrator
+
     @Inject private lateinit var privacyPreferences: PrivacyPreferences
 
     @Inject private lateinit var networkPreferences: NetworkPreferences
 
     @Inject private lateinit var uiPreferences: UiPreferences
 
+    // RK: the image loader's dependencies are read off the graph in newImageLoader
+
     @Inject private lateinit var widgetManager: WidgetManager
 
     @Inject private lateinit var unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // RK
 
-    @Inject private lateinit var basePreferences: BasePreferences
+    @Inject private lateinit var basePreferences: BasePreferences // RK: below the widget managers
 
     @Inject @AppCoroutineScope
     private lateinit var scope: CoroutineScope
@@ -164,6 +168,7 @@ class App :
         // The first use of Dispatchers.Main finds its factory with a ServiceLoader, which reads the APK
         thread(name = "MainDispatcherPreload") { Dispatchers.Main }
 
+        // RK: the Injekt registrar is assigned below the crash handler
         TelemetryConfig.init(applicationContext)
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
@@ -262,6 +267,7 @@ class App :
             .onEach(TelemetryConfig::setCrashlyticsEnabled)
             .launchIn(scope)
 
+        // RK: the theme mode is set above, before the main-process gate
         // Updates widget update
         widgetManager.init(scope)
         // RK: unified manga + novel updates widget (own driver: WidgetManager can't see novel flows)

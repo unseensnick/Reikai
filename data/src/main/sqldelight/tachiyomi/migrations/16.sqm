@@ -1,3 +1,4 @@
+-- RK: Reikai's own migration; Mihon's 16.sqm is unrelated, see upstream-sync.md
 -- Light-novel Updates feed: the novelUpdatesView for already-installed DBs. Matches the definition
 -- in view/novelUpdatesView.sq (which only covers fresh installs via Schema.create()).
 CREATE VIEW novelUpdatesView AS

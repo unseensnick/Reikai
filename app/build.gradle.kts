@@ -242,6 +242,7 @@ dependencies {
     baselineProfile(projects.baselineProfile)
 
     implementation(projects.i18n)
+    // RK: the icon modules moved to the Compose group below
     implementation(projects.core.archive)
     implementation(projects.core.common)
     implementation(projects.core.metro)

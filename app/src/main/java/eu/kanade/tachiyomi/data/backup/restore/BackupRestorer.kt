@@ -473,6 +473,7 @@ class BackupRestorer(
             .forEach { stubSourceRepository.upsertStubSource(it.sourceId, lang = "", name = it.name) }
     }
 
+    // RK: takes the novel categories and the sort settings too
     private fun CoroutineScope.restoreCategories(
         backupCategories: List<BackupCategory>,
         // RK -->

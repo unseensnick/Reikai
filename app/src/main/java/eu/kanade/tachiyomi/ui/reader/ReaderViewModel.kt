@@ -1279,11 +1279,11 @@ class ReaderViewModel(
     }
     // RK <--
 
+    private var readingModeJob: Job? = null
+
     /**
      * Updates the viewer position for the open manga.
      */
-    private var readingModeJob: Job? = null
-
     fun setMangaReadingMode(readingMode: ReadingMode) {
         val manga = manga ?: return
         // Only the latest pick matters, and letting an older one finish last would restore its choice
@@ -1320,11 +1320,11 @@ class ReaderViewModel(
         }
     }
 
+    private var orientationJob: Job? = null
+
     /**
      * Updates the orientation type for the open manga.
      */
-    private var orientationJob: Job? = null
-
     fun setMangaOrientationType(orientation: ReaderOrientation) {
         val manga = manga ?: return
         // Only the latest pick matters, and letting an older one finish last would restore its choice
@@ -1776,3 +1776,5 @@ class ReaderViewModel(
         data class CopyImage(val uri: Uri) : Event
     }
 }
+
+// RK: PROGRESS_SAVE_DELAY moved to ReaderProgressSave, which holds both readers' position saves

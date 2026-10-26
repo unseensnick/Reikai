@@ -118,6 +118,7 @@ fun ChapterNavigator(
         disabledContainerColor = backgroundColor,
     )
 
+    // RK: onPageChange became onSeekFraction, above
     if (type.isHorizontal()) {
         HorizontalChapterNavigator(
             isRtl = type == ChapterNavigatorType.HORIZONTAL_RTL,

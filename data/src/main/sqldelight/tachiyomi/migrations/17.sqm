@@ -1,2 +1,3 @@
+-- RK: Reikai's own migration; Mihon's 17.sqm is unrelated, see upstream-sync.md
 ALTER TABLE mangas ADD COLUMN memo BLOB NOT NULL DEFAULT '{}';
 ALTER TABLE chapters ADD COLUMN memo BLOB NOT NULL DEFAULT '{}';

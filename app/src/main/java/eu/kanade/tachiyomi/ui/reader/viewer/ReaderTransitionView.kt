@@ -56,7 +56,7 @@ class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedC
                     ChapterTransition(
                         transition = it.transition,
                         currChapterDownloaded = it.currChapterDownloaded,
-                        goingToChapterDownloaded = it.goingToChapterDownloaded,
+                        goingToChapterDownloaded = it.goingToChapterDownloaded, // RK
                     )
                 }
             }
@@ -67,5 +67,6 @@ class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedC
         val transition: ChapterTransition,
         val currChapterDownloaded: Boolean,
         val goingToChapterDownloaded: Boolean,
+        // RK: isGoingToChapterOnDisk went; callers pass ReaderViewModel.isChapterDownloaded
     )
 }

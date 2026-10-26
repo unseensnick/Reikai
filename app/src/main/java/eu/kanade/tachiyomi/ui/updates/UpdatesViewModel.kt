@@ -99,6 +99,7 @@ class UpdatesViewModel(
         states.filterKeys { it in queuedChapterIds }
     }
 
+    // RK: typed; init and updateDownloadState sit below it, hasActiveFilters is RecentsEngine.filterActive
     private val updateItems: StateFlow<List<UpdatesItem>?> = combine(
         // needed for SQL filters (unread, started, bookmarked, etc)
         // RK: the category selection is a query parameter, so it rides the same flow the
@@ -286,6 +287,7 @@ class UpdatesViewModel(
         val filterStarted: TriState,
         val filterBookmarked: TriState,
         val filterExcludedScanlators: Boolean,
+        // RK: the category filters moved to recentsCategoryFilterFlow
     )
 
     // RK: the state is down to the feed itself. Selection, the dialogs, the active-filter flag and the
@@ -311,4 +313,5 @@ data class UpdatesItem(
     val update: UpdatesWithRelations,
     val downloadStateProvider: () -> Download.State,
     val downloadProgressProvider: () -> Int,
+    // RK: selected moved to RecentsEngine.selection
 )
