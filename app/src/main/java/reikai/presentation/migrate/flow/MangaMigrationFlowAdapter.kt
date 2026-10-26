@@ -127,15 +127,14 @@ class MangaMigrationFlowAdapter(
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
         val sourceId = sourceKey.toLongOrNull() ?: return flowOf(emptyList())
         return getFavorites.subscribe(sourceId).map { list ->
-            list.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title })
-                .map { manga ->
-                    MigrationFavorite(
-                        id = EntryId.Manga(manga.id),
-                        title = manga.title,
-                        cover = manga.asMangaCover(),
-                        payload = MigrationPayload.OfManga(manga),
-                    )
-                }
+            list.map { manga ->
+                MigrationFavorite(
+                    id = EntryId.Manga(manga.id),
+                    title = manga.title,
+                    cover = manga.asMangaCover(),
+                    payload = MigrationPayload.OfManga(manga),
+                )
+            }
         }
     }
 

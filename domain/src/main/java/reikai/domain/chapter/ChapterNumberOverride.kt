@@ -13,6 +13,9 @@ data class ChapterNumberOverride(val url: String, val number: Double, val source
 interface ChapterNumberOverrideRepository {
     suspend fun getByOwner(type: ContentType, ownerId: Long): Map<String, ChapterNumberOverride>
 
+    /** [getByOwner] for each of [ownerIds]; an owner with no correction is absent. */
+    suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, Map<String, ChapterNumberOverride>>
+
     /** Corrects the chapter at [url] to [number], keeping the source's own the first time. */
     suspend fun set(type: ContentType, ownerId: Long, url: String, number: Double)
 

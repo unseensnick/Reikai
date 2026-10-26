@@ -1,15 +1,11 @@
 package reikai.presentation.details
 
-import androidx.lifecycle.viewModelScope
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.entry.EntryId
@@ -64,14 +60,7 @@ class NovelEntryAdapter(
     private val coverViewModelFactory: NovelCoverViewModel.Factory,
 ) : EntryDetailsBehavior {
 
-    override val state: StateFlow<EntryDetailsScreenState> =
-        model.state
-            .map { it.toNeutral() }
-            // Seed with the current mapped value so a screen collecting this renders without a
-            // Loading frame. WhileSubscribed, not Eagerly: the adapter is rebuilt per composition
-            // entry while its sharing coroutine lives in the model's scope, so an eager start left
-            // one orphaned mapper running per re-entry (rotation, reader round-trips).
-            .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), model.state.value.toNeutral())
+    override val state: StateFlow<EntryDetailsScreenState> = model.neutralDetailsState(model.state) { it.toNeutral() }
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override val downloadProgress = EntryDownloadProgress.Unsupported
@@ -98,6 +87,7 @@ class NovelEntryAdapter(
                 ),
                 favorite = novel.favorite,
                 trackingCount = trackingCount,
+                hasLoggedInTrackers = hasLoggedInTrackers,
                 nextUpdate = intervalNovel.expectedNextUpdate(),
                 isUserIntervalMode = intervalNovel.fetchInterval < 0,
                 description = display.description,
@@ -254,6 +244,9 @@ class NovelEntryAdapter(
     }
     override fun resetInfo() {
         model.resetNovelInfo()
+    }
+    override fun showTrackDialog() {
+        model.showTrackDialog()
     }
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()
 

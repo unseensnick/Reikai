@@ -1,3 +1,5 @@
+import mihon.gradle.extensions.composeUiTests
+
 plugins {
     alias(mihonx.plugins.android.library)
     alias(mihonx.plugins.compose)
@@ -41,4 +43,8 @@ dependencies {
 
     implementation(libs.androidx.paging.runtime)
     implementation(libs.androidx.paging.compose)
+
+    testRuntimeOnly(libs.junit.platform.launcher) // RK
 }
+
+composeUiTests() // RK

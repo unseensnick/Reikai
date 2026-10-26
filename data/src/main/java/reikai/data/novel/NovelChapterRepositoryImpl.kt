@@ -27,6 +27,9 @@ class NovelChapterRepositoryImpl(
     override suspend fun getByNovelId(novelId: Long): List<NovelChapter> =
         database.novel_chaptersQueries.getByNovelId(novelId, ::mapNovelChapter).awaitAsList()
 
+    override suspend fun getByNovelIds(novelIds: List<Long>): Map<Long, List<NovelChapter>> =
+        database.novel_chaptersQueries.getByNovelIds(novelIds, ::mapNovelChapter).awaitAsList().groupBy { it.novelId }
+
     override fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>> =
         database.novel_chaptersQueries.getByNovelId(novelId, ::mapNovelChapter).subscribeToList()
             .distinctUntilChanged()

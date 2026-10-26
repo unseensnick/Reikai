@@ -25,9 +25,11 @@ import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.AddStep
+import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.browse.addEntry
 import reikai.presentation.browse.addEntryOrPrompt
+import reikai.presentation.browse.batchCategories
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.browse.decideAdd
 import reikai.presentation.browse.duplicatePrompt
@@ -211,6 +213,21 @@ class NovelLibraryAdder(
      *  open, so favorite is applied as a follow-up. */
     suspend fun favoriteReturningId(item: NovelItem, sourceId: String): Long? =
         materialize(item, sourceId)?.let { favoriteStored(it) }
+
+    /**
+     * One browsed entry of a bulk add filed under the batch's [categoryIds], or under its group's when it
+     * comes back to one. Twin of `MangaLibraryAdder.addToBatch`, which carries the why, pinned by
+     * `GroupCategoriesConformanceTest`'s bulk rows.
+     */
+    suspend fun addToBatch(item: NovelItem, sourceId: String, categoryIds: List<Long>): AddOutcome = finishAdd(
+        categoryIds = categoryIds,
+        favorite = { favoriteReturningId(item, sourceId) },
+        fileCategories = { id, ids -> fileAdded(id, ids) },
+    )
+
+    /** Where a bulk add files its batch, decided once by the shared [batchCategories] rule. Reads only. */
+    suspend fun resolveBatchCategories(): BatchCategories =
+        batchCategories(userCategories(), novelPreferences.defaultNovelCategory().get())
 
     /** [favoriteForAdd]'s rule over a row just read, which every favorite of a stored row here shares. A
      *  row rejoining its group takes the group's chapter settings. */

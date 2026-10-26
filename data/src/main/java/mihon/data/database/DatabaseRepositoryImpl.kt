@@ -6,10 +6,9 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.withContext
 import mihon.domain.database.repository.DatabaseRepository
+import tachiyomi.core.common.util.lang.withIOContext
 
 @Inject
 @SingleIn(AppScope::class)
@@ -22,7 +21,8 @@ class DatabaseRepositoryImpl(
     override val isMigrating = MutableStateFlow(false)
 
     override suspend fun awaitOpen() {
-        withContext(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        withIOContext {
             driver.value.executeQuery(null, "SELECT 1", { QueryResult.Value(Unit) }, 0).await()
         }
     }

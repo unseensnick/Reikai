@@ -25,6 +25,19 @@ class ChapterNumberOverrideRepositoryImpl(
             else -> queries.getMangaOverrides(ownerId, ::ChapterNumberOverride)
         }.awaitAsList().associateBy { it.url }
 
+    override suspend fun getByOwners(
+        type: ContentType,
+        ownerIds: List<Long>,
+    ): Map<Long, Map<String, ChapterNumberOverride>> {
+        val mapper = { ownerId: Long, url: String, number: Double, sourceNumber: Double ->
+            ownerId to ChapterNumberOverride(url, number, sourceNumber)
+        }
+        return when (type) {
+            ContentType.NOVELS -> queries.getNovelOverridesOf(ownerIds, mapper)
+            else -> queries.getMangaOverridesOf(ownerIds, mapper)
+        }.awaitAsList().groupBy({ it.first }, { it.second }).mapValues { (_, it) -> it.associateBy { it.url } }
+    }
+
     override suspend fun set(type: ContentType, ownerId: Long, url: String, number: Double) {
         database.transaction {
             when (type) {

@@ -2,9 +2,8 @@ package eu.kanade.tachiyomi.data.export
 
 import android.content.Context
 import android.net.Uri
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import reikai.domain.library.LibraryExportRow
+import tachiyomi.core.common.util.lang.withIOContext
 
 object LibraryExporter {
 
@@ -22,7 +21,8 @@ object LibraryExporter {
         options: ExportOptions,
         onExportComplete: () -> Unit,
     ) {
-        withContext(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        withIOContext {
             context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                 val csvData = generateCsvData(favorites, options)
                 outputStream.write(csvData.toByteArray())

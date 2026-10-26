@@ -286,10 +286,7 @@ class GroupCategoriesConformanceTest {
                 // Manga's stored-row add is the browse add: both resolve through resolveAddFavorite's rule.
                 AddPath.BROWSE, AddPath.STORED -> adder.resolveAddFavorite(mangas.getMangaById(id))
                 AddPath.UNASKED -> adder.addWithoutAsking(id)
-                AddPath.BULK -> {
-                    adder.favoriteFromBrowse(id)
-                    adder.fileAdded(id, listOf(Y))
-                }
+                AddPath.BULK -> adder.addToBatch(id, listOf(Y))
             }
         }
 
@@ -352,11 +349,17 @@ class GroupCategoriesConformanceTest {
                     "src$id",
                 )
                 AddPath.STORED -> adder.addStoredToLibrary(id)
-                // Novels have no add that skips the picker outright; the bulk add is the unasked one.
-                AddPath.UNASKED, AddPath.BULK -> {
+                // Novels have no add that skips the picker outright, so this is the bulk add's filing
+                // over the stored row.
+                AddPath.UNASKED -> {
                     adder.favoriteForAdd(id)
                     adder.fileAdded(id, listOf(Y))
                 }
+                AddPath.BULK -> adder.addToBatch(
+                    NovelItem(name = "Novel", path = "/novel/$id", cover = null),
+                    "src$id",
+                    listOf(Y),
+                )
             }
         }
 

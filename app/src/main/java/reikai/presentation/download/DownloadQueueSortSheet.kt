@@ -15,9 +15,16 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SortItem
 import tachiyomi.presentation.core.i18n.stringResource
+import kotlin.time.Instant
 
 /** The key a download-queue sort orders by. */
 enum class DownloadQueueSortKey { UPLOAD_DATE, CHAPTER_NUMBER }
+
+/** What [this] orders a queued chapter by within its series, for both types; an undated chapter has none. */
+fun DownloadQueueSortKey.sortValue(dateUpload: Instant?, chapterNumber: Double): Double? = when (this) {
+    DownloadQueueSortKey.UPLOAD_DATE -> dateUpload?.toEpochMilliseconds()?.toDouble()
+    DownloadQueueSortKey.CHAPTER_NUMBER -> chapterNumber
+}
 
 /** A sort the user applied to the download queue. */
 data class DownloadQueueSort(val key: DownloadQueueSortKey, val descending: Boolean)

@@ -15,9 +15,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CoroutineStart
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -26,6 +24,7 @@ import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
@@ -90,6 +89,7 @@ class NovelTextViewportWindowTest {
                 context = activity,
                 fontManager = activity.appGraph.novelFontManager,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -103,8 +103,11 @@ class NovelTextViewportWindowTest {
                     onChapterFits = { id, fit -> fits[id] = fit },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             activity.setContentView(viewport.view)
         }
@@ -241,7 +244,7 @@ class NovelTextViewportWindowTest {
         scrollToTop("current 60.")
         val line = checkNotNull(topLine)
         val drawn = drawnTopsOf("current 60.") {
-            runBlocking(Dispatchers.Main) {
+            onMain {
                 viewport.load(chapter(LONG, long("current")).copy(topLine = line), readerTestSettings)
             }
             awaitRendered(LONG)
@@ -258,7 +261,7 @@ class NovelTextViewportWindowTest {
         PngServer(pngOf(SLOW_PICTURE_PX, SLOW_PICTURE_PX)).use { server ->
             val html = "<p><img src=\"${server.url("slow", delayMs = SLOW_PICTURE_MS)}\"></p>" + long("current")
             val drawn = drawnTopsOf("current 60.") {
-                runBlocking(Dispatchers.Main) {
+                onMain {
                     viewport.load(chapter(LONG, html).copy(topLine = line), readerTestSettings)
                 }
                 Thread.sleep(SLOW_PICTURE_MS + PICTURE_SETTLE_MS)
@@ -341,7 +344,7 @@ class NovelTextViewportWindowTest {
     @Test
     fun aChapterStillRenderingWhenTheColourChangesTakesTheNewColour() {
         open(SHORT, "<p>short</p>")
-        runBlocking(Dispatchers.Main) {
+        onMain {
             val arriving = launch(start = CoroutineStart.UNDISPATCHED) {
                 viewport.append(chapter(NEXT, long("next")))
             }
@@ -454,7 +457,7 @@ class NovelTextViewportWindowTest {
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,
@@ -468,19 +471,19 @@ class NovelTextViewportWindowTest {
         settings: NovelReaderSettings = readerTestSettings,
         isLast: Boolean = false,
     ) {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             viewport.load(chapter(id, html, isLast), settings)
         }
         awaitRendered(id)
     }
 
     private fun append(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.append(chapter(id, html)) }
+        onMain { viewport.append(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 
     private fun prepend(id: Long, html: String) {
-        runBlocking(Dispatchers.Main) { viewport.prepend(chapter(id, html)) }
+        onMain { viewport.prepend(chapter(id, html)) }
         awaitRendered(id, required = false)
     }
 

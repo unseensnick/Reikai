@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import reikai.util.runCatchingCancellable
 
 class MangaHandler(
     private val lang: String,
@@ -23,7 +24,7 @@ class MangaHandler(
             val response = async(Dispatchers.IO) { service.viewManga(mangaId) }
             val simpleChapters = async(Dispatchers.IO) { getSimpleChapters(manga) }
             val statistics = async(Dispatchers.IO) {
-                runCatching { service.mangasRating(mangaId) }.getOrNull()?.statistics?.get(mangaId)
+                runCatchingCancellable { service.mangasRating(mangaId) }.getOrNull()?.statistics?.get(mangaId)
             }
             Triple(response.await(), simpleChapters.await(), statistics.await())
         }

@@ -10,10 +10,6 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).
 
-### Backup & restore
-
-- **Build backup entries in batches** `[M]` - read chapters, categories, tracks and history for a hundred series per query instead of one series at a time, for manga and novels in the shared `backupEntries` driver, as Mihon `771ba33a3` does for manga. Cuts the queries a large backup makes. [Doc](docs/dev/subsystems/data-and-backup.md).
-
 ## Parked and not building
 
 Not forward work, so it lives in [docs/dev/parked.md](docs/dev/parked.md): what each item is, why it

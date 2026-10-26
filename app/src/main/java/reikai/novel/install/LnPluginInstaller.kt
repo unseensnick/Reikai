@@ -7,7 +7,6 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
@@ -16,7 +15,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
@@ -27,12 +25,14 @@ import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
 import reikai.novel.registry.pluginRepos
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 
@@ -334,7 +334,7 @@ class LnPluginInstaller(
         if (entries.isEmpty()) return current
         val updated = current.toMutableMap()
         needs.forEach { pluginUrl ->
-            val match = entries.firstOrNull { canonicalizePluginUrl(it.url) == pluginUrl }
+            val match = entries.byPluginUrl(pluginUrl)
                 ?: return@forEach
             // The version stays whatever was recorded: the repo's is not necessarily the one installed.
             updated[pluginUrl] = (current[pluginUrl] ?: LnInstalledPluginMetadata(pluginId = match.id))
@@ -388,7 +388,7 @@ class LnPluginInstaller(
      * Fetch + parse an lnreader plugin registry's JSON index. Caller decides what to do with the
      * entries (typically: present a list and call [installFromUrl] for each chosen entry's `url`).
      */
-    override suspend fun fetchRepo(repoJsonUrl: String): List<LnRegistryEntry> = withContext(Dispatchers.IO) {
+    override suspend fun fetchRepo(repoJsonUrl: String): List<LnRegistryEntry> = withIOContext {
         networkHelper.client.newCall(GET(repoJsonUrl)).awaitSuccess().use { res ->
             LnRegistry.parse(res.body.string())
         }

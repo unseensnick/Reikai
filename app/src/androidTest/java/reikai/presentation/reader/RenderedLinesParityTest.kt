@@ -6,10 +6,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.junit.After
@@ -18,8 +16,10 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
 import reikai.presentation.reader.text.ChapterTextBlock
@@ -86,7 +86,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
             renderer = NovelTextRenderer(activity, scope) { _, _ -> }
             activity.setContentView(block.container)
         }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html = html,
@@ -117,6 +117,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -130,17 +131,20 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                     onChapterFits = { _, _ -> rendered.countDown() },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             activity.setContentView(viewport.view)
         }
         try {
-            runBlocking(Dispatchers.Main) { viewport.load(chapter(html), readerTestSettings) }
+            onMain { viewport.load(chapter(html), readerTestSettings) }
             rendered.await(TIMEOUT_S, TimeUnit.SECONDS)
-            val quoted = eval(viewport.view, "document.querySelector('.rk-chapter[data-rk-chapter-id]').innerText")
+            val quoted = eval(viewport.webView, "document.querySelector('.rk-chapter[data-rk-chapter-id]').innerText")
             return lines(JSONArray("[$quoted]").getString(0))
         } finally {
             instrumentation.runOnMainSync { viewport.destroy() }
@@ -158,7 +162,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         url = CHAPTER_URL,
         html = html,
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = 1.0,
         novelId = 1L,
         sourceId = null,
@@ -166,11 +170,11 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
         isLast = false,
     )
 
-    private fun eval(view: View, js: String): String {
+    private fun eval(webView: WebView, js: String): String {
         val done = CountDownLatch(1)
         var result = "null"
         instrumentation.runOnMainSync {
-            (view as WebView).evaluateJavascript(js) { value ->
+            webView.evaluateJavascript(js) { value ->
                 result = value ?: "null"
                 done.countDown()
             }

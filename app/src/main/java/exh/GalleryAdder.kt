@@ -12,6 +12,7 @@ import logcat.LogPriority
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -82,7 +83,7 @@ class GalleryAdder(
             val cleanedChapterUrl = realChapterUrl?.let { runCatching { source.cleanChapterUrl(it) }.getOrNull() }
             val chapterMangaUrl = realChapterUrl?.let { source.mapChapterUrlToMangaUrl(it.toUri()) }
 
-            val realMangaUrl = (chapterMangaUrl ?: runCatching { source.mapUrlToMangaUrl(uri) }.getOrNull())
+            val realMangaUrl = (chapterMangaUrl ?: runCatchingCancellable { source.mapUrlToMangaUrl(uri) }.getOrNull())
                 ?: return GalleryAddEvent.Fail.UnknownType(url, context)
             val cleanedMangaUrl = runCatching { source.cleanMangaUrl(realMangaUrl) }.getOrNull()
                 ?: return GalleryAddEvent.Fail.UnknownType(url, context)

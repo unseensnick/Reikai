@@ -2,6 +2,7 @@
 package eu.kanade.presentation.more.settings.screen.about
 
 import android.content.Context
+import android.text.format.DateFormat
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -27,6 +28,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.LogoHeader
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.SearchableSettings
+import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.data.updater.RELEASE_URL
 import eu.kanade.tachiyomi.ui.more.NewUpdateScreen
@@ -56,6 +58,7 @@ import tachiyomi.presentation.core.components.LinkIcon
 import tachiyomi.presentation.core.i18n.stringResource
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.get
+import java.util.Locale
 import kotlin.time.Instant
 
 /**
@@ -78,6 +81,7 @@ object AboutScreen : SearchableSettings {
         val uriHandler = LocalUriHandler.current
         val navigator = LocalNavigator.currentOrThrow
         val crashLogUtil = remember { context.appGraph.crashLogUtil }
+        val is24HourSystem = rememberIs24HourSystem()
         var isCheckingUpdates by remember { mutableStateOf(false) }
 
         return listOfNotNull(
@@ -86,7 +90,9 @@ object AboutScreen : SearchableSettings {
             },
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.version),
-                subtitle = getVersionName(withBuildDate = true),
+                // Keyed on the system 12/24h setting, which can change while the app is backgrounded.
+                // Date/time prefs only change in Appearance, which recreates this screen on return.
+                subtitle = remember(is24HourSystem) { getVersionName(withBuildDate = true) },
                 onClick = { context.copyToClipboard("Debug information", crashLogUtil.getDebugInfo()) },
             ),
             Preference.PreferenceItem.TextPreference(
@@ -232,12 +238,17 @@ object AboutScreen : SearchableSettings {
 
     internal fun getFormattedBuildTime(): String {
         return try {
+            // Not a composable, so Injekt survives here only as a Context locator.
+            val context = Injekt.get<Context>()
+            val uiPreferences = context.appGraph.uiPreferences
             Instant.parse(BuildConfig.BUILD_TIME)
                 .toLocalDateTime(TimeZone.currentSystemDefault())
                 .toDateTimestampString(
-                    UiPreferences.dateFormat(
-                        // Not a composable, so Injekt survives here only as a Context locator.
-                        Injekt.get<Context>().appGraph.uiPreferences.dateFormat.get(),
+                    UiPreferences.dateTimeFormat(
+                        uiPreferences.dateFormat.get(),
+                        uiPreferences.timeFormat.get(),
+                        Locale.getDefault(),
+                        DateFormat.is24HourFormat(context),
                     ),
                 )
         } catch (_: Exception) {

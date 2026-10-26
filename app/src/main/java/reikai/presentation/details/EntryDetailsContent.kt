@@ -62,11 +62,14 @@ data class EntryDetailsNavigation(
     /** Header title / author / artist tap: a global search, scoped to this entry's type. */
     val onGlobalSearch: (query: String) -> Unit,
     val onTagSearch: (String) -> Unit,
-    val onTracking: () -> Unit,
+    /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. */
+    val onOpenTrackingSettings: () -> Unit,
     val onEditNotes: () -> Unit,
     val onOpenFilterSettings: () -> Unit,
+    /** Library entries only: the body drops it for an entry outside the library ([forState]). */
     val onMigrate: (() -> Unit)? = null,
-    /** Smart update's interval editor; null hides the button's action, as for an entry not in the library. */
+    /** Smart update's interval editor; the body drops it outside the library ([forState]), and null
+     *  leaves the button doing nothing. */
     val onEditInterval: (() -> Unit)? = null,
     /** Opens the novel page/volume selector sheet; novel-only. */
     val onOpenPageSelector: (() -> Unit)? = null,
@@ -111,6 +114,7 @@ fun EntryDetailsContent(
     nav: EntryDetailsNavigation,
 ) {
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
+    val libraryNav = nav.forState(state)
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -118,7 +122,7 @@ fun EntryDetailsContent(
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
-            nav,
+            libraryNav,
             web,
         )
     } else {
@@ -128,11 +132,24 @@ fun EntryDetailsContent(
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
-            nav,
+            libraryNav,
             web,
         )
     }
 }
+
+/** [this] with the actions that only act on a library entry dropped while [state]'s entry is outside it. */
+internal fun EntryDetailsNavigation.forState(state: EntryDetailsScreenState.Loaded) = copy(
+    onMigrate = onMigrate?.takeIf { state.details.favorite },
+    onEditInterval = onEditInterval?.takeIf { state.details.favorite },
+)
+
+/** The Tracking button: the track sheet once a tracker is logged in, else tracker settings to log in to one. */
+internal fun trackingTap(
+    state: EntryDetailsScreenState.Loaded,
+    behavior: EntryDetailsBehavior,
+    nav: EntryDetailsNavigation,
+): () -> Unit = if (state.details.hasLoggedInTrackers) behavior::showTrackDialog else nav.onOpenTrackingSettings
 
 @Composable
 private fun EntryDetailsSmallContent(
@@ -328,7 +345,7 @@ private fun LazyListScope.entryInfoBlock(
         librarySearch = nav.onLibrarySearch,
         onBrowseSource = nav.onBrowseSource,
         onAddToLibraryClicked = onAddToLibrary,
-        onTrackingClicked = nav.onTracking,
+        onTrackingClicked = trackingTap(state, behavior, nav),
         onEditCategory = { behavior.showChangeCategoryDialog() }.takeIf { state.details.favorite },
         onEditIntervalClicked = nav.onEditInterval,
         onWebViewClicked = web.openWebView,

@@ -78,7 +78,7 @@ class MangaBulkAddProbe : BulkAddProbe {
         )
         val listed = library.put(1L, listedFavorite)
         library.put(1L, storedFavorite, storedCategories(storedFavorite))
-        val model = BulkFavoriteViewModel(library.adder, library.libraryPreferences)
+        val model = BulkFavoriteViewModel(library.adder)
 
         model.select(listed)
         model.addFavorite()
@@ -98,7 +98,7 @@ class NovelBulkAddProbe : BulkAddProbe {
         )
         // A browsed novel carries no library state of its own, so what the list drew has nowhere to live.
         library.put(1L, "/a", storedFavorite, storedCategories(storedFavorite))
-        val model = NovelBulkFavoriteViewModel(library.adder, library.novelPreferences)
+        val model = NovelBulkFavoriteViewModel(library.adder)
 
         model.toggleSelection(FakeNovelLibrary.SOURCE_ID, NovelItem(name = "a", path = "/a", cover = null))
         model.addFavorite()

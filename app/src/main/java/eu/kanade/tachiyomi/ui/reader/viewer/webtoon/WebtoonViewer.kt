@@ -21,6 +21,7 @@ import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
 import reikai.presentation.reader.holdsStripAutoScroll
+import reikai.presentation.reader.navigation.actionAt
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.max
 import kotlin.math.min
@@ -119,7 +120,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                 (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
                 (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
             )
-            when (config.navigator.getAction(pos)) {
+            when (config.navigator.actionAt(pos)) { // RK: a zone-only layout leaves the rest to the page
+                null -> Unit // RK
                 NavigationRegion.MENU -> activity.toggleMenu()
                 NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
                 NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()

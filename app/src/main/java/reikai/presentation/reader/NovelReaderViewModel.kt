@@ -28,11 +28,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -46,6 +48,7 @@ import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
+import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.ChapterGap
 import reikai.domain.merge.ChapterUnit
@@ -75,6 +78,7 @@ import reikai.domain.novel.model.effectiveHideChapterTitles
 import reikai.domain.novel.model.readerOrientation
 import reikai.domain.novel.ownersOf
 import reikai.domain.novel.track.TrackNovelChapter
+import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ChapterRetryCooldown
@@ -88,6 +92,7 @@ import reikai.domain.reader.isForwardEligible
 import reikai.domain.reader.navigableChapters
 import reikai.domain.reader.neighbourChapter
 import reikai.domain.reader.readerChapterFilters
+import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.source.SourceKey
 import reikai.domain.source.isInstalled
 import reikai.domain.track.TrackedChapterNumber
@@ -98,6 +103,7 @@ import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterStylesheet
+import reikai.novel.source.NovelChapterTextCache
 import reikai.novel.source.NovelChapterTextLoader
 import reikai.novel.source.NovelPageFetcher
 import reikai.novel.source.NovelSourceManager
@@ -110,6 +116,7 @@ import reikai.presentation.reader.text.NovelLeaveRule
 import reikai.presentation.reader.text.NovelOpenLanding
 import reikai.presentation.reader.text.NovelResume
 import reikai.presentation.reader.text.NovelWindowReach
+import reikai.util.runCatchingCancellable
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -141,6 +148,7 @@ class NovelReaderViewModel(
     private val novelPreferences: NovelPreferences,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
+    private val readingLog: ReadingLogRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
     // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
     // read (parity with the manga reader).
@@ -151,6 +159,7 @@ class NovelReaderViewModel(
     private val getIncognitoState: GetIncognitoState,
     private val setNovelViewerFlags: SetNovelViewerFlags,
     private val novelDownloadCache: NovelDownloadCache,
+    private val chapterTextCache: NovelChapterTextCache,
     private val deleteChaptersBehindReader: DeleteNovelChaptersBehindReader,
     private val basePreferences: BasePreferences,
     private val context: Context,
@@ -194,6 +203,7 @@ class NovelReaderViewModel(
         sourceManager = sourceManager,
         installer = installer,
         preferences = novelPreferences,
+        textCache = chapterTextCache,
         readDownloaded = { novel, chapter -> downloadManager.getChapterText(novel, chapter) },
     )
 
@@ -211,6 +221,10 @@ class NovelReaderViewModel(
     /** When the current chapter began being read, for the novel-history session duration, on the clock
      *  the manga reader shares. Restarted whenever a different chapter loads. */
     private val chapterReadSession = ReadSessionClock()
+
+    /** Whether the reader is on screen: between a pause and a resume only read aloud is reading. */
+    @Volatile
+    private var onScreen = true
 
     /**
      * The chapter this session opens on: the one being read when the process was killed, or the one
@@ -294,7 +308,7 @@ class NovelReaderViewModel(
 
     /** Positions not written yet, the latest per chapter, so writes that run out of order store the
      *  newest rather than whichever ran last. */
-    private val unwritten = ConcurrentHashMap<Long, Int>()
+    private val unwritten = ConcurrentHashMap<Long, ChapterProgress.Percent>()
     private val writeLock = Mutex()
 
     /** Per-novel reader orientation override (a [ReaderOrientation] flagValue; 0 = follow the global
@@ -340,9 +354,9 @@ class NovelReaderViewModel(
         val url: String,
         val html: String,
         val baseUrl: String?,
-        val progressPercent: Int,
+        val progress: ChapterProgress.Percent,
         /** The line the reader had at the top, as characters into the chapter (`shownCharPrefix`), which a
-         *  renderer lands on in place of [progressPercent]; null where there is no line to hold. */
+         *  renderer lands on in place of [progress]; null where there is no line to hold. */
         val topLine: Int? = null,
         /** What the marker between two chapters reads (`NovelSeam`): the number its missing-chapters
          *  count is taken from, and whether this chapter's own copy is on disk. */
@@ -411,6 +425,8 @@ class NovelReaderViewModel(
          *  the renderer can say so at the edge instead of simply ending. */
         val failedPrevious: BoundaryFailure? = null,
         val failedNext: BoundaryFailure? = null,
+        /** The chapter before is on its way into the window: warming, or waiting on the reach below. */
+        val previousJoining: Boolean = false,
     )
 
     /**
@@ -425,11 +441,11 @@ class NovelReaderViewModel(
     private var openGeneration = 0
 
     /**
-     * How far down the open chapter the reader is, as a whole percent. Reported on every scroll frame,
-     * which is what the navigator follows.
+     * How far down the open chapter the reader is, to the hundredth the store keeps. Reported on every
+     * scroll frame, which is what the navigator follows.
      */
-    val progressPercent: StateFlow<Int>
-        field = MutableStateFlow(0)
+    val progress: StateFlow<ChapterProgress.Percent>
+        field = MutableStateFlow(ChapterProgress.Percent(0))
 
     /** The line at the top of the screen, with the chapter it is in, as the renderer last reported it. */
     @Volatile
@@ -460,7 +476,7 @@ class NovelReaderViewModel(
     /** The position reported last, so a crossing shows the arriving chapter's own rather than the
      *  departed one's until the next report. */
     @Volatile
-    private var latestReport: Pair<Long, Int>? = null
+    private var latestReport: Pair<Long, ChapterProgress.Percent>? = null
 
     /**
      * The anchor of [window], at where the reader is now. An Activity rebuilt mid-chapter renders the
@@ -473,7 +489,7 @@ class NovelReaderViewModel(
         val anchor = window.chapters.first { it.chapterId == window.anchorId }
         if (anchor.chapterId != currentChapterId) return anchor
         val line = latestTopLine?.takeIf { it.first == anchor.chapterId }?.second
-        return anchor.copy(progressPercent = progressPercent.value, topLine = line)
+        return anchor.copy(progress = progress.value, topLine = line)
     }
 
     /** The renderer has started over on [generation]'s anchor, so what it reports is the reader's again. */
@@ -489,38 +505,39 @@ class NovelReaderViewModel(
     private fun reportsCount() = rendererGeneration == openGeneration
 
     /** Held per chapter, so a step never lets a held write land on the chapter that replaced it. */
-    private val progressSave = ReaderProgressSave<Long, Int>(viewModelScope, ::persistProgress)
+    private val progressSave = ReaderProgressSave<Long, ChapterProgress.Percent>(viewModelScope, ::persistProgress)
 
     /** Per chapter, since the first report of an arriving chapter is no repeat of the departed one's. */
     @Volatile
-    private var lastSaved: Pair<Long, Int>? = null
+    private var lastSaved: Pair<Long, ChapterProgress.Percent>? = null
 
     /**
      * Every scroll persists, debounced. Keying the write on a settle instead lost an auto-scrolled or
      * scrubbed read entirely, because those move the viewport without a touch to end.
      */
-    fun reportProgress(id: Long, percent: Int) = takeReport(id, percent, settled = false)
+    fun reportProgress(id: Long, progress: ChapterProgress.Percent) = takeReport(id, progress, settled = false)
 
     /** A renderer that knows its own scroll has settled, which the web layer reports on scrollend. */
-    fun saveProgress(id: Long, percent: Int) = takeReport(id, percent, settled = true)
+    fun saveProgress(id: Long, progress: ChapterProgress.Percent) = takeReport(id, progress, settled = true)
 
-    private fun takeReport(id: Long, percent: Int, settled: Boolean) {
+    private fun takeReport(id: Long, reported: ChapterProgress.Percent, settled: Boolean) {
         if (!reportsCount()) return
         // A report for a chapter the window no longer holds is a straggler from a crossing, and
         // writing it would move a position the reader has already left behind.
         if (window.value.chapters.none { it.chapterId == id }) return
-        val clamped = percent.coerceIn(0, 100)
+        val clamped = ChapterProgress.Percent(reported.hundredths.coerceIn(0L, ChapterProgress.Percent.FULL))
         val wasLanding = !landing.settled
-        if (!landing.counts(id, clamped)) return
+        // In whole percents, so a landing still settling by a fraction of one is not the reader moving.
+        if (!landing.counts(id, clamped.wholePercent.toInt())) return
         // The reader moved, so the chapter the renderer named while the landing held it now stands.
         if (wasLanding && landing.settled) requestCrossing()
         latestReport = id to clamped
         if (id == currentChapterId) {
-            val before = progressPercent.value
-            progressPercent.value = clamped
+            val before = progress.value.wholePercent
+            progress.value = clamped
             // Reaching the threshold is what lets the next chapter join below, so the window follows at once.
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
-            if (before < threshold && clamped >= threshold) viewModelScope.launchIO { rebuildWindow() }
+            if (before < threshold && clamped.wholePercent >= threshold) viewModelScope.launchIO { rebuildWindow() }
         }
         // A repeat is dropped, which a held position for another chapter cannot be: it would have
         // been the last report, so this one would differ from it.
@@ -645,7 +662,7 @@ class NovelReaderViewModel(
             withContext(io) {
                 if (!NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) return@withContext
                 if (chapterRepo.getById(chapterId)?.read != false) return@withContext
-                writeProgress(chapterId, 100)
+                writeProgress(chapterId, ChapterProgress.Percent.END)
             }
         }
     }
@@ -669,6 +686,7 @@ class NovelReaderViewModel(
     )
 
     init {
+        readAloudOffScreen()
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
@@ -761,7 +779,7 @@ class NovelReaderViewModel(
      */
     private fun requestCrossing() {
         progressWrites.launch {
-            withContext(io) { lane.withLock { cross() }.forEach { writeProgress(it, 100) } }
+            withContext(io) { lane.withLock { cross() }.forEach { writeProgress(it, ChapterProgress.Percent.END) } }
         }
     }
 
@@ -793,11 +811,11 @@ class NovelReaderViewModel(
         updateHistory()
         currentChapterId = target
         currentNovelId = owner
-        chapterReadSession.start(Clock.System.now())
+        startReadSession()
         this.bookmarked.value = bookmarked
         chapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
-        progressPercent.value = latestReport?.takeIf { it.first == target }?.second ?: arriving.progressPercent
+        progress.value = latestReport?.takeIf { it.first == target }?.second ?: arriving.progress
         settleNeighbours(around)
         window.value = recentred
         return passed
@@ -819,7 +837,7 @@ class NovelReaderViewModel(
                 // One that fit on the screen was read in full, whatever the skip setting says: it has
                 // no scroll room, so this step is the only point it can be called finished.
                 if (currentChapterId in fitsOnScreen) {
-                    persistProgress(currentChapterId, 100)
+                    persistProgress(currentChapterId, ChapterProgress.Percent.END)
                     null
                 } else {
                     currentChapterId
@@ -872,7 +890,7 @@ class NovelReaderViewModel(
                 if (requested != pendingChapterId) return@launchIO
                 logcat(LogPriority.ERROR, e) { "Failed to load novel chapter $target" }
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
-                if (chapter.value != null && !chapterReadSession.isRunning) restartReadTimer()
+                if (chapter.value != null) startReadSession(resume = true)
                 loadState.value = ReaderLoadState.Failed(
                     e.message,
                     canKeepReading = chapter.value != null,
@@ -899,13 +917,13 @@ class NovelReaderViewModel(
         // A reload of the chapter already open, after a chapter-text setting changed, keeps its timer
         // and its place: restarting either lost what the reader had done since it opened.
         val reloading = row.id == currentChapterId && chapter.value != null
-        if (!reloading || !chapterReadSession.isRunning) chapterReadSession.start(Clock.System.now())
+        startReadSession(resume = reloading)
         currentChapterId = row.id
         currentNovelId = row.novelId
         this.bookmarked.value = bookmarked
         chapter.value = opened
         if (!reloading) {
-            progressPercent.value = opened.progressPercent
+            progress.value = opened.progress
             latestTopLine = null
         }
         openGeneration = window.generation
@@ -922,7 +940,7 @@ class NovelReaderViewModel(
             url = url,
             html = html,
             baseUrl = baseUrl,
-            progressPercent = NovelResume.percent(
+            progress = NovelResume.progress(
                 read,
                 lastTextProgress,
                 novelPreferences.readerPreserveReadingPosition().get(),
@@ -940,36 +958,35 @@ class NovelReaderViewModel(
     }
 
     /**
-     * Persist the reader's scroll position for [id]. The renderers report a whole percent (0..100);
-     * store it as 0..10000 to match [NovelChapter.lastTextProgress]. Reaching the end auto-marks read.
+     * Persist the reader's scroll position for [id], in the hundredths both the renderers report and
+     * [NovelChapter.lastTextProgress] stores. Reaching the end auto-marks read.
      * Outlives the session, as manga's progress writes do: leaving the reader is exactly when the last
      * position and a finish just reached arrive.
      */
-    private fun persistProgress(id: Long, clamped: Int) {
+    private fun persistProgress(id: Long, clamped: ChapterProgress.Percent) {
         unwritten[id] = clamped
         progressWrites.launch { withContext(io) { writeUnwritten(id, clamped) } }
     }
 
     /** [persistProgress] on the caller's own coroutine, for one already outliving the session: a
      *  launch into a scope that has ended never starts. */
-    private suspend fun writeProgress(id: Long, clamped: Int) {
+    private suspend fun writeProgress(id: Long, clamped: ChapterProgress.Percent) {
         unwritten[id] = clamped
         writeUnwritten(id, clamped)
     }
 
-    /** The shared completion rule, asked in the whole percent this reader reports in, at the threshold
-     *  the reader chose. */
-    private fun completesChapter(percent: Int): Boolean =
-        ChapterProgress.Percent.ofWhole(percent).isChapterComplete(novelPreferences.readerMarkReadPercent().get())
+    /** The shared completion rule, at the threshold the reader chose. */
+    private fun completesChapter(progress: ChapterProgress.Percent): Boolean =
+        progress.isChapterComplete(novelPreferences.readerMarkReadPercent().get())
 
-    private suspend fun writeUnwritten(id: Long, clamped: Int) {
+    private suspend fun writeUnwritten(id: Long, clamped: ChapterProgress.Percent) {
         val chapter = writeLock.withLock {
             val position = unwritten.remove(id)
             // By the chapter's own owner, which in a window crossing a merged novel's seam may not be the
             // current chapter's.
             val owner = chapterRepo.getById(id)?.novelId
             if (owner == null || incognito.of(owner)) return@withLock null
-            position?.let { chapterRepo.setLastTextProgress(id, ChapterProgress.Percent.ofWhole(it).hundredths) }
+            position?.let { chapterRepo.setLastTextProgress(id, it.hundredths) }
             // Fetched before marking, so the shared interactor still sees it unread.
             chapterRepo.getById(id)
         } ?: return
@@ -987,10 +1004,32 @@ class NovelReaderViewModel(
         }
     }
 
-    /** [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. */
+    /**
+     * [updateHistory] on the app scope, so a reader closing still writes it, as manga's saveHistory. Read aloud playing
+     * on is reading the reader still does, so its session starts again at once and is saved when the speech stops
+     * ([readAloudOffScreen]) or the reader comes back.
+     */
     fun saveHistory() {
+        onScreen = false
         // Immediate so the read time is taken when the reader pauses
-        appScope.launch(Dispatchers.Main.immediate) { updateHistory() }
+        appScope.launch(Dispatchers.Main.immediate) {
+            updateHistory()
+            if (readAloud.state.value.playback == TtsPlayback.Playing) chapterReadSession.resume(Clock.System.now())
+        }
+    }
+
+    /** Off screen, speech starting counts as reading and speech stopping ends the session, so listening with the
+     *  screen off counts for exactly as long as it plays. */
+    private fun readAloudOffScreen() {
+        readAloud.state
+            .map { it.playback == TtsPlayback.Playing }
+            .distinctUntilChanged()
+            .drop(1)
+            .onEach { playing ->
+                if (onScreen) return@onEach
+                if (playing) chapterReadSession.resume(Clock.System.now()) else updateHistory()
+            }
+            .launchIn(viewModelScope)
     }
 
     /** Stamp the current chapter into novel history and accumulate this session's read time. Called on
@@ -1002,12 +1041,25 @@ class NovelReaderViewModel(
         val now = Clock.System.now()
         val duration = chapterReadSession.take(now)
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
+        readingLog.record(ContentType.NOVELS, id, now, duration)
     }
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
-     *  [updateHistory] and stopped the clock. */
+     *  [updateHistory] and stopped the clock, unless read aloud kept it running. */
     fun restartReadTimer() {
-        chapterReadSession.start(Clock.System.now())
+        onScreen = true
+        chapterReadSession.resume(Clock.System.now())
+    }
+
+    /**
+     * Starts the read clock, or [resume]s it, only while something is reading, by the rule [saveHistory] and
+     * [readAloudOffScreen] apply. A chapter landing while the reader is away (a page saved in the in-app
+     * browser, a slow open) otherwise starts it, and [restartReadTimer]'s resume then keeps that start.
+     */
+    private fun startReadSession(resume: Boolean = false) {
+        if (!onScreen && readAloud.state.value.playback != TtsPlayback.Playing) return
+        val now = Clock.System.now()
+        if (resume) chapterReadSession.resume(now) else chapterReadSession.start(now)
     }
 
     /** Called through [ReaderProvider.onActivityFinish] on leaving the reader, which is when the
@@ -1099,13 +1151,15 @@ class NovelReaderViewModel(
         chapterRepo.getById(chapterId)?.let { webUrl(it.novelId, it.url) }
 
     /**
-     * [chapter]'s page on the source site, or null for one read from disk whose source this session
-     * never resolved, which is the case the web actions have to hide rather than open empty.
+     * [chapter]'s page on the source site, or null when its source cannot be resolved (not installed),
+     * which is the case the web actions have to hide rather than open empty. A chapter read from disk
+     * resolves its source here, since its open never needed one.
      */
     suspend fun webUrlFor(chapter: LoadedChapter): String? = webUrl(chapter.novelId, chapter.url)
 
     private suspend fun webUrl(novelId: Long, chapterUrl: String): String? =
-        textLoader.cachedSource(novelId)?.webUrl(chapterUrl, isNovel = false)
+        runCatchingCancellable { textLoader.resolveSource(novelId) }.getOrNull()
+            ?.webUrl(chapterUrl, isNovel = false)
 
     /** Start, cancel or delete a chapter download from the sheet. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
@@ -1311,7 +1365,8 @@ class NovelReaderViewModel(
         val published = window.value.takeIf { it.generation == generation }?.chapters.orEmpty()
         val forward = NovelWindowReach.joinable(
             reach = forwardReach(around.next),
-            progress = if (current.chapterId == currentChapterId) progressPercent.value else current.progressPercent,
+            progress = (if (current.chapterId == currentChapterId) progress.value else current.progress)
+                .wholePercent.toInt(),
             threshold = novelPreferences.readerAutoLoadNextAt().get(),
             fits = current.chapterId in fitsOnScreen,
             alreadyHeld = { id -> published.any { it.chapterId == id } },
@@ -1338,6 +1393,8 @@ class NovelReaderViewModel(
             failedPrevious = boundaryFailure(previous, chapters),
             // The first chapter of the reach still missing is the edge the reader will run into.
             failedNext = boundaryFailure(forward.firstOrNull { id -> chapters.none { it.chapterId == id } }, chapters),
+            previousJoining = around.previous?.let { id -> chapters.none { it.chapterId == id } && id !in warmFailures }
+                ?: false,
         )
     }
 

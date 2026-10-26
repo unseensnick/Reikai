@@ -13,8 +13,9 @@ import reikai.domain.db.Transactions
 
 /**
  * One content type's half of writing its series into a backup. The driver owns which series are backed
- * up and which optional parts each carries; the type owns what a part holds, since manga and novels are
- * separate messages in a frozen wire format and cannot share fields. Each part writes onto [B] itself.
+ * up, which optional parts each carries and how many are read at once; the type owns what a part holds,
+ * since manga and novels are separate messages in a frozen wire format and cannot share fields. Each part
+ * answers a whole chunk and writes onto each [B] itself.
  */
 interface BackupEntryParts<E, B> {
     suspend fun favorites(): List<E>
@@ -25,44 +26,60 @@ interface BackupEntryParts<E, B> {
     /** Series outside the library that are still members of a merge group, whatever their progress. */
     suspend fun groupMembersOutsideLibrary(): List<E>
 
-    /** The series' own fields, plus any part the type writes whatever the options say. */
-    suspend fun base(entry: E): B
+    /** Each series' own fields, in [entries]' order, plus any part the type writes whatever the options say. */
+    suspend fun base(entries: List<E>): List<B>
 
-    suspend fun chapters(entry: E, backup: B)
+    suspend fun chapters(batch: List<Pair<E, B>>)
 
-    suspend fun categories(entry: E, backup: B)
+    suspend fun categories(batch: List<Pair<E, B>>)
 
-    suspend fun tracking(entry: E, backup: B)
+    suspend fun tracking(batch: List<Pair<E, B>>)
 
-    suspend fun history(entry: E, backup: B)
+    suspend fun history(batch: List<Pair<E, B>>)
 
-    suspend fun customInfo(entry: E, backup: B)
+    suspend fun customInfo(batch: List<Pair<E, B>>)
 }
 
 /**
- * Every series these options back up. The series lists are read whole, but each series' backup, with
- * its chapters and history, is built and emitted one at a time. Merge group members outside the
- * library always come along: their groups are written whatever the options say, and a restore
- * resolves a member only against a row it restored.
+ * How many series a chunk reads with each query, as Mihon's manga creator takes them. Only one chunk's
+ * chapters are held at once, and its ids stay far inside SQLite's limit on bound values.
+ */
+const val BACKUP_CHUNK = 100
+
+/**
+ * Every series these options back up. The series lists are read whole, but the backups, with their
+ * chapters and history, are built [BACKUP_CHUNK] series at a time and emitted in order. Merge group
+ * members outside the library always come along: their groups are written whatever the options say,
+ * and a restore resolves a member only against a row it restored.
  */
 fun <E, B> BackupOptions.backupEntries(parts: BackupEntryParts<E, B>): Flow<B> = flow {
     val readOnly = if (readEntries) parts.readNotInLibrary() else emptyList()
     val outsideLibrary = (readOnly + parts.groupMembersOutsideLibrary()).distinct()
-    for (entry in parts.favorites() + outsideLibrary) {
-        emit(backupEntry(entry, parts))
+    for (chunk in (parts.favorites() + outsideLibrary).chunked(BACKUP_CHUNK)) {
+        backupChunk(chunk, parts).forEach { emit(it) }
         yield()
     }
 }
 
-suspend fun <E, B> BackupOptions.backupEntry(entry: E, parts: BackupEntryParts<E, B>): B {
-    val backup = parts.base(entry)
-    if (chapters) parts.chapters(entry, backup)
-    if (categories) parts.categories(entry, backup)
-    if (tracking) parts.tracking(entry, backup)
-    if (history) parts.history(entry, backup)
-    if (customInfo) parts.customInfo(entry, backup)
-    return backup
+suspend fun <E, B> BackupOptions.backupChunk(entries: List<E>, parts: BackupEntryParts<E, B>): List<B> {
+    val batch = entries.zip(parts.base(entries))
+    if (chapters) parts.chapters(batch)
+    if (categories) parts.categories(batch)
+    if (tracking) parts.tracking(batch)
+    if (history) parts.history(batch)
+    if (customInfo) parts.customInfo(batch)
+    return batch.map { it.second }
 }
+
+/**
+ * Hands each series in a chunk its rows from one chunk-wide read keyed by [id]. A series with no rows is
+ * not written, so its field keeps the message's empty default.
+ */
+inline fun <E, B, T> List<Pair<E, B>>.writeRows(
+    rows: Map<Long, List<T>>,
+    id: (E) -> Long,
+    write: (entry: E, backup: B, rows: List<T>) -> Unit,
+) = forEach { (entry, backup) -> rows[id(entry)]?.takeIf { it.isNotEmpty() }?.let { write(entry, backup, it) } }
 
 /**
  * A backup's merge groups as lists of member refs. [ref] returns null for a member whose row has gone,

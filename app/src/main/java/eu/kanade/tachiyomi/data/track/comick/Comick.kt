@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import reikai.data.track.TrackerEntryMissingException
+import reikai.util.runCatchingCancellable
 import tachiyomi.i18n.MR
 import uy.kohesive.injekt.injectLazy
 import kotlin.time.Clock
@@ -91,12 +92,17 @@ class Comick(id: Long) : BaseTracker(id, "Comick"), DeletableTracker {
 
     // RK --> autofill entry metadata (Fill from tracker) from the title lookup the id: search uses
     override suspend fun getMangaMetadata(track: DomainTrack): TrackMangaMetadata {
-        val item = api.getMangaDetails(track.remoteId.toHid()) ?: throw TrackerEntryMissingException(name)
+        val hid = track.remoteId.toHid()
+        val item = api.getMangaDetails(hid) ?: throw TrackerEntryMissingException(name)
+        // The creators come from a second, public page; losing it keeps the rest of the fill.
+        val creators = runCatchingCancellable { api.getComicDetails(hid) }.getOrNull()
         return TrackMangaMetadata(
             remoteId = track.remoteId,
             title = item.title,
             thumbnailUrl = item.cover_url.ifBlank { null },
             description = item.summary.ifBlank { null },
+            authors = creators?.authorNames(),
+            artists = creators?.artistNames(),
         )
     }
     // RK <--

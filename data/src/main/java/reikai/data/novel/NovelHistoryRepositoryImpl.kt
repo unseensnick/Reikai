@@ -62,6 +62,8 @@ class NovelHistoryRepositoryImpl(
     override suspend fun deleteAllNovelHistory(): Boolean =
         try {
             database.novel_historyQueries.removeAll()
+            // The reading log goes with the time it adds up to, as for manga.
+            database.reading_sessionQueries.removeAllNovel()
             true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to clear novel history" }
@@ -81,10 +83,10 @@ class NovelHistoryRepositoryImpl(
             NovelHistory(chapterId, readAt, readDuration)
         }.awaitAsList()
 
-    override suspend fun getUrlKeyedHistoryByNovelId(novelId: Long): List<RestoredChapterHistory> =
-        database.novel_historyQueries.getUrlKeyedHistoryByNovelId(novelId) { url, readAt, readDuration ->
-            RestoredChapterHistory(url, readAt, readDuration)
-        }.awaitAsList()
+    override suspend fun getUrlKeyedHistoryByNovelIds(novelIds: List<Long>): Map<Long, List<RestoredChapterHistory>> =
+        database.novel_historyQueries.getUrlKeyedHistoryByNovelIds(novelIds) { novelId, url, readAt, readDuration ->
+            novelId to RestoredChapterHistory(url, readAt, readDuration)
+        }.awaitAsList().groupBy({ it.first }, { it.second })
 
     override suspend fun restoreHistory(chapterId: Long, readAt: Instant?, readDuration: Long) {
         database.novel_historyQueries.restoreUpsert(chapterId, readAt, readDuration)

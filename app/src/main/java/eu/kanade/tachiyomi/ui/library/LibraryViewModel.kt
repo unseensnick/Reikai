@@ -14,13 +14,8 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
 import eu.kanade.presentation.library.components.LibraryToolbarTitle
 import eu.kanade.presentation.manga.DownloadAction
-import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.track.TrackerManager
-import eu.kanade.tachiyomi.source.getNameForMangaInfo
-import eu.kanade.tachiyomi.source.online.MetadataSource
-import eu.kanade.tachiyomi.util.chapter.getNextUnread
-import exh.source.getMainSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -37,7 +32,6 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
-import kotlinx.coroutines.withContext
 import mihon.core.common.utils.mutate
 import mihon.core.metro.AppCoroutineScope
 import mihon.domain.library.model.search.QueryNode
@@ -58,20 +52,17 @@ import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergeScope
-import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.merge.stitchInputChanges
 import reikai.domain.source.isInstalled
 import reikai.presentation.library.GallerySearchIndex
 import reikai.presentation.library.LibraryFilterPrefs
-import reikai.presentation.library.MangaMergeCollapse
-import reikai.presentation.library.SourceBadge
+import reikai.presentation.library.LibraryQueryFields
+import reikai.presentation.library.MangaLibraryRows
 import reikai.presentation.library.adultLookupKeys
 import reikai.presentation.library.anyMerged
 import reikai.presentation.library.chapterSearchTerms
 import reikai.presentation.library.gallerySearchIndexFor
-import reikai.presentation.library.libraryBadgePrefsFlow
 import reikai.presentation.library.libraryFilterMatches
 import reikai.presentation.library.libraryFilterSettingsFlow
 import reikai.presentation.library.libraryItemFilterFields
@@ -80,14 +71,12 @@ import reikai.presentation.library.libraryQueryMatches
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.memberIdsOf
-import reikai.presentation.library.mergeCollapseInputsFlow
 import reikai.presentation.library.mergedGroupTracks
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.SubscriberGate
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.chapter.interactor.GetBookmarkedChaptersByMangaId
@@ -98,26 +87,22 @@ import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
-import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.interactor.GetSearchTags
 import tachiyomi.domain.manga.interactor.GetSearchTitles
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
-import tachiyomi.source.local.isLocal
 import kotlin.time.Duration.Companion.seconds
-import tachiyomi.domain.source.model.Source as DomainSource
 
 @Inject
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class LibraryViewModel(
     @AppCoroutineScope private val appScope: CoroutineScope,
-    private val getLibraryManga: GetLibraryManga,
+    // RK: getLibraryManga and downloadCache moved to MangaLibraryRows with the row building
     // RK: per-entry custom title/cover overrides, overlaid on the displayed rows (display-only)
     private val getCustomMangaInfo: GetCustomMangaInfo,
     // RK: resolve merged-away group members by id, so a bulk action reaches every source of a merge
@@ -138,7 +123,6 @@ class LibraryViewModel(
     // RK: coverCache moved to RemoveMangaFromLibrary
     private val sourceManager: SourceManager,
     private val downloadManager: DownloadManager,
-    private val downloadCache: DownloadCache,
     private val trackerManager: TrackerManager,
     // RK -->
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
@@ -148,10 +132,10 @@ class LibraryViewModel(
     // RK: backs the `chapter:` search term's id-set lookup.
     private val chapterRepository: ChapterRepository,
     private val mergedChapterProvider: MergedChapterProvider,
-    private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val reconcileMergedChapters: ReconcileMergedChapters,
     private val mangaPreferences: MangaPreferences,
     private val adultContentChecker: AdultContentChecker,
+    private val mangaLibraryRows: MangaLibraryRows,
     // RK <--
 ) : ViewModel() {
 
@@ -181,12 +165,16 @@ class LibraryViewModel(
         .distinctUntilChanged()
 
     // Upstream's gate, widened in the shared libraryNeedsTracks to grouping by tracking status, which the
-    // novel library asks too
-    private val tracks = libraryTracksFlow(
+    // novel library asks too. The debounced query and the filters ride it, so both wait for the tracks they read.
+    // The query carries its resolved `chapter:` id sets alongside it, so a chapter lookup runs once per
+    // query change rather than on every favorites tick.
+    private val searchAndTracks = libraryTracksFlow(
         filterSettings,
         getCategories.subscribe(),
         libraryPreferences,
         reikaiLibraryPreferences,
+        searchQuery.debounce(0.25.seconds).map { query -> query to resolveChapterMatches(query) },
+        { it.first },
         getTracksPerManga::subscribe,
     )
     // RK <--
@@ -196,22 +184,20 @@ class LibraryViewModel(
     // because only it sees both content types.
     private val libraryData: StateFlow<LibraryData?> =
         combine(
-            // RK: the query slot carries its resolved `chapter:` id sets alongside it, so a chapter
-            //     lookup runs once per query change rather than on every favorites tick.
-            searchQuery.debounce(0.25.seconds)
-                .map { query -> query to resolveChapterMatches(query) },
+            searchAndTracks, // RK
             // RK: no category-table input: grouping, its only reader, moved to LibraryEngine, and a
             //     rename re-ran this whole filter pass for nothing.
             // RK: the custom-info overlay rides with favorites but is
             //     NOT applied here: search/filter/sort below all read the raw favorites. It is
             //     carried into LibraryData and applied only at the display read (see State).
             combine(getFavoritesFlow(), getCustomMangaInfo.subscribeAll(), ::Pair),
-            combine(tracks, filterSettings, ::Pair), // RK: filterSettings
+            // RK: no filter input either: the filters ride searchAndTracks, so a tracker filter waits for
+            //     the tracks it reads instead of filtering against none while they load.
         ) {
-                (searchQuery, chapterMatches),
+                (search, filters, categoryMatches, tracksMap), // RK
                 (favorites, customInfo),
-                (tracksMap, filters),
             ->
+            val (searchQuery, chapterMatches) = search // RK
             val filteredFavorites = favorites
                 .applyFilters(tracksMap, filters.resolve()) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel
@@ -229,12 +215,20 @@ class LibraryViewModel(
                             getSearchTags::awaitAll,
                             getSearchTitles::awaitAll,
                         )
-                        val queryFields = mangaQueryFields(chapterMatches, customInfo, gallery)
+                        val queryFields = mangaQueryFields(
+                            chapterMatches,
+                            customInfo,
+                            gallery,
+                            categoryMatches,
+                            tracksMap,
+                            filters.trackers.keys,
+                        )
                         items.filter { libraryQueryMatches(queryNode, it, queryFields) }
                     }
                 }
 
             LibraryData(
+                // RK: showSystemCategory and categories went to LibraryEngine, which owns grouping
                 favorites = filteredFavorites,
                 tracksMap = tracksMap,
                 loggedInTrackerIds = filters.trackers.keys, // RK
@@ -330,14 +324,22 @@ class LibraryViewModel(
         chapterMatches: Map<String, Set<Long>>,
         customInfo: List<CustomMangaInfo>,
         gallery: GallerySearchIndex,
-    ) = libraryItemQueryFields(
-        sourceKey = { it.libraryManga.manga.source.toString() },
-        chapterMatches = chapterMatches,
-        // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
-        // The rows stay override-free: filter, sort and grouping deliberately read the source values.
-        overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
-        galleryIndex = gallery,
-    )
+        categoryMatches: Map<String, Set<Long>>,
+        trackMap: Map<Long, List<Track>>,
+        loggedInTrackerIds: Set<Long>,
+    ): LibraryQueryFields<LibraryItem> {
+        return libraryItemQueryFields(
+            sourceKey = { it.libraryManga.manga.source.toString() },
+            chapterMatches = chapterMatches,
+            // Search matches what the card shows, so a renamed entry is findable by the name you gave it.
+            // The rows stay override-free: filter, sort and grouping deliberately read the source values.
+            overlay = customInfo.associate { it.mangaId to it.toQueryOverlay() },
+            galleryIndex = gallery,
+            categoryMatches = categoryMatches,
+            tracksById = trackMap,
+            trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
+        )
+    }
 
     // RK: one lookup per distinct `chapter:` term the user actually typed. Runs off the query slot, so a
     // plain search never touches the chapter table and a chapter search costs one scan, not one per row.
@@ -353,127 +355,13 @@ class LibraryViewModel(
     // RK: getLibraryItemPreferencesFlow and ItemPreferences moved to libraryBadgePrefsFlow, the badge
     //     gates the novel library reads too; the filter preferences live in libraryFilterSettingsFlow.
 
-    private fun getFavoritesFlow(): Flow<List<LibraryItem>> {
-        return combine(
-            getLibraryManga.subscribe(),
-            libraryBadgePrefsFlow(libraryPreferences, reikaiLibraryPreferences), // RK
-            downloadCache.changes.pausedWhileUnsubscribed(),
-            // RK --> re-collapse when the merge inputs change. The recognized chapter counts are the ones
-            //     the stitch ranks its trunk on, so the row and the details list lead on one source.
-            mergeCollapseInputsFlow(
-                ContentType.MANGA,
-                reikaiLibraryPreferences.preferredMangaSources.changes(),
-                reikaiLibraryPreferences,
-                mergeGroupRepository,
-                mergedChapterUnitRepository,
-            ),
-            mergedChapterUnitRepository.getRecognizedChapterCountsAsFlow(),
-            // RK <--
-        ) { libraryManga, preferences, _, mergePrefs, recognizedChapterCounts ->
-            val sources = libraryManga
-                .mapTo(mutableSetOf()) { it.manga.source }
-                .associateWith { sourceManager.getOrStub(it) }
-            val downloadCounts = downloadManager.getDownloadCounts(libraryManga.map { it.manga })
-            // RK: named for the merge collapse below
-            val items = libraryManga.map { manga ->
-                val source = sources.getValue(manga.manga.source)
-                val downloadCount = downloadCounts.getValue(manga.id)
-                LibraryItem(
-                    libraryManga = manga,
-                    downloadCount = downloadCount,
-                    unreadCount = manga.unreadCount,
-                    isLocal = manga.manga.isLocal(),
-                    sourceName = source.name.lowercase(),
-                    sourceLanguage = source.lang,
-                    // RK: non-null only for gallery/metadata sources, which selects the tag-search path.
-                    metadataSourceName = source.getMainSource<MetadataSource<*, *>>()
-                        ?.let { source.getNameForMangaInfo() },
-                    // RK: the badge gates are libraryBadgePrefsFlow's, shared with the novel row builder
-                    badges = preferences.badges(
-                        downloadCount = downloadCount,
-                        unreadCount = manga.unreadCount,
-                        isLocal = manga.manga.isLocal(),
-                        sourceLanguage = source.lang,
-                        sourceBadge = SourceBadge.Manga(resolveBadgeSource(manga.manga.source)),
-                    ),
-                )
-            }
-            // RK: collapse persisted merge groups into one entry per group. Returns the RAW items:
-            //     search, filter and sort in the outer combine all read these, so the display-only
-            //     custom-info overlay is applied later, at the per-category display read (see State).
-            MangaMergeCollapse.collapse(
-                items = items,
-                membership = mergePrefs.membership,
-                mergingEnabled = mergePrefs.mergingEnabled,
-                showMergeSourceIcons = mergePrefs.showSourceIcons,
-                resolveSource = ::resolveBadgeSource,
-                mergedCountsByGroup = if (mergePrefs.mergingEnabled) mergePrefs.mergedCounts else emptyMap(),
-                // RK: the same treatment for downloads, which summing the members double-counted for
-                //     every chapter two of them hold.
-                mergedDownloadsByGroup = if (mergePrefs.mergingEnabled) {
-                    mergedDownloadCounts(items, mergePrefs.membership)
-                } else {
-                    emptyMap()
-                },
-                badgePrefs = preferences,
-                overrideRankings = mergePrefs.overrideRankings,
-                preferredSourceIds = mergePrefs.preferredSources,
-                recognizedChapterCounts = recognizedChapterCounts, // RK
-            )
-        }
-    }
-
-    // RK -->
-
-    /**
-     * RK: merged chapters with a copy on disk, per group. Only grouped members that have downloaded
-     * something are read and probed, so a library whose merged entries hold no downloads pays nothing.
-     */
-    private suspend fun mergedDownloadCounts(
-        items: List<LibraryItem>,
-        membership: Map<Long, Long>,
-    ): Map<Long, Int> {
-        return downloadedUnitsByGroup(
-            entries = items,
-            membership = membership,
-            idOf = { it.libraryManga.manga.id },
-            downloadCountOf = { it.downloadCount.toLong() },
-            rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.MANGA, it) },
-        ) { item, row ->
-            val owner = item.libraryManga.manga
-            downloadManager.isChapterDownloaded(
-                row.chapterName,
-                row.scanlator,
-                row.chapterUrl,
-                owner.title,
-                owner.source,
-            )
-        }
-    }
-
-    private suspend fun resolveBadgeSource(sourceId: Long): DomainSource {
-        val s = sourceManager.getOrStub(sourceId)
-        return DomainSource(s.id, s.lang, s.name, supportsLatest = false, isStub = s is StubSource)
-    }
-    // RK <--
+    // RK: the row building moved to MangaLibraryRows, which Statistics lists its series from as well
+    private fun getFavoritesFlow(): Flow<List<LibraryItem>> = mangaLibraryRows.rows() // RK
 
     // RK: getTrackingFiltersFlow moved into libraryFilterSettingsFlow (LibraryFilterSettings.trackers).
 
-    suspend fun getNextUnreadChapter(manga: Manga): Chapter? {
-        // RK: resume over the whole merge group, not just the entry's own source. The badge counts a
-        //     chapter as read when any source's copy is read, so resolving the next unread from one
-        //     source alone could reopen something the badge already considers finished, or find nothing
-        //     while the badge still shows unread. The provider returns the same deduplicated list the
-        //     details screen shows, and each chapter keeps its own mangaId so the reader opens the right
-        //     source. Falls through to the plain per-manga list when the entry is not merged.
-        val group = mergedChapterProvider.load(manga)
-        //     The filters and order are the group's shared chapter settings, the settings owner's.
-        val settings = group.chapterSettingsOf(manga)
-        val hidden = mangaPreferences.hiddenChapters().get()
-        return withContext(Dispatchers.Default) {
-            group.chapters.getNextUnread(settings, downloadManager, group, hidden)
-        }
-    }
+    // RK: resolved by MangaLibraryRows, which a Statistics row's series list resumes through as well
+    suspend fun getNextUnreadChapter(manga: Manga): Chapter? = mangaLibraryRows.nextUnreadChapter(manga) // RK
 
     /**
      * Queues the amount specified of unread chapters from the list of selected manga
@@ -570,6 +458,7 @@ class LibraryViewModel(
                 )
             }
         }
+        // RK: the ids are the engine's selection, which LibraryEngine.dispatchAndClear clears
     }
 
     /**

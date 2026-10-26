@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.renderStoredStitch
+import reikai.domain.reader.ChapterProgress
 
 /**
  * Incognito asked of each written chapter's own source, never of the series the reader was opened
@@ -157,8 +158,8 @@ class ReaderIncognitoConformanceTest {
                 model.rendererLanded(model.window.value.generation)
 
                 // The first report is where the landing put the reader; a second that moved is theirs.
-                model.saveProgress(opened.id, 40)
-                model.saveProgress(opened.id, 45)
+                model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+                model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(45))
                 scope.advanceUntilIdle()
 
                 harness.progressOf(opened) != 0L

@@ -79,6 +79,7 @@ import reikai.presentation.components.RevealableSecureTextField
 import reikai.presentation.settings.resetToDefaultPreference
 import reikai.presentation.track.TrackerError
 import reikai.presentation.track.trackerErrorMessage
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -283,7 +284,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         logout = { dialog = LogoutDialog(trackerManager.ranobeDb) },
                     ),
                     // RK: NovelList light-novel tracker. It issues no personal token, so signing in
-                    // goes straight to the browser rather than offering a field nobody can fill.
+                    // goes straight to an in-app sign-in page rather than offering a field nobody can fill.
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.novelList,
                         login = {
@@ -293,7 +294,7 @@ object SettingsTrackingScreen : SearchableSettings {
                         },
                         logout = { dialog = LogoutDialog(trackerManager.novelList) },
                     ),
-                    // RK: NovelUpdates. Scraped, so the browser sign-in is the only way in.
+                    // RK: NovelUpdates. Scraped, so the in-app sign-in page is the only way in.
                     Preference.PreferenceItem.TrackerPreference(
                         tracker = trackerManager.novelUpdates,
                         login = {
@@ -702,7 +703,7 @@ private fun NovelUpdatesListMappingDialogContent(
     var openFor by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching { tracker.readingLists() }
+        runCatchingCancellable { tracker.readingLists() }
             .onSuccess { lists = it }
             .onFailure { withUIContext { context.toastListsFailed(tracker.name, it) } }
         loading = false
@@ -731,7 +732,7 @@ private fun NovelUpdatesListMappingDialogContent(
                         onClick = {
                             loading = true
                             scope.launchIO {
-                                val fetched = runCatching { tracker.readingLists() }
+                                val fetched = runCatchingCancellable { tracker.readingLists() }
                                 withUIContext {
                                     fetched
                                         .onSuccess { lists = it }

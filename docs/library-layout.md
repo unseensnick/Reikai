@@ -54,6 +54,47 @@ These add small badges to each cover:
 
 Turn on **Show all categories in one list** under **Tabs** on the **Display** tab.
 
+::: tabs
+== One list
+<img
+  class="only-light"
+  src="/docs/library-layout/single-list.light.webp"
+  alt="The library with every category in one list"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/library-layout/single-list.dark.webp"
+  alt="The library with every category in one list"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+== Tabs
+<img
+  class="only-light"
+  src="/docs/library-layout/tabbed.light.webp"
+  alt="The library with a tab per category"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/library-layout/tabbed.dark.webp"
+  alt="The library with a tab per category"
+  width="286"
+  height="600"
+  loading="lazy"
+  decoding="async"
+/>
+:::
+
 Each category gets a header with its name, plus its item count when **Show number of items** is on.
 Tap the header to collapse or expand that category.
 A category's header also shows its sort, which you can tap to change for that category alone, and a button that updates just that category.

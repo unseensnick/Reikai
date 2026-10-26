@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -37,6 +38,8 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSource
@@ -349,6 +352,42 @@ class MigrateEngineConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
+    fun `the chapter flag copies each matched chapter's reading sessions`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true), Ch(2, 2.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0), Ch(11, 3.0)),
+        )
+
+        engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER)).sessionMoves shouldBe mapOf(1L to 10L)
+    }
+
+    /** A target listing one number twice (two releases) would otherwise count the same reading on each. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a chapter's reading sessions move to one target even when its number repeats`(
+        engine: MigrateEngine,
+    ) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0), Ch(11, 1.0)),
+        )
+
+        engine.migrate(setup, replace = false, flags = setOf(Flag.CHAPTER)).sessionMoves shouldBe mapOf(1L to 10L)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `without the chapter flag reading sessions stay behind`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0)),
+        )
+
+        engine.migrate(setup, replace = true).sessionMoves shouldBe emptyMap()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
     fun `a retried history carry adds no reading time`(engine: MigrateEngine) = runTest {
         // What a retry finds after an earlier attempt carried the history and then failed a later step.
         val setup = Setup(
@@ -542,6 +581,8 @@ class Outcome(
     val targetHistory: List<Hist>,
     /** Every category write, by entry. */
     val categoryWrites: Map<Long, List<Long>>,
+    /** The reading-log moves asked for, source chapter id to target chapter id. */
+    val sessionMoves: Map<Long, Long>,
 ) {
     val targetSwap: Swap? get() = swap?.singleOrNull { it.favorite == true }
 
@@ -567,6 +608,12 @@ private class Recorder : Transactions {
     val tracksWritten = mutableListOf<Pair<Long, Long>>()
     val sourceTrackerCalls = mutableListOf<String>()
     val categoryWrites = mutableMapOf<Long, List<Long>>()
+    val sessionMoves = mutableMapOf<Long, Long>()
+    val readingLog = object : ReadingLogRepository by NoReadingLog {
+        override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) {
+            sessionMoves.putAll(targetBySourceChapter)
+        }
+    }
     private val history = mutableMapOf<Long, Hist>()
     val coverDir: File = Files.createTempDirectory("migrate-covers").toFile().apply { deleteOnExit() }
 
@@ -624,6 +671,7 @@ private class Recorder : Transactions {
         sourceTrackerCalls = sourceTrackerCalls,
         targetHistory = historyOf(targetChapters.map { it.id }).sortedBy { it.chapterId },
         categoryWrites = categoryWrites,
+        sessionMoves = sessionMoves,
     )
 }
 
@@ -770,6 +818,7 @@ class MangaEngine : MigrateEngine {
             sourceTracker = sourceTracker,
             getHistory = getHistory,
             upsertHistory = upsertHistory,
+            readingLog = rec.readingLog,
         )
         val current = Manga.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,
@@ -949,6 +998,7 @@ class NovelEngine : MigrateEngine {
             sourceTracker = sourceTracker,
             novelHistoryRepository = history,
             chapterNumberOverrides = NoChapterNumberOverrides,
+            readingLog = rec.readingLog,
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,

@@ -108,10 +108,9 @@ class NovelLibraryAdapter(
             rows = state.favorites,
             groupType = groupType,
             // The slug is the encoded disambiguator; the name is the label.
-            sourceOf = { row ->
-                state.novelById[row.id]?.novel?.source?.let {
-                    names.getOrPut(it) { novelSourceManager.nameOf(it) } to it
-                }
+            sourceKey = { row -> state.novelById[row.id]?.novel?.source.orEmpty() },
+            sourceOf = { key ->
+                key.takeUnless { it.isEmpty() }?.let { names.getOrPut(it) { novelSourceManager.nameOf(it) } to it }
             },
             groupTracks = { row -> state.tracksByRep[row.id].orEmpty() },
             loggedInTrackerIds = trackerManager.loggedInTrackers().mapTo(mutableSetOf()) { it.id },

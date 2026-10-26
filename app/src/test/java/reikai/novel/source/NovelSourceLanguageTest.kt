@@ -24,6 +24,11 @@ class NovelSourceLanguageTest {
     }
 
     @Test
+    fun `Bangla joins the Bengali manga sources`() {
+        "\u09AC\u09BE\u0982\u09B2\u09BE".toLangCode() shouldBe "bn"
+    }
+
+    @Test
     fun `multi-language plugins join the manga sources' Multi section`() {
         "Multi".toLangCode() shouldBe "all"
     }

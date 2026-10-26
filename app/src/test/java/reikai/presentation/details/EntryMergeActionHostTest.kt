@@ -150,12 +150,9 @@ class EntryMergeActionHostTest {
             return true
         }
 
-        override suspend fun deleteCovers(id: Long): Boolean {
+        override suspend fun deleteCovers(id: Long) {
             coversDropped += id
-            return false
         }
-
-        override suspend fun stampCover(id: Long) = Unit
     }
 
     private companion object {

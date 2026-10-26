@@ -2,6 +2,7 @@ import com.android.build.api.variant.ApplicationVariant
 import com.android.build.api.variant.BuildConfigField
 import com.google.firebase.crashlytics.buildtools.gradle.CrashlyticsExtension
 import mihon.gradle.Config
+import mihon.gradle.extensions.composeUiTests
 import mihon.gradle.getCurrentTime
 import mihon.gradle.getLatestCommitCount
 import mihon.gradle.getLatestCommitSha
@@ -20,6 +21,7 @@ plugins {
     alias(libs.plugins.androidx.baselineProfile)
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.apollo)
+    alias(libs.plugins.roborazzi) // RK: screenshot tests
 }
 
 if (Config.includeTelemetry) {
@@ -49,10 +51,10 @@ android {
 
         // versionCode also climbs mid-cycle when a preference migration needs it, since a migration is a
         // no-op until the shipped versionCode reaches its gate (see CLAUDE.md). Each migration's own
-        // `version` names its gate. 0.4.2 ships as 203, so the next migration takes 204+. versionName
+        // `version` names its gate. 0.5.0 ships as 204, so the next migration takes 205+. versionName
         // tracks the last shipped release until the next cycle is cut.
-        versionCode = 203
-        versionName = "0.4.2"
+        versionCode = 204
+        versionName = "0.5.0"
         // RK <--
 
         buildConfigField("boolean", "TELEMETRY_INCLUDED", "${Config.includeTelemetry}")
@@ -203,8 +205,12 @@ android {
     }
 
     lint {
-        abortOnError = false
+        abortOnError = true // RK: CI runs lintDebug; only errors past the baseline fail it
         checkReleaseBuilds = false
+        // RK --> the library modules are checked through the app; see docs/dev/testing.md
+        checkDependencies = true
+        baseline = file("lint-baseline.xml")
+        // RK <--
     }
 }
 
@@ -365,6 +371,7 @@ dependencies {
     implementation(libs.composeWebview)
     implementation(libs.composeGrid)
     implementation(libs.reorderable)
+    implementation(libs.vico.compose.m3) // RK: Statistics charts (status, score, reading time)
     implementation(libs.bundles.markdown)
     implementation(libs.materialKolor)
 
@@ -401,7 +408,18 @@ dependencies {
     // through :data, so the SQLDelight runtime those tests compile against is test-only here too.
     testImplementation(libs.sqldelight.sqliteDriver)
     testImplementation(libs.bundles.sqldelight)
+
+    // RK: screenshot comparison for the Compose UI tests, see docs/dev/testing.md
+    testImplementation(libs.roborazzi)
 }
+
+composeUiTests() // RK
+
+// RK --> reference images sit beside the tests; CI compares them, see docs/dev/testing.md
+roborazzi {
+    outputDir.set(file("src/test/screenshots"))
+}
+// RK <--
 
 apollo {
     val schemaBasePath = "src/main/graphql/mihon/graphql"

@@ -3,6 +3,7 @@ package reikai.domain.novel.interactor
 import dev.zacsweers.metro.Inject
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.matchesCategoryFilter
+import reikai.domain.category.orUncategorized
 import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -39,7 +40,7 @@ class FilterNovelChaptersForDownload(
         val included = preferences.downloadNewChapterCategories().get().mapTo(mutableSetOf()) { it.toLong() }
         val excluded = preferences.downloadNewChapterCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() }
         if (included.isEmpty() && excluded.isEmpty()) return true
-        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.ifEmpty { listOf(0L) }
+        val categories = getNovelCategories.awaitByNovelId(novel.id).map { it.id }.orUncategorized()
         return matchesCategoryFilter(categories, included, excluded)
     }
 }

@@ -17,6 +17,9 @@ Most of these can also be changed while reading: open a chapter, tap the middle 
 ### Rendering mode <Badge type="info" text="Native text" />
 How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. Changing it from the reader's settings sheet rebuilds the reader in place, at the same position.
 
+### Reading mode <Badge type="info" text="Scrolling" />
+**Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. Changing it from the reader's settings sheet rebuilds the reader at the same place.
+
 ### Select text by long press <Badge type="info" text="Off" />
 Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Rendering mode**, it takes effect at once.
 
@@ -41,22 +44,8 @@ Lets the page extend under the status and navigation bars.
 ### Show content in cutout area <Badge type="info" text="On" />
 Draws the page into the camera cutout. Only available on a device with a cutout, while **Fullscreen** is on.
 
-### Tap zones <Badge type="info" text="Disabled" />
-How a tap on the page is read. **Disabled** shows or hides the menu wherever you tap.
-
-**Top and bottom**, **L shaped**, **Kindle-ish**, **Edge** and **Right and Left** divide the page into zones that scroll back, scroll forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page, so reading does not flash the menu.
-
-### Invert tap zones <Badge type="info" text="None" />
-Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
-
-### Bottom zone height <Badge type="info" text="12%" />
-How tall the menu zone is. Only shown for the **Bottom** layout.
-
 ### Show tap zones overlay <Badge type="info" text="Off" />
-Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout; this only adds it on opening. Hidden while **Tap zones** is **Disabled**.
-
-### Swipe between chapters <Badge type="info" text="Off" />
-Swipe sideways to move to the previous or next chapter.
+Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout you are reading with; this only adds it on opening. Hidden while both the **Paged** and the **Scrolling** tap zones are **Disabled**.
 
 ### Skip chapters marked read <Badge type="info" text="Off" />
 Skips over already read chapters while reading.
@@ -77,13 +66,49 @@ When you jump to the next chapter, marks the one you skipped as read.
 Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** checkbox in the reader's Controls tab, and the **Auto-scroll** button once you add it under **Bottom bar buttons**, start or stop it until you leave the reader without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
 
 ### Scroll speed <Badge type="info" text="1.0x" />
-How fast auto-scroll moves the text.
+How fast auto-scroll moves the text. While reading a page at a time, **Page turn interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
 
 ### Bottom bar buttons
 Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
+
+## Paged
+
+What a tap does while **Reading mode** is one of the paged choices, kept apart from scrolling as the manga reader keeps its paged and long strip tap zones. A swipe sideways always turns the page here.
+
+### Tap zones <Badge type="info" text="Right and Left" />
+How a tap on the page is read. **Right and Left** turns the page back from the left side, forward from the right side (the other way round in **Paged (right to left)**), and opens the menu from the middle.
+
+**Top and bottom**, **L shaped**, **Kindle-ish** and **Edge** divide the page into other zones that turn back, turn forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page. **Disabled** shows or hides the menu wherever you tap.
+
+### Invert tap zones <Badge type="info" text="None" />
+Flips the zones horizontally, vertically or both. Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
+
+### Bottom zone height <Badge type="info" text="12%" />
+How tall the menu zone is. Only shown for the **Bottom** layout. One height serves both **Paged** and **Scrolling**.
+
+### Animate page transitions <Badge type="info" text="On" />
+Slides each page across as it turns, as the manga reader does. Turn it off for instant turns, which suit e-ink screens.
+
+## Scrolling
+
+What a tap does while **Reading mode** is **Scrolling**.
+
+### Tap zones <Badge type="info" text="Disabled" />
+How a tap on the page is read. **Disabled** shows or hides the menu wherever you tap.
+
+**Top and bottom**, **L shaped**, **Kindle-ish**, **Edge** and **Right and Left** divide the page into zones that scroll back, scroll forward and open the menu. **Center**, **Large center** and **Bottom** draw only a menu zone, and a tap anywhere else is left to the page, so reading does not flash the menu.
+
+### Invert tap zones <Badge type="info" text="None" />
+Flips the zones horizontally, vertically or both, as under **Paged**.
+
+### Bottom zone height <Badge type="info" text="12%" />
+The same setting as under **Paged**, shown for the **Bottom** layout.
+
+### Swipe between chapters <Badge type="info" text="Off" />
+Swipe sideways to move to the previous or next chapter.
 
 ## Text display
 
@@ -153,28 +178,44 @@ Your own styles and code, added to every chapter page. **WebView** only. A resto
 ## Navigation
 
 ### Volume keys <Badge type="info" text="Off" />
-Scrolls with the volume keys.
+Reads on with the volume keys: a press turns the page while reading a page at a time, and scrolls otherwise. They only work while the menu is hidden.
 
 ### Invert volume keys <Badge type="info" text="Off" />
 Inverts what the volume keys do.
 
 ### Volume key scroll amount <Badge type="info" text="75%" />
-How much of the screen one press moves.
+How much of the screen one press moves. Hidden while reading a page at a time, where a press turns a whole page.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
 How quickly you have to scroll before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Show chapter navigator <Badge type="info" text="On" />
-Shows the progress slider or the vertical navigator. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
+Shows the progress slider or the vertical navigator. While reading a page at a time it is always a slider above the buttons, showing the page you are on and the chapter's page count. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
 
 ### Vertical chapter navigator <Badge type="info" text="On" />
-Shows a vertical progress slider at the side of the screen. The two settings below it only appear while it is on.
+Shows a vertical progress slider at the side of the screen while scrolling. Hidden while reading a page at a time, along with the two settings below it, which only appear while it is on.
 
 ### Place vertical navigator on the left side <Badge type="info" text="Off" />
 Moves that slider to the left edge, for left-handed reading.
 
 ### Vertical navigator height <Badge type="info" text="65" />
 How tall the slider is, as a percentage of the screen.
+
+## E-Ink
+
+Shown only while **Reading mode** is one of the paged choices. These are the novel reader's own, apart from the manga reader's.
+
+### Flash on page change <Badge type="info" text="Off" />
+Flashes the screen after each page turn to reduce ghosting on e-ink displays. The three settings below only appear once this is on.
+
+### Flash duration <Badge type="info" text="100 ms" />
+How long each flash lasts.
+
+### Flash every <Badge type="info" text="1 page" />
+How many pages pass between flashes.
+
+### Flash with <Badge type="info" text="Black" />
+Whether the flash is **Black**, **White**, or **White and Black**.
 
 ## Read aloud
 

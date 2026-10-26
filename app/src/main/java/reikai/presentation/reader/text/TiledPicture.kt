@@ -9,9 +9,8 @@ import android.graphics.RectF
 import android.graphics.drawable.Drawable
 import android.widget.TextView
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import tachiyomi.core.common.util.lang.withIOContext
 import java.io.Closeable
 
 /**
@@ -63,7 +62,7 @@ internal class TiledPicture(
     private fun load(index: Int) {
         scope.launch {
             val rows = tileRows(index, tileSourceHeight, reader.sourceHeight)
-            val bitmap = withContext(Dispatchers.IO) { reader.decode(rows, sampleSize) }
+            val bitmap = withIOContext { reader.decode(rows, sampleSize) }
             loading -= index
             // Gone from what is wanted while it decoded, which a scroll does.
             if (bitmap == null || index !in wanted) return@launch

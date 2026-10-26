@@ -1,7 +1,7 @@
 package reikai.domain.reader
 
 import androidx.compose.runtime.Immutable
-import kotlin.math.roundToInt
+import kotlin.math.floor
 
 /**
  * How far into a chapter the reader got, in the engine's own unit, so nothing shared has to know what
@@ -31,11 +31,22 @@ sealed interface ChapterProgress {
         companion object {
             private const val HUNDREDTHS_PER_PERCENT = 100L
 
-            /** A whole percent, the unit the novel renderers report in. */
+            /** All of a chapter. */
+            const val FULL = 10_000L
+
+            val END = Percent(FULL)
+
+            /** A whole percent, the unit a reader's thresholds are set in. */
             fun ofWhole(percent: Int): Percent = Percent(percent * HUNDREDTHS_PER_PERCENT)
 
-            /** The whole percent both novel renderers report for a scroll [fraction], rounded to nearest. */
-            fun wholeOf(fraction: Double): Int = (fraction * 100).roundToInt().coerceIn(0, 100)
+            /**
+             * What both novel renderers report for a scroll [fraction]: rounded down, so a reopen never lands
+             * past the line it was saved at. The slack absorbs a fraction echoed back through a double.
+             */
+            fun of(fraction: Double): Percent =
+                Percent(floor(fraction * FULL + ECHO_SLACK).toLong().coerceIn(0L, FULL))
+
+            private const val ECHO_SLACK = 1e-6
         }
     }
 }

@@ -154,29 +154,18 @@ class NovelScreen(
                                     )
                                 }
                             },
-                            onTracking = {
-                                if (s.hasLoggedInTrackers) {
-                                    viewModel.showTrackDialog()
-                                } else {
-                                    navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
-                                }
+                            onOpenTrackingSettings = {
+                                navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                             },
                             onEditNotes = {
                                 navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
                             },
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
-                            onEditInterval = viewModel::showSetFetchIntervalDialog.takeIf { s.novel.favorite },
-                            // Migration only re-homes a library novel, so it shows only when favorited.
+                            onEditInterval = viewModel::showSetFetchIntervalDialog,
                             // Anchor-scoped like manga: migrating must re-home the series, not
                             // whichever source chip happens to be selected.
-                            onMigrate = if (s.novel.favorite) {
-                                {
-                                    navigator.push(
-                                        EntryMigrationSourcePickScreen(ContentType.NOVELS, listOf(s.novel.id)),
-                                    )
-                                }
-                            } else {
-                                null
+                            onMigrate = {
+                                navigator.push(EntryMigrationSourcePickScreen(ContentType.NOVELS, listOf(s.novel.id)))
                             },
                             onOpenPageSelector = viewModel::showPageSelectorDialog,
                             // The scope a chapter tapped here opens in: the chip's source, else the group.

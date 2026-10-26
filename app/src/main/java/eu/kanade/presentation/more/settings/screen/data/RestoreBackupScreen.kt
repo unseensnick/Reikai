@@ -44,6 +44,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import reikai.data.backup.ApprovedRepos
+import reikai.data.backup.BackupRepo
+import reikai.data.backup.RestoreInstallPlan
+import reikai.presentation.backup.restoreInstallItems
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -104,6 +108,12 @@ class RestoreBackupScreen(
                     }
                 }
 
+                // RK --> what the restore installs, and the backup's repos this device lacks, each to trust
+                if (state.canRestore) {
+                    restoreInstallItems(state.installs, state.options.extensions, state.trusted, viewModel::trust)
+                }
+                // RK <--
+
                 if (state.error != null) {
                     errorMessageItem(state.error)
                 }
@@ -124,13 +134,25 @@ class RestoreBackupScreen(
                         when (error) {
                             is MissingRestoreComponents -> {
                                 appendLine(stringResource(MR.strings.backup_restore_content_full))
-                                // RK --> a restore installs no extension app or plugin, so the backup's are listed
+                                // RK --> the backup's apps and plugins in no repo to install from, and its repos
+                                // that could not be read
                                 if (error.extensions.isNotEmpty()) {
                                     appendLine()
                                     withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
                                         appendLine(stringResource(MR.strings.backup_restore_missing_extensions))
                                     }
                                     error.extensions.joinTo(
+                                        this,
+                                        separator = "\n- ",
+                                        prefix = "- ",
+                                    )
+                                }
+                                if (error.unreadRepos.isNotEmpty()) {
+                                    appendLine()
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendLine(stringResource(MR.strings.restore_repos_unread))
+                                    }
+                                    error.unreadRepos.joinTo(
                                         this,
                                         separator = "\n- ",
                                         prefix = "- ",
@@ -222,11 +244,22 @@ class RestoreBackupViewModel(
         }
     }
 
+    // RK
+    fun trust(repo: BackupRepo, trusted: Boolean) {
+        state.update { it.copy(trusted = if (trusted) it.trusted + repo.url else it.trusted - repo.url) }
+    }
+
     fun startRestore() {
+        // RK: an app repo is added only under the key shown here, so the restore refuses one that changed since
+        val trusted = state.value.installs.repos.filter { it.url in state.value.trusted }
         BackupRestoreWorker.start(
             workManager = context.workManager,
             uri = uri.toUri(),
             options = state.value.options,
+            trusted = ApprovedRepos( // RK
+                apps = trusted.filterNot { it.isPluginRepo }.associate { it.url to it.signingKey.orEmpty() },
+                plugins = trusted.filter { it.isPluginRepo }.mapTo(HashSet()) { it.url },
+            ),
         )
     }
 
@@ -241,17 +274,20 @@ class RestoreBackupViewModel(
             return
         }
 
+        state.update { it.copy(installs = results.installs) } // RK
         if (
             results.missingSources.isNotEmpty() ||
             results.missingTrackers.isNotEmpty() ||
-            results.missingExtensions.isNotEmpty() // RK
+            results.installs.unavailable.isNotEmpty() || // RK
+            results.installs.unreadRepos.isNotEmpty() // RK
         ) {
             setError(
                 error = MissingRestoreComponents(
                     uri,
                     results.missingSources,
                     results.missingTrackers,
-                    results.missingExtensions, // RK
+                    results.installs.unavailable, // RK
+                    results.installs.unreadRepos, // RK
                 ),
                 canRestore = true,
             )
@@ -275,6 +311,10 @@ class RestoreBackupViewModel(
         val error: Any? = null,
         val canRestore: Boolean = false,
         val options: RestoreOptions = RestoreOptions(),
+        // RK --> the restore's installs, and the backup repos the user trusted by address
+        val installs: RestoreInstallPlan = RestoreInstallPlan(),
+        val trusted: Set<String> = emptySet(),
+        // RK <--
     )
 }
 
@@ -282,7 +322,10 @@ private data class MissingRestoreComponents(
     val uri: Uri,
     val sources: List<String>,
     val trackers: List<String>,
-    val extensions: List<String>, // RK
+    // RK --> in no repo to install from, and the backup's repos that could not be read
+    val extensions: List<String>,
+    val unreadRepos: List<String>,
+    // RK <--
 )
 
 private data class InvalidRestore(

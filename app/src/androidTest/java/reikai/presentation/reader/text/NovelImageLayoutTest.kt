@@ -7,10 +7,8 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -18,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.junit.runners.Parameterized
 import reikai.presentation.reader.WebViewHostActivity
+import reikai.presentation.reader.onMain
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.TimeUnit
 import kotlin.math.abs
@@ -68,7 +67,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
 
     @Test
     fun aLoadedImageIsDrawnAtItsOwnHeight() {
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html = "<img src=\"${server.url}\">" + "<p>lorem ipsum</p>".repeat(20),
@@ -121,7 +120,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
                 if (!block.imagesLoading) laidOutShort += shortPictureLines()
             }
         }
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html = "<img src=\"${server.url("first")}\">" + "<p>lorem ipsum dolor sit amet</p>".repeat(300) +
@@ -156,7 +155,7 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         // Narrower than the column at any density, since a picture is drawn at its own dp width.
         server.close()
         server = PngServer(pngOf(100, 60))
-        runBlocking(Dispatchers.Main) {
+        onMain {
             renderer.render(
                 block = block,
                 html =
@@ -194,6 +193,37 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
             "a ${width}px picture starts at ${left}px in a ${column}px column",
             abs(left - (column - width) / 2f) <= 1,
         )
+    }
+
+    /** Two pictures in one paragraph are two blocks on the page (reader.css), so each is a picture of its own. */
+    @Test
+    fun twoPicturesInOneParagraphAreEachAPicture() {
+        onMain {
+            renderer.render(
+                block = block,
+                html = "<p><img src=\"${server.url("a")}\"> <img src=\"${server.url("b")}\"></p>" +
+                    "<p>lorem ipsum</p>".repeat(20),
+                fontSize = 18,
+                paragraphSpacing = 0f,
+                paragraphIndent = 0f,
+                selectable = selectable,
+                bionic = false,
+                contentWidth = COLUMN_PX,
+                baseUrl = null,
+                sourceId = null,
+                holdAcross = { it() },
+                onTextSet = {},
+            ).join()
+        }
+        awaitWhile { block.imagesLoading }
+
+        var pictures = 0
+        instrumentation.runOnMainSync {
+            pictures = block.chunkViews.sumOf { view ->
+                (view.text as? Spanned)?.let { it.getSpans(0, it.length, ChapterImageSpan::class.java).size } ?: 0
+            }
+        }
+        assertTrue("$pictures of the two pictures are laid out as pictures", pictures == 2)
     }
 
     /** How many image spans sit on a line shorter than their picture. */

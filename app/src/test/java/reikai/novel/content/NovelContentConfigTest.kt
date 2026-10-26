@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.novel.source.NovelChapterTextLoader
+import reikai.novel.source.testChapterTextCache
 import reikai.presentation.recents.EmittingPreferenceStore
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -54,6 +55,7 @@ class NovelContentConfigTest {
             sourceManager = mockk(relaxed = true),
             installer = mockk(relaxed = true),
             preferences = preferences,
+            textCache = testChapterTextCache(),
             readDownloaded = { _, _ -> null },
         )
         var emissions = 0

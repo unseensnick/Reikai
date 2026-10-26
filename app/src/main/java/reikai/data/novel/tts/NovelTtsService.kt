@@ -1,5 +1,6 @@
 package reikai.data.novel.tts
 
+import android.annotation.SuppressLint
 import android.app.Notification
 import android.app.PendingIntent
 import android.app.Service
@@ -281,6 +282,8 @@ class NovelTtsService : Service() {
         )
     }
 
+    // A media-session notification is exempt from POST_NOTIFICATIONS; the guard in Context.notify would freeze it.
+    @SuppressLint("MissingPermission")
     private fun refreshNotification() {
         val state = NovelTtsSession.state.value
         if (!foreground || state.playback == TtsPlayback.Stopped) return

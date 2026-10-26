@@ -8,6 +8,7 @@ import android.view.View
 import android.widget.TextView
 import androidx.core.net.toUri
 import eu.kanade.tachiyomi.util.system.openInBrowser
+import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.NovelChapterNavigationClient
 
 /**
@@ -20,31 +21,35 @@ import reikai.presentation.reader.NovelChapterNavigationClient
  */
 object NovelChapterLinks {
 
-    fun apply(spannable: Spannable, context: Context, onAnchor: (TextView, Int) -> Unit) {
+    /** [baseUrl] is the document's base, the source's site, against which the policy blocks a link to the
+     *  document itself, as the WebView's document base does. */
+    fun apply(spannable: Spannable, context: Context, baseUrl: String?, onAnchor: (TextView, Int) -> Unit) {
+        val base = NovelChapterAddress.trustedBase(baseUrl)
         val urls = spannable.getSpans(0, spannable.length, URLSpan::class.java)
         urls.forEach { span ->
             val start = spannable.getSpanStart(span)
             val end = spannable.getSpanEnd(span)
             val flags = spannable.getSpanFlags(span)
             spannable.removeSpan(span)
-            spannable.setSpan(PolicyLinkSpan(span.url, context, onAnchor), start, end, flags)
+            spannable.setSpan(PolicyLinkSpan(span.url, context, base, onAnchor), start, end, flags)
         }
     }
 
     private class PolicyLinkSpan(
         private val url: String,
         private val context: Context,
+        private val baseUrl: String?,
         private val onAnchor: (TextView, Int) -> Unit,
     ) : ClickableSpan() {
 
         override fun onClick(widget: View) {
-            // A jump within the chapter was rewritten to an anchor the renderer placed, so it never
-            // reaches the policy, which has no document URL to call it same-document against.
+            // A jump within the chapter, by fragment or by the document's base with one, was rewritten to an
+            // anchor the renderer placed, so only a fragment naming nothing reaches the policy.
             if (url.startsWith(NovelChapterTags.ANCHOR_HREF)) {
                 url.removePrefix(NovelChapterTags.ANCHOR_HREF).toIntOrNull()?.let { onAnchor(widget as TextView, it) }
                 return
             }
-            val decision = NovelChapterNavigationClient.decide(url, baseUrl = null, hasGesture = true)
+            val decision = NovelChapterNavigationClient.decide(url, baseUrl, hasGesture = true)
             if (decision == NovelChapterNavigationClient.Decision.OPEN_EXTERNALLY) {
                 context.openInBrowser(url.toUri())
             }

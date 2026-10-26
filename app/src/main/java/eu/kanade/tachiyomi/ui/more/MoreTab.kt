@@ -1,8 +1,5 @@
 package eu.kanade.tachiyomi.ui.more
 
-import androidx.compose.animation.graphics.res.animatedVectorResource
-import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,6 +20,7 @@ import eu.kanade.core.preference.asState
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.presentation.more.MoreScreen
 import eu.kanade.presentation.util.Tab
+import eu.kanade.presentation.util.rememberAnimatedVectorPainter
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
@@ -37,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import reikai.novel.download.NovelDownloadManager
+import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.download.EngineQueueStatus // RK
 import reikai.presentation.download.downloadQueueState // RK
 import tachiyomi.core.common.util.lang.launchIO
@@ -49,11 +48,12 @@ data object MoreTab : Tab {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_more)
+            val enter = cachedAnimatedVector(R.drawable.animated_more_enter) // RK
+            val exit = cachedAnimatedVector(R.drawable.animated_more_exit) // RK
             return TabOptions(
                 index = 4u,
                 title = stringResource(MR.strings.label_more),
-                icon = rememberAnimatedVectorPainter(image, isSelected),
+                icon = rememberAnimatedVectorPainter(enter, exit, isSelected),
             )
         }
 

@@ -4,7 +4,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoSet
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.network.NetworkPreferences
-import eu.kanade.tachiyomi.network.interceptor.carryFlareSolverrUserInfo
 import eu.kanade.tachiyomi.network.interceptor.splitFlareSolverrUserInfo
 import mihon.core.migration.Migration
 import mihon.core.migration.MigrationContext
@@ -27,10 +26,16 @@ class FlareSolverrCredentialsMigration(
     override suspend fun invoke(migrationContext: MigrationContext): Boolean {
         val stored = networkPreferences.flareSolverrUrl
         if (!stored.isSet()) return true
-        val raw = stored.get()
-        if (splitFlareSolverrUserInfo(raw) == null) return true
+        val split = splitFlareSolverrUserInfo(stored.get()) ?: return true
 
-        networkPreferences.carryFlareSolverrUserInfo(raw)
+        stored.set(split.url)
+        // Credentials already configured by hand win as a pair: they are the ones the reader last verified.
+        if (networkPreferences.flareSolverrUsername.get().isBlank() &&
+            networkPreferences.flareSolverrPassword.get().isBlank()
+        ) {
+            networkPreferences.flareSolverrUsername.set(split.username)
+            networkPreferences.flareSolverrPassword.set(split.password)
+        }
 
         return true
     }

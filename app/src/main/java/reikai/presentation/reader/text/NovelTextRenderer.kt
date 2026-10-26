@@ -129,7 +129,7 @@ class NovelTextRenderer(
                     .also { placeImages(it, textSizePx.toInt(), spacingPx) }
                     .also { NovelChapterTags.placeRules(it) }
                     .also { shrinkScripts(it) }
-                    .also { NovelChapterLinks.apply(it, context, onAnchor) }
+                    .also { NovelChapterLinks.apply(it, context, baseUrl, onAnchor) }
                     .also { if (bionic) NovelBionicSpans.apply(it) }
             }
 
@@ -240,7 +240,7 @@ class NovelTextRenderer(
     private fun normalizeHtmlForRendering(html: String, baseUrl: String?): String = try {
         val doc = Jsoup.parse(html)
         doc.select("style, script").remove()
-        NovelChapterTags.prepare(doc)
+        NovelChapterTags.prepare(doc, baseUrl)
         doc.select("video source, audio source").remove()
         // `source` is a void element and Html.fromHtml corrupts the rest of the document without one.
         NovelImageSources.unwrapPictures(doc)
@@ -285,8 +285,10 @@ class NovelTextRenderer(
      */
     private fun liftOutOfText(img: Element, parent: Element) {
         val siblings = parent.childNodes()
+        // Another picture counts: two in one paragraph each take their own block, as the page lays them out.
         val showsSomethingElse = siblings.any {
-            it !== img && ((it is TextNode && !it.isBlank) || (it is Element && it.hasText()))
+            it !== img &&
+                ((it is TextNode && !it.isBlank) || (it is Element && (it.hasText() || it.isOrHoldsImage())))
         }
         if (!showsSomethingElse) {
             parent.attr("style", "text-align:center;")
@@ -296,9 +298,11 @@ class NovelTextRenderer(
         parent.after(after)
         parent.after(Element("p").attr("style", "text-align:center;").appendChild(img))
         listOf(parent, after)
-            .filter { !it.hasText() && it.selectFirst("img") == null }
+            .filter { !it.hasText() && !it.isOrHoldsImage() }
             .forEach(Element::remove)
     }
+
+    private fun Element.isOrHoldsImage() = tagName() == "img" || selectFirst("img") != null
 
     private fun applyParagraphSpans(spannable: SpannableStringBuilder, spacingPx: Int, indentPx: Int) {
         var i = 0

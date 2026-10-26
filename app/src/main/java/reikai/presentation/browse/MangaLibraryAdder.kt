@@ -175,6 +175,22 @@ class MangaLibraryAdder(
     )
 
     /**
+     * One entry of a bulk add filed under the batch's [categoryIds]. A member coming back to its group
+     * takes the group's categories instead, even when the user picked the batch's, since filing it
+     * under the pick would move the whole series. Twin of `NovelLibraryAdder.addToBatch`, pinned by
+     * `GroupCategoriesConformanceTest`'s bulk rows.
+     */
+    suspend fun addToBatch(mangaId: Long, categoryIds: List<Long>): AddOutcome = finishAdd(
+        categoryIds = categoryIds,
+        favorite = { favoriteFromBrowse(mangaId) },
+        fileCategories = { _, ids -> fileAdded(mangaId, ids) },
+    )
+
+    /** Where a bulk add files its batch, decided once by the shared [batchCategories] rule. Reads only. */
+    suspend fun resolveBatchCategories(): BatchCategories =
+        batchCategories(getUserCategories(), libraryPreferences.defaultCategory.get())
+
+    /**
      * The favorite step of every add outside the details page: a newly added row takes the default
      * chapter settings, which the details page stamped already when it opened.
      */

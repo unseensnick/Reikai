@@ -41,6 +41,9 @@ interface ReaderProvider {
     /** This content type's own brightness and colour treatment, which the host applies to the page. */
     val displayFilters: ReaderDisplayFilters
 
+    /** This content type's own e-ink flash, which the host runs after a page turn. */
+    val flash: ReaderFlash
+
     /**
      * This content type's own fullscreen and draw-under-cutout settings, which the host applies to the
      * window. The session's type is fixed at launch, so which pair answers never changes under it.

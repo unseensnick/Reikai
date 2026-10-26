@@ -11,6 +11,7 @@ import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelHistoryRepository
@@ -23,6 +24,8 @@ import reikai.domain.novel.model.NovelHistoryUpdate
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
+import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.sessionMoves
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.source.NovelSourceManager
@@ -59,6 +62,7 @@ class MigrateNovelUseCase(
     private val transactions: Transactions,
     private val sourceTracker: SourceTrackerDispatcher,
     private val novelHistoryRepository: NovelHistoryRepository,
+    private val readingLog: ReadingLogRepository,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -124,6 +128,10 @@ class MigrateNovelUseCase(
                     novelHistoryRepository.getHistoryByNovelId(current.id),
                     novelHistoryRepository.getHistoryByNovelId(target.id),
                 ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
+                readingLog.move(
+                    ContentType.NOVELS,
+                    sessionMoves(matchedSourceChapters(currentChapters, targetChapters).toList()),
+                )
             }
 
             // Read here, written once the target is in the library, see the group write below
@@ -261,17 +269,25 @@ internal fun computeHistoryMigration(
 ): List<NovelHistoryUpdate> {
     val historyByChapter = currentHistory.associateBy { it.chapterId }
     val targetHistoryByChapter = targetHistory.associateBy { it.chapterId }
-    return targetChapters.mapNotNull { target ->
-        if (!isRecognizedChapterNumber(target.chapterNumber)) return@mapNotNull null
-        val history = currentChapters.sameNumberAs(target)?.let { historyByChapter[it.id] } ?: return@mapNotNull null
+    return matchedSourceChapters(currentChapters, targetChapters).mapNotNull { (targetId, sourceId) ->
+        val history = historyByChapter[sourceId] ?: return@mapNotNull null
         val readAt = history.readAt ?: return@mapNotNull null
-        val stored = targetHistoryByChapter[target.id]
+        val stored = targetHistoryByChapter[targetId]
         val (mergedReadAt, addedDuration) =
             mergedHistory(readAt, history.readDuration, stored?.readAt, stored?.readDuration ?: 0L)
         // Never null here, since the incoming read has a time
-        NovelHistoryUpdate(target.id, mergedReadAt ?: readAt, addedDuration)
+        NovelHistoryUpdate(targetId, mergedReadAt ?: readAt, addedDuration)
     }
 }
+
+/** Each recognized target chapter's id to the id of the source chapter it carries state from. */
+internal fun matchedSourceChapters(
+    currentChapters: List<NovelChapter>,
+    targetChapters: List<NovelChapter>,
+): Map<Long, Long> = targetChapters
+    .filter { isRecognizedChapterNumber(it.chapterNumber) }
+    .mapNotNull { target -> currentChapters.sameNumberAs(target)?.let { target.id to it.id } }
+    .toMap()
 
 /** The source chapter a recognized [target] carries state from: the one with the same number. */
 private fun List<NovelChapter>.sameNumberAs(target: NovelChapter): NovelChapter? =

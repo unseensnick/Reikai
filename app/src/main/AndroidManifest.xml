@@ -184,8 +184,9 @@
             android:exported="false" />
 
         <!-- RK: import a gallery shared/opened from a browser. Hosts mirror each adult source's
-             matchingHosts: E-Hentai/ExHentai/NHentai use /g/, Pururin uses /gallery/, 8Muses
-             uses /comics/, MangaDex uses /title/, /manga/ and /chapter/. -->
+             matchingHosts: E-Hentai/ExHentai/NHentai/NineHentai use /g/, Pururin uses /gallery/, 8Muses
+             uses /comics/, HentaiNexus uses /view/ and /read/, Hitomi uses its gallery-type paths
+             and /reader/, MangaDex uses /title/, /manga/ and /chapter/. -->
         <activity
             android:name="exh.ui.intercept.InterceptActivity"
             android:exported="true"
@@ -203,6 +204,8 @@
                 <data android:host="g.e-hentai.org" />
                 <data android:host="exhentai.org" />
                 <data android:host="nhentai.net" />
+                <data android:host="9hentai.so" />
+                <data android:host="www.9hentai.so" />
 
                 <data android:pathPattern="/g/.*" />
             </intent-filter>
@@ -233,6 +236,42 @@
                 <data android:host="comics.8muses.com" />
 
                 <data android:pathPattern="/comics/.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="hentainexus.com" />
+                <data android:host="www.hentainexus.com" />
+
+                <data android:pathPattern="/view/.*" />
+                <data android:pathPattern="/read/.*" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+
+                <data android:scheme="http" />
+                <data android:scheme="https" />
+
+                <data android:host="hitomi.la" />
+                <data android:host="www.hitomi.la" />
+
+                <data android:pathPattern="/galleries/.*" />
+                <data android:pathPattern="/reader/.*" />
+                <data android:pathPattern="/doujinshi/.*" />
+                <data android:pathPattern="/manga/.*" />
+                <data android:pathPattern="/cg/.*" />
+                <data android:pathPattern="/gamecg/.*" />
+                <data android:pathPattern="/imageset/.*" />
+                <data android:pathPattern="/anime/.*" />
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.VIEW" />

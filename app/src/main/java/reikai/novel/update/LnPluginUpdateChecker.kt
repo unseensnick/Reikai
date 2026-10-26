@@ -12,6 +12,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
@@ -114,7 +115,7 @@ fun findPluginUpdates(
             val record = metadata[url] ?: return@mapNotNull null
             val installedVersion = record.version ?: return@mapNotNull null
             val listings = byId[record.pluginId].orEmpty()
-            val entry = listings.firstOrNull { canonicalizePluginUrl(it.url) == url }
+            val entry = listings.byPluginUrl(url)
                 ?: if (record.repoUrl?.let { it !in unreachable } ?: unreachable.isEmpty()) {
                     listings.maxWithOrNull { a, b -> LnPluginVersion.compare(a.version, b.version) }
                 } else {

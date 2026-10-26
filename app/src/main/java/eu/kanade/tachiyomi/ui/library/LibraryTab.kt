@@ -4,9 +4,7 @@ import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ReportDrawnWhen
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.graphics.res.animatedVectorResource
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
-import androidx.compose.animation.graphics.vector.AnimatedImageVector
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,6 +71,7 @@ import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
@@ -109,7 +108,7 @@ data object LibraryTab : Tab {
         @Composable
         get() {
             val isSelected = LocalTabNavigator.current.current.key == key
-            val image = AnimatedImageVector.animatedVectorResource(R.drawable.animated_library)
+            val image = cachedAnimatedVector(R.drawable.animated_library) // RK
             return TabOptions(
                 index = 0u,
                 title = stringResource(MR.strings.label_library),

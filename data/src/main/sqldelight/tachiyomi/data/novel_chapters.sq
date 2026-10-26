@@ -42,6 +42,13 @@ FROM novel_chapters
 WHERE novel_id = :novelId
 ORDER BY source_order;
 
+-- getByNovelId for many novels at once, each in getByNovelId's order, for a backup built a chunk at a time.
+getByNovelIds:
+SELECT *
+FROM novel_chapters
+WHERE novel_id IN :novelIds
+ORDER BY novel_id, source_order;
+
 -- How many chapters and the highest number, counted here so the migration list loads no chapter rows,
 -- as chapter.sq's getChapterSummaryByMangaId does for manga.
 getChapterSummaryByNovelId:

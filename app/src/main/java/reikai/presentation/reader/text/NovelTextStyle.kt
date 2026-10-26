@@ -58,13 +58,14 @@ object NovelTextStyle {
     /** The ends of the page, applied once to the column that holds the chunks. [topInsetPx] clears
      *  the display cutout on top of the margin, as the WebView page's own top padding does. */
     fun applyMargins(container: View, settings: NovelReaderSettings, context: Context, topInsetPx: Int) {
+        val (top, bottom) = verticalMarginsPx(settings, context, topInsetPx)
+        container.setPadding(0, top, 0, bottom)
+    }
+
+    /** A chapter's top and bottom padding in pixels, which a page in paged reading keeps clear as well. */
+    fun verticalMarginsPx(settings: NovelReaderSettings, context: Context, topInsetPx: Int): Pair<Int, Int> {
         val density = context.resources.displayMetrics.density
-        container.setPadding(
-            0,
-            (settings.margins.top * density).toInt() + topInsetPx,
-            0,
-            (settings.margins.bottom * density).toInt(),
-        )
+        return (settings.margins.top * density).toInt() + topInsetPx to (settings.margins.bottom * density).toInt()
     }
 
     /**

@@ -22,6 +22,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.manga.MangaMergeManager
 import reikai.domain.recommendation.BuildRecommendationHideFilter
 import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.PrepareRecommendationAssembly
@@ -359,6 +360,59 @@ class RelatedMangasBrowseViewModelTest {
             listOf(4L, 3L)
     }
 
+    /**
+     * Row 5 is a library member of a merged series filed under X; the related list offers its removed
+     * source, which resolves to row 10. Answered from the table, as the merge manager reads it.
+     */
+    private fun returningMember(): RelatedMangasBrowseViewModel {
+        lateinit var table: FakeMangaLibrary
+        fun members() = listOf(5L, 10L).filter { table.rows[it]?.favorite == true }
+        val mergeManager: MangaMergeManager = mockk(relaxed = true) {
+            coEvery { groupLibraryMembers(any()) } answers { members() }
+            coEvery { computeRelatedIds(any()) } answers {
+                members().takeIf { firstArg<Long>() in it }?.toLongArray() ?: longArrayOf(firstArg())
+            }
+        }
+        table = FakeMangaLibrary(
+            userCategories = listOf(Category(X, "X", 0L, 0L), Category(Y, "Y", 1L, 0L)),
+            defaultCategoryId = Y.toInt(),
+            mergeManager = mergeManager,
+        )
+        library = table
+        library.put(5L, favorite = true, categories = listOf(X))
+        LibraryPreferences(store).defaultCategory.set(Y.toInt())
+        return viewModel(
+            cache = RelatedMangaCache().apply {
+                put(MANGA_ID, RelatedPool(listOf(candidate("b", SOURCE_ID)), emptyMap()))
+            },
+        )
+    }
+
+    @Test
+    fun `a related add of a source coming back to its merged series keeps the series in its categories`() = runTest {
+        val viewModel = returningMember()
+        settle { viewModel.state.first { it.items.isNotEmpty() } }
+        viewModel.toggleSelection("b")
+
+        viewModel.addSelectedToLibrary()
+        settle { viewModel.state.first { it.selectedUrls.isEmpty() } }
+
+        listOf(library.rows[10L]?.favorite, library.filed[10L], library.filed[5L]) shouldBe
+            listOf(true, listOf(X), listOf(X))
+    }
+
+    /** The picker's confirm, which an add reaches when there is no usable default. */
+    @Test
+    fun `a related add confirmed in the picker keeps a returning source in its series' categories`() = runTest {
+        val viewModel = returningMember()
+        val row = library.insert(Manga.create().copy(id = 10L, url = "b", source = SOURCE_ID))
+
+        viewModel.confirmCategories(listOf(row), listOf(Y), skipped = 0)
+        verify(timeout = 5_000) { any<Context>().stringResource(MR.strings.bulk_added_to_library, 1) }
+
+        listOf(library.filed[10L], library.filed[5L]) shouldBe listOf(listOf(X), listOf(X))
+    }
+
     @Test
     fun `a column count changed while the grid is open reaches it`() = runTest {
         val viewModel = viewModel()
@@ -372,6 +426,8 @@ class RelatedMangasBrowseViewModelTest {
         const val MANGA_ID = 1L
         const val SOURCE_ID = 5L
         const val ANILIST_ID = 1L
+        const val X = 3L
+        const val Y = 4L
         const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
     }
 }

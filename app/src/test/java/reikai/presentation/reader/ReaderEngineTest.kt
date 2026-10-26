@@ -1036,6 +1036,13 @@ private class FakeReaderProvider(
         EnglishChapterTitleWords,
     ).displayFilters
 
+    override val flash = MangaReaderProvider(
+        mockk(relaxed = true),
+        ReaderPreferences(InMemoryPreferenceStore()),
+        mockk(relaxed = true),
+        EnglishChapterTitleWords,
+    ).flash
+
     override val fullscreen = ReaderPreferences(InMemoryPreferenceStore()).fullscreen
 
     override val drawUnderCutout = ReaderPreferences(InMemoryPreferenceStore()).drawUnderCutout

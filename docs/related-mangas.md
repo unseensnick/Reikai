@@ -22,6 +22,25 @@ Light novels have no equivalent yet.
 By default the row sits on the details page, below the description (on a wide screen, above the chapter list).
 While it loads, a placeholder holds its place so the page does not jump; if nothing comes back, the row hides itself rather than sitting empty.
 
+<img
+  class="only-light"
+  src="/docs/related-mangas/related.light.webp"
+  alt="The Related row on a series' details"
+  width="414"
+  height="272"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/related-mangas/related.dark.webp"
+  alt="The Related row on a series' details"
+  width="414"
+  height="272"
+  loading="lazy"
+  decoding="async"
+/>
+
 Prefer it out of the way?
 **Related manga placement** <Badge type="info" text="On the details page" /> in <nav to="recommendations">, under **Sources**, moves it into the three-dot menu instead.
 

@@ -18,6 +18,7 @@ import kotlinx.coroutines.runInterruptible
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
 import reikai.novel.content.NovelChapterAddress
+import reikai.presentation.reader.web.NovelWebFonts
 import reikai.presentation.reader.web.NovelWebImages
 import reikai.presentation.webview.closeOnRendererGone
 import tachiyomi.core.common.util.system.logcat
@@ -37,6 +38,8 @@ class NovelChapterNavigationClient(
     private val baseUrl: () -> String?,
     /** The pictures this document's chapters were routed through. */
     private val images: NovelWebImages,
+    /** The reading font, served from an address this viewport handed out. */
+    private val fonts: NovelWebFonts,
     /** A supervisor scope the reader cancels on close, which cancels a fetch still in flight rather than
      *  leaving a WebView thread waiting on it until the network times out. */
     private val scope: CoroutineScope,
@@ -51,6 +54,7 @@ class NovelChapterNavigationClient(
     /** Called on a WebView worker thread, which is why it may block. A failure is an error status, which
      *  the page draws as a failed picture with Retry. */
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+        fonts.response(context, request.url.toString())?.let { return it }
         val image = images.imageFor(request.url.toString()) ?: return null
         return try {
             // The body is read inside the scope too, interruptibly, so closing the reader stops it mid-transfer.
@@ -91,7 +95,7 @@ class NovelChapterNavigationClient(
          * null base means the document has no origin worth trusting, and then nothing is same-document.
          */
         fun decide(requestUrl: String, baseUrl: String?, hasGesture: Boolean): Decision {
-            if (baseUrl != null && requestUrl.startsWith("$baseUrl#")) return Decision.ALLOW
+            if (NovelChapterAddress.fragmentInDocument(requestUrl, baseUrl) != null) return Decision.ALLOW
             if (requestUrl == baseUrl) return Decision.BLOCK
             val isWeb = NovelChapterAddress.isWebAddress(requestUrl)
             // Without a gesture the page is navigating itself, which a chapter has no reason to do.

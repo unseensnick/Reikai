@@ -31,8 +31,8 @@ data class DynItem(
  */
 class DynamicGroupingFeed(
     val items: List<DynItem>,
-    val sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
-    val languageCodes: Map<EntryId, String> = emptyMap(),
+    val sourceMeta: Map<EntryId, List<Pair<String, String>>> = emptyMap(),
+    val languageCodes: Map<EntryId, List<String>> = emptyMap(),
     val statusNames: Map<EntryId, String> = emptyMap(),
     val trackStatuses: Map<EntryId, String> = emptyMap(),
 )
@@ -40,13 +40,16 @@ class DynamicGroupingFeed(
 /**
  * Resolve one content type's rows into a [DynamicGroupingFeed]. Every group mode reads the shared row,
  * so it means the same for manga and novels; the source label and a merged row's tracks are the two
- * lookups a row cannot answer, which each adapter supplies.
+ * lookups a row cannot answer, which each adapter supplies. A merged series groups under every
+ * member's source and language, as library search and Statistics read it; [sourceKey] is the row's own
+ * key, and [sourceOf] labels a key from the source manager, since a member's stored name is lowercased.
  */
 @Suppress("LongParameterList")
 suspend fun libraryDynamicGroupingFeed(
     rows: List<LibraryItem>,
     groupType: Int,
-    sourceOf: suspend (LibraryItem) -> Pair<String, String>?,
+    sourceKey: (LibraryItem) -> String,
+    sourceOf: suspend (key: String) -> Pair<String, String>?,
     groupTracks: (LibraryItem) -> List<Track>,
     loggedInTrackerIds: Set<Long>,
     trackerManager: TrackerManager,
@@ -54,15 +57,16 @@ suspend fun libraryDynamicGroupingFeed(
 ): DynamicGroupingFeed = DynamicGroupingFeed(
     items = rows.map { row ->
         val manga = row.libraryManga.manga
-        DynItem(row.entryId, manga.genre, manga.author, manga.artist)
+        // Every member's tags, as tag search and Statistics count a merged series; never Edit info's.
+        DynItem(row.entryId, seriesGenres(null, listOf(manga.genre, row.memberGenres)), manga.author, manga.artist)
     },
     sourceMeta = if (groupType == LibraryGroup.BY_SOURCE) {
-        rows.mapNotNull { row -> sourceOf(row)?.let { row.entryId to it } }.toMap()
+        rows.associate { row -> row.entryId to row.allSources(sourceKey(row)).mapNotNull { sourceOf(it.key) } }
     } else {
         emptyMap()
     },
     languageCodes = if (groupType == LibraryGroup.BY_LANGUAGE) {
-        rows.associate { it.entryId to it.sourceLanguage }
+        rows.associate { row -> row.entryId to row.allSources(sourceKey(row)).mapNotNull { it.language } }
     } else {
         emptyMap()
     },
@@ -130,9 +134,9 @@ object LibraryDynamicGrouping {
         notTrackedLabel: String,
         ungroupedLabel: String = "",
         categorySortOrder: CategorySortOrder = CategorySortOrder.MANUAL,
-        sourceMeta: Map<EntryId, Pair<String, String>> = emptyMap(),
+        sourceMeta: Map<EntryId, List<Pair<String, String>>> = emptyMap(),
         trackStatuses: Map<EntryId, String> = emptyMap(),
-        languageCodes: Map<EntryId, String> = emptyMap(),
+        languageCodes: Map<EntryId, List<String>> = emptyMap(),
         statusNames: Map<EntryId, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
@@ -216,9 +220,9 @@ object LibraryDynamicGrouping {
         groupType: Int,
         unknownLabel: String,
         notTrackedLabel: String,
-        sourceMeta: Map<EntryId, Pair<String, String>>,
+        sourceMeta: Map<EntryId, List<Pair<String, String>>>,
         trackStatuses: Map<EntryId, String>,
-        languageCodes: Map<EntryId, String>,
+        languageCodes: Map<EntryId, List<String>>,
         statusNames: Map<EntryId, String>,
         languageDisplay: (langCode: String) -> String,
     ): List<String> {
@@ -228,18 +232,14 @@ object LibraryDynamicGrouping {
                 val tags = item.genre.orEmpty().mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
                 tags.ifEmpty { listOf(unknownLabel) }
             }
-            LibraryGroup.BY_SOURCE -> {
-                val meta = sourceMeta[itemId] ?: return listOf("$unknownLabel${SOURCE_SPLITTER}0")
-                listOf("${meta.first}$SOURCE_SPLITTER${meta.second}")
-            }
-            LibraryGroup.BY_LANGUAGE -> {
-                val code = languageCodes[itemId]
-                if (code.isNullOrBlank()) {
-                    listOf(unknownLabel)
-                } else {
-                    listOf("$code$LANG_SPLITTER${languageDisplay(code).ifBlank { code }}")
-                }
-            }
+            LibraryGroup.BY_SOURCE -> sourceMeta[itemId].orEmpty()
+                .map { (name, key) -> "$name$SOURCE_SPLITTER$key" }
+                .ifEmpty { listOf("$unknownLabel${SOURCE_SPLITTER}0") }
+            // A member with no language says nothing about the series, so Unknown only when none has one.
+            LibraryGroup.BY_LANGUAGE -> languageCodes[itemId].orEmpty()
+                .filterNot { it.isBlank() }
+                .map { code -> "$code$LANG_SPLITTER${languageDisplay(code).ifBlank { code }}" }
+                .ifEmpty { listOf(unknownLabel) }
             LibraryGroup.BY_AUTHOR -> {
                 val author = item.author?.takeUnless { it.isBlank() }
                 val artist = item.artist?.takeUnless { it.isBlank() }

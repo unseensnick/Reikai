@@ -10,6 +10,7 @@ import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelExtensionFormat.APK
 import reikai.novel.source.NovelExtensionFormat.IREADER
 import reikai.novel.source.NovelSource
+import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.feed.FeedEntry
 import reikai.presentation.browse.feed.FeedState
@@ -131,7 +132,7 @@ class SourceFormatLabelTest {
         savedSearch = null,
         row = searchRow(format),
         sourceName = "Site",
-        supportsLatest = true,
+        listing = EntryBrowseListing.Latest,
     )
 
     private fun migrateRow(format: NovelExtensionFormat) = BrowseMigrateRow(

@@ -6,7 +6,11 @@ import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
+import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -216,9 +220,15 @@ class ReaderPreferences(
     // RK: how far one volume press scrolls in the long-strip viewers, as a fraction of the screen
     // (novel-reader parity). Paged viewers turn a whole page, so this does not apply there.
     val readWithVolumeKeysScrollAmount: Preference<Float> =
-        preferenceStore.getFloat("reader_volume_keys_scroll_amount", 0.75f)
+        preferenceStore.getFloat("reader_volume_keys_scroll_amount", VOLUME_KEY_SCROLL_DEFAULT_FRACTION)
 
     val navigationModePager: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_pager", 0)
+
+    // RK: the Bottom tap layout's zone height in percent, which the novel reader keeps its own of
+    val tapBottomZoneHeight: Preference<Int> = preferenceStore.getInt(
+        "reader_tap_bottom_zone_height",
+        BOTTOM_ZONE_DEFAULT_PERCENT,
+    )
 
     val navigationModeWebtoon: Preference<Int> = preferenceStore.getInt("reader_navigation_mode_webtoon", 0)
 
@@ -259,6 +269,25 @@ class ReaderPreferences(
     val continuousMinWidth: Preference<Int> = preferenceStore.getInt("webgpu_continuous_minwidth", 100)
 
     val continuousGap: Preference<Int> = preferenceStore.getInt("webgpu_continuous_gap", 10)
+
+    val disableDoubleTapGestures: Preference<Boolean> =
+        preferenceStore.getBoolean("webgpu_disable_double_tap_gestures", false)
+
+    /** In run order. */
+    val imageFilters: Preference<List<WebGpuShader>> = preferenceStore.getObjectFromString(
+        "webgpu_image_filters",
+        emptyList(),
+        WebGpuShaders::serialize,
+        WebGpuShaders::deserialize,
+    )
+
+    /** In run order. */
+    val tileFilters: Preference<List<WebGpuShader>> = preferenceStore.getObjectFromString(
+        "webgpu_tile_filters",
+        emptyList(),
+        WebGpuShaders::serialize,
+        WebGpuShaders::deserialize,
+    )
 
     // endregion
 

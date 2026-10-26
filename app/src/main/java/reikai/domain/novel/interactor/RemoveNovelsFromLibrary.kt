@@ -10,13 +10,12 @@ import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.track.source.SourceTrackerDispatcher
 import kotlin.time.Instant
 
-/** [EntryLibraryRemoval] over the novels table. Writes only the library date and the cover stamp. */
+/** [EntryLibraryRemoval] over the novels table. Writes only the library date. */
 @Inject
 class RemoveNovelsFromLibrary(
     mergeManager: NovelMergeManager,
     sourceTracker: SourceTrackerDispatcher,
     private val novelRepository: NovelRepository,
-    private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
 ) : EntryLibraryRemoval(mergeManager, sourceTracker) {
 
@@ -27,13 +26,11 @@ class RemoveNovelsFromLibrary(
     override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean =
         novelRepository.updateAll(favoriteAt.map { (id, at) -> NovelUpdate(id) { this.favoriteAt = at } })
 
-    override suspend fun deleteCovers(id: Long): Boolean = coverCache.deleteFromCache(
-        EntryId.Novel(id),
-        novelRepository.getById(id)?.thumbnailUrl,
-        deleteCustomCover = true,
-    ) > 0
-
-    override suspend fun stampCover(id: Long) {
-        updateNovel.awaitUpdateCoverLastModified(id)
+    override suspend fun deleteCovers(id: Long) {
+        coverCache.deleteFromCache(
+            EntryId.Novel(id),
+            novelRepository.getById(id)?.thumbnailUrl,
+            deleteCustomCover = true,
+        )
     }
 }

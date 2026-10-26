@@ -11,6 +11,7 @@ import android.text.style.ReplacementSpan
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.xml.sax.XMLReader
+import reikai.novel.content.NovelChapterAddress
 import reikai.presentation.reader.NovelTextScale
 import java.net.URLDecoder
 import kotlin.math.max
@@ -31,16 +32,25 @@ internal object NovelChapterTags : Html.TagHandler {
     private const val ANCHOR_TAG = "rkanchor"
 
     /** Rules become [RULE_TAG], and each in-chapter link target gets an [ANCHOR_TAG] its link names. */
-    fun prepare(doc: Document) {
+    fun prepare(doc: Document, baseUrl: String?) {
         doc.select("hr").forEach { it.replaceWith(Element(RULE_TAG)) }
         var index = 0
-        doc.select("a[href^=#]").forEach { link ->
-            val target = anchorTarget(doc, link.attr("href").substring(1)) ?: return@forEach
+        doc.select("a[href]").forEach { link ->
+            val fragment = fragmentWithin(link.attr("href"), baseUrl) ?: return@forEach
+            val target = anchorTarget(doc, fragment) ?: return@forEach
             val marker = Element("$ANCHOR_TAG$index")
             if (target.childNodeSize() > 0) target.prependChild(marker) else target.before(marker)
             link.attr("href", "$ANCHOR_HREF$index")
             index++
         }
+    }
+
+    /** A link's fragment when it points into this chapter: a bare `#name`, or the document's base (the
+     *  source's site) with one, which the page reads as the same document. */
+    private fun fragmentWithin(href: String, baseUrl: String?): String? {
+        val absolute = NovelChapterAddress.absolute(baseUrl, href)
+        if (absolute.startsWith("#")) return absolute.substring(1)
+        return NovelChapterAddress.fragmentInDocument(absolute, NovelChapterAddress.trustedBase(baseUrl))
     }
 
     /**

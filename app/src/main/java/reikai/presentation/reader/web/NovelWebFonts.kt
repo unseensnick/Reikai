@@ -1,52 +1,71 @@
 package reikai.presentation.reader.web
 
 import android.content.Context
-import android.util.Base64
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import android.webkit.WebResourceResponse
+import logcat.LogPriority
 import reikai.novel.font.NovelFontManager
 import reikai.novel.font.ReaderFontSource
 import reikai.novel.font.readerFontSource
+import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.logcat
+import java.io.ByteArrayInputStream
+import java.io.File
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * The chosen face as a `data:` URI, resolved the way the native renderer resolves it in
- * `NovelTextStyle`: a user's file through the font manager, anything else as a bundled asset.
- * Inlined because the page cannot fetch either: this mode keeps file access off, and a document
- * whose origin is the source's site may not load a `file://` URL anyway. Null for a generic family.
- * One per viewport, so the face it holds goes with the reader rather than staying for the process.
+ * The chosen face, resolved the way the native renderer resolves it in `NovelTextStyle` (a user's file
+ * through the font manager, anything else as a bundled asset) and served to the page from an address on
+ * the host the chapter's pictures use ([NovelWebImages]), since this mode keeps file access off. Inlined
+ * as a data URI it was most of the document and took about 100 ms to encode on a slow phone at every open.
+ * One per viewport, and only an address it handed out is answered.
  */
-internal class NovelWebFonts {
+class NovelWebFonts {
 
-    /** The last face resolved, which every document build and font push asks for again, and which for a
-     *  CJK face is megabytes read and encoded. A user's file is told apart by its size and timestamp. */
-    private data class Resolved(val family: String, val length: Long, val modified: Long, val uri: String)
+    private class Face(val source: ReaderFontSource, val file: File?, val type: String)
 
-    @Volatile
-    private var last: Resolved? = null
+    private val served = ConcurrentHashMap<String, Face>()
 
-    suspend fun dataUri(context: Context, fonts: NovelFontManager, family: String): String? {
+    /** Where the page loads [family]'s face from, or null for a generic family or a missing file. */
+    suspend fun url(fonts: NovelFontManager, family: String): String? {
         val source = readerFontSource(family)
         if (source == ReaderFontSource.SourceDefault || source is ReaderFontSource.Generic) return null
-        return withContext(Dispatchers.IO) {
+        return withIOContext {
             val file = if (source is ReaderFontSource.UserFile) {
-                fonts.localFile(source.fileName) ?: return@withContext null
+                // Copies the file out of the user's storage folder on first use, which is why this is off main.
+                fonts.localFile(source.fileName) ?: return@withIOContext null
             } else {
                 null
             }
-            val length = file?.length() ?: -1L
-            val modified = file?.lastModified() ?: -1L
-            last?.takeIf { it.family == family && it.length == length && it.modified == modified }
-                ?.let { return@withContext it.uri }
-            val bytes = when (source) {
-                is ReaderFontSource.UserFile -> file?.readBytes()
-                is ReaderFontSource.Bundled ->
-                    runCatching { context.assets.open(source.assetPath).use { it.readBytes() } }.getOrNull()
-                ReaderFontSource.SourceDefault, is ReaderFontSource.Generic -> null
-            } ?: return@withContext null
             val type = if (family.endsWith(".otf", ignoreCase = true)) "font/otf" else "font/ttf"
-            ("data:$type;base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)).also {
-                last = Resolved(family, length, modified, it)
-            }
+            NovelWebImages.appAddress(PATH)
+                .addQueryParameter("f", family)
+                // A replaced file gets a new address, so the WebView never answers it from its cache.
+                .apply { file?.let { addQueryParameter("v", "${it.length()}-${it.lastModified()}") } }
+                .build()
+                .toString()
+                .also { served[it] = Face(source, file, type) }
         }
+    }
+
+    /** The face behind an address from [url], read on the WebView's worker thread; null for any other address. */
+    fun response(context: Context, url: String): WebResourceResponse? {
+        NovelWebImages.appAddressAt(url, PATH) ?: return null
+        val face = served[url] ?: return null
+        val bytes = runCatching {
+            when (val source = face.source) {
+                is ReaderFontSource.UserFile -> face.file?.readBytes()
+                is ReaderFontSource.Bundled -> context.assets.open(source.assetPath).use { it.readBytes() }
+                ReaderFontSource.SourceDefault, is ReaderFontSource.Generic -> null
+            }
+        }.onFailure { logcat(LogPriority.WARN, it) { "Failed to read a reader font" } }.getOrNull()
+            ?: return WebResourceResponse(null, null, 404, "Font unavailable", CORS, ByteArrayInputStream(ByteArray(0)))
+        return WebResourceResponse(face.type, null, 200, "OK", CORS, ByteArrayInputStream(bytes))
+    }
+
+    private companion object {
+        const val PATH = "rk-font"
+
+        // The page's origin is the chapter's site, and a face from another origin needs this to load.
+        val CORS = mapOf("Access-Control-Allow-Origin" to "*")
     }
 }

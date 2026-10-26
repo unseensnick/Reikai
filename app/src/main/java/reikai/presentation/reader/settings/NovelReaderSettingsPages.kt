@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
@@ -56,8 +57,8 @@ import reikai.presentation.icons.FormatAlignJustify
 import reikai.presentation.icons.FormatAlignLeft
 import reikai.presentation.icons.FormatAlignRight
 import reikai.presentation.icons.ReikaiIcons
-import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.NovelTextRanges
+import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderFont
 import reikai.presentation.reader.ReaderRanges
 import reikai.presentation.reader.ReaderThemeSwatches
@@ -112,6 +113,17 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
             FilterChip(
                 selected = renderingMode == it,
                 onClick = { renderingModePref.set(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
+    val pageLayoutPref = preferences.readerPageLayout()
+    val pageLayout by pageLayoutPref.collectAsState()
+    SettingsChipRow(MR.strings.pref_category_reading_mode) {
+        NovelPageLayout.entries.forEach {
+            FilterChip(
+                selected = pageLayout == it,
+                onClick = { pageLayoutPref.set(it) },
                 label = { Text(stringResource(it.titleRes)) },
             )
         }
@@ -238,6 +250,9 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
             pref = preferences.readerAlwaysShowChapterTransition(),
         )
     }
+    // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
+    val pageLayout by preferences.readerPageLayout().collectAsState()
+    if (pageLayout.isPaged) ReaderFlashRows(ReaderFlash.novel(preferences))
 
     NovelChapterTextRows(preferences)
 }
@@ -306,11 +321,22 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
     }
 
     HeadingItem(MR.strings.pref_category_gestures)
-    NovelTapZonesRows(preferences)
-    CheckboxItem(
-        label = stringResource(MR.strings.pref_swipe_between_chapters),
-        pref = preferences.readerSwipeGestures(),
-    )
+    // The open mode's layout, as manga's sheet shows its open viewer's.
+    val pageLayout by preferences.readerPageLayout().collectAsState()
+    NovelTapZonesRows(preferences, pageLayout.isPaged)
+    if (pageLayout.isPaged) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_page_transitions),
+            pref = preferences.readerPageTransitions(),
+        )
+    }
+    // Paged, a swipe always turns the page.
+    if (!pageLayout.isPaged) {
+        CheckboxItem(
+            label = stringResource(MR.strings.pref_swipe_between_chapters),
+            pref = preferences.readerSwipeGestures(),
+        )
+    }
     CheckboxItem(
         label = stringResource(MR.strings.pref_novel_text_selectable),
         pref = preferences.readerTextSelectable(),
@@ -322,7 +348,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
         label = stringResource(MR.strings.pref_show_progress_navigator),
         pref = preferences.readerShowNavigator(),
     )
-    if (showNavigator) {
+    if (showNavigator && pageLayout.offersRail) {
         CheckboxItem(label = stringResource(MR.strings.pref_novel_use_rail), pref = preferences.readerUseRail())
         val useRail by preferences.readerUseRail().collectAsState()
         if (useRail) {
@@ -339,6 +365,9 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
             label = stringResource(MR.strings.pref_read_with_volume_keys_inverted),
             pref = preferences.readerVolumeButtonsInverted(),
         )
+    }
+    // A press turns a whole page when paged, so there is no distance to choose.
+    if (volumeKeys && !pageLayout.isPaged) {
         val percentPref = preferences.readerVolumeButtonsFraction().scaled(ReaderRanges.PERCENT)
         val percent by percentPref.collectAsState()
         SliderItem(
@@ -354,44 +383,22 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
 
 /** The tap layout, its inversion where it has something to invert, and the bottom layout's zone height. */
 @Composable
-private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences) {
-    val layoutPref = preferences.readerTapLayout()
-    val invertPref = preferences.readerTapInvert()
+private fun ColumnScope.NovelTapZonesRows(preferences: NovelPreferences, paged: Boolean) {
+    val layoutPref = preferences.readerTapLayout(paged)
+    val invertPref = preferences.readerTapInvert(paged)
     val layout by layoutPref.collectAsState()
     val invert by invertPref.collectAsState()
-
-    SettingsChipRow(MR.strings.pref_viewer_nav) {
-        NovelTapLayout.entries.forEach {
-            FilterChip(
-                selected = layout == it,
-                onClick = { preferences.setReaderTapLayout(it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
-    if (layout.offersInvert) {
-        SettingsChipRow(MR.strings.pref_read_with_tapping_inverted) {
-            layout.invertModes.forEach {
-                FilterChip(
-                    selected = it == invert,
-                    onClick = { invertPref.set(it) },
-                    label = { Text(stringResource(it.titleRes)) },
-                )
-            }
-        }
-    }
-    if (layout == NovelTapLayout.BOTTOM) {
-        val heightPref = preferences.readerTapBottomZoneHeight()
-        val height by heightPref.collectAsState()
-        SliderItem(
-            value = height,
-            valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
-            label = stringResource(MR.strings.pref_tap_bottom_zone_height),
-            valueString = "$height%",
-            onChange = heightPref::set,
-            pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
-        )
-    }
+    TapZonesRows(
+        names = NovelTapLayout.entries.map { it.titleRes },
+        selected = layout.ordinal,
+        onSelect = { preferences.setReaderTapLayout(paged, NovelTapLayout.entries[it]) },
+        layout = layout,
+        offersInvert = layout.offersInvert,
+        invertModes = layout.invertModes,
+        invert = invert,
+        onInvert = invertPref::set,
+        bottomZoneHeight = preferences.readerTapBottomZoneHeight(),
+    )
 }
 
 /** One page colour with its swatch and hex, picked by hand; [color] is what the page draws, and [onPick]

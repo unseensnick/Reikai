@@ -14,6 +14,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.History
@@ -52,7 +53,7 @@ class NovelHistoryBackupTest {
         ).forEach { driver.execute(null, it, 0).await() }
         val backup = BackupNovel(source = "src", url = "novel")
 
-        creator().history(Novel.create().copy(id = 1L), backup)
+        creator().history(listOf(Novel.create().copy(id = 1L) to backup))
 
         backup.history.map { it.url to it.readDuration } shouldBe listOf("chapter" to 500L)
     }
@@ -69,7 +70,7 @@ class NovelHistoryBackupTest {
         val backup = BackupNovel(source = "src", url = "novel")
 
         // A strict mock: the chapters part already reads the list, so the history part must not.
-        creator(chapters = mockk()).history(Novel.create().copy(id = 1L), backup)
+        creator(chapters = mockk()).history(listOf(Novel.create().copy(id = 1L) to backup))
 
         backup.history.map { Triple(it.url, it.lastRead, it.readDuration) } shouldBe
             listOf(Triple("chapter", 300L, 500L))
@@ -85,5 +86,6 @@ class NovelHistoryBackupTest {
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         novelSourceManager = mockk(),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        readingLog = NoReadingLog,
     )
 }

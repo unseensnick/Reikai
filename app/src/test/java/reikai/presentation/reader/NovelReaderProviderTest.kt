@@ -17,6 +17,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -61,7 +63,7 @@ class NovelReaderProviderTest {
         backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
         runCurrent()
 
-        harness.novelPreferences.readerTapLayout().set(NovelTapLayout.THIRDS)
+        harness.novelPreferences.readerTapLayout(paged = false).set(NovelTapLayout.THIRDS)
         advanceUntilIdle()
         // The collector is background work, which advanceUntilIdle leaves queued.
         runCurrent()
@@ -86,6 +88,78 @@ class NovelReaderProviderTest {
 
         emissions.size shouldBe 1
     }
+
+    @Test
+    fun `paged reading opens with the pager's tap layout`() = readerTest { harness ->
+        harness.novelPreferences.readerPageLayout().set(NovelPageLayout.PAGED_LTR)
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val emissions = mutableListOf<NovelTapZones>()
+        backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
+        runCurrent()
+
+        emissions.last().layout shouldBe NovelTapLayout.RIGHT_AND_LEFT
+    }
+
+    @Test
+    fun `scrolling keeps its own tap layout`() = readerTest { harness ->
+        harness.novelPreferences.readerTapLayout(paged = true).set(NovelTapLayout.KINDLISH)
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val emissions = mutableListOf<NovelTapZones>()
+        backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
+        runCurrent()
+
+        emissions.last().layout shouldBe NovelTapLayout.DISABLED
+    }
+
+    @Test
+    fun `paged, the navigator is a page slider whatever the rail setting`() {
+        val state = novelNavigatorState(
+            percent = 40,
+            page = ChapterProgress.Pages(lastPageRead = 3, pageCount = 9),
+            layout = NovelPageLayout.PAGED_LTR,
+            settings = readerSettings(useRail = true),
+            show = true,
+        )
+
+        (state.shape to state.progress) shouldBe (ReaderNavigatorShape.Slider to ChapterProgress.Pages(3, 9))
+    }
+
+    @Test
+    fun `scrolling, the navigator keeps the rail and the percent`() {
+        val state =
+            novelNavigatorState(
+                percent = 40,
+                page = null,
+                layout = NovelPageLayout.SCROLL,
+                settings = readerSettings(useRail = true),
+                show = true,
+            )
+
+        (state.shape to state.progress) shouldBe (ReaderNavigatorShape.Rail to ChapterProgress.Percent.ofWhole(40))
+    }
+
+    /** A paged viewport reports no page until its first is shown, which a chapter too short to cut never is. */
+    @Test
+    fun `paged, the navigator is a slider before any page is reported`() {
+        val state = novelNavigatorState(
+            percent = 40,
+            page = null,
+            layout = NovelPageLayout.PAGED_LTR,
+            settings = readerSettings(useRail = true),
+            show = true,
+        )
+
+        state.shape shouldBe ReaderNavigatorShape.Slider
+    }
+
+    private fun readerSettings(useRail: Boolean) =
+        NovelReaderSettings.read(NovelPreferences(EmittingPreferenceStore()), 0).copy(useRail = useRail)
 }
 
 private class FakeTextViewport : ReaderViewport, TextViewport {

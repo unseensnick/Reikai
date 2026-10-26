@@ -64,7 +64,7 @@ class NovelLibrarySortComparatorTest {
             mode = sort.type.toSortMode(),
             isAscending = sort.isAscending,
             randomSeed = randomSeed,
-            fields = libraryItemSortFields { trackerMeanScores[it.id] ?: -1.0 },
+            fields = libraryItemSortFields { trackerMeanScores[it.id] },
         )
         return novels
             .map {

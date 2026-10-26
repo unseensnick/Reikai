@@ -11,8 +11,9 @@
 #     line cap (working tree).
 #   DI ownership - scripts/di-interop-check.ps1 when a .kt is staged (needs pwsh).
 #   Code comments - no plan/roadmap codename markers and no calendar dates in added lines; an added
-#     twin/mirrors comment names its pin; an added [Symbol] names live code; under reikai/ or exh/ a
-#     comment block is capped at 8 lines; a comment narrating history is listed (warn only).
+#     twin/mirrors comment names its pin; an added [Symbol] names live code; a comment block in
+#     Reikai's own code or an RK island is capped at 8 lines (reads refs/mihon, needs pwsh); a comment
+#     narrating history is listed (warn only).
 #   Reuse - no new cross-file clone in Reikai-owned Kotlin or an RK island touches a staged file
 #     (reads refs/mihon, and fails without it); a new top-level name that already exists elsewhere
 #     is listed (warn only).
@@ -219,44 +220,20 @@ elif [ -n "$rk_files" ]; then
   echo "RK markers: no refs/mihon clone, skipping the stray-marker check."
 fi
 
-# ===== comment blocks (.kt under reikai/ or exh/): no wall of text =====
-# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped at 8, and
-# a 9th line is rejected. Over the cap the invariant stays in the code as a sentence or two and the
-# narrative moves to the area's doc in docs/dev/subsystems/.
-#
-# Scoped to the Reikai-owned trees. Mihon's own files keep upstream shape, which measures at 97% of
-# comment blocks within the same 8 lines, so this codifies the surrounding style rather than departing
-# from it.
-#
-# The whole staged file is measured, not just its added lines: a comment block is contiguous, so a
-# diff shows fragments of one and a wall added over two commits would slip through.
-#
-# A KDoc tag list (@param, @return, @property, ...) stops the count for the rest of its block. Tags
-# are an enumeration keyed to the signature, not narrative, so a function with six documented
-# parameters is not the wall this cap is aimed at. Tags always come last in a KDoc, so the prose
-# above them is still measured in full.
-blocks=""
-for f in $(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' | grep -E '(^|/)(reikai|exh)/' || true); do
-  blocks="$blocks$(git show ":$f" | awk -v file="$f" '
-    { line = $0; sub(/^[ \t]+/, "", line); isc = 0
-      if (inblock)               { isc = 1; if (line ~ /\*\//) inblock = 0 }
-      else if (line ~ /^\/\*/)   { isc = 1; if (line !~ /\*\//) inblock = 1; tagged = 0 }
-      else if (line ~ /^\/\//)   { isc = 1 }
-      if (isc && line ~ /^\*[ \t]*@/) tagged = 1
-      if (isc && !tagged) { if (run == 0) start = NR; run++ }
-      else { if (run > 8) print file ":" start ": " run " lines"; run = 0 }
-      if (!isc) tagged = 0 }
-    END      { if (run > 8) print file ":" start ": " run " lines" }
-  ')
-"
-done
-over_cap=$(printf '%s' "$blocks" | grep -E ': [0-9]+ lines$' || true)
-if [ -n "$over_cap" ]; then
-  echo "code comments: a comment block runs past the cap of 8 lines."
-  echo "Keep the invariant, the trap or the coupling in the code as a sentence or two; move the"
-  echo "narrative to the area's doc in docs/dev/subsystems/ and point at it by filename:"
-  echo "$over_cap"
-  fail=1
+# ===== comment blocks in Reikai's code: no wall of text =====
+# See .claude/rules/code-quality.md "Comments". A run of consecutive comment lines is capped at 8, in
+# every .kt/.kts/.sq/.sqm file refs/mihon does not have and inside the RK islands of the ones it has;
+# Mihon's own comments keep upstream shape. Each staged file is measured whole, since a wall added over
+# two commits is still one block. The rule and its ownership read live in scripts/comment-cap.ps1,
+# which CI runs over the whole tree.
+if [ -n "$(git diff --cached --name-only --diff-filter=ACMR -- '*.kt' '*.kts' '*.sq' '*.sqm')" ] && [ -f scripts/comment-cap.ps1 ]; then
+  if command -v pwsh >/dev/null 2>&1; then
+    if ! pwsh -NoProfile -File scripts/comment-cap.ps1 -Staged; then
+      fail=1
+    fi
+  else
+    echo "comment-cap: pwsh not found, skipping (run scripts/comment-cap.ps1 -Staged by hand)."
+  fi
 fi
 
 if [ "$fail" -ne 0 ]; then

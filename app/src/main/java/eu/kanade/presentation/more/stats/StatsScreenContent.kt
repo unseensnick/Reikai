@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -20,8 +19,17 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.CollectionsBookmark
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Schedule
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.stats.StatsCard
+import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.StatsGroupKey
+import reikai.presentation.stats.StatsRow
+import reikai.presentation.stats.StatsShelf
+import reikai.presentation.stats.StatsShelfContent
+import reikai.presentation.stats.statsChartCards
+import reikai.presentation.stats.statsGroupCards
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
@@ -37,6 +45,12 @@ fun StatsScreenContent(
     // RK --> All / Manga / Novels switch
     contentType: ContentType,
     onContentTypeSelected: (ContentType) -> Unit,
+    onSeeAll: (StatsDimension) -> Unit,
+    onOpenRow: (StatsRow) -> Unit,
+    onOpenKey: (StatsGroupKey) -> Unit,
+    onOpenEntry: (EntryId) -> Unit,
+    onOpenReading: () -> Unit,
+    onOpenMostRead: () -> Unit,
     // RK <--
 ) {
     LazyColumn(
@@ -50,25 +64,33 @@ fun StatsScreenContent(
                 onSelect = onContentTypeSelected,
             )
         }
+        // Shelves of cards, side by side on a wide screen and one column on a phone
+        item {
+            StatsShelfContent(
+                StatsShelf.GLANCE,
+                listOf<StatsCard>(
+                    { OverviewSection(state.overview, it) },
+                    { TitlesStats(state.titles, it) },
+                    { ChapterStats(state.chapters, it) },
+                    { TrackerStats(state.trackers, it) },
+                ),
+            )
+        }
+        item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenKey, onOpenReading)) }
+        item {
+            StatsShelfContent(
+                StatsShelf.LISTS,
+                statsGroupCards(state.charts, onSeeAll, onOpenRow, onOpenEntry, onOpenMostRead),
+            )
+        }
         // RK <--
-        item {
-            OverviewSection(state.overview)
-        }
-        item {
-            TitlesStats(state.titles)
-        }
-        item {
-            ChapterStats(state.chapters)
-        }
-        item {
-            TrackerStats(state.trackers)
-        }
     }
 }
 
 @Composable
-private fun LazyItemScope.OverviewSection(
+private fun OverviewSection( // RK: a shelf card, no list receiver
     data: StatsData.Overview,
+    modifier: Modifier, // RK
 ) {
     val none = stringResource(MR.strings.none)
     val context = LocalContext.current
@@ -77,7 +99,8 @@ private fun LazyItemScope.OverviewSection(
             .toDuration(DurationUnit.MILLISECONDS)
             .toDurationString(context, fallback = none)
     }
-    SectionCard(MR.strings.label_overview_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_overview_section, modifier, Arrangement.Center) {
         Row(
             modifier = Modifier.height(IntrinsicSize.Min),
         ) {
@@ -101,10 +124,12 @@ private fun LazyItemScope.OverviewSection(
 }
 
 @Composable
-private fun LazyItemScope.TitlesStats(
+private fun TitlesStats( // RK: a shelf card, no list receiver
     data: StatsData.Titles,
+    modifier: Modifier, // RK
 ) {
-    SectionCard(MR.strings.label_titles_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_titles_section, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.globalUpdateItemCount.toString(),
@@ -123,10 +148,12 @@ private fun LazyItemScope.TitlesStats(
 }
 
 @Composable
-private fun LazyItemScope.ChapterStats(
+private fun ChapterStats( // RK: a shelf card, no list receiver
     data: StatsData.Chapters,
+    modifier: Modifier, // RK
 ) {
-    SectionCard(MR.strings.chapters) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.chapters, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.totalChapterCount.toString(),
@@ -145,8 +172,9 @@ private fun LazyItemScope.ChapterStats(
 }
 
 @Composable
-private fun LazyItemScope.TrackerStats(
+private fun TrackerStats( // RK: a shelf card, no list receiver
     data: StatsData.Trackers,
+    modifier: Modifier, // RK
 ) {
     val notApplicable = stringResource(MR.strings.not_applicable)
     val meanScoreStr = remember(data.trackedTitleCount, data.meanScore) {
@@ -157,7 +185,8 @@ private fun LazyItemScope.TrackerStats(
             notApplicable
         }
     }
-    SectionCard(MR.strings.label_tracker_section) {
+    // RK: a shelf card, centred when stretched
+    SectionCard(MR.strings.label_tracker_section, modifier, Arrangement.Center) {
         Row {
             StatsItem(
                 data.trackedTitleCount.toString(),

@@ -23,6 +23,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.domain.backup.model.RestoredManga
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
@@ -171,6 +172,7 @@ class RestoreCategoryMatchConformanceTest {
             setCustomNovelInfo = mockk(relaxed = true),
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            readingLog = NoReadingLog,
         )
     }
 }

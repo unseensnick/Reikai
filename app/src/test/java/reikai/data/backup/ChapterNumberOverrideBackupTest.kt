@@ -30,6 +30,7 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.model.Novel
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
@@ -138,15 +139,16 @@ class ChapterNumberOverrideBackupTest {
                         mangaRepository = mockk(),
                         chapterRepository = ChapterRepositoryImpl(database),
                         trackRepository = mockk(),
-                        getCategories = mockk(),
-                        getHistory = mockk(),
+                        categoryRepository = mockk(),
+                        historyRepository = mockk(),
                         mangaMetadataRepository = mockk(),
                         customMangaInfoRepository = mockk(),
                         getFavorites = mockk(),
                         getManga = mockk(),
                         mergeGroupRepository = mockk(),
                         chapterNumberOverrides = overrides,
-                    ).chapters(Manga.create().copy(id = 1), backup)
+                        readingLog = NoReadingLog,
+                    ).chapters(listOf(Manga.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber.toDouble() to it.sourceChapterNumber }
 
             override suspend fun restore(database: Database) {
@@ -186,7 +188,8 @@ class ChapterNumberOverrideBackupTest {
                         novelHistoryRepository = mockk(),
                         novelSourceManager = mockk(),
                         chapterNumberOverrides = overrides,
-                    ).chapters(Novel.create().copy(id = 1), backup)
+                        readingLog = NoReadingLog,
+                    ).chapters(listOf(Novel.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber to it.sourceChapterNumber }
 
             override suspend fun restore(database: Database) {
@@ -199,6 +202,7 @@ class ChapterNumberOverrideBackupTest {
                     setCustomNovelInfo = mockk(relaxed = true),
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    readingLog = NoReadingLog,
                 ).restore(
                     BackupNovel(
                         source = "src",

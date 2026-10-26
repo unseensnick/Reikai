@@ -17,7 +17,6 @@ import exh.source.BlacklistedSources
 import exh.source.ExhPreferences
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -150,7 +149,8 @@ class ExtensionManager(
     // RK <--
 
     init {
-        scope.launch(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        scope.launchIO {
             loadExtensions()
             ExtensionInstallReceiver(InstallationListener(), scope).register(context)
 
@@ -168,7 +168,8 @@ class ExtensionManager(
 
         // Extensions are only reloaded when the set of signing keys changes, which misses a store being
         // removed while another with the same key stays, or a store being renamed
-        scope.launch(Dispatchers.IO) {
+        // RK: coroutine helper in place of upstream's raw dispatcher
+        scope.launchIO {
             initialized.await()
             extensionStoreRepository.getAllAsFlow().collect(::assignStores)
         }

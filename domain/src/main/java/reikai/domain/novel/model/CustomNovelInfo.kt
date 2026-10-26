@@ -21,8 +21,8 @@ data class CustomNovelInfo(
 
 /**
  * Non-destructive display overlay: each set custom field wins over the source value, the rest pass
- * through. The novel model's own copy of [reikai.domain.entry.withCustomInfo], which a manga-shaped
- * library row takes instead.
+ * through. A manga-shaped library row takes the manga overlay instead: twin of
+ * [reikai.domain.entry.withCustomInfo] on Manga, pinned by EntryCustomInfoOverlayTest.
  */
 fun Novel.withCustomInfo(custom: EntryCustomInfo?): Novel {
     if (custom == null) return this

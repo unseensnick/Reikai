@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toUrlReadingSession
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.core.common.extensions.toInstantOrNull
@@ -44,6 +45,7 @@ import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 import kotlin.time.Clock
@@ -58,6 +60,7 @@ class NovelRestorer(
     private val setCustomNovelInfo: SetCustomNovelInfo,
     private val novelHistoryRepository: NovelHistoryRepository,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val readingLog: ReadingLogRepository,
 ) {
 
     private val timeZone = TimeZone.currentSystemDefault()
@@ -106,6 +109,7 @@ class NovelRestorer(
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(chapters, backupNovel.history)
+        readingLog.restore(ContentType.NOVELS, novelId, backupNovel.readingSessions.map { it.toUrlReadingSession() })
         // An old backup carries the Last read stamp without history; after the history above, so a
         // backup that has history keeps it as is.
         backupNovel.lastReadAt?.toInstantOrNull()?.let { lastRead ->

@@ -41,7 +41,7 @@ class NovelWebImagesCancelTest {
         val context = instrumentation.targetContext
         instrumentation.runOnMainSync { webView = WebView(context) }
         // A host that never answers: only a cancellation ends this fetch.
-        client = NovelChapterNavigationClient(context, { BASE }, images, scope, {}) {
+        client = NovelChapterNavigationClient(context, { BASE }, images, NovelWebFonts(), scope, {}) {
             fetchStarted.countDown()
             awaitCancellation()
         }

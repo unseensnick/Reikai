@@ -15,6 +15,11 @@ class NetworkPreferences(
     @IsDebugBuild isDebugBuild: Boolean,
 ) {
 
+    val redactSensitiveHeaders: Preference<Boolean> = preferenceStore.getBoolean(
+        "redact_sensitive_headers",
+        true,
+    )
+
     val verboseLogging: Preference<Boolean> = preferenceStore.getBoolean(
         "verbose_logging",
         isDebugBuild,

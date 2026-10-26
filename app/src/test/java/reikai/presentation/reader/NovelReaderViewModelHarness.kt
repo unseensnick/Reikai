@@ -63,6 +63,7 @@ import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
 import reikai.novel.download.NovelDownloadCache
@@ -76,6 +77,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
@@ -276,6 +278,10 @@ class NovelReaderViewModelHarness private constructor(
     /** The chapters of [novelId] reading has put in history. */
     suspend fun historyOf(novelId: Long): List<Long> = history.getHistoryByNovelId(novelId).map { it.chapterId }
 
+    /** The time read history holds for [chapter] of [novelId], in milliseconds. */
+    suspend fun readTimeOf(novelId: Long, chapter: SeededChapter): Long? =
+        history.getHistoryByNovelId(novelId).firstOrNull { it.chapterId == chapter.id }?.readDuration
+
     /** Where the reader stored its place in [chapter], in hundredths of a percent. */
     suspend fun progressOf(chapter: SeededChapter): Long? = chapterRepo.getById(chapter.id)?.lastTextProgress
 
@@ -346,6 +352,7 @@ class NovelReaderViewModelHarness private constructor(
             novelPreferences = novelPreferences,
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
+            readingLog = NoReadingLog,
             setNovelReadStatus = setNovelReadStatus(),
             libraryPreferences = libraryPreferences,
             // The tracker network.
@@ -364,6 +371,7 @@ class NovelReaderViewModelHarness private constructor(
             ),
             setNovelViewerFlags = SetNovelViewerFlags(novelRepo),
             novelDownloadCache = downloadCache,
+            chapterTextCache = testChapterTextCache(),
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
                 novelPreferences,
@@ -529,6 +537,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     val failing = mutableSetOf<String>()
 
+    /** Chapter paths whose fetch waits on their gate, as a slow connection does. */
+    val holding: MutableMap<String, CompletableDeferred<Unit>> = java.util.concurrent.ConcurrentHashMap()
+
     /** What asking for a novel's details does; by default it throws, as for a source no test meant to ask. */
     @Volatile
     var details: () -> SourceNovel = { unused() }
@@ -555,6 +566,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     override suspend fun parseChapter(chapterPath: String): String {
         chaptersAsked += chapterPath
+        holding[chapterPath]?.await()
         if (chapterPath in failing) throw IOException("no connection")
         return "<p>From the source: $chapterPath</p>"
     }

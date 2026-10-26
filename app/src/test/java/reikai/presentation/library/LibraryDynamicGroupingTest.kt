@@ -307,7 +307,10 @@ class LibraryDynamicGroupingTest {
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
             notTrackedLabel = "Not tracked",
-            sourceMeta = mapOf(manga to ("MangaDex" to "100"), novel to ("Royal Road" to "royalroad")),
+            sourceMeta = mapOf(
+                manga to listOf("MangaDex" to "100"),
+                novel to listOf("Royal Road" to "royalroad"),
+            ),
         )
         result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
             mapOf("MangaDex" to listOf(manga), "Royal Road" to listOf(novel))
@@ -348,9 +351,41 @@ class LibraryDynamicGroupingTest {
             collapsedDynamicAtBottom = false,
             unknownLabel = "Unknown",
             notTrackedLabel = "Not tracked",
-            sourceMeta = mapOf(a to ("Alpha" to "1"), b to ("ALPHA" to "2")),
+            sourceMeta = mapOf(a to listOf("Alpha" to "1"), b to listOf("ALPHA" to "2")),
         )
         result.values shouldContainExactly listOf(listOf(a), listOf(b))
+    }
+
+    /** A merged series is read on every source it has, as library search and Statistics read it. */
+    @Test
+    fun `a series with two sources sits in both source groups`() {
+        val merged = EntryId.Manga(1)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(DynItem(merged, genre = null, author = null, artist = null)),
+            groupType = LibraryGroup.BY_SOURCE,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+            sourceMeta = mapOf(merged to listOf("Alpha" to "1", "Beta" to "2")),
+        )
+        result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
+            mapOf("Alpha" to listOf(merged), "Beta" to listOf(merged))
+    }
+
+    @Test
+    fun `a blank member language is dropped rather than filing the series under Unknown`() {
+        val merged = EntryId.Novel(1)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(DynItem(merged, genre = null, author = null, artist = null)),
+            groupType = LibraryGroup.BY_LANGUAGE,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+            languageCodes = mapOf(merged to listOf("ja", "")),
+        )
+        result.keys.map { it.label } shouldBe listOf("ja")
     }
 
     private fun build(
@@ -373,9 +408,9 @@ class LibraryDynamicGroupingTest {
         categorySortOrder = categorySortOrder,
         unknownLabel = "Unknown",
         notTrackedLabel = "Not tracked",
-        sourceMeta = sourceMeta.byEntry().mapValues { (_, v) -> v.first to v.second.toString() },
+        sourceMeta = sourceMeta.byEntry().mapValues { (_, v) -> listOf(v.first to v.second.toString()) },
         trackStatuses = trackStatuses.byEntry(),
-        languageCodes = languageCodes.byEntry(),
+        languageCodes = languageCodes.byEntry().mapValues { (_, code) -> listOf(code) },
         statusNames = statusNames.byEntry(),
         languageDisplay = languageDisplay,
         trackingStatusOrder = trackingStatusOrder,

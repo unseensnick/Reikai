@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.novel.model.LibraryNovel
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.MANGA_HAS_UNREAD
@@ -56,6 +57,18 @@ fun smartUpdateProgressSkip(facts: SmartUpdateFacts, restrictions: Set<String>):
     MANGA_NON_READ in restrictions && facts.totalChapters > 0L && !facts.hasStarted -> SmartUpdateSkip.NOT_STARTED
     else -> null
 }
+
+/**
+ * Whether Statistics counts an entry on [categories] as one the global update reaches: inside the update
+ * categories and left in by the progress restrictions, as upstream's manga count reads it.
+ */
+fun inGlobalUpdate(
+    categories: Collection<Long>,
+    facts: SmartUpdateFacts,
+    include: Set<Long>,
+    exclude: Set<Long>,
+    restrictions: Set<String>,
+): Boolean = matchesCategoryFilter(categories, include, exclude) && smartUpdateProgressSkip(facts, restrictions) == null
 
 fun LibraryManga.smartUpdateFacts() = SmartUpdateFacts(
     fetchesOnce = manga.updateStrategy == UpdateStrategy.ONLY_FETCH_ONCE,

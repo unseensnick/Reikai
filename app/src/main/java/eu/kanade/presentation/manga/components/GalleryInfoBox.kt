@@ -83,11 +83,7 @@ fun GalleryInfoBox(
 @Composable
 private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick: (() -> Unit)?) {
     val genre = remember(metadata) { SourceTagsUtil.ehGenre(metadata.genre) }
-    val language = remember(metadata) {
-        metadata.language?.let { lang ->
-            listOfNotNull(SourceTagsUtil.ehLanguageFlag(metadata), lang).joinToString(" ")
-        }
-    }
+    val language = metadata.language
 
     // Genre badge, page count, and the More-info link.
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -120,12 +116,8 @@ private fun EHentaiGalleryInfo(metadata: EHentaiSearchMetadata, onMoreInfoClick:
         TwoColumnRow(
             left = {
                 language?.let {
-                    val text = if (metadata.translated == true) {
-                        "$it (${stringResource(MR.strings.translated)})"
-                    } else {
-                        it
-                    }
-                    InfoText(text)
+                    val translatedLabel = stringResource(MR.strings.translated).takeIf { metadata.translated == true }
+                    InfoText(SourceTagsUtil.ehLanguageLabel(metadata, it, translatedLabel))
                 }
             },
             right = { metadata.favorites?.let { IconLabel(MaterialSymbols.RoundedFilled.Bookmark, it.toString()) } },
@@ -256,7 +248,7 @@ internal fun GenreBadge(color: GenreColor?, label: String) {
 
 /** Five stars for a 0-5 [rating], drawn to the nearest half as the site's own star image is. */
 @Composable
-internal fun RatingStars(rating: Float, starSize: Dp) {
+private fun RatingStars(rating: Float, starSize: Dp) {
     val stars = rating.toHalfStars()
     Row(horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         for (star in 1..5) {

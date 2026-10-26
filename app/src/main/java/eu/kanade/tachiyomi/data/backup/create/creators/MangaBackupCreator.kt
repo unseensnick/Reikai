@@ -9,18 +9,21 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
 import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
 import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toByteArray
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
+import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
-import tachiyomi.domain.category.interactor.GetCategories
+import reikai.domain.readinglog.ReadingLogRepository
+import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.chapter.repository.ChapterRepository
-import tachiyomi.domain.history.interactor.GetHistory
+import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
@@ -33,9 +36,9 @@ import tachiyomi.domain.track.repository.TrackRepository
 class MangaBackupCreator(
     private val mangaRepository: MangaRepository,
     private val chapterRepository: ChapterRepository,
+    private val categoryRepository: CategoryRepository,
+    private val historyRepository: HistoryRepository,
     private val trackRepository: TrackRepository,
-    private val getCategories: GetCategories,
-    private val getHistory: GetHistory,
     // RK: source of captured adult/EXH gallery metadata for the backup.
     private val mangaMetadataRepository: MangaMetadataRepository,
     // RK: source of the user's custom info, written on the entry itself.
@@ -47,11 +50,13 @@ class MangaBackupCreator(
     private val mergeGroupRepository: MergeGroupRepository,
     // RK: chapter numbers the user corrected, carried beside the source's own.
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    // RK: the reading log, carried with history.
+    private val readingLog: ReadingLogRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
-    // RK --> the option gates and the choice of which manga to back up live in the driver shared with
-    // novels (reikai.data.backup.backupEntries), so this class answers one part at a time. Each part
-    // keeps upstream's body; only the manga and its backup object arrive as parameters.
+    // RK --> the option gates, the choice of which manga to back up and the chunking live in the driver
+    // shared with novels (reikai.data.backup.backupEntries), so this class answers one part at a time for
+    // a whole chunk.
     override suspend fun favorites(): List<Manga> = getFavorites.await()
 
     override suspend fun readNotInLibrary(): List<Manga> = mangaRepository.getReadMangaNotInLibrary()
@@ -62,60 +67,78 @@ class MangaBackupCreator(
             .mapNotNull { getManga.await(it) }
             .filterNot { it.favorite }
 
-    override suspend fun base(entry: Manga): BackupManga {
-        // Entry for this manga
-        val mangaObject = entry.toBackupManga()
+    override suspend fun base(entries: List<Manga>): List<BackupManga> {
+        val excludedScanlatorsByMangaId = mangaRepository.getExcludedScanlatorsByMangaIds(entries.map { it.id })
+        return entries.map { entry ->
+            // Entry for this manga
+            val mangaObject = entry.toBackupManga()
 
-        mangaObject.excludedScanlators = mangaRepository.getExcludedScanlators(entry.id).toList()
+            mangaObject.excludedScanlators = excludedScanlatorsByMangaId[entry.id].orEmpty()
 
-        // Carry captured adult/EXH gallery metadata so a restore brings the tags back.
-        mangaMetadataRepository.getMetadataById(entry.id)?.let { meta ->
-            mangaObject.searchMetadata = BackupSearchMetadata(
-                uploader = meta.uploader,
-                extra = meta.extra,
-                indexedExtra = meta.indexedExtra,
-                extraVersion = meta.extraVersion,
-                tags = mangaMetadataRepository.getTagsById(entry.id)
-                    .map { BackupSearchTag(it.namespace, it.name, it.type) },
-                titles = mangaMetadataRepository.getTitlesById(entry.id)
-                    .map { BackupSearchTitle(it.title, it.type) },
-            )
+            // Carry captured adult/EXH gallery metadata so a restore brings the tags back.
+            mangaMetadataRepository.getMetadataById(entry.id)?.let { meta ->
+                mangaObject.searchMetadata = BackupSearchMetadata(
+                    uploader = meta.uploader,
+                    extra = meta.extra,
+                    indexedExtra = meta.indexedExtra,
+                    extraVersion = meta.extraVersion,
+                    tags = mangaMetadataRepository.getTagsById(entry.id)
+                        .map { BackupSearchTag(it.namespace, it.name, it.type) },
+                    titles = mangaMetadataRepository.getTitlesById(entry.id)
+                        .map { BackupSearchTitle(it.title, it.type) },
+                )
+            }
+
+            mangaObject
         }
-
-        return mangaObject
     }
 
-    override suspend fun chapters(entry: Manga, backup: BackupManga) {
-        val overrides = chapterNumberOverrides.getByOwner(ContentType.MANGA, entry.id)
-        // Backup all the chapters
-        chapterRepository.getChapterByMangaId(entry.id, applyScanlatorFilter = false)
-            .map { chapter ->
+    override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
+        val mangaIds = batch.map { it.first.id }
+        val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
+        batch.writeRows(chapterRepository.getChaptersByMangaIds(mangaIds), Manga::id) { entry, backup, chapters ->
+            val overrides = overridesByMangaId[entry.id].orEmpty()
+            backup.chapters = chapters.map { chapter ->
                 chapter.toBackupChapter().apply { sourceChapterNumber = overrides[chapter.url]?.sourceNumber }
             }
-            .takeUnless { it.isEmpty() }
-            ?.let { backup.chapters = it }
-    }
-
-    override suspend fun categories(entry: Manga, backup: BackupManga) {
-        // Backup categories for this manga
-        val categoriesForManga = getCategories.await(entry.id)
-        if (categoriesForManga.isNotEmpty()) {
-            backup.categories = categoriesForManga.map { it.order }
         }
     }
 
-    override suspend fun tracking(entry: Manga, backup: BackupManga) {
-        val tracks = trackRepository.getTracksByMangaId(entry.id).map { it.toBackupTracking() }
-        if (tracks.isNotEmpty()) {
-            backup.tracking = tracks
+    override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {
+        val categoriesByMangaId = categoryRepository.getCategoriesByMangaIds(batch.map { it.first.id })
+        batch.writeRows(categoriesByMangaId, Manga::id) { _, backup, categories ->
+            backup.categories = categories.map { it.order }
         }
     }
 
-    override suspend fun history(entry: Manga, backup: BackupManga) {
-        val historyByMangaId = getHistory.await(entry.id)
-        if (historyByMangaId.isNotEmpty()) {
-            val chapterUrlsById = chapterRepository.getChapterByMangaId(entry.id).associate { it.id to it.url }
-            val history = historyByMangaId.mapNotNull { history ->
+    override suspend fun tracking(batch: List<Pair<Manga, BackupManga>>) {
+        batch.writeRows(
+            trackRepository.getTracksByMangaIds(
+                batch.map {
+                    it.first.id
+                },
+            ),
+            Manga::id,
+        ) { _, backup, tracks ->
+            backup.tracking = tracks.map { it.toBackupTracking() }
+        }
+    }
+
+    override suspend fun history(batch: List<Pair<Manga, BackupManga>>) {
+        val mangaIds = batch.map { it.first.id }
+        val historyByMangaId = historyRepository.getHistoryByMangaIds(mangaIds)
+        // History is backed up by chapter URL, so it needs the chapters too
+        val chaptersByMangaId = if (historyByMangaId.isEmpty()) {
+            emptyMap()
+        } else {
+            chapterRepository.getChaptersByMangaIds(
+                mangaIds,
+            )
+        }
+        val sessionsByMangaId = readingLog.sessionsByUrl(ContentType.MANGA, mangaIds)
+        batch.forEach { (entry, backup) ->
+            val chapterUrlsById = chaptersByMangaId[entry.id].orEmpty().associate { it.id to it.url }
+            val history = historyByMangaId[entry.id].orEmpty().mapNotNull { history ->
                 // A chapter removed since its history was read takes that history with it
                 val url = chapterUrlsById[history.chapterId] ?: return@mapNotNull null
                 BackupHistory(url, history.readAt.toEpochMillisOrZero(), history.readDuration)
@@ -123,12 +146,16 @@ class MangaBackupCreator(
             if (history.isNotEmpty()) {
                 backup.history = history
             }
+            // Sessions ride the history option, keyed by url as history is
+            backup.readingSessions = sessionsByMangaId[entry.id].orEmpty().map { it.toBackupReadingSession() }
         }
     }
 
-    override suspend fun customInfo(entry: Manga, backup: BackupManga) {
-        customMangaInfoRepository.getByMangaIdAsFlow(entry.id).first()
-            ?.let { backup.customInfo = it.toBackupCustomInfo() }
+    override suspend fun customInfo(batch: List<Pair<Manga, BackupManga>>) {
+        batch.forEach { (entry, backup) ->
+            customMangaInfoRepository.getByMangaIdAsFlow(entry.id).first()
+                ?.let { backup.customInfo = it.toBackupCustomInfo() }
+        }
     }
     // RK <--
 }

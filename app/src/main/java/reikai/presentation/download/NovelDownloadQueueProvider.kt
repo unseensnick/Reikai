@@ -111,12 +111,7 @@ class NovelDownloadQueueProvider(
         val sorted = queue.sortedWithinSeries(
             seriesOf = { it.novelId },
             keyOf = { download ->
-                chapterById[download.chapterId]?.let {
-                    when (key) {
-                        DownloadQueueSortKey.UPLOAD_DATE -> it.dateUpload?.toEpochMilliseconds()?.toDouble()
-                        DownloadQueueSortKey.CHAPTER_NUMBER -> it.chapterNumber
-                    }
-                }
+                chapterById[download.chapterId]?.let { key.sortValue(it.dateUpload, it.chapterNumber) }
             },
             descending = descending,
         )

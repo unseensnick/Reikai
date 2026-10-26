@@ -20,8 +20,7 @@ import tachiyomi.domain.category.model.Category
  * The shared bulk "add to library" engine for every browse surface: selection state, the
  * default-category-or-prompt decision and the one-shot category dialog live here once, so the two
  * content types cannot drift. The per-type facades supply only what genuinely differs: the selection
- * key, the category source, the default-category preference, the in-library check and the add-to-library
- * verb. One category choice applies to the whole selection, already-favorited entries are skipped, and
+ * key, the batch's category decision, the in-library check and the add-to-library verb. One category choice applies to the whole selection, already-favorited entries are skipped, and
  * there is no per-duplicate prompt.
  */
 abstract class EntryBulkFavoriteViewModel<T : Any> :
@@ -33,11 +32,8 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
     /** Selection identity: two items with the same key are the same selection entry. */
     protected abstract fun keyOf(item: T): Any
 
-    /** The user-visible categories this content type can file into. */
-    protected abstract suspend fun userCategories(): List<Category>
-
-    /** The raw default-category preference for this content type. */
-    protected abstract suspend fun defaultCategoryId(): Int
+    /** Where this content type files the batch: its default category, or a picker over its categories. */
+    protected abstract suspend fun resolveBatchCategories(): BatchCategories
 
     /** Favorite [items] and file them into [categoryIds]; the per-type verb. */
     protected abstract suspend fun addToLibrary(items: List<T>, categoryIds: List<Long>)
@@ -98,7 +94,7 @@ abstract class EntryBulkFavoriteViewModel<T : Any> :
                 toggleSelectionMode(false)
                 return@launchIO
             }
-            when (val batch = batchCategories(userCategories(), defaultCategoryId())) {
+            when (val batch = resolveBatchCategories()) {
                 is BatchCategories.Default -> addAndFinish(items, batch.categoryIds)
                 is BatchCategories.Ask -> setDialog(Dialog.ChangeCategory(items, batch.initialSelection))
             }

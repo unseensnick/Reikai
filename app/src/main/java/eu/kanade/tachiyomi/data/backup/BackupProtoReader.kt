@@ -6,13 +6,12 @@ package eu.kanade.tachiyomi.data.backup
 
 import android.content.Context
 import android.net.Uri
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import okio.buffer
 import okio.gzip
 import okio.source
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.i18n.MR
 import java.io.IOException
 
@@ -24,7 +23,7 @@ class BackupProtoReader(
      * field's number and its length-delimited bytes. Non-length-delimited fields are skipped.
      */
     suspend fun read(uri: Uri, onField: suspend (fieldNumber: Int, data: ByteArray) -> Unit) {
-        withContext(Dispatchers.IO) {
+        withIOContext {
             context.contentResolver.openInputStream(uri)!!.use { inputStream ->
                 val source = inputStream.source().buffer()
 

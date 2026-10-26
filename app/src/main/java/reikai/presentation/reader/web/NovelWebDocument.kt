@@ -1,6 +1,7 @@
 package reikai.presentation.reader.web
 
 import android.content.Context
+import android.view.ViewConfiguration
 import com.google.android.material.color.MaterialColors
 import dev.icerock.moko.resources.StringResource
 import org.json.JSONObject
@@ -9,7 +10,9 @@ import reikai.presentation.reader.NovelReaderSettings
 import reikai.presentation.reader.NovelTextScale
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.CHAPTER_SWIPE_MIN_DP
+import reikai.presentation.reader.text.CHAPTER_SWIPE_SIDEWAYS
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.PAGE_SWIPE_MIN_DP
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import java.util.Locale
@@ -35,13 +38,17 @@ object NovelWebDocument {
         initialLine: Int? = null,
         settings: NovelReaderSettings,
         statusBarHeightPx: Int,
-        /** The chosen face as a `data:` URI from [NovelWebFonts], or null for a generic family. */
+        /** Where the chosen face loads from, from [NovelWebFonts], or null for a generic family. */
         fontSource: String?,
         useOriginalFonts: Boolean,
         sourceCssPriority: Boolean,
         textSelectable: Boolean,
+        /** Paged reading, which the page's engine measures and moves the column for. */
+        paged: Boolean,
         /** The chapter source's own stylesheet, which the page sets ahead of the user's snippets. */
         sourceStylesheet: String? = null,
+        /** The trusted base the document loads under, whose address plus a fragment is a jump in the chapter. */
+        baseUrl: String? = null,
     ): String {
         val css = NovelWebAssets.read(context, "reader.css")
         val js = NovelWebAssets.readWith(
@@ -49,7 +56,11 @@ object NovelWebDocument {
             "reader.js",
             mapOf(
                 "__SWIPE__" to settings.swipeGestures.toString(),
+                "__PAGED__" to paged.toString(),
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
+                "__SWIPE_SIDEWAYS__" to CHAPTER_SWIPE_SIDEWAYS.toString(),
+                "__PAGE_SWIPE_MIN_PX__" to PAGE_SWIPE_MIN_DP.toString(),
+                "__TOUCH_SLOP_PX__" to touchSlopDp(context).toString(),
                 "__BIONIC__" to settings.bionicReading.toString(),
                 "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
@@ -64,6 +75,9 @@ object NovelWebDocument {
                 "__LABEL_DOWNLOADED__" to context.label(MR.strings.label_downloaded),
                 "__LABEL_IMAGE_ERROR__" to context.label(MR.strings.decode_image_error),
                 "__LABEL_RETRY__" to context.label(MR.strings.action_retry),
+                // Through the stylesheet's literal, which carries no underscore, so a token the address names
+                // is never filled in.
+                "__BASE_URL__" to (baseUrl?.let(::sourceCssLiteral) ?: "null"),
                 "__SOURCE_CSS__" to sourceCssLiteral(sourceStylesheet.orEmpty()),
                 // Last, because the tokens are replaced in order and a stylesheet naming one of the
                 // tokens above would otherwise have it filled in, the document token included.
@@ -203,6 +217,13 @@ $sizedElements
         ".0",
     )}em !important; }"
 
+    /**
+     * The slop [reikai.presentation.reader.text.hasTravelled] gives the native renderer, in the page's
+     * CSS pixels, which are dp at initial-scale=1.
+     */
+    private fun touchSlopDp(context: Context): Float =
+        ViewConfiguration.get(context).scaledTouchSlop / context.resources.displayMetrics.density
+
     private fun Context.label(resource: StringResource): String = NovelWebSnippets.jsLiteral(stringResource(resource))
 
     /** The block the page's own settings object is given, for what a custom property cannot express. */
@@ -233,12 +254,11 @@ $sizedElements
 
     /**
      * The face behind the chosen family, bundled or the user's own. None for a generic family. Its
-     * own style block, so a font changed with a chapter open swaps the face without a rebuild.
+     * own style block, so a font changed with a chapter open swaps the face without a rebuild. [source] is
+     * an address from [NovelWebFonts.url], whose encoding is what keeps it inside the quoted `url('...')`.
      */
     fun fontFace(family: String, source: String?): String {
         if (source == null) return ""
-        // Dropping the declaration loses the face; letting it through loses the whole style block.
-        if (!isSafeInCssUrl(source)) return ""
         return "@font-face { font-family: '${cssFontName(family)}'; src: url('$source'); }"
     }
 }

@@ -18,6 +18,12 @@ object ReaderRanges {
     /** How long a paged auto-scroll shows each page, in seconds. */
     val autoScrollIntervalSeconds = 1..30
 
+    /** The e-ink flash's length, in steps of `ReaderPreferences.MILLI_CONVERSION`. */
+    val flashDurationSteps = 1..15
+
+    /** How many page turns apart the e-ink flash runs. */
+    val flashPageInterval = 1..10
+
     /** How many pages past the one on screen a chapter loads; the loader clamps a stored value to it. */
     val preloadPages = 1..20
 }

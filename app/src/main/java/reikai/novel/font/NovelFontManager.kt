@@ -10,13 +10,12 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okhttp3.Request
 import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -52,7 +51,7 @@ class NovelFontManager(
 
     private val lenientJson = Json { ignoreUnknownKeys = true }
 
-    suspend fun installed(): List<NovelFont> = withContext(Dispatchers.IO) {
+    suspend fun installed(): List<NovelFont> = withIOContext {
         val files = storageManager.getFontsDirectory()?.listFiles()
         val fonts = files.orEmpty()
             .mapNotNull { file ->
@@ -77,16 +76,16 @@ class NovelFontManager(
      * checked first because it is what the reader stores, and the header after the copy because a
      * picker reports whatever the source called the file.
      */
-    suspend fun import(uri: Uri): Result<NovelFont> = withContext(Dispatchers.IO) {
+    suspend fun import(uri: Uri): Result<NovelFont> = withIOContext {
         val source = UniFile.fromUri(context, uri)
         val name = source?.name
-        if (source == null || name == null) return@withContext Result.failure(FontError.Unreadable)
-        if (!isSupportedFontFile(name)) return@withContext Result.failure(FontError.UnsupportedFormat)
+        if (source == null || name == null) return@withIOContext Result.failure(FontError.Unreadable)
+        if (!isSupportedFontFile(name)) return@withIOContext Result.failure(FontError.UnsupportedFormat)
 
         val bytes = runCatching { context.contentResolver.openInputStream(uri)?.use { it.readBytes() } }
             .getOrNull()
-            ?: return@withContext Result.failure(FontError.Unreadable)
-        if (!isSfntHeader(bytes)) return@withContext Result.failure(FontError.UnsupportedFormat)
+            ?: return@withIOContext Result.failure(FontError.Unreadable)
+        if (!isSfntHeader(bytes)) return@withIOContext Result.failure(FontError.UnsupportedFormat)
         write(name, bytes)
     }
 
@@ -95,23 +94,23 @@ class NovelFontManager(
      * because Google picks the format from it and answers a modern browser entirely in woff2, which
      * Android cannot load. Measured: our default agent returns ten woff2 files and no TTF.
      */
-    suspend fun download(family: String): Result<NovelFont> = withContext(Dispatchers.IO) {
+    suspend fun download(family: String): Result<NovelFont> = withIOContext {
         val css = runCatchingCancellable {
             val request = Request.Builder()
                 .url(CSS_URL.format(family.replace(' ', '+')))
                 .header("User-Agent", "Reikai/${BuildConfig.VERSION_NAME}")
                 .build()
             networkHelper.client.newCall(request).awaitSuccess().use { it.body.string() }
-        }.getOrElse { return@withContext Result.failure(FontError.Offline) }
+        }.getOrElse { return@withIOContext Result.failure(FontError.Offline) }
 
-        val url = firstSupportedFontUrl(css) ?: return@withContext Result.failure(FontError.UnsupportedFormat)
+        val url = firstSupportedFontUrl(css) ?: return@withIOContext Result.failure(FontError.UnsupportedFormat)
         val bytes = runCatchingCancellable {
             networkHelper.client.newCall(Request.Builder().url(url).build())
                 .awaitSuccess()
                 .use { it.body.bytes() }
-        }.getOrElse { return@withContext Result.failure(FontError.Offline) }
+        }.getOrElse { return@withIOContext Result.failure(FontError.Offline) }
 
-        if (!isSfntHeader(bytes)) return@withContext Result.failure(FontError.UnsupportedFormat)
+        if (!isSfntHeader(bytes)) return@withIOContext Result.failure(FontError.UnsupportedFormat)
         val extension = url.substringBefore('?').substringAfterLast('.')
         write("${family.replace(' ', '_')}.$extension", bytes)
     }
@@ -121,8 +120,8 @@ class NovelFontManager(
      * to a browser for a name to type back. Fetched from the keyless metadata endpoint and held for
      * the session, because it is a couple of megabytes and the answer does not change while reading.
      */
-    suspend fun googleFontCatalogue(): List<GoogleFont> = withContext(Dispatchers.IO) {
-        catalogue?.let { return@withContext it }
+    suspend fun googleFontCatalogue(): List<GoogleFont> = withIOContext {
+        catalogue?.let { return@withIOContext it }
         val request = Request.Builder().url(CATALOGUE_URL).build()
         val parsed = runCatchingCancellable {
             networkHelper.client.newCall(request).awaitSuccess().use { response ->
@@ -130,12 +129,12 @@ class NovelFontManager(
             }
         }.getOrElse {
             logcat(LogPriority.WARN, it) { "Could not read the Google Fonts catalogue" }
-            return@withContext emptyList()
+            return@withIOContext emptyList()
         }
         parsed.familyMetadataList.also { catalogue = it }
     }
 
-    suspend fun delete(font: NovelFont): Boolean = withContext(Dispatchers.IO) {
+    suspend fun delete(font: NovelFont): Boolean = withIOContext {
         typefaces.remove(font.fileName)
         File(mirrorDir, font.fileName).delete()
         storageManager.getFontsDirectory()?.findFile(font.fileName)?.delete() == true
@@ -155,7 +154,7 @@ class NovelFontManager(
      *  finds it cached. */
     suspend fun warm(family: String) {
         if (readerFontSource(family) !is ReaderFontSource.UserFile || typefaces.containsKey(family)) return
-        withContext(Dispatchers.IO) { typeface(family) }
+        withIOContext { typeface(family) }
     }
 
     private fun resolveTypeface(fileName: String): Typeface? {
@@ -167,7 +166,7 @@ class NovelFontManager(
 
     /** The readable copy, for a caller that needs the file itself. Touches the disk, so off the main
      *  thread: the picker asks for one per font to preview each row in the face it offers. */
-    suspend fun localFile(fileName: String): File? = withContext(Dispatchers.IO) { mirror(fileName) }
+    suspend fun localFile(fileName: String): File? = withIOContext { mirror(fileName) }
 
     /**
      * The app-private copy, made on first use. A picked folder is normally a SAF tree, which has no

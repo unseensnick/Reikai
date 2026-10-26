@@ -198,7 +198,7 @@ class PreferenceRestorerTest {
             backupCategories = null,
         )
 
-        novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.THIRDS
+        novelPreferences.readerTapLayout(paged = false).get() shouldBe NovelTapLayout.THIRDS
     }
 
     /** Disabled is also the default, so only the stored value shows the off choice was carried. */
@@ -210,7 +210,8 @@ class PreferenceRestorerTest {
             backupCategories = null,
         )
 
-        novelPreferences.readerTapLayout().let { it.get() to it.isSet() } shouldBe (NovelTapLayout.DISABLED to true)
+        novelPreferences.readerTapLayout(paged = false).let { it.get() to it.isSet() } shouldBe
+            (NovelTapLayout.DISABLED to true)
     }
 
     @Test
@@ -382,6 +383,11 @@ class PreferenceRestorerTest {
                     "the installed light-novel plugins' records",
                     NovelPreferences(store).installedPluginMetadata().key(),
                     StringPreferenceValue("""{"https://example.com/plugin.js":{"pluginId":"p"}}"""),
+                ),
+                Arguments.of(
+                    "the light-novel plugin repos, which come back only once trusted",
+                    NovelPreferences(store).addedRepoUrls().key(),
+                    StringSetPreferenceValue(setOf("https://example.com/plugins.min.json")),
                 ),
             )
         }

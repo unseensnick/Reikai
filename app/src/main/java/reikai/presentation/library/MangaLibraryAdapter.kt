@@ -110,8 +110,9 @@ class MangaLibraryAdapter(
         return libraryDynamicGroupingFeed(
             rows = data.favorites,
             groupType = groupType,
-            sourceOf = { row ->
-                val source = sourceManager.getOrStub(row.libraryManga.manga.source)
+            sourceKey = { it.libraryManga.manga.source.toString() },
+            sourceOf = { key ->
+                val source = sourceManager.getOrStub(key.toLong())
                 source.name to source.id.toString()
             },
             groupTracks = { row -> mergedGroupTracks(row.memberIds(), data.tracksMap) },

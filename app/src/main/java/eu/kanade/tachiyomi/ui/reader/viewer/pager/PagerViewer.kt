@@ -21,6 +21,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
+import reikai.presentation.reader.navigation.actionAt
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.min
 
@@ -114,7 +115,8 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
                 (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / pager.width,
                 (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / pager.height,
             )
-            when (config.navigator.getAction(pos)) {
+            when (config.navigator.actionAt(pos)) { // RK: a zone-only layout leaves the rest to the page
+                null -> Unit // RK
                 NavigationRegion.MENU -> activity.toggleMenu()
                 NavigationRegion.NEXT -> moveToNext()
                 NavigationRegion.PREV -> moveToPrevious()

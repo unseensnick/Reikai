@@ -23,8 +23,7 @@ class RelatedMangaCandidate(
     fun titleKeys(): Set<String> =
         (listOf(manga.title) + altTitles)
             .asSequence()
-            .map(TitleNormalizer::normalize)
-            .filter { it.isNotEmpty() }
+            .mapNotNull(TitleNormalizer::key)
             .toSet()
 
     fun withOrigin(newOrigin: RecommendationOrigin): RelatedMangaCandidate =

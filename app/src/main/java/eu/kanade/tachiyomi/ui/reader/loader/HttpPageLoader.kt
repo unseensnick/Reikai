@@ -16,8 +16,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import reikai.presentation.reader.ReaderRanges
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -71,7 +72,8 @@ internal class HttpPageLoader(
     /**
      * Loads a page through the queue. Handles re-enqueueing pages if they were evicted from the cache.
      */
-    override suspend fun loadPage(page: ReaderPage) = withContext(Dispatchers.IO) {
+    override suspend fun loadPage(page: ReaderPage) = withIOContext {
+        // RK: coroutine helper in place of upstream's raw dispatcher
         val imageUrl = page.imageUrl
 
         // Check if the image has been deleted
@@ -89,7 +91,7 @@ internal class HttpPageLoader(
         launchLoadOnce(page)
 
         val pages = page.chapter.pages.orEmpty()
-        if (page.index !in pages.indices) return@withContext
+        if (page.index !in pages.indices) return@withIOContext // RK
         pages.loadByRollingChunked(page.index, 3, 5) { chunks ->
             val continueLoading = chunks.take(2).flatten().map { it.index }.toSet()
             downloadJobs.keys.filter { it !in continueLoading }
@@ -117,7 +119,8 @@ internal class HttpPageLoader(
 
         // Cache current page list progress for online chapters to allow a faster reopen
         chapter.pages?.let { pages ->
-            appScope.launch(Dispatchers.IO) {
+            // RK: coroutine helper in place of upstream's raw dispatcher
+            appScope.launchIO {
                 try {
                     // Convert to pages without reader information
                     val pagesToSave = pages.map { Page(it.index, it.url, it.imageUrl) }

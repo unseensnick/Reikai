@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import logcat.LogPriority
 import okhttp3.CacheControl
 import okhttp3.Call
@@ -86,12 +87,13 @@ class NovelImageRequests(
 
     /**
      * The headers a novel source sends with its own pages, for the WebView: an APK source's own and an
-     * IReader source's cover-request ones. An LNReader plugin has none of its own, so it gets none, and
-     * so does a source whose headers throw, as a manga source's do in the WebView.
+     * IReader source's cover-request ones, and for an LNReader plugin the User-Agent its fetches send.
+     * A source whose headers throw gets none, as a manga source's do in the WebView.
      */
     suspend fun webViewHeaders(sourceId: String?): Map<String, String> =
         runCatchingCancellable {
-            appImages(sourceId)?.headers?.toMultimap()?.mapValues { it.value.firstOrNull().orEmpty() }.orEmpty()
+            appImages(sourceId)?.headers?.toWebViewHeaders()
+                ?: pluginWebViewHeaders(sourceId) { deviceWebViewUserAgent(context) }
         }
             .onFailure { logcat(LogPriority.ERROR, it) { "Failed to build headers" } }
             .getOrDefault(emptyMap())
@@ -126,6 +128,17 @@ internal fun lnImageHeaders(deviceUserAgent: String, site: String?, pluginHeader
         // A name or value no header can carry throws, and drops only that header.
         pluginHeaders.forEach { (name, value) -> runCatching { set(name, value) } }
     }.build()
+
+/**
+ * An LNReader plugin's WebView headers: the User-Agent its fetches send, so a Cloudflare check passed
+ * in the WebView leaves a cookie those fetches can use, since the clearance is tied to the agent.
+ * An app source's id gets none here, its own headers being the app's to give.
+ */
+internal fun pluginWebViewHeaders(sourceId: String?, deviceUserAgent: () -> String): Map<String, String> {
+    if (sourceId == null || isNovelAppSourceId(sourceId)) return emptyMap()
+    val agent = deviceUserAgent()
+    return if (agent.isBlank()) emptyMap() else mapOf("user-agent" to agent)
+}
 
 /**
  * An IReader source's picture headers, from the cover request it builds: that is where its extensions

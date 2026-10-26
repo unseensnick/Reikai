@@ -11,7 +11,7 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.MangaUpdate
 import kotlin.time.Instant
 
-/** [EntryLibraryRemoval] over the manga table. Writes only the library date and the cover stamp. */
+/** [EntryLibraryRemoval] over the manga table. Writes only the library date. */
 @Inject
 class RemoveMangaFromLibrary(
     mergeManager: MangaMergeManager,
@@ -28,10 +28,7 @@ class RemoveMangaFromLibrary(
     override suspend fun writeFavoriteAt(favoriteAt: Map<Long, Instant?>): Boolean =
         updateManga.awaitAll(favoriteAt.map { (id, at) -> MangaUpdate(id) { this.favoriteAt = at } })
 
-    override suspend fun deleteCovers(id: Long): Boolean =
-        getManga.await(id)?.let { it.removeCovers(coverCache) != it } == true
-
-    override suspend fun stampCover(id: Long) {
-        updateManga.awaitUpdateCoverLastModified(id)
+    override suspend fun deleteCovers(id: Long) {
+        getManga.await(id)?.removeCovers(coverCache)
     }
 }

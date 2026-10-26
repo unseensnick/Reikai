@@ -1,6 +1,5 @@
 package eu.kanade.presentation.library.components
 
-import android.content.res.Configuration
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
@@ -12,16 +11,14 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import eu.kanade.core.preference.PreferenceMutableState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryBucket // RK
+import reikai.presentation.library.LibraryItemsLayout // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -67,61 +64,21 @@ fun LibraryPager(
         }
 
         val displayMode by getDisplayMode(page)
-        val columns by if (displayMode != LibraryDisplayMode.List) {
-            val configuration = LocalConfiguration.current
-            val isLandscape = configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
-
-            remember(isLandscape) { getColumnsForOrientation(isLandscape) }
-        } else {
-            remember { mutableIntStateOf(0) }
-        }
-
-        // RK: rows are neutral LibraryItems in a LibraryBucket, so both content types page alike
-        val onClickManga: (LibraryItem) -> Unit = { onClickManga(bucket, it) }
-        val onLongClickManga: (LibraryItem) -> Unit = { onLongClickManga(bucket, it) }
-
-        when (displayMode) {
-            LibraryDisplayMode.List -> {
-                LibraryList(
-                    items = items,
-                    contentPadding = contentPadding,
-                    selection = selection,
-                    onClick = onClickManga,
-                    onLongClick = onLongClickManga,
-                    onClickContinueReading = onClickContinueReading,
-                    searchQuery = searchQuery,
-                    onGlobalSearchClicked = onGlobalSearchClicked,
-                )
-            }
-            LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
-                LibraryCompactGrid(
-                    items = items,
-                    showTitle = displayMode is LibraryDisplayMode.CompactGrid,
-                    columns = columns,
-                    contentPadding = contentPadding,
-                    selection = selection,
-                    onClick = onClickManga,
-                    onLongClick = onLongClickManga,
-                    onClickContinueReading = onClickContinueReading,
-                    searchQuery = searchQuery,
-                    onGlobalSearchClicked = onGlobalSearchClicked,
-                )
-            }
-            LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> { // RK
-                LibraryComfortableGrid(
-                    items = items,
-                    usePanoramaCover = displayMode is LibraryDisplayMode.ComfortableGridPanorama, // RK
-                    columns = columns,
-                    contentPadding = contentPadding,
-                    selection = selection,
-                    onClick = onClickManga,
-                    onLongClick = onLongClickManga,
-                    onClickContinueReading = onClickContinueReading,
-                    searchQuery = searchQuery,
-                    onGlobalSearchClicked = onGlobalSearchClicked,
-                )
-            }
-        }
+        // RK --> the column count and the mode switch moved to LibraryItemsLayout, which a Statistics
+        //     row's series list draws through too. Rows are neutral LibraryItems in a LibraryBucket.
+        LibraryItemsLayout(
+            items = items,
+            displayMode = displayMode,
+            getColumnsForOrientation = getColumnsForOrientation,
+            contentPadding = contentPadding,
+            selection = selection,
+            onClick = { onClickManga(bucket, it) },
+            onLongClick = { onLongClickManga(bucket, it) },
+            onClickContinueReading = onClickContinueReading,
+            searchQuery = searchQuery,
+            onGlobalSearchClicked = onGlobalSearchClicked,
+        )
+        // RK <--
     }
 }
 

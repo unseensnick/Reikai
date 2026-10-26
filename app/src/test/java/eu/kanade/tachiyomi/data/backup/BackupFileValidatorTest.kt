@@ -34,12 +34,16 @@ import kotlinx.serialization.builtins.MapSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.protobuf.ProtoBuf
+import mihon.data.extension.service.ExtensionStoreService
+import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.backup.RestoreInstallSources
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.source.model.StubSource
@@ -98,8 +102,17 @@ class BackupFileValidatorTest {
         trackerManager = trackerManager,
         novelSourceManager = novelSources,
         parser = ProtoBuf,
-        extensionManager = extensions,
-        novelPreferences = deviceNovelPreferences,
+        restoreInstalls = RestoreInstallSources(
+            extensionManager = extensions,
+            novelPreferences = deviceNovelPreferences,
+            // No repo anywhere, so every missing app and plugin is one to install by hand.
+            storeRepository = mockk<ExtensionStoreRepository> {
+                coEvery { getAll() } returns emptyList()
+                coEvery { fetchExtensionsByStore() } returns emptyMap()
+            },
+            storeService = mockk<ExtensionStoreService>(),
+            registryFetcher = LnRegistryFetcher { emptyList() },
+        ),
     )
 
     @Test
@@ -199,6 +212,34 @@ class BackupFileValidatorTest {
             listOf("AniList", "Kitsu", "NovelUpdates")
     }
 
+    // The check reads only an entry's source and trackers, so a chapter list it cannot decode is never decoded.
+    @Test
+    fun `an entry's chapters are not decoded to read its trackers and source`() = runTest {
+        val trackers = mockk<TrackerManager> {
+            every { get(2L) } returns mockk<BaseTracker> {
+                every { name } returns "AniList"
+                every { isLoggedIn } returns false
+            }
+        }
+        // A chapters field (manga 16, novel 20) holding one byte that starts a varint and never ends it.
+        val brokenChapters = { field: Int ->
+            byteArrayOf(((field shl 3) or 2 or 0x80).toByte(), 0x01, 0x01, 0xFF.toByte())
+        }
+        val manga = 1 to ProtoBuf.encodeToByteArray(
+            BackupManga.serializer(),
+            BackupManga(source = 1L, url = "m").apply { tracking = listOf(BackupTracking(syncId = 2, libraryId = 0)) },
+        ) + brokenChapters(16)
+        val trackedNovel = 700 to ProtoBuf.encodeToByteArray(
+            BackupNovel.serializer(),
+            BackupNovel(source = "tachiyomi:123", url = "u").apply {
+                tracking = listOf(BackupNovelTracking(trackerId = 2L))
+            },
+        ) + brokenChapters(20)
+
+        validator(manga, trackedNovel, trackerManager = trackers).validate(mockk<Uri>()).missingSources shouldBe
+            listOf("tachiyomi:123")
+    }
+
     private val extension = 710 to ProtoBuf.encodeToByteArray(
         BackupExtension.serializer(),
         BackupExtension(pkgName = "ext.foo", name = "Foo"),
@@ -224,7 +265,7 @@ class BackupFileValidatorTest {
     @Test
     fun `an extension app the backup had that is not installed is listed to install`() = runTest {
         validator(extension, extensions = extensionManager(installedAs = null))
-            .validate(mockk<Uri>()).missingExtensions shouldBe listOf("Foo")
+            .validate(mockk<Uri>()).installs.unavailable shouldBe listOf("Foo")
     }
 
     // An untrusted or failing app is installed all the same, so it is not one to install.
@@ -233,7 +274,7 @@ class BackupFileValidatorTest {
     fun `an installed extension app is not listed, manga or novel, loaded or not`(installedAs: InstalledAs) =
         runTest {
             validator(extension, extensions = extensionManager(installedAs))
-                .validate(mockk<Uri>()).missingExtensions.shouldBeEmpty()
+                .validate(mockk<Uri>()).installs.unavailable.shouldBeEmpty()
         }
 
     private fun pluginPreferences(seen: Map<String, LnSourceIdentity>): Array<Pair<Int, ByteArray>> = listOf(
@@ -264,12 +305,12 @@ class BackupFileValidatorTest {
 
     @Test
     fun `a plugin the backup had that is not installed is listed by the name it last loaded under`() = runTest {
-        validator(*plugin).validate(mockk<Uri>()).missingExtensions shouldBe listOf("Novel Foo")
+        validator(*plugin).validate(mockk<Uri>()).installs.unavailable shouldBe listOf("Novel Foo")
     }
 
     @Test
     fun `a plugin the backup never loaded is listed by its script's file name`() = runTest {
-        validator(*pluginPreferences(seen = emptyMap())).validate(mockk<Uri>()).missingExtensions shouldBe
+        validator(*pluginPreferences(seen = emptyMap())).validate(mockk<Uri>()).installs.unavailable shouldBe
             listOf("novelfoo")
     }
 
@@ -277,7 +318,7 @@ class BackupFileValidatorTest {
     fun `a plugin installed from the same address is not listed, record or not`() = runTest {
         deviceNovelPreferences.installedPluginUrls().set(setOf(PLUGIN_URL))
 
-        validator(*plugin).validate(mockk<Uri>()).missingExtensions.shouldBeEmpty()
+        validator(*plugin).validate(mockk<Uri>()).installs.unavailable.shouldBeEmpty()
     }
 
     @Test
@@ -286,13 +327,13 @@ class BackupFileValidatorTest {
         deviceNovelPreferences.installedPluginUrls().set(setOf(url))
         deviceNovelPreferences.installedPluginMetadata().set(mapOf(url to LnInstalledPluginMetadata(PLUGIN_ID)))
 
-        validator(*plugin).validate(mockk<Uri>()).missingExtensions.shouldBeEmpty()
+        validator(*plugin).validate(mockk<Uri>()).installs.unavailable.shouldBeEmpty()
     }
 
     @Test
     fun `extension apps and plugins to install share one list`() = runTest {
         validator(extension, *plugin, extensions = extensionManager(installedAs = null))
-            .validate(mockk<Uri>()).missingExtensions shouldBe listOf("Foo", "Novel Foo")
+            .validate(mockk<Uri>()).installs.unavailable shouldBe listOf("Foo", "Novel Foo")
     }
 
     private companion object {

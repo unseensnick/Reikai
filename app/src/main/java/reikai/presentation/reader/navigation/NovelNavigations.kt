@@ -1,13 +1,21 @@
 package reikai.presentation.reader.navigation
 
+import android.graphics.PointF
 import android.graphics.RectF
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 
 /*
- * The novel reader's tap layouts that Mihon's navigation set lacks. Centre and bottom are tsundoku's
+ * The tap layouts Mihon's navigation set lacks, which both readers offer. Centre and bottom are tsundoku's
  * (CenterNavigation, BottomNavigation at b04f9a4d3); thirds is the rule Reikai's novel reader had
  * before it took the layouts.
  */
+
+/** A layout that draws only a menu zone: a tap outside it is left to the page rather than opening the menu. */
+interface ZoneOnlyNavigation
+
+/** What a tap at [pos], in fractions of the page, asks for; null outside a [ZoneOnlyNavigation]'s zones. */
+fun ViewerNavigation.actionAt(pos: PointF): ViewerNavigation.NavigationRegion? =
+    if (this is ZoneOnlyNavigation && getRegions().none { it.rectF.contains(pos.x, pos.y) }) null else getAction(pos)
 
 /** The top third reads back, the bottom third reads on, and the middle band opens the menu. */
 class ThirdsNavigation : ViewerNavigation() {
@@ -19,7 +27,9 @@ class ThirdsNavigation : ViewerNavigation() {
 }
 
 /** Only the middle of the page opens the menu; [large] widens that zone. */
-class CenterNavigation(large: Boolean = false) : ViewerNavigation() {
+class CenterNavigation(large: Boolean = false) :
+    ViewerNavigation(),
+    ZoneOnlyNavigation {
 
     override var regionList: List<Region> = listOf(
         Region(
@@ -30,7 +40,9 @@ class CenterNavigation(large: Boolean = false) : ViewerNavigation() {
 }
 
 /** Only a band along the bottom opens the menu, [heightFraction] of the page tall, as `NovelTapZones` bounds it. */
-class BottomNavigation(heightFraction: Float) : ViewerNavigation() {
+class BottomNavigation(heightFraction: Float) :
+    ViewerNavigation(),
+    ZoneOnlyNavigation {
 
     override var regionList: List<Region> = listOf(
         Region(

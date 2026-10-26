@@ -45,5 +45,7 @@ sealed class GallerySiteSearchMetadata : RaisedSearchMetadata() {
         const val TAGS_NAMESPACE = "tags"
         const val LANGUAGE_NAMESPACE = "language"
         const val CATEGORY_NAMESPACE = "category"
+        const val MALE_NAMESPACE = "male"
+        const val FEMALE_NAMESPACE = "female"
     }
 }

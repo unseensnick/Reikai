@@ -208,7 +208,13 @@ class EntryMigrationFavoritesViewModel(
         emit(Content(sourceName = sourceName))
         emitAll(
             adapter.favorites(sourceKey)
-                .map { entries -> Content(isLoading = false, sourceName = sourceName, entries = entries) }
+                .map { entries ->
+                    Content(
+                        isLoading = false,
+                        sourceName = sourceName,
+                        entries = entries.sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title }),
+                    )
+                }
                 .catch { e ->
                     logcat(LogPriority.ERROR, e) { "Failed to read favorites for $sourceKey" }
                     emit(Content(isLoading = false, failed = true, sourceName = sourceName))

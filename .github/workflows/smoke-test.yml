@@ -1,0 +1,60 @@
+name: Smoke test
+
+# Installs the R8-minified nightly build on an emulator and walks it through first-run onboarding and
+# every bottom tab (scripts/ci/smoke-test.sh). R8 strips and merges app classes, so a missing keep
+# crashes only a minified build, which no other job ever launches.
+#
+# Weekly rather than per pull request, because emulator jobs are slow and can hang. GitHub runs a
+# schedule only on the default branch, and dispatches a workflow only once its file is there too;
+# after that it can be run by hand against any branch.
+
+on:
+  schedule:
+    # Mondays, 07:00 UTC.
+    - cron: '0 7 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    name: Launch the minified build
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Clone repo
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up the build
+        uses: ./.github/actions/setup-build
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      # No -Pdist and no keystore: the local profile, debug-signed, still minified like a release.
+      - name: Build the nightly APK
+        run: ./gradlew :app:assembleNightly
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Walk the app on an emulator
+        uses: ReactiveCircus/android-emulator-runner@a421e43855164a8197daf9d8d40fe71c6996bb0d # v2.38.0
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/ci/smoke-test.sh app/build/outputs/apk/nightly/app-x86_64-nightly.apk
+
+      - name: Upload screenshots and logs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: smoke-test-${{ github.sha }}
+          path: smoke-out
+          if-no-files-found: ignore

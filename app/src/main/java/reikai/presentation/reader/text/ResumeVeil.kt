@@ -17,8 +17,10 @@ internal class ResumeVeil(private val onChange: (up: Boolean) -> Unit) {
     }
 
     companion object {
-        /** The native renderer's hold: while a picture loads, until [CHAPTER_IMAGE_WAIT_MS] runs out. */
-        fun waitsForPictures(picturesLoading: Boolean, waitOver: Boolean): Boolean = picturesLoading && !waitOver
+        /** The native renderer's hold for a landing at [fraction]: past the chapter's start, while a picture loads,
+         *  until [CHAPTER_IMAGE_WAIT_MS] runs out. */
+        fun waitsForPictures(fraction: Float, picturesLoading: Boolean, waitOver: Boolean): Boolean =
+            pageWaits(fraction) && picturesLoading && !waitOver
 
         /** reader.js's `landAndReportReady` test: a page opening on a percent reports ready only once it landed. */
         fun pageWaits(initialFraction: Float): Boolean = initialFraction > 0f

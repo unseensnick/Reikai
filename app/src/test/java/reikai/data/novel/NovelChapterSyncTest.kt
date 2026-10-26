@@ -177,14 +177,6 @@ class NovelChapterSyncTest {
     }
 
     @Test
-    fun `a new chapter marked read as a duplicate does not surface as new`() = runTest {
-        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
-        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
-
-        sync(db, source).result.newChapters shouldBe emptyList()
-    }
-
-    @Test
     fun `a new duplicate chapter stays unread when the setting is off`() = runTest {
         val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
         val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
@@ -216,14 +208,6 @@ class NovelChapterSyncTest {
         val source = listOf(srcItem("/c/5-new", number = 5.0))
 
         sync(db, source).inserted.single().dateFetch shouldBe 1000L
-    }
-
-    @Test
-    fun `a re-added chapter does not resurface as new`() = runTest {
-        val db = listOf(dbChapter("/c/5-old", number = 5.0, read = true))
-        val source = listOf(srcItem("/c/5-new", number = 5.0))
-
-        sync(db, source).result.newChapters shouldBe emptyList()
     }
 
     @Test

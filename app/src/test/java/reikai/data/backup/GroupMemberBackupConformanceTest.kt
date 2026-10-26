@@ -18,6 +18,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.manga.MangaRepositoryImpl
@@ -95,8 +96,8 @@ class GroupMemberBackupConformanceTest {
                 mangaRepository = MangaRepositoryImpl(database),
                 chapterRepository = mockk(),
                 trackRepository = mockk(),
-                getCategories = mockk(),
-                getHistory = mockk(),
+                categoryRepository = mockk(),
+                historyRepository = mockk(),
                 mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
                 customMangaInfoRepository = mockk(),
                 getFavorites = mockk {
@@ -113,6 +114,7 @@ class GroupMemberBackupConformanceTest {
                 getManga = GetManga(MangaRepositoryImpl(database)),
                 mergeGroupRepository = groups,
                 chapterNumberOverrides = NoChapterNumberOverrides,
+                readingLog = NoReadingLog,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         } else {
@@ -127,6 +129,7 @@ class GroupMemberBackupConformanceTest {
                 novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                 novelSourceManager = mockk(),
                 chapterNumberOverrides = NoChapterNumberOverrides,
+                readingLog = NoReadingLog,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         }

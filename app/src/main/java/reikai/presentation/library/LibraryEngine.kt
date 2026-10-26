@@ -204,9 +204,7 @@ class LibraryEngine(
         val searchActive = shown.any { !it.searchQuery.isNullOrEmpty() }
         // Lazy per provider, so only a view actually sorting by tracker score pays the computation.
         val means = active.associate { it.contentType to lazy(it::trackerMeans) }
-        val fields = mixedLibraryItemSortFields { item ->
-            means[item.entryId.contentType]?.value?.get(item.id) ?: -1.0
-        }
+        val fields = mixedLibraryItemSortFields { item -> means[item.entryId.contentType]?.value?.get(item.id) }
         val assembledList = if (prefs.groupBy == LibraryGroup.BY_DEFAULT) {
             val categories = categoriesForContentType(allCategories, chip)
             val inputs = LibraryAssemblyInputs(

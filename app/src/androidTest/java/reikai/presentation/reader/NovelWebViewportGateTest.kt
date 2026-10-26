@@ -18,6 +18,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import reikai.domain.novel.NovelPageLayout
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.presentation.reader.web.NovelWebSnippets
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -50,7 +52,7 @@ class NovelWebViewportGateTest {
     private val fitsReports = CopyOnWriteArrayList<Long>()
     private var destroyedByTest = false
 
-    private val webView: WebView get() = viewport.view as WebView
+    private val webView: WebView get() = viewport.webView
 
     private companion object {
         const val TIMEOUT_S = 10L
@@ -74,6 +76,7 @@ class NovelWebViewportGateTest {
                 fontManager = activity.appGraph.novelFontManager,
                 imageRequests = activity.appGraph.novelImageRequests,
                 textSelectable = false,
+                pageLayout = NovelPageLayout.SCROLL,
                 callbacks = NovelViewportCallbacks(
                     volumeKeysActive = { false },
                     onProgressChanged = { _, _ -> },
@@ -87,10 +90,13 @@ class NovelWebViewportGateTest {
                     onChapterFits = { id, _ -> fitsReports += id },
                     onChapterEndSeen = { endsSeen += it },
                     onReaderScrolled = {},
+                    onPageTurned = {},
+                    onPageShown = { _, _ -> },
                 ),
                 useOriginalFonts = false,
                 sourceCssPriority = false,
                 autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
+                autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
             )
             (activity.webView.parent as ViewGroup).addView(
                 viewport.view,
@@ -296,7 +302,7 @@ class NovelWebViewportGateTest {
         url = "",
         html = "<p>lorem ipsum</p>".repeat(50),
         baseUrl = null,
-        progressPercent = 0,
+        progress = ChapterProgress.Percent(0),
         chapterNumber = id.toDouble(),
         novelId = 1L,
         sourceId = null,

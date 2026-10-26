@@ -13,10 +13,7 @@ import reikai.novel.host.NovelItem
  */
 class NovelBulkFavoriteViewModelTest {
 
-    private fun model() = NovelBulkFavoriteViewModel(
-        libraryAdder = mockk(relaxed = true),
-        novelPreferences = mockk(relaxed = true),
-    )
+    private fun model() = NovelBulkFavoriteViewModel(libraryAdder = mockk(relaxed = true))
 
     private fun item(path: String) = NovelItem(name = "Novel $path", path = path, cover = null)
 

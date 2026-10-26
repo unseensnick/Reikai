@@ -54,7 +54,6 @@ class RemoveNovelsFromLibraryTest {
             mergeManager = mockk(relaxed = true),
             sourceTracker = mockk(relaxed = true),
             novelRepository = repository,
-            updateNovel = UpdateNovel(repository, mockk(relaxed = true)),
             coverCache = coverCache,
         )
     }

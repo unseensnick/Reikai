@@ -20,7 +20,8 @@ import kotlin.time.Instant
  * The Updates feed filters answer alike for both types: getRecentUpdatesWithFilters (Mihon's) and
  * getRecentNovelUpdatesWithFilters (Reikai's) are two queries over two tables that must keep one rule.
  * Two differences are deliberate: novels cut off on the fetch date, since LN sources often leave the upload
- * date unknown, and only manga has an excluded-scanlator filter, which every case here leaves off.
+ * date unknown, and only manga has an excluded-scanlator filter, which every case here leaves off. Category
+ * filters alone are pinned to the kernel by RecentsCategoryFilterConformanceTest; here they only combine.
  */
 class UpdatesFeedFilterConformanceTest {
 
@@ -66,7 +67,6 @@ class UpdatesFeedFilterConformanceTest {
         val started: Boolean? = null,
         val bookmarked: Boolean? = null,
         val included: List<Long> = emptyList(),
-        val excluded: List<Long> = emptyList(),
         val expected: List<Long>,
     ) {
         NONE(expected = listOf(1L, 2L, 3L, 4L, 5L, 6L)),
@@ -76,12 +76,6 @@ class UpdatesFeedFilterConformanceTest {
         NOT_STARTED(started = false, expected = listOf(3L, 4L, 6L)),
         BOOKMARKED(bookmarked = true, expected = listOf(3L, 5L)),
         NOT_BOOKMARKED(bookmarked = false, expected = listOf(1L, 2L, 4L, 6L)),
-        INCLUDE_ONE(included = listOf(1L), expected = listOf(1L, 2L, 6L)),
-        INCLUDE_UNCATEGORIZED(included = listOf(0L), expected = listOf(4L, 5L)),
-        INCLUDE_WITH_UNCATEGORIZED(included = listOf(2L, 0L), expected = listOf(3L, 4L, 5L, 6L)),
-        EXCLUDE_ONE(excluded = listOf(1L), expected = listOf(3L, 4L, 5L)),
-        EXCLUDE_UNCATEGORIZED(excluded = listOf(0L), expected = listOf(1L, 2L, 3L, 6L)),
-        INCLUDE_AND_EXCLUDE(included = listOf(1L), excluded = listOf(2L), expected = listOf(1L, 2L)),
         UNREAD_UNCATEGORIZED(unread = true, included = listOf(0L), expected = listOf(4L)),
     }
 
@@ -126,7 +120,7 @@ class UpdatesFeedFilterConformanceTest {
                     bookmarked = case.bookmarked,
                     hideExcludedScanlators = false,
                     includedCategories = case.included,
-                    excludedCategories = case.excluded,
+                    excludedCategories = emptyList(),
                 )
                 .first()
                 .map { it.chapterId }
@@ -160,7 +154,7 @@ class UpdatesFeedFilterConformanceTest {
                     started = case.started,
                     bookmarked = case.bookmarked,
                     includedCategories = case.included,
-                    excludedCategories = case.excluded,
+                    excludedCategories = emptyList(),
                 )
                 .first()
                 .map { it.chapterId }

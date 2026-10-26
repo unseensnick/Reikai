@@ -471,6 +471,13 @@
     <!-- "Today" instead of "2023-12-31" -->
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>
     <string name="pref_date_format">Date format</string>
+    <string name="pref_time_format">Time format</string>
+    <!-- "Follow" as in "adhere to", "align with" (the system default) -->
+    <string name="follow_system">Follow system</string>
+    <!-- "Follow" as in "adhere to", "align with" (the language default) -->
+    <string name="follow_language">Follow language</string>
+    <string name="time_24_hours">24-hour</string>
+    <string name="time_12_hours">12-hour</string>
     <string name="pref_display_images_description">Render images in manga descriptions</string>
     <!-- RK: adult-source gallery page previews -->
     <string name="pref_previews_row_count">Page preview rows</string>
@@ -787,6 +794,7 @@
     <string name="pref_novel_text_selectable">Select text by long press</string>
     <string name="pref_novel_text_selectable_summary">In Native text, links stop responding to taps</string>
     <string name="pref_novel_auto_load_next_at">Add the next chapter at</string>
+    <string name="novel_page_layout_scroll">Scrolling</string>
     <string name="pref_novel_seamless_chapters">Continuous chapters</string>
     <string name="pref_novel_seamless_chapters_summary">Scroll straight on into the next chapter</string>
     <!-- RK: novel read-aloud settings -->
@@ -957,6 +965,11 @@
     <string name="dual_page_view_wide">When wide</string>
     <string name="pref_continuous_minwidth">Min width</string>
     <string name="pref_continuous_gap">Gap</string>
+    <string name="pref_image_filters">Image filters</string>
+    <string name="pref_tile_filters">Tile filters</string>
+    <string name="pref_disable_double_tap_gestures">Disable double tap gestures</string>
+    <string name="action_add_shader">Add shader</string>
+    <string name="image_filter_invalid">Couldn\'t add shader</string>
 
       <!-- Downloads section -->
     <string name="pref_category_delete_chapters">Delete chapters</string>
@@ -990,8 +1003,6 @@
     <string name="pref_novel_source_delay_minimum">Needs at least %1$s</string>
     <string name="download_delay_seconds">%1$s s</string>
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
-    <string name="split_tall_images">Split tall images</string>
-    <string name="split_tall_images_summary">Improves reader performance</string>
     <string name="pref_download_concurrent_sources">Concurrent source downloads</string>
     <string name="pref_download_concurrent_pages">Concurrent page downloads</string>
     <string name="pref_download_concurrent_pages_summary">Pages downloaded simultaneously per source</string>
@@ -1048,8 +1059,16 @@
     <string name="invalid_backup_file_missing_manga">Backup does not contain any library entries.</string>
     <string name="invalid_backup_file_json">JSON backup not supported</string>
     <string name="invalid_backup_file_unknown">Backup file is corrupted</string>
-    <!-- RK: the backup's extension apps and plugins not installed here, which a restore does not install -->
+    <!-- RK: the backup's extension apps and plugins that no repo here or trusted at restore lists -->
     <string name="backup_restore_missing_extensions">Extensions to install:</string>
+    <string name="restore_install_extensions">Missing extensions</string>
+    <string name="restore_installs_ready">Installs after the restore</string>
+    <string name="restore_installs_off">Missing, not installed</string>
+    <string name="restore_repo_untrusted">Not on this device. Trust it to add it back and install from it.</string>
+    <string name="restore_repo_installs">Installs</string>
+    <string name="restore_repo_nothing">Nothing missing comes from this repo</string>
+    <string name="restore_repo_trust">Trust this repo</string>
+    <string name="restore_repos_unread">Repos that couldn\'t be read, or now sign with another key:</string>
     <string name="backup_restore_missing_sources">Missing sources:</string>
     <string name="backup_restore_missing_trackers">Trackers not logged into:</string>
     <string name="backup_restore_content_full">You may need to install any missing extensions and log in to tracking services afterwards to use them.</string>
@@ -1161,6 +1180,8 @@
     <string name="pref_tablet_ui_mode">Tablet UI</string>
     <string name="pref_verbose_logging">Verbose logging</string>
     <string name="pref_verbose_logging_summary">Print verbose logs to system log (reduces app performance)</string>
+    <string name="pref_redact_sensitive_headers">Redact sensitive headers</string>
+    <string name="pref_redact_sensitive_headers_summary">Redacts certain sensitive values in the logs. Keep enabled for your security when sharing logs with other people.</string>
     <string name="pref_track_update_errors">Track update errors</string>
     <string name="pref_track_update_errors_summary">Keep a list of entries that fail to update, opened from the notification</string>
     <string name="label_update_errors">Update errors</string>
@@ -1209,7 +1230,7 @@
     <string name="login_token">Personal access token</string>
     <string name="login_token_info">Generate a token on the tracker\'s website, then paste it here.</string>
     <string name="login_get_token">Get a token</string>
-    <string name="login_with_browser">Log in in a browser</string>
+    <string name="login_with_browser">Log in with WebView</string>
     <string name="login_webview_confirm">Finish login</string>
     <string name="login_webview_hint">Sign in, then tap the check to finish</string>
     <string name="login_webview_not_signed_in">Not signed in yet. Finish signing in, then tap the check again.</string>
@@ -1598,7 +1619,6 @@
     <string name="download_notifier_text_only_wifi">No Wi-Fi connection available</string>
     <string name="download_notifier_no_network">No network connection available</string>
     <string name="download_notifier_download_paused">Downloads paused</string>
-    <string name="download_notifier_split_page_not_found">Page %d not found while splitting</string>
     <string name="download_notifier_split_page_path_not_found">Couldn\'t find file path of page %d</string>
     <string name="download_notifier_cache_renewal">Checking downloads</string>
 
@@ -1694,6 +1714,8 @@
     <string name="final_chapter">Final chapter</string>
     <string name="date_posted">Date posted</string>
     <string name="total_favorites">Total favorites</string>
+    <string name="total_views">Total views</string>
+    <string name="total_downloads">Total downloads</string>
     <string name="media_id">Media id</string>
     <string name="japanese_title">Japanese Title</string>
     <string name="english_title">English Title</string>
@@ -1927,4 +1949,45 @@
     <string name="word_density_indicator">Word density %1$d</string>
     <string name="word_density_range">Density %1$d of %2$d: %3$s to %4$s words a chapter</string>
     <string name="word_density_range_top">Density %1$d of %2$d: over %3$s words a chapter</string>
+    <!-- RK: Statistics charts and the details screen -->
+    <string name="stats_shelf_glance">At a glance</string>
+    <string name="stats_shelf_charts">Charts</string>
+    <string name="stats_shelf_lists">Your library by</string>
+    <string name="stats_publishing_status">Publishing status</string>
+    <string name="stats_tracking_status">Tracking status</string>
+    <string name="stats_scores">Scores</string>
+    <string name="stats_reading_week">Reading this week</string>
+    <string name="stats_most_read">Most read</string>
+    <string name="stats_current_streak">Current streak</string>
+    <string name="stats_longest_streak">Longest streak</string>
+    <string name="stats_logged_since">Logged since %1$s</string>
+    <string name="stats_reading_not_logged">Reading time per day is logged from now on</string>
+    <string name="stats_see_all">See all</string>
+    <string name="stats_open">Open</string>
+    <string name="stats_group_source">Sources</string>
+    <string name="stats_group_category">Categories</string>
+    <string name="stats_group_tag">Tags</string>
+    <string name="stats_group_tracker">Trackers</string>
+    <string name="stats_group_language">Languages</string>
+    <string name="stats_group_length">Series length</string>
+    <string name="stats_group_start_year">Started reading</string>
+    <string name="stats_group_reading_time">Reading time</string>
+    <string name="stats_sort">Sort by</string>
+    <string name="stats_not_tracked">Not tracked</string>
+    <string name="stats_not_scored">Not scored</string>
+    <string name="stats_sort_count">Most series</string>
+    <string name="stats_sort_read">Chapters read</string>
+    <string name="stats_sort_score">Mean score</string>
+    <string name="stats_sort_time">Reading time</string>
+    <string name="stats_label_finished">Finished</string>
+    <string name="stats_label_not_started">Not started</string>
+    <string name="stats_series_count">%1$d series</string>
+    <string name="stats_label_time">Time</string>
+    <string name="stats_nothing_read">Nothing read</string>
+    <string name="stats_previous_period">Previous period</string>
+    <string name="stats_next_period">Next period</string>
+    <string name="stats_period_week">Week</string>
+    <string name="stats_period_month">Month</string>
+    <string name="stats_period_year">Year</string>
+    <string name="stats_period_custom">Custom</string>
 </resources>

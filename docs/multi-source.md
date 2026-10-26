@@ -14,6 +14,25 @@ On this page, a merged series' group means the sources behind it.
 
 Merged series work the same way for manga and for light novels.
 
+<img
+  class="only-light"
+  src="/docs/multi-source/merged-details.light.webp"
+  alt="A merged series' details, with a chip for each of its sources"
+  width="414"
+  height="458"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/multi-source/merged-details.dark.webp"
+  alt="A merged series' details, with a chip for each of its sources"
+  width="414"
+  height="458"
+  loading="lazy"
+  decoding="async"
+/>
+
 ::: info A series is only merged when you ask
 Nothing is merged behind your back.
 An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a merged series: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
@@ -31,6 +50,8 @@ Turning it off expands each group back into its per-source entries and keeps the
 A merged card is filed under the categories its group shares, and shows once in each of them.
 Changing a merged series' categories, from the library or its details screen, changes them for every source in the group.
 A source that joins a group takes the group's categories.
+
+Under **Group by tag**, **Group by source** and **Group by language**, a merged card is listed under every tag, source and language its sources have, so it can appear in several groups.
 
 ### Joining a group as you add a series
 

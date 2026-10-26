@@ -1,15 +1,21 @@
 package reikai.presentation.browse.feed
 
+import androidx.lifecycle.viewModelScope
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -29,6 +35,7 @@ import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import eu.kanade.tachiyomi.source.Source as MangaSource
 
@@ -44,8 +51,15 @@ class FeedViewModelTest {
     @BeforeEach
     fun setUp() = Dispatchers.setMain(dispatcher)
 
+    private val models = mutableListOf<FeedViewModel>()
+
+    // Before resetMain: a model's IO collectors otherwise resume onto a Main that is gone, and the
+    // failure lands in whichever test class runs next.
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() {
+        models.forEach { it.viewModelScope.cancel() }
+        Dispatchers.resetMain()
+    }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -69,10 +83,41 @@ class FeedViewModelTest {
         listOf(entry.row.name, entry.sourceName) shouldBe listOf(STORED_NAME, STORED_NAME)
     }
 
-    private fun feedViewModel(probe: FeedRegistryProbe) = FeedViewModel(
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a feed change made while the feed is hidden waits until it is shown`(probe: FeedRegistryProbe) = runTest {
+        val rows = MutableStateFlow(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
+        val model = feedViewModel(probe, rows)
+        settle { model.state.first { it.loaded } }
+        advanceTimeBy(6.seconds)
+        runCurrent()
+
+        rows.value += FeedSavedSearch(2L, probe.key, null, true, 1L)
+        withContext(Dispatchers.Default) { delay(500.milliseconds) }
+
+        model.state.value.entries.size shouldBe 1
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a feed change held while hidden lands once the feed is shown`(probe: FeedRegistryProbe) = runTest {
+        val rows = MutableStateFlow(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
+        val model = feedViewModel(probe, rows)
+        settle { model.state.first { it.loaded } }
+        advanceTimeBy(6.seconds)
+        runCurrent()
+        rows.value += FeedSavedSearch(2L, probe.key, null, true, 1L)
+
+        settle { model.state.first { it.entries.size == 2 } }.entries.size shouldBe 2
+    }
+
+    private fun feedViewModel(
+        probe: FeedRegistryProbe,
+        rows: Flow<List<FeedSavedSearch>> = flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L))),
+    ) = FeedViewModel(
         appScope = testAppScope(),
         feedRepository = mockk {
-            every { subscribeGlobal() } returns flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L)))
+            every { subscribeGlobal() } returns rows
         },
         savedSearchRepository = mockk { coEvery { getAll() } returns emptyList() },
         preferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
@@ -85,7 +130,7 @@ class FeedViewModelTest {
         networkToLocalManga = mockk(relaxed = true),
         novelSourceManager = probe.novelRegistry,
         getEnabledNovelSources = mockk(relaxed = true),
-    )
+    ).also(models::add)
 
     companion object {
         const val SOURCE_NAME = "Installed later"

@@ -149,18 +149,42 @@ class NovelImageRequestsTest {
     @Test
     fun `the WebView gets an APK source's own headers`() = runTest {
         requests(loaded = listOf(apkWithToken())).webViewHeaders("tachiyomi:42") shouldBe
-            mapOf("x-token" to "secret")
+            mapOf("X-Token" to "secret")
+    }
+
+    /** A WebView whose request names an Origin other than its own kills its renderer, as manga's does. */
+    @Test
+    fun `the WebView never gets a source's Origin header`() = runTest {
+        val apk = novelApp(apkSource(headersOf("Origin", "https://apk.example", "X-Token", "secret")))
+
+        requests(loaded = listOf(apk)).webViewHeaders("tachiyomi:42") shouldBe mapOf("X-Token" to "secret")
     }
 
     @Test
     fun `the WebView gets the headers an IReader source's cover request carries`() = runTest {
         requests(loaded = listOf(iReaderApp())).webViewHeaders("ireader:42") shouldBe
-            mapOf("referer" to "https://ir.example/")
+            mapOf("Referer" to "https://ir.example/")
     }
 
     @Test
-    fun `the WebView gets no headers for an LNReader source, without waiting for the extension scan`() = runTest {
-        requests(scanDone = false).webViewHeaders("p") shouldBe emptyMap()
+    fun `an LNReader source's WebView headers come without waiting for the extension scan`() = runTest {
+        (requests(scanDone = false).webViewHeaders("p").keys - "user-agent") shouldBe emptySet()
+    }
+
+    /** A Cloudflare clearance is tied to the agent that earned it, so the WebView must pass as the fetches. */
+    @Test
+    fun `an LNReader source's WebView sends the user agent its fetches send`() {
+        pluginWebViewHeaders("p") { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
+    }
+
+    @Test
+    fun `an app source's WebView takes no plugin user agent`() {
+        pluginWebViewHeaders("tachiyomi:42") { "Device UA" } shouldBe emptyMap()
+    }
+
+    @Test
+    fun `an unknown device user agent sends none rather than an empty one`() {
+        pluginWebViewHeaders("p") { "" } shouldBe emptyMap()
     }
 
     private fun apkWithToken() = novelApp(apkSource(headersOf("X-Token", "secret")))

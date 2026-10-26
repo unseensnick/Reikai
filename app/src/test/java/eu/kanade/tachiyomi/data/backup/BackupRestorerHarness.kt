@@ -12,6 +12,7 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.protobuf.ProtoBuf
+import reikai.data.backup.ApprovedRepos
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.AlignGroupCategories
@@ -65,5 +66,7 @@ suspend fun restoreEncoded(
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = ReikaiLibraryPreferences(InMemoryPreferenceStore()),
         alignGroupCategories = alignGroupCategories,
-    ).restore(uri, options)
+        restoreExtensionInstaller = mockk(relaxed = true),
+        restoreInstallSources = mockk(relaxed = true),
+    ).restore(uri, options, ApprovedRepos())
 }

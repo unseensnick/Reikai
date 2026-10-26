@@ -31,6 +31,11 @@ class MangaLewdTest {
     }
 
     @Test
+    fun `the Hitomi source is lewd by its name`() {
+        isLewd(genre = null, sourceName = "Hitomi") shouldBe true
+    }
+
+    @Test
     fun `a clean source with no genres is not lewd`() {
         isLewd(genre = null, sourceName = "MangaDex") shouldBe false
     }

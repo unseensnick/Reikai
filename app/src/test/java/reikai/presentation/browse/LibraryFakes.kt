@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
@@ -24,8 +25,10 @@ import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelWithChapterCount
+import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.domain.category.interactor.GetCategories
+import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
@@ -115,8 +118,14 @@ class FakeMangaLibrary(
         return true
     }
 
-    private val updateManga =
-        UpdateManga(mangaRepository = repository, fetchInterval = mockk(), sourceTracker = mockk(relaxed = true))
+    /** Every add or removal an extension syncing to its own site was told of, in order. */
+    val toldSourceTracker = mutableListOf<Pair<EntryId, Boolean>>()
+
+    private val sourceTracker = mockk<SourceTrackerDispatcher>(relaxed = true) {
+        every { favoriteChanged(any(), any()) } answers { toldSourceTracker += firstArg<EntryId>() to secondArg() }
+    }
+
+    val updateManga = UpdateManga(mangaRepository = repository, fetchInterval = mockk(), sourceTracker = sourceTracker)
 
     val getCategories: GetCategories = mockk {
         every { subscribe() } returns flowOf(userCategories)
@@ -124,7 +133,18 @@ class FakeMangaLibrary(
         coEvery { await(any<Long>()) } answers { filed[firstArg()].orEmpty().map(::libraryCategory) }
     }
 
-    private val getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } }
+    val getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } }
+
+    val setMangaCategories: SetMangaCategories =
+        mockk { coEvery { await(any(), any()) } answers { filed[firstArg()] = secondArg() } }
+
+    val removal = RemoveMangaFromLibrary(
+        mergeManager = mergeManager,
+        sourceTracker = sourceTracker,
+        getManga = getManga,
+        updateManga = updateManga,
+        coverCache = mockk(relaxed = true),
+    )
 
     val adder = MangaLibraryAdder(
         sourceManager = mockk(relaxed = true),
@@ -136,7 +156,7 @@ class FakeMangaLibrary(
             }
         },
         getManga = getManga,
-        setMangaCategories = mockk { coEvery { await(any(), any()) } answers { filed[firstArg()] = secondArg() } },
+        setMangaCategories = setMangaCategories,
         setMangaDefaultChapterFlags = mockk {
             coEvery { await(any()) } answers { chapterDefaultsStamped += firstArg<Manga>().id }
         },
@@ -147,13 +167,7 @@ class FakeMangaLibrary(
         reikaiLibraryPreferences = mockk {
             every { this@mockk.categorySortOrder } returns mockk { every { get() } returns categorySortOrder }
         },
-        removeMangaFromLibrary = RemoveMangaFromLibrary(
-            mergeManager = mergeManager,
-            sourceTracker = mockk(relaxed = true),
-            getManga = getManga,
-            updateManga = updateManga,
-            coverCache = mockk(relaxed = true),
-        ),
+        removeMangaFromLibrary = removal,
         chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
     )
 

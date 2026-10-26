@@ -11,12 +11,15 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.online.all.AsmHentai
 import eu.kanade.tachiyomi.source.online.all.EHentai
 import eu.kanade.tachiyomi.source.online.all.HentaiFox
+import eu.kanade.tachiyomi.source.online.all.Hitomi
 import eu.kanade.tachiyomi.source.online.all.Koharu
 import eu.kanade.tachiyomi.source.online.all.Lanraragi
 import eu.kanade.tachiyomi.source.online.all.MangaDex
 import eu.kanade.tachiyomi.source.online.all.NHentai
 import eu.kanade.tachiyomi.source.online.all.NHentaiNet
 import eu.kanade.tachiyomi.source.online.english.EightMuses
+import eu.kanade.tachiyomi.source.online.english.HentaiNexus
+import eu.kanade.tachiyomi.source.online.english.NineHentai
 import eu.kanade.tachiyomi.source.online.english.Pururin
 import exh.source.BlacklistedSources
 import exh.source.DelegatedHttpSource
@@ -25,7 +28,9 @@ import exh.source.EIGHTMUSES_SOURCE_ID
 import exh.source.EXHENTAI_EXT_SOURCES
 import exh.source.EnhancedHttpSource
 import exh.source.ExhPreferences
+import exh.source.HENTAINEXUS_SOURCE_ID
 import exh.source.NHENTAI_NET_SOURCE_ID
+import exh.source.NINEHENTAI_SOURCE_ID
 import exh.source.PURURIN_SOURCE_ID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
@@ -285,6 +290,25 @@ class AndroidSourceManager(
                 FILL_IN_SOURCE_ID,
                 "eu.kanade.tachiyomi.extension.all.koharu.Koharu",
                 ::Koharu,
+                factory = true,
+            ),
+            DelegatedSource(
+                "HentaiNexus",
+                HENTAINEXUS_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.hentainexus.HentaiNexus",
+                ::HentaiNexus,
+            ),
+            DelegatedSource(
+                "NineHentai",
+                NINEHENTAI_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.en.ninehentai.NineHentai",
+                ::NineHentai,
+            ),
+            DelegatedSource(
+                "Hitomi",
+                FILL_IN_SOURCE_ID,
+                "eu.kanade.tachiyomi.extension.all.hitomi.Hitomi",
+                ::Hitomi,
                 factory = true,
             ),
         ).associateBy { it.originalSourceQualifiedClassName }

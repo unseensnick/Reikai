@@ -4,6 +4,10 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.coVerify
+import io.mockk.every
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -16,8 +20,14 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
+import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Instant
 
 /** The novel reader's session rules that only show once a real model is driven, over [NovelReaderViewModelHarness]. */
 class NovelReaderViewModelTest {
@@ -110,6 +120,48 @@ class NovelReaderViewModelTest {
         model.chapter.value?.html.orEmpty() shouldContain "From the page"
     }
 
+    /** A paged WebView holds its opening veil on this, since the chapter's arrival above moves the page. */
+    @Test
+    fun `the window says the chapter before is joining while it loads`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        source.holding[previous.url] = CompletableDeferred()
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.chapters.any { chapter -> chapter.chapterId == opened.id } }.previousJoining shouldBe
+            true
+    }
+
+    @Test
+    fun `the window says the chapter before has stopped joining once it is in`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.chapters.any { chapter -> chapter.chapterId == previous.id } }.previousJoining shouldBe
+            false
+    }
+
+    /** A chapter that will not load never joins, so a renderer waiting on it would wait for nothing. */
+    @Test
+    fun `the window says the chapter before is not joining once it failed`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val previous = harness.chapter(novel, 1.0)
+        val opened = harness.chapter(novel, 2.0)
+        source.failing += previous.url
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.window.first { it.failedPrevious != null }.previousJoining shouldBe false
+    }
+
     /** The browser's page is how a chapter the source cannot serve gets read, so its save opens it. */
     @Test
     fun `a page saved for a chapter that failed to open opens it`() = readerTest { harness ->
@@ -190,8 +242,8 @@ class NovelReaderViewModelTest {
         model.rendererLanded(model.window.value.generation)
 
         // An earlier chapter's first report is where the landing put the reader; a second that moved is theirs.
-        model.saveProgress(previous.id, 40)
-        model.saveProgress(previous.id, 45)
+        model.saveProgress(previous.id, ChapterProgress.Percent.ofWhole(40))
+        model.saveProgress(previous.id, ChapterProgress.Percent.ofWhole(45))
         advanceUntilIdle()
 
         harness.progressOf(previous) shouldBe 0L
@@ -276,6 +328,18 @@ class NovelReaderViewModelTest {
         model.webUrlFor(earlier) shouldBe "https://alpha.example" + opened.url
     }
 
+    /** A chapter read from disk never resolves its source to open, so the web actions resolve it. */
+    @Test
+    fun `a downloaded chapter gets its source's web address`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("alpha"))
+        val chapter = harness.chapter(novel, 1.0)
+        harness.download(chapter, "<p>Chapter one on disk</p>")
+        val model = harness.open(novel, chapter.id)
+        advanceUntilIdle()
+
+        model.webUrlFor(model.chapter.value!!) shouldBe "https://alpha.example" + chapter.url
+    }
+
     /** Asked by id, as the failed-chapter actions do, while the session reads the other source's chapter. */
     @Test
     fun `a chapter asked for by id gets its own source's web address`() = readerTest { harness ->
@@ -328,5 +392,92 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.settings.value.orientation shouldBe ReaderOrientation.LOCKED_LANDSCAPE.flagValue
+    }
+
+    /** The reader sits paused under the in-app browser when its save reloads the chapter. */
+    @Test
+    fun `a chapter reloaded while the reader is away does not count the time away as read`() =
+        readTimeTest { harness, clock ->
+            val novel = harness.novel(harness.source("src"))
+            val opened = harness.chapter(novel, 1.0)
+            val model = harness.open(novel, opened.id)
+            model.awaitIdleOn(opened)
+            model.saveHistory()
+            advanceUntilIdle()
+            harness.download(opened, "<p>From the page</p>")
+            harness.pageSaves.emit(opened.id)
+            model.chapter.first { it?.html.orEmpty().contains("From the page") }
+            model.loadState.first { it == ReaderLoadState.Idle }
+
+            clock.advance(1.hours)
+            model.restartReadTimer()
+            clock.advance(10.minutes)
+            model.saveHistory()
+            advanceUntilIdle()
+
+            harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
+        }
+
+    /** A chapter-text setting reloads the chapter on screen, which is still the same read. */
+    @Test
+    fun `a chapter reloaded on screen keeps the time read before the reload`() = readTimeTest { harness, clock ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        model.awaitIdleOn(opened)
+        clock.advance(10.minutes)
+
+        harness.download(opened, "<p>Reloaded</p>")
+        model.reloadChapter(fromSource = false)
+        model.chapter.first { it?.html.orEmpty().contains("Reloaded") }
+        model.loadState.first { it == ReaderLoadState.Idle }
+        clock.advance(5.minutes)
+        model.saveHistory()
+        advanceUntilIdle()
+
+        harness.readTimeOf(novel, opened) shouldBe 15.minutes.inWholeMilliseconds
+    }
+
+    @Test
+    fun `a chapter opened on screen counts the time it is read`() = readTimeTest { harness, clock ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        model.awaitIdleOn(opened)
+
+        clock.advance(10.minutes)
+        model.saveHistory()
+        advanceUntilIdle()
+
+        harness.readTimeOf(novel, opened) shouldBe 10.minutes.inWholeMilliseconds
+    }
+
+    /** The load runs on the real IO dispatcher, so the commit is awaited rather than advanced to. */
+    private suspend fun NovelReaderViewModel.awaitIdleOn(chapter: SeededChapter) {
+        this.chapter.first { it?.chapterId == chapter.id }
+        loadState.first { it == ReaderLoadState.Idle }
+    }
+
+    /** [readerTest] with the wall clock the read time is taken from under the test's hand. */
+    private fun readTimeTest(block: suspend TestScope.(NovelReaderViewModelHarness, TestClock) -> Unit) =
+        readerTest { harness ->
+            val clock = TestClock()
+            mockkObject(Clock.System)
+            try {
+                every { Clock.System.now() } answers { clock.now }
+                block(harness, clock)
+            } finally {
+                unmockkObject(Clock.System)
+            }
+        }
+
+    private class TestClock {
+        @Volatile
+        var now: Instant = Instant.fromEpochMilliseconds(1_000_000_000_000L)
+            private set
+
+        fun advance(by: Duration) {
+            now += by
+        }
     }
 }

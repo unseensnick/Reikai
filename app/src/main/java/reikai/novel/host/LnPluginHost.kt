@@ -41,6 +41,7 @@ import reikai.novel.source.WEB_STORAGE_KEY_PREFIX
 import reikai.quickjs.createQuickJs
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.PreferenceStore
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -164,7 +165,7 @@ class LnPluginHost(
             null
         }
         q.asyncFunction("__lnFetch") { args ->
-            withContext(Dispatchers.IO) {
+            withIOContext {
                 bridge.runFetch(args[0] as String, args.getOrNull(1) as? String ?: "{}") { fetchFailure = it }
             }
         }

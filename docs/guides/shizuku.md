@@ -14,6 +14,8 @@ To get a detailed understanding of **Shizuku**, its purpose, and how it operates
 ## Setting up Shizuku
 To set up **Shizuku**, follow the instructions [here on Shizuku](https://shizuku.rikka.app/guide/setup/).
 
+On a rooted device, Sui works in place of the Shizuku app.
+
 After configuring it, enable **Shizuku** within **Reikai** by navigating to <nav to="advanced"> then setting **Installer** to **Shizuku**.
 
 ::: info Extension apps only

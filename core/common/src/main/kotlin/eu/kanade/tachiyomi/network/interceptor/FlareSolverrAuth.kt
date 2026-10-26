@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.network.interceptor
 
-import eu.kanade.tachiyomi.network.NetworkPreferences
 import okhttp3.Credentials
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.io.IOException
@@ -49,8 +48,8 @@ fun flareSolverrLoginFor(url: String, serverUrl: String, username: String, passw
  *
  * OkHttp parses userinfo into the URL and then never derives a header from it, so credentials
  * typed into the address field are silently dropped. They also travel into every preference backup,
- * because the address key has no private prefix. Both the upgrade migration and the backup restorer
- * run stored addresses through this, so neither entry point can leave a password in there.
+ * because the address key has no private prefix. The settings field refuses an address this splits,
+ * and the upgrade migration moves the credentials out of one already stored.
  */
 fun splitFlareSolverrUserInfo(rawUrl: String): FlareSolverrAddress? {
     val url = rawUrl.trim().toHttpUrlOrNull() ?: return null
@@ -61,32 +60,8 @@ fun splitFlareSolverrUserInfo(rawUrl: String): FlareSolverrAddress? {
     return FlareSolverrAddress(url = stripped, username = url.username, password = url.password)
 }
 
-/** The address key, shared with the upgrade migration and the backup restorer that clean it. */
+/** The address key. */
 const val FLARESOLVERR_URL_KEY = "flaresolverr_url"
-
-/**
- * Store [rawUrl] with any embedded credentials moved into the username and password preferences.
- *
- * Called from both the upgrade migration and the backup restorer, because a fresh install marks
- * every migration done without running it. A backup may be someone else's, so the saved login never
- * follows an address to another server, and an address the settings field would refuse is not stored.
- */
-fun NetworkPreferences.carryFlareSolverrUserInfo(rawUrl: String) {
-    val split = splitFlareSolverrUserInfo(rawUrl)
-    val address = split?.url ?: rawUrl
-    if (address.isNotBlank() && address.trim().toHttpUrlOrNull() == null) return
-    val current = flareSolverrUrl.get()
-    if (address.isNotBlank() && current.isNotBlank() && !isSameServer(current, address)) {
-        flareSolverrUsername.delete()
-        flareSolverrPassword.delete()
-    }
-    flareSolverrUrl.set(address)
-    // Credentials already configured by hand win as a pair: they are the ones the reader last verified.
-    if (split != null && flareSolverrUsername.get().isBlank() && flareSolverrPassword.get().isBlank()) {
-        flareSolverrUsername.set(split.username)
-        flareSolverrPassword.set(split.password)
-    }
-}
 
 private fun isSameServer(a: String, b: String): Boolean {
     val first = a.trim().toHttpUrlOrNull() ?: return false

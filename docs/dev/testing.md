@@ -39,16 +39,22 @@ run them as separate calls. Never run CLI Gradle while Android Studio is buildin
 
 | Workflow | Trigger | Checks |
 |---|---|---|
-| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | `spotlessCheck`, `scripts/di-interop-check.ps1`, `verifySqlDelightMigration`, `test` (JUnit report published), `assembleRelease` |
-| `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | `di-interop-check.ps1`, `verifySqlDelightMigration`, `test`, `assembleNightly`, `scripts/ci/release-notes-test.sh`, then publishes the nightly |
-| `release.yml` | a `v*` tag | `test`, `assembleRelease`, `assembleFoss`, `release-notes-test.sh`, then a draft release |
+| `build_check.yml` | pull request touching sources, `.kts`, `.pro` or `gradle/` | four parallel jobs: `spotlessCheck`, `scripts/di-interop-check.ps1` and `verifySqlDelightMigration`; `test` with the screenshot comparison (JUnit report published); `:app:lintDebug` against `app/lint-baseline.xml`; `assembleRelease` |
+| `nightly.yml` | push to `main`, `feat/**`, `release/**`, `fix/**` on the same paths | the guard, then two parallel jobs (`di-interop-check.ps1`, `verifySqlDelightMigration` and `test`; `assembleNightly`), then `scripts/ci/release-notes-test.sh` and the publish once both pass |
+| `release.yml` | a `v*` tag | three parallel jobs (`test`, `assembleRelease`, `assembleFoss`), then `release-notes-test.sh` and a draft release once all pass |
 | `commit-standards.yml` | every pull request | `.githooks/commit-msg` over each commit, `scripts/commit-msg-test.sh`, `.claude/hooks/tests/run-all.sh` |
-| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1` against a blobless Mihon clone |
+| `docs-lint.yml` | pull request, push to `main`, on docs, scripts and Kotlin/SQL | `scripts/lint-docs-test.sh`, every blocking `scripts/lint-docs.sh` mode (the `history-words` warning runs only in the hook), `scripts/dup-check-test.ps1`, `scripts/dup-check.ps1`, `scripts/comment-cap-test.ps1` and `scripts/comment-cap.ps1` against a blobless Mihon clone |
 | `dependency-availability.yml` | weekly, and a pull request touching the version catalogs | `scripts/check-external-artifacts.sh` |
+| `smoke-test.yml` | weekly on `main`, or dispatched by hand once the file is on `main` | `:app:assembleNightly` without a keystore (minified, debug-signed), then `scripts/ci/smoke-test.sh` on an API 35 emulator: install, onboarding through the system folder picker, every bottom tab and Settings, failing on a crash or a dead process; screenshots and logs uploaded as `smoke-test-<sha>` |
 
-No workflow runs instrumented tests; those run on a device by hand (below). The local `pre-commit`
+Builds and tests run on separate runners because they compile different variants and share almost no
+work, and unit tests run in one process per core, up to four. No workflow runs instrumented tests; those run on a device by hand (below). The smoke test drives the installed app over `adb` instead, the only CI job that launches a minified build. The local `pre-commit`
 hook runs the staged-content half of the same checks; its list is in
 [.claude/rules/workflow.md](../../.claude/rules/workflow.md).
+
+### Android Lint
+
+`./gradlew :app:lintDebug` checks the app and, through `checkDependencies`, its library modules, about four minutes warm. Only an error `app/lint-baseline.xml` does not already list fails it; warnings never do, and release builds skip lint. Fixing a baselined issue leaves a stale entry that does no harm; `./gradlew :app:updateLintBaseline` rewrites the file, and is never the fix for a new error. The report lands in `app/build/reports/lint-results-debug.html`, and CI uploads it as `lint-report` when the job fails.
 
 ## Harness pieces
 
@@ -107,12 +113,57 @@ A new test is done only when the production clause it names has been deleted, th
 the clause restored. There is no tool for this; do it by hand and say so in the commit. The
 `/deep-audit` skill can run a few mutation checks in a throwaway worktree.
 
+## Compose UI tests
+
+Screens and components are tested on the JVM, in the module's ordinary unit suite, so CI's `./gradlew test` runs them with no device. Robolectric stands in for Android and Compose's `createComposeRule` hosts the composable; both only run under JUnit 4, which the vintage engine runs beside the JUnit 6 suite.
+
+- **Opt a module in** with `composeUiTests()` in its `build.gradle.kts` (build-logic `ComposeUiTests.kt`): it adds Robolectric, Compose ui-test and the vintage engine, turns on Android resources for unit tests, and passes the JDK flags Robolectric's Android 16 sandbox needs. `presentation-core` and `app` are opted in.
+- **Write the class in JUnit 4**: `@RunWith(RobolectricTestRunner::class)`, `@get:Rule val compose = createComposeRule()`, `org.junit.Test`. Kotest assertions still work in `app`; `presentation-core` has no kotest, so assert there with JUnit. For one test over both content types use `ParameterizedRobolectricTestRunner`, since JUnit 6's `@ParameterizedTest` is not available there (`ReaderSettingsSheetTest` is the model).
+- **Host app screens with `ComposeTestHost`** (`app/src/test/java/reikai/presentation/`): the preview theme, the app's text locals, and a view-model factory over the models the test built. `app/src/test/resources/robolectric.properties` runs a plain `Application`, since the app's own builds the whole graph, and turns Robolectric's Conscrypt off, since the app's `conscrypt-android` breaks it.
+- **Assert on the unmerged tree for a child's size.** A `Tab` (and any clickable that merges its children) answers `onNodeWithText` with its own node, so `TabTextTest` reads the label with `useUnmergedTree = true`; on the merged node the zero-width label it guards against passed.
+- **Measure text under native graphics.** Robolectric's default legacy graphics measures text far narrower than it draws, so a test that reads a text's width or position takes `@GraphicsMode(GraphicsMode.Mode.NATIVE)`, as `TabTextTest`'s narrow-tab case does; under legacy graphics it passed with the clause it guards deleted.
+- **A screen that needs the app graph is split, not faked.** Its `Screen.Content()` keeps the graph lookup and the model, and an internal composable takes the state and the model; the test hosts that over a fake adapter (`EntryMigrationListTest`). A private composable a test needs becomes `internal`.
+- **Build stateful parameters per test.** `ParameterizedRobolectricTestRunner` hands every test the same parameter objects, so pass a factory, as `EntryAddDialogsTest` does, when a parameter holds state.
+- **Scroll before tapping in a sheet.** Robolectric's default screen is 320x470 dp, so a dialog's buttons can sit below the fold, where a click lands nowhere: `performScrollTo()` first.
+- **Freeze the clock for timing.** With `compose.mainClock.autoAdvance = false`, `advanceTimeBy` steps the frames and the composition's delays together (`LibraryUpdatePullRefreshTest`).
+- **Cancel a model built outside a ViewModelStore** in `@After` (`model.viewModelScope.cancel()`), or its work outlives the test.
+- **Not here:** read-aloud needs a real TTS engine, and anything drawn by the reader's View-based viewers needs a device; those stay instrumented or manual.
+- **No accessibility checks under Robolectric.** Compose's `enableAccessibilityChecks()` (`ui-test-junit4-accessibility`) was tried here and passed an unlabelled 20 dp clickable box even under native graphics, so it checks nothing on the JVM. It needs a device.
+
+### What has a UI test
+
+A screen not listed here can stop rendering, or lose a button's wiring, with the build and the suite green. Add a row when a test lands.
+
+| Surface | Test | Pins |
+|---|---|---|
+| Library category tabs | `TabTextTest` (`presentation-core`) | a label keeps its width and count in a scrollable row, and a long label gives way to its count in a narrow tab |
+| Library pull-to-refresh | `LibraryUpdatePullRefreshTest` | a pull starts an update and holds the spinner until it runs |
+| Reader settings sheet | `ReaderSettingsSheetTest` | every tab's rows, for manga and novels |
+| Reader error page, failed-chapter Retry | `ReaderErrorPagesTest` | Retry runs and follows the chapter's state |
+| Migration list | `EntryMigrationListTest`, `MigrationListDialogsTest` | back and up ask before stopping; each dialog renders |
+| Browse long-press dialogs | `EntryAddDialogsTest` | remove, categories, add anyway and group add reach the flow, for manga and novels |
+| Saved search chips | `SavedSearchChipTest` | a tap applies, a long press offers deletion |
+| Recents selection bar | `RecentsToolbarTest` | select all, inverse and cancel reach their handlers |
+
+Not covered yet, among the larger surfaces: details, the library grid and lists, the recents rows, the downloads queue, the browse grids, Statistics, settings, and tracking. The reader's page rendering is View-based and stays on a device.
+
+### Screenshot tests
+
+`ScreenshotTest` (`app/src/test/java/reikai/presentation/`) captures each covered screen with Roborazzi into `app/src/test/screenshots/`, and CI's `build_check.yml` compares them with `-Proborazzi.test.verify=true`, uploading the actual and diff images as `screenshot-diffs` when one changes. A plain `./gradlew test` renders them without comparing. Robolectric's native graphics bring their own fonts and renderer, so Windows and Linux produce the same pixels and the images can be recorded anywhere.
+
+- **Variants:** a method-level `@Config(qualifiers = "+night")` renders the dark theme, and `TABLET` a 1280x800 landscape screen, where the reader sheet becomes a dialog. Give layout-sensitive screens both.
+- **Add one** as a test in `ScreenshotTest` (or any class under `@GraphicsMode(NATIVE)`) ending in `capture()`, which waits for Compose to settle (the Roborazzi call alone does not, and caught a sheet mid-animation) and then draws every window, dialogs and sheets included.
+- **Record after an intended change:** `./gradlew :app:recordRoborazziDebug --tests "*ScreenshotTest"`, look at the new images, and commit them with the change.
+- **Check locally:** `./gradlew :app:testDebugUnitTest --tests "*ScreenshotTest" -Proborazzi.test.verify=true`; diffs land in `app/build/outputs/roborazzi/`.
+
 ## Instrumented tests
 
 `app/src/androidTest` holds the reader and WebView tests that need real views, layout passes or a real
 WebView, plus the headless LN-plugin host test; `data/src/androidTest` holds `ForeignKeyEnforcementTest`,
 which opens the driver with production's `sqlDriverConfiguration`. Both use `AndroidJUnitRunner`. These
-may use `runBlocking`, bounded by real timeouts.
+may use `runBlocking`, bounded by real timeouts. A reader test calls a viewport or renderer on the main
+thread through `onMain` (`ReaderTestFixtures.kt`), which bounds the wait, rather than a bare
+`runBlocking(Dispatchers.Main)`.
 
 Prefer installing and instrumenting over `connectedAndroidTest`, which uninstalls the app (and its
 library) afterwards and cannot fetch its UTP artifacts offline:

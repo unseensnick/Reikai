@@ -187,9 +187,18 @@ Right and Left in **Paged (left to right)** and **Paged (right to left)**. L sha
 <img src="/docs/guides/reader-settings/tap-zones_right-and-left.webp" alt="Right and Left" width="247" height="600" loading="lazy" decoding="async" />
 == Disabled
 No tap zones to assist with navigation will be active.
+== Top and bottom
+The top of the page turns back, the bottom turns forward, and the middle opens the menu.
+== Center
+Only the middle of the page opens the menu. A tap anywhere else is left to the page.
+== Large center
+Like **Center**, with a larger menu zone.
+== Bottom
+Only a strip along the bottom opens the menu, as tall as **Bottom zone height** sets. A tap anywhere else is left to the page.
 :::
 
 ### Invert tap zones <Badge type="info" text="None" /> {#invert-tap-zones-pages}
+Hidden for layouts it would not change: **Disabled**, **Center** and **Large center**. **Bottom** only flips vertically.
 
 ::: tabs
 == None
@@ -201,6 +210,9 @@ Changes so that the tap zones are flipped vertically.
 == Both
 Changes so that the tap zones are flipped horizontally and vertically.
 :::
+
+### Bottom zone height <Badge type="info" text="12%" />
+How tall the menu zone is. Only shown for the **Bottom** layout. One height serves both **Paged** and **Long strip**.
 
 ### Crop borders <Badge type="info" text="Off" /> {#crop-borders-pages}
 
@@ -261,7 +273,7 @@ TBA
 
 ## Long strip
 
-**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above.
+**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, every mode uses the **Paged** answers for all of these apart from **Crop borders**, so changing them here has no effect.
 
 ### Side padding <Badge type="info" text="0%" />
 Adds the specified padding to the left and right of the screen. Shown while **Use high quality renderer** in <nav to="advanced"> is off.
@@ -273,7 +285,7 @@ How wide the strip is drawn, as a share of the screen. Shown in place of **Side 
 How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Double tap to zoom <Badge type="info" text="On" />
-Zooms into the image on double tap.
+Zooms into the image on double tap. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Disable zoom out <Badge type="info" text="Off" />
 Stops a pinch from zooming a long strip out smaller than its normal width.
@@ -293,6 +305,12 @@ On the **Appearance** tab, paged modes only. How the page turns: **Basic**, **Pa
 
 ### Display cutout mode <Badge type="info" text="Avoid" />
 On the **Appearance** tab, paged modes only. How the page sits around the camera cutout: **Ignore** draws under it, while **Avoid** and **Shift** keep the page clear of it. While two pages are shown, **Display cutout mode (dual)** <Badge type="info" text="Ignore" /> takes over.
+
+### Disable double tap gestures <Badge type="info" text="Off" />
+On the **Controls** tab, paged modes only, and not while two pages are shown. Turns off double tap zoom.
+
+### Image filters and Tile filters
+On the **Filters** tab. **Add shader** loads a WGSL shader file from your device. Image filters run on the whole page and tile filters on each tile, in list order, and you can drag or delete them.
 
 ## Navigation
 

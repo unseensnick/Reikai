@@ -5,6 +5,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.ReaderHideThreshold
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import kotlinx.serialization.builtins.MapSerializer
@@ -13,8 +14,10 @@ import kotlinx.serialization.json.Json
 import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
+import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.reader.readerDarkPreset
@@ -198,6 +201,19 @@ class NovelPreferences(
     fun readerRenderingMode() =
         preferenceStore.getEnum("ln_reader_rendering_mode", NovelRenderingMode.NATIVE)
 
+    /** Whether a chapter scrolls or turns a page at a time, and which way its pages turn. */
+    fun readerPageLayout() = preferenceStore.getEnum("ln_reader_page_layout", NovelPageLayout.SCROLL)
+
+    /** The e-ink flash after a page turn, kept apart from the manga reader's so each type has its own. */
+    fun readerFlashOnPageChange() = preferenceStore.getBoolean("ln_reader_flash", false)
+
+    fun readerFlashDurationMillis() =
+        preferenceStore.getInt("ln_reader_flash_duration", ReaderPreferences.MILLI_CONVERSION)
+
+    fun readerFlashPageInterval() = preferenceStore.getInt("ln_reader_flash_interval", 1)
+
+    fun readerFlashColor() = preferenceStore.getEnum("ln_reader_flash_mode", ReaderPreferences.FlashColor.BLACK)
+
     /** When true the reader follows the system light/dark mode; otherwise the chosen preset wins. */
     fun readerFollowSystemTheme() = preferenceStore.getBoolean("ln_reader_follow_system_theme", true)
     fun readerBackgroundColor() = preferenceStore.getString("ln_reader_bg_color", readerDarkPreset.background)
@@ -337,27 +353,38 @@ class NovelPreferences(
         ChapterTitleFormat.NAME,
     )
 
-    /** How a tap on the page is read. Disabled, the default, toggles the chrome wherever the page is tapped. */
-    fun readerTapLayout() = preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
+    /**
+     * How a tap on the page is read, kept apart for paged and scrolling reading as manga keeps its pager's and
+     * long strip's. Paged defaults to manga's pager layout, so a tap at the side turns the page; scrolling to
+     * Disabled, which toggles the chrome wherever the page is tapped.
+     */
+    fun readerTapLayout(paged: Boolean) = if (paged) {
+        preferenceStore.getEnum("ln_reader_tap_layout_paged", NovelTapLayout.RIGHT_AND_LEFT)
+    } else {
+        preferenceStore.getEnum("ln_reader_tap_layout", NovelTapLayout.DISABLED)
+    }
 
     /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
      *  pinned by `ReaderNavigationOverlayView.setNavigation`, which both readers hand it to. */
     fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)
 
-    fun readerTapInvert() = preferenceStore.getEnum("ln_reader_tap_invert", TappingInvertMode.NONE)
+    fun readerTapInvert(paged: Boolean) =
+        preferenceStore.getEnum(
+            if (paged) "ln_reader_tap_invert_paged" else "ln_reader_tap_invert",
+            TappingInvertMode.NONE,
+        )
 
-    /** Sets [layout], replacing an inversion it cannot draw with the nearest one it can, so the choice
-     *  a settings row shows is the one in effect. */
-    fun setReaderTapLayout(layout: NovelTapLayout) {
-        readerTapLayout().set(layout)
-        val invert = readerTapInvert()
-        if (invert.get() in layout.invertModes) return
-        val vertical = invert.get().shouldInvertVertical && TappingInvertMode.VERTICAL in layout.invertModes
-        invert.set(if (vertical) TappingInvertMode.VERTICAL else TappingInvertMode.NONE)
+    /** Sets [paged]'s [layout], replacing an inversion it cannot draw as manga's `setTapLayout` does. */
+    fun setReaderTapLayout(paged: Boolean, layout: NovelTapLayout) {
+        readerTapLayout(paged).set(layout)
+        readerTapInvert(paged).fitTo(layout)
     }
 
     /** The bottom layout's zone, as a percentage of the page's height. */
-    fun readerTapBottomZoneHeight() = preferenceStore.getInt("ln_reader_tap_bottom_zone_height", 12)
+    fun readerTapBottomZoneHeight() = preferenceStore.getInt(
+        "ln_reader_tap_bottom_zone_height",
+        BOTTOM_ZONE_DEFAULT_PERCENT,
+    )
 
     /**
      * Carries the retired [DEAD_READER_TAP_TO_SCROLL_KEY] switch into [readerTapLayout]: on was the thirds
@@ -365,8 +392,11 @@ class NovelPreferences(
      * the upgrade migration has run.
      */
     fun carryReaderTapToScroll(enabled: Boolean) {
-        readerTapLayout().set(if (enabled) NovelTapLayout.THIRDS else NovelTapLayout.DISABLED)
+        readerTapLayout(paged = false).set(if (enabled) NovelTapLayout.THIRDS else NovelTapLayout.DISABLED)
     }
+
+    /** Slide a paged turn as manga's pager does; off turns at once, which an e-ink screen wants. */
+    fun readerPageTransitions() = preferenceStore.getBoolean("ln_reader_page_transitions", true)
 
     /** Swipe left / right to go to the next / previous chapter. */
     fun readerSwipeGestures() = preferenceStore.getBoolean("ln_reader_swipe_gestures", false)
@@ -386,6 +416,9 @@ class NovelPreferences(
     /** Auto-scroll speed in CSS pixels per frame (~60fps). */
     fun readerAutoScrollSpeed() = preferenceStore.getFloat("ln_reader_auto_scroll_speed", 1.0f)
 
+    /** Seconds per page while auto-scroll turns pages, in paged reading. */
+    fun readerAutoScrollInterval() = preferenceStore.getInt("ln_reader_auto_scroll_interval", 5)
+
     /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
      *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. No pin: manga's half
      *  is upstream's key handling inside its View-based viewers, which a JVM test cannot drive; this side's
@@ -397,7 +430,10 @@ class NovelPreferences(
 
     /** How far one volume press scrolls, as a fraction of the screen height (LNReader's default is
      *  0.75, leaving a quarter-screen overlap for reading continuity). */
-    fun readerVolumeButtonsFraction() = preferenceStore.getFloat("ln_reader_volume_buttons_fraction", 0.75f)
+    fun readerVolumeButtonsFraction() = preferenceStore.getFloat(
+        "ln_reader_volume_buttons_fraction",
+        VOLUME_KEY_SCROLL_DEFAULT_FRACTION,
+    )
 
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
      *  `readerHideThreshold`. Both read the distance off the shared [ReaderHideThreshold]. No pin: manga's

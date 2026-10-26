@@ -514,7 +514,8 @@ class Downloader(
                 pageList.forEach { page ->
                     slots.acquire()
                     // Released on completion, since a page canceled before it starts never runs its body
-                    launch(Dispatchers.IO) {
+                    // RK: coroutine helper in place of upstream's raw dispatcher
+                    launchIO {
                         // Fetch image URL if necessary
                         if (page.imageUrl.isNullOrEmpty()) {
                             page.status = Page.State.LoadPage
@@ -612,8 +613,6 @@ class Downloader(
             }
 
             // When the page is ready, set page path, progress (just in case) and status
-            splitTallImageIfNeeded(page, tmpDir)
-
             page.uri = file.uri
             page.progress = 100
             page.status = Page.State.Ready
@@ -716,23 +715,6 @@ class Downloader(
     private fun getImageExtension(response: Response, file: UniFile): String {
         val mime = response.body.contentType()?.run { if (type == "image") "image/$subtype" else null }
         return ImageUtil.getExtensionFromMimeType(mime) { file.openInputStream() }
-    }
-
-    private fun splitTallImageIfNeeded(page: Page, tmpDir: UniFile) {
-        if (!downloadPreferences.splitTallImages.get()) return
-
-        try {
-            val filenamePrefix = "%03d".format(Locale.ENGLISH, page.number)
-            val imageFile = tmpDir.listFiles()?.firstOrNull { it.name.orEmpty().startsWith(filenamePrefix) }
-                ?: error(context.stringResource(MR.strings.download_notifier_split_page_not_found, page.number))
-
-            // If the original page was previously split, then skip
-            if (imageFile.name.orEmpty().startsWith("${filenamePrefix}__")) return
-
-            ImageUtil.splitTallImage(tmpDir, imageFile, filenamePrefix)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e) { "Failed to split downloaded image" }
-        }
     }
 
     /**

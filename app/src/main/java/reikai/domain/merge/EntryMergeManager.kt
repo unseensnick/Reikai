@@ -168,6 +168,20 @@ open class EntryMergeManager(
     }
 
     /**
+     * [seriesBuckets] with each merged group's members in [rank]'s order, the library lead first, so a
+     * surface reading a series off its first member reads the one its library row shows. [rank] gets the
+     * members and the group's override order ([overrideRankingMemberIds]), as the library collapse does.
+     */
+    suspend fun <T> rankedSeriesBuckets(
+        items: List<T>,
+        id: (T) -> Long,
+        rank: (members: List<T>, memberRanking: List<Long>) -> List<T>,
+    ): List<MergeBucket<T>> = seriesBuckets(items, id).map { bucket ->
+        if (bucket.members.size == 1) return@map bucket
+        MergeBucket(bucket.groupId, rank(bucket.members, overrideRankingMemberIds(id(bucket.members.first()))))
+    }
+
+    /**
      * The group of [anchorId] in its own priority order when the group overrides the global source
      * ranking, else empty (aggregation then falls back to the global list). This is the per-group
      * override channel: aggregation ranks members by this order directly, so two members sharing a

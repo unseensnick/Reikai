@@ -34,6 +34,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
 import reikai.novel.registry.pluginRepos
+import reikai.novel.registry.toMetadata
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -204,14 +205,6 @@ class LnPluginManagerViewModel(
             installer.uninstall(failure.pluginId.orEmpty(), failure.url)
         }
     }
-
-    private fun LnRegistryEntry.toMetadata() = LnInstalledPluginMetadata(
-        pluginId = id,
-        iconUrl = iconUrl,
-        version = version,
-        lang = lang,
-        customCssUrl = customCSS,
-    )
 
     private data class Installs(
         val inProgress: Set<String> = emptySet(),

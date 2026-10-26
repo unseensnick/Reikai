@@ -1,6 +1,7 @@
 package exh.eh
 
 import android.content.Context
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -9,9 +10,13 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-import tachiyomi.domain.category.interactor.GetCategories
-import tachiyomi.domain.category.interactor.SetMangaCategories
-import tachiyomi.domain.category.repository.CategoryRepository
+import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
+import reikai.domain.manga.MangaMergeManager
+import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.ReadingLogRepository
+import reikai.presentation.browse.FakeMangaLibrary
+import reikai.presentation.browse.fakeGrouping
 import tachiyomi.domain.chapter.interactor.GetChapterByUrl
 import tachiyomi.domain.chapter.interactor.GetChaptersByMangaId
 import tachiyomi.domain.chapter.model.Chapter
@@ -20,11 +25,8 @@ import tachiyomi.domain.history.interactor.GetHistory
 import tachiyomi.domain.history.interactor.RemoveHistory
 import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.repository.HistoryRepository
-import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.domain.manga.repository.MangaRepository
 import java.io.File
-import kotlin.time.Instant
 
 /** Merging a discarded gallery version's reading state into the accepted one's chapters. */
 class EHentaiUpdateHelperTest {
@@ -42,6 +44,8 @@ class EHentaiUpdateHelperTest {
     )
 
     private val discarded = stored.copy(id = 20L, mangaId = 2L, read = true, bookmark = true, lastPageRead = 7)
+
+    private val newerVersion = Chapter.create().copy(id = 20L, mangaId = 2L, url = "/g/2/def/", name = "v2: Gallery")
 
     private fun changesFor(accepted: Chapter) =
         getChapterList(chain(1L, accepted), listOf(chain(2L, discarded)), listOf(accepted, discarded))
@@ -87,48 +91,144 @@ class EHentaiUpdateHelperTest {
     @Test
     @DisplayName("the chapters a merge adds come back with the ids the database gave them")
     fun addedChaptersCarryStoredIds(@TempDir dir: File) = runTest {
-        val newerVersion = Chapter.create().copy(id = 20L, mangaId = 2L, url = "/g/2/def/", name = "v2: Gallery")
-        val chapterRepository = mockk<ChapterRepository>(relaxed = true) {
-            coEvery { getChapterByUrl(stored.url) } returns listOf(stored)
-            coEvery { getChapterByUrl(newerVersion.url) } returns listOf(newerVersion)
-            coEvery { getChapterByMangaId(1L, any()) } returns listOf(stored)
-            coEvery { getChapterByMangaId(2L, any()) } returns listOf(newerVersion)
-            coEvery { updateFromRemote(any(), any(), any()) } answers {
-                secondArg<List<Chapter>>().map { it.copy(id = 101L) }
-            }
-        }
-        val mangaRepository = mockk<MangaRepository>(relaxed = true) {
-            coEvery { getMangaById(any()) } answers {
-                Manga.create().copy(id = firstArg(), source = SOURCE_ID, favoriteAt = Instant.fromEpochMilliseconds(1L))
-            }
-        }
-        val historyRepository = mockk<HistoryRepository>(relaxed = true) {
-            coEvery { getHistoryByMangaId(any()) } returns emptyList()
-        }
-        val categoryRepository = mockk<CategoryRepository> {
-            coEvery { getCategoriesByMangaId(any()) } returns emptyList()
-        }
-        val helper = EHentaiUpdateHelper(
-            context = mockk<Context> { every { filesDir } returns dir },
-            getChapterByUrl = GetChapterByUrl(chapterRepository),
-            getChaptersByMangaId = GetChaptersByMangaId(chapterRepository),
-            getManga = GetManga(mangaRepository),
-            updateManga = mockk(relaxed = true),
-            setMangaCategories = SetMangaCategories(mangaRepository),
-            getCategories = GetCategories(categoryRepository),
-            chapterRepository = chapterRepository,
-            upsertHistory = UpsertHistory(historyRepository),
-            removeHistory = RemoveHistory(historyRepository),
-            getHistory = GetHistory(historyRepository),
-            mangaMergeManager = mockk(relaxed = true),
-        )
+        val reconcile = Reconcile(dir, acceptedInLibrary = true)
 
-        val added = helper.findAcceptedRootAndDiscardOthers(SOURCE_ID, listOf(stored, newerVersion))!!.third
+        val added = reconcile.run(newerVersion)!!.third
 
         added.map { it.id } shouldBe listOf(101L)
     }
 
-    private companion object {
-        const val SOURCE_ID = 7L
+    @Test
+    @DisplayName("an accepted version joining the library is heard by its source's tracker")
+    fun acceptedJoinIsHeard(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = false)
+
+        reconcile.run(newerVersion)
+
+        reconcile.library.toldSourceTracker shouldContain (EntryId.Manga(1L) to true)
+    }
+
+    @Test
+    @DisplayName("a discarded version leaving the library is heard by its source's tracker")
+    fun discardedLeaveIsHeard(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = false)
+
+        reconcile.run(newerVersion)
+
+        reconcile.library.toldSourceTracker shouldContain (EntryId.Manga(2L) to false)
+    }
+
+    @Test
+    @DisplayName("a refused add of the accepted version leaves the discarded one in the library")
+    fun refusedAddKeepsTheLibrary(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = false)
+        reconcile.library.refusedFavoriteWrites += 1L
+
+        reconcile.run(newerVersion)
+
+        reconcile.library.rows.getValue(2L).favorite shouldBe true
+    }
+
+    @Test
+    @DisplayName("an accepted version the reconcile adds comes back as in the library")
+    fun acceptedComesBackFavorited(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = false)
+
+        val accepted = reconcile.run(newerVersion)!!.first
+
+        accepted.manga.favorite shouldBe true
+    }
+
+    @Test
+    @DisplayName("the categories a reconcile hands the accepted version reach the rest of its group")
+    fun acceptedCategoriesReachItsGroup(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = true, groupOfAccepted = listOf(1L, 5L))
+
+        reconcile.run(newerVersion)
+
+        reconcile.library.filed.getValue(5L).toSet() shouldBe setOf(1L, 2L)
+    }
+
+    @Test
+    @DisplayName("a discarded version's reading time moves to the chapter the merge inserts")
+    fun readingTimeMovesToInsertedChapter(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = true)
+
+        reconcile.run(newerVersion)
+
+        reconcile.moves shouldBe mapOf(20L to 101L)
+    }
+
+    @Test
+    @DisplayName("a discarded chapter sharing the accepted chapter's url moves its reading time there")
+    fun readingTimeMovesToSharedUrl(@TempDir dir: File) = runTest {
+        val reconcile = Reconcile(dir, acceptedInLibrary = true)
+
+        reconcile.run(discarded)
+
+        reconcile.moves shouldBe mapOf(20L to 10L)
+    }
+
+    /**
+     * Gallery 1 holding [stored] (the accepted version, the lowest id) and gallery 2 in the library holding
+     * the chapter a run passes, over [FakeMangaLibrary]. An insert changes what the accepted gallery's
+     * chapter read answers, as the database would.
+     */
+    private inner class Reconcile(dir: File, acceptedInLibrary: Boolean, groupOfAccepted: List<Long> = listOf(1L)) {
+        private val mergeManager = fakeGrouping<MangaMergeManager>().apply {
+            coEvery { computeRelatedIds(1L) } returns groupOfAccepted.toLongArray()
+        }
+        val library = FakeMangaLibrary(mergeManager = mergeManager).apply {
+            put(1L, favorite = acceptedInLibrary, categories = listOf(1L))
+            put(2L, favorite = true, categories = listOf(2L))
+            groupOfAccepted.drop(1).forEach { put(it, favorite = true, categories = listOf(3L)) }
+        }
+        val moves = mutableMapOf<Long, Long>()
+        private var acceptedRows = listOf(stored)
+
+        private val readingLog = object : ReadingLogRepository by NoReadingLog {
+            override suspend fun move(contentType: ContentType, targetBySourceChapter: Map<Long, Long>) {
+                moves.putAll(targetBySourceChapter)
+            }
+        }
+
+        private fun chapterRepository(other: Chapter) = mockk<ChapterRepository>(relaxed = true) {
+            coEvery { getChapterByUrl(any()) } answers {
+                listOf(stored, other).filter { it.url == firstArg<String>() }
+            }
+            coEvery { getChapterByMangaId(1L, any()) } answers { acceptedRows }
+            coEvery { getChapterByMangaId(2L, any()) } returns listOf(other)
+            coEvery { updateFromRemote(any(), any(), any()) } answers {
+                secondArg<List<Chapter>>().map { it.copy(id = 101L, mangaId = 1L) }
+                    .also { acceptedRows = acceptedRows + it }
+            }
+        }
+
+        private val historyRepository = mockk<HistoryRepository>(relaxed = true) {
+            coEvery { getHistoryByMangaId(any()) } returns emptyList()
+        }
+
+        private val context = mockk<Context> { every { filesDir } returns dir }
+
+        suspend fun run(other: Chapter): Triple<ChapterChain, List<ChapterChain>, List<Chapter>>? {
+            val chapterRepository = chapterRepository(other)
+            val helper = EHentaiUpdateHelper(
+                context = context,
+                getChapterByUrl = GetChapterByUrl(chapterRepository),
+                getChaptersByMangaId = GetChaptersByMangaId(chapterRepository),
+                getManga = library.getManga,
+                libraryAdder = library.adder,
+                removeMangaFromLibrary = library.removal,
+                setMangaCategories = library.setMangaCategories,
+                getCategories = library.getCategories,
+                chapterRepository = chapterRepository,
+                upsertHistory = UpsertHistory(historyRepository),
+                removeHistory = RemoveHistory(historyRepository),
+                getHistory = GetHistory(historyRepository),
+                mangaMergeManager = mergeManager,
+                readingLog = readingLog,
+            )
+            return helper.findAcceptedRootAndDiscardOthers(FakeMangaLibrary.SOURCE_ID, listOf(stored, other))
+        }
     }
 }

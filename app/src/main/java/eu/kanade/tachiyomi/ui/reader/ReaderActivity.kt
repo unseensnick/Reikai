@@ -278,7 +278,10 @@ class ReaderActivity : BaseActivity() {
 
     private var menuToggleToast: Toast? = null
     private var readingModeToast: Toast? = null
-    private val displayRefreshHost = DisplayRefreshHost()
+    private val displayRefreshHost by lazy { DisplayRefreshHost(engine.provider.flash) } // RK: the session's own flash
+
+    // RK: a novel's paged reading turning a page, which flashes an e-ink screen as manga's PageChanged does
+    fun pageTurned() = displayRefreshHost.flash()
 
     private val windowInsetsController by lazy { WindowInsetsControllerCompat(window, window.decorView) }
 
@@ -867,7 +870,7 @@ class ReaderActivity : BaseActivity() {
 
     @Composable
     private fun ContentOverlay(state: ReaderViewModel.State) {
-        val flashOnPageChange by readerPreferences.flashOnPageChange.collectAsState()
+        val flashOnPageChange by engine.provider.flash.onPageChange.collectAsState() // RK: the session's own flash
 
         // RK: the open session's own filter, so a novel and a manga keep separate values.
         val filters = engine.provider.displayFilters

@@ -47,7 +47,7 @@ object SettingsLibraryScreen : SearchableSettings {
         val context = LocalContext.current
         val getCategories = remember { context.appGraph.getCategories }
         val libraryPreferences = remember { context.appGraph.libraryPreferences }
-        val novelPreferences = remember { context.appGraph.novelPreferences }
+        val novelPreferences = remember { context.appGraph.novelPreferences } // RK
         // RK: master merging switch, hosted in the Sources group below
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences }
         // RK: novel categories for the novel update-categories filter

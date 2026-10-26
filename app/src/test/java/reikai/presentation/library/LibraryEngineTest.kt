@@ -282,7 +282,7 @@ class LibraryEngineTest {
             val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11))))
             coEvery { provider.dynamicGroupingFeed(any()) } returns DynamicGroupingFeed(
                 items = listOf(DynItem(m1, null, null, null)),
-                languageCodes = mapOf(m1 to "all"),
+                languageCodes = mapOf(m1 to listOf("all")),
             )
             val engine = engineOver(listOf(provider), groupBy = LibraryGroup.BY_LANGUAGE)
 

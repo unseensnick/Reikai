@@ -37,6 +37,7 @@ import kotlinx.coroutines.withTimeout
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
+import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.source.SourceKey
 import reikai.domain.track.ownChapterNumbers
 import reikai.util.testAppScope
@@ -235,6 +236,7 @@ class MangaReaderViewModelHarness private constructor(
                 getChaptersByMangaId = GetChaptersByMangaId(chapters),
                 getNextChapters = GetNextChapters(GetChaptersByMangaId(chapters), getManga, mockk(relaxed = true)),
                 upsertHistory = UpsertHistory(history),
+                readingLog = NoReadingLog,
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = mockk(relaxed = true),
                 getIncognitoState = mockk {

@@ -7,6 +7,9 @@ import tachiyomi.domain.chapter.model.ChapterSummary
 interface NovelChapterRepository {
     suspend fun getByNovelId(novelId: Long): List<NovelChapter>
 
+    /** [getByNovelId] for each of [novelIds], in its order; a novel with no chapters is absent. */
+    suspend fun getByNovelIds(novelIds: List<Long>): Map<Long, List<NovelChapter>>
+
     /** Reactive [getByNovelId]: emits again only when this novel's chapters change, not on another's write. */
     fun getByNovelIdAsFlow(novelId: Long): Flow<List<NovelChapter>>
 

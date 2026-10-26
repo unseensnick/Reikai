@@ -92,6 +92,8 @@ class MangaReaderProvider(
         invertedColors = readerPreferences.invertedColors,
     )
 
+    override val flash = ReaderFlash.manga(readerPreferences)
+
     override val fullscreen = readerPreferences.fullscreen
 
     override val drawUnderCutout = readerPreferences.drawUnderCutout

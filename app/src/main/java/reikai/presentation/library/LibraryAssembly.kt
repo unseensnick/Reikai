@@ -107,7 +107,7 @@ class LibraryAssembled(
  * identically, gluing the pair together under Random. [signedKey] keeps the two apart; it perturbs only
  * the Random rank, never an identity.
  */
-fun mixedLibraryItemSortFields(trackerMean: (LibraryItem) -> Double): LibrarySortFields<LibraryItem> {
+fun mixedLibraryItemSortFields(trackerMean: (LibraryItem) -> Double?): LibrarySortFields<LibraryItem> {
     val base = libraryItemSortFields(trackerMean)
     return LibrarySortFields(
         id = { it.entryId.signedKey() },

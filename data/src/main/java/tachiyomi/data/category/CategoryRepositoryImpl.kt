@@ -73,11 +73,31 @@ class CategoryRepositoryImpl(
             .subscribeToList()
     }
 
+    override suspend fun getCategoriesByMangaIds(mangaIds: List<Long>): Map<Long, List<Category>> {
+        return database.categoryQueries
+            // RK: the row carries its content type
+            .getCategoriesByMangaIds(mangaIds) { mangaId, id, name, order, flags, contentType ->
+                mangaId to mapCategory(id, name, order, flags, contentType) // RK
+            }
+            .awaitAsList()
+            .groupBy({ it.first }, { it.second })
+    }
+
     // RK: novel-side per-entry read over the shared table.
     override suspend fun getCategoriesByNovelId(novelId: Long): List<Category> {
         return database.categoryQueries
             .getNovelCategoriesByNovelId(novelId, ::mapCategory)
             .awaitAsList()
+    }
+
+    // RK: getCategoriesByNovelId for many novels at once
+    override suspend fun getCategoriesByNovelIds(novelIds: List<Long>): Map<Long, List<Category>> {
+        return database.categoryQueries
+            .getNovelCategoriesByNovelIds(novelIds) { novelId, id, name, order, flags, contentType ->
+                novelId to mapCategory(id, name, order, flags, contentType)
+            }
+            .awaitAsList()
+            .groupBy({ it.first }, { it.second })
     }
 
     // RK --> contentType is written straight through, so a universal category (0) is expressible and not

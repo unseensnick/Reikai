@@ -35,7 +35,7 @@ Android treats it as a different app, so 0.3.2 and later install next to an olde
 1. In the old app, go to <nav to="data-and-storage"> and tap **Create backup**. Tick **Include sensitive settings** so your tracker logins come along.
 1. Install the new Reikai.
 1. When it asks for a storage location, pick the same folder the old app used, so your downloads are found.
-1. Restore the backup in the new app, from <nav to="data-and-storage">.
+1. Restore the backup in the new app, from <nav to="data-and-storage">. On the Restore screen, tick **Trust this repo** for each repo you recognise, and Reikai reinstalls the extensions and plugins the backup lists from it.
 1. Check your library, then uninstall the old app.
 
 Covers you set from an image on your device are not in a backup, so set those again.
@@ -49,7 +49,7 @@ Yōkai-Y2K and older Yōkai-based Reikai builds use the same format.
 1. In the old app, create a backup. A `.tachibk` or `.proto.gz` file works.
 1. Install Reikai. It installs as a separate app, so the old one stays until you remove it.
 1. Restore the backup from <nav to="data-and-storage">.
-1. Install the extensions the Restore screen lists, and log in to your trackers again unless the backup included your sign-ins.
+1. On the Restore screen, tick **Trust this repo** for each repo you recognise, so it comes back. These apps don't record which extensions you had, so install them again from Browse, and log in to your trackers again. See [Restoring a backup](guides/backups.md#restoring-a-backup).
 
 What comes across: your library, categories, reading history and tracking links.
 

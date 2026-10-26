@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toUrlReadingSession
 import exh.metadata.metadata.base.FlatMetadata
 import exh.metadata.sql.models.SearchMetadata
 import exh.metadata.sql.models.SearchTag
@@ -82,6 +83,7 @@ class MangaRestorer(
                     numberOf = { it.chapterNumber.toDouble() },
                     sourceNumberOf = { it.sourceChapterNumber },
                 ),
+                readingSessions = backupManga.readingSessions.map { it.toUrlReadingSession() },
                 // RK <--
             )
         }

@@ -9,6 +9,7 @@ import exh.md.dto.RelationshipDto
 import exh.md.handlers.MangaHandler
 import exh.pref.DelegateSourcePreferences
 import exh.source.EnhancedHttpSource
+import exh.util.linkUri
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -24,7 +25,6 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import uy.kohesive.injekt.Injekt
 import uy.kohesive.injekt.api.InjektScope
-import java.net.URI
 
 /** A mangadex.org link opened in the app imports through the MangaDex delegate, while delegation is on. */
 class MangaDexLinkImportTest {
@@ -34,7 +34,7 @@ class MangaDexLinkImportTest {
     @BeforeEach
     fun setUp() {
         mockkStatic(Uri::class)
-        every { Uri.parse(any()) } answers { uri(firstArg()) }
+        every { Uri.parse(any()) } answers { linkUri(firstArg()) }
     }
 
     @AfterEach
@@ -50,14 +50,6 @@ class MangaDexLinkImportTest {
     }
 
     private val mangaDex = MangaDex(extension, mockk(relaxed = true))
-
-    private fun uri(url: String): Uri {
-        val parsed = URI(url)
-        return mockk {
-            every { host } returns parsed.host
-            every { pathSegments } returns parsed.path.split('/').filter { it.isNotEmpty() }
-        }
-    }
 
     private fun delegation(on: Boolean) {
         val store = InMemoryPreferenceStore(sequenceOf(InMemoryPreference("eh_delegate_sources", on, true)))
@@ -83,33 +75,33 @@ class MangaDexLinkImportTest {
 
     @Test
     fun `a title link maps to the series`() = runTest {
-        mangaDex.mapUrlToMangaUrl(uri("https://mangadex.org/title/$TITLE/some-slug")) shouldBe "/manga/$TITLE"
+        mangaDex.mapUrlToMangaUrl(linkUri("https://mangadex.org/title/$TITLE/some-slug")) shouldBe "/manga/$TITLE"
     }
 
     @Test
     fun `an old manga link maps to the series`() = runTest {
-        mangaDex.mapUrlToMangaUrl(uri("https://mangadex.org/manga/$TITLE")) shouldBe "/manga/$TITLE"
+        mangaDex.mapUrlToMangaUrl(linkUri("https://mangadex.org/manga/$TITLE")) shouldBe "/manga/$TITLE"
     }
 
     @Test
     fun `a title link without an id maps to no series`() = runTest {
-        mangaDex.mapUrlToMangaUrl(uri("https://mangadex.org/title")) shouldBe null
+        mangaDex.mapUrlToMangaUrl(linkUri("https://mangadex.org/title")) shouldBe null
     }
 
     @Test
     fun `a link to another page maps to no series`() = runTest {
-        mangaDex.mapUrlToMangaUrl(uri("https://mangadex.org/group/$TITLE")) shouldBe null
+        mangaDex.mapUrlToMangaUrl(linkUri("https://mangadex.org/group/$TITLE")) shouldBe null
     }
 
     @Test
     fun `a chapter link maps to the chapter`() {
-        mangaDex.mapUrlToChapterUrl(uri("https://mangadex.org/chapter/$CHAPTER")) shouldBe
+        mangaDex.mapUrlToChapterUrl(linkUri("https://mangadex.org/chapter/$CHAPTER")) shouldBe
             "https://api.mangadex.org/chapter/$CHAPTER"
     }
 
     @Test
     fun `a title link maps to no chapter`() {
-        mangaDex.mapUrlToChapterUrl(uri("https://mangadex.org/title/$TITLE")) shouldBe null
+        mangaDex.mapUrlToChapterUrl(linkUri("https://mangadex.org/title/$TITLE")) shouldBe null
     }
 
     @Test
@@ -127,7 +119,7 @@ class MangaDexLinkImportTest {
 
     @Test
     fun `a www link is the site's own`() {
-        mangaDex.matchesUri(uri("https://www.mangadex.org/title/$TITLE")) shouldBe true
+        mangaDex.matchesUri(linkUri("https://www.mangadex.org/title/$TITLE")) shouldBe true
     }
 
     @Test

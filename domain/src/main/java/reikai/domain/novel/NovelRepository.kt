@@ -59,9 +59,9 @@ interface NovelRepository {
     /**
      * Reactive recent-updates feed: chapters of favorited novels fetched after the novel was added, newest
      * first, with the recents filters applied in SQL: twin of Mihon's `getRecentUpdatesWithFilters`, pinned by
-     * RecentsFilterQueriesTest. [after] is a lower bound on the fetch date and [limit] caps the row count,
-     * applied after the filters. Downloaded stays a Kotlin filter on both content types, since download state
-     * lives on disk.
+     * UpdatesFeedFilterConformanceTest and RecentsCategoryFilterConformanceTest. [after] is a lower bound on the
+     * fetch date and [limit] caps the row count, applied after the filters. Downloaded stays a Kotlin filter on
+     * both content types, since download state lives on disk.
      */
     fun getFilteredNovelUpdatesAsFlow(
         after: Instant,

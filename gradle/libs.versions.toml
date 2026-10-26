@@ -1,5 +1,5 @@
 [versions]
-aboutLibraries = "15.2.0"
+aboutLibraries = "15.3.0"
 android-desugar = "2.1.5"
 android-gradle = "9.4.1"
 androidx-activity-compose = "1.13.0"
@@ -8,7 +8,7 @@ androidx-appCompat = "1.8.0"
 androidx-baselineProfile = "1.5.0"
 androidx-benchmark = "1.5.0"
 androidx-biometric = "1.2.0-alpha05"
-androidx-compose-bom = "2026.10.00"
+androidx-compose-bom = "2026.10.01"
 androidx-constraintLayout = "2.2.2"
 androidx-core = "1.19.1"
 androidx-coreSplashScreen = "1.2.0"
@@ -27,7 +27,7 @@ androidx-test-espresso = "3.7.0"
 androidx-test-junit = "1.3.0"
 androidx-test-uiautomator = "2.4.0"
 androidx-viewPager = "1.1.0"
-androidx-webkit = "1.17.1"
+androidx-webkit = "1.18.0"
 androidx-work = "2.12.0"
 apollo = "5.2.0"
 apollo-adapters = "0.8.0"
@@ -37,49 +37,52 @@ composeGrid = "2.9.0"
 composeMaterialMotion = "2.0.1"
 composeRichEditor = "1.2.1"
 composeWebview = "0.33.6"
-conscrypt = "2.7.0"
+conscrypt = "2.8.0"
 directionalViewPager = "1.0.0"
 diskLruCache = "2.0.2"
-firebase-bom = "35.0.0"
+firebase-bom = "35.1.0"
 firebase-crashlytics = "3.0.8"
 google-services = "4.5.0"
-image-decoder = "16"
+image-decoder = "17"
 injekt = "1.16.1"
 ireader-sourceApi = "1.5.1"
 ireader-ktor = "3.3.2"
 jsoup = "1.23.2"
 junit = "6.1.3"
-kotest-assertions = "6.2.5"
+kotest-assertions = "6.2.6"
 kotlin-gradle = "2.4.21"
 kotlinx-coroutines = "1.11.0"
 kotlinx-datetime = "0.8.0"
-kotlinx-serialization = "1.11.0"
+kotlinx-serialization = "1.12.0"
 ktlint = "1.8.0"
 leakCanary = "2.14"
 logcat = "0.4"
-markdown = "0.45.0"
+markdown = "0.46.0"
 material = "1.14.0"
 materialKolor = "5.0.1"
 metro = "1.4.5"
 mockk = "1.14.11"
 moko-resources = "0.26.4"
-okhttp = "5.5.0"
+okhttp = "5.5.1"
 okio = "3.18.2"
 photoView = "2.3.0"
 reorderable = "3.1.0"
+robolectric = "4.17"
+roborazzi = "1.76.0"
 rxJava = "1.3.8"
 shizuku = "13.1.5"
 spotless = "8.10.4"
 sqldelight = "2.4.1"
 sqldelight-androidx-driver = "0.2.2"
 stringSimilarity = "0.1.0"
-subsamplingScaleImageView = "1b283e2bc4"
+subsamplingScaleImageView = "72a0537151"
 swipe = "1.3.0"
-tapmoc = "0.4.2"
+tapmoc = "0.5.0"
 unifile = "08f224c8f9"
 valkyrie = "0.5.2"
+vico = "3.3.1"
 voyager = "2.2.21-1.10.3"
-webgpuviewer = "52"
+webgpuviewer = "53"
 xmlutil = "1.0.2"
 
 [libraries]
@@ -103,6 +106,8 @@ androidx-compose-runtimeAnnotation = { module = "androidx.compose.runtime:runtim
 androidx-compose-uiTooling = { module = "androidx.compose.ui:ui-tooling" }
 androidx-compose-uiToolingPreview = { module = "androidx.compose.ui:ui-tooling-preview" }
 androidx-compose-uiUtil = { module = "androidx.compose.ui:ui-util" }
+androidx-compose-uiTest = { module = "androidx.compose.ui:ui-test-junit4" }
+androidx-compose-uiTestManifest = { module = "androidx.compose.ui:ui-test-manifest" }
 androidx-constraintLayout = { module = "androidx.constraintlayout:constraintlayout", version.ref = "androidx-constraintLayout" }
 androidx-core = { module = "androidx.core:core", version.ref = "androidx-core" }
 androidx-coreSplashScreen = { module = "androidx.core:core-splashscreen", version.ref = "androidx-coreSplashScreen" }
@@ -155,6 +160,7 @@ ireader-ktor-gson = { module = "io.ktor:ktor-serialization-gson", version.ref = 
 jsoup = { module = "org.jsoup:jsoup", version.ref = "jsoup" }
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
+junit-vintage-engine = { module = "org.junit.vintage:junit-vintage-engine", version.ref = "junit" }
 kotest-assertions = { module = "io.kotest:kotest-assertions-core", version.ref = "kotest-assertions" }
 kotlin-compose-compiler-gradle = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin-gradle" }
 kotlin-gradle = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin-gradle" }
@@ -190,6 +196,9 @@ okio = { module = "com.squareup.okio:okio", version.ref = "okio" }
 photoView = { module = "com.github.chrisbanes:PhotoView", version.ref = "photoView" }
 quickjs-kt = { module = "io.github.dokar3:quickjs-kt", version = "1.0.5" }
 reorderable = { module = "sh.calvin.reorderable:reorderable", version.ref = "reorderable" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+roborazzi = { module = "io.github.takahirom.roborazzi:roborazzi", version.ref = "roborazzi" }
+vico-compose-m3 = { module = "com.patrykandpatrick.vico:compose-m3", version.ref = "vico" }
 rxJava = { module = "io.reactivex:rxjava", version.ref = "rxJava" }
 shizuku-api = { module = "dev.rikka.shizuku:api", version.ref = "shizuku" }
 shizuku-provider = { module = "dev.rikka.shizuku:provider", version.ref = "shizuku" }
@@ -230,6 +239,7 @@ kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", versi
 valkyrie = { id = "io.github.composegears.valkyrie", version.ref = "valkyrie" }
 moko-resources = { id = "dev.icerock.mobile.multiplatform-resources", version.ref = "moko-resources" }
 metro = { id = "dev.zacsweers.metro", version.ref = "metro" }
+roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 sqldelight = { id = "app.cash.sqldelight", version.ref = "sqldelight" }
 

@@ -6,4 +6,4 @@ The template and the rule for what earns a plan live in [.claude/rules/roadmap-p
 
 ## Open plans
 
-None at present.
+None right now.

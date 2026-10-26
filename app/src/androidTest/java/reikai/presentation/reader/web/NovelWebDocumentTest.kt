@@ -14,17 +14,23 @@ import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.runBlocking
 import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.novel.content.NovelChapterAddress
+import reikai.presentation.reader.LORA_LOADED
+import reikai.presentation.reader.NovelChapterNavigationClient
 import reikai.presentation.reader.WebViewHostActivity
 import reikai.presentation.reader.readerTestSettings
 import reikai.presentation.reader.text.ChapterScrollProgress
@@ -88,8 +94,6 @@ class NovelWebDocumentTest {
 
         /** A failure as the viewport sends one, with the source's reason. */
         const val FAILURE = "{ heading: \"Couldn't load\", message: 'no luck', retry: 'Retry' }"
-        const val LORA_LOADED =
-            "[...document.fonts].some(f => f.family.replace(/['\"]/g, '') === 'lora' && f.status === 'loaded')"
     }
 
     /**
@@ -163,6 +167,22 @@ class NovelWebDocumentTest {
     @Volatile
     private var imageGate: CountDownLatch? = null
 
+    /** The face the font cases hand out, served through the reader's own client. */
+    private val webFonts = NovelWebFonts()
+
+    /** Cancelled in [tearDown]; declared above [navigation], which reads it at construction. */
+    private val scope = CoroutineScope(SupervisorJob())
+
+    /** The reader's own client, so a face goes through its intercept; it routes none of these cases' pictures. */
+    private val navigation = NovelChapterNavigationClient(
+        instrumentation.targetContext,
+        { null },
+        NovelWebImages(),
+        webFonts,
+        scope,
+        {},
+    ) { error("no chapter pictures here") }
+
     /** The last fit answer the page sent per chapter. */
     private val fitsReports = mutableMapOf<String, Boolean>()
 
@@ -195,6 +215,7 @@ class NovelWebDocumentTest {
         useOriginalFonts = useOriginalFonts,
         sourceCssPriority = sourceCssPriority,
         textSelectable = false,
+        paged = false,
     )
 
     @Before
@@ -210,6 +231,7 @@ class NovelWebDocumentTest {
     fun tearDown() {
         // A failed case can leave an image request parked on the gate.
         imageGate?.countDown()
+        scope.cancel()
         if (::scenario.isInitialized) scenario.close()
     }
 
@@ -254,36 +276,32 @@ class NovelWebDocumentTest {
     /**
      * A bundled face has to reach the page, not just its name: the family is written into the
      * stylesheet either way, and with no face behind it the text falls back without a trace. The
-     * WebView mode keeps file access off, so the face travels inline. Nothing asks for the face here,
-     * so it loads only because the chapter's own family names it.
+     * WebView mode keeps file access off, so the face is served from the app's own address. Nothing asks
+     * for the face here, so it loads only because the chapter's own family names it.
      */
     @Test
     fun aBundledFontActuallyLoads() {
         val context = instrumentation.targetContext
-        val source = runBlocking { NovelWebFonts().dataUri(context, context.appGraph.novelFontManager, "lora") }
+        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }
         loadDocument(document(fontFamily = "lora", fontSource = source))
         assertEquals("the bundled face did not load", "true", awaitEval(LORA_LOADED, "true"))
     }
 
-    /** Every build and font push asks for the face, which for a CJK one is megabytes read and encoded. */
+    /** A page may name any address in a style, so only a face this reader handed out is served. */
     @Test
-    fun theSameFaceAskedForTwiceIsReadOnce() {
+    fun aFaceAnotherReaderHandedOutIsNotServed() {
         val context = instrumentation.targetContext
-        val fonts = context.appGraph.novelFontManager
-        val webFonts = NovelWebFonts()
-        val first = runBlocking { webFonts.dataUri(context, fonts, "lora") }
-        val second = runBlocking { webFonts.dataUri(context, fonts, "lora") }
-        assertTrue("the face was read and encoded again", first != null && first === second)
+        val url = runBlocking { NovelWebFonts().url(context.appGraph.novelFontManager, "lora") }!!
+        assertNull("another reader's face was served", webFonts.response(context, url))
     }
 
-    /** The face is megabytes for a CJK font, so it goes with the reader that asked for it. */
+    /** The face is far smaller than the page when served, so the document no longer carries it. */
     @Test
-    fun theFaceCacheEndsWithItsViewport() {
+    fun theDocumentNamesItsFaceRatherThanCarryingIt() {
         val context = instrumentation.targetContext
-        val fonts = context.appGraph.novelFontManager
-        val first = runBlocking { NovelWebFonts().dataUri(context, fonts, "lora") }
-        val second = runBlocking { NovelWebFonts().dataUri(context, fonts, "lora") }
-        assertTrue("a new reader was handed the last reader's face", first != null && first !== second)
+        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }!!
+        val html = document(fontFamily = "lora", fontSource = source)
+        assertTrue("the face was inlined, ${html.length} characters", source in html && "base64" !in html)
     }
 
     /** A font picked while a chapter is open reaches the page as a face, not only as a family name. */
@@ -291,7 +309,7 @@ class NovelWebDocumentTest {
     fun aFontPickedWithThePageOpenLoadsItsFace() {
         val context = instrumentation.targetContext
         loadDocument()
-        val source = runBlocking { NovelWebFonts().dataUri(context, context.appGraph.novelFontManager, "lora") }
+        val source = runBlocking { webFonts.url(context.appGraph.novelFontManager, "lora") }
         // What the viewport's settings push sends: the family as a variable, then its face.
         val variables = NovelWebDocument.variables(settings.copy(fontFamily = "lora"), 0)
         eval("document.documentElement.setAttribute('style', ${JSONObject.quote(variables)})")
@@ -1065,6 +1083,7 @@ class NovelWebDocumentTest {
                 override fun onPageFinished(view: WebView, url: String?) = finished.countDown()
 
                 override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
+                    navigation.shouldInterceptRequest(view, request)?.let { return it }
                     val gate = imageGate ?: return null
                     gate.await(TIMEOUT_S, TimeUnit.SECONDS)
                     val png = if (request.url.toString().contains(TALL_IMAGE)) tallPng() else onePixelPng()

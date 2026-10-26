@@ -13,6 +13,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import reikai.presentation.reader.navigation.MangaTapLayouts
 
 /**
  * Configuration used by pager viewers.
@@ -72,6 +73,16 @@ class WebGpuConfig(
 
     var continuousGap = 10
         private set
+
+    var imageFilters = emptyList<WebGpuShader>()
+        private set
+
+    var imageFiltersChangedListener: (() -> Unit)? = null
+
+    var tileFilters = emptyList<WebGpuShader>()
+        private set
+
+    var tileFiltersChangedListener: (() -> Unit)? = null
 
     init {
         readerPreferences.readerTheme.register(
@@ -161,9 +172,23 @@ class WebGpuConfig(
             { imagePropertyChangedListener?.invoke() },
         )
 
+        readerPreferences.disableDoubleTapGestures.register({
+            viewer.pager.state.doubleTapGesturesEnabled = !it
+        })
+
         readerPreferences.continuousGap.register(
             { continuousGap = it },
             { imagePropertyChangedListener?.invoke() },
+        )
+
+        readerPreferences.imageFilters.register(
+            { imageFilters = it },
+            { imageFiltersChangedListener?.invoke() },
+        )
+
+        readerPreferences.tileFilters.register(
+            { tileFilters = it },
+            { tileFiltersChangedListener?.invoke() },
         )
     }
 
@@ -198,15 +223,16 @@ class WebGpuConfig(
     }
 
     override fun updateNavigation(navigationMode: Int) {
-        navigator = when (navigationMode) {
-            0 -> defaultNavigation()
-            1 -> LNavigation()
-            2 -> KindlishNavigation()
-            3 -> EdgeNavigation()
-            4 -> RightAndLeftNavigation()
-            5 -> DisabledNavigation()
-            else -> defaultNavigation()
-        }
+        navigator = MangaTapLayouts.navigation(navigationMode, tapBottomZoneHeight) // RK
+            ?: when (navigationMode) {
+                0 -> defaultNavigation()
+                1 -> LNavigation()
+                2 -> KindlishNavigation()
+                3 -> EdgeNavigation()
+                4 -> RightAndLeftNavigation()
+                5 -> DisabledNavigation()
+                else -> defaultNavigation()
+            }
         navigationModeChangedListener?.invoke()
     }
 }

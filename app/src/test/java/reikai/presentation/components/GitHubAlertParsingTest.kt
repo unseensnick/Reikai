@@ -62,6 +62,15 @@ class GitHubAlertParsingTest {
     }
 
     @Test
+    fun `a quote inside an alert stays a quote`() {
+        val markdown = "> [!NOTE]\n> > quoted\n"
+
+        val body = alertBodyNodes(alertIn(markdown))
+
+        body.map { it.type } shouldBe listOf(MarkdownElementTypes.BLOCK_QUOTE)
+    }
+
+    @Test
     fun `a plain quote stays a quote`() {
         val markdown = "> Just a quote.\n"
 

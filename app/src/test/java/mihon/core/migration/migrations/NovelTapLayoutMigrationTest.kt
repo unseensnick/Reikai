@@ -21,7 +21,7 @@ class NovelTapLayoutMigrationTest {
 
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 193))
 
-        novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.THIRDS
+        novelPreferences.readerTapLayout(paged = false).get() shouldBe NovelTapLayout.THIRDS
     }
 
     /** Off toggled the chrome wherever the page was tapped, which is what Disabled does. */
@@ -31,7 +31,7 @@ class NovelTapLayoutMigrationTest {
 
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 193))
 
-        novelPreferences.readerTapLayout().get() shouldBe NovelTapLayout.DISABLED
+        novelPreferences.readerTapLayout(paged = false).get() shouldBe NovelTapLayout.DISABLED
     }
 
     /** Disabled is also the default, so only the stored value shows the off choice was carried. */
@@ -41,7 +41,7 @@ class NovelTapLayoutMigrationTest {
 
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 193))
 
-        novelPreferences.readerTapLayout().isSet() shouldBe true
+        novelPreferences.readerTapLayout(paged = false).isSet() shouldBe true
     }
 
     @Test
@@ -57,6 +57,6 @@ class NovelTapLayoutMigrationTest {
     fun `an untouched switch leaves the layout at its default`() = runTest {
         migration.invoke(MigrationContext(dryrun = false, previousVersion = 193))
 
-        novelPreferences.readerTapLayout().isSet() shouldBe false
+        novelPreferences.readerTapLayout(paged = false).isSet() shouldBe false
     }
 }

@@ -20,10 +20,12 @@ import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import reikai.data.backup.ApprovedRepos
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -50,12 +52,15 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
         }
 
         val isSync = inputData.getBoolean(SYNC_KEY, false)
+        // RK: the backup repos the user trusted on the Restore screen
+        val trusted = inputData.getString(TRUSTED_REPOS_KEY)?.let { Json.decodeFromString<ApprovedRepos>(it) }
+            ?: ApprovedRepos()
 
         setForegroundSafely()
 
         return try {
             withIOContext {
-                backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options)
+                backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options, trusted) // RK
             }
             Result.success()
         } catch (e: Exception) {
@@ -94,11 +99,13 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
             uri: Uri,
             options: RestoreOptions,
             sync: Boolean = false,
+            trusted: ApprovedRepos = ApprovedRepos(), // RK
         ) {
             val inputData = workDataOf(
                 LOCATION_URI_KEY to uri.toString(),
                 SYNC_KEY to sync,
                 OPTIONS_KEY to options.asBooleanArray(),
+                TRUSTED_REPOS_KEY to Json.encodeToString(trusted), // RK
             )
             val request = OneTimeWorkRequestBuilder<BackupRestoreWorker>()
                 .addTag(TAG)
@@ -118,3 +125,4 @@ private const val TAG = "BackupRestore"
 private const val LOCATION_URI_KEY = "location_uri" // String
 private const val SYNC_KEY = "sync" // Boolean
 private const val OPTIONS_KEY = "options" // BooleanArray
+private const val TRUSTED_REPOS_KEY = "trusted_repos" // RK: String, ApprovedRepos as JSON

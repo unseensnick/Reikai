@@ -16,6 +16,7 @@ import androidx.webkit.WebViewFeature
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.util.system.isOutdated
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import logcat.LogPriority
@@ -240,7 +241,7 @@ class CloudflareInterceptor(
 
         val origRequestUrl = challengeUrl.toString() // RK: the page the challenge is on, after redirects
         val challengeHost = challengeUrl.host
-        val headers = parseHeaders(originalRequest.headers)
+        val headers = originalRequest.headers.toWebViewHeaders()
         // RK: the solver's origin rule is the WebView fetch's, custom port included, or the probe
         //     would never run on a page served from one.
         val origin = webViewFetchOrigin(challengeUrl)

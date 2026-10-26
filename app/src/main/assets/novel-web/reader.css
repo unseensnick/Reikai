@@ -19,6 +19,41 @@ html {
   overflow-x: hidden;
 }
 
+/*
+ * Paged reading: the reader's finger never scrolls the column, only the host's page jumps do, and a screen
+ * of room after the last chapter lets its last page reach the top like any other.
+ */
+html.rk-paged {
+  overflow: hidden;
+  scroll-behavior: auto;
+}
+
+html.rk-paged body {
+  /* Above the column, so a first page that starts at the very top (a failure above the first chapter) still lands below
+     the margin, as every page does. */
+  padding-top: calc(var(--rk-margin-top) + var(--rk-inset-top));
+  padding-bottom: 100vh;
+  touch-action: none;
+}
+
+/* Over the page's margin and below its last whole line, where the column still holds the pages either side. Takes
+   the touches there, so a tap turns the page rather than following a link the reader cannot see. */
+.rk-page-mask {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 2147483646;
+  background-color: var(--rk-background);
+}
+
+#rk-page-mask-top {
+  top: 0;
+}
+
+#rk-page-mask-bottom {
+  bottom: 0;
+}
+
 body {
   margin: 0;
   padding: 0;

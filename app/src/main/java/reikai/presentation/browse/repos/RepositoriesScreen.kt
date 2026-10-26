@@ -307,7 +307,7 @@ private fun RepoDetailsSheet(
 }
 
 @Composable
-private fun DetailLine(label: String, value: String) {
+internal fun DetailLine(label: String, value: String) {
     Column {
         Text(
             text = label,

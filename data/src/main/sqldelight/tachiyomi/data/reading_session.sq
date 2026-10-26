@@ -1,0 +1,109 @@
+-- One row per reading session, for Statistics' reading time per day, streaks and start year. history
+-- keeps one row per chapter with its last read overwritten, so it cannot say when the time was spent.
+-- A session's end and length are what both readers' ReadSessionClock yields. (chapter_id, ended_at) is
+-- unique so a migrate or a restore that copies a session twice adds nothing. ended_at is epoch millis.
+CREATE TABLE reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES chapter (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_reading_session(
+    _id INTEGER NOT NULL PRIMARY KEY,
+    chapter_id INTEGER NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    UNIQUE(chapter_id, ended_at),
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);
+
+insertManga:
+INSERT OR IGNORE INTO reading_session(chapter_id, ended_at, duration)
+VALUES (:chapterId, :endedAt, :duration);
+
+insertNovel:
+INSERT OR IGNORE INTO novel_reading_session(chapter_id, ended_at, duration)
+VALUES (:chapterId, :endedAt, :duration);
+
+removeAllManga:
+DELETE FROM reading_session;
+
+removeAllNovel:
+DELETE FROM novel_reading_session;
+
+-- The sessions of the history rows history.sq removeResettedHistory is about to delete, so the log loses
+-- the same time the total does.
+removeMangaOfResetHistory:
+DELETE FROM reading_session
+WHERE chapter_id IN (SELECT chapter_id FROM history WHERE read_at IS NULL);
+
+-- A backup carries sessions by chapter url, which a restore finds again on another device.
+sessionsByUrlOfMangas:
+SELECT C.manga_id, C.remote_url, S.ended_at, S.duration
+FROM reading_session S
+INNER JOIN chapter C ON C.id = S.chapter_id
+WHERE C.manga_id IN :mangaIds;
+
+sessionsByUrlOfNovels:
+SELECT C.novel_id, C.url, S.ended_at, S.duration
+FROM novel_reading_session S
+INNER JOIN novel_chapters C ON C._id = S.chapter_id
+WHERE C.novel_id IN :novelIds;
+
+-- A session whose chapter the restored entry no longer lists inserts nothing.
+restoreManga:
+INSERT OR IGNORE INTO reading_session(chapter_id, ended_at, duration)
+SELECT id, :endedAt, :duration
+FROM chapter
+WHERE manga_id = :mangaId AND remote_url = :url;
+
+restoreNovel:
+INSERT OR IGNORE INTO novel_reading_session(chapter_id, ended_at, duration)
+SELECT _id, :endedAt, :duration
+FROM novel_chapters
+WHERE novel_id = :novelId AND url = :url;
+
+-- A migration copies a chapter's sessions onto the chapter it was matched to.
+-- A session the target already holds stays once: the update skips it, and the delete clears it off the source.
+moveManga {
+UPDATE OR IGNORE reading_session SET chapter_id = :targetChapterId WHERE chapter_id = :sourceChapterId;
+DELETE FROM reading_session WHERE chapter_id = :sourceChapterId;
+}
+
+moveNovel {
+UPDATE OR IGNORE novel_reading_session SET chapter_id = :targetChapterId WHERE chapter_id = :sourceChapterId;
+DELETE FROM novel_reading_session WHERE chapter_id = :sourceChapterId;
+}
+
+-- Every session with its entry, for Statistics' time per day, streaks and each series' first read.
+-- With each entry's own title, which names a series read from outside the library.
+sessionsOfManga:
+SELECT C.manga_id, M.remote_title AS title, S.ended_at, S.duration
+FROM reading_session S
+INNER JOIN chapter C ON C.id = S.chapter_id
+INNER JOIN manga M ON M.id = C.manga_id;
+
+sessionsOfNovel:
+SELECT C.novel_id, N.title, S.ended_at, S.duration
+FROM novel_reading_session S
+INNER JOIN novel_chapters C ON C._id = S.chapter_id
+INNER JOIN novels N ON N._id = C.novel_id;
+
+-- Each entry's own title and lifetime reading time from history, which predates the log, for Statistics.
+readDurationByManga:
+SELECT H.manga_id, M.remote_title AS title, coalesce(sum(H.read_duration), 0)
+FROM history H
+INNER JOIN manga M ON M.id = H.manga_id
+GROUP BY H.manga_id;
+
+readDurationByNovel:
+SELECT C.novel_id, N.title, coalesce(sum(H.time_read), 0)
+FROM novel_history H
+INNER JOIN novel_chapters C ON C._id = H.chapter_id
+INNER JOIN novels N ON N._id = C.novel_id
+GROUP BY C.novel_id;

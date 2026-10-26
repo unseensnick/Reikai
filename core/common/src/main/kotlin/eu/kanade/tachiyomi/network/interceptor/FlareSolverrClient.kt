@@ -3,8 +3,6 @@ package eu.kanade.tachiyomi.network.interceptor
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.jsonMime
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -32,6 +30,7 @@ import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import okio.Buffer
 import org.jsoup.Jsoup
+import tachiyomi.core.common.util.lang.withIOContext
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.URLEncoder
@@ -159,7 +158,7 @@ class FlareSolverrClient(
      * Reports the failure as a case rather than a sentence, so the settings screen can name it in
      * the reader's own language and still show the technical text. Runs off the main thread.
      */
-    suspend fun test(flareSolverrUrl: String): FlareSolverrTestResult = withContext(Dispatchers.IO) {
+    suspend fun test(flareSolverrUrl: String): FlareSolverrTestResult = withIOContext {
         val command = buildJsonObject {
             put("cmd", "request.get")
             put("url", "https://www.google.com/")
@@ -169,7 +168,10 @@ class FlareSolverrClient(
             .toRequestBody(jsonMime)
         // A restored address skipped the settings field's check, so it may not parse at all.
         val address = flareSolverrEndpoint(flareSolverrUrl).toHttpUrlOrNull()
-            ?: return@withContext FlareSolverrTestResult.Failure(FlareSolverrTestFailure.UNREACHABLE, "not an address")
+            ?: return@withIOContext FlareSolverrTestResult.Failure(
+                FlareSolverrTestFailure.UNREACHABLE,
+                "not an address",
+            )
         val req = Request.Builder()
             .url(address)
             .post(body)
@@ -184,7 +186,7 @@ class FlareSolverrClient(
         val text = try {
             flareSolverrClient.newBuilder().eventListener(listener).build().newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    return@withContext FlareSolverrTestResult.Failure(
+                    return@withIOContext FlareSolverrTestResult.Failure(
                         FlareSolverrTestFailure.ofStatus(resp.code),
                         listOfNotNull("HTTP ${resp.code} ${resp.message}".trim(), resp.header("Location"))
                             .joinToString(" -> "),
@@ -193,7 +195,7 @@ class FlareSolverrClient(
                 resp.body.string()
             }
         } catch (e: IOException) {
-            return@withContext FlareSolverrTestResult.Failure(
+            return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.ofException(e, connected),
                 e.message ?: e.toString(),
             )
@@ -203,24 +205,24 @@ class FlareSolverrClient(
         } catch (e: SerializationException) {
             // Something served that address, but not the FlareSolverr API: a proxy error page, a
             // sign-in page, or an unrelated service.
-            return@withContext FlareSolverrTestResult.Failure(
+            return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.NOT_A_SOLVER,
                 e.message ?: e.toString(),
             )
         }
         if (result.status != "ok") {
-            return@withContext FlareSolverrTestResult.Failure(
+            return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.SOLVE_FAILED,
                 result.message.ifBlank { "status: ${result.status}" },
             )
         }
         val solution = result.solution
-            ?: return@withContext FlareSolverrTestResult.Failure(
+            ?: return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.SOLVE_FAILED,
                 "no solution in the response",
             )
         if (solution.status !in 200..299) {
-            return@withContext FlareSolverrTestResult.Failure(
+            return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.SOLVE_FAILED,
                 "solution status: ${solution.status}",
             )

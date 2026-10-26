@@ -6,7 +6,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.offset
 import androidx.compose.ui.unit.sp
 import tachiyomi.presentation.core.components.Pill
 
@@ -14,10 +14,6 @@ import tachiyomi.presentation.core.components.Pill
 fun TabText(text: String, badgeCount: Int? = null) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
 
-    // RK --> the label gives way before the badge does. A fixed tab row splits its width evenly, so a
-    // long label in a narrow tab pushed the count off its own edge and clipped it. A scrollable row
-    // gives its tabs no width limit, so there the label keeps its own width (a weighted label measured
-    // to zero there and left the library's category tabs showing only their counts).
     Layout(
         content = {
             Text(
@@ -34,19 +30,15 @@ fun TabText(text: String, badgeCount: Int? = null) {
             }
         },
     ) { measurables, constraints ->
-        val badge = measurables.getOrNull(1)?.measure(constraints.copy(minWidth = 0))
+        val looseConstraints = constraints.copy(minWidth = 0, minHeight = 0)
+        val badge = measurables.getOrNull(1)?.measure(looseConstraints)
         val badgeWidth = badge?.width ?: 0
-        val labelMaxWidth = if (constraints.hasBoundedWidth) {
-            (constraints.maxWidth - badgeWidth).coerceAtLeast(0)
-        } else {
-            Constraints.Infinity
-        }
-        val label = measurables[0].measure(constraints.copy(minWidth = 0, maxWidth = labelMaxWidth))
+        // The label gets what the badge leaves, unlike with Modifier.weight even in scrollable rows' unbounded tabs
+        val label = measurables[0].measure(looseConstraints.offset(horizontal = -badgeWidth))
         val height = maxOf(label.height, badge?.height ?: 0)
         layout(label.width + badgeWidth, height) {
             label.placeRelative(0, (height - label.height) / 2)
             badge?.placeRelative(label.width, (height - badge.height) / 2)
         }
     }
-    // RK <--
 }

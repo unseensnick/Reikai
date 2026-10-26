@@ -67,6 +67,19 @@ class EntryMigrationFavoritesViewModelTest {
         viewModel.state.first { it.selected.size == 2 }.selected shouldBe setOf(EntryId.Manga(2L), EntryId.Manga(3L))
     }
 
+    @Test
+    fun `the favorites list in title order, ignoring case`() = runTest(dispatcher) {
+        val favorites = listOf("beta", "Alpha").mapIndexed { i, title ->
+            MigrationFavorite(EntryId.Manga(i + 1L), title, null, MigrationPayload.OfManga(Manga.create()))
+        }
+        val viewModel = main.track(
+            EntryMigrationFavoritesViewModel(FakeMigrationFlowAdapter(emptyList(), favorites = favorites), "src"),
+        )
+        backgroundScope.launch { viewModel.state.collect {} }
+
+        viewModel.state.first { it.entries.size == 2 }.entries.map { it.title } shouldBe listOf("Alpha", "beta")
+    }
+
     private suspend fun TestScope.loaded(count: Int): EntryMigrationFavoritesViewModel {
         val favorites = (1L..count).map {
             MigrationFavorite(EntryId.Manga(it), "t$it", null, MigrationPayload.OfManga(Manga.create()))

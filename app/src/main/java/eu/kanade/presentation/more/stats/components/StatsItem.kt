@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.text.style.TextAlign
 import tachiyomi.presentation.core.components.material.SECONDARY_ALPHA
 import tachiyomi.presentation.core.components.material.padding
@@ -38,11 +39,12 @@ fun RowScope.StatsItem(
     title: String,
     subtitle: String,
 ) {
+    // RK: the overview's sizes, so the number cards read alike side by side
     BaseStatsItem(
         title = title,
-        titleStyle = MaterialTheme.typography.bodyMedium,
+        titleStyle = MaterialTheme.typography.titleLarge,
         subtitle = subtitle,
-        subtitleStyle = MaterialTheme.typography.labelSmall,
+        subtitleStyle = MaterialTheme.typography.bodyMedium,
     )
 }
 
@@ -74,6 +76,8 @@ private fun RowScope.BaseStatsItem(
                 .copy(
                     color = MaterialTheme.colorScheme.onSurface
                         .copy(alpha = SECONDARY_ALPHA),
+                    // RK: a label too long for its third of the card hyphenates at large font sizes
+                    hyphens = Hyphens.Auto,
                 ),
             textAlign = TextAlign.Center,
         )

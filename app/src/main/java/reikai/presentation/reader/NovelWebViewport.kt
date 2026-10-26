@@ -3,7 +3,6 @@ package reikai.presentation.reader
 import android.annotation.SuppressLint
 import android.app.Activity
 import android.content.Context
-import android.graphics.drawable.ColorDrawable
 import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
@@ -14,6 +13,7 @@ import android.webkit.ConsoleMessage
 import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
+import android.widget.FrameLayout
 import coil3.imageLoader
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
@@ -22,13 +22,19 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
 import reikai.data.coil.fetchNovelImage
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.fraction
 import reikai.novel.content.NovelChapterAddress
@@ -36,6 +42,7 @@ import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelChapterStylesheet
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.text.ResumeVeil
 import reikai.presentation.reader.web.NovelDocumentGate
@@ -51,6 +58,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import kotlin.coroutines.resume
+import kotlin.math.abs
 
 /**
  * The light-novel adapter under [ReaderViewport], rendering chapters into a document that is
@@ -70,6 +78,8 @@ class NovelWebViewport(
     /** Long press selects text, the same setting the native viewport reads. Links keep working here,
      *  which the native one cannot offer alongside selection. */
     private val textSelectable: Boolean,
+    /** Scrolling, or the same column a page at a time ([NovelPaging]). A change rebuilds the viewport. */
+    private val pageLayout: NovelPageLayout,
     private val callbacks: NovelViewportCallbacks,
     /** Two settings only a WebView renderer can honour, so the rows are gated to this mode. A change to
      *  either rebuilds the viewport (`NovelReaderProvider.viewportRebuilds`). */
@@ -80,7 +90,35 @@ class NovelWebViewport(
     private val devTools: Boolean = false,
     /** Auto-scroll's speed, which the engine runs this at while it is on. */
     autoScrollSpeed: Preference<Float>,
+    /** Seconds per page while auto-scroll turns pages instead. */
+    autoScrollInterval: Preference<Int>,
 ) : ReaderViewport, TextViewport, ChapterWindow {
+
+    private val paged = pageLayout.isPaged
+
+    /** Each chapter's pages as last measured, kept while its item and the page keep their heights. */
+    private val measuredPages = mutableMapOf<Long, MeasuredPages>()
+
+    /** [textTop] and [scrollable] place the chapter's text in its item, which a page's share is measured on. */
+    private class MeasuredPages(
+        val height: Double,
+        val contentHeight: Double,
+        val pages: List<NovelPaging.Page>,
+        val textTop: Float,
+        val scrollable: Float,
+    )
+
+    /** One turn, seek or snap at a time, each reading where the last one left the page. */
+    private val paging = Mutex()
+
+    /** A snap the page asked for that has not started yet, so a burst of asks runs one. */
+    private var snapQueued = false
+
+    /** A saved share the opening document lands on once it is up, since only this side knows its pages. */
+    private var openingShare: ChapterProgress.Percent? = null
+
+    /** The page a stepped auto-scroll counts on, changed whenever another page shows. */
+    private val shownPage = MutableStateFlow(ShownPage(Unit, ready = false))
 
     /** The chapter the reader is actually in, which the rail seeks inside of. */
     private var visibleChapterId: Long? = null
@@ -156,12 +194,18 @@ class NovelWebViewport(
 
     private var fingerDown = false
 
+    /**
+     * Over the WebView while a document opens, in the page colour. A view of its own above it rather than the
+     * WebView's foreground: the page's frames draw over the WebView's own foreground once it paints, which
+     * showed every landing and snap the veil was meant to hide. Passes touches on; the WebView holds them.
+     */
+    private val veilView = View(context).apply { visibility = View.GONE }
+
     /** Up from a document opening on a saved percent until it reports ready, which the page holds until that
      *  percent has landed on its pictures. Declared above the WebView that reads it. */
     private val resumeVeil: ResumeVeil = ResumeVeil { up ->
-        webView.foreground = documentSettings?.takeIf { up }?.let {
-            ColorDrawable(readerBackgroundColorInt(it.backgroundColor))
-        }
+        documentSettings?.let { veilView.setBackgroundColor(readerBackgroundColorInt(it.backgroundColor)) }
+        veilView.visibility = if (up) View.VISIBLE else View.GONE
     }
 
     /** Whether the touch on screen went down under the veil, which keeps all of it from the page. */
@@ -170,7 +214,7 @@ class NovelWebViewport(
     /** Set when the renderer dies, after which the WebView takes nothing but destroy(). */
     private var rendererGone = false
 
-    private val webView = WebView(context).apply {
+    internal val webView = WebView(context).apply {
         setDefaultSettings()
         WebView.setWebContentsDebuggingEnabled(webContentsDebugging(devTools, context.isDebugInspectorBuild()))
         if (devTools) {
@@ -188,6 +232,7 @@ class NovelWebViewport(
             context,
             { loadedBaseUrl },
             webImages,
+            webFonts,
             scope,
             onRendererGone = ::closeReader,
         ) { image ->
@@ -204,10 +249,11 @@ class NovelWebViewport(
         // all and the flag stays off.
         settings.allowFileAccess = false
         isLongClickable = textSelectable
+        // A page has no place in a scroll to show, and the WebView draws its scrollbar itself, not the page.
+        isVerticalScrollBarEnabled = !paged
         if (textSelectable) {
             isFocusable = true
             isFocusableInTouchMode = true
-            addOnAttachStateChangeListener(SelectableWhileAttached())
         }
         addJavascriptInterface(
             NovelWebBridge(
@@ -218,14 +264,21 @@ class NovelWebViewport(
                     visibleChapterId = id
                     callbacks.onVisibleChapter(id)
                 },
-                onProgress = { id, f -> callbacks.onProgressChanged(id, f.toPercent()) },
-                onProgressSettled = { id, f -> callbacks.onProgressSettled(id, f.toPercent()) },
+                onProgress = { id, f -> callbacks.onProgressChanged(id, ChapterProgress.Percent.of(f)) },
+                onProgressSettled = { id, f -> callbacks.onProgressSettled(id, ChapterProgress.Percent.of(f)) },
                 onTopLine = callbacks.onTopLine,
                 onRetryBoundary = callbacks.onRetryBoundary,
                 onTap = ::onPageTap,
-                onStepChapter = callbacks.onStepChapter,
+                // Paged, the swipe turns a page the way the pages lie, as a pager's does.
+                onStepChapter = { forward ->
+                    if (paged) turnPage(forward = forward != pageLayout.isRtl) else callbacks.onStepChapter(forward)
+                },
                 onChapterFits = callbacks.onChapterFits,
                 onChapterEndSeen = callbacks.onChapterEndSeen,
+                onPagedMoved = ::requestSnap,
+                onPagedPicturesLanded = { id ->
+                    shownPage.update { if ((it.key as? Pair<*, *>)?.first == id) it.copy(ready = true) else it }
+                },
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { token -> mainHandler.post { onPageReady(token) } },
             ),
@@ -245,31 +298,55 @@ class NovelWebViewport(
             touchHeld
         }
         setOnGenericMotionListener { _, _ -> resumeVeil.isUp }
-        setOnScrollChangeListener { _, _, y, _, oldY -> if (fingerDown) callbacks.onReaderScrolled(y - oldY) }
-        // Every layout, because the inset is only known once the window has one and it moves with the
-        // system bars; comparing first keeps an unchanged one from rewriting the page.
+        setOnScrollChangeListener { _, _, y, _, oldY ->
+            if (fingerDown) callbacks.onReaderScrolled(y - oldY)
+            viewScrollCaughtUp()
+        }
+    }
+
+    /** Whether the veil is over the page. */
+    internal val isVeiled: Boolean get() = veilView.visibility == View.VISIBLE
+
+    /** The WebView with the veil stacked over it, which is what the reader holds. */
+    override val view: View = FrameLayout(context).apply {
+        addView(
+            webView,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        addView(
+            veilView,
+            ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
+        )
+        // The reader's container blocks descendant focus, which this lifts for the view it holds.
+        if (textSelectable) addOnAttachStateChangeListener(SelectableWhileAttached())
+        // Every layout of the view the reader lays out, because the inset is only known once the window has one
+        // and it moves with the system bars; comparing first keeps an unchanged one from rewriting the page.
         addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
             val settings = documentSettings
             if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
         }
     }
 
-    override val view: View
-        get() = webView
+    // Below [view], which it slides: a property declared above another is built before it.
+    private val slide = PageSlide(view)
 
-    // A novel chapter is one vertically scrolling document, so there is no right-to-left shape to report.
     override val isRtl: Boolean
-        get() = false
+        get() = pageLayout.isRtl
 
     /**
      * Seeks inside the chapter being read rather than across the document, because with a window the
      * two stopped being the same thing: a rail at half way means half of this chapter, not half of
-     * everything loaded around it. A paged progress is not this medium's unit and is ignored. Queued
+     * everything loaded around it. A page index, the paged slider's unit, is honoured only while paged;
+     * paged, a percent lands on the page holding that share of the scroll, as a reopen does. Queued
      * like a window verb: the engine runs ahead of the chapter, so a seek while a long one still parses
      * measured half a page, and could count the chapter's end as seen, which is reported only once.
      */
     override fun seekTo(progress: ChapterProgress) {
-        if (progress !is ChapterProgress.Percent) return
+        if (progress is ChapterProgress.Pages && !paged) return
+        if (paged) {
+            scope.launch { paging.withLock { seekPage(progress) } }
+            return
+        }
         val chapterId = visibleChapterId ?: return
         runOrQueue("rkReader.seekWithin(${JSONObject.quote(chapterId.toString())}, ${progress.fraction});")
     }
@@ -278,6 +355,8 @@ class NovelWebViewport(
     override fun onChapterStepped() = Unit
 
     override fun destroy() {
+        // Its copy sits in the host's container, which outlives this viewport.
+        slide.finish()
         // First: a caller dropPendingCalls resumes can queue again, and a closed gate parks it.
         gate.close()
         dropPendingCalls()
@@ -302,13 +381,12 @@ class NovelWebViewport(
         if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = documentSettings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
-            scrollByFraction(
-                NovelVolumeKeys.scrollFraction(
-                    event.keyCode,
-                    current.volumeButtonsInverted,
-                    current.volumeButtonsFraction,
-                ),
+            val fraction = NovelVolumeKeys.scrollFraction(
+                event.keyCode,
+                current.volumeButtonsInverted,
+                current.volumeButtonsFraction,
             )
+            if (paged) turnPage(forward = fraction > 0) else scrollByFraction(fraction)
         }
         // Consume the key-up too, so the system volume UI never shows during a press.
         return true
@@ -343,11 +421,17 @@ class NovelWebViewport(
         val inset = callbacks.cutoutTopDp()
         documentSettings = settings
         documentInset = inset
+        measuredPages.clear()
+        shownPage.value = ShownPage(Unit, ready = false)
+        opening = if (paged) Opening() else null
+        // A line lands on its page wherever the page stops; a share has to name a page, which the page cannot.
+        openingShare = chapter.progress.takeIf { paged && chapter.topLine == null && it.hasStarted }
         // Resolving a user font copies it out of the user's storage folder on first use, which is
         // disk work over SAF, so it happens off the main thread with the document build rather than
         // in front of it.
-        val fontSource = webFonts.dataUri(context, fontManager, settings.fontFamily)
-        val initialFraction = chapter.progressPercent / 100f
+        val fontSource = webFonts.url(fontManager, settings.fontFamily)
+        val initialFraction = chapter.progress.fraction
+        val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
@@ -364,12 +448,15 @@ class NovelWebViewport(
                 useOriginalFonts = useOriginalFonts,
                 sourceCssPriority = sourceCssPriority,
                 textSelectable = textSelectable,
+                paged = paged,
                 sourceStylesheet = chapter.sourceStylesheet?.css,
+                baseUrl = safeBaseUrl,
             )
         }
-        val safeBaseUrl = NovelChapterAddress.trustedBase(chapter.baseUrl)
         loadedBaseUrl = safeBaseUrl
-        resumeVeil.set(ResumeVeil.pageWaits(initialFraction))
+        // Paged, also until the first page is shown: the column lands by scrolling and is masked and moved
+        // onto a page frames later, so its opening frames would show between them.
+        raiseVeil(paged || ResumeVeil.pageWaits(initialFraction))
         webView.loadDataWithBaseURL(safeBaseUrl, html, "text/html", "UTF-8", null)
         syncEnd()
     }
@@ -434,10 +521,9 @@ class NovelWebViewport(
         faceFamily = family
         faceJob?.cancel()
         faceJob = scope.launch {
-            // The face travels as a data URI, so resolving it reads the file and escaping it copies
-            // megabytes for a CJK one; neither belongs on the thread the reader is scrolling on.
+            // Resolving a user's font can copy it out of their storage folder, which stays off this thread.
             val js = withContext(Dispatchers.Default) {
-                val source = webFonts.dataUri(context, fontManager, family)
+                val source = webFonts.url(fontManager, family)
                 "rkReader.setFontFace(${JSONObject.quote(NovelWebDocument.fontFace(family, source))});"
             }
             runOrQueue(js)
@@ -450,9 +536,13 @@ class NovelWebViewport(
      * engine sends its stop after [destroy] when the viewport is replaced, which must not reach the
      * destroyed WebView.
      */
-    override val autoScroll = ViewportAutoScroll.Continuous(autoScrollSpeed) { pixelsPerFrame ->
-        autoScrollPixelsPerFrame = pixelsPerFrame
-        if (scope.isActive) pushAutoScroll()
+    override val autoScroll: ViewportAutoScroll = if (paged) {
+        ViewportAutoScroll.Stepped(autoScrollInterval, shownPage) { turnPage(forward = true) }
+    } else {
+        ViewportAutoScroll.Continuous(autoScrollSpeed) { pixelsPerFrame ->
+            autoScrollPixelsPerFrame = pixelsPerFrame
+            if (scope.isActive) pushAutoScroll()
+        }
     }
 
     private fun pushAutoScroll() {
@@ -466,12 +556,214 @@ class NovelWebViewport(
 
     /** A tap the page passed up, read through the session's tap zones as the native renderer reads one. */
     private fun onPageTap(x: Float, y: Float) {
-        when (documentSettings?.tapZones?.actionAt(x, y) ?: NovelTapAction.MENU) {
+        when (documentSettings?.tapZones?.actionAt(x, y, pageLayout.isRtl) ?: NovelTapAction.MENU) {
             NovelTapAction.MENU -> callbacks.onToggleMenu()
-            NovelTapAction.BACK -> scrollByFraction(-NovelTapZones.SCROLL_FRACTION)
-            NovelTapAction.FORWARD -> scrollByFraction(NovelTapZones.SCROLL_FRACTION)
+            NovelTapAction.BACK -> if (paged) {
+                turnPage(
+                    forward = false,
+                )
+            } else {
+                scrollByFraction(-NovelTapZones.SCROLL_FRACTION)
+            }
+            NovelTapAction.FORWARD -> if (paged) {
+                turnPage(
+                    forward = true,
+                )
+            } else {
+                scrollByFraction(NovelTapZones.SCROLL_FRACTION)
+            }
             NovelTapAction.NONE -> Unit
         }
+    }
+
+    /** Where the page's reading line is: the chapter there, how far down its item, and every held item's height. */
+    private class Where(
+        val chapterId: Long,
+        val y: Float,
+        val heights: Map<Long, Double>,
+        val contentHeight: Double,
+    )
+
+    private suspend fun where(): Where? {
+        val json = query("rkReader.paged.where();") ?: return null
+        return runCatching {
+            val at = JSONObject(json)
+            val heights = at.getJSONObject("heights")
+            Where(
+                chapterId = at.getString("id").toLong(),
+                y = at.getDouble("y").toFloat(),
+                heights = heights.keys().asSequence().associate { it.toLong() to heights.getDouble(it) },
+                contentHeight = at.getDouble("contentHeight"),
+            )
+        }.getOrNull()
+    }
+
+    /** [chapterId]'s pages, measured again only once its item or the page has changed height. */
+    private suspend fun pagesOf(chapterId: Long, at: Where): List<NovelPaging.Page>? {
+        val height = at.heights[chapterId] ?: return null
+        measuredPages[chapterId]?.takeIf { it.height == height && it.contentHeight == at.contentHeight }
+            ?.let { return it.pages.takeIf { pages -> pages.isNotEmpty() } }
+        val json = query("rkReader.paged.measure(${JSONObject.quote(chapterId.toString())});") ?: return null
+        val measured = runCatching {
+            val result = JSONObject(json)
+            val boxes = result.getJSONArray("bands")
+            val bands = List(boxes.length()) { i ->
+                val box = boxes.getJSONArray(i)
+                NovelPaging.Band(box.getDouble(0).toFloat(), box.getDouble(1).toFloat(), box.getBoolean(2))
+            }
+            val contentHeight = result.getDouble("contentHeight")
+            MeasuredPages(
+                result.getDouble("height"),
+                contentHeight,
+                NovelPaging.cut(bands, contentHeight.toFloat()),
+                textTop = result.getDouble("textTop").toFloat(),
+                scrollable = result.getDouble("scrollable").toFloat(),
+            )
+        }.getOrNull() ?: return null
+        measuredPages[chapterId] = measured
+        return measured.pages.takeIf { it.isNotEmpty() }
+    }
+
+    /** Turns a page by [NovelPaging.turn], into the chapter beside this one at either end, and past the window by
+     *  stepping chapters, as a scroll's swipe does. */
+    private fun turnPage(forward: Boolean) {
+        if (resumeVeil.isUp) return
+        scope.launch {
+            paging.withLock {
+                val at = where() ?: return@withLock
+                val pages = pagesOf(at.chapterId, at) ?: return@withLock
+                val index = NovelPaging.pageAt(pages, at.y)
+                val window = held.map { it.chapterId }
+                val turn = NovelPaging.turn(window, at.chapterId, index, pages.size, forward)
+                if (turn is NovelPaging.Turn.Beyond) {
+                    callbacks.onStepChapter(turn.forward)
+                    return@withLock
+                }
+                val sliding = documentSettings?.pageTransitions == true
+                if (sliding) {
+                    suspendCancellableCoroutine { done ->
+                        slide.turn(leftward = forward != pageLayout.isRtl) { done.resume(Unit) }
+                    }
+                }
+                when (turn) {
+                    is NovelPaging.Turn.Within -> showPage(at.chapterId, pages, turn.index, sliding)
+                    is NovelPaging.Turn.FirstOf -> pagesOf(turn.chapterId, at)?.let {
+                        showPage(turn.chapterId, it, 0, sliding)
+                    }
+                    is NovelPaging.Turn.LastOf ->
+                        pagesOf(turn.chapterId, at)?.let { showPage(turn.chapterId, it, it.lastIndex, sliding) }
+                    is NovelPaging.Turn.Beyond -> Unit
+                }
+                callbacks.onPageTurned()
+            }
+        }
+    }
+
+    private suspend fun seekPage(progress: ChapterProgress) {
+        val at = where() ?: return
+        val pages = pagesOf(at.chapterId, at) ?: return
+        val index = when (progress) {
+            is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages.size)
+            is ChapterProgress.Percent -> {
+                val measured = measuredPages[at.chapterId] ?: return
+                NovelPaging.landingIndex(pages, progress, measured.textTop, measured.scrollable)
+            }
+        }
+        showPage(at.chapterId, pages, index)
+    }
+
+    /** Puts the page holding the reading line back on screen whole, after anything but a page being shown moved
+     *  the column: a landing, a reflow, a picture arriving, a chapter joining, a read-aloud follow. */
+    private fun requestSnap() {
+        if (!paged || snapQueued) return
+        snapQueued = true
+        scope.launch {
+            paging.withLock {
+                snapQueued = false
+                val joinsSeen = opening?.joins
+                openingShare?.let { share ->
+                    openingShare = null
+                    seekPage(share)
+                    return@withLock
+                }
+                val at = where() ?: return@withLock
+                val pages = pagesOf(at.chapterId, at) ?: return@withLock
+                val index = NovelPaging.pageAt(pages, at.y)
+                val shown = shownPage.value.key == (at.chapterId to index)
+                if (shown && abs(at.y - pages[index].top) < 1f && pages[index].height == shownHeight) {
+                    pageSettled(joinsSeen)
+                    return@withLock
+                }
+                showPage(at.chapterId, pages, index)
+            }
+        }
+    }
+
+    /** The height of the page last shown, which the page's mask was drawn for. */
+    private var shownHeight = 0f
+
+    private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int, sliding: Boolean = false) {
+        // Gone only once a new document cleared them, which leaves nothing of this chapter to show.
+        val measured = measuredPages[chapterId] ?: return
+        val progress = NovelPaging.progressOf(pages, index, measured.textTop, measured.scrollable)
+        val page = pages[index.coerceIn(pages.indices)]
+        shownHeight = page.height
+        val key = chapterId to index
+        val joinsSeen = opening?.joins
+        val viewYBefore = webView.scrollY
+        // The page answers whether the chapter's pictures have landed, and reports when they do, so auto-scroll
+        // counts a page's time from then, as the native renderer does.
+        runOrQueue(
+            "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
+                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL});",
+        ) { answer ->
+            val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
+            shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
+            callbacks.onPageShown(index.coerceIn(pages.indices), pages.size)
+            // The view's own scroll follows the page's a moment later, and until it does the old place shows.
+            if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
+            // The copy stays over the old page until the new one is painted, or the old one would slide in.
+            if (sliding) oncePainted(slide::pageDrawn)
+            pageSettled(joinsSeen)
+        }
+    }
+
+    /**
+     * A paged document's opening, until its veil drops: once a page is on screen, the chapter before has
+     * joined, and the page shown after that join has settled. Each join moves the column and the page is
+     * shown again, so lifting at the first page let the reader watch it jump. [VEIL_CAP_MS] still bounds it.
+     */
+    private class Opening {
+        var previousJoining = false
+
+        /** Chapters joined above so far, and the count a page last settled at: one shown before the latest
+         *  join is about to move. None has settled before the first page. */
+        var joins = 0
+        var settledAtJoins = -1
+    }
+
+    private var opening: Opening? = null
+
+    /** A page is on screen where the column stopped, shown or found there by a snap begun after [joinsSeen]
+     *  joins; one begun before a later join does not count, since that join moved it. */
+    private fun pageSettled(joinsSeen: Int?) {
+        val open = opening ?: return
+        if (joinsSeen != open.joins) return
+        open.settledAtJoins = open.joins
+        liftOpeningVeil()
+    }
+
+    private fun liftOpeningVeil() {
+        val open = opening ?: return
+        if (open.previousJoining || open.settledAtJoins != open.joins) return
+        opening = null
+        dropVeilOncePainted()
+    }
+
+    override fun setPreviousJoining(joining: Boolean) {
+        val open = opening ?: return
+        open.previousJoining = joining
+        liftOpeningVeil()
     }
 
     /** Scrolls by a signed fraction of the screen (positive = forward), through the page's own
@@ -504,6 +796,8 @@ class NovelWebViewport(
             held.lastOrNull()?.let { NovelSeam.between(it, chapter) }
         }?.drawn(documentSettings?.alwaysShowChapterTransition)
         held.add(if (atStart) 0 else held.size, chapter)
+        // The column moves under the page shown, which is shown again once the snap that follows has run.
+        if (atStart) opening?.let { it.joins++ }
         val verb = if (atStart) "prependChapter" else "appendChapter"
         // Its own base, since the document's is the opened chapter's and a neighbour can come from a
         // download or, in a merged series, another site.
@@ -555,6 +849,7 @@ class NovelWebViewport(
 
     override fun evict(chapterId: Long) {
         held.removeAll { it.chapterId == chapterId }
+        measuredPages.remove(chapterId)
         runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
         syncEnd()
     }
@@ -634,10 +929,65 @@ class NovelWebViewport(
         )
     }
 
+    /** Raises or drops the veil, which drops by itself after [VEIL_CAP_MS]: a chapter script holding up the
+     *  parse holds up the ready report, and the reader must still reach the page and the menu. */
+    private fun raiseVeil(up: Boolean) {
+        veilCap?.cancel()
+        resumeVeil.set(up)
+        // A paint still owed to an earlier drop must not take this veil down.
+        if (up) {
+            visualStateRequest++
+            veilCap = scope.launch {
+                delay(VEIL_CAP_MS)
+                resumeVeil.set(false)
+            }
+        }
+    }
+
+    private var veilCap: Job? = null
+
+    private fun dropVeilOncePainted() {
+        val request = visualStateRequest
+        oncePainted { if (request == visualStateRequest) raiseVeil(false) }
+    }
+
+    /**
+     * Runs [action] once the page as it stands is on screen. The page answers as soon as its DOM has moved,
+     * while the view's scroll and the WebView's paint follow later, so acting on the answer showed the place
+     * it moved from.
+     */
+    private fun oncePainted(action: () -> Unit) {
+        if (viewScrollBehind) {
+            afterViewScroll += action
+            return
+        }
+        webView.postVisualStateCallback(
+            0L,
+            object : WebView.VisualStateCallback() {
+                override fun onComplete(requestId: Long) = action()
+            },
+        )
+    }
+
+    private var visualStateRequest = 0L
+
+    /** The page moved its column and the view has not followed yet; what waits for a paint meanwhile waits for it. */
+    private var viewScrollBehind = false
+    private val afterViewScroll = mutableListOf<() -> Unit>()
+
+    private fun viewScrollCaughtUp() {
+        viewScrollBehind = false
+        if (afterViewScroll.isEmpty()) return
+        val waiting = afterViewScroll.toList()
+        afterViewScroll.clear()
+        waiting.forEach(::oncePainted)
+    }
+
     private fun onPageReady(token: String) {
         if (!gate.markReady(token)) return
-        // Ready follows the opening seek in the same task on the page, so the landed place is what shows.
-        resumeVeil.set(false)
+        // Ready follows the opening seek in the same task on the page, so the landed place is what shows. Paged,
+        // the first page shown drops it instead.
+        if (!paged) dropVeilOncePainted()
         // Ahead of the held calls, which can be read-aloud questions the covered edges answer.
         pushObscured()
         pendingWindowVerbs.forEach(::evaluate)
@@ -674,9 +1024,11 @@ class NovelWebViewport(
         }
         runOrQueue("rkReader.setBoundaryFailure($atStart, ${json ?: "null"});")
     }
-
-    private fun Double.toPercent(): Int = ChapterProgress.Percent.wholeOf(this)
 }
 
 /** How much of a script error a toast shows, which is enough to find it in the inspector. */
 private const val CONSOLE_TOAST_CHARS = 120
+
+/** Longer than the page's own wait for a landing's pictures, [CHAPTER_IMAGE_WAIT_MS] counted from its parse, so
+ *  the veil drops on the page's ready report whenever there is one. */
+internal const val VEIL_CAP_MS = CHAPTER_IMAGE_WAIT_MS * 2

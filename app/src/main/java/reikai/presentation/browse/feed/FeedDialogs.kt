@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.model.SavedSearch
 import reikai.novel.source.NovelExtensionFormat
+import reikai.presentation.browse.catalogue.EntryBrowseListing
 import reikai.presentation.browse.components.sourceDetail
 import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.sourceLanguageName
@@ -84,17 +85,17 @@ fun FeedSourcePickerDialog(
 fun FeedSearchPickerDialog(
     source: BrowseSearchRow,
     searches: List<SavedSearch>,
-    supportsLatest: Boolean,
+    listing: EntryBrowseListing,
     onDismissRequest: () -> Unit,
     onPick: (SavedSearch?) -> Unit,
 ) {
     // Named for what the row will actually show, since a source with no latest listing falls back to
     // Popular. Offering "Latest" and then rendering Popular is a promise the row does not keep.
-    val listing = if (supportsLatest) MR.strings.latest else MR.strings.popular
+    val listingName = if (listing == EntryBrowseListing.Latest) MR.strings.latest else MR.strings.popular
     PickerDialog(
         title = source.name,
         onDismissRequest = onDismissRequest,
-        options = listOf(stringResource(listing)) + searches.map { it.name },
+        options = listOf(stringResource(listingName)) + searches.map { it.name },
         onPick = { index -> onPick(searches.getOrNull(index - 1)) },
     )
 }
