@@ -146,6 +146,8 @@ Changes marked (from Mihon) come from upstream Mihon, which Reikai is built on.
 #### Fixed
 
 - **Manga downloads are found again for a source that shares its name with one whose extension is no longer installed (from Mihon).** Upstream: mihon deeb9b258.
+- **An extension update that fails to install now keeps the version you had, for manga and novel extensions (from Mihon).** Upstream: mihon cdc7d69c9.
+- **The Shizuku installer now works with Sui (from Mihon).** Upstream: mihonapp/mihon#3785.
 
 ### Other
 

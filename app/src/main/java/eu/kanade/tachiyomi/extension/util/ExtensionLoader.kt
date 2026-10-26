@@ -27,6 +27,7 @@ import reikai.util.rootMessage
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import java.io.File
+import java.io.IOException
 
 /**
  * Class that handles the loading of the extensions. Supports two kinds of extensions:
@@ -84,12 +85,12 @@ internal object ExtensionLoader {
         }
 
         val target = File(getPrivateExtensionDir(context), "${extension.packageName}.$PRIVATE_EXTENSION_EXTENSION")
+        val staged = File(target.parentFile, "${target.name}.part")
         try {
-            target.delete()
-            file.copyAndSetReadOnlyTo(target, overwrite = true)
-        } catch (e: Exception) {
-            target.delete()
-            throw e
+            file.copyAndSetReadOnlyTo(staged, overwrite = true)
+            if (!staged.renameTo(target)) throw IOException("Unable to replace ${target.name}")
+        } finally {
+            staged.delete()
         }
         if (currentExtension != null) {
             ExtensionInstallReceiver.notifyReplaced(context, extension.packageName)
