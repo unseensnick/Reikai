@@ -6,8 +6,6 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
-import eu.kanade.tachiyomi.data.backup.models.BackupManga
-import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
@@ -18,6 +16,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.data.backup.RestoreInstallPlan
 import reikai.data.backup.RestoreInstallSources
+import reikai.data.backup.mangaTrackScores
+import reikai.data.backup.novelSourceAndTrackerIds
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.source.service.SourceManager
 
@@ -108,13 +108,12 @@ class BackupFileValidator(
         try {
             BackupProtoReader(context).read(uri) { fieldNumber, data ->
                 when (fieldNumber) {
-                    BackupFields.MANGA -> parser.decodeFromByteArray(BackupManga.serializer(), data)
-                        .tracking.forEach { scanned.trackerIds.add(it.syncId.toLong()) }
+                    BackupFields.MANGA -> parser.mangaTrackScores(data).forEach { scanned.trackerIds.add(it.first) }
                     BackupFields.SOURCES ->
                         scanned.backupSources.add(parser.decodeFromByteArray(BackupSource.serializer(), data))
-                    BackupFields.NOVELS -> parser.decodeFromByteArray(BackupNovel.serializer(), data).let { novel ->
-                        scanned.novelSources.add(novel.source)
-                        novel.tracking.forEach { scanned.trackerIds.add(it.trackerId) }
+                    BackupFields.NOVELS -> parser.novelSourceAndTrackerIds(data).let { (source, trackerIds) ->
+                        scanned.novelSources.add(source)
+                        scanned.trackerIds.addAll(trackerIds)
                     }
                     BackupFields.NOVEL_SOURCES -> parser.decodeFromByteArray(BackupNovelSource.serializer(), data).let {
                         scanned.novelSourceNames[it.sourceId] = it.name

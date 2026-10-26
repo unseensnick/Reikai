@@ -212,6 +212,34 @@ class BackupFileValidatorTest {
             listOf("AniList", "Kitsu", "NovelUpdates")
     }
 
+    // The check reads only an entry's source and trackers, so a chapter list it cannot decode is never decoded.
+    @Test
+    fun `an entry's chapters are not decoded to read its trackers and source`() = runTest {
+        val trackers = mockk<TrackerManager> {
+            every { get(2L) } returns mockk<BaseTracker> {
+                every { name } returns "AniList"
+                every { isLoggedIn } returns false
+            }
+        }
+        // A chapters field (manga 16, novel 20) holding one byte that starts a varint and never ends it.
+        val brokenChapters = { field: Int ->
+            byteArrayOf(((field shl 3) or 2 or 0x80).toByte(), 0x01, 0x01, 0xFF.toByte())
+        }
+        val manga = 1 to ProtoBuf.encodeToByteArray(
+            BackupManga.serializer(),
+            BackupManga(source = 1L, url = "m").apply { tracking = listOf(BackupTracking(syncId = 2, libraryId = 0)) },
+        ) + brokenChapters(16)
+        val trackedNovel = 700 to ProtoBuf.encodeToByteArray(
+            BackupNovel.serializer(),
+            BackupNovel(source = "tachiyomi:123", url = "u").apply {
+                tracking = listOf(BackupNovelTracking(trackerId = 2L))
+            },
+        ) + brokenChapters(20)
+
+        validator(manga, trackedNovel, trackerManager = trackers).validate(mockk<Uri>()).missingSources shouldBe
+            listOf("tachiyomi:123")
+    }
+
     private val extension = 710 to ProtoBuf.encodeToByteArray(
         BackupExtension.serializer(),
         BackupExtension(pkgName = "ext.foo", name = "Foo"),

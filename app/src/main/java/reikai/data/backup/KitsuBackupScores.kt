@@ -9,18 +9,27 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
 import reikai.domain.backup.KitsuBackupScoreScale
 
-// An entry with only its tracks decoded, so the restore's first pass can see every score without
-// decoding chapters. The numbers are BackupManga.tracking's and BackupNovel.tracking's, pinned by
-// KitsuScoreRestoreConformanceTest.
+// An entry with only its tracks (and a novel's source) decoded, so a pass that reads just those, the
+// restore's Kitsu scores and the pre-restore check, skips the chapters. The numbers are BackupManga's
+// and BackupNovel's, pinned by KitsuScoreRestoreConformanceTest and BackupFileValidatorTest.
 @Serializable
 private class BackupMangaTracks(@ProtoNumber(18) val tracking: List<BackupTracking> = emptyList())
 
 @Serializable
-private class BackupNovelTracks(@ProtoNumber(22) val tracking: List<BackupNovelTracking> = emptyList())
+private class BackupNovelTracks(
+    @ProtoNumber(1) val source: String = "",
+    @ProtoNumber(22) val tracking: List<BackupNovelTracking> = emptyList(),
+)
 
 /** Each (tracker id, score) of the encoded manga entry [data]. */
 fun ProtoBuf.mangaTrackScores(data: ByteArray): List<Pair<Long, Double>> =
     decodeFromByteArray(BackupMangaTracks.serializer(), data).tracking.map { it.syncId.toLong() to it.score.toDouble() }
+
+/** The source and every tracker id of the encoded novel entry [data]. */
+fun ProtoBuf.novelSourceAndTrackerIds(data: ByteArray): Pair<String, List<Long>> {
+    val novel = decodeFromByteArray(BackupNovelTracks.serializer(), data)
+    return novel.source to novel.tracking.map { it.trackerId }
+}
 
 /** Each (tracker id, score) of the encoded novel entry [data]. */
 fun ProtoBuf.novelTrackScores(data: ByteArray): List<Pair<Long, Double>> =
