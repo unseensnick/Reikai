@@ -19,8 +19,6 @@ import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.currentCoroutineContext
-import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.datetime.TimeZone
@@ -38,6 +36,7 @@ import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.library.stopLibraryUpdate
+import reikai.data.library.updateBySource
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
@@ -70,6 +69,8 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -181,7 +182,7 @@ class NovelUpdateWorker(
         val exclude = preferences.novelUpdateCategoriesExclude().get().mapTo(mutableSetOf()) { it.toLong() }
         // The library rows carry the categories (an uncategorized novel as Default, 0, as the manga job
         // reads them) and the chapter counts the rules read, so nothing else is loaded to decide. In
-        // title order, as the manga job runs.
+        // title order within a source, as the manga job runs.
         val favorites = novelRepo.getLibraryNovelAsFlow().first()
             .filter { entry ->
                 isUpdateScope(entry.categories, categoryId, include, exclude) &&
@@ -191,17 +192,17 @@ class NovelUpdateWorker(
             .map { it.novel }
         if (favorites.isEmpty()) return
 
-        val failed = mutableListOf<UpdateErrorEntry>()
-        favorites.forEachIndexed { index, novel ->
-            currentCoroutineContext().ensureActive()
+        val failed = CopyOnWriteArrayList<UpdateErrorEntry>()
+        val done = AtomicInteger(0)
+        updateBySource(favorites, sourceOf = Novel::source) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
-                // [index] is how many are already done, which is what the bar reports while this one runs;
-                // again once it is done, so the bar actually reaches its end.
+                // The count done so far is what the bar reports while this one runs; again once it is done,
+                // so the bar actually reaches its end.
                 progress = { check ->
-                    notifier.showProgress(novel, index, favorites.size)
+                    notifier.showProgress(novel, done.get(), favorites.size)
                     check()
-                    notifier.showProgress(novel, index + 1, favorites.size)
+                    notifier.showProgress(novel, done.incrementAndGet(), favorites.size)
                 },
                 trackErrors = trackErrors,
                 clearError = { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) },

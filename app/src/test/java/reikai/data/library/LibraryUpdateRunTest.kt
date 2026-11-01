@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -44,6 +45,45 @@ class LibraryUpdateRunTest {
     private val announced = mutableListOf<List<Pair<Entry, List<Row>>>>()
     private var badge = 0
     private val queued = mutableListOf<Long>()
+
+    @Test
+    fun `an update checks several sources at once, up to five`() = runTest {
+        var running = 0
+        var most = 0
+
+        updateBySource((1..8).toList(), sourceOf = { it }) {
+            most = maxOf(most, ++running)
+            delay(1)
+            running--
+        }
+
+        most shouldBe 5
+    }
+
+    @Test
+    fun `an update checks one entry of a source at a time, in order`() = runTest {
+        val checked = mutableListOf<Int>()
+        var running = 0
+        var most = 0
+
+        updateBySource(listOf(1, 2, 3), sourceOf = { "only" }) {
+            most = maxOf(most, ++running)
+            delay(1)
+            checked += it
+            running--
+        }
+
+        (most to checked) shouldBe (1 to listOf(1, 2, 3))
+    }
+
+    @Test
+    fun `an update starts on the source with the most entries`() = runTest {
+        val checked = mutableListOf<Int>()
+
+        updateBySource(listOf(1, 2, 3), sourceOf = { if (it == 1) "small" else "big" }) { checked += it }
+
+        checked.first() shouldBe 2
+    }
 
     private suspend fun update(
         announce: suspend (List<Pair<Entry, List<Row>>>) -> Unit = { announced += it },

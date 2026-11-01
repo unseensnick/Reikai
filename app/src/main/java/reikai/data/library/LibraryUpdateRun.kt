@@ -2,6 +2,12 @@ package reikai.data.library
 
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
@@ -72,6 +78,31 @@ class UpdateRunLedger<E, C> {
         if (toDownload.isNotEmpty()) downloads += entry to toDownload
     }
 }
+
+/**
+ * Runs [check] over [entries] for an update, either content type: up to five sources at once, the biggest
+ * first, and one entry at a time within a source, so no site takes two of the run's requests together.
+ */
+suspend fun <E, S> updateBySource(entries: List<E>, sourceOf: (E) -> S, check: suspend (E) -> Unit) {
+    val semaphore = Semaphore(UPDATE_SOURCE_LIMIT)
+    coroutineScope {
+        entries.groupBy(sourceOf).values
+            .sortedByDescending { it.size }
+            .map { inSource ->
+                async {
+                    semaphore.withPermit {
+                        inSource.forEach {
+                            ensureActive()
+                            check(it)
+                        }
+                    }
+                }
+            }
+            .awaitAll()
+    }
+}
+
+private const val UPDATE_SOURCE_LIMIT = 5
 
 /**
  * One library update run, for either content type: [run] fills the ledger, the merged stitch is

@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Library
+
+#### Changed
+
+- **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**
+
 ### Reader
 
 #### Added

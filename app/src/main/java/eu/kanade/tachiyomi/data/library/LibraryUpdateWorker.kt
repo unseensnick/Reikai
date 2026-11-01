@@ -26,8 +26,6 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import logcat.LogPriority
@@ -45,6 +43,7 @@ import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.library.stopLibraryUpdate
+import reikai.data.library.updateBySource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
@@ -252,8 +251,6 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
     ) { runUpdate(it) }
 
     private suspend fun runUpdate(ledger: UpdateRunLedger<Manga, Chapter>) {
-        // RK <--
-        val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
         val failedUpdates = CopyOnWriteArrayList<Pair<Manga, String>>() // RK: the message is never null now
@@ -261,47 +258,31 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         val timeZone = TimeZone.currentSystemDefault()
         val fetchWindow = fetchInterval.getWindow(Clock.System.now().toLocalDateTime(timeZone).date, timeZone)
 
-        coroutineScope {
-            mangaToUpdate.groupBy { it.manga.source }.values
-                .sortedByDescending { it.size }
-                .map { mangaInSource ->
-                    async {
-                        semaphore.withPermit {
-                            mangaInSource.forEach { libraryManga ->
-                                val manga = libraryManga.manga
-                                ensureActive()
+        // The sources at once and the one-at-a-time within each are one rule, and the skip, the progress
+        // and the error bookkeeping are one step, both shared with the novel update job
+        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }) { libraryManga ->
+            val manga = libraryManga.manga
+            val outcome = checkUpdateEntry(
+                stillInLibrary = { getManga.await(manga.id)?.favorite == true },
+                progress = { withUpdateNotification(currentlyUpdatingManga, progressCount, manga, it) },
+                trackErrors = trackErrors,
+                clearError = { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) },
+                recordError = { upsertLibraryUpdateError.await(manga.id, it) },
+                failureMessage = { with(context) { it.updateFailureMessage() } },
+            ) {
+                val newChapters = updateManga(manga, fetchWindow)
+                    .sortedByDescending { it.sourceOrder }
 
-                                // RK --> the skip, the progress and the error bookkeeping are one step
-                                //        the novel update job takes too
-                                val outcome = checkUpdateEntry(
-                                    stillInLibrary = { getManga.await(manga.id)?.favorite == true },
-                                    progress = {
-                                        withUpdateNotification(currentlyUpdatingManga, progressCount, manga, it)
-                                    },
-                                    trackErrors = trackErrors,
-                                    clearError = { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) },
-                                    recordError = { upsertLibraryUpdateError.await(manga.id, it) },
-                                    failureMessage = { with(context) { it.updateFailureMessage() } },
-                                ) {
-                                    // RK <--
-                                    val newChapters = updateManga(manga, fetchWindow)
-                                        .sortedByDescending { it.sourceOrder }
-
-                                    if (newChapters.isNotEmpty()) {
-                                        // RK: queued after the run rather than here, so a merge
-                                        //     group's sources cannot each fetch the same chapter.
-                                        //     Nothing starts downloading mid-run either way.
-                                        val chaptersToDownload = filterChaptersForDownload.await(manga, newChapters)
-                                        ledger.arrived(manga, newChapters, chaptersToDownload)
-                                    }
-                                }
-                                if (outcome is EntryCheck.Failed) failedUpdates.add(manga to outcome.message) // RK
-                            }
-                        }
-                    }
+                if (newChapters.isNotEmpty()) {
+                    // Queued after the run rather than here, so a merge group's sources cannot each
+                    // fetch the same chapter. Nothing starts downloading mid-run either way.
+                    val chaptersToDownload = filterChaptersForDownload.await(manga, newChapters)
+                    ledger.arrived(manga, newChapters, chaptersToDownload)
                 }
-                .awaitAll()
+            }
+            if (outcome is EntryCheck.Failed) failedUpdates.add(manga to outcome.message)
         }
+        // RK <--
 
         notifier.cancelProgressNotification()
 
