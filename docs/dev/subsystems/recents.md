@@ -125,7 +125,7 @@ Updates draws the 56dp row (`UpdatesRowShell`), with group and child rows from `
 - **Swipe is on updated-lane rows only.** History rows carry state a swipe could read, but giving History swipe is its own decision.
 - **History takes selection and a download control on every row.** What a row can do follows its chapter, never the tab drawing it.
 - **The two Mihon models stay live as the manga providers.** The takeover stops at orchestration; their upstream churn is low.
-- **Upcoming is manga-only**, because novel sources rarely expose a release cadence.
+- **Upcoming is manga-only**, by the ruling in details.md: novels predict `next_update` too, so no mechanism stops them.
 
 ## Upstream divergences
 

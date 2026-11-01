@@ -10,6 +10,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).
 
+### Reader
+
+- **Dual-page view for novels** `[L]` - show two pages side by side like an open book in paged reading, for both novel renderers, matching the Never, Always and When wide choices manga has on the high quality renderer.
+
 ## Parked and not building
 
 Not forward work, so it lives in [docs/dev/parked.md](docs/dev/parked.md): what each item is, why it
