@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Browse
+
+#### Changed
+
+- **Extension settings now use the app's own look (from Mihon).**
+
 ## [0.5.1]
 
 ### Reader
