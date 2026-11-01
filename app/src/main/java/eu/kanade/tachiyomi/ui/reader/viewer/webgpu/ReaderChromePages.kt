@@ -38,6 +38,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ReaderThemedContent
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import reikai.presentation.reader.NeighbourChapterRetry
 import reikai.presentation.reader.STRIP_CAPTURE_SCALE
+import reikai.presentation.reader.keepTallestHeight
 import reikai.presentation.reader.stripCaptureSize
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
@@ -216,6 +217,7 @@ class TransitionPage(
             Box(modifier = padding.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 // RK --> a neighbour chapter that failed to load shows why, with its Retry
                 Column(
+                    modifier = Modifier.keepTallestHeight(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {

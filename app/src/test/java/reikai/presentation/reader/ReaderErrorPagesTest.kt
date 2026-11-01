@@ -1,7 +1,11 @@
 package reikai.presentation.reader
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import eu.kanade.presentation.reader.ReaderError
@@ -50,6 +54,25 @@ class ReaderErrorPagesTest {
                 onButtonPressChange = { pressed -> buttonPresses += pressed },
             )
         }
+    }
+
+    @Test
+    fun `a WebGPU transition stays its height when the neighbour's error clears`() {
+        compose.setContent {
+            ComposeTestHost {
+                Column(Modifier.testTag("transition").keepTallestHeight()) {
+                    NeighbourChapterRetry(prev, next, onRetry = {})
+                }
+            }
+        }
+        next.state = ReaderChapter.State.Error(Exception("timeout"))
+        compose.waitForIdle()
+        val failedHeight = compose.onNodeWithTag("transition").fetchSemanticsNode().size.height
+
+        next.state = ReaderChapter.State.Loading
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("transition").fetchSemanticsNode().size.height shouldBe failedHeight
     }
 
     @Test
