@@ -24,6 +24,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Custom brightness in the reader stays off once you turn it off, in both readers (from Mihon).**
 
+- **A failed manga page only offers Open in WebView when the image came from the web (from Mihon).**
+
 ### Browse
 
 #### Changed

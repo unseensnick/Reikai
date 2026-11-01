@@ -3,21 +3,21 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 import android.content.Context
 import android.util.AttributeSet
 import androidx.annotation.ColorInt
-import androidx.compose.material3.LocalContentColor
-import androidx.compose.material3.LocalTextStyle
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
-import eu.kanade.presentation.reader.ChapterTransition
-import eu.kanade.presentation.theme.TachiyomiTheme
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
+import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import mihon.app.di.appGraph
 
+/**
+ * [ReaderTransitionPage] for the view-based viewers, in the theme of its reader-themed [context].
+ */
 class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedColor
     context: Context,
     attrs: AttributeSet? = null,
@@ -29,44 +29,41 @@ class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedC
     private var data: Data? by mutableStateOf(null)
 
     init {
-        layoutParams = LayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT)
+        layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.WRAP_CONTENT)
     }
 
-    // RK: the "going to" downloaded state is resolved off the main thread by the caller (per the
-    // chapter's own source) and passed in, so binding the transition card never blocks the UI thread
-    // on a storage probe (the cause of a stutter when crossing into another merged source).
-    fun bind(transition: ChapterTransition, currChapterDownloaded: Boolean, goingToChapterDownloaded: Boolean) {
-        data = Data(
-            transition = transition,
-            currChapterDownloaded = currChapterDownloaded,
-            goingToChapterDownloaded = goingToChapterDownloaded,
-        )
+    fun bind(
+        transition: ChapterTransition,
+        downloadState: TransitionDownloadState?,
+        onRetry: (ReaderChapter) -> Unit,
+        onButtonPressChange: (pressed: Boolean) -> Unit = {},
+        statusPadding: PaddingValues = PaddingValues(),
+    ) {
+        data = Data(transition, downloadState, onRetry, onButtonPressChange, statusPadding)
     }
 
     @Composable
     override fun Content() {
-        data?.let {
-            // RK: tint the transition view from the cover color when enabled
-            val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
-            TachiyomiTheme(seedColor = seedColor?.let { c -> Color(c) }.takeIf { themeCoverBased }) {
-                CompositionLocalProvider(
-                    LocalTextStyle provides MaterialTheme.typography.bodySmall,
-                    LocalContentColor provides MaterialTheme.colorScheme.onBackground,
-                ) {
-                    ChapterTransition(
-                        transition = it.transition,
-                        currChapterDownloaded = it.currChapterDownloaded,
-                        goingToChapterDownloaded = it.goingToChapterDownloaded, // RK
-                    )
-                }
-            }
+        val data = data ?: return
+        LaunchedEffect(data.downloadState) { data.downloadState?.checkDisk() }
+        // RK: tint the transition view from the cover color when enabled
+        val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
+        ReaderThemedContent(context, seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
+            ReaderTransitionPage(
+                transition = data.transition,
+                downloadState = data.downloadState,
+                onRetry = data.onRetry,
+                onButtonPressChange = data.onButtonPressChange,
+                statusPadding = data.statusPadding,
+            )
         }
     }
 
     private data class Data(
         val transition: ChapterTransition,
-        val currChapterDownloaded: Boolean,
-        val goingToChapterDownloaded: Boolean,
-        // RK: isGoingToChapterOnDisk went; callers pass ReaderViewModel.isChapterDownloaded
+        val downloadState: TransitionDownloadState?,
+        val onRetry: (ReaderChapter) -> Unit,
+        val onButtonPressChange: (pressed: Boolean) -> Unit,
+        val statusPadding: PaddingValues,
     )
 }

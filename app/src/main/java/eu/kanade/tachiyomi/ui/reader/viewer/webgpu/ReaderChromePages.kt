@@ -7,13 +7,12 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.material3.Button
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -23,24 +22,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
 import ca.mpreg.webgpuviewer.viewer.ComposePageSize
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import eu.kanade.presentation.reader.ChapterTransition
-import eu.kanade.presentation.theme.TachiyomiTheme
+import eu.kanade.presentation.reader.ReaderError
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderThemedContent
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import reikai.presentation.reader.NeighbourChapterRetry
 import tachiyomi.core.common.util.lang.withIOContext
-import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
-import tachiyomi.presentation.core.i18n.stringResource
 
 /** The side padding `PagerTransitionHolder` gave the same transition view. */
 private const val TRANSITION_SIDE_PADDING = 64
@@ -68,22 +64,11 @@ abstract class ReaderComposePage(
 
     /**
      * The theme goes on here because the library's page knows nothing of the app's colours.
-     *
-     * Under the reader's own night mode rather than the app's: the page sits on the reader
-     * background, so a light app over a black reader would otherwise draw dark text on black.
-     * [TachiyomiTheme] reads that from the configuration, which the pager and webtoon adapters
-     * used to get by inflating their views from a reader-themed context.
      */
     @Composable
     final override fun BoxScope.Content() {
-        val context = viewer.readerThemedContext
-        CompositionLocalProvider(
-            LocalContext provides context,
-            LocalConfiguration provides context.resources.configuration,
-        ) {
-            // RK: the cover seed colour, as the other viewers theme their transition and progress views
-            TachiyomiTheme(seedColor = viewer.coverSeedColor?.let(::Color)) { PageContent() }
-        }
+        // RK: the cover seed colour, as the other viewers theme their transition and progress views
+        ReaderThemedContent(viewer.readerThemedContext, viewer.coverSeedColor?.let(::Color)) { PageContent() }
     }
 
     @Composable
@@ -126,36 +111,6 @@ class ErrorPage internal constructor(
                 }
             },
         )
-    }
-}
-
-/** `reader_error.xml`, in Compose. */
-@Composable
-internal fun ReaderError( // RK: internal, the transition's NeighbourChapterRetry draws it too
-    message: String?,
-    onRetry: () -> Unit,
-    onOpenInWebView: (() -> Unit)?,
-    modifier: Modifier = Modifier,
-) {
-    Column(
-        modifier = modifier.padding(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = message ?: stringResource(MR.strings.decode_image_error),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            textAlign = TextAlign.Center,
-        )
-        Button(onClick = onRetry) {
-            Text(stringResource(MR.strings.action_retry))
-        }
-        if (onOpenInWebView != null) {
-            Button(onClick = onOpenInWebView) {
-                Text(stringResource(MR.strings.action_open_in_web_view))
-            }
-        }
     }
 }
 
@@ -230,7 +185,7 @@ class TransitionPage(
             } else {
                 Modifier.padding(horizontal = TRANSITION_SIDE_PADDING.dp)
             }
-            Box(modifier = padding) {
+            Box(modifier = padding.fillMaxWidth(), contentAlignment = Alignment.TopCenter) {
                 // RK --> a neighbour chapter that failed to load shows why, with its Retry
                 Column(
                     horizontalAlignment = Alignment.CenterHorizontally,

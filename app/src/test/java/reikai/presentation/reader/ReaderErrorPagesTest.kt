@@ -4,8 +4,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import eu.kanade.presentation.reader.ReaderError
+import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
-import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.ReaderError
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderTransitionPage
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -15,8 +17,9 @@ import reikai.presentation.ComposeTestHost
 import tachiyomi.domain.chapter.model.Chapter
 
 /**
- * The WebGPU reader's error page and the transition page's failed-neighbour Retry. The neighbour's
- * state changes under a page already drawn, which is where a Retry once stayed stale.
+ * The readers' error page and the transition pages' failed-neighbour Retry, the WebGPU viewer's and
+ * the other viewers'. The neighbour's state changes under a page already drawn, which is where a
+ * Retry once stayed stale.
  */
 @RunWith(RobolectricTestRunner::class)
 class ReaderErrorPagesTest {
@@ -28,6 +31,7 @@ class ReaderErrorPagesTest {
     private val next = ReaderChapter(Chapter.create().copy(id = 2L))
     private var retried: ReaderChapter? = null
     private var pageRetries = 0
+    private val buttonPresses = mutableListOf<Boolean>()
 
     private fun showNeighbours() = compose.setContent {
         ComposeTestHost { NeighbourChapterRetry(prev, next, onRetry = { retried = it }) }
@@ -35,6 +39,17 @@ class ReaderErrorPagesTest {
 
     private fun showPageError() = compose.setContent {
         ComposeTestHost { ReaderError(message = null, onRetry = { pageRetries++ }, onOpenInWebView = null) }
+    }
+
+    private fun showTransition() = compose.setContent {
+        ComposeTestHost {
+            ReaderTransitionPage(
+                transition = ChapterTransition.Next(prev, next),
+                downloadState = null,
+                onRetry = { retried = it },
+                onButtonPressChange = { pressed -> buttonPresses += pressed },
+            )
+        }
     }
 
     @Test
@@ -80,5 +95,34 @@ class ReaderErrorPagesTest {
         next.state = ReaderChapter.State.Loading
 
         compose.onNodeWithText("Retry").assertDoesNotExist()
+    }
+
+    @Test
+    fun `a transition's Retry retries the chapter it leads to`() {
+        next.state = ReaderChapter.State.Error(Exception("timeout"))
+        showTransition()
+
+        compose.onNodeWithText("Retry").performClick()
+
+        retried shouldBe next
+    }
+
+    @Test
+    fun `a transition's chapter failing after it is drawn offers Retry`() {
+        showTransition()
+
+        next.state = ReaderChapter.State.Error(Exception("timeout"))
+
+        compose.onNodeWithText("Retry").assertIsDisplayed()
+    }
+
+    @Test
+    fun `holding a transition's Retry tells the pager to leave the tap to it`() {
+        next.state = ReaderChapter.State.Error(Exception("timeout"))
+        showTransition()
+
+        compose.onNodeWithText("Retry").performClick()
+
+        buttonPresses shouldBe listOf(true, false)
     }
 }

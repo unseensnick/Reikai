@@ -4,9 +4,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import eu.kanade.presentation.reader.ReaderError
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
-import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.ReaderError
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
