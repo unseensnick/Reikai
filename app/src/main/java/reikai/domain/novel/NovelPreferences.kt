@@ -365,7 +365,7 @@ class NovelPreferences(
     }
 
     /** Show the tap zones when a novel opens, the twin of the manga reader's `showNavigationOverlayOnStart`,
-     *  pinned by `ReaderNavigationOverlayView.setNavigation`, which both readers hand it to. */
+     *  pinned by `ReaderNavigationOverlayState.setNavigation`, which both readers hand it to. */
     fun readerShowTapZonesOnStart() = preferenceStore.getBoolean("ln_reader_show_navigation_overlay_on_start", false)
 
     fun readerTapInvert(paged: Boolean) =

@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import reikai.domain.reader.ChapterProgress
 
 /**
@@ -16,6 +18,10 @@ import reikai.domain.reader.ChapterProgress
 interface ReaderViewport {
 
     val view: View
+
+    /** Draws the reader into the host's page area. */
+    @Composable
+    fun Content(modifier: Modifier) = ViewportHost(view, modifier)
 
     /**
      * Right to left. The only shape question the host itself asks, to point the chapter navigator,

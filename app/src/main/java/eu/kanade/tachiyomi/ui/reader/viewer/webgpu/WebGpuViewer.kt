@@ -995,7 +995,7 @@ open class WebGpuViewer(
 
         config.navigationModeChangedListener = {
             val showOnStart = config.navigationOverlayOnStart || config.forceNavigationOverlay
-            activity.binding.navigationOverlay.setNavigation(config.navigator, showOnStart)
+            activity.navigationOverlayState.setNavigation(config.navigator, showOnStart)
         }
 
         config.imageFiltersChangedListener = {

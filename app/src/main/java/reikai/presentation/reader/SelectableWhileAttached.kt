@@ -4,7 +4,7 @@ import android.view.View
 import android.view.ViewGroup
 
 /**
- * `viewer_container` blocks descendant focus (`reader_activity.xml`, upstream's, so the image viewers
+ * The viewport container blocks descendant focus ([ViewportHost], so the image viewers
  * keep it), and a view that cannot take focus never starts text selection: a TextView never builds
  * the Editor that draws the handles, and a WebView never opens its selection mode. Lifted only while
  * the viewport is attached. The parent is held rather than re-read, because a detach can arrive

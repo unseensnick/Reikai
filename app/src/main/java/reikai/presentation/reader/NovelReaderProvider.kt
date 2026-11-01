@@ -342,7 +342,7 @@ class NovelReaderProvider(
         // the first, and on the first only when the reader asked to see the zones on start.
         val showOnStart = novelPreferences.readerShowTapZonesOnStart().get()
         tapZoneChanges
-            .onEach { host.binding.navigationOverlay.setNavigation(it.navigation, showOnStart) }
+            .onEach { host.navigationOverlayState.setNavigation(it.navigation, showOnStart) }
             .launchIn(host.lifecycleScope)
     }
 
