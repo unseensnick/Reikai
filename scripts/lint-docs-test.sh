@@ -148,6 +148,10 @@ check "catches an owner attribution"      1 bash "$lint" subsystem-docs "$(fixtu
 check "catches a Status heading"          1 bash "$lint" subsystem-docs "$(fixture ss7.md '# Reader\n\n## Status\n\nDone.\n')"
 printf 'line\n%.0s' $(seq 301) > "$work/ss8.md"
 check "catches a page past the cap"       1 bash "$lint" subsystem-docs "$work/ss8.md"
+check "catches a bare manga only decision"  1 bash "$lint" subsystem-docs "$(fixture ss10.md '- **Fast paths are manga only.**\n')"
+check "catches a bare novels only decision" 1 bash "$lint" subsystem-docs "$(fixture ss11.md '- **Pacing is novels only**\n')"
+check "catches an N/A table cell"           1 bash "$lint" subsystem-docs "$(fixture ss12.md '| Sort | yes | N/A |\n')"
+check "passes one type with its mechanism"  0 bash "$lint" subsystem-docs "$(fixture ss13.md '- **Pacing is novels only.** Manga extensions rate-limit their own clients.\n')"
 check "passes a timeless page"            0 bash "$lint" subsystem-docs "$(fixture ss9.md '# Reader\n\nThe engine owns `ReaderViewModel` and pages through `abcdef`.\n')"
 check "tree mode passes absent or clean"  0 bash "$lint" subsystem-docs
 

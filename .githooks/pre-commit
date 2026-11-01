@@ -142,6 +142,19 @@ if [ -f scripts/kotlin-decls.sh ]; then
   done
 fi
 
+# ===== live twins: a Mihon file with a novel twin staged alone (warn only) =====
+# The write-once rule asks whether the change belongs on both sides, and only a person can answer that.
+if [ -f docs/dev/live-twins.md ]; then
+  staged=$(git diff --cached --name-only --diff-filter=ACMR)
+  while IFS='|' read -r _ mihon twin _; do
+    mihon=$(printf '%s' "$mihon" | xargs)
+    twin=$(printf '%s' "$twin" | xargs)
+    if printf '%s\n' "$staged" | grep -qxF "$mihon" && ! printf '%s\n' "$staged" | grep -qxF "$twin"; then
+      echo "live twin (warning): $mihon has a novel twin, $twin; does this change belong there too?"
+    fi
+  done < <(grep -E '^\|[[:space:]]*[a-z0-9-]+/' docs/dev/live-twins.md)
+fi
+
 # ===== code comments (.kt/.kts/.sq/.sqm): no calendar dates =====
 # A date stamps when someone looked, which is what git already records, and it reads as an expiry the
 # code does not have. State the durable fact instead, and let the commit message carry when it was measured.
