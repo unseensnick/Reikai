@@ -368,26 +368,6 @@ class NotificationReceiver : BroadcastReceiver() {
             )
         }
 
-        /**
-         * Returns [PendingIntent] that starts a service which dismissed the notification
-         *
-         * @param context context of application
-         * @param notificationId id of notification
-         * @return [PendingIntent]
-         */
-        internal fun dismissNotificationPendingBroadcast(context: Context, notificationId: Int): PendingIntent {
-            val intent = Intent(context, NotificationReceiver::class.java).apply {
-                action = ACTION_DISMISS_NOTIFICATION
-                putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            }
-            return PendingIntent.getBroadcast(
-                context,
-                0,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-            )
-        }
-
         // RK --> takes a tag, for the novel updater's notifications, whose ids share numbers with manga's
 
         /**
