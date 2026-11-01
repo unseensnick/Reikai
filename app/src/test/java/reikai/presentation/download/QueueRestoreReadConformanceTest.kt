@@ -63,7 +63,7 @@ class QueueRestoreReadConformanceTest {
                     downloadManager = mockk<NovelDownloadManager> {
                         every { queueState } returns queue
                         every { isQueueRestored } answers { queue.readFlag() }
-                        every { downloadingNovelId } returns MutableStateFlow(null)
+                        every { downloadingNovelIds } returns MutableStateFlow(emptySet())
                         every { completions } returns SeriesCompletions()
                     },
                     novelRepo = mockk(relaxed = true),

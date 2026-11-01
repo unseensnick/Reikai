@@ -8,7 +8,7 @@ Downloads keep chapters on the device so they read offline, for manga and light 
 
 ### Two engines, one queue above them
 
-The download engines stay separate and run side by side. Mihon's `Downloader` (behind `DownloadManager`) fetches manga pages, several sources at once up to the parallel-source limit, one job per source sharing that source's page slots. `NovelDownloadManager` drains novel chapters one at a time: a chapter's text is one `NovelSource.parseChapter` request. What is shared is the orchestration above them: the queue list, its order, its cards, the per-series sheet, the queue actions and the rules behind them.
+The download engines stay separate and run side by side. Mihon's `Downloader` (behind `DownloadManager`) fetches manga pages, several sources at once up to the parallel-source limit, one job per source sharing that source's page slots. `NovelDownloadManager` runs novel sources side by side up to the same limit, each one chapter at a time and paced, since a chapter's text is one `NovelSource.parseChapter` request. What is shared is the orchestration above them: the queue list, its order, its cards, the per-series sheet, the queue actions and the rules behind them.
 
 `DownloadQueueProvider` is the only seam the queue talks to an engine through, with `MangaDownloadQueueProvider` and `NovelDownloadQueueProvider` as the two adapters. Each publishes a `DownloadQueueSnapshot` (queued chapters in its own order, the active series, per-series completed counts, labels) and answers the verbs: reorder series, cancel a chapter or series, Download next, Move to bottom, sort, cancel all, pause and start.
 
@@ -98,6 +98,7 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 - **Every manga download delete resolves its source through `getOrStub`**, since `get` is null once the extension is uninstalled and the stub names the same folder: the row delete, mark-read, the reader's pending delete, the library's remove and migration's remove-download. A novel delete asks for no source.
 - **`SeriesCompletions` is cleared only by Cancel all**, never by a reorder or a single cancel, which keep the counts of the series still queued.
 - **One novel drain runs at a time.** `runQueue` holds `drainLock` for the whole drain, so a Resume during a paused drain's blocking save waits rather than racing it into duplicate files.
+- **A novel lane holds its source through the pacing delay.** `claimNext` takes a source under `claimLock` and it is released only after the delay, so a second lane cannot start that source's next chapter early. Lanes stay alive until nothing is queued and no lane runs, so a chapter queued mid-drain reaches a free lane. Saves still run one at a time under `saveLock`.
 - **`DownloadNotifier.onProgressChange` takes a `Mutex`, not `@Synchronized`**: it suspends for the adult verdict, and a monitor does not hold across a suspension.
 - **Every foreground worker shares one WorkManager service**, which reposts the first worker's last request when another goes foreground, so each worker must hand the service every new waiting reason or a stale "No network" returns.
 - **A new automatic removal caller goes through the removal filter** (`deleteRemovableChapters` or `NovelRemovableDownloads`), never straight to `deleteChapters`, which no longer asks the excluded categories.

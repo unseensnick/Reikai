@@ -27,7 +27,7 @@ class NovelDownloadQueueProviderTest {
             downloadManager = mockk<NovelDownloadManager> {
                 every { queueState } returns
                     MutableStateFlow(listOf(NovelDownload(novelId = 1L, chapterId = 2L, url = "/c")))
-                every { downloadingNovelId } returns MutableStateFlow(null)
+                every { downloadingNovelIds } returns MutableStateFlow(emptySet())
                 every { completions } returns SeriesCompletions()
                 every { isQueueRestored } returns true
             },

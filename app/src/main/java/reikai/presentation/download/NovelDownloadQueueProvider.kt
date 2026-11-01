@@ -36,13 +36,13 @@ class NovelDownloadQueueProvider(
 
     override val snapshots: Flow<DownloadQueueSnapshot> = combine(
         downloadManager.queueState,
-        downloadManager.downloadingNovelId,
+        downloadManager.downloadingNovelIds,
         downloadManager.completions.counts,
-    ) { _, downloadingId, completed ->
+    ) { _, downloadingIds, completed ->
         val (queue, restored) = readQueueAfterRestore({ downloadManager.isQueueRestored }, downloadManager.queueState)
-        QueueRead(queue, downloadingId, completed, restored)
+        QueueRead(queue, downloadingIds, completed, restored)
     }
-        .mapLatest { (queue, downloadingId, completed, restored) ->
+        .mapLatest { (queue, downloadingIds, completed, restored) ->
             val queued = queue.mapTo(HashSet()) { it.novelId }
             labels.keys.retainAll(queued)
             chapterNames.keys.retainAll(queued)
@@ -60,7 +60,7 @@ class NovelDownloadQueueProvider(
                     )
                 },
                 // Latched across the pacing gap between chapters, so the card does not flicker to Queued.
-                activeSeries = setOfNotNull(downloadingId),
+                activeSeries = downloadingIds,
                 completed = completed,
                 labels = queued.associateWith { labelOf(it) },
                 restored = restored,
@@ -129,7 +129,7 @@ class NovelDownloadQueueProvider(
 
 private data class QueueRead(
     val queue: List<NovelDownload>,
-    val downloadingId: Long?,
+    val downloadingIds: Set<Long>,
     val completed: Map<Long, Int>,
     val restored: Boolean,
 )

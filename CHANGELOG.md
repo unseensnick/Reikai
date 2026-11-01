@@ -14,6 +14,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**
 
+### Downloads
+
+#### Changed
+
+- **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**
+
 ### Reader
 
 #### Added
