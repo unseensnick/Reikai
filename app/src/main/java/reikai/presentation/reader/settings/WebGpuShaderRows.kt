@@ -32,10 +32,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -57,8 +59,8 @@ import tachiyomi.presentation.core.util.collectAsState
  * shader lists from its WebGpuViewerSettings, whose sheet this one replaced.
  */
 @Composable
-internal fun ColumnScope.MangaShaderFilters(viewModel: ReaderSettingsViewModel) {
-    val viewer by viewModel.viewerFlow.collectAsState()
+internal fun ColumnScope.MangaShaderFilters(viewModel: ReaderSettingsViewModel, viewerFlow: StateFlow<Viewer?>) {
+    val viewer by viewerFlow.collectAsState()
     if (viewer !is WebGpuViewer) return
 
     val preferences = viewModel.preferences

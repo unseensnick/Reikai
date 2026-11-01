@@ -25,8 +25,10 @@ import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Palette
@@ -64,6 +66,8 @@ sealed interface ReaderSettingsPages {
     data class Manga(
         val viewModel: ReaderSettingsViewModel,
         override val filters: ReaderDisplayFilters,
+        /** The running viewer, which outlives no Activity, so the retained [viewModel] cannot hold it. */
+        val viewer: StateFlow<Viewer?>,
     ) : ReaderSettingsPages
 
     data class Novel(
@@ -142,17 +146,17 @@ fun ReaderSettingsSheet(
             ) {
                 when (tabs[page]) {
                     ReaderSettingsTab.Reading -> when (pages) {
-                        is ReaderSettingsPages.Manga -> MangaReadingPage(pages.viewModel)
+                        is ReaderSettingsPages.Manga -> MangaReadingPage(pages.viewModel, pages.viewer)
                         is ReaderSettingsPages.Novel -> NovelReadingPage(pages)
                     }
                     ReaderSettingsTab.Appearance -> when (pages) {
-                        is ReaderSettingsPages.Manga -> MangaAppearancePage(pages.viewModel)
+                        is ReaderSettingsPages.Manga -> MangaAppearancePage(pages.viewModel, pages.viewer)
                         is ReaderSettingsPages.Novel -> NovelAppearancePage(pages)
                     }
                     ReaderSettingsTab.Controls -> {
                         AutoScrollRows(autoScrollRunning, onToggleAutoScroll, autoScroll)
                         when (pages) {
-                            is ReaderSettingsPages.Manga -> MangaControlsPage(pages.viewModel)
+                            is ReaderSettingsPages.Manga -> MangaControlsPage(pages.viewModel, pages.viewer)
                             is ReaderSettingsPages.Novel -> NovelControlsPage(pages.preferences)
                         }
                     }
@@ -161,7 +165,7 @@ fun ReaderSettingsSheet(
                     }
                     ReaderSettingsTab.Filters -> {
                         ReaderFiltersPage(pages.filters)
-                        if (pages is ReaderSettingsPages.Manga) MangaShaderFilters(pages.viewModel)
+                        if (pages is ReaderSettingsPages.Manga) MangaShaderFilters(pages.viewModel, pages.viewer)
                     }
                 }
             }

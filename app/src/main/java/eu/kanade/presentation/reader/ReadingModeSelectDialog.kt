@@ -45,7 +45,7 @@ fun ReadingModeSelectDialog(
             readingMode = readingMode,
             resolvedReadingMode = resolvedReadingMode, // RK
             onChangeReadingMode = {
-                viewModel.onChangeReadingMode(it)
+                viewModel.setReadingMode(it)
                 onChange(it.stringRes)
                 onDismissRequest()
             },

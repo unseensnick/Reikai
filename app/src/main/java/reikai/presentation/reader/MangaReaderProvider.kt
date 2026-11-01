@@ -115,7 +115,8 @@ class MangaReaderProvider(
     }
 
     override fun pageBackground(context: Context): Flow<Int> =
-        readerPreferences.readerTheme.changes().map(context::readerBackgroundColor)
+        readerPreferences.readerTheme.changes()
+            .map { context.readerBackgroundColor(ReaderPreferences.ReaderTheme.fromValue(it)) }
 
     override val navigator: Flow<ReaderNavigatorState> = combine(
         viewModel.state,

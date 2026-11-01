@@ -102,7 +102,6 @@ import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
-import kotlinx.coroutines.flow.sample
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
@@ -131,6 +130,7 @@ import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.ReaderViewport
 import reikai.presentation.reader.TextViewport
+import reikai.presentation.reader.brightness
 import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.isSameLaunch
 import reikai.presentation.reader.putEntryId
@@ -144,7 +144,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.util.collectAsState
 import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.seconds
 import androidx.compose.ui.graphics.Color as ComposeColor
 
 class ReaderActivity : BaseActivity() {
@@ -228,6 +227,22 @@ class ReaderActivity : BaseActivity() {
     // RK <--
 
     val viewModel by viewModels<ReaderViewModel> { graph.viewModelFactory }
+
+    // RK: built only when a manga viewer or the manga sheet asks, so a novel session never has one
+    val settingsViewModel by viewModels<ReaderSettingsViewModel> {
+        viewModelFactory {
+            initializer {
+                ReaderSettingsViewModel(
+                    readerState = viewModel.state,
+                    onChangeReadingMode = viewModel::setMangaReadingMode,
+                    onChangeOrientation = viewModel::setMangaOrientationType,
+                    preferences = readerPreferences,
+                    // RK: resolved, so the quick menu highlights the mode actually in use
+                    resolvedReadingMode = viewModel::getMangaReadingMode,
+                )
+            }
+        }
+    }
 
     // RK --> the engine owns dialog dispatch and the viewport, over a provider per content type.
     // The provider is held here as its own type as well, because building page actions is a manga
@@ -490,17 +505,6 @@ class ReaderActivity : BaseActivity() {
         // RK: the session's own answer, so a novel gets its readout and its own setting decides it.
         val showProgress by engine.showProgress.collectAsState()
         val navigatorState by engine.navigator.collectAsState()
-        val settingsViewModel = remember {
-            ReaderSettingsViewModel(
-                readerState = viewModel.state,
-                viewerState = mangaViewerState,
-                onChangeReadingMode = viewModel::setMangaReadingMode,
-                onChangeOrientation = viewModel::setMangaOrientationType,
-                preferences = readerPreferences,
-                // RK: resolved, so the quick menu highlights the mode actually in use
-                resolvedReadingMode = viewModel::getMangaReadingMode,
-            )
-        }
 
         // RK -->
         // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does. Null while
@@ -594,7 +598,7 @@ class ReaderActivity : BaseActivity() {
                         ) {
                             appGraph.novelFontManager.installed()
                         }
-                    } ?: ReaderSettingsPages.Manga(settingsViewModel, filters)
+                    } ?: ReaderSettingsPages.Manga(settingsViewModel, filters, mangaViewerState)
                     // RK --> the sheet's auto-scroll rows, whose rate is whichever the viewport showing runs on
                     val autoScrollRunning by engine.autoScrollRunning.collectAsState()
                     val viewport by engine.viewport.collectAsState()
@@ -1340,8 +1344,8 @@ class ReaderActivity : BaseActivity() {
                 .launchIn(lifecycleScope)
 
             // RK --> brightness, grayscale and invert are the open session's own values, as the overlay is.
-            engine.provider.displayFilters.customBrightness.changes()
-                .onEach(::setCustomBrightness)
+            engine.provider.displayFilters.brightness()
+                .onEach(::setCustomBrightnessValue)
                 .launchIn(lifecycleScope)
 
             combine(
@@ -1373,20 +1377,6 @@ class ReaderActivity : BaseActivity() {
                 window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
             } else {
                 window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-            }
-        }
-
-        /**
-         * Sets the custom brightness overlay according to [enabled].
-         */
-        private fun setCustomBrightness(enabled: Boolean) {
-            if (enabled) {
-                engine.provider.displayFilters.customBrightnessValue.changes() // RK: the session's own
-                    .sample(0.1.seconds)
-                    .onEach(::setCustomBrightnessValue)
-                    .launchIn(lifecycleScope)
-            } else {
-                setCustomBrightnessValue(0)
             }
         }
 

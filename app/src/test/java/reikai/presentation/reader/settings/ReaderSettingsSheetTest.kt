@@ -110,7 +110,6 @@ class MangaSheetProbe : SheetProbe {
         val preferences = ReaderPreferences(EmittingPreferenceStore())
         val viewModel = ReaderSettingsViewModel(
             readerState = MutableStateFlow(ReaderViewModel.State()),
-            viewerState = MutableStateFlow(null),
             onChangeReadingMode = {},
             onChangeOrientation = {},
             preferences = preferences,
@@ -124,7 +123,7 @@ class MangaSheetProbe : SheetProbe {
             grayscale = preferences.grayscale,
             invertedColors = preferences.invertedColors,
         )
-        return ReaderSettingsPages.Manga(viewModel, filters)
+        return ReaderSettingsPages.Manga(viewModel, filters, MutableStateFlow(null))
     }
 }
 

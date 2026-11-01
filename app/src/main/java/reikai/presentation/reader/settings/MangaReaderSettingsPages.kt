@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewerContinuous
 import eu.kanade.tachiyomi.ui.reader.viewer.webtoon.WebtoonViewer
+import kotlinx.coroutines.flow.StateFlow
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.navigation.setTapLayout
@@ -61,10 +62,10 @@ private val readerThemes = listOf(
 
 /** This series' reading mode and rotation, then how the running viewer lays a page out. */
 @Composable
-internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel) {
+internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, viewerFlow: StateFlow<Viewer?>) {
     val preferences = viewModel.preferences
     val manga by viewModel.mangaFlow.collectAsState()
-    val viewer by viewModel.viewerFlow.collectAsState()
+    val viewer by viewerFlow.collectAsState()
 
     HeadingItem(MR.strings.pref_category_for_this_series)
     val readingMode = remember(manga) { ReadingMode.fromPreference(manga?.readingMode?.toInt()) }
@@ -72,12 +73,12 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel) {
         ReadingMode.entries.map {
             FilterChip(
                 selected = it == readingMode,
-                onClick = { viewModel.onChangeReadingMode(it) },
+                onClick = { viewModel.setReadingMode(it) },
                 label = { Text(stringResource(it.stringRes)) },
             )
         }
     }
-    EntryRotationRow(manga?.readerOrientation?.toInt(), viewModel.onChangeOrientation)
+    EntryRotationRow(manga?.readerOrientation?.toInt(), viewModel::setOrientation)
 
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {
@@ -164,9 +165,9 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel) {
 
 /** The page around the image: background, what the screen shows, transitions, and the E-Ink flash. */
 @Composable
-internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel) {
+internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel, viewerFlow: StateFlow<Viewer?>) {
     val preferences = viewModel.preferences
-    val viewer by viewModel.viewerFlow.collectAsState()
+    val viewer by viewerFlow.collectAsState()
 
     val readerTheme by preferences.readerTheme.collectAsState()
     SettingsChipRow(MR.strings.pref_reader_theme) {
@@ -216,9 +217,9 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel)
 
 /** How a touch drives the reader: tap zones, panning and zoom gestures, the long tap, the rail. */
 @Composable
-internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel) {
+internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, viewerFlow: StateFlow<Viewer?>) {
     val preferences = viewModel.preferences
-    val viewer by viewModel.viewerFlow.collectAsState()
+    val viewer by viewerFlow.collectAsState()
 
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {
