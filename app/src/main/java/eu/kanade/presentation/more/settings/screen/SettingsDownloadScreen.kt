@@ -14,6 +14,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.novel.NovelSourceDelaysScreen
 import eu.kanade.presentation.more.settings.screen.novel.downloadDelayLabel
 import mihon.app.di.appGraph
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.download.NovelDownloadPacing
 import reikai.presentation.library.sortedByCategoryPref
@@ -56,6 +57,7 @@ object SettingsDownloadScreen : SearchableSettings {
             Preference.PreferenceItem.SwitchPreference(
                 preference = downloadPreferences.saveChaptersAsCBZ,
                 title = stringResource(MR.strings.save_chapter_as_cbz),
+                visible = showsContent(ContentType.MANGA), // RK
             ),
             Preference.PreferenceItem.SliderPreference(
                 preference = downloadPreferences.parallelSourceLimit,
@@ -67,11 +69,13 @@ object SettingsDownloadScreen : SearchableSettings {
                 valueRange = 1..15,
                 title = stringResource(MR.strings.pref_download_concurrent_pages),
                 subtitle = stringResource(MR.strings.pref_download_concurrent_pages_summary),
+                visible = showsContent(ContentType.MANGA), // RK
             ),
             // RK --> duplicated manga/novel download options, split into content-type sub-groups so each
             // row reads clean and the two never drift (the manga/novel builders are parameter-identical).
             deleteChaptersGroup(
                 contentType = MR.strings.content_type_manga,
+                visible = showsContent(ContentType.MANGA), // RK
                 removeAfterMarkedAsRead = downloadPreferences.removeAfterMarkedAsRead,
                 removeAfterReadSlots = downloadPreferences.removeAfterReadSlots,
                 removeBookmarkedChapters = downloadPreferences.removeBookmarkedChapters,
@@ -80,6 +84,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             deleteChaptersGroup(
                 contentType = MR.strings.content_type_novels,
+                visible = showsContent(ContentType.NOVELS), // RK
                 removeAfterMarkedAsRead = novelPreferences.removeAfterMarkedAsRead(),
                 removeAfterReadSlots = novelPreferences.removeAfterReadSlots(),
                 removeBookmarkedChapters = novelPreferences.removeBookmarkedChapters(),
@@ -88,6 +93,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             autoDownloadGroup(
                 contentType = MR.strings.content_type_manga,
+                visible = showsContent(ContentType.MANGA), // RK
                 downloadNew = downloadPreferences.downloadNewChapters,
                 downloadNewUnreadOnly = downloadPreferences.downloadNewUnreadChaptersOnly,
                 includedCategories = downloadPreferences.downloadNewChapterCategories,
@@ -100,6 +106,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             autoDownloadGroup(
                 contentType = MR.strings.content_type_novels,
+                visible = showsContent(ContentType.NOVELS), // RK
                 downloadNew = novelPreferences.downloadNewChapters(),
                 downloadNewUnreadOnly = novelPreferences.downloadNewUnreadChaptersOnly(),
                 includedCategories = novelPreferences.downloadNewChapterCategories(),
@@ -118,6 +125,7 @@ object SettingsDownloadScreen : SearchableSettings {
     @Composable
     private fun deleteChaptersGroup(
         contentType: StringResource,
+        visible: Boolean,
         removeAfterMarkedAsRead: PreferenceData<Boolean>,
         removeAfterReadSlots: PreferenceData<Int>,
         removeBookmarkedChapters: PreferenceData<Boolean>,
@@ -134,6 +142,7 @@ object SettingsDownloadScreen : SearchableSettings {
         )
         return Preference.PreferenceGroup(
             title = contentTypedCategory(MR.strings.pref_category_delete_chapters, contentType),
+            visible = visible,
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = removeAfterMarkedAsRead,
@@ -178,6 +187,7 @@ object SettingsDownloadScreen : SearchableSettings {
         val setCount = NovelDownloadPacing.parse(perSource).size
         return Preference.PreferenceGroup(
             title = contentTypedCategory(MR.strings.pref_category_download_pacing, MR.strings.content_type_novels),
+            visible = showsContent(ContentType.NOVELS), // RK
             preferenceItems = listOf(
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.downloadChapterDelayMs(),
@@ -202,6 +212,7 @@ object SettingsDownloadScreen : SearchableSettings {
     @Composable
     private fun autoDownloadGroup(
         contentType: StringResource,
+        visible: Boolean,
         downloadNew: PreferenceData<Boolean>,
         downloadNewUnreadOnly: PreferenceData<Boolean>,
         includedCategories: PreferenceData<Set<String>>,
@@ -221,6 +232,7 @@ object SettingsDownloadScreen : SearchableSettings {
             }
         return Preference.PreferenceGroup(
             title = contentTypedCategory(MR.strings.pref_category_auto_download, contentType),
+            visible = visible,
             preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = downloadNew,

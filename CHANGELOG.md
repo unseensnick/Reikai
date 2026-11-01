@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Appearance
+
+#### Added
+
+- **Hide manga or novels across the app with Settings -> Appearance -> Show.** First launch offers it too. A hidden type skips library updates, and nothing is deleted.
+
 ### Library
 
 #### Changed

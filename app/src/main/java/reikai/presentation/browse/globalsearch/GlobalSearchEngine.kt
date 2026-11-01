@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
+import reikai.domain.library.within
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelExtensionFormat
 import reikai.presentation.browse.fillEntryRows
@@ -61,7 +62,8 @@ class GlobalSearchEngine(
             // screen is up, and a search opened from a manga or a novel is scoped to that instead.
             state.update {
                 it.copy(
-                    contentType = scopedContentType ?: sourcePreferences.browseContentType.get(),
+                    contentType = (scopedContentType ?: sourcePreferences.browseContentType.get())
+                        .within(sourcePreferences.shownContent.get()),
                     sourceFilter = initialSourceFilter ?: sourcePreferences.globalSearchSourceFilter.get(),
                 )
             }

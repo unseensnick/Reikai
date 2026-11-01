@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.plus
 import mihon.core.metro.AppCoroutineScope
+import reikai.domain.library.includes
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.FeedSavedSearchRepository
@@ -103,7 +104,8 @@ class FeedViewModel(
             combine(
                 feedRepository.subscribeGlobal(),
                 combine(providers.map { it.sourceChanges }) {},
-            ) { feeds, _ -> feeds }
+                preferences.shownContent.changes(),
+            ) { feeds, _, shown -> feeds.filter { shown.includes(it.sourceKey.contentType) } }
                 .pausedWhileUnsubscribed()
                 .collectLatest(::onFeedChanged)
         }

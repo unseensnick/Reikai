@@ -24,6 +24,7 @@ import mihon.domain.extension.interactor.RemoveExtensionStore
 import mihon.domain.extension.interactor.UpdateExtensionStores
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.registry.LnRepoRegistries
 import tachiyomi.core.common.util.lang.launchIO
@@ -45,6 +46,7 @@ class RepositoriesViewModel(
     private val extensionManager: ExtensionManager,
     private val registries: LnRepoRegistries,
     prefs: NovelPreferences,
+    reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
     private val dialog = MutableStateFlow<RepoDialog?>(null)
@@ -61,7 +63,7 @@ class RepositoriesViewModel(
         prefs.addedRepoUrls().changes(),
         pluginStatuses,
         ::repoCards,
-    )
+    ).combine(reikaiLibraryPreferences.shownContent.changes()) { cards, shown -> cards.shownIn(shown) }
 
     private val refreshing = combine(storesRefreshing, registries.isRefreshing) { stores, plugins -> stores || plugins }
 

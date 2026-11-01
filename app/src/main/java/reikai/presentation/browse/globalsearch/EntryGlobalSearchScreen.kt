@@ -31,6 +31,7 @@ import reikai.presentation.browse.rememberEntryGestures
 import reikai.presentation.browse.rememberMixedBulkSelection
 import reikai.presentation.browse.startAdd
 import reikai.presentation.components.HeaderTabRow
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.novel.globalsearch.NovelGlobalSearchViewModel
 import tachiyomi.i18n.MR
@@ -133,14 +134,16 @@ class EntryGlobalSearchScreen(
                     onReverseSelection = { selection.invert(state.visibleRows) },
                     onChangeCategoryClick = selection::add,
                     tabs = {
-                        HeaderTabRow(
-                            items = ContentType.entries,
-                            selected = state.contentType,
-                            label = ContentType::labelRes,
-                            // A flip drops the selection: the picks it would hide would still count on
-                            // the bar and reach the add.
-                            onSelect = { if (engine.setContentType(it)) selection.clear() },
-                        )
+                        if (LocalShownContent.current == ContentType.ALL) {
+                            HeaderTabRow(
+                                items = ContentType.entries,
+                                selected = state.contentType,
+                                label = ContentType::labelRes,
+                                // A flip drops the selection: the picks it would hide would still count on
+                                // the bar and reach the add.
+                                onSelect = { if (engine.setContentType(it)) selection.clear() },
+                            )
+                        }
                     },
                 )
             },

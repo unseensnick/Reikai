@@ -49,6 +49,7 @@ import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.onePerSeries
 import reikai.domain.novel.NovelMergeManager
@@ -83,6 +84,8 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
     @Inject private lateinit var getUpdates: GetUpdates
 
     @Inject private lateinit var novelRepository: NovelRepository
+
+    @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences
 
     @Inject private lateinit var preferences: SecurityPreferences
 
@@ -130,7 +133,7 @@ class UnifiedUpdatesGlanceWidget : GlanceAppWidget() {
 
             val flow = remember {
                 combine(
-                    unifiedWidgetUpdates(getUpdates, novelRepository),
+                    unifiedWidgetUpdates(getUpdates, novelRepository, reikaiLibraryPreferences.shownContent.changes()),
                     getEntryCustomInfo.subscribeAll(),
                 ) { updates, customInfo ->
                     prepareSections(context, updates, customInfo, rowCount, columnCount)

@@ -49,6 +49,10 @@ A rule that must hold for both types lives once, as a pure function both sides c
 - Updates: `smartUpdateSkip`, `isUpdateScope`, `keptDetail`, the `NewChaptersSummary` and `NewChaptersDescription` notification rules.
 - Backup: `backupEntries` over `BackupEntryParts` (`reikai/data/backup/BackupEntryDriver.kt`) decides which series are backed up and gates chapters, categories, tracks, history and custom info once, while each type keeps its frozen wire fields.
 
+### The Show setting
+
+`shownContent` (`ShownContent.kt`) says which content types the app shows, as a `ContentType`, so `ALL` shows both. Every persisted chip is a `ShownContentPreference`, which reads as the shown type while the other is hidden, so an engine that reads its chip follows the setting without asking. A chip held in memory, or a type passed in, goes through `within` once. `LocalShownContent` lets the chip row, the type badge and the settings rows leave themselves out. Lists that are not behind a chip filter by `includes`: the Feed, the widget, the extension badges and notices.
+
 ### Conformance tests
 
 Where the engines are genuinely separate and no kernel reaches, one test parameterized over both adapters pins the rule (`*ConformanceTest`, for example `DetailsGapConformanceTest`, `MergeGroupCountsConformanceTest`, `MarkReadDeleteConformanceTest`, `EntryTrackPortConformanceTest`). A `twin of` comment names the kernel, capability or test that pins it, in the spelling the rules fix.
@@ -83,6 +87,15 @@ A pure-UI Mihon file fully replaced by a shared component is deleted and given a
 - **The manga model stays live behind its adapter; the novel model is reshaped, not deleted.** The manga model is the sync surface; the novel model's engine work has nowhere else to go, so "dissolve" means the UI body and behaviour contract collapsed while both models remain.
 - **Takeovers stop at orchestration.** Library, recents, browse, migrate, reader and downloads own assembly, selection and verbs above live per-type models, because a mixed list or a mixed selection cannot be computed by either model alone.
 - **Scanlator filtering is a content-type-gated capability.** Novels store a chapter's translator group, but the novel filter is parked ([parked.md](../parked.md)); it is not a Tsundoku port, which gets it only through novels-as-manga.
+
+- **Hiding a type never writes.** The stored chips, categories and positions stay as they were, so All brings every choice back.
+- **Every update worker goes through `libraryUpdateGate`**, so a hidden type's run ends as a success from any start, and its schedule stays in place for when the type shows again.
+- **The download queue keeps a hidden type's running downloads.** The queue is the only place to cancel them, and hiding stops new ones through the skipped update.
+- **Mihon's own updates widget stays manga.** The user placed it, and it has no setting to read; the combined widget follows Show.
+- **Details, deep links and backups ignore Show.** Opening an entry by link is an explicit act, and a backup stays complete.
+- **Refresh library covers and tracker refresh ignore Show.** Both change stored data rather than what a user sees, and the first is a deliberate tap.
+- **The bottom nav and More stay as they are.** Neither has a per-type entry; Downloads and Statistics inside More serve whichever type shows.
+- **A repo card stays while it serves a shown type or its contents are unknown.** A store listing both types stays, and the Repos count in settings can still include a store that only serves the hidden type, since that count is read before any fetch.
 
 ## Extending
 

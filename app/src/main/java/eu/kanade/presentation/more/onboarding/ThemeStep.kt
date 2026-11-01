@@ -8,6 +8,7 @@ import androidx.compose.ui.platform.LocalContext
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.presentation.more.settings.widget.ShownContentPreferenceWidget
 import mihon.app.di.appGraph
 import tachiyomi.presentation.core.util.collectAsState
 
@@ -29,6 +30,11 @@ internal class ThemeStep : OnboardingStep {
         val amoledPref = uiPreferences.themeDarkAmoled
         val amoled by amoledPref.collectAsState()
 
+        // RK -->
+        val shownContentPref = remember { context.appGraph.reikaiLibraryPreferences.shownContent }
+        val shownContent by shownContentPref.collectAsState()
+        // RK <--
+
         Column {
             AppThemeModePreferenceWidget(
                 value = themeMode,
@@ -43,6 +49,8 @@ internal class ThemeStep : OnboardingStep {
                 amoled = amoled,
                 onItemClick = { appThemePref.set(it) },
             )
+
+            ShownContentPreferenceWidget(value = shownContent, onItemClick = shownContentPref::set) // RK
         }
     }
 }

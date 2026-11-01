@@ -24,6 +24,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.library.ContentType
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
@@ -75,6 +76,18 @@ class FeedViewModelTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a hidden type's rows leave the feed`(probe: FeedRegistryProbe) = runTest {
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(
+            ContentType.entries.first { it != ContentType.ALL && it != probe.key.contentType },
+        )
+        val model = feedViewModel(probe, preferences = preferences)
+
+        settle { model.state.first { it.loaded } }.entries shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a row whose source is gone is named by the name it had`(probe: FeedRegistryProbe) = runTest {
         val model = feedViewModel(probe)
 
@@ -114,13 +127,14 @@ class FeedViewModelTest {
     private fun feedViewModel(
         probe: FeedRegistryProbe,
         rows: Flow<List<FeedSavedSearch>> = flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L))),
+        preferences: ReikaiSourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
     ) = FeedViewModel(
         appScope = testAppScope(),
         feedRepository = mockk {
             every { subscribeGlobal() } returns rows
         },
         savedSearchRepository = mockk { coEvery { getAll() } returns emptyList() },
-        preferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+        preferences = preferences,
         novelRepository = mockk { every { getFavoritedKeysAsFlow() } returns flowOf(FavoritedNovels.None) },
         getManga = mockk(relaxed = true),
         mangaAdder = mockk(relaxed = true),

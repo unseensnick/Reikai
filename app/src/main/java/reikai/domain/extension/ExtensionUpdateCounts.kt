@@ -5,6 +5,9 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.includes
 import reikai.domain.novel.NovelPreferences
 
 /**
@@ -16,13 +19,19 @@ class ExtensionUpdateCounts(
     sourcePreferences: SourcePreferences,
     novelPreferences: NovelPreferences,
     extensionManager: ExtensionManager,
+    reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
-    val manga: Flow<Int> = sourcePreferences.extensionUpdatesCount.changes()
+    private val shown = reikaiLibraryPreferences.shownContent.changes()
+
+    val manga: Flow<Int> = combine(sourcePreferences.extensionUpdatesCount.changes(), shown) { count, shown ->
+        if (shown.includes(ContentType.MANGA)) count else 0
+    }
 
     val novel: Flow<Int> = combine(
         novelPreferences.pendingPluginUpdates().changes(),
         extensionManager.novelUpdatesCount,
-    ) { plugins, apks -> plugins.size + apks }
+        shown,
+    ) { plugins, apks, shown -> if (shown.includes(ContentType.NOVELS)) plugins.size + apks else 0 }
 
     val total: Flow<Int> = combine(manga, novel) { manga, novel -> manga + novel }
 }

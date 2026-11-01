@@ -21,6 +21,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
+import eu.kanade.presentation.more.settings.widget.ShownContentPreferenceWidget
 import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.datetime.TimeZone
@@ -129,6 +130,11 @@ object SettingsAppearanceScreen : SearchableSettings {
 
         val now = remember { Clock.System.now().toLocalDateTime(TimeZone.currentSystemDefault()).toJavaLocalDateTime() }
 
+        // RK -->
+        val shownContentPref = remember { context.appGraph.reikaiLibraryPreferences.shownContent }
+        val shownContent by shownContentPref.collectAsState()
+        // RK <--
+
         val dateFormat by uiPreferences.dateFormat.collectAsState()
         val formattedDateNow = remember(dateFormat) {
             UiPreferences.dateFormat(dateFormat, locale.platformLocale).format(now)
@@ -140,6 +146,13 @@ object SettingsAppearanceScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_display),
             preferenceItems = listOf(
+                // RK -->
+                Preference.PreferenceItem.CustomPreference(
+                    title = stringResource(MR.strings.pref_shown_content),
+                ) {
+                    ShownContentPreferenceWidget(value = shownContent, onItemClick = shownContentPref::set)
+                },
+                // RK <--
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_app_language),
                     onClick = { navigator.push(AppLanguageScreen()) },

@@ -6,6 +6,8 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.source.service.SourcePreferences
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
+import reikai.domain.library.ShownContentPreference
+import reikai.domain.library.shownContent
 import reikai.presentation.browse.globalsearch.SearchSourceFilter
 import reikai.presentation.recents.RecentsMode
 import reikai.util.getStringList
@@ -25,12 +27,17 @@ class ReikaiSourcePreferences(
     private val preferenceStore: PreferenceStore,
 ) {
 
+    val shownContent: Preference<ContentType> = preferenceStore.shownContent()
+
+    private fun scoped(key: String) =
+        ShownContentPreference(preferenceStore.getEnum(key, ContentType.ALL), shownContent)
+
     /**
      * Sticky content-type filter on the Browse tabs (Sources + Extensions). Its own key, distinct
      * from the Library filter, so each surface remembers its last type independently.
      */
     val browseContentType: Preference<ContentType> =
-        preferenceStore.getEnum("browse_content_type", ContentType.ALL)
+        scoped("browse_content_type")
 
     /**
      * Whether global search covers pinned sources or all of them, as last chosen. Pinned by default,
@@ -128,11 +135,11 @@ class ReikaiSourcePreferences(
 
     /** Sticky content-type filter on the Updates tab (manga + novels), its own key. */
     val updatesContentType: Preference<ContentType> =
-        preferenceStore.getEnum("updates_content_type", ContentType.ALL)
+        scoped("updates_content_type")
 
     /** Sticky content-type filter on the History tab (manga + novels), its own key. */
     val historyContentType: Preference<ContentType> =
-        preferenceStore.getEnum("history_content_type", ContentType.ALL)
+        scoped("history_content_type")
 
     /**
      * Sticky content-type filter on the combined Recents tab. Its own key rather than a shared one:
@@ -140,7 +147,7 @@ class ReikaiSourcePreferences(
      * would move something for people who never opted in.
      */
     val recentsContentType: Preference<ContentType> =
-        preferenceStore.getEnum("recents_content_type", ContentType.ALL)
+        scoped("recents_content_type")
 
     /**
      * Which mode the combined Recents tab was last showing. One key rather than one per surface: the
@@ -153,7 +160,7 @@ class ReikaiSourcePreferences(
 
     /** Sticky content-type filter on the Stats screen (manga + novels), its own key. */
     val statsContentType: Preference<ContentType> =
-        preferenceStore.getEnum("stats_content_type", ContentType.ALL)
+        scoped("stats_content_type")
 
     /**
      * Display mode (comfortable / compact / list) for the per-source novel browse grid. Its own key,

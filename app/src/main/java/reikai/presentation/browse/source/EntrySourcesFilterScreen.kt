@@ -25,11 +25,13 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.browse.source.SourcesFilterViewModel
 import eu.kanade.tachiyomi.util.system.toast
 import reikai.domain.library.ContentType
+import reikai.domain.library.within
 import reikai.novel.source.NovelSource
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.browse.components.NovelSourceRow
 import reikai.presentation.browse.components.formatLabel
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.LocalShownContent
 import tachiyomi.domain.source.model.Source
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -54,7 +56,8 @@ class EntrySourcesFilterScreen(
         val navigator = LocalNavigator.currentOrThrow
         // Held as a boolean rather than the enum: only two of the three chips exist here, and a
         // boolean is saveable without asking whether the enum is.
-        var showNovels by rememberSaveable { mutableStateOf(initial == ContentType.NOVELS) }
+        val shownContent = LocalShownContent.current
+        var showNovels by rememberSaveable { mutableStateOf(initial.within(shownContent) == ContentType.NOVELS) }
 
         Scaffold(
             topBar = { scrollBehavior ->

@@ -3,12 +3,14 @@ package reikai.presentation.widget
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.collections.shouldBeEmpty
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.library.ContentType
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.updates.UpdatesRepositoryImpl
@@ -43,17 +45,29 @@ internal class UnifiedWidgetUpdatesTest {
         probe.seed(driver, System.currentTimeMillis())
         probe.markRead(driver)
 
-        val updates = unifiedWidgetUpdates(GetUpdates(UpdatesRepositoryImpl(database)), NovelRepositoryImpl(database))
-            .first()
-
-        probe.chapterIds(updates).shouldBeEmpty()
+        probe.chapterIds(updates(ContentType.ALL)).shouldBeEmpty()
     }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a hidden type leaves the widget`(probe: WidgetUpdatesProbe) = runTest {
+        probe.seed(driver, System.currentTimeMillis())
+
+        probe.chapterIds(updates(probe.hiddenBy)).shouldBeEmpty()
+    }
+
+    private suspend fun updates(shown: ContentType) = unifiedWidgetUpdates(
+        GetUpdates(UpdatesRepositoryImpl(database)),
+        NovelRepositoryImpl(database),
+        flowOf(shown),
+    ).first()
 
     companion object {
         @JvmStatic
         fun probes() = listOf(
             WidgetUpdatesProbe(
                 label = "manga",
+                hiddenBy = ContentType.NOVELS,
                 seed = { driver, now ->
                     driver.execute(
                         null,
@@ -80,6 +94,7 @@ internal class UnifiedWidgetUpdatesTest {
             ),
             WidgetUpdatesProbe(
                 label = "novels",
+                hiddenBy = ContentType.MANGA,
                 seed = { driver, now ->
                     driver.execute(
                         null,
@@ -107,6 +122,7 @@ internal class UnifiedWidgetUpdatesTest {
 /** One content type's half: how a recent unread chapter is stored, read, and found in the widget's set. */
 internal class WidgetUpdatesProbe(
     private val label: String,
+    val hiddenBy: ContentType,
     val seed: suspend (JdbcSqliteDriver, Long) -> Unit,
     val markRead: suspend (JdbcSqliteDriver) -> Unit,
     val chapterIds: (UnifiedWidgetUpdates) -> List<Long>,

@@ -5,6 +5,7 @@ import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.extension.shownSigningKey
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.library.mixesContentTypes
 import java.io.IOException
 
@@ -34,6 +35,10 @@ data class RepoCardUi(
 
 /** A card names its content type only when the list holds both, as the download queue's cards do. */
 fun showTypeBadges(cards: List<RepoCardUi>): Boolean = mixesContentTypes(cards.flatMap { it.contentTypes })
+
+/** Under the Show setting a repo stays while it serves a shown type, or its contents are not known yet. */
+fun List<RepoCardUi>.shownIn(shown: ContentType): List<RepoCardUi> =
+    filter { card -> card.contentTypes.isEmpty() || card.contentTypes.any(shown::includes) }
 
 /** A repo not fetched yet, or added since the last fetch, reads as still checking. */
 fun repoCards(

@@ -27,6 +27,7 @@ import reikai.domain.category.categoriesForContentType
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.within
 import reikai.presentation.category.CategoryActions
 import reikai.presentation.library.reikaiSortCategories
 import reikai.presentation.selection.EntrySelection
@@ -66,7 +67,7 @@ class CategoryViewModel(
 
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
     // settings destination rather than somewhere the user lives.
-    private val chipContentType = MutableStateFlow(ContentType.ALL)
+    private val chipContentType = MutableStateFlow(ContentType.ALL.within(reikaiLibraryPreferences.shownContent.get()))
 
     private val dialog = MutableStateFlow<CategoryDialog?>(null)
     // RK <--

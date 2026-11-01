@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.extension.NO_SIGNING_KEY
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.toRepoStatus
+import reikai.domain.library.ContentType
 import java.io.IOException
 
 class RepoCardsTest {
@@ -66,6 +67,21 @@ class RepoCardsTest {
         val cards = repoCards(listOf(STORE), mapOf(STORE.indexUrl to RepoStatus.Reached(3, 0)), emptySet(), null)
 
         showTypeBadges(cards) shouldBe false
+    }
+
+    @Test
+    fun `a plugin repo leaves with novels`() {
+        repoCards(emptyList(), null, setOf(LN_REPO), null).shownIn(ContentType.MANGA) shouldBe emptyList()
+    }
+
+    @Test
+    fun `a plugin repo stays while novels show`() {
+        repoCards(emptyList(), null, setOf(LN_REPO), null).shownIn(ContentType.NOVELS).size shouldBe 1
+    }
+
+    @Test
+    fun `a store whose contents are not known yet stays`() {
+        repoCards(listOf(STORE), null, emptySet(), null).shownIn(ContentType.MANGA).size shouldBe 1
     }
 
     @Test

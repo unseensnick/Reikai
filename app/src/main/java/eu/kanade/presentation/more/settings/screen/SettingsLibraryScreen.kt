@@ -18,6 +18,7 @@ import eu.kanade.tachiyomi.ui.category.CategoryScreen
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.novel.update.NovelUpdateWorker
+import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
@@ -88,6 +89,7 @@ object SettingsLibraryScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             // RK: same "Global update" concept as the manga group, content-typed for consistency.
             title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_novels),
+            visible = showsContent(ContentType.NOVELS), // RK
             preferenceItems = updateScheduleRows(
                 novelPreferences.libraryUpdateInterval(),
                 novelPreferences.libraryUpdateDeviceRestrictions(),
@@ -150,6 +152,7 @@ object SettingsLibraryScreen : SearchableSettings {
                         MR.strings.pref_suggest_group_same_title,
                         MR.strings.content_type_manga,
                     ),
+                    visible = showsContent(ContentType.MANGA), // RK
                     subtitle = stringResource(MR.strings.pref_suggest_group_same_title_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
@@ -158,6 +161,7 @@ object SettingsLibraryScreen : SearchableSettings {
                         MR.strings.pref_suggest_group_same_title,
                         MR.strings.content_type_novels,
                     ),
+                    visible = showsContent(ContentType.NOVELS), // RK
                     subtitle = stringResource(MR.strings.pref_suggest_group_same_title_summary),
                 ),
                 Preference.PreferenceItem.TextPreference(
@@ -215,12 +219,14 @@ object SettingsLibraryScreen : SearchableSettings {
                     entries = ids.zip(labels).toMap(),
                     // RK: content-type label, since a novel default-category twin sits below.
                     title = contentTypedCategory(MR.strings.default_category, MR.strings.content_type_manga),
+                    visible = showsContent(ContentType.MANGA), // RK
                 ),
                 // RK --> novel default category, alongside the manga one
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.defaultNovelCategory(),
                     entries = novelIds.zip(novelLabels).toMap(),
                     title = contentTypedCategory(MR.strings.default_category, MR.strings.content_type_novels),
+                    visible = showsContent(ContentType.NOVELS), // RK
                 ),
                 // RK <--
                 Preference.PreferenceItem.SwitchPreference(
@@ -249,6 +255,7 @@ object SettingsLibraryScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             // RK: content-type header, pairs with the novel library-update group.
             title = contentTypedCategory(MR.strings.pref_category_library_update, MR.strings.content_type_manga),
+            visible = showsContent(ContentType.MANGA), // RK
             // RK --> interval, restrictions and categories rows shared with the novel and gallery checkers
             preferenceItems = updateScheduleRows(
                 libraryPreferences.autoUpdateInterval,
@@ -342,6 +349,7 @@ object SettingsLibraryScreen : SearchableSettings {
                         MR.strings.pref_hide_missing_chapter_indicators,
                         MR.strings.content_type_manga,
                     ),
+                    visible = showsContent(ContentType.MANGA), // RK
                 ),
                 // RK -->
                 Preference.PreferenceItem.SwitchPreference(
@@ -350,6 +358,7 @@ object SettingsLibraryScreen : SearchableSettings {
                         MR.strings.pref_hide_missing_chapter_indicators,
                         MR.strings.content_type_novels,
                     ),
+                    visible = showsContent(ContentType.NOVELS), // RK
                 ),
                 // RK <--
             ),

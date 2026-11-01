@@ -55,6 +55,8 @@ import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.collectLatest
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
+import reikai.domain.library.includes
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -167,8 +169,12 @@ private fun SearchResult(
     onItemClick: (SearchResultItem) -> Unit,
 ) {
     // RK: a gate may await the extension scan, so it suspends here instead of blocking composition.
-    val enabledScreens by produceState<List<SearchableSettings>?>(initialValue = null) {
-        value = settingScreens.filter { it.isEnabled() }
+    // RK: a typed screen leaves search with its content type
+    val shownContent = LocalShownContent.current
+    val enabledScreens by produceState<List<SearchableSettings>?>(initialValue = null, shownContent) {
+        value = settingScreens.filter {
+            shownContent.includes(contentTypedScreens[it] ?: shownContent) && it.isEnabled()
+        }
     }
     val screens = enabledScreens ?: return // RK
 

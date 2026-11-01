@@ -28,9 +28,10 @@ import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.addNewUpdates
+import reikai.data.library.libraryUpdateGate
 import reikai.data.library.libraryUpdatePeriodicRequest
-import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
@@ -87,9 +88,13 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         // A WorkManager start has no MainActivity to wait for the migrations first
         Migrator.await()
         return try {
-            if (shouldDeferLibraryUpdate(exhPreferences.exhAutoUpdateRequirements().get(), AUTO_TAG, MANUAL_TAG)) {
-                Result.retry()
-            } else {
+            libraryUpdateGate(
+                LibraryUpdateJob.GALLERY,
+                graph.reikaiLibraryPreferences.shownContent.get(),
+                exhPreferences.exhAutoUpdateRequirements().get(),
+                AUTO_TAG,
+                MANUAL_TAG,
+            ) ?: run {
                 setForegroundSafely()
                 startUpdating()
                 Result.success()

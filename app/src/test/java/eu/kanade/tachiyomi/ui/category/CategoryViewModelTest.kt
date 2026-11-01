@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.plus
@@ -79,6 +80,16 @@ class CategoryViewModelTest {
         get() = (state.value as CategoryScreenState.Success).selection
 
     /** The screen only masks picks the chip hides, so kept ones came back on the next flip. */
+    @Test
+    fun `the list narrows to the shown type while the other is hidden`() = runTest {
+        reikaiLibraryPreferences.shownContent.set(ContentType.NOVELS)
+
+        val model = model()
+
+        model.state.first { it is CategoryScreenState.Success }
+            .let { it as CategoryScreenState.Success }.contentType shouldBe ContentType.NOVELS
+    }
+
     @Test
     fun `flipping the chip drops the picks it would hide`() = runTest {
         val model = model()

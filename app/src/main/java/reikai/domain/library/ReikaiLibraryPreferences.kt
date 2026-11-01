@@ -23,6 +23,8 @@ class ReikaiLibraryPreferences(
     private val preferenceStore: PreferenceStore,
 ) {
 
+    val shownContent: Preference<ContentType> = preferenceStore.shownContent()
+
     // region Grouping
 
     /** Dynamic grouping mode, library-wide (reikai.presentation.library.LibraryGroup; 0 = BY_DEFAULT). */
@@ -55,7 +57,7 @@ class ReikaiLibraryPreferences(
     /** Sticky All/Manga/Novels chip on the Library tab. Its own key, distinct from the Browse
      *  and download-queue content-type filters, so each surface remembers its last type. */
     val libraryContentType: Preference<ContentType> =
-        preferenceStore.getEnum("library_content_type", ContentType.MANGA)
+        ShownContentPreference(preferenceStore.getEnum("library_content_type", ContentType.MANGA), shownContent)
 
     // endregion
 

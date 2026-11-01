@@ -45,6 +45,9 @@ import reikai.domain.extension.kindListing
 import reikai.domain.extension.pendingUpdate
 import reikai.domain.extension.signingKeys
 import reikai.domain.extension.toRepoStatus
+import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.includes
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ContentWarningScan
 import reikai.domain.source.contentWarningScan
@@ -82,6 +85,7 @@ class ExtensionManager(
     private val extensionUpdateNotifier: ExtensionUpdateNotifier,
     // RK: keeps the listing's icons for a novel app whose own icon shows nothing
     private val novelPreferences: NovelPreferences,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences, // RK: a hidden type's updates go unannounced
 ) {
 
     private val initialized = CompletableDeferred<Unit>()
@@ -330,9 +334,17 @@ class ExtensionManager(
         initialized.await()
         setAvailableExtensions(extensions)
 
-        val names = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
-            // RK: novel apks share the notice, since one store index lists both
-            .plus(loadedNovelExtensionMapFlow.value.values + notLoadedNovelExtensionMapFlow.value.values)
+        // RK --> novel apks share the notice, since one store index lists both
+        val shown = reikaiLibraryPreferences.shownContent.get()
+        val names = buildList {
+            if (shown.includes(ContentType.MANGA)) {
+                addAll(loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
+            }
+            if (shown.includes(ContentType.NOVELS)) {
+                addAll(loadedNovelExtensionMapFlow.value.values + notLoadedNovelExtensionMapFlow.value.values)
+            }
+        }
+            // RK <--
             // RK: a badge a store outage kept has nothing to install, so it is left out of the notice
             .filter { it.pendingUpdate(extensions, storeKeys) != null }
             .map { it.name }

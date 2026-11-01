@@ -10,6 +10,8 @@ import androidx.work.WorkerParameters
 import eu.kanade.tachiyomi.util.system.workManager
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
@@ -30,7 +32,11 @@ class LnPluginUpdateWorker(
         return runCatchingCancellable {
             val graph = applicationContext.appGraph
             val updates = graph.lnPluginUpdateChecker.checkAndRecord()
-            if (updates.isNotEmpty()) graph.lnPluginUpdateNotifier.promptUpdates(updates.map { it.entry.name })
+            if (updates.isNotEmpty() &&
+                graph.reikaiLibraryPreferences.shownContent.get().includes(ContentType.NOVELS)
+            ) {
+                graph.lnPluginUpdateNotifier.promptUpdates(updates.map { it.entry.name })
+            }
             Result.success()
         }.getOrElse { e ->
             // Only an unexpected failure lands here: check() already logs and skips a registry that

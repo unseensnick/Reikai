@@ -32,7 +32,9 @@ import androidx.compose.ui.semantics.Role
 import eu.kanade.core.preference.asToggleableState
 import eu.kanade.presentation.category.visualName
 import reikai.domain.category.CategoryContentType
+import reikai.domain.library.ContentType
 import reikai.presentation.category.categoryContentTypeLabel
+import reikai.presentation.components.LocalShownContent
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -101,19 +103,21 @@ fun CategoryCreateDialog(
                 )
 
                 // RK --> which libraries the new category applies to
-                Text(
-                    text = stringResource(MR.strings.category_content_type),
-                    style = MaterialTheme.typography.labelMedium,
-                    modifier = Modifier.padding(
-                        start = MaterialTheme.padding.extraSmall,
-                        top = MaterialTheme.padding.small,
-                        bottom = MaterialTheme.padding.extraSmall,
-                    ),
-                )
-                CategoryContentTypeOptions(
-                    selected = contentType,
-                    onSelect = { contentType = it },
-                )
+                if (LocalShownContent.current == ContentType.ALL) {
+                    Text(
+                        text = stringResource(MR.strings.category_content_type),
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.padding(
+                            start = MaterialTheme.padding.extraSmall,
+                            top = MaterialTheme.padding.small,
+                            bottom = MaterialTheme.padding.extraSmall,
+                        ),
+                    )
+                    CategoryContentTypeOptions(
+                        selected = contentType,
+                        onSelect = { contentType = it },
+                    )
+                }
                 // RK <--
             }
         },

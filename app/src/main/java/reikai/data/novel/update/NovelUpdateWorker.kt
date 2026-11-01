@@ -29,12 +29,13 @@ import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.library.EntryCheck
+import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateRunLedger
 import reikai.data.library.checkUpdateEntry
+import reikai.data.library.libraryUpdateGate
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
-import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.library.stopLibraryUpdate
 import reikai.data.library.updateBySource
 import reikai.data.novel.refreshNovelFromSource
@@ -142,7 +143,10 @@ class NovelUpdateWorker(
         // A WorkManager start has no MainActivity to wait for the migrations first
         Migrator.await()
         val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
-        if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) return Result.retry()
+        val shown = reikaiLibraryPreferences.shownContent.get()
+        libraryUpdateGate(LibraryUpdateJob.NOVEL, shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
+            return it
+        }
         setForegroundSafely()
         // Stamp the run start for the Updates "Last updated" line (matches manga LibraryUpdateWorker).
         preferences.novelLibraryUpdateLastTimestamp().set(System.currentTimeMillis())

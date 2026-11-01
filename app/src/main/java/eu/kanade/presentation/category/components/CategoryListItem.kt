@@ -34,7 +34,9 @@ import mihon.icons.materialsymbols.roundedfilled.CheckCircle
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
 import reikai.domain.category.isHidden
+import reikai.domain.library.ContentType
 import reikai.presentation.category.categoryContentTypeLabel
+import reikai.presentation.components.LocalShownContent
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import tachiyomi.domain.category.model.Category
 import tachiyomi.i18n.MR
@@ -103,11 +105,14 @@ fun ReorderableCollectionItemScope.CategoryListItem(
                     .alpha(if (category.isHidden) 0.5f else 1f),
             ) {
                 Text(text = category.name)
-                Text(
-                    text = stringResource(categoryContentTypeLabel(category.contentType)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                // RK: the type label means nothing while one type shows
+                if (LocalShownContent.current == ContentType.ALL) {
+                    Text(
+                        text = stringResource(categoryContentTypeLabel(category.contentType)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
             // RK --> selection mode shows a selected-state check; otherwise the per-row actions
             // (hide is a Reikai addition; rename + delete are Mihon's).

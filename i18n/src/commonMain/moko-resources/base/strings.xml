@@ -458,6 +458,7 @@
     <string name="theme_yotsuba">Yotsuba</string>
     <string name="theme_tidalwave">Tidal Wave</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
+    <!-- RK --><string name="pref_shown_content">Show</string>
     <!-- RK --><string name="pref_theme_cover_based">Theme based on cover</string>
     <string name="pref_theme_cover_based_summary">Tint the reader and details screens with the cover\'s color</string>
     <string name="pref_theme_cover_based_style">Cover based theme style</string><!-- RK -->

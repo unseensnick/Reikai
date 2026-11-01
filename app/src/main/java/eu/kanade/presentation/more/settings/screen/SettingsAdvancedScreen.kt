@@ -52,6 +52,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.Headers
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.bypassPreferenceItems
 import tachiyomi.core.common.i18n.stringResource
@@ -375,6 +376,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 // collapsed after the rebuild (both now clear every group), so it is one action per type.
                 Preference.PreferenceItem.TextPreference(
                     title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_manga),
+                    visible = showsContent(ContentType.MANGA), // RK
                     subtitle = stringResource(MR.strings.pref_clear_merges_summary),
                     onClick = {
                         appScope.launch {
@@ -385,6 +387,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.TextPreference(
                     title = contentTypedCategory(MR.strings.pref_clear_merges, MR.strings.content_type_novels),
+                    visible = showsContent(ContentType.NOVELS), // RK
                     subtitle = stringResource(MR.strings.pref_clear_merges_summary),
                     onClick = {
                         appScope.launch {

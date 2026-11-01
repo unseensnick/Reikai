@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.source.AndroidSourceManager
 import eu.kanade.tachiyomi.util.system.AuthenticatorUtil.authenticate
 import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
+import reikai.domain.library.ContentType
 import reikai.presentation.browse.repos.RepositoriesScreen
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -66,6 +67,7 @@ object SettingsBrowseScreen : SearchableSettings {
         val reposCount by getExtensionStoreCountAsFlow().collectAsState(0)
         val novelRepoUrls by novelPreferences.addedRepoUrls().changes()
             .collectAsState(novelPreferences.addedRepoUrls().get())
+        val novelRepoCount = if (showsContent(ContentType.NOVELS)) novelRepoUrls.size else 0
 
         return listOfNotNull(
             Preference.PreferenceGroup(
@@ -86,12 +88,13 @@ object SettingsBrowseScreen : SearchableSettings {
                         valueRange = 0..10,
                         title = stringResource(MR.strings.pref_previews_row_count),
                         subtitle = stringResource(MR.strings.pref_previews_row_count_summary),
+                        visible = showsContent(ContentType.MANGA), // RK
                     ),
                     // RK <--
                     // RK --> one Repos screen for extension stores and LN plugin repos, so one count of both
                     Preference.PreferenceItem.TextPreference(
                         title = stringResource(MR.strings.repos),
-                        subtitle = (reposCount.toInt() + novelRepoUrls.size).let {
+                        subtitle = (reposCount.toInt() + novelRepoCount).let {
                             pluralStringResource(MR.plurals.repo_count, it, it)
                         },
                         onClick = {
@@ -174,11 +177,13 @@ object SettingsBrowseScreen : SearchableSettings {
                         preference = exhPreferences.isHentaiEnabled(),
                         title = stringResource(MR.strings.pref_enable_adult_sources),
                         subtitle = stringResource(MR.strings.pref_enable_adult_sources_summary),
+                        visible = showsContent(ContentType.MANGA), // RK
                     ),
                     // RK --> Komikku's delegated-sources switch, beside the gate for the same subsystem
                     Preference.PreferenceItem.SwitchPreference(
                         preference = delegateSourcePreferences.delegateSources(),
                         title = stringResource(MR.strings.toggle_delegated_sources),
+                        visible = showsContent(ContentType.MANGA), // RK
                         subtitle = stringResource(
                             MR.strings.toggle_delegated_sources_summary,
                             stringResource(MR.strings.app_name),
@@ -211,12 +216,12 @@ object SettingsBrowseScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_category_eh),
                 subtitle = stringResource(MR.strings.pref_ehentai_summary),
                 onClick = { navigator.push(SettingsEhScreen) },
-            ).takeIf { adultSourcesEnabled },
+            ).takeIf { adultSourcesEnabled && showsContent(ContentType.MANGA) }, // RK
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_category_mangadex),
                 subtitle = stringResource(MR.strings.pref_mangadex_summary),
                 onClick = { navigator.push(SettingsMangaDexScreen) },
-            ).takeIf { mangaDexEnabled },
+            ).takeIf { mangaDexEnabled && showsContent(ContentType.MANGA) }, // RK
         )
         return if (rows.isEmpty()) {
             null

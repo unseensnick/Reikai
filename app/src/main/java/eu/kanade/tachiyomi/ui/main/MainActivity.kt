@@ -32,6 +32,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -104,6 +105,7 @@ import mihon.data.cache.ChapterCache
 import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.SourceKey
 import reikai.novel.download.NovelDownloadCache
@@ -111,6 +113,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.closesWhenIncognitoEnds
 import reikai.presentation.browse.globalsearch.searchIntentScreen
 import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.novelDetailsScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.util.isLauncherIntent
@@ -134,6 +137,8 @@ class MainActivity : BaseActivity() {
     private val graph: AppGraph by lazy { metroGraph() }
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
+
+    @Inject private lateinit var reikaiLibraryPreferences: ReikaiLibraryPreferences // RK
 
     // RK: moved up from the end of upstream's field list, unchanged
     @Inject private lateinit var extensionManager: ExtensionManager
@@ -239,6 +244,8 @@ class MainActivity : BaseActivity() {
                 )
             }
 
+            val shownContent by reikaiLibraryPreferences.shownContent.collectAsState() // RK
+
             Navigator(
                 screen = HomeScreen,
                 disposeBehavior = NavigatorDisposeBehavior(disposeNestedNavigators = false, disposeSteps = true),
@@ -275,13 +282,16 @@ class MainActivity : BaseActivity() {
                 ) { contentPadding ->
                     // Consume insets already used by app state banners
                     Box {
-                        // Shows current screen
-                        DefaultNavigatorScreenTransition(
-                            navigator = navigator,
-                            modifier = Modifier
-                                .padding(contentPadding)
-                                .consumeWindowInsets(contentPadding),
-                        )
+                        // RK: the Show setting, for the chips and type labels on every screen
+                        CompositionLocalProvider(LocalShownContent provides shownContent) {
+                            // Shows current screen
+                            DefaultNavigatorScreenTransition(
+                                navigator = navigator,
+                                modifier = Modifier
+                                    .padding(contentPadding)
+                                    .consumeWindowInsets(contentPadding),
+                            )
+                        }
 
                         // Draw navigation bar scrim when needed
                         if (remember { isNavigationBarNeedsScrim() }) {

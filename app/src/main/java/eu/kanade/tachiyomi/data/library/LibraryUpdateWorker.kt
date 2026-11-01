@@ -36,12 +36,13 @@ import mihon.core.migration.Migrator
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.EntryCheck
+import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateRunLedger
 import reikai.data.library.checkUpdateEntry
+import reikai.data.library.libraryUpdateGate
 import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
-import reikai.data.library.shouldDeferLibraryUpdate
 import reikai.data.library.stopLibraryUpdate
 import reikai.data.library.updateBySource
 import reikai.data.updateerror.UpdateErrorEntry
@@ -122,10 +123,11 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
     override suspend fun doWork(): Result {
         Migrator.await() // RK: a WorkManager start has no MainActivity to wait for the migrations first
         // RK: graph.inject moved to init
-        // RK: the deferral rule is shared with the novel updater, in LibraryUpdateSchedule.kt
+        // RK: the run gate is shared with the novel and gallery updaters, in LibraryUpdateSchedule.kt
         val restrictions = libraryPreferences.autoUpdateDeviceRestrictions.get()
-        if (shouldDeferLibraryUpdate(restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)) {
-            return Result.retry()
+        val shown = reikaiLibraryPreferences.shownContent.get() // RK
+        libraryUpdateGate(LibraryUpdateJob.MANGA, shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
+            return it
         }
 
         setForegroundSafely()

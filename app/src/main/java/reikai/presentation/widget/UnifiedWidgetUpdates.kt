@@ -2,6 +2,8 @@ package reikai.presentation.widget
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.recents.RECENTS_FEED_LIMIT
@@ -23,6 +25,7 @@ internal data class UnifiedWidgetUpdates(
 internal fun unifiedWidgetUpdates(
     getUpdates: GetUpdates,
     novelRepository: NovelRepository,
+    shownContent: Flow<ContentType>,
 ): Flow<UnifiedWidgetUpdates> {
     val after = BaseUpdatesGridGlanceWidget.DateLimit
     return combine(
@@ -36,6 +39,11 @@ internal fun unifiedWidgetUpdates(
             includedCategories = emptyList(),
             excludedCategories = emptyList(),
         ),
-        ::UnifiedWidgetUpdates,
-    )
+        shownContent,
+    ) { manga, novel, shown ->
+        UnifiedWidgetUpdates(
+            manga = manga.takeIf { shown.includes(ContentType.MANGA) }.orEmpty(),
+            novel = novel.takeIf { shown.includes(ContentType.NOVELS) }.orEmpty(),
+        )
+    }
 }

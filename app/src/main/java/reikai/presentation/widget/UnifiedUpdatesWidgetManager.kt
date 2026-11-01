@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import logcat.LogPriority
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.updates.interactor.GetUpdates
@@ -37,6 +38,7 @@ class UnifiedUpdatesWidgetManager(
     private val getUpdates: GetUpdates,
     private val novelRepository: NovelRepository,
     private val securityPreferences: SecurityPreferences,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) {
 
     // Seeded at process start, then kept by the receiver's enabled and disabled broadcasts.
@@ -53,7 +55,11 @@ class UnifiedUpdatesWidgetManager(
         placed.value = AppWidgetManager.getInstance(context)?.getAppWidgetIds(receiver)?.isNotEmpty() == true
         unifiedWidgetRefreshes(
             placed = placed,
-            updates = unifiedWidgetUpdates(getUpdates, novelRepository),
+            updates = unifiedWidgetUpdates(
+                getUpdates,
+                novelRepository,
+                reikaiLibraryPreferences.shownContent.changes(),
+            ),
             locked = securityPreferences.useAuthenticator.changes(),
         )
             .onEach {
