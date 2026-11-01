@@ -100,7 +100,7 @@ With `eh_use_auto_webtoon` on (the default), a manga whose reading mode is Defau
 - **Menu visibility is host state but still lives in `ReaderViewModel.State`**, because the three image viewers read `menuVisible` directly; moving it means editing all three.
 - **A finished manga chapter opens at its start only when picked or stepped to** (`loadAdjacent`), never on every way it becomes current, or paging back into it overwrites the page `onPageSelected` stamped.
 - **An untouched Apply in the quick reading-mode or rotation picker writes nothing** (`ModeSelection`). The rotation picker highlights the resolved rotation, a deliberate divergence from Mihon's `OrientationSelectDialog`.
-- **The per-entry orientation flag crosses the provider seam unresolved**, 0 meaning follow the type's default; `resolvedOrientation` is beside it. Resolving it early stops the picker's "use default" row showing as selected.
+- **The per-entry orientation flag crosses the provider seam unresolved**, 0 meaning follow the type's default; `resolvedOrientation` is beside it. Resolving it early stops the picker's "use default" row showing as selected. Reset per-series reader settings clears it on both types (`ResetEntryViewerFlags`).
 
 ## Decisions
 

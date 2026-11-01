@@ -18,6 +18,9 @@ interface NovelRepository {
     suspend fun getByUrlAndSource(url: String, source: String): Novel?
     suspend fun getFavorites(): List<Novel>
 
+    /** Clears every novel's reader settings; false when the write failed. Called by `ResetEntryViewerFlags`. */
+    suspend fun resetViewerFlags(): Boolean
+
     /** Non-favorite novels with read progress (read chapters or a mid-chapter position), for the
      *  read-entries backup option. Twin of
      *  [tachiyomi.domain.manga.repository.MangaRepository.getReadMangaNotInLibrary], pinned by

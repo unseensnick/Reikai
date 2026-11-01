@@ -54,7 +54,6 @@ import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.ResetCategoryFlags
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.interactor.ResetViewerFlags
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StoragePreferences
 import tachiyomi.domain.track.interactor.UpsertTrack
@@ -121,7 +120,8 @@ interface AppGraph : ViewModelGraph, ReikaiGraph { // RK: Reikai's members live 
     // RK: in place of upstream's getFavorites, whose one reader was the library list export
     val getLibraryExportRows: GetLibraryExportRows
     val getCategories: GetCategories
-    val resetViewerFlags: ResetViewerFlags
+
+    // RK: resetViewerFlags moved to ReikaiGraph as resetEntryViewerFlags, which resets novels too
     val resetCategoryFlags: ResetCategoryFlags
     val addTracks: AddTracks
     val upsertTrack: UpsertTrack

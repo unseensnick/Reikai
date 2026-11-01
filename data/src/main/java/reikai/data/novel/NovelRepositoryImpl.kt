@@ -45,6 +45,15 @@ class NovelRepositoryImpl(
     override suspend fun getFavorites(): List<Novel> =
         database.novelsQueries.findFavorites(::mapNovel).awaitAsList()
 
+    override suspend fun resetViewerFlags(): Boolean =
+        try {
+            database.novelsQueries.resetViewerFlags()
+            true
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            false
+        }
+
     override suspend fun getReadNovelsNotInLibrary(): List<Novel> =
         database.novelsQueries.getReadNovelsNotInLibrary(::mapNovel).awaitAsList()
 

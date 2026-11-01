@@ -346,7 +346,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_reset_viewer_flags_summary),
                     onClick = {
                         scope.launch {
-                            val success = context.appGraph.resetViewerFlags.await()
+                            val success = context.appGraph.resetEntryViewerFlags.await() // RK: both content types
                             val message = if (success) {
                                 MR.strings.pref_reset_viewer_flags_success
                             } else {

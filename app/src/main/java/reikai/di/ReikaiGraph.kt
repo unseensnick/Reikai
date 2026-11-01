@@ -18,6 +18,7 @@ import mihon.core.migration.migrations.MergedDuplicateCarryMigration
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.entry.ResetEntryViewerFlags
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
@@ -91,6 +92,7 @@ interface ReikaiGraph {
     // at construction, so every read has to build a fresh one.
     val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
+    val resetEntryViewerFlags: ResetEntryViewerFlags
     val novelSourceManager: NovelSourceManager
     val iReaderHostServices: IReaderHostServices // the extension loader builds IReader sources with it
     val novelImageRequests: NovelImageRequests // novel covers and pictures take their source's headers

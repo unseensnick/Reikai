@@ -225,6 +225,9 @@ UPDATE novels SET
     calculate_interval = coalesce(:calculateInterval, calculate_interval)
 WHERE _id = :id;
 
+resetViewerFlags:
+UPDATE novels SET viewer_flags = 0 WHERE viewer_flags != 0;
+
 -- The partial update's genre column, written apart because it keeps its adapter only without coalesce.
 setGenre:
 UPDATE novels SET genre = :genre WHERE _id = :id;
