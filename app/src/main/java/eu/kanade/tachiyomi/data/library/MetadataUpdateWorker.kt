@@ -26,6 +26,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.novel.NovelMetadataRefresh
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.model.LibraryManga
@@ -55,6 +56,8 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
     @Inject private lateinit var updateMangaFromRemote: UpdateMangaFromRemote
 
     @Inject private lateinit var notifier: LibraryUpdateNotifier
+
+    @Inject private lateinit var novelMetadataRefresh: NovelMetadataRefresh // RK
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
@@ -140,6 +143,8 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
                 }
                 .awaitAll()
         }
+
+        novelMetadataRefresh.run() // RK: the one Settings action covers both content types
 
         notifier.cancelProgressNotification()
     }

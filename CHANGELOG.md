@@ -14,6 +14,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**
 
+#### Fixed
+
+- **Settings -> Advanced -> Refresh library covers now refreshes novels too.**
+
 ### Downloads
 
 #### Changed

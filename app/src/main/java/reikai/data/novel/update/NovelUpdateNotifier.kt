@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -44,6 +45,7 @@ import mihon.icons.materialsymbols.R as MaterialSymbolsR
  * while favorited novels are checked, then one entry per novel that gained chapters under a summary
  * that opens Updates, as the manga updater's does. Sibling of [reikai.novel.download.NovelDownloadNotifier].
  */
+@Inject
 class NovelUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
