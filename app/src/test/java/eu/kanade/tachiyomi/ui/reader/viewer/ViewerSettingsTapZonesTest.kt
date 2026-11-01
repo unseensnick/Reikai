@@ -26,7 +26,7 @@ import reikai.presentation.recents.EmittingPreferenceStore
 /**
  * The tap zones a manga viewer opens with. Each zone rebuild tells the overlay, and the overlay fades in on every
  * call after the first, so opening must rebuild once. The long strip's settings stand in for the pager's, which
- * build their zones through the same [NavigationSettings]. Robolectric, because a zone is a RectF.
+ * build their zones through the same [NavigationSettings].
  */
 @RunWith(RobolectricTestRunner::class)
 class ViewerSettingsTapZonesTest {
@@ -54,7 +54,7 @@ class ViewerSettingsTapZonesTest {
         runCurrent()
     }
 
-    private fun ReaderSettingsViewModel.zones() = simpleLongStrip.value.navigation.navigator(::LNavigation)
+    private fun ReaderSettingsViewModel.zones() = simpleLongStrip.value.navigation.navigator(false, ::LNavigation)
 
     @Test
     fun `opening a viewer hands the overlay its zones once`() = runTest {
@@ -70,7 +70,7 @@ class ViewerSettingsTapZonesTest {
 
         val settings = openViewer()
 
-        settings.zones().getRegions().single().rectF.top shouldBe (0.7f plusOrMinus 0.0001f)
+        settings.zones().getRegions().single().rect.top shouldBe (0.7f plusOrMinus 0.0001f)
     }
 
     @Test
@@ -81,7 +81,7 @@ class ViewerSettingsTapZonesTest {
         preferences.tapBottomZoneHeight.set(30)
         runCurrent()
 
-        settings.zones().getRegions().single().rectF.top shouldBe (0.7f plusOrMinus 0.0001f)
+        settings.zones().getRegions().single().rect.top shouldBe (0.7f plusOrMinus 0.0001f)
     }
 
     @Test
@@ -89,14 +89,18 @@ class ViewerSettingsTapZonesTest {
         preferences.tapBottomZoneHeight.set(30)
         preferences.navigationModePager.set(BOTTOM)
 
-        val zones = viewModel().paged.value.navigation.navigator(::LNavigation)
+        val zones = viewModel().paged.value.navigation.navigator(false, ::LNavigation)
 
-        zones.getRegions().single().rectF.top shouldBe (0.7f plusOrMinus 0.0001f)
+        zones.getRegions().single().rect.top shouldBe (0.7f plusOrMinus 0.0001f)
     }
 
     @Test
     fun `an unknown stored layout falls back to the viewer's default`() {
-        val zones = NavigationSettings(99, ReaderPreferences.TappingInvertMode.NONE, 30).navigator(::DisabledNavigation)
+        val zones = NavigationSettings(
+            99,
+            ReaderPreferences.TappingInvertMode.NONE,
+            30,
+        ).navigator(false, ::DisabledNavigation)
 
         zones.shouldBeInstanceOf<DisabledNavigation>()
     }

@@ -1,11 +1,15 @@
 package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 
-import android.graphics.PointF
-import android.view.KeyEvent
-import android.view.MotionEvent
-import android.view.View
+import android.graphics.ColorFilter
 import android.view.ViewGroup
 import android.view.ViewGroup.LayoutParams.MATCH_PARENT
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.asAndroidColorFilter
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.ActivityCompat
 import androidx.core.view.isGone
 import androidx.core.view.isVisible
@@ -16,17 +20,18 @@ import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.GeneralSettings
+import eu.kanade.tachiyomi.ui.reader.viewer.LocalPageColorFilter
 import eu.kanade.tachiyomi.ui.reader.viewer.LongStripSettings
+import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
-import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.collectChanges
-import eu.kanade.tachiyomi.ui.reader.viewer.navigation.LNavigation
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
 import mihon.app.di.appGraph
 import reikai.presentation.reader.holdsStripAutoScroll
-import reikai.presentation.reader.navigation.actionAt
 import tachiyomi.core.common.util.system.logcat
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.math.max
 import kotlin.math.min
 
@@ -84,10 +89,6 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     val general: GeneralSettings
         get() = settingsViewModel.general.value
 
-    private val forceNavigationOverlay = settingsViewModel.takeNavigationOverlayForNewUser()
-
-    private var navigator = simpleLongStrip.navigation.navigator(::LNavigation)
-
     /**
      * Adapter of the recycler view.
      */
@@ -139,16 +140,11 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             recycler.getLocationOnScreen(viewPosition)
             val viewPositionRelativeToWindow = IntArray(2)
             recycler.getLocationInWindow(viewPositionRelativeToWindow)
-            val pos = PointF(
+            val pos = Offset(
                 (event.rawX - viewPosition[0] + viewPositionRelativeToWindow[0]) / recycler.width,
                 (event.rawY - viewPosition[1] + viewPositionRelativeToWindow[1]) / recycler.originalHeight,
             )
-            when (navigator.actionAt(pos)) { // RK: a zone-only layout leaves the rest to the page
-                null -> Unit // RK
-                NavigationRegion.MENU -> activity.toggleMenu()
-                NavigationRegion.NEXT, NavigationRegion.RIGHT -> scrollDown()
-                NavigationRegion.PREV, NavigationRegion.LEFT -> scrollUp()
-            }
+            activity.onViewerTap(pos)
         }
         recycler.longTapListener = f@{ event ->
             if (activity.viewModel.state.value.menuVisible || general.longTapEnabled) {
@@ -186,13 +182,9 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             if (old?.doubleTapZoom != new.doubleTapZoom) {
                 frame.doubleTapZoom = new.doubleTapZoom
             }
-            if (old?.navigation != new.navigation) {
-                navigator = new.navigation.navigator(::LNavigation)
-                val showOnStart = general.navigationOverlayOnStart || forceNavigationOverlay
-                activity.navigationOverlayState.setNavigation(navigator, showOnStart) // RK
-            }
         }
 
+        frame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS // RK: keys stay with the Activity
         frame.layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         frame.addView(recycler)
     }
@@ -217,11 +209,26 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         }
     }
 
-    /**
-     * Returns the view this viewer uses.
-     */
-    override fun getView(): View {
-        return frame
+    /** The page images' colours, for pages bound later - see [LocalPageColorFilter]. */
+    var pageColorFilter: ColorFilter? = null
+        private set
+
+    /** Every page view made, as the recycler's cached ones are neither children nor always bound again. */
+    private val pageViews = Collections.newSetFromMap(WeakHashMap<ReaderPageImageView, Boolean>())
+
+    fun onPageViewCreated(view: ReaderPageImageView) {
+        pageViews += view
+    }
+
+    @Composable
+    override fun Content(modifier: Modifier) {
+        val filter = LocalPageColorFilter.current
+        val pageFilter = remember(filter) { filter?.asAndroidColorFilter() }
+        SideEffect {
+            pageColorFilter = pageFilter
+            pageViews.forEach { it.pageColorFilter = pageFilter }
+        }
+        AndroidView(factory = { frame }, modifier = modifier)
     }
 
     /**
@@ -327,21 +334,14 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
     private val volumeScrollDistance: Int
         get() = (activity.resources.displayMetrics.heightPixels * simpleLongStrip.volumeKeysScrollFraction).toInt()
 
-    /**
-     * Scrolls up by [distance] (defaults to the fixed [scrollDistance] for tap/keyboard nav).
-     */
-    private fun scrollUp(distance: Int = scrollDistance) {
-        if (general.usePageTransitions) {
-            recycler.smoothScrollBy(0, -distance)
-        } else {
-            recycler.scrollBy(0, -distance)
-        }
-    }
+    /** A volume key's step, which [reikai.presentation.reader.MangaViewport] reads apart from the fixed move. */
+    fun moveByVolumeKey(forward: Boolean) = scrollBy(if (forward) volumeScrollDistance else -volumeScrollDistance)
 
-    /**
-     * Scrolls down by [distance] (defaults to the fixed [scrollDistance] for tap/keyboard nav).
-     */
-    private fun scrollDown(distance: Int = scrollDistance) {
+    override fun moveForward() = scrollBy(scrollDistance)
+
+    override fun moveBackward() = scrollBy(-scrollDistance)
+
+    private fun scrollBy(distance: Int) {
         if (general.usePageTransitions) {
             recycler.smoothScrollBy(0, distance)
         } else {
@@ -349,62 +349,6 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
         }
     }
     // RK <--
-
-    /**
-     * Called from the containing activity when a key [event] is received. It should return true
-     * if the event was handled, false otherwise.
-     */
-    override fun handleKeyEvent(event: KeyEvent): Boolean {
-        val isUp = event.action == KeyEvent.ACTION_UP
-
-        when (event.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (!general.volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
-                    return false
-                } else if (isUp) {
-                    // RK: user-settable volume scroll distance (novel parity)
-                    if (!general.volumeKeysInverted) {
-                        scrollDown(volumeScrollDistance)
-                    } else {
-                        scrollUp(volumeScrollDistance)
-                    }
-                }
-            }
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (!general.volumeKeysEnabled || activity.viewModel.state.value.menuVisible) {
-                    return false
-                } else if (isUp) {
-                    // RK: user-settable volume scroll distance (novel parity)
-                    if (!general.volumeKeysInverted) {
-                        scrollUp(volumeScrollDistance)
-                    } else {
-                        scrollDown(volumeScrollDistance)
-                    }
-                }
-            }
-            KeyEvent.KEYCODE_MENU -> if (isUp) activity.toggleMenu()
-
-            KeyEvent.KEYCODE_DPAD_LEFT,
-            KeyEvent.KEYCODE_DPAD_UP,
-            KeyEvent.KEYCODE_PAGE_UP,
-            -> if (isUp) scrollUp()
-
-            KeyEvent.KEYCODE_DPAD_RIGHT,
-            KeyEvent.KEYCODE_DPAD_DOWN,
-            KeyEvent.KEYCODE_PAGE_DOWN,
-            -> if (isUp) scrollDown()
-            else -> return false
-        }
-        return true
-    }
-
-    /**
-     * Called from the containing activity when a generic motion [event] is received. It should
-     * return true if the event was handled, false otherwise.
-     */
-    override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
-        return false
-    }
 
     /**
      * Notifies adapter of changes around the current page to trigger a relayout in the recycler.

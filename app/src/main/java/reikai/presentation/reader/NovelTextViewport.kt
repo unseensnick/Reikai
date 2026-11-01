@@ -21,6 +21,8 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.core.view.ViewCompat
 import androidx.core.view.children
 import androidx.core.view.isVisible
@@ -1158,7 +1160,14 @@ class NovelTextViewport(
         return true
     }
 
-    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
+    @Composable
+    override fun Content(modifier: Modifier) = ViewportHost(view, modifier)
+
+    override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
+        if (!paged || resumeVeil.isUp) return false
+        turnPage(forward = wheelForward(event) ?: return false)
+        return true
+    }
 
     /**
      * A tap read through the session's tap zones, which the WebView renderer asks too, with a

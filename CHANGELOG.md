@@ -10,7 +10,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Reader
 
+#### Added
+
+- **A mouse wheel now turns pages in paged novels.**
+
 #### Changed
+
+- **Grayscale and inverted colors in the reader now change only the page, not what is drawn over it (from Mihon).**
 
 - **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
 

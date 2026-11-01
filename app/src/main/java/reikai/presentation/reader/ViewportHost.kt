@@ -7,18 +7,19 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.asAndroidColorFilter
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.view.children
-
-/** The session's grayscale and invert, or null for neither. Provided by the host, read by [ViewportHost]. */
-val LocalViewportPaint = compositionLocalOf<Paint?> { null }
+import eu.kanade.tachiyomi.ui.reader.viewer.LocalPageColorFilter
 
 /** Mounts a viewport's [view]. The container blocks descendant focus until a text renderer lifts it. */
 @Composable
 fun ViewportHost(view: View, modifier: Modifier = Modifier) {
-    val paint = LocalViewportPaint.current
+    // A novel's page is the whole renderer, so it takes on the view what a manga viewer applies per image
+    val filter = LocalPageColorFilter.current
+    val paint = remember(filter) { filter?.let { Paint().apply { colorFilter = it.asAndroidColorFilter() } } }
     AndroidView(
         factory = { context ->
             ViewportContainer(context).apply {

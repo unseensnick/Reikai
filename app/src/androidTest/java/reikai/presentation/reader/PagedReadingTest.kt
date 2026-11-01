@@ -50,7 +50,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var viewport: TextViewport
-    private val view: View get() = (viewport as ReaderViewport).view
+    private val view: View get() = viewport.view
 
     private val fits = Collections.synchronizedMap(mutableMapOf<Long, Boolean>())
     private val progress = Collections.synchronizedList(mutableListOf<Pair<Long, Int>>())

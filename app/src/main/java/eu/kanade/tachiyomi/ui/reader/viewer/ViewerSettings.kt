@@ -24,17 +24,19 @@ data class NavigationSettings(
     // RK <--
 ) {
 
-    fun navigator(default: () -> ViewerNavigation): ViewerNavigation {
-        val navigation = MangaTapLayouts.navigation(mode, bottomZoneHeight) // RK
+    fun navigator(
+        isReversed: Boolean,
+        default: (ReaderPreferences.TappingInvertMode, Boolean) -> ViewerNavigation,
+    ): ViewerNavigation {
+        return MangaTapLayouts.navigation(mode, bottomZoneHeight, inverted, isReversed) // RK
             ?: when (mode) {
-                1 -> LNavigation()
-                2 -> KindlishNavigation()
-                3 -> EdgeNavigation()
-                4 -> RightAndLeftNavigation()
-                5 -> DisabledNavigation()
-                else -> default()
+                1 -> LNavigation(inverted, isReversed)
+                2 -> KindlishNavigation(inverted, isReversed)
+                3 -> EdgeNavigation(inverted, isReversed)
+                4 -> RightAndLeftNavigation(inverted, isReversed)
+                5 -> DisabledNavigation(inverted, isReversed)
+                else -> default(inverted, isReversed)
             }
-        return navigation.also { it.invertMode = inverted }
     }
 }
 

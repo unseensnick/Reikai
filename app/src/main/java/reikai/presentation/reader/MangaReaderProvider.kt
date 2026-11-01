@@ -309,6 +309,14 @@ class MangaReaderProvider(
             interval = readerPreferences.autoScrollInterval,
             speed = readerPreferences.autoScrollSpeed,
             shownPage = shownPage,
+            input = object : MangaViewportInput {
+                override val navigation get() = host.settingsViewModel.navigation.value
+                override val volumeKeysEnabled get() = host.settingsViewModel.general.value.volumeKeysEnabled
+                override val volumeKeysInverted get() = host.settingsViewModel.general.value.volumeKeysInverted
+                override val menuVisible get() = viewModel.state.value.menuVisible
+
+                override fun toggleMenu() = host.toggleMenu()
+            },
         )
 
     /**

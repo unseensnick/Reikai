@@ -32,8 +32,12 @@ object MangaTapLayouts {
     fun added(index: Int): NovelTapLayout? = added.getOrNull(index - ReaderPreferences.TapZones.size)
 
     /** An added layout's regions, null for Mihon's, which each viewer builds as upstream does. */
-    fun navigation(index: Int, bottomZoneHeightPercent: Int): ViewerNavigation? =
-        added(index)?.navigation(bottomZoneHeightPercent)
+    fun navigation(
+        index: Int,
+        bottomZoneHeightPercent: Int,
+        invertMode: TappingInvertMode,
+        isReversed: Boolean,
+    ): ViewerNavigation? = added(index)?.navigation(bottomZoneHeightPercent, invertMode, isReversed)
 
     /**
      * The novel reader's layout the one at [index] answers the inversion rules with, null for Default and

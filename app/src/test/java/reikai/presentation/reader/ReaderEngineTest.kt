@@ -4,7 +4,8 @@ import android.content.Context
 import android.content.Intent
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -1203,7 +1204,8 @@ private class FakeViewport(
     var destroyed = false
         private set
 
-    override val view: View get() = error("no view in a unit test")
+    @Composable
+    override fun Content(modifier: Modifier) = Unit
 
     override val isRtl = false
 

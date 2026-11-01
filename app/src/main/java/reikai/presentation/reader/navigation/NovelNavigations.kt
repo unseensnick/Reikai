@@ -1,7 +1,8 @@
 package reikai.presentation.reader.navigation
 
-import android.graphics.PointF
-import android.graphics.RectF
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 
 /*
@@ -14,40 +15,50 @@ import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 interface ZoneOnlyNavigation
 
 /** What a tap at [pos], in fractions of the page, asks for; null outside a [ZoneOnlyNavigation]'s zones. */
-fun ViewerNavigation.actionAt(pos: PointF): ViewerNavigation.NavigationRegion? =
-    if (this is ZoneOnlyNavigation && getRegions().none { it.rectF.contains(pos.x, pos.y) }) null else getAction(pos)
+fun ViewerNavigation.actionAt(pos: Offset): ViewerNavigation.Action? =
+    if (this is ZoneOnlyNavigation && getRegions().none { pos in it.rect }) null else getAction(pos)
 
 /** The top third reads back, the bottom third reads on, and the middle band opens the menu. */
-class ThirdsNavigation : ViewerNavigation() {
+class ThirdsNavigation(invertMode: TappingInvertMode, isReversed: Boolean) : ViewerNavigation(invertMode, isReversed) {
 
-    override var regionList: List<Region> = listOf(
-        Region(rectF = RectF(0f, 0f, 1f, 1f / 3), type = NavigationRegion.PREV),
-        Region(rectF = RectF(0f, 2f / 3, 1f, 1f), type = NavigationRegion.NEXT),
+    override val regionList: List<Region> = listOf(
+        Region(rect = Rect(0f, 0f, 1f, 1f / 3), type = NavigationRegion.PREV),
+        Region(rect = Rect(0f, 2f / 3, 1f, 1f), type = NavigationRegion.NEXT),
     )
 }
 
 /** Only the middle of the page opens the menu; [large] widens that zone. */
-class CenterNavigation(large: Boolean = false) :
-    ViewerNavigation(),
+class CenterNavigation(private val large: Boolean, invertMode: TappingInvertMode, isReversed: Boolean) :
+    ViewerNavigation(invertMode, isReversed),
     ZoneOnlyNavigation {
 
-    override var regionList: List<Region> = listOf(
+    override val regionList: List<Region> = listOf(
         Region(
-            rectF = if (large) RectF(0.3f, 0.3f, 0.7f, 0.7f) else RectF(0.4f, 0.4f, 0.6f, 0.6f),
+            rect = if (large) Rect(0.3f, 0.3f, 0.7f, 0.7f) else Rect(0.4f, 0.4f, 0.6f, 0.6f),
             type = NavigationRegion.MENU,
         ),
     )
+
+    // Upstream's equality reads the class alone, which would take a resized zone for no change.
+    override fun equals(other: Any?): Boolean = super.equals(other) && (other as CenterNavigation).large == large
+
+    override fun hashCode(): Int = 31 * super.hashCode() + large.hashCode()
 }
 
 /** Only a band along the bottom opens the menu, [heightFraction] of the page tall, as `NovelTapZones` bounds it. */
-class BottomNavigation(heightFraction: Float) :
-    ViewerNavigation(),
+class BottomNavigation(private val heightFraction: Float, invertMode: TappingInvertMode, isReversed: Boolean) :
+    ViewerNavigation(invertMode, isReversed),
     ZoneOnlyNavigation {
 
-    override var regionList: List<Region> = listOf(
+    override val regionList: List<Region> = listOf(
         Region(
-            rectF = RectF(0f, 1f - heightFraction, 1f, 1f),
+            rect = Rect(0f, 1f - heightFraction, 1f, 1f),
             type = NavigationRegion.MENU,
         ),
     )
+
+    override fun equals(other: Any?): Boolean =
+        super.equals(other) && (other as BottomNavigation).heightFraction == heightFraction
+
+    override fun hashCode(): Int = 31 * super.hashCode() + heightFraction.hashCode()
 }

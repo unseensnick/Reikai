@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -178,6 +180,9 @@ private class FakeTextViewport : ReaderViewport, TextViewport {
     }
 
     override val view: View get() = error("no view in a unit test")
+
+    @Composable
+    override fun Content(modifier: Modifier) = Unit
 
     override val isRtl = false
 

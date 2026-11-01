@@ -18,7 +18,13 @@ The launch names its entry as a type tag plus a raw id (`putEntryId`, `readEntry
 
 ### The viewer contract
 
-`ReaderViewport` is the downward contract the host drives: the view, `isRtl`, `seekTo(ChapterProgress)`, `onChapterStepped`, `onChapterOpened`, `autoScroll`, `destroy`, key and motion events. Chapter delivery is deliberately absent. `MangaViewport` wraps whatever `ReadingMode.toViewer` built, and manga chapters still arrive through `Viewer.setChapters` with `ViewerChapters`. Novel viewports implement `TextViewport` beside it, whose `ChapterWindow` carries novel chapters as HTML. Mihon's `Viewer` is one adapter under the contract, never the interface a novel viewer implements, because `ViewerChapters` and `ReaderPage` cannot carry a novel chapter without treating novels as manga.
+`ReaderViewport` is the downward contract the host drives: `Content(modifier)`, `isRtl`, `seekTo(ChapterProgress)`, `onChapterStepped`, `onChapterOpened`, `autoScroll`, `destroy`, key and motion events. Chapter delivery is deliberately absent. `MangaViewport` wraps whatever `ReadingMode.toViewer` built, and manga chapters still arrive through `Viewer.setChapters` with `ViewerChapters`. Novel viewports implement `TextViewport` beside it, whose `ChapterWindow` carries novel chapters as HTML. Mihon's `Viewer` is one adapter under the contract, never the interface a novel viewer implements, because `ViewerChapters` and `ReaderPage` cannot carry a novel chapter without treating novels as manga.
+
+`MangaViewport.Content` calls `Viewer.Content`, as upstream draws it: the pager and the strip host their view through `AndroidView` under `DisallowInterceptBarrier`, WebGPU is Compose. Novel viewports mount their renderer through `ViewportHost`, and `TextViewport.view` stays for what needs the view itself, such as `coverText`.
+
+Keys and the wheel enter at the Activity's `dispatchKeyEvent` and `dispatchGenericMotionEvent` and reach `ReaderViewport`, so they work while anything holds focus. `MangaViewport` holds upstream's key mapping over `MangaViewportInput`; a manga viewer takes the wheel through `mouseWheelPaging`, except the strip, which scrolls. Paged novels read the wheel through `wheelForward`, in both rendering modes.
+
+`displayFilters` reaches the page as `LocalPageColorFilter`, so grayscale and invert spare the chrome. Manga applies it per image, and a novel's renderer takes it whole through `ViewportHost`, since its page is the whole view. The WebGPU viewers have no page filter, as upstream.
 
 The image viewers are constructed with the concrete `ReaderActivity` and call back into it at many sites, so the Activity stays the object viewers talk to and forwards upward calls (`onPageSelected`, `requestPreloadChapter`, the menu toggles) into the engine. Which viewer implementation is running is a manga question, answered by unwrapping `MangaViewport.viewer` (`Viewer?.running()` in the settings pages), not by widening the contract.
 

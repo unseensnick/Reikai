@@ -14,6 +14,8 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.widget.FrameLayout
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import coil3.imageLoader
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
@@ -392,7 +394,14 @@ class NovelWebViewport(
         return true
     }
 
-    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
+    @Composable
+    override fun Content(modifier: Modifier) = ViewportHost(view, modifier)
+
+    override fun handleGenericMotionEvent(event: MotionEvent): Boolean {
+        if (!paged || resumeVeil.isUp) return false
+        turnPage(forward = wheelForward(event) ?: return false)
+        return true
+    }
 
     /**
      * The document is assembled here rather than by the host, because it is this renderer's own

@@ -1,10 +1,15 @@
 package reikai.presentation.reader
 
+import android.content.res.Resources
 import android.view.KeyEvent
 import android.view.MotionEvent
-import android.view.View
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.Action
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
@@ -36,10 +41,11 @@ class MangaViewport(
     private val interval: Preference<Int>,
     private val speed: Preference<Float>,
     private val shownPage: Flow<ShownPage>,
+    private val input: MangaViewportInput,
 ) : ReaderViewport {
 
-    override val view: View
-        get() = viewer.getView()
+    @Composable
+    override fun Content(modifier: Modifier) = viewer.Content(modifier)
 
     override fun seekTo(progress: ChapterProgress) {
         val page = progress.pageIndex?.let { visibleChapter()?.pages?.getOrNull(it) } ?: return
@@ -72,20 +78,61 @@ class MangaViewport(
         when (viewer) {
             is WebtoonViewer -> continuous(viewer::autoScrollBy)
             is WebGpuViewerContinuous -> continuous(viewer::autoScrollBy)
-            is PagerViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveToNext)
-            is WebGpuViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveToNext)
+            is PagerViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveForward)
+            is WebGpuViewer -> ViewportAutoScroll.Stepped(interval, shownPage, viewer::moveForward)
             else -> error("No auto-scroll for ${viewer::class}")
         }
     }
 
     private fun continuous(scrollBy: (Int) -> Boolean): ViewportAutoScroll {
-        val scroller = FrameScroller(viewer.getView().resources.displayMetrics.density, scrollBy)
+        val scroller = FrameScroller(Resources.getSystem().displayMetrics.density, scrollBy)
         return ViewportAutoScroll.Continuous(speed, scroller::run)
     }
 
     override fun destroy() = viewer.destroy()
 
-    override fun handleKeyEvent(event: KeyEvent): Boolean = viewer.handleKeyEvent(event)
+    // Upstream's mapping, kept at the Activity's dispatch so it works while anything holds focus. Movement is on key up.
+    override fun handleKeyEvent(event: KeyEvent): Boolean {
+        val navigation = input.navigation ?: return false
+        val isUp = event.action == KeyEvent.ACTION_UP
+        val ctrl = event.metaState and KeyEvent.META_CTRL_ON != 0
+        val action = when (event.keyCode) {
+            KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_UP -> {
+                if (!input.volumeKeysEnabled || input.menuVisible) return false
+                val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != input.volumeKeysInverted
+                if (viewer is WebtoonViewer) {
+                    if (isUp) viewer.moveByVolumeKey(forward)
+                    return true
+                }
+                if (forward) Action.FORWARD else Action.BACKWARD
+            }
+            KeyEvent.KEYCODE_DPAD_RIGHT -> if (ctrl) Action.FORWARD else navigation.actionOf(NavigationRegion.RIGHT)
+            KeyEvent.KEYCODE_DPAD_LEFT -> if (ctrl) Action.BACKWARD else navigation.actionOf(NavigationRegion.LEFT)
+            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> Action.FORWARD
+            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> Action.BACKWARD
+            KeyEvent.KEYCODE_MENU -> Action.MENU
+            else -> return false
+        }
+        if (isUp) {
+            when (action) {
+                Action.MENU -> input.toggleMenu()
+                Action.FORWARD -> viewer.moveForward()
+                Action.BACKWARD -> viewer.moveBackward()
+            }
+        }
+        return true
+    }
 
-    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = viewer.handleGenericMotionEvent(event)
+    // The viewers take the wheel in Compose, through `mouseWheelPaging`.
+    override fun handleGenericMotionEvent(event: MotionEvent): Boolean = false
+}
+
+/** What a key needs of the reader around the viewer. */
+interface MangaViewportInput {
+    val navigation: ViewerNavigation?
+    val volumeKeysEnabled: Boolean
+    val volumeKeysInverted: Boolean
+    val menuVisible: Boolean
+
+    fun toggleMenu()
 }

@@ -86,7 +86,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private lateinit var viewport: TextViewport
-    private val view: View get() = (viewport as ReaderViewport).view
+    private val view: View get() = viewport.view
 
     /** Set by a case that destroys the viewport itself, which the teardown must not do again. */
     private var destroyed = false

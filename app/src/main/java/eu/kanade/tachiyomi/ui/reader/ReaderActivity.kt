@@ -6,9 +6,6 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.graphics.ColorMatrix
-import android.graphics.ColorMatrixColorFilter
-import android.graphics.Paint
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -45,6 +42,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.getSystemService
@@ -85,12 +85,16 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import eu.kanade.tachiyomi.ui.reader.viewer.LocalPageColorFilter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderProgressIndicator
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.Action
+import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import eu.kanade.tachiyomi.util.system.toast
 import eu.kanade.tachiyomi.util.view.setComposeContent
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -113,7 +117,6 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
-import reikai.presentation.reader.LocalViewportPaint
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
 import reikai.presentation.reader.NO_ID
@@ -133,6 +136,7 @@ import reikai.presentation.reader.TextViewport
 import reikai.presentation.reader.brightness
 import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.isSameLaunch
+import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.reader.putEntryId
 import reikai.presentation.reader.readEntryId
 import reikai.presentation.reader.settings.ReaderSettingsPages
@@ -222,7 +226,8 @@ class ReaderActivity : BaseActivity() {
     // RK --> the host draws the viewport through Compose (mihon 00335b2a7), for both content types
     val navigationOverlayState = ReaderNavigationOverlayState()
     private var viewerInsets by mutableStateOf(ViewerInsets.SYSTEM_BARS)
-    private var viewportPaint by mutableStateOf<Paint?>(null)
+    private var pageColorFilter by mutableStateOf<ColorFilter?>(null)
+    private var navigationOverlayJob: Job? = null
     private var pageBackgroundColor by mutableStateOf<Int?>(null)
     // RK <--
 
@@ -486,7 +491,7 @@ class ReaderActivity : BaseActivity() {
                 ViewerInsets.CUTOUT -> WindowInsets.displayCutout
                 ViewerInsets.NONE -> WindowInsets(0)
             }
-            CompositionLocalProvider(LocalViewportPaint provides viewportPaint) {
+            CompositionLocalProvider(LocalPageColorFilter provides pageColorFilter) {
                 key(viewport) {
                     viewport?.Content(Modifier.fillMaxSize().windowInsetsPadding(insets))
                 }
@@ -906,12 +911,35 @@ class ReaderActivity : BaseActivity() {
     }
     // RK <--
 
+    // RK --> a zone-only layout answers null outside its zones, which leaves the tap to the page
+
+    /**
+     * What a tap at [pos], given as a fraction of the viewer, asks for.
+     */
+    fun tapAction(pos: Offset): Action? = settingsViewModel.navigation.value?.let { it.actionAt(pos) ?: return null }
+        ?: Action.MENU
+
+    /**
+     * Called from the viewer when it's tapped at [pos], given as a fraction of its size.
+     */
+    fun onViewerTap(pos: Offset) {
+        val viewer = (engine.viewport.value as? MangaViewport)?.viewer ?: return
+        when (tapAction(pos)) {
+            null -> Unit
+            Action.MENU -> toggleMenu()
+            Action.FORWARD -> viewer.moveForward()
+            Action.BACKWARD -> viewer.moveBackward()
+        }
+    }
+    // RK <--
+
     /**
      * Dispatches a generic motion event. If the viewer doesn't handle it, call the default
      * implementation.
      */
     override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
         val handled = engine.viewport.value?.handleGenericMotionEvent(event) ?: false // RK: the engine's viewport
+        if (handled) engine.provider.onReaderMoved() // RK: a paged novel's wheel turn is the reader moving it
         return handled || super.dispatchGenericMotionEvent(event)
     }
 
@@ -1078,6 +1106,22 @@ class ReaderActivity : BaseActivity() {
         // one; the engine owns the swap, including destroying the outgoing viewport.
         val newViewport = engine.provider.createViewport(this)
         engine.installViewport(newViewport)
+        // RK --> manga's zones. Here rather than in onCreate, so a novel session never builds this model.
+        settingsViewModel.setViewerReadingMode(
+            ReadingMode.fromPreference(viewModel.getMangaReadingMode()),
+            (newViewport as? MangaViewport)?.viewer is WebGpuViewer,
+        )
+        if (navigationOverlayJob == null) {
+            val forceNavigationOverlay = settingsViewModel.takeNavigationOverlayForNewUser()
+            navigationOverlayJob = settingsViewModel.navigation
+                .filterNotNull()
+                .onEach { navigation ->
+                    val showOnStart = forceNavigationOverlay || settingsViewModel.general.value.navigationOverlayOnStart
+                    navigationOverlayState.setNavigation(navigation, showOnStart)
+                }
+                .launchIn(lifecycleScope)
+        }
+        // RK <--
 
         if (window.sharedElementEnterTransition is MaterialContainerTransform) {
             // Wait until transition is complete to avoid crash on API 26
@@ -1304,30 +1348,6 @@ class ReaderActivity : BaseActivity() {
      */
     private inner class ReaderConfig {
 
-        private fun getCombinedPaint(grayscale: Boolean, invertedColors: Boolean): Paint {
-            return Paint().apply {
-                colorFilter = ColorMatrixColorFilter(
-                    ColorMatrix().apply {
-                        if (grayscale) {
-                            setSaturation(0f)
-                        }
-                        if (invertedColors) {
-                            postConcat(
-                                ColorMatrix(
-                                    floatArrayOf(
-                                        -1f, 0f, 0f, 0f, 255f,
-                                        0f, -1f, 0f, 0f, 255f,
-                                        0f, 0f, -1f, 0f, 255f,
-                                        0f, 0f, 0f, 1f, 0f,
-                                    ),
-                                ),
-                            )
-                        }
-                    },
-                )
-            }
-        }
-
         /*
          * Initializes the reader subscriptions.
          */
@@ -1402,11 +1422,29 @@ class ReaderActivity : BaseActivity() {
             viewModel.setBrightnessOverlayValue(value)
         }
         private fun setLayerPaint(grayscale: Boolean, invertedColors: Boolean) {
-            val paint = if (grayscale || invertedColors) getCombinedPaint(grayscale, invertedColors) else null
-            viewportPaint = paint
+            pageColorFilter = viewerColorFilter(grayscale, invertedColors)
         }
     }
 }
 
 // RK: which window insets pad the viewport
 private enum class ViewerInsets { SYSTEM_BARS, CUTOUT, NONE }
+
+private fun viewerColorFilter(grayscale: Boolean, invertedColors: Boolean): ColorFilter? {
+    if (!grayscale && !invertedColors) return null
+    val matrix = ColorMatrix()
+    if (invertedColors) {
+        matrix *= ColorMatrix(
+            floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f,
+                0f, -1f, 0f, 0f, 255f,
+                0f, 0f, -1f, 0f, 255f,
+                0f, 0f, 0f, 1f, 0f,
+            ),
+        )
+    }
+    if (grayscale) {
+        matrix *= ColorMatrix().apply { setToSaturation(0f) }
+    }
+    return ColorFilter.colorMatrix(matrix)
+}
