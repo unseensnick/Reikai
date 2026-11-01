@@ -8,6 +8,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ## [Unreleased]
 
+### Reader
+
+#### Changed
+
+- **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
+
 ### Browse
 
 #### Changed

@@ -1,17 +1,18 @@
 package reikai.novel.source
 
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.cache.ChapterCache
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import mihon.data.cache.ChapterCache
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.util.system.logcat
 
 /**
  * A chapter's text as its source answered it, kept on disk so opening the chapter again skips the
- * network and the plugin, as manga's page lists are. It lives in manga's [ChapterCache], so that
- * cache's size cap and "Clear chapter cache" cover novels too. The text is stored before the content
+ * network and the plugin, as manga's page lists are. It lives in manga's [ChapterCache], so
+ * "Clear chapter cache" covers novels too. The text is stored before the content
  * pipeline runs, so a reading setting changed since still reaches it.
  */
 @Inject
@@ -21,17 +22,25 @@ class NovelChapterTextCache(
 ) {
 
     /** Null when the chapter was never fetched, was evicted, or its entry cannot be read. */
-    fun get(chapter: NovelChapter): CachedChapterText? = runCatching {
+    suspend fun get(chapter: NovelChapter): CachedChapterText? = try {
         chapterCache.getText(key(chapter))?.let { json.decodeFromString<CachedChapterText>(it) }
-    }.onFailure { logcat(LogPriority.WARN, it) { "Failed to read cached novel chapter text" } }.getOrNull()
-
-    /** A failed write costs only the next open's speed, so it is logged rather than failing the read. */
-    fun put(chapter: NovelChapter, text: CachedChapterText) {
-        runCatching { chapterCache.putText(key(chapter), json.encodeToString(text)) }
-            .onFailure { logcat(LogPriority.WARN, it) { "Failed to cache novel chapter text" } }
+    } catch (e: Exception) {
+        if (e is CancellationException) throw e
+        logcat(LogPriority.WARN, e) { "Failed to read cached novel chapter text" }
+        null
     }
 
-    fun remove(chapter: NovelChapter) {
+    /** A failed write costs only the next open's speed, so it is logged rather than failing the read. */
+    suspend fun put(chapter: NovelChapter, text: CachedChapterText) {
+        try {
+            chapterCache.putText(key(chapter), json.encodeToString(text))
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            logcat(LogPriority.WARN, e) { "Failed to cache novel chapter text" }
+        }
+    }
+
+    suspend fun remove(chapter: NovelChapter) {
         chapterCache.removeText(key(chapter))
     }
 

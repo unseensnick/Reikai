@@ -28,7 +28,6 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
-import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -79,6 +78,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
+import mihon.data.cache.ChapterCache
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.download.rowDownloadChapters

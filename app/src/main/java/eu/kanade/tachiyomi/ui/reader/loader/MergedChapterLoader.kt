@@ -1,12 +1,12 @@
 package eu.kanade.tachiyomi.ui.reader.loader
 
 import android.content.Context
-import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import kotlinx.coroutines.CoroutineScope
+import mihon.data.cache.ChapterCache
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 

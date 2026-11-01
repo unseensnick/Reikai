@@ -302,7 +302,7 @@ object SettingsDataScreen : SearchableSettings {
         val chapterCache = remember { context.appGraph.chapterCache }
         var cacheReadableSizeSema by remember { mutableIntStateOf(0) }
         val cacheReadableSize by produceState("", cacheReadableSizeSema) {
-            value = withIOContext { chapterCache.readableSize }
+            value = chapterCache.readableSize()
         }
         // RK: adult-source page-preview thumbnail cache
         val pagePreviewCache = remember { context.appGraph.pagePreviewCache }
@@ -332,7 +332,7 @@ object SettingsDataScreen : SearchableSettings {
                     onClick = {
                         scope.launch {
                             try {
-                                val deletedFiles = withIOContext { chapterCache.clear() }
+                                val deletedFiles = chapterCache.clear()
                                 context.toast(context.stringResource(MR.strings.cache_deleted, deletedFiles))
                                 cacheReadableSizeSema++
                             } catch (e: Exception) {

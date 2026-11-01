@@ -69,7 +69,6 @@ import eu.kanade.presentation.more.AppMigratingScreen
 import eu.kanade.presentation.more.settings.screen.data.RestoreBackupScreen
 import eu.kanade.presentation.util.AssistContentScreen
 import eu.kanade.presentation.util.DefaultNavigatorScreenTransition
-import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
@@ -101,6 +100,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import mihon.data.cache.ChapterCache
 import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
 import reikai.domain.library.ContentType

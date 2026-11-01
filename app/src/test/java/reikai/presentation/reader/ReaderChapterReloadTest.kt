@@ -1,12 +1,13 @@
 package reikai.presentation.reader
 
-import eu.kanade.tachiyomi.data.cache.ChapterCache
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import io.kotest.matchers.shouldBe
+import io.mockk.coVerify
 import io.mockk.mockk
-import io.mockk.verify
+import kotlinx.coroutines.test.runTest
+import mihon.data.cache.ChapterCache
 import org.junit.jupiter.api.Test
 import tachiyomi.domain.chapter.model.Chapter
 
@@ -24,7 +25,7 @@ class ReaderChapterReloadTest {
      * off-thread, so a reload from the source that recycled first was served the list it had dropped.
      */
     @Test
-    fun `a recycled loader finds no page list left to cache again`() {
+    fun `a recycled loader finds no page list left to cache again`() = runTest {
         val chapter = loadedChapter()
         val loader = PageListRecordingLoader(chapter)
         chapter.pageLoader = loader
@@ -35,30 +36,30 @@ class ReaderChapterReloadTest {
     }
 
     @Test
-    fun `a reload from the source drops the old pages' images`() {
+    fun `a reload from the source drops the old pages' images`() = runTest {
         val chapter = loadedChapter()
 
         chapter.unloadForReload(fromSource = true, cache)
 
-        verify { cache.removeImage("https://img/0") }
+        coVerify { cache.removeImage("https://img/0") }
     }
 
     @Test
-    fun `a reload from the source drops the cached page list`() {
+    fun `a reload from the source drops the cached page list`() = runTest {
         val chapter = loadedChapter()
 
         chapter.unloadForReload(fromSource = true, cache)
 
-        verify { cache.removePageList(match { it.url == "/1" }) }
+        coVerify { cache.removePageList(match { it.url == "/1" }) }
     }
 
     @Test
-    fun `a reload from a downloaded copy leaves the cached images alone`() {
+    fun `a reload from a downloaded copy leaves the cached images alone`() = runTest {
         val chapter = loadedChapter()
 
         chapter.unloadForReload(fromSource = false, cache)
 
-        verify(exactly = 0) { cache.removeImage(any()) }
+        coVerify(exactly = 0) { cache.removeImage(any()) }
     }
 }
 

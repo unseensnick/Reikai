@@ -20,6 +20,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -77,6 +78,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.novel.source.testChapterCache
 import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -90,6 +92,7 @@ import java.io.IOException
 import java.util.concurrent.Semaphore
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -117,6 +120,10 @@ class NovelReaderViewModelHarness private constructor(
 
     // The models' app scope, on the test's scheduler, so a write that outlives a model lands by advanceUntilIdle
     private val appScope = CoroutineScope(SupervisorJob() + dispatcher)
+
+    // On the same scheduler, or a chapter read waits on a thread advanceUntilIdle cannot see
+    private val cacheScope = CoroutineScope(SupervisorJob() + dispatcher)
+    private val chapterTextCache = testChapterTextCache(testChapterCache(cacheScope, dispatcher, Duration.ZERO))
 
     private val store = EmittingPreferenceStore()
     val novelPreferences = NovelPreferences(store)
@@ -371,7 +378,7 @@ class NovelReaderViewModelHarness private constructor(
             ),
             setNovelViewerFlags = SetNovelViewerFlags(novelRepo),
             novelDownloadCache = downloadCache,
-            chapterTextCache = testChapterTextCache(),
+            chapterTextCache = chapterTextCache,
             pageFetcher = mockk { every { chapterSaved } returns pageSaves },
             deleteChaptersBehindReader = DeleteNovelChaptersBehindReader(
                 novelPreferences,
@@ -490,6 +497,7 @@ class NovelReaderViewModelHarness private constructor(
      * of its still running against a closed database throws into whichever test is running by then.
      */
     suspend fun close() {
+        cacheScope.cancel() // Its save loop waits for writes for as long as it lives
         diskProbeGate?.open()
         pluginLoadGate.complete(Unit)
         viewModels.clear()

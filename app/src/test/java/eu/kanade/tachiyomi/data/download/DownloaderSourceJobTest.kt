@@ -123,7 +123,7 @@ class DownloaderSourceJobTest {
             ),
             cache = mockk(relaxed = true),
             sourceManager = mockk<SourceManager>().also { coEvery { it.get(manga.source) } returns source },
-            chapterCache = mockk(relaxed = true) { every { isImageInCache(any()) } returns false },
+            chapterCache = mockk(relaxed = true) { coEvery { openImage(any()) } returns null },
             // The downloader waits on its parallel-source setting, which an in-memory preference never emits.
             downloadPreferences = DownloadPreferences(EmittingPreferenceStore()),
             xml = mockk(),
