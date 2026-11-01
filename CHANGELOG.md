@@ -38,6 +38,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Long strip with the high quality renderer no longer runs out of memory when many pages are loading or have failed at once.**
+
 - **Settings -> Advanced -> Reset per-series reader settings now resets novels too.**
 
 - **Custom brightness in the reader stays off once you turn it off, in both readers (from Mihon).**

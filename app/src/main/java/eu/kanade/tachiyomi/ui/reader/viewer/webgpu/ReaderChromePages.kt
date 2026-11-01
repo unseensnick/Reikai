@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.util.fastCoerceIn
 import ca.mpreg.webgpuviewer.viewer.ComposePageSize
@@ -35,6 +37,8 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderThemedContent
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import reikai.presentation.reader.NeighbourChapterRetry
+import reikai.presentation.reader.STRIP_CAPTURE_SCALE
+import reikai.presentation.reader.stripCaptureSize
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
 
@@ -50,6 +54,16 @@ private const val STRIP_ERROR_HEIGHT_FRACTION = 0.8f
 
 /** The top margin `WebtoonPageHolder` gave its spinner, as a fraction of the viewport. */
 private const val STRIP_PROGRESS_TOP_FRACTION = 0.25f
+
+// RK: a page can be built before the viewer has laid out, and its size is fixed at construction
+private fun WebGpuViewer.stripCapture(heightFraction: Float = 1f): ComposePageSize {
+    val metrics = activity.resources.displayMetrics
+    return stripCaptureSize(
+        viewerState.width.takeIf { it > 0 } ?: metrics.widthPixels,
+        viewerState.height.takeIf { it > 0 } ?: metrics.heightPixels,
+        heightFraction,
+    )
+}
 
 /**
  * The reader's own chapter and page chrome, as composables, in the reader's theme.
@@ -67,8 +81,18 @@ abstract class ReaderComposePage(
      */
     @Composable
     final override fun BoxScope.Content() {
-        // RK: the cover seed colour, as the other viewers theme their transition and progress views
-        ReaderThemedContent(viewer.readerThemedContext, viewer.coverSeedColor?.let(::Color)) { PageContent() }
+        // RK --> a strip's smaller capture draws at the smaller density, so text and ring keep their size
+        val density = LocalDensity.current
+        val drawn = if (size is ComposePageSize.Of) {
+            Density(density.density / STRIP_CAPTURE_SCALE, density.fontScale)
+        } else {
+            density
+        }
+        // The cover seed colour, as the other viewers theme their transition and progress views
+        CompositionLocalProvider(LocalDensity provides drawn) {
+            ReaderThemedContent(viewer.readerThemedContext, viewer.coverSeedColor?.let(::Color)) { PageContent() }
+        }
+        // RK <--
     }
 
     @Composable
@@ -86,7 +110,8 @@ class ErrorPage internal constructor(
 ) : ReaderComposePage(
     viewer,
     // WebtoonPageHolder gave its error layout less than a screen, so the page below shows through.
-    if (viewer is WebGpuViewerContinuous) ComposePageSize.Wrap else ComposePageSize.Auto,
+    // RK: at a smaller capture, see stripCaptureSize
+    if (viewer is WebGpuViewerContinuous) viewer.stripCapture(STRIP_ERROR_HEIGHT_FRACTION) else ComposePageSize.Auto,
 ) {
 
     @Composable
@@ -95,7 +120,7 @@ class ErrorPage internal constructor(
         // As the pager's own error layout: only offered for an image that came off the web.
         val imageUrl = viewerPage?.page?.imageUrl?.takeIf { it.startsWith("http", ignoreCase = true) }
         val strip = if (viewer is WebGpuViewerContinuous) {
-            Modifier.fillMaxHeight(STRIP_ERROR_HEIGHT_FRACTION).wrapContentHeight()
+            Modifier.fillMaxHeight().wrapContentHeight() // RK: the capture is already that height
         } else {
             Modifier
         }
@@ -115,7 +140,10 @@ class ErrorPage internal constructor(
 }
 
 /** A page still downloading: the reader's progress ring. */
-class ProgressPage(viewer: WebGpuViewer) : ReaderComposePage(viewer) {
+class ProgressPage(viewer: WebGpuViewer) : ReaderComposePage(
+    viewer,
+    if (viewer is WebGpuViewerContinuous) viewer.stripCapture() else ComposePageSize.Auto, // RK: see stripCaptureSize
+) {
 
     /**
      * 0 to 1. On the page, not in the composition, which is dropped when the page goes out of
