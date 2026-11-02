@@ -1,7 +1,9 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import reikai.data.coil.forgetSeedColor
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -91,6 +93,7 @@ suspend fun storeRefreshedNovel(
     }
     if (cover.deletesCachedFile) coverCache.getCoverFile(existing.thumbnailUrl)?.delete()
     val coverLastModified = Clock.System.now().takeIf { cover.stamps }
+    if (cover.stamps) EntryId.Novel(existing.id).forgetSeedColor()
     if (merged == existing && coverLastModified == null) return existing
     val newTitle = merged.title.takeIf { it != existing.title }
     val stored = novelRepository.update(

@@ -19,6 +19,15 @@ class EntrySeedColorTest {
     }
 
     @Test
+    fun `a forgotten colour is taken from the cover again`() = runTest {
+        EntryId.Novel(7L).seedColor { RED }
+
+        EntryId.Novel(7L).forgetSeedColor()
+
+        EntryId.Novel(7L).seedColor { BLUE } shouldBe BLUE
+    }
+
+    @Test
     fun `a colour already found is returned without loading the cover again`() = runTest {
         EntryId.Novel(7L).seedColor { RED }
 

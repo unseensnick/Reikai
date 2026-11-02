@@ -17,6 +17,8 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -32,6 +34,7 @@ import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.model.MangaCover
 import java.io.File
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -209,6 +212,16 @@ class NovelRefreshTest {
         refresh(novel, PagedSource(oneChapter, cover = COVER), manualFetch = true)
 
         (cached.exists() to (novels.getById(novel.id)!!.coverLastModified != null)) shouldBe (false to true)
+    }
+
+    @Test
+    fun `a new cover drops the tint taken from the old one`() = runTest {
+        val novel = storedNovel(cover = COVER)
+        MangaCover.vibrantCoverColorMap[EntryId.Novel(novel.id).signedKey()] = 1
+
+        refresh(novel, PagedSource(oneChapter, cover = "https://src.example/new.jpg"))
+
+        MangaCover.vibrantCoverColorMap[EntryId.Novel(novel.id).signedKey()] shouldBe null
     }
 
     @Test

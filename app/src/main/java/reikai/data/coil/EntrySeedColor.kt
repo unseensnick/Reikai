@@ -25,6 +25,11 @@ suspend fun EntryId.seedColor(extract: suspend () -> Int?): Int? {
         ?: extract()?.also { MangaCover.vibrantCoverColorMap[key] = it }
 }
 
+/** A cover changed, so the next [seedColor] takes the colour from the new one. */
+fun EntryId.forgetSeedColor() {
+    MangaCover.vibrantCoverColorMap.remove(signedKey())
+}
+
 /**
  * Palette's pick from the cover [coverData] names, loaded through that content type's own fetcher (a
  * novel's sends the Referer some cover hosts require), so an entry opened from browsing still tints.

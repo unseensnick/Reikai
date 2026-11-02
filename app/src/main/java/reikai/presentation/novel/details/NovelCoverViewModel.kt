@@ -64,6 +64,8 @@ class NovelCoverViewModel(
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
 
+    override fun idOf(entry: Novel) = EntryId.Novel(entry.id)
+
     override suspend fun removeCustomCover(entry: Novel) {
         clearCustomCover.await(EntryId.Novel(entry.id))
     }

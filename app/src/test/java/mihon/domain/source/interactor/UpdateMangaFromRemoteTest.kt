@@ -1,12 +1,20 @@
 package mihon.domain.source.interactor
 
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.model.SManga
+import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaCover
 
 class UpdateMangaFromRemoteTest {
 
@@ -16,9 +24,27 @@ class UpdateMangaFromRemoteTest {
         mangaRepository = mockk(relaxed = true),
         syncChaptersWithSource = mockk(relaxed = true),
         coverCache = mockk(relaxed = true),
-        libraryPreferences = mockk(relaxed = true),
+        libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         downloadManager = mockk(relaxed = true),
     )
+
+    @Test
+    fun `a new cover drops the tint taken from the old one`() = runTest {
+        val manga = Manga.create().copy(id = 5L, title = "Title", thumbnailUrl = "old")
+        MangaCover.vibrantCoverColorMap[EntryId.Manga(5L).signedKey()] = 1
+        val source = mockk<Source> {
+            coEvery { getMangaUpdate(any(), any(), any(), any()) } returns mockk(relaxed = true) {
+                every { this@mockk.manga } returns SManga.create().apply {
+                    title = "Title"
+                    thumbnail_url = "new"
+                }
+            }
+        }
+
+        updateMangaFromRemote(source, manga, fetchDetails = true).exceptionOrNull() shouldBe null
+
+        MangaCover.vibrantCoverColorMap[EntryId.Manga(5L).signedKey()] shouldBe null
+    }
 
     @Test
     fun `an extension built against a missing app method fails as an Exception callers already handle`() = runTest {
