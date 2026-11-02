@@ -81,8 +81,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A failed page in the high quality renderer now fills in by itself when the page downloads anyway.**
 
-- **Open in WebView on a failed page in the high quality renderer now uses the chapter's own source in a merged series.**
-
 - **Novel pages in inverted colors no longer flash the wrong colors during a page turn.**
 
 - **Novel text in WebView mode now moves with the screen cutout when the phone turns upside down.**
