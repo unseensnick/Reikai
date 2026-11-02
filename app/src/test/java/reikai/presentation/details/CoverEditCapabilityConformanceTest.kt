@@ -3,6 +3,7 @@ package reikai.presentation.details
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
@@ -17,13 +18,17 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.signedKey
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.presentation.novel.details.NovelCoverViewModel
+import reikai.util.mockIoDispatcher
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.source.local.LocalSource
 import kotlin.time.Instant
 
@@ -37,7 +42,11 @@ class CoverEditCapabilityConformanceTest {
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
     @AfterEach
-    fun tearDown() = Dispatchers.resetMain()
+    fun tearDown() {
+        Dispatchers.resetMain()
+        unmockkStatic(Dispatchers::class)
+        MangaCover.vibrantCoverColorMap.clear()
+    }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
@@ -49,6 +58,20 @@ class CoverEditCapabilityConformanceTest {
     @MethodSource("probes")
     fun `an entry in the library can take a custom cover`(probe: CoverEditProbe) = runTest {
         editable(probe.model(inLibrary = true)) shouldBe true
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `removing a custom cover drops the tint taken from it`(probe: CoverEditProbe) = runTest {
+        mockIoDispatcher(UnconfinedTestDispatcher(testScheduler))
+        val model = probe.model(inLibrary = true)
+        editable(model)
+        val key = probe.id.signedKey()
+        MangaCover.vibrantCoverColorMap[key] = 1
+
+        model.deleteCustomCover(mockk(relaxed = true))
+
+        MangaCover.vibrantCoverColorMap[key] shouldBe null
     }
 
     @Test
@@ -64,6 +87,8 @@ class CoverEditCapabilityConformanceTest {
 
 /** One content type's cover model over a single stored entry. */
 interface CoverEditProbe {
+    val id: EntryId
+
     fun model(inLibrary: Boolean): EntryCoverViewModel<*>
 }
 
@@ -75,6 +100,8 @@ private fun TestScope.editable(model: EntryCoverViewModel<*>): Boolean {
 }
 
 class MangaCoverEditProbe(private val source: Long = 1L) : CoverEditProbe {
+    override val id = EntryId.Manga(1L)
+
     override fun toString() = "manga"
 
     override fun model(inLibrary: Boolean): EntryCoverViewModel<*> {
@@ -99,6 +126,8 @@ class MangaCoverEditProbe(private val source: Long = 1L) : CoverEditProbe {
 }
 
 class NovelCoverEditProbe : CoverEditProbe {
+    override val id = EntryId.Novel(1L)
+
     override fun toString() = "novel"
 
     override fun model(inLibrary: Boolean): EntryCoverViewModel<*> {
