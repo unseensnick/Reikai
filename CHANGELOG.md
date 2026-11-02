@@ -67,6 +67,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Long strip with the high quality renderer no longer runs out of memory when many pages are loading or have failed at once.**
 
+- **Deleting chapters after reading no longer removes an unread copy from a source in incognito, in merged manga and novels.**
+
+- **Open in WebView on a failed page of a merged series now opens the chapter's own source in every manga reading mode.**
+
 - **The chapter page in the high quality renderer no longer gets cut off after Retry on a failed next chapter.**
 
 - **Auto-scroll in the high quality renderer's long strip now saves your reading progress and waits for pages that are still loading.**

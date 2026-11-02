@@ -46,8 +46,7 @@ class NovelChapterFinish(
         trimBehind: suspend () -> Unit,
     ) {
         if (!completion.claim(chapter.id)) return
-        val duplicates = chapterRepo.duplicatesOfFinished(chapter, memberIds, stitch, libraryPreferences)
-            .filterNot { incognito.of(it.novelId) } // a private source's copy is not written, as manga's
+        val duplicates = chapterRepo.duplicatesOfFinished(chapter, memberIds, stitch, libraryPreferences, incognito)
         // Without "delete after marked as read", as in Mihon's reader: the trim behind is the reader's rule.
         setNovelReadStatus.awaitFinishedInReader(listOf(chapter) + duplicates)
         // Launched, as manga's is: a finish runs under the reader's write lock, which crossings share.

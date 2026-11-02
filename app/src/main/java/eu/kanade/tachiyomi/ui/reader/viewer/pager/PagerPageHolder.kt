@@ -223,7 +223,7 @@ class PagerPageHolder(
         errorLayout.bind(
             page = page,
             error = error,
-            sourceId = viewer.activity.viewModel.manga?.source,
+            sourceId = viewer.activity.viewModel.getSource(page.chapter.chapter.id)?.id, // RK: the chapter's own source
             onButtonPressChange = { pressed -> viewer.pager.setGestureDetectorEnabled(!pressed) },
         )
     }

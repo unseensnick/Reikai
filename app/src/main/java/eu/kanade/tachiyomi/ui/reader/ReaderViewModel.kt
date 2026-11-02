@@ -1689,6 +1689,8 @@ class ReaderViewModel(
                     idOf = { it.id },
                     ownerOf = { it.mangaId },
                 )
+                // A private source's copy is not marked read, so it stays too
+                .filterNot { incognito.of(it.mangaId) }
                 // Finishing a chapter trims before its own copies are marked read, so they may not be yet
                 .map { it.copy(read = true) }
         }

@@ -7,6 +7,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.reader.ChapterIncognito
 import reikai.domain.reader.chapterToDeleteBehind
 import reikai.domain.reader.duplicatesOfRead
 import reikai.novel.download.NovelDownloadManager
@@ -35,14 +36,26 @@ class DeleteNovelChaptersBehindReader(
     /** [orderedIds] is the session's reading order, so the slots count positions the user actually
      *  moves through rather than raw chapter numbers. [memberIds] and [stitch] are the merge group's,
      *  as [reikai.presentation.reader.text.NovelChapterFinish] takes them. */
-    suspend fun await(orderedIds: List<Long>, readChapterId: Long, memberIds: List<Long>, stitch: List<ChapterUnit>) {
+    suspend fun await(
+        orderedIds: List<Long>,
+        readChapterId: Long,
+        memberIds: List<Long>,
+        stitch: List<ChapterUnit>,
+        incognito: ChapterIncognito,
+    ) {
         val slots = novelPreferences.removeAfterReadSlots().get()
         val targetId = orderedIds.chapterToDeleteBehind(readChapterId, slots) { it } ?: return
         val target = chapterRepository.getById(targetId) ?: return
         if (!target.read) return
         // The copies "mark duplicate read" marked with it go too, as manga's trim takes them
         // (DeleteDuplicatesBehindReaderConformanceTest).
-        val duplicates = chapterRepository.duplicatesOfFinished(target, memberIds, stitch, libraryPreferences)
+        val duplicates = chapterRepository.duplicatesOfFinished(
+            target,
+            memberIds,
+            stitch,
+            libraryPreferences,
+            incognito,
+        )
             .map { it.copy(read = true) }
         val removable = removableDownloads(listOf(target) + duplicates)
         if (removable.isNotEmpty()) pendingDeleter.addChapters(removable)
@@ -56,12 +69,16 @@ class DeleteNovelChaptersBehindReader(
     }
 }
 
-/** [chapter]'s copies across [memberIds] that "mark duplicate read" reaches, or none while it is off. */
+/**
+ * [chapter]'s copies across [memberIds] that "mark duplicate read" reaches, or none while it is off.
+ * A private source's copy is left out, as manga's: it is neither marked read nor deleted.
+ */
 internal suspend fun NovelChapterRepository.duplicatesOfFinished(
     chapter: NovelChapter,
     memberIds: List<Long>,
     stitch: List<ChapterUnit>,
     libraryPreferences: LibraryPreferences,
+    incognito: ChapterIncognito,
 ): List<NovelChapter> {
     val markDuplicates = libraryPreferences.markDuplicateReadChapterAsRead.get()
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
@@ -72,5 +89,5 @@ internal suspend fun NovelChapterRepository.duplicatesOfFinished(
         numberOf = { it.chapterNumber },
         idOf = { it.id },
         ownerOf = { it.novelId },
-    )
+    ).filterNot { incognito.of(it.novelId) }
 }

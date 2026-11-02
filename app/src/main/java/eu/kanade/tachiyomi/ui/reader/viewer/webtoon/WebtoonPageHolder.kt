@@ -256,7 +256,12 @@ class WebtoonPageHolder(
             frame.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, (parentHeight * 0.8).toInt()))
             errorLayout = it
         }
-        errorLayout.bind(page = page, error = error, sourceId = viewer.activity.viewModel.manga?.source)
+        // RK: the chapter's own source
+        errorLayout.bind(
+            page = page,
+            error = error,
+            sourceId = viewer.activity.viewModel.getSource(page.chapter.chapter.id)?.id,
+        )
     }
 
     /**
