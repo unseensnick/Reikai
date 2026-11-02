@@ -49,7 +49,7 @@ class ReaderSettingsViewModel(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
-    // RK: brightness moved to ReaderDisplayFilters.brightness, and readingMode to resolvedReadingMode
+    // RK: readingMode moved to resolvedReadingMode
     // RK: the host keeps keep screen on, grayscale, invert, fullscreen and cutout, read per session (GeneralSettings.kt)
     val general = settings(
         preferences.readerTheme,
@@ -63,6 +63,7 @@ class ReaderSettingsViewModel(
     ) {
         GeneralSettings(
             theme = ReaderPreferences.ReaderTheme.fromValue(readerTheme.get()),
+            // RK: the settings the host reads per session left here
             longTapEnabled = readWithLongTap.get(),
             usePageTransitions = pageTransitions.get(),
             doubleTapAnimDuration = doubleTapAnimSpeed.get(),
@@ -72,6 +73,8 @@ class ReaderSettingsViewModel(
             navigationOverlayOnStart = showNavigationOverlayOnStart.get(),
         )
     }
+
+    // RK: brightness moved to ReaderDisplayFilters.brightness
 
     /**
      * Settings every paged viewer uses.
@@ -235,7 +238,7 @@ class ReaderSettingsViewModel(
         .flatMapLatest { viewerMode ->
             if (viewerMode == null) return@flatMapLatest flowOf(null)
 
-            val settings = if (viewerMode.usesWebtoonZones) {
+            val settings = if (viewerMode.usesWebtoonZones) { // RK
                 simpleLongStrip.map { it.navigation }
             } else {
                 paged.map { it.navigation }

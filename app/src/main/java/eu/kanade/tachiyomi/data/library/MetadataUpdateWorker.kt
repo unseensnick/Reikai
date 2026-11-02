@@ -101,10 +101,11 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
     }
 
     private suspend fun updateMetadata() {
+        // RK: the kernel below replaces upstream's semaphore here
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
-        // RK: the kernel the novel pass and both update jobs run on, in place of upstream's own semaphore
+        // RK: the kernel the novel pass and both update jobs run on
         updateBySource(mangaToUpdate, sourceOf = { it.manga.source }) { libraryManga ->
             val manga = libraryManga.manga
 

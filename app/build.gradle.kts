@@ -334,7 +334,7 @@ dependencies {
     implementation(libs.jsoup)
 
     // Disk
-    implementation(libs.diskLruCache)
+    implementation(libs.diskLruCache) // RK: PagePreviewCache still uses it
     implementation(libs.unifile)
 
     // Preferences

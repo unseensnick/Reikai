@@ -171,8 +171,8 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         }
 
-        frame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         frame.layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
+        frame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         frame.addView(recycler)
     }
 

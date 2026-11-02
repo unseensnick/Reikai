@@ -540,7 +540,7 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
 
-                ContentOverlay(state = state)
+                ContentOverlay(state = state) // RK
 
                 AppBars(state = state)
             }
@@ -730,7 +730,7 @@ class ReaderActivity : BaseActivity() {
     }
 
     /**
-     * Called when the activity is destroyed. Cleans up the viewer, configuration and any view.
+     * Called when the activity is destroyed. Cleans up the viewer and any view.
      */
     override fun onDestroy() {
         super.onDestroy()
@@ -878,6 +878,7 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
+    // RK --> keys stay at the Activity's dispatch, see upstream-sync.md
     override fun onKeyUp(keyCode: Int, event: KeyEvent?): Boolean {
         if (keyCode == KeyEvent.KEYCODE_N) {
             engine.nextChapter() // RK: through the engine
@@ -898,6 +899,7 @@ class ReaderActivity : BaseActivity() {
         if (handled) engine.provider.onReaderMoved()
         return handled || super.dispatchKeyEvent(event)
     }
+    // RK <--
 
     // RK --> the session hears when the reader moves the page, and every drag in the reader, the
     // rail's included, passes through here before any view sees it.
@@ -1203,7 +1205,7 @@ class ReaderActivity : BaseActivity() {
      * method to the current viewer, but also set the subtitle on the toolbar, and
      * hides or disables the reader prev/next buttons if there's a prev or next chapter
      */
-    @SuppressLint("RestrictedApi")
+    @SuppressLint("RestrictedApi") // RK
     private fun setChapters(viewerChapters: ViewerChapters) {
         // RK: the indicator goes whether or not a viewport exists to receive the chapters, so this is
         // safe only under the collector ordering noted where the two are registered. Chapter delivery
@@ -1339,6 +1341,8 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
+    // RK --> upstream moved these into its model; the host keeps them per session, see upstream-sync.md
+
     /**
      * Updates viewer inset depending on fullscreen reader preferences.
      */
@@ -1350,8 +1354,6 @@ class ReaderActivity : BaseActivity() {
             else -> ViewerInsets.NONE
         }
     }
-
-    // RK --> upstream moved these into its model; the host keeps them per session, see upstream-sync.md
 
     /**
      * Class that handles the user preferences of the reader.

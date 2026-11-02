@@ -10,6 +10,8 @@ fun EditTextPreference.getOnBindEditTextListener(): EditTextPreference.OnBindEdi
     return onBindEditTextListener
 }
 
+// RK: backticks, since the KDoc link check reads brackets as a Kotlin symbol
+
 /**
  * Calls [onChange] whenever this preference's state, visibility or children change, the package-private hook
  * `PreferenceGroupAdapter` uses to rebind.

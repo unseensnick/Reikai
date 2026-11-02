@@ -118,6 +118,6 @@
     public void destroy();
 }
 
-# Tap layouts: upstream's ViewerNavigation.equals compares javaClass, so a layout merged into another
+# RK: tap layouts: upstream's ViewerNavigation.equals compares javaClass, so a layout merged into another
 # reads as no change and the reader's state flow drops the switch.
 -keep,allowshrinking class * extends eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation

@@ -27,7 +27,9 @@ class GetMangaWithChapters(
         return mangaRepository.getMangaById(id)
     }
 
+    // RK --> the chapters alone, without the series
     suspend fun awaitChapters(id: Long, applyScanlatorFilter: Boolean = false): List<Chapter> {
         return chapterRepository.getChapterByMangaId(id, applyScanlatorFilter)
     }
+    // RK <--
 }

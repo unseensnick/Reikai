@@ -35,8 +35,6 @@ dependencies {
     implementation(projects.core.metro)
     implementation(projects.i18n)
 
-    implementation(libs.metro.runtime) // RK: Reikai's own Metro port put it here; upstream lists it last
-
     api(libs.logcat)
 
     api(libs.rxJava)
@@ -74,4 +72,6 @@ dependencies {
     testImplementation(libs.bundles.test)
     testImplementation(libs.kotlinx.coroutines.test)
     testRuntimeOnly(libs.junit.platform.launcher)
+
+    implementation(libs.metro.runtime)
 }

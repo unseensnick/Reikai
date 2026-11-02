@@ -320,6 +320,8 @@ private fun entryMap(entries: Array<CharSequence>?, entryValues: Array<CharSeque
     return entryValues.orEmpty().zip(entries.orEmpty()) { value, entry -> value.toString() to entry.toString() }.toMap()
 }
 
+// RK: backticks, since the KDoc link check reads brackets as a Kotlin symbol
+
 /**
  * Extensions get a real [EditText] through [EditTextPreference.OnBindEditTextListener], and some validate input by
  * disabling the dialog's `android.R.id.button1` found from `EditText.getRootView`, so one stands in for the OK button.

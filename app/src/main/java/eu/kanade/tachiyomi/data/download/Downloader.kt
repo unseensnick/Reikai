@@ -136,6 +136,7 @@ class Downloader(
 
     init {
         scope.launch(Dispatchers.Main, CoroutineStart.UNDISPATCHED) {
+            // RK: a failed restore still releases whoever awaits it
             try {
                 addAllToQueue(withIOContext { store.restore() })
             } finally {

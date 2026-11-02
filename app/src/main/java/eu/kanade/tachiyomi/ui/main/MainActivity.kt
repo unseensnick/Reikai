@@ -291,7 +291,7 @@ class MainActivity : BaseActivity() {
                                     .padding(contentPadding)
                                     .consumeWindowInsets(contentPadding),
                             )
-                        }
+                        } // RK
 
                         // Draw navigation bar scrim when needed
                         if (remember { isNavigationBarNeedsScrim() }) {
