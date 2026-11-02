@@ -702,9 +702,14 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val (top, bottom) = checkNotNull(awaitMark())
         highlight(position.copy(paragraph = position.paragraph - 1))
         val (_, previousBottom) = checkNotNull(awaitMark())
+        // The paragraph before may still show part of its last line, which is passed over. Native's last line
+        // carries the paragraph spacing too.
+        val lastLine = readerTestSettings.fontSize * unitsPerCssPx() *
+            (readerTestSettings.lineHeight + readerTestSettings.paragraphSpacing)
         assertTrue(
             "paragraph ${position.paragraph} spans $top..$bottom, the one before ends at $previousBottom",
-            position.paragraph > 0 && bottom > 0 && top < viewportHeight() && previousBottom <= EDGE_SLACK_PX,
+            position.paragraph > 0 && bottom > 0 && top < viewportHeight() &&
+                previousBottom <= lastLine + EDGE_SLACK_PX,
         )
     }
 
@@ -744,6 +749,16 @@ class TextViewportContractTest(private val renderer: Renderer) {
         val (top, bottom) = checkNotNull(awaitMark())
         obscure(top = devicePx((top + bottom) / 2), bottom = 0)
         assertEquals(ReadAloudPosition(FIRST, 2), firstVisibleParagraph())
+    }
+
+    /** Half a last line is nothing to read from, so the paragraph it ends goes to the one below. */
+    @Test
+    fun aParagraphEndingUnderTheCoveredTopIsPassedOver() {
+        open(chapter(FIRST, long("first")), readerTestSettings.copy(ttsKeepInView = false))
+        highlight(ReadAloudPosition(FIRST, 2))
+        val (_, bottom) = checkNotNull(awaitMark())
+        obscure(top = devicePx(bottom - readerTestSettings.fontSize * unitsPerCssPx() / 2), bottom = 0)
+        assertEquals(ReadAloudPosition(FIRST, 3), firstVisibleParagraph())
     }
 
     @Test
@@ -2611,6 +2626,11 @@ class TextViewportContractTest(private val renderer: Renderer) {
     }
 
     /** [value] in the renderer's own pixels as the device pixels the host measures the chrome in. */
+    private fun unitsPerCssPx(): Float = when (renderer) {
+        Renderer.NATIVE -> instrumentation.targetContext.resources.displayMetrics.density
+        Renderer.WEB -> 1f
+    }
+
     private fun devicePx(value: Float): Int = when (renderer) {
         Renderer.NATIVE -> value.roundToInt()
         Renderer.WEB -> (value * instrumentation.targetContext.resources.displayMetrics.density).roundToInt()

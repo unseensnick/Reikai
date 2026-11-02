@@ -572,8 +572,11 @@ class NovelTextViewport(
             val (top, height) = boundsOf(slot) ?: return@forEach
             if (top + height <= visibleTop || top >= visibleBottom) return@forEach
             slot.paragraphs.forEachIndexed { index, paragraph ->
-                val (paragraphTop, paragraphBottom) = boundsOf(slot, paragraph) ?: return@forEachIndexed
-                if (paragraphBottom > visibleTop && paragraphTop < visibleBottom) {
+                val (paragraphTop, _) = boundsOf(slot, paragraph) ?: return@forEachIndexed
+                val lastLine = lineTopOf(slot.block.chunkViews[paragraph.chunk], paragraph.end - 1)
+                    ?: return@forEachIndexed
+                // A paragraph counts while its last line can be read whole, as firstVisible says in reader.js.
+                if (lastLine >= visibleTop && paragraphTop < visibleBottom) {
                     return ReadAloudPosition(slot.chapter.chapterId, index)
                 }
             }
@@ -841,6 +844,8 @@ class NovelTextViewport(
                     land(slot)
                     (slot.landing as? Landing.Line)?.let { holdShort(slot, it) }
                 }
+                // A landing that moved nothing reports no scroll, and the pages were recut all the same.
+                requestSnap()
             }
         }
     }
@@ -1628,6 +1633,8 @@ class NovelTextViewport(
 
     /** Takes the page's first line, unless the line already held is still on this page. */
     private fun holdPageLine() {
+        // A redraw takes the views down and builds them again, so a line it cannot measure yet has not gone.
+        if (redraw != null) return
         val top = pageLineTop()
         val onPage = top != null && top >= readingTop() - 1 && top < readingTop() + (shownPageHeight ?: 0f)
         if (onPage) return

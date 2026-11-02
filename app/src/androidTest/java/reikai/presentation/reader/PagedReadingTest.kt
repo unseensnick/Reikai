@@ -225,6 +225,21 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     @Test
+    fun aOneStepFontChangeThereAndBackKeepsEveryPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        append(2L, long("second"))
+        repeat(5) {
+            forwardTap()
+            val start = checkNotNull(lastTopLine())
+            val page = shownPage.get()
+            applyAndSettle(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 1), settles = 8)
+            applyAndSettle(readerTestSettings, settles = 8)
+            assertEquals("[$renderer] page $page moved to ${shownPage.get()}", start, lastTopLine())
+        }
+    }
+
+    @Test
     fun aTurnAfterAReflowStartsFromTheNewPage() {
         build(NovelPageLayout.PAGED_LTR)
         open(1L, long("first"))
@@ -258,10 +273,10 @@ class PagedReadingTest(private val renderer: Renderer) {
         )
     }
 
-    private fun applyAndSettle(settings: NovelReaderSettings) {
+    private fun applyAndSettle(settings: NovelReaderSettings, settles: Int = 3) {
         openedWith = settings
         onMain { viewport.applySettings(settings) }
-        repeat(3) { settle() }
+        repeat(settles) { settle() }
         assertWholeLines()
     }
 

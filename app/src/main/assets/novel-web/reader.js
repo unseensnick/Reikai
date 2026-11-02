@@ -1293,8 +1293,13 @@
           var ranges = entry(id).ranges;
           for (var i = 0; i < ranges.length; i++) {
             if (!ranges[i]) continue;
-            var rect = ranges[i].getBoundingClientRect();
-            if (rect.bottom > visible.top && rect.top < visible.bottom) return { id: id, paragraph: i };
+            var lines = ranges[i].getClientRects();
+            if (!lines.length) continue;
+            // A paragraph counts while its last line can be read whole, as firstParagraphOnScreen says natively.
+            var lastLine = lines[lines.length - 1];
+            if (lastLine.top >= visible.top - EDGE_TOLERANCE && lines[0].top < visible.bottom) {
+              return { id: id, paragraph: i };
+            }
           }
         }
         return null;
