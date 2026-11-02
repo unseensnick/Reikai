@@ -146,6 +146,10 @@ fi
 # The write-once rule asks whether the change belongs on both sides, and only a person can answer that.
 if [ -f docs/dev/live-twins.md ]; then
   staged=$(git diff --cached --name-only --diff-filter=ACMR)
+  if printf '%s
+' "$staged" | grep -qxF docs/dev/live-twins.md; then
+    bash scripts/lint-docs.sh live-twins docs/dev/live-twins.md || exit 1
+  fi
   while IFS='|' read -r _ mihon twin _; do
     mihon=$(printf '%s' "$mihon" | xargs)
     twin=$(printf '%s' "$twin" | xargs)

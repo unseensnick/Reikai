@@ -138,6 +138,15 @@ check "passes a plain Reikai comment"     1 history app/src/main/java/reikai/X.k
 check "passes the words in code"          1 history app/src/main/java/reikai/X.kt '+val previously = 1\n'
 check "never fails the commit"            0 bash -c "printf '+++ b/app/src/main/java/reikai/X.kt\n@@ -1,0 +1,1 @@\n+// used to be\n' | bash '$lint' history-words"
 
+echo "live-twins"
+printf 'x' > "$work/twin-a.kt"
+check "catches a table with no rows"      1 bash "$lint" live-twins "$(fixture lt1.md '| Mihon | Twin | Pin |
+')"
+check "catches a row naming a missing file" 1 bash "$lint" live-twins "$(fixture lt2.md '| scripts/lint-docs.sh | scripts/missing.sh | none |
+')"
+check "passes rows naming real files"     0 bash "$lint" live-twins "$(fixture lt3.md '| scripts/lint-docs.sh | scripts/lint-docs-test.sh | none |
+')"
+
 echo "subsystem-docs"
 check "catches a date"                    1 bash "$lint" subsystem-docs "$(fixture ss1.md 'Measured on 2026-10-09.\n')"
 check "catches a backticked commit SHA"   1 bash "$lint" subsystem-docs "$(fixture ss2.md 'Landed in `ab7ee00c4`.\n')"
@@ -150,6 +159,10 @@ printf 'line\n%.0s' $(seq 301) > "$work/ss8.md"
 check "catches a page past the cap"       1 bash "$lint" subsystem-docs "$work/ss8.md"
 check "catches a bare manga only decision"  1 bash "$lint" subsystem-docs "$(fixture ss10.md '- **Fast paths are manga only.**\n')"
 check "catches a bare novels only decision" 1 bash "$lint" subsystem-docs "$(fixture ss11.md '- **Pacing is novels only**\n')"
+check "catches a capitalised one-type decision" 1 bash "$lint" subsystem-docs "$(fixture ss14.md '- **Manga only.**
+')"
+check "catches a hyphenated one-type decision"  1 bash "$lint" subsystem-docs "$(fixture ss15.md '- **Fast paths are novels-only!**
+')"
 check "catches an N/A table cell"           1 bash "$lint" subsystem-docs "$(fixture ss12.md '| Sort | yes | N/A |\n')"
 check "passes one type with its mechanism"  0 bash "$lint" subsystem-docs "$(fixture ss13.md '- **Pacing is novels only.** Manga extensions rate-limit their own clients.\n')"
 check "passes a timeless page"            0 bash "$lint" subsystem-docs "$(fixture ss9.md '# Reader\n\nThe engine owns `ReaderViewModel` and pages through `abcdef`.\n')"
