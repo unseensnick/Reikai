@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import mihon.data.cache.ChapterCache
 import okhttp3.Response
 import org.junit.jupiter.api.Test
@@ -52,16 +53,45 @@ class HttpPageLoaderTest {
 
     @Test
     fun `off Wi-Fi only the user-set count of pages loads ahead`() = runTest {
-        loadedFromFirstPage(canLoadAhead = false, preloadSize = 2) shouldContainExactly listOf(0, 1, 2)
+        loadedFromFirstPage(canLoadAhead = false, preloadSize = 2, expected = 3) shouldContainExactly listOf(0, 1, 2)
     }
 
     @Test
     fun `when loading ahead is allowed the whole chapter loads`() = runTest {
-        loadedFromFirstPage(canLoadAhead = true, preloadSize = 2) shouldContainExactly (0..9).toList()
+        loadedFromFirstPage(canLoadAhead = true, preloadSize = 2, expected = 10) shouldContainExactly (0..9).toList()
     }
 
-    /** The indices a ten-page chapter fetches once its first page is asked for. */
-    private suspend fun loadedFromFirstPage(canLoadAhead: Boolean, preloadSize: Int): List<Int> {
+    /** A write replaces the entry, so writing a cached list back would restart the hour that bounds its signed urls. */
+    @Test
+    fun `a page list served from the cache is not written back on close`() = runTest {
+        coEvery { chapterCache.getPageList(any()) } returns listOf(Page(0, "/0", "https://example.com/0.jpg"))
+        val chapter = mockk<ReaderChapter>(relaxed = true)
+        every { chapter.pages } returns listOf(ReaderPage(0, imageUrl = "https://example.com/0.jpg"))
+        val loader = loader(chapter, canLoadAhead = false)
+
+        loader.getPages()
+        loader.recycle()
+        withContext(Dispatchers.Default) { delay(200) }
+
+        coVerify(exactly = 0) { chapterCache.putPageList(any(), any()) }
+    }
+
+    @Test
+    fun `a page list fetched from the source is cached on close`() = runTest {
+        coEvery { chapterCache.getPageList(any()) } returns null
+        coEvery { source.getPageList(any()) } returns listOf(Page(0, "/0", "https://example.com/0.jpg"))
+        val chapter = mockk<ReaderChapter>(relaxed = true)
+        every { chapter.pages } returns listOf(ReaderPage(0, imageUrl = "https://example.com/0.jpg"))
+        val loader = loader(chapter, canLoadAhead = false)
+
+        loader.getPages()
+        loader.recycle()
+
+        coVerify(timeout = 5_000) { chapterCache.putPageList(any(), any()) }
+    }
+
+    /** The indices a ten-page chapter fetches once its first page is asked for, read once [expected] have landed. */
+    private suspend fun loadedFromFirstPage(canLoadAhead: Boolean, preloadSize: Int, expected: Int): List<Int> {
         val chapter = mockk<ReaderChapter>(relaxed = true)
         val pages = List(10) { ReaderPage(it, imageUrl = "https://example.com/$it.jpg") }
             .onEach { it.chapter = chapter }
@@ -75,7 +105,11 @@ class HttpPageLoaderTest {
         try {
             loader.loadPage(pages.first())
             // The loads run on the loader's own IO scope, out of virtual time's reach
-            withContext(Dispatchers.Default) { delay(1_000) }
+            withContext(Dispatchers.Default) {
+                withTimeoutOrNull(10_000) { while (fetched.size < expected) delay(10) }
+                // Long enough for a page past the expected count to show up.
+                delay(200)
+            }
             return synchronized(fetched) { fetched.toList() }
         } finally {
             loader.recycle()

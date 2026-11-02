@@ -112,13 +112,13 @@ class NovelChapterTextCacheTest {
         html shouldContain "second answer"
     }
 
-    /** Manga's page lists share the cache, and a plugin's path can be a manga's without its leading slash. */
+    /** Texts have a store of their own, so a chapter's key can be anything a manga's page list uses. */
     @Test
     fun `a novel chapter's text leaves a manga chapter's cached pages alone`() = runTest {
         val mangaChapter = Chapter.create().copy(mangaId = 1L, url = "/book/ch1.html")
         chapterCache.putPageList(mangaChapter, listOf(Page(0, "https://example.test/1")))
 
-        cache.put(chapter(novelId = 1L, url = "book/ch1.html"), CachedChapterText("x", null))
+        chapterCache.putText("1/book/ch1.html", "x")
 
         chapterCache.getPageList(mangaChapter)?.map { it.url } shouldBe listOf("https://example.test/1")
     }

@@ -18,6 +18,7 @@ import logcat.LogPriority
 import mihon.core.common.cache.TtlDiskCache
 import mihon.core.metro.AppCoroutineScope
 import okhttp3.Response
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
 import java.io.File
@@ -26,7 +27,6 @@ import java.io.InputStream
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * The page lists and images of chapters read online.
@@ -41,7 +41,9 @@ class ChapterCache(
     @AppCoroutineScope scope: CoroutineScope,
     // RK --> novel tests run the whole session on virtual time, which neither may leave or move
     private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val saveDelay: Duration = 2.seconds,
+    newCache: (File, File, Duration) -> TtlDiskCache = { dir, index, ttl ->
+        TtlDiskCache(dir, index, ttl, scope, dispatcher = dispatcher)
+    },
     // RK <--
 ) {
 
@@ -50,33 +52,12 @@ class ChapterCache(
     // Out of the cache directory, so the system clearing that leaves the indexes
     private val indexes = File(context.noBackupFilesDir, "chapter_cache")
 
-    private val pageLists = TtlDiskCache(
-        File(root, "pages"),
-        File(indexes, "pages.index"),
-        1.hours,
-        scope,
-        saveDelay = saveDelay,
-        dispatcher = dispatcher, // RK
-    )
+    private val pageLists = newCache(File(root, "pages"), File(indexes, "pages.index"), 1.hours) // RK
 
-    private val images = TtlDiskCache(
-        File(root, "images"),
-        File(indexes, "images.index"),
-        1.days,
-        scope,
-        saveDelay = saveDelay,
-        dispatcher = dispatcher, // RK
-    )
+    private val images = newCache(File(root, "images"), File(indexes, "images.index"), 1.days) // RK
 
     // RK: a novel chapter's text, kept apart since it holds no signed url to expire
-    private val texts = TtlDiskCache(
-        File(root, "texts"),
-        File(indexes, "texts.index"),
-        7.days,
-        scope,
-        saveDelay = saveDelay,
-        dispatcher = dispatcher,
-    )
+    private val texts = newCache(File(root, "texts"), File(indexes, "texts.index"), 7.days)
 
     init {
         scope.launch {
@@ -96,7 +77,8 @@ class ChapterCache(
     suspend fun getPageList(chapter: Chapter): List<Page>? {
         val input = pageLists.open(chapter.key) ?: return null
         return try {
-            json.decodeFromString(withContext(Dispatchers.IO) { input.bufferedReader().use { it.readText() } })
+            // RK: coroutine helper in place of upstream's raw dispatcher
+            json.decodeFromString(withIOContext { input.bufferedReader().use { it.readText() } })
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             logcat(LogPriority.WARN, e) { "Failed to read page list from cache" }

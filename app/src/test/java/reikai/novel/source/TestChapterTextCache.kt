@@ -7,6 +7,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.serialization.json.Json
+import mihon.core.common.cache.TtlDiskCache
 import mihon.data.cache.ChapterCache
 import reikai.util.testAppScope
 import java.nio.file.Files
@@ -27,5 +28,7 @@ fun testChapterCache(
         every { cacheDir } returns dir
         every { noBackupFilesDir } returns dir
     }
-    return ChapterCache(context, Json, scope, dispatcher, saveDelay)
+    return ChapterCache(context, Json, scope, dispatcher) { dir, index, ttl ->
+        TtlDiskCache(dir, index, ttl, scope, saveDelay = saveDelay, dispatcher = dispatcher)
+    }
 }

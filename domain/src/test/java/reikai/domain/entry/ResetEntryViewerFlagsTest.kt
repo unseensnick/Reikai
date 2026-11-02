@@ -36,6 +36,13 @@ class ResetEntryViewerFlagsTest {
     }
 
     @Test
+    fun `fails when manga could not reset`() = runTest {
+        outcome(manga = false, novels = true)
+
+        reset.await() shouldBe false
+    }
+
+    @Test
     fun `novels still reset when manga could not`() = runTest {
         outcome(manga = false, novels = true)
 

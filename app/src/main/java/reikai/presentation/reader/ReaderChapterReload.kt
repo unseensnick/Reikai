@@ -9,11 +9,12 @@ import mihon.data.cache.ChapterCache
  */
 suspend fun ReaderChapter.unloadForReload(fromSource: Boolean, cache: ChapterCache) {
     val oldPages = pages
-    // Emptied before the loader is recycled: an online loader caches whatever page list its chapter
-    // still holds on recycle, off-thread, and would put back the list dropped below.
-    state = ReaderChapter.State.Wait
+    // From the source the state is emptied before the loader is recycled: an online loader caches whatever page
+    // list its chapter still holds on recycle, off-thread, and would put back the list dropped below.
+    if (fromSource) state = ReaderChapter.State.Wait
     pageLoader?.recycle()
     pageLoader = null
+    state = ReaderChapter.State.Wait
     if (fromSource) {
         oldPages?.forEach { page -> page.imageUrl?.let { cache.removeImage(it) } }
         cache.removePageList(chapter)

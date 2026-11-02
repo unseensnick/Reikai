@@ -35,6 +35,27 @@ class ReaderChapterReloadTest {
         loader.pagesOnRecycle shouldBe null
     }
 
+    /** A plain reload keeps the cached list, and the images it resolved, so the loader may cache it as usual. */
+    @Test
+    fun `a plain reload leaves the page list for the loader to cache`() = runTest {
+        val chapter = loadedChapter()
+        val loader = PageListRecordingLoader(chapter)
+        chapter.pageLoader = loader
+
+        chapter.unloadForReload(fromSource = false, cache)
+
+        loader.pagesOnRecycle?.size shouldBe 1
+    }
+
+    @Test
+    fun `a plain reload leaves the chapter ready to load again`() = runTest {
+        val chapter = loadedChapter()
+
+        chapter.unloadForReload(fromSource = false, cache)
+
+        chapter.state shouldBe ReaderChapter.State.Wait
+    }
+
     @Test
     fun `a reload from the source drops the old pages' images`() = runTest {
         val chapter = loadedChapter()

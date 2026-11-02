@@ -1,12 +1,12 @@
 package reikai.novel.source
 
 import dev.zacsweers.metro.Inject
-import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.data.cache.ChapterCache
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
 /**
@@ -22,31 +22,22 @@ class NovelChapterTextCache(
 ) {
 
     /** Null when the chapter was never fetched, was evicted, or its entry cannot be read. */
-    suspend fun get(chapter: NovelChapter): CachedChapterText? = try {
+    suspend fun get(chapter: NovelChapter): CachedChapterText? = runCatchingCancellable {
         chapterCache.getText(key(chapter))?.let { json.decodeFromString<CachedChapterText>(it) }
-    } catch (e: Exception) {
-        if (e is CancellationException) throw e
-        logcat(LogPriority.WARN, e) { "Failed to read cached novel chapter text" }
-        null
-    }
+    }.onFailure { logcat(LogPriority.WARN, it) { "Failed to read cached novel chapter text" } }.getOrNull()
 
     /** A failed write costs only the next open's speed, so it is logged rather than failing the read. */
     suspend fun put(chapter: NovelChapter, text: CachedChapterText) {
-        try {
-            chapterCache.putText(key(chapter), json.encodeToString(text))
-        } catch (e: Exception) {
-            if (e is CancellationException) throw e
-            logcat(LogPriority.WARN, e) { "Failed to cache novel chapter text" }
-        }
+        runCatchingCancellable { chapterCache.putText(key(chapter), json.encodeToString(text)) }
+            .onFailure { logcat(LogPriority.WARN, it) { "Failed to cache novel chapter text" } }
     }
 
     suspend fun remove(chapter: NovelChapter) {
         chapterCache.removeText(key(chapter))
     }
 
-    // Prefixed, since a novel id and a manga id can be the same number in the cache they share. The slash after the id
-    // keeps novel 1's path "2/ch" and novel 12's "/ch" apart.
-    private fun key(chapter: NovelChapter) = "novel/${chapter.novelId}/${chapter.url}"
+    // The slash after the id keeps novel 1's path "2/ch" and novel 12's "/ch" apart.
+    private fun key(chapter: NovelChapter) = "${chapter.novelId}/${chapter.url}"
 }
 
 /** [baseUrl] is the source site the text's relative links resolve against. */

@@ -45,13 +45,18 @@ internal class HttpPageLoader(
 
     override var isLocal: Boolean = false
 
+    private var servedFromCache = false // RK
+
     /**
      * Returns the page list for a chapter. It tries to return the page list from the local cache,
      * otherwise fallbacks to network.
      */
     override suspend fun getPages(): List<ReaderPage> {
-        val pages = chapterCache.getPageList(chapter.chapter)
-            ?: source.getPageList(chapter.chapter.toSChapter())
+        // RK --> a list served from the cache is not written back, or each close restarts its hour
+        val cached = chapterCache.getPageList(chapter.chapter)
+        servedFromCache = cached != null
+        val pages = cached ?: source.getPageList(chapter.chapter.toSChapter())
+        // RK <--
         return pages.mapIndexed { index, page ->
             // Don't trust sources and use our own indexing
             ReaderPage(index, page.url, page.imageUrl).also {
@@ -113,7 +118,8 @@ internal class HttpPageLoader(
         downloadJobs.clear()
 
         // Cache current page list progress for online chapters to allow a faster reopen
-        chapter.pages?.let { pages ->
+        chapter.pages?.takeUnless { servedFromCache }?.let { pages ->
+            // RK: see getPages
             // RK: coroutine helper in place of upstream's raw dispatcher
             appScope.launchIO {
                 try {
