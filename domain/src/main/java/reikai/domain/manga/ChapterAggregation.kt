@@ -1,11 +1,9 @@
 package reikai.domain.manga
 
+import reikai.domain.merge.GroupRanking
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
-import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.stampedReadingOrder
-import reikai.domain.merge.stitchOrder
-import reikai.domain.merge.trunkOrder
 import reikai.domain.merge.unstitchedChapters
 import tachiyomi.domain.chapter.model.Chapter
 
@@ -45,7 +43,7 @@ object ChapterAggregation {
             return unstitchedChapters(chaptersBySource.values.firstOrNull().orEmpty()) { it.id }
         }
 
-        val ranked = walkOrder(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)
+        val ranked = ranking.walkOrder(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)
 
         val order = MergedChapterOrder<Chapter> { chapter ->
             // Narrowed to Float so a float-origin and a double-origin "1.1" key to the same value
@@ -58,7 +56,7 @@ object ChapterAggregation {
         ranked.forEachIndexed { index, source ->
             order.startSource()
             val isTrunk = index == 0
-            val isGallery = source.mangaId in gallerySourceMangaIds
+            val isGallery = source.memberId in gallerySourceMangaIds
             for (chapter in source.chapters) {
                 // A gallery source's chapters are each a whole standalone gallery / version, and
                 // every gallery source numbers its primary chapter 1, so cross-source number dedup
@@ -88,58 +86,13 @@ object ChapterAggregation {
         return MergedChapters(merged, stitched.units { it.id })
     }
 
-    /**
-     * The member manga ids in trunk order (first = trunk), the same ranking [merge] applies. Lets the
-     * manage-sources dialog badge the primary source without stitching the whole chapter list.
-     */
-    fun rankedMemberIds(
-        chaptersBySource: Map<Long, List<Chapter>>,
-        sourceIdByManga: Map<Long, Long> = emptyMap(),
-        preferredSourceIds: List<Long> = emptyList(),
-        memberRanking: List<Long> = emptyList(),
-    ): List<Long> = rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking).map { it.mangaId }
+    /** The stitch's ranking, counting distinct recognized numbers. */
+    val ranking = GroupRanking<Chapter, Long> { recognizedChapterCount(it).toLong() }
 
-    /** The member [merge] walks first, the trunk, or null for an empty group. */
-    fun trunkId(
-        chaptersBySource: Map<Long, List<Chapter>>,
-        sourceIdByManga: Map<Long, Long>,
-        preferredSourceIds: List<Long>,
-        memberRanking: List<Long>,
-    ): Long? = walkOrder(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking).firstOrNull()?.mangaId
-
-    private fun walkOrder(
-        chaptersBySource: Map<Long, List<Chapter>>,
-        sourceIdByManga: Map<Long, Long>,
-        preferredSourceIds: List<Long>,
-        memberRanking: List<Long>,
-    ): List<RankedSource> = stitchOrder(rank(chaptersBySource, sourceIdByManga, preferredSourceIds, memberRanking)) {
-        it.chapters.isNotEmpty()
-    }
-
-    // The shared trunk order, counting distinct recognized numbers.
-    private fun rank(
-        chaptersBySource: Map<Long, List<Chapter>>,
-        sourceIdByManga: Map<Long, Long>,
-        preferredSourceIds: List<Long>,
-        memberRanking: List<Long>,
-    ): List<RankedSource> = chaptersBySource.entries
-        .map { (mangaId, chapters) ->
-            val prefRank = sourcePriority(mangaId, sourceIdByManga[mangaId], preferredSourceIds, memberRanking)
-            RankedSource(mangaId, chapters, recognizedChapterCount(chapters), prefRank)
-        }
-        .sortedWith(trunkOrder({ it.prefRank }, { it.distinctCount.toLong() }, { it.mangaId }))
-
-    /** The count [rank] orders a source by: its distinct recognized chapter numbers. */
+    /** The count [ranking] orders a source by: its distinct recognized chapter numbers. */
     fun recognizedChapterCount(chapters: List<Chapter>): Int =
         distinctChapterNumberCount(chapters.filter { it.isRecognizedNumber }.map { it.chapterNumber })
 
     /** How many chapters [numbers] name, each narrowed to Float as the stitch keys them. */
     fun distinctChapterNumberCount(numbers: List<Double>): Int = numbers.distinctBy { it.toFloat() }.size
-
-    private class RankedSource(
-        val mangaId: Long,
-        val chapters: List<Chapter>,
-        val distinctCount: Int,
-        val prefRank: Int,
-    )
 }

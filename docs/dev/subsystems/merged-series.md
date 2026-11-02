@@ -32,7 +32,7 @@ A merged series sits in one set of categories. Every category write to a library
 
 ### Ranking: trunk, settings owner and library lead
 
-Each group's members are ranked by `trunkOrder` in `SourceRanking.kt`: `sourcePriority` first (the member's position in the group's own order when `override_source_ranking` is on, else its source's position in the global `preferred_manga_sources` / `preferred_novel_sources` list), then the most chapters, then the lowest id. Dragging rows in Manage sources writes `source_priority` and turns the override on (`setSourceOrder`); Reset order turns it off (`clearSourceOrder`).
+Each group's members are ranked by `trunkOrder` in `SourceRanking.kt`: `sourcePriority` first (the member's position in the group's own order when `override_source_ranking` is on, else its source's position in the global `preferred_manga_sources` / `preferred_novel_sources` list), then the most chapters, then the lowest id. Manage sources ranks each member's whole chapter list, as the stitch does, while its row counts keep the scanlator filter. Dragging rows in Manage sources writes `source_priority` and turns the override on (`setSourceOrder`); Reset order turns it off (`clearSourceOrder`).
 
 Three roles come out of that ranking, and they are deliberately not the same member:
 

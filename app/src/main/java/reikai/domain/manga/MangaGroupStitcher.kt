@@ -68,12 +68,12 @@ class MangaGroupStitcher(
 
     override suspend fun trunkNumbers(groupId: Long): Map<Long, Double> {
         val group = load(groupId) ?: return emptyMap()
-        val trunk = ChapterAggregation.trunkId(
+        val trunk = ChapterAggregation.ranking.walkOrder(
             group.chaptersBySource,
             group.sourceIdByManga,
             reikaiLibraryPreferences.preferredMangaSources.get(),
             group.memberRanking,
-        )
+        ).firstOrNull()?.memberId
         return group.chaptersBySource[trunk].orEmpty().associate { it.id to it.chapterNumber }
     }
 

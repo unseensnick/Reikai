@@ -86,18 +86,16 @@ class MergedChapterProvider(
         renderMergedReadingOrder(chapters, stitch, { it.id }) { chapter, order -> chapter.copy(sourceOrder = order) }
 
     /** The member manga ids in trunk order (first = trunk), for ordering the manage-sources rows so the
-     *  primary sits on top. Uses the stitch's own ranking; [memberRanking] is the caller's
-     *  already-resolved per-group override (empty = the global ranking wins). */
-    fun rankedMemberIds(
-        chaptersBySource: Map<Long, List<Chapter>>,
-        sourceIdByManga: Map<Long, Long>,
-        memberRanking: List<Long>,
-    ): List<Long> = ChapterAggregation.rankedMemberIds(
-        chaptersBySource,
-        sourceIdByManga,
-        reikaiLibraryPreferences.preferredMangaSources.get(),
-        memberRanking,
-    )
+     *  primary sits on top. Reads each member's whole chapter list, as the stitch does, since a hidden
+     *  scanlator is a display choice; [memberRanking] is the caller's already-resolved per-group
+     *  override (empty = the global ranking wins). */
+    suspend fun rankedMemberIds(memberIds: List<Long>, memberRanking: List<Long>): List<Long> =
+        ChapterAggregation.ranking.rank(
+            memberIds.associateWith { getMangaWithChapters.awaitChapters(it) },
+            memberIds.associateWith { getMangaWithChapters.awaitManga(it).source },
+            reikaiLibraryPreferences.preferredMangaSources.get(),
+            memberRanking,
+        ).map { it.memberId }
 }
 
 /** [shown]'s flags across the whole group, as the library's resume and download ask them; a null group

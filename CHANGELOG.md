@@ -30,6 +30,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 
+### Merged series
+
+#### Fixed
+
+- **Manage sources now opens on the real primary source when you hide a scanlator.**
+
 ### Downloads
 
 #### Changed

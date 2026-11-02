@@ -1841,8 +1841,7 @@ class MangaViewModel(
             val chaptersBySource = ids.associateWith {
                 getMangaAndChapters.awaitChapters(it, applyScanlatorFilter = true)
             }
-            val sourceIdByManga = ids.associateWith { getMangaAndChapters.awaitManga(it).source }
-            val ranked = mergedChapterProvider.rankedMemberIds(chaptersBySource, sourceIdByManga, memberRanking)
+            val ranked = mergedChapterProvider.rankedMemberIds(ids, memberRanking)
             val orderedSources = ranked.mapNotNull { id ->
                 state.mergeSources.find { it.id == id }
                     ?.let { EntryManageSourceInfo(it.id, it.sourceName, chaptersBySource[id]?.size ?: 0) }

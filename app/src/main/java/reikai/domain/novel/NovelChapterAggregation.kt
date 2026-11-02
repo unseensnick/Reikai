@@ -1,12 +1,10 @@
 package reikai.domain.novel
 
 import reikai.domain.chapter.isRecognizedChapterNumber
+import reikai.domain.merge.GroupRanking
 import reikai.domain.merge.MergedChapterOrder
 import reikai.domain.merge.MergedChapters
-import reikai.domain.merge.sourcePriority
 import reikai.domain.merge.stampedReadingOrder
-import reikai.domain.merge.stitchOrder
-import reikai.domain.merge.trunkOrder
 import reikai.domain.merge.unstitchedChapters
 import reikai.domain.novel.model.NovelChapter
 
@@ -44,7 +42,7 @@ object NovelChapterAggregation {
             return unstitchedChapters(chaptersByNovel.values.firstOrNull().orEmpty()) { it.id }
         }
 
-        val ranked = walkOrder(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)
+        val ranked = ranking.walkOrder(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)
 
         // No usable keys on the trunk -> no reliable cross-source matching, so just show its full list.
         val trunk = ranked.first()
@@ -84,46 +82,8 @@ object NovelChapterAggregation {
         return MergedChapters(merged, stitched.units { it.id })
     }
 
-    /**
-     * The member novel ids in trunk order (first = trunk), the same ranking [merge] applies. Lets the
-     * manage-sources dialog badge the primary source without stitching the whole chapter list.
-     */
-    fun rankedMemberIds(
-        chaptersByNovel: Map<Long, List<NovelChapter>>,
-        sourceIdByNovel: Map<Long, String> = emptyMap(),
-        preferredSourceIds: List<String> = emptyList(),
-        memberRanking: List<Long> = emptyList(),
-    ): List<Long> = rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).map { it.novelId }
-
-    /** The member [merge] walks first, the trunk, or null for an empty group. */
-    fun trunkId(
-        chaptersByNovel: Map<Long, List<NovelChapter>>,
-        sourceIdByNovel: Map<Long, String>,
-        preferredSourceIds: List<String>,
-        memberRanking: List<Long>,
-    ): Long? = walkOrder(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking).firstOrNull()?.novelId
-
-    private fun walkOrder(
-        chaptersByNovel: Map<Long, List<NovelChapter>>,
-        sourceIdByNovel: Map<Long, String>,
-        preferredSourceIds: List<String>,
-        memberRanking: List<Long>,
-    ): List<RankedSource> = stitchOrder(rank(chaptersByNovel, sourceIdByNovel, preferredSourceIds, memberRanking)) {
-        it.chapters.isNotEmpty()
-    }
-
-    // The shared trunk order, counting rows: the novel stitch collapses no scanlator variants.
-    private fun rank(
-        chaptersByNovel: Map<Long, List<NovelChapter>>,
-        sourceIdByNovel: Map<Long, String>,
-        preferredSourceIds: List<String>,
-        memberRanking: List<Long>,
-    ): List<RankedSource> = chaptersByNovel.entries
-        .map { (novelId, chapters) ->
-            val prefRank = sourcePriority(novelId, sourceIdByNovel[novelId], preferredSourceIds, memberRanking)
-            RankedSource(novelId, chapters, prefRank)
-        }
-        .sortedWith(trunkOrder({ it.prefRank }, { it.chapters.size.toLong() }, { it.novelId }))
+    /** The stitch's ranking, counting rows: the novel stitch collapses no scanlator variants. */
+    val ranking = GroupRanking<NovelChapter, String> { it.size.toLong() }
 
     /**
      * The cross-source identity of a chapter, or null when it has none. Prefers the normalized title
@@ -179,10 +139,4 @@ object NovelChapterAggregation {
         }
         return out.joinToString(" ")
     }
-
-    private class RankedSource(
-        val novelId: Long,
-        val chapters: List<NovelChapter>,
-        val prefRank: Int,
-    )
 }

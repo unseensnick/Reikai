@@ -55,6 +55,40 @@ fun <T, K> coverFallbacks(shown: K, members: List<T>, key: (T) -> K): List<T> = 
  */
 fun <T> stitchOrder(ranked: List<T>, hasChapters: (T) -> Boolean): List<T> = ranked.sortedBy { !hasChapters(it) }
 
+/** One member of a group with what [GroupRanking] ordered it by. */
+class RankedGroupMember<C>(val memberId: Long, val chapters: List<C>, val priority: Int, val chapterCount: Long)
+
+/**
+ * A merge group's ranking for one content type, over its chapter [C] and source id [S]. [chapterCount]
+ * is the stitch's own count: manga's distinct recognized numbers, novels' rows.
+ */
+class GroupRanking<C, S>(private val chapterCount: (List<C>) -> Long) {
+
+    /** The members in [trunkOrder], which the manage-sources dialog shows: see [stitchOrder]. */
+    fun rank(
+        chaptersByMember: Map<Long, List<C>>,
+        sourceIdByMember: Map<Long, S> = emptyMap(),
+        preferredSourceIds: List<S> = emptyList(),
+        memberRanking: List<Long> = emptyList(),
+    ): List<RankedGroupMember<C>> = chaptersByMember.entries
+        .map { (memberId, chapters) ->
+            val priority = sourcePriority(memberId, sourceIdByMember[memberId], preferredSourceIds, memberRanking)
+            RankedGroupMember(memberId, chapters, priority, chapterCount(chapters))
+        }
+        .sortedWith(trunkOrder({ it.priority }, { it.chapterCount }, { it.memberId }))
+
+    /** The members as the stitch walks them, trunk first. */
+    fun walkOrder(
+        chaptersByMember: Map<Long, List<C>>,
+        sourceIdByMember: Map<Long, S>,
+        preferredSourceIds: List<S>,
+        memberRanking: List<Long>,
+    ): List<RankedGroupMember<C>> =
+        stitchOrder(rank(chaptersByMember, sourceIdByMember, preferredSourceIds, memberRanking)) {
+            it.chapters.isNotEmpty()
+        }
+}
+
 /** One library member of a merge group and what ranks it. Rows of a group arrive in its own member
  *  order, which is the override order whenever [overridden] is set. */
 class RankedMember<S>(val groupId: Long, val memberId: Long, val sourceId: S, val overridden: Boolean)

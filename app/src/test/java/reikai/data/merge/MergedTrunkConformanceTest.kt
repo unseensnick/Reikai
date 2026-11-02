@@ -19,8 +19,10 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaGroupStitcher
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.merge.MergedGroupStitcher
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelGroupStitcher
 import reikai.domain.novel.NovelMergeManager
 import reikai.presentation.library.LibraryBadgePrefs
@@ -137,6 +139,18 @@ class MergedTrunkConformanceTest {
             side.libraryPrimary(preferred = emptyList()) shouldBe lead
         }
 
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `manage sources opens on the stitch's trunk`(type: ContentType) = runTest {
+        val side = side(type)
+        // As above: a scanlator the user hides is a display choice the ranking does not see.
+        side.entry(id = LARGER, source = 100L, chapters = 10, hidden = 8)
+        side.entry(id = SMALLER, source = 200L, chapters = 5)
+        groups.createGroup(type, listOf(LARGER, SMALLER))
+
+        side.managedLead(listOf(LARGER, SMALLER)) shouldBe side.storedLead(preferred = emptyList())
+    }
+
     // The tests below are manga only: novels rank on the library row's own chapter count, which counts
     // rows as the novel stitch does, so the novel stitch saves no count to test.
 
@@ -225,6 +239,9 @@ class MergedTrunkConformanceTest {
 
         suspend fun libraryPrimary(preferred: List<Long>): Long
 
+        /** The member the manage-sources dialog puts on top. */
+        suspend fun managedLead(members: List<Long>): Long
+
         /** Reconciles the stored stitch through the real stitcher, then names the member whose copy it
          *  shows first. */
         suspend fun storedLead(preferred: List<Long>): Long
@@ -308,6 +325,14 @@ class MergedTrunkConformanceTest {
 
         override suspend fun libraryPrimary(preferred: List<Long>): Long = libraryLeads(preferred).single()
 
+        override suspend fun managedLead(members: List<Long>): Long = MergedChapterProvider(
+            GetMangaWithChapters(MangaRepositoryImpl(database), ChapterRepositoryImpl(database)),
+            mockk(),
+            mockk(),
+            preferences,
+            mockk(),
+        ).rankedMemberIds(members, emptyList()).first()
+
         /** The member each collapsed library row leads on. */
         suspend fun libraryLeads(preferred: List<Long>): Set<Long> {
             val items = MangaRepositoryImpl(database).getLibraryManga().map { row ->
@@ -376,6 +401,12 @@ class MergedTrunkConformanceTest {
                     "source_order, date_fetch, date_upload) " +
                     "VALUES ($id, '$url', 'Chapter $number', 0, 0, $number, $number, 0, 0)",
             )
+        }
+
+        override suspend fun managedLead(members: List<Long>): Long {
+            val chapters = NovelChapterRepositoryImpl(database)
+            return NovelChapterAggregation.ranking.rank(members.associateWith { chapters.getByNovelId(it) })
+                .first().memberId
         }
 
         override suspend fun libraryPrimary(preferred: List<Long>): Long =

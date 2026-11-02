@@ -959,13 +959,13 @@ class NovelDetailsViewModel(
             // under the global order (no override). memberRanking non-empty == override on.
             val memberRanking = mergeManager.overrideRankingMemberIds(anchorNovelId)
             // The stored source, installed or not, as the stitch ranks it (NovelGroupStitcher).
-            val ranked = NovelChapterAggregation.rankedMemberIds(
+            val ranked = NovelChapterAggregation.ranking.rank(
                 chaptersByNovel,
                 chaptersByNovel.keys.associateWith { memberSources[it].orEmpty() },
                 reikaiLibraryPreferences.preferredNovelSources.get(),
                 memberRanking,
             )
-            val orderedSources = ranked.mapNotNull { withCounts[it] }
+            val orderedSources = ranked.mapNotNull { withCounts[it.memberId] }
             showDialog(NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
         }
     }

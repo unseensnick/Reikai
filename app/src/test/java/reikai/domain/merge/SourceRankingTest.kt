@@ -15,6 +15,18 @@ class SourceRankingTest {
         members.map { (memberId, source) -> RankedMember(GROUP, memberId, source, overridden) }
 
     @Test
+    fun `a preferred member with no chapters still ranks first, and the walk starts after it`() {
+        val ranking = GroupRanking<String, Long> { it.size.toLong() }
+        val chapters = mapOf(1L to emptyList(), 2L to listOf("a"))
+        val sources = mapOf(1L to 100L, 2L to 200L)
+
+        val ranked = ranking.rank(chapters, sources, listOf(100L))
+        val walked = ranking.walkOrder(chapters, sources, listOf(100L), emptyList())
+
+        ranked.first().memberId to walked.first().memberId shouldBe (1L to 2L)
+    }
+
+    @Test
     fun `a preferred list that orders the members alike stamps alike`() {
         val members = group(false, 1L to 100L, 2L to 200L)
 
