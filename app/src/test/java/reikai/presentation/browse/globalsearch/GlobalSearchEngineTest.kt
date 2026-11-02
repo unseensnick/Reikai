@@ -48,8 +48,18 @@ class GlobalSearchEngineTest {
         Dispatchers.resetMain()
     }
 
-    private fun engine(provider: GlobalSearchProvider = FakeProvider(), initial: SearchSourceFilter? = null) =
-        GlobalSearchEngine(listOf(provider), "query", null, initial, preferences, SourcePreferences(store))
+    private fun engine(
+        provider: GlobalSearchProvider = FakeProvider(),
+        initial: SearchSourceFilter? = null,
+        scoped: ContentType? = null,
+    ) = GlobalSearchEngine(listOf(provider), "query", scoped, initial, preferences, SourcePreferences(store))
+
+    @Test
+    fun `a search scoped to a hidden type runs the shown type`() = runTest(dispatcher) {
+        preferences.shownContent.set(ContentType.NOVELS)
+
+        engine(scoped = ContentType.MANGA).state.first { it.searched }.contentType shouldBe ContentType.NOVELS
+    }
 
     @Test
     fun `a search opens on the sources last chosen`() = runTest(dispatcher) {

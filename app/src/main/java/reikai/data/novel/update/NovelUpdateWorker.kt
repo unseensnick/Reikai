@@ -28,7 +28,6 @@ import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.library.EntryCheck
-import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateProgressList
 import reikai.data.library.UpdateRunLedger
@@ -136,7 +135,7 @@ class NovelUpdateWorker(
         Migrator.await()
         val restrictions = preferences.libraryUpdateDeviceRestrictions().get()
         val shown = reikaiLibraryPreferences.shownContent.get()
-        libraryUpdateGate(LibraryUpdateJob.NOVEL, shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
+        libraryUpdateGate(shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
             return it
         }
         setForegroundSafely()

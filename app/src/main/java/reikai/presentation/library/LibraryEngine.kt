@@ -38,6 +38,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
+import reikai.domain.library.within
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
@@ -355,6 +356,16 @@ class LibraryEngine(
      */
     fun search(contentType: ContentType, query: String?) {
         providersFor(contentType).forEach { it.search(query) }
+    }
+
+    /**
+     * A search sent from another screen, which lands on the chip of its type, or on the shown type's
+     * while Show hides that one, since a details screen opened by link can ask for either.
+     */
+    fun searchFrom(requested: ContentType, query: String?) {
+        val type = requested.within(reikaiLibraryPreferences.shownContent.get())
+        setContentType(type)
+        search(type, query)
     }
 
     /**

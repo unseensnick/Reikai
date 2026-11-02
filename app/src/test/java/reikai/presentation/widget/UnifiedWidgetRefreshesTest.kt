@@ -6,13 +6,16 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onCompletion
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ContentType
 
 /** The combined widget's refresh driver watches the library only while a combined widget is placed. */
 internal class UnifiedWidgetRefreshesTest {
@@ -46,6 +49,20 @@ internal class UnifiedWidgetRefreshesTest {
         runCurrent()
 
         watching shouldBe 1
+    }
+
+    @Test
+    fun `a flip of Show alone redraws, though no chapter changed`() = runTest {
+        val shown = MutableStateFlow(ContentType.ALL)
+        val drawn = mutableListOf<UnifiedWidgetDrawn>()
+        val updates = shown.map { UnifiedWidgetUpdates(emptyList(), emptyList(), it) }
+        backgroundScope.launch { unifiedWidgetRefreshes(flowOf(true), updates, flowOf(false)).toList(drawn) }
+        runCurrent()
+
+        shown.value = ContentType.MANGA
+        runCurrent()
+
+        drawn.map { it.shown } shouldBe listOf(ContentType.ALL, ContentType.MANGA)
     }
 
     @Test

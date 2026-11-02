@@ -279,10 +279,7 @@ object SettingsLibraryScreen : SearchableSettings {
                     entries = smartUpdateEntries(), // RK: shared with the light-novel group
                     title = stringResource(MR.strings.pref_library_update_smart_update),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = libraryPreferences.newShowUpdatesCount,
-                    title = stringResource(MR.strings.pref_library_update_show_tab_badge),
-                ),
+                // RK: the Updates badge switch moved to Behavior, since every library update feeds the badge
                 // RK --> records update failures for the Update errors screen, moved here from Advanced
                 Preference.PreferenceItem.SwitchPreference(
                     preference = reikaiLibraryPreferences.trackUpdateErrors,
@@ -304,6 +301,11 @@ object SettingsLibraryScreen : SearchableSettings {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_behavior),
             preferenceItems = listOf(
+                // RK: here rather than under an update group, so hiding a type cannot take it away
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = libraryPreferences.newShowUpdatesCount,
+                    title = stringResource(MR.strings.pref_library_update_show_tab_badge),
+                ),
                 Preference.PreferenceItem.ListPreference(
                     preference = libraryPreferences.swipeToStartAction,
                     entries = mapOf(

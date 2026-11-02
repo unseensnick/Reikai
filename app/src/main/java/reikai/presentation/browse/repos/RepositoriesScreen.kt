@@ -108,7 +108,7 @@ class RepositoriesScreen(private val url: String? = null) : Screen() {
         ) { contentPadding ->
             when {
                 state.isLoading -> LoadingScreen(Modifier.padding(contentPadding))
-                state.cards.isEmpty() -> EmptyScreen(
+                state.cards.isEmpty() && state.hiddenCount == 0 -> EmptyScreen(
                     stringRes = MR.strings.ext_no_repos,
                     modifier = Modifier.padding(contentPadding),
                 )
@@ -131,6 +131,19 @@ class RepositoriesScreen(private val url: String? = null) : Screen() {
                                 modifier = Modifier.animateItem(),
                             )
                         }
+                        if (state.hiddenCount > 0) {
+                            item(key = "hidden") {
+                                Text(
+                                    text = pluralStringResource(
+                                        MR.plurals.repos_hidden_by_show,
+                                        state.hiddenCount,
+                                        state.hiddenCount,
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -148,7 +161,7 @@ class RepositoriesScreen(private val url: String? = null) : Screen() {
             null -> {}
             is RepoDialog.Add -> AddRepoDialog(
                 dialog = dialog,
-                addedAddresses = state.cards.mapTo(HashSet()) { it.address },
+                addedAddresses = state.addedAddresses,
                 onAdd = model::add,
                 onDismissRequest = model::dismissDialog,
             )

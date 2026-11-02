@@ -1,6 +1,9 @@
 package reikai.domain.source
 
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
+import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.source.model.FeedSavedSearch
 
 /**
@@ -9,8 +12,19 @@ import reikai.domain.source.model.FeedSavedSearch
  */
 const val MAX_FEED_ROWS = 20
 
-/** Whether the Browse feed holds every row it may, so neither an add nor a restore puts in one more. */
-suspend fun FeedSavedSearchRepository.isGlobalFeedFull(): Boolean = countGlobal() >= MAX_FEED_ROWS
+/**
+ * Whether the Browse feed holds every row it may, so neither an add nor a restore puts in one more. A row
+ * [shown] leaves out takes no slot, since it can be neither seen nor removed from the feed. A restore
+ * passes the default, because backups ignore the Show setting.
+ */
+suspend fun FeedSavedSearchRepository.isGlobalFeedFull(shown: ContentType = ContentType.ALL): Boolean {
+    val hidden = if (shown == ContentType.ALL) {
+        0
+    } else {
+        subscribeGlobal().first().count { !shown.includes(it.sourceKey.contentType) }
+    }
+    return countGlobal() - hidden >= MAX_FEED_ROWS
+}
 
 /**
  * Storage for feed rows, of both content types. Rows carry a `global` flag, but only the Browse feed

@@ -80,6 +80,20 @@ class RepoCardsTest {
     }
 
     @Test
+    fun `a store listing both types stays under either`() {
+        val cards = repoCards(listOf(STORE), mapOf(STORE.indexUrl to RepoStatus.Reached(3, 2)), emptySet(), null)
+
+        cards.shownIn(ContentType.MANGA).size shouldBe 1
+    }
+
+    @Test
+    fun `a manga-only store leaves with manga`() {
+        val cards = repoCards(listOf(STORE), mapOf(STORE.indexUrl to RepoStatus.Reached(3, 0)), emptySet(), null)
+
+        cards.shownIn(ContentType.NOVELS) shouldBe emptyList()
+    }
+
+    @Test
     fun `a store whose contents are not known yet stays`() {
         repoCards(listOf(STORE), null, emptySet(), null).shownIn(ContentType.MANGA).size shouldBe 1
     }

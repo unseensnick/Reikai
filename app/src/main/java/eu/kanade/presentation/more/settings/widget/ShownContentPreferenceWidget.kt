@@ -11,17 +11,17 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import reikai.domain.category.toCategoryContentType
 import reikai.domain.library.ContentType
+import reikai.presentation.category.categoryContentTypeLabel
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
-private val options = mapOf(
-    ContentType.ALL to MR.strings.category_content_type_all,
-    ContentType.MANGA to MR.strings.category_content_type_manga,
-    ContentType.NOVELS to MR.strings.category_content_type_novels,
-)
-
-/** The Show setting, drawn the same in Appearance and on the first-launch theme step. */
+/**
+ * The Show setting, drawn the same in Appearance and on the first-launch theme step. Follows Mihon's
+ * AppThemeModePreferenceWidget rather than sharing it: that one is typed to ThemeMode and has no title,
+ * and this one needs a row that keeps one height when a label wraps.
+ */
 @Composable
 internal fun ShownContentPreferenceWidget(
     value: ContentType,
@@ -36,15 +36,15 @@ internal fun ShownContentPreferenceWidget(
                     .height(IntrinsicSize.Min)
                     .padding(horizontal = PrefsHorizontalPadding),
             ) {
-                options.onEachIndexed { index, (type, labelRes) ->
+                ContentType.entries.forEachIndexed { index, type ->
                     SegmentedButton(
                         checked = type == value,
                         onCheckedChange = { onItemClick(type) },
                         // The longest label wraps on a phone, and the row stays one height.
                         modifier = Modifier.fillMaxHeight(),
-                        shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                        shape = SegmentedButtonDefaults.itemShape(index, ContentType.entries.size),
                     ) {
-                        Text(stringResource(labelRes))
+                        Text(stringResource(categoryContentTypeLabel(type.toCategoryContentType())))
                     }
                 }
             }

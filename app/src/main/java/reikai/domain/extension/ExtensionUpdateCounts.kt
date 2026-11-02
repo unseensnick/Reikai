@@ -10,6 +10,12 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
 import reikai.domain.novel.NovelPreferences
 
+/** What the update notice covers: novel apks share it with manga extensions, and a hidden type leaves it. */
+fun <T> extensionsInNotice(shown: ContentType, manga: Collection<T>, novels: Collection<T>): List<T> = buildList {
+    if (shown.includes(ContentType.MANGA)) addAll(manga)
+    if (shown.includes(ContentType.NOVELS)) addAll(novels)
+}
+
 /**
  * Pending extension updates per content type, which the Browse badges read. Novels have two kinds of
  * extension, the LNReader plugins and the apks, and every badge counts both.

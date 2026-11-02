@@ -15,7 +15,11 @@ import tachiyomi.presentation.widget.BaseUpdatesGridGlanceWidget
 internal data class UnifiedWidgetUpdates(
     val manga: List<UpdatesWithRelations>,
     val novel: List<NovelUpdateWithRelations>,
-)
+    val shown: ContentType = ContentType.ALL,
+) {
+    /** A section's share of the rows: a hidden type has no section, so the other takes them all. */
+    fun sectionRows(rowCount: Int): Int = if (shown == ContentType.ALL) (rowCount / 2).coerceAtLeast(1) else rowCount
+}
 
 /**
  * The rows [UnifiedUpdatesGlanceWidget] draws and [UnifiedUpdatesWidgetManager] watches, built once so the
@@ -44,6 +48,7 @@ internal fun unifiedWidgetUpdates(
         UnifiedWidgetUpdates(
             manga = manga.takeIf { shown.includes(ContentType.MANGA) }.orEmpty(),
             novel = novel.takeIf { shown.includes(ContentType.NOVELS) }.orEmpty(),
+            shown = shown,
         )
     }
 }

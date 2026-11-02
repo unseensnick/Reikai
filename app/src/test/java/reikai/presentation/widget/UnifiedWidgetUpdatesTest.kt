@@ -2,11 +2,13 @@ package reikai.presentation.widget
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.collections.shouldBeEmpty
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelRepositoryImpl
@@ -54,6 +56,29 @@ internal class UnifiedWidgetUpdatesTest {
         probe.seed(driver, System.currentTimeMillis())
 
         probe.chapterIds(updates(probe.hiddenBy)).shouldBeEmpty()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a seeded update shows while its type does`(probe: WidgetUpdatesProbe) = runTest {
+        probe.seed(driver, System.currentTimeMillis())
+
+        probe.chapterIds(updates(ContentType.ALL)) shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `two sections split the rows`() {
+        UnifiedWidgetUpdates(emptyList(), emptyList(), ContentType.ALL).sectionRows(4) shouldBe 2
+    }
+
+    @Test
+    fun `the one section Show leaves takes every row`() {
+        UnifiedWidgetUpdates(emptyList(), emptyList(), ContentType.MANGA).sectionRows(4) shouldBe 4
+    }
+
+    @Test
+    fun `the updates carry what Show leaves`() = runTest {
+        updates(ContentType.NOVELS).shown shouldBe ContentType.NOVELS
     }
 
     private suspend fun updates(shown: ContentType) = unifiedWidgetUpdates(

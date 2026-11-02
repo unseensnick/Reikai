@@ -73,17 +73,41 @@ class LibraryEngineTest {
      * assembly combines several of them, so on the cheaper store it would never emit at all and every
      * assertion about what it assembled would pass without one having run.
      */
+    @Test
+    fun `a search for a hidden type lands on the shown type`() {
+        val manga = provider(ContentType.MANGA)
+        val engine = engineOver(listOf(manga, provider(ContentType.NOVELS)), shown = ContentType.MANGA)
+
+        engine.searchFrom(ContentType.NOVELS, "q")
+
+        verify { manga.search("q") }
+    }
+
+    @Test
+    fun `a search lands on its own type while both show`() {
+        val novels = provider(ContentType.NOVELS)
+        val engine = engineOver(listOf(provider(ContentType.MANGA), novels))
+
+        engine.searchFrom(ContentType.NOVELS, "q")
+
+        verify { novels.search("q") }
+    }
+
     private fun engineOver(
         providers: List<LibraryProvider>,
         categories: List<Category> = emptyList(),
         sort: LibrarySort = LibrarySort.default,
         groupBy: Int = LibraryGroup.BY_DEFAULT,
+        shown: ContentType = ContentType.ALL,
     ): LibraryEngine {
         val store = EmittingPreferenceStore()
         val repository = mockk<CategoryRepository>(relaxed = true)
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
         val libraryPreferences = LibraryPreferences(store).also { it.sortingMode.set(sort) }
-        val reikaiLibraryPreferences = ReikaiLibraryPreferences(store).also { it.groupLibraryBy.set(groupBy) }
+        val reikaiLibraryPreferences = ReikaiLibraryPreferences(store).also {
+            it.groupLibraryBy.set(groupBy)
+            it.shownContent.set(shown)
+        }
         return main.track(
             LibraryEngine(
                 providers = providers,

@@ -134,7 +134,7 @@ class ReikaiSourcePreferences(
     val novelMigrationSources: Preference<List<String>> = preferenceStore.getStringList("ln_migration_sources")
 
     /** Sticky content-type filter on the Updates tab (manga + novels), its own key. */
-    val updatesContentType: Preference<ContentType> =
+    val updatesContentType: ShownContentPreference =
         scoped("updates_content_type")
 
     /** Sticky content-type filter on the History tab (manga + novels), its own key. */
@@ -146,7 +146,7 @@ class ReikaiSourcePreferences(
      * with that tab off, Updates and History are two independent surfaces and linking their chips
      * would move something for people who never opted in.
      */
-    val recentsContentType: Preference<ContentType> =
+    val recentsContentType: ShownContentPreference =
         scoped("recents_content_type")
 
     /**

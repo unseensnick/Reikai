@@ -38,6 +38,7 @@ import mihon.domain.extension.repository.ExtensionStoreRepository
 import reikai.domain.extension.KindListing
 import reikai.domain.extension.RepoStatus
 import reikai.domain.extension.SharedRefresh
+import reikai.domain.extension.extensionsInNotice
 import reikai.domain.extension.hasSigningKey
 import reikai.domain.extension.hasUpdate
 import reikai.domain.extension.installUpdate
@@ -45,9 +46,7 @@ import reikai.domain.extension.kindListing
 import reikai.domain.extension.pendingUpdate
 import reikai.domain.extension.signingKeys
 import reikai.domain.extension.toRepoStatus
-import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.includes
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ContentWarningScan
 import reikai.domain.source.contentWarningScan
@@ -335,15 +334,7 @@ class ExtensionManager(
         setAvailableExtensions(extensions)
 
         // RK --> novel apks share the notice, since one store index lists both
-        val shown = reikaiLibraryPreferences.shownContent.get()
-        val names = buildList {
-            if (shown.includes(ContentType.MANGA)) {
-                addAll(loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
-            }
-            if (shown.includes(ContentType.NOVELS)) {
-                addAll(loadedNovelExtensionMapFlow.value.values + notLoadedNovelExtensionMapFlow.value.values)
-            }
-        }
+        val names = extensionsTheNoticeCovers()
             // RK <--
             // RK: a badge a store outage kept has nothing to install, so it is left out of the notice
             .filter { it.pendingUpdate(extensions, storeKeys) != null }
@@ -668,13 +659,18 @@ class ExtensionManager(
         val pendingUpdateCount = (loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values)
             .count { it.hasUpdate }
         preferences.extensionUpdatesCount.set(pendingUpdateCount)
-        // RK: the notice lists novel apks too, so it stays while either has one pending
-        val novelPending = (loadedNovelExtensionMapFlow.value.values + notLoadedNovelExtensionMapFlow.value.values)
-            .count { it.hasUpdate }
-        if (pendingUpdateCount == 0 && novelPending == 0) {
+        // RK: the notice stays while anything it lists has an update pending
+        if (extensionsTheNoticeCovers().none { it.hasUpdate }) {
             extensionUpdateNotifier.dismiss()
         }
     }
+
+    // RK: one list, so the notice cannot outlive what it names
+    private fun extensionsTheNoticeCovers() = extensionsInNotice(
+        reikaiLibraryPreferences.shownContent.get(),
+        loadedExtensionMapFlow.value.values + notLoadedExtensionMapFlow.value.values,
+        loadedNovelExtensionMapFlow.value.values + notLoadedNovelExtensionMapFlow.value.values,
+    )
 
     private operator fun <T : Extension> Map<String, T>.plus(extension: T) = plus(extension.pkgName to extension)
 

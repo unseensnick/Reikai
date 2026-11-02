@@ -41,6 +41,9 @@ class ReikaiBrowseViewModel(
     val showFeedTab: StateFlow<Boolean> = sourcePreferences.showFeedTab.stateIn(viewModelScope)
     val feedTabInFront: StateFlow<Boolean> = sourcePreferences.feedTabInFront.stateIn(viewModelScope)
 
+    val mangaUpdatesCount: StateFlow<Int> = updateCounts.manga
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
+
     val novelUpdatesCount: StateFlow<Int> = updateCounts.novel
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
 

@@ -777,11 +777,7 @@ data object LibraryTab : Tab {
             // value, because this effect keys on Unit and would otherwise hold the chip's first value.
             launch {
                 queryEvent.receiveAsFlow().collect { (query, requested) ->
-                    // RK: a requested type is applied first and then used directly. Reading the flow
-                    //     back would still hold the old chip: the preference write is immediate but
-                    //     its change event is not.
-                    engine.setContentType(requested)
-                    engine.search(requested, query)
+                    engine.searchFrom(requested, query) // RK
                 }
             }
             launch {

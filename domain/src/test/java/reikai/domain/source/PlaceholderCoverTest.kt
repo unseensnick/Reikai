@@ -25,7 +25,10 @@ class PlaceholderCoverTest {
     /** The plugin host's `defaultCover`, which a plugin returns when its page has no image. */
     @Test
     fun `the plugin host default cover is a placeholder`() {
-        isPlaceholderCover("https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true") shouldBe true
+        isPlaceholderCover(
+            "https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true",
+        ) shouldBe
+            true
     }
 
     @Test

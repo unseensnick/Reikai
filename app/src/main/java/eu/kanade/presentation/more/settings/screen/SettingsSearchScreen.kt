@@ -55,7 +55,6 @@ import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.flow.collectLatest
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Close
-import reikai.domain.library.includes
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
@@ -173,7 +172,7 @@ private fun SearchResult(
     val shownContent = LocalShownContent.current
     val enabledScreens by produceState<List<SearchableSettings>?>(initialValue = null, shownContent) {
         value = settingScreens.filter {
-            shownContent.includes(contentTypedScreens[it] ?: shownContent) && it.isEnabled()
+            shownContent.showsScreen(it) && it.isEnabled()
         }
     }
     val screens = enabledScreens ?: return // RK

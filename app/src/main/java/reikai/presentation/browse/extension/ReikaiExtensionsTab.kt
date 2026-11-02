@@ -117,7 +117,7 @@ fun Screen.reikaiExtensionsTab(
     // Only the chip and the badge counts are read out here, never the engine state: collecting it out
     // here would hold the extension subscription open for the tab strip, which is what upstream's
     // WhileSubscribed conversion exists to stop (mihonapp/mihon#3729).
-    val updatesCount by extensionsViewModel.updatesCount.collectAsStateWithLifecycle()
+    val updatesCount by browseViewModel.mangaUpdatesCount.collectAsStateWithLifecycle()
     val novelCount by browseViewModel.novelUpdatesCount.collectAsStateWithLifecycle()
     val totalCount by browseViewModel.totalUpdatesCount.collectAsStateWithLifecycle()
     val contentType by browseViewModel.contentType.collectAsStateWithLifecycle()

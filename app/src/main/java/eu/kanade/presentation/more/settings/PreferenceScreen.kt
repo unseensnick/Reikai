@@ -92,8 +92,9 @@ fun PreferenceScreen(
 }
 
 // RK --> match on (group, title) so the scroll lands on the exact row when two rows share a title
-private fun List<Preference>.findHighlightedIndex(highlightKey: HighlightKey): Int {
-    return flatMap { pref ->
+internal fun List<Preference>.findHighlightedIndex(highlightKey: HighlightKey): Int {
+    // A hidden group takes no rows in the list, so it must take none here.
+    return filterNot { it is Preference.PreferenceGroup && !it.visible }.flatMap { pref ->
         if (pref is Preference.PreferenceGroup) {
             buildList<HighlightKey?> {
                 add(HighlightKey.heading(pref.title)) // Header

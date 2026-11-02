@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- RK: page count + language/page count for E-Hentai enhanced browse rows (Phase B2) -->
+    <plurals name="repos_hidden_by_show">
+        <item quantity="one">%d repo hidden by Show</item>
+        <item quantity="other">%d repos hidden by Show</item>
+    </plurals>
     <plurals name="num_pages">
         <item quantity="one">%1$d page</item>
         <item quantity="other">%1$d pages</item>

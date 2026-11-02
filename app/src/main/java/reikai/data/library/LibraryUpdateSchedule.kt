@@ -15,10 +15,13 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.util.system.isConnectedToWifi
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.workManager
+import exh.eh.EHentaiUpdateWorker
 import kotlinx.coroutines.flow.first
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_CHARGING
@@ -45,6 +48,15 @@ enum class LibraryUpdateJob(val contentType: ContentType) {
     GALLERY(ContentType.MANGA),
 }
 
+/** The job this update worker runs, so a worker cannot be judged by another's type. */
+val ListenableWorker.libraryUpdateJob: LibraryUpdateJob
+    get() = when (this) {
+        is LibraryUpdateWorker -> LibraryUpdateJob.MANGA
+        is NovelUpdateWorker -> LibraryUpdateJob.NOVEL
+        is EHentaiUpdateWorker -> LibraryUpdateJob.GALLERY
+        else -> error("${this::class} is not a library update")
+    }
+
 /**
  * How a run ends before it starts, or null when it goes ahead. A hidden type's run finishes as a success,
  * so its schedule stays in place for when the type shows again; only then is [shouldDefer] asked.
@@ -61,12 +73,11 @@ suspend fun libraryUpdateGate(
 
 /** [libraryUpdateGate] for this run, whose deferral is [shouldDeferAutoUpdate]. */
 suspend fun ListenableWorker.libraryUpdateGate(
-    job: LibraryUpdateJob,
     shown: ContentType,
     restrictions: Set<String>,
     autoTag: String,
     manualTag: String,
-) = libraryUpdateGate(job, shown) { shouldDeferLibraryUpdate(restrictions, autoTag, manualTag) }
+) = libraryUpdateGate(libraryUpdateJob, shown) { shouldDeferLibraryUpdate(restrictions, autoTag, manualTag) }
 
 /** [shouldDeferAutoUpdate] for this run; a manual run never defers. */
 private suspend fun ListenableWorker.shouldDeferLibraryUpdate(

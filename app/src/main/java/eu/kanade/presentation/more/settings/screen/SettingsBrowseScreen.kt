@@ -18,6 +18,7 @@ import mihon.app.di.appGraph
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.repos.RepositoriesScreen
+import reikai.presentation.components.LocalShownContent
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -216,12 +217,12 @@ object SettingsBrowseScreen : SearchableSettings {
                 title = stringResource(MR.strings.pref_category_eh),
                 subtitle = stringResource(MR.strings.pref_ehentai_summary),
                 onClick = { navigator.push(SettingsEhScreen) },
-            ).takeIf { adultSourcesEnabled && showsContent(ContentType.MANGA) }, // RK
+            ).takeIf { adultSourcesEnabled && LocalShownContent.current.showsScreen(SettingsEhScreen) }, // RK
             Preference.PreferenceItem.TextPreference(
                 title = stringResource(MR.strings.pref_category_mangadex),
                 subtitle = stringResource(MR.strings.pref_mangadex_summary),
                 onClick = { navigator.push(SettingsMangaDexScreen) },
-            ).takeIf { mangaDexEnabled && showsContent(ContentType.MANGA) }, // RK
+            ).takeIf { mangaDexEnabled && LocalShownContent.current.showsScreen(SettingsMangaDexScreen) }, // RK
         )
         return if (rows.isEmpty()) {
             null

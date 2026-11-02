@@ -20,7 +20,9 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
+import reikai.domain.library.includes
 import reikai.domain.library.labelRes
+import reikai.presentation.components.LocalShownContent
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -36,7 +38,9 @@ class PreferredSourcesScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val model = metroViewModel<PreferredSourcesViewModel>()
+        val shown = LocalShownContent.current
         val tabs = listOf(ContentType.MANGA to model.manga, ContentType.NOVELS to model.novels)
+            .filter { (type, _) -> shown.includes(type) }
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -50,13 +54,15 @@ class PreferredSourcesScreen : Screen() {
             val pagerState = rememberPagerState { tabs.size }
             val scope = rememberCoroutineScope()
             Column(modifier = Modifier.padding(top = paddingValues.calculateTopPadding())) {
-                PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
-                    tabs.forEachIndexed { index, (type, _) ->
-                        Tab(
-                            selected = pagerState.currentPage == index,
-                            onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
-                            text = { Text(stringResource(type.labelRes)) },
-                        )
+                if (tabs.size > 1) {
+                    PrimaryTabRow(selectedTabIndex = pagerState.currentPage) {
+                        tabs.forEachIndexed { index, (type, _) ->
+                            Tab(
+                                selected = pagerState.currentPage == index,
+                                onClick = { scope.launch { pagerState.animateScrollToPage(index) } },
+                                text = { Text(stringResource(type.labelRes)) },
+                            )
+                        }
                     }
                 }
                 val panePadding = PaddingValues(bottom = paddingValues.calculateBottomPadding())

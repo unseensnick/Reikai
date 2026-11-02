@@ -15,11 +15,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.plus
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.library.includes
+import reikai.domain.library.withShownOrder
 import reikai.domain.novel.FavoritedNovels
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.FeedSavedSearchRepository
@@ -183,11 +185,15 @@ class FeedViewModel(
 
     fun openAddDialog() {
         viewModelScope.launchIO {
-            if (feedRepository.isGlobalFeedFull()) {
+            val shown = preferences.shownContent.get()
+            if (feedRepository.isGlobalFeedFull(shown)) {
                 mutableState.update { it.copy(dialog = FeedDialog.TooManyRows) }
                 return@launchIO
             }
-            val sources = providers.flatMap { it.sources() }.sortedBy { it.name.lowercase() }
+            val sources = providers
+                .filter { shown.includes(it.contentType) }
+                .flatMap { it.sources() }
+                .sortedBy { it.name.lowercase() }
             mutableState.update { it.copy(dialog = FeedDialog.PickSource(sources)) }
         }
     }
@@ -210,9 +216,15 @@ class FeedViewModel(
         }
     }
 
-    /** Commits a drag. The table re-emits, which rebuilds and refetches every row once. */
+    /**
+     * Commits a drag. The table re-emits, which rebuilds and refetches every row once. The list holds
+     * only the rows Show leaves visible, so the rest keep their places for when All brings them back.
+     */
     fun reorder(orderedFeedIds: List<Long>) {
-        viewModelScope.launchIO { feedRepository.updateOrders(orderedFeedIds) }
+        viewModelScope.launchIO {
+            val stored = feedRepository.subscribeGlobal().first().map { it.id }
+            feedRepository.updateOrders(stored.withShownOrder(orderedFeedIds))
+        }
     }
 
     fun confirmRemove(entry: FeedEntry) {

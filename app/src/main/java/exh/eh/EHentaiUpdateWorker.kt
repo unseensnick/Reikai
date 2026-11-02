@@ -28,7 +28,6 @@ import mihon.app.di.appGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import mihon.domain.source.interactor.UpdateMangaFromRemote
-import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.addNewUpdates
 import reikai.data.library.libraryUpdateGate
 import reikai.data.library.libraryUpdatePeriodicRequest
@@ -89,7 +88,6 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         Migrator.await()
         return try {
             libraryUpdateGate(
-                LibraryUpdateJob.GALLERY,
                 graph.reikaiLibraryPreferences.shownContent.get(),
                 exhPreferences.exhAutoUpdateRequirements().get(),
                 AUTO_TAG,

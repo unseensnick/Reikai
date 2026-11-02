@@ -75,6 +75,8 @@ import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.roundedfilled.Visibility
 import mihon.icons.materialsymbols.roundedfilled.VisibilityOff
+import reikai.domain.track.shownIn
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.RevealableSecureTextField
 import reikai.presentation.settings.resetToDefaultPreference
 import reikai.presentation.track.TrackerError
@@ -113,6 +115,7 @@ object SettingsTrackingScreen : SearchableSettings {
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences } // RK
         val trackerManager = remember { context.appGraph.trackerManager }
         val sourceManager = remember { context.appGraph.sourceManager }
+        val shown = LocalShownContent.current // RK
         // RK: RanobeDB's sync toggle only means anything once it is bound, so it follows it.
         val ranobeDbLoggedIn by trackerManager.ranobeDb.isLoggedInFlow
             .collectAsState(initial = trackerManager.ranobeDb.isLoggedIn)
@@ -305,14 +308,23 @@ object SettingsTrackingScreen : SearchableSettings {
                         logout = { dialog = LogoutDialog(trackerManager.novelUpdates) },
                     ),
                     Preference.PreferenceItem.InfoPreference(stringResource(MR.strings.tracking_info)),
-                ) + ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn) +
-                    novelListPreferences(trackPreferences, novelListLoggedIn) +
-                    novelUpdatesPreferences(trackPreferences, novelUpdatesLoggedIn) { dialog = it },
+                ).filterNot { it is Preference.PreferenceItem.TrackerPreference && !it.tracker.shownIn(shown) } + // RK
+                    // RK: a tracker's options leave with it
+                    ranobeDbPreferences(trackPreferences, ranobeDbLoggedIn && trackerManager.ranobeDb.shownIn(shown)) +
+                    novelListPreferences(
+                        trackPreferences,
+                        novelListLoggedIn && trackerManager.novelList.shownIn(shown),
+                    ) +
+                    novelUpdatesPreferences(
+                        trackPreferences,
+                        novelUpdatesLoggedIn && trackerManager.novelUpdates.shownIn(shown),
+                    ) { dialog = it },
             ),
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.enhanced_services),
                 preferenceItems = (
                     enhancedTrackers.first
+                        .filter { it.shownIn(shown) } // RK
                         .map { service ->
                             Preference.PreferenceItem.TrackerPreference(
                                 tracker = service,

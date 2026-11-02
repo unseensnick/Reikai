@@ -36,7 +36,6 @@ import mihon.core.migration.Migrator
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.EntryCheck
-import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.LibraryUpdateRun
 import reikai.data.library.UpdateRunLedger
 import reikai.data.library.checkUpdateEntry
@@ -126,7 +125,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         // RK: the run gate is shared with the novel and gallery updaters, in LibraryUpdateSchedule.kt
         val restrictions = libraryPreferences.autoUpdateDeviceRestrictions.get()
         val shown = reikaiLibraryPreferences.shownContent.get() // RK
-        libraryUpdateGate(LibraryUpdateJob.MANGA, shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
+        libraryUpdateGate(shown, restrictions, WORK_NAME_AUTO, WORK_NAME_MANUAL)?.let {
             return it
         }
 

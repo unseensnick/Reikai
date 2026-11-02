@@ -5,7 +5,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.Preference
@@ -30,9 +32,28 @@ class ShownContentTest {
 
     @Test
     fun `changes follow the Show setting`() = runTest {
+        val seen = mutableListOf<ContentType>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { scoped.changes().toList(seen) }
+
         shown.set(ContentType.NOVELS)
 
-        scoped.changes().first() shouldBe ContentType.NOVELS
+        seen.last() shouldBe ContentType.NOVELS
+    }
+
+    @Test
+    fun `the state Browse reads follows the Show setting`() = runTest {
+        shown.set(ContentType.NOVELS)
+
+        scoped.stateIn(backgroundScope).value shouldBe ContentType.NOVELS
+    }
+
+    @Test
+    fun `the stored side ignores the Show setting`() {
+        shown.set(ContentType.NOVELS)
+
+        scoped.stored.set(ContentType.ALL)
+
+        scoped.stored.get() shouldBe ContentType.ALL
     }
 
     @Test
@@ -47,6 +68,7 @@ class ShownContentTest {
     @Test
     fun `the stored choice comes back when both types show again`() {
         shown.set(ContentType.NOVELS)
+        scoped.set(ContentType.NOVELS)
 
         shown.set(ContentType.ALL)
 
@@ -58,6 +80,17 @@ class ShownContentTest {
         scoped.set(ContentType.ALL)
 
         stored.get() shouldBe ContentType.ALL
+    }
+
+    @Test
+    fun `a new order goes back into the slots its rows held`() {
+        listOf("m1", "n1", "m2", "n2", "m3").withShownOrder(listOf("n2", "n1")) shouldBe
+            listOf("m1", "n2", "m2", "n1", "m3")
+    }
+
+    @Test
+    fun `a new order over the whole list replaces it`() {
+        listOf("a", "b").withShownOrder(listOf("b", "a")) shouldBe listOf("b", "a")
     }
 
     private class FakePreference(private val default: ContentType) : Preference<ContentType> {

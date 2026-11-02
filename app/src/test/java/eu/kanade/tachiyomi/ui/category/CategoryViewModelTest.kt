@@ -16,6 +16,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import reikai.domain.category.CategoryContentType
 import reikai.domain.category.CategoryIdPreferences
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -35,6 +36,8 @@ class CategoryViewModelTest {
     private val a = Category(id = 1L, name = "A", order = 0L, flags = 0L)
     private val b = Category(id = 2L, name = "B", order = 1L, flags = 0L)
     private val c = Category(id = 3L, name = "C", order = 2L, flags = 0L)
+
+    private val novel = Category(id = 4L, name = "N", order = 3L, flags = 0L, contentType = CategoryContentType.NOVEL)
 
     private val table = MutableStateFlow(listOf(a, b, c))
     private val repository = mockk<CategoryRepository>(relaxed = true) {
@@ -79,17 +82,36 @@ class CategoryViewModelTest {
     private val CategoryViewModel.selection
         get() = (state.value as CategoryScreenState.Success).selection
 
-    /** The screen only masks picks the chip hides, so kept ones came back on the next flip. */
     @Test
     fun `the list narrows to the shown type while the other is hidden`() = runTest {
+        table.value += novel
         reikaiLibraryPreferences.shownContent.set(ContentType.NOVELS)
 
-        val model = model()
+        val state = model().state.first { it is CategoryScreenState.Success } as CategoryScreenState.Success
 
-        model.state.first { it is CategoryScreenState.Success }
-            .let { it as CategoryScreenState.Success }.contentType shouldBe ContentType.NOVELS
+        (state.contentType to state.categories) shouldBe (ContentType.NOVELS to listOf(novel))
     }
 
+    @Test
+    fun `a name only a hidden category holds stays free`() = runTest {
+        table.value += novel
+        reikaiLibraryPreferences.shownContent.set(ContentType.NOVELS)
+
+        val state = model().state.first { it is CategoryScreenState.Success } as CategoryScreenState.Success
+
+        state.allNames shouldBe listOf("N")
+    }
+
+    @Test
+    fun `every name counts while both types show, so a chip cannot let a duplicate through`() = runTest {
+        table.value += novel
+
+        val state = model().state.first { it is CategoryScreenState.Success } as CategoryScreenState.Success
+
+        state.allNames shouldBe listOf("A", "B", "C", "N")
+    }
+
+    /** The screen only masks picks the chip hides, so kept ones came back on the next flip. */
     @Test
     fun `flipping the chip drops the picks it would hide`() = runTest {
         val model = model()

@@ -45,7 +45,6 @@ import mihon.icons.materialsymbols.rounded.Security
 import mihon.icons.materialsymbols.rounded.Storage
 import mihon.icons.materialsymbols.rounded.Sync
 import mihon.icons.materialsymbols.rounded.Verified
-import reikai.domain.library.includes
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.recommendation.SettingsRecommendationsScreen
 import tachiyomi.i18n.MR
@@ -84,7 +83,7 @@ object SettingsMainScreen : Screen() {
         val topBarState = rememberTopAppBarState()
         // RK: a reader screen leaves with its content type
         val shownContent = LocalShownContent.current
-        val items = items.filter { shownContent.includes(contentTypedScreens[it.screen] ?: shownContent) }
+        val items = items.filter { shownContent.showsScreen(it.screen) }
 
         Scaffold(
             topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior(topBarState),

@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
@@ -26,11 +27,13 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.library.ContentType
 import reikai.domain.novel.FavoritedNovels
+import reikai.domain.source.MAX_FEED_ROWS
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.FeedSavedSearch
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.browse.globalsearch.BrowseSearchRow
 import reikai.presentation.browse.globalsearch.EntrySearchState
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
@@ -39,6 +42,7 @@ import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 import eu.kanade.tachiyomi.source.Source as MangaSource
+import tachiyomi.domain.source.model.Source as DomainSource
 
 /**
  * A feed row follows its own type's source registry: a row built while its source was missing reads
@@ -88,6 +92,79 @@ class FeedViewModelTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `a shown type's rows stay in the feed`(probe: FeedRegistryProbe) = runTest {
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(probe.key.contentType)
+        val model = feedViewModel(probe, preferences = preferences)
+
+        settle { model.state.first { it.loaded } }.entries.size shouldBe 1
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `rows a hidden type holds leave the shown type room to add`(probe: FeedRegistryProbe) = runTest {
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(probe.otherType)
+        val hidden = List(MAX_FEED_ROWS) { FeedSavedSearch(it.toLong(), probe.key, null, true, it.toLong()) }
+        val model = feedViewModel(probe, rows = flowOf(hidden), preferences = preferences)
+
+        model.openAddDialog()
+
+        (settle { model.state.first { it.dialog != null } }.dialog is FeedDialog.TooManyRows) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the add picker leaves out a hidden type's sources`(probe: FeedRegistryProbe) = runTest {
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(probe.otherType)
+        probe.install()
+        val model = feedViewModel(probe, rows = flowOf(emptyList()), preferences = preferences)
+
+        model.openAddDialog()
+
+        val picker = settle { model.state.first { it.dialog != null } }.dialog as FeedDialog.PickSource
+        picker.sources shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `the add picker keeps a shown type's sources`(probe: FeedRegistryProbe) = runTest {
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(probe.key.contentType)
+        probe.install()
+        val model = feedViewModel(probe, rows = flowOf(emptyList()), preferences = preferences)
+
+        model.openAddDialog()
+
+        val picker = settle { model.state.first { it.dialog != null } }.dialog as FeedDialog.PickSource
+        picker.sources.map { it.key } shouldBe listOf(probe.key)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a drag under Show leaves the hidden rows where they were`(probe: FeedRegistryProbe) = runTest {
+        val other = probe.otherKey
+        val written = CompletableDeferred<List<Long>>()
+        val rows = flowOf(
+            listOf(
+                FeedSavedSearch(1L, other, null, true, 0L),
+                FeedSavedSearch(2L, probe.key, null, true, 1L),
+                FeedSavedSearch(3L, other, null, true, 2L),
+                FeedSavedSearch(4L, probe.key, null, true, 3L),
+            ),
+        )
+        val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
+        preferences.shownContent.set(probe.key.contentType)
+        val model = feedViewModel(probe, rows = rows, preferences = preferences, onOrders = written::complete)
+
+        model.reorder(listOf(4L, 2L))
+
+        settle { written.await() } shouldBe listOf(1L, 4L, 3L, 2L)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `a row whose source is gone is named by the name it had`(probe: FeedRegistryProbe) = runTest {
         val model = feedViewModel(probe)
 
@@ -128,10 +205,13 @@ class FeedViewModelTest {
         probe: FeedRegistryProbe,
         rows: Flow<List<FeedSavedSearch>> = flowOf(listOf(FeedSavedSearch(1L, probe.key, null, true, 0L))),
         preferences: ReikaiSourcePreferences = ReikaiSourcePreferences(EmittingPreferenceStore()),
+        onOrders: (List<Long>) -> Unit = {},
     ) = FeedViewModel(
         appScope = testAppScope(),
         feedRepository = mockk {
             every { subscribeGlobal() } returns rows
+            coEvery { countGlobal() } coAnswers { rows.first().size.toLong() }
+            coEvery { updateOrders(any()) } answers { onOrders(firstArg()) }
         },
         savedSearchRepository = mockk { coEvery { getAll() } returns emptyList() },
         preferences = preferences,
@@ -140,10 +220,10 @@ class FeedViewModelTest {
         mangaAdder = mockk(relaxed = true),
         novelAdder = mockk(relaxed = true),
         sourceManager = probe.mangaRegistry,
-        getEnabledSources = mockk(relaxed = true),
+        getEnabledSources = mockk { every { subscribe() } answers { flowOf(probe.enabledManga) } },
         networkToLocalManga = mockk(relaxed = true),
         novelSourceManager = probe.novelRegistry,
-        getEnabledNovelSources = mockk(relaxed = true),
+        getEnabledNovelSources = mockk { coEvery { get() } answers { probe.enabledNovels } },
     ).also(models::add)
 
     companion object {
@@ -162,6 +242,10 @@ private suspend fun <T> settle(block: suspend () -> T): T =
 /** Both registries over lists the test can change, with one type's source to install. */
 interface FeedRegistryProbe {
     val key: SourceKey
+    val otherKey: SourceKey
+    val otherType: ContentType get() = otherKey.contentType
+    val enabledManga: List<DomainSource> get() = emptyList()
+    val enabledNovels: List<NovelSource> get() = emptyList()
     val mangaRegistry: SourceManager
     val novelRegistry: NovelSourceManager
     fun install()
@@ -175,7 +259,14 @@ class MangaFeedRegistryProbe : FeedRegistryProbe {
     }
 
     override fun toString() = "manga"
+    override val enabledManga get() = installed.value.map { source ->
+        mockk<DomainSource>(relaxed = true) {
+            every { id } returns source.id
+            every { isUsedLast } returns false
+        }
+    }
     override val key = SourceKey.Manga(1L)
+    override val otherKey = SourceKey.Novel("other")
     override val mangaRegistry = mockk<SourceManager> {
         every { sources } returns installed
         coEvery { this@mockk.get(any<Long>()) } answers { installed.value.firstOrNull { it.id == firstArg<Long>() } }
@@ -195,7 +286,9 @@ class NovelFeedRegistryProbe : FeedRegistryProbe {
     }
 
     override fun toString() = "novels"
+    override val enabledNovels get() = installed.value
     override val key = SourceKey.Novel("plugin")
+    override val otherKey = SourceKey.Manga(2L)
     override val mangaRegistry = mockk<SourceManager> { every { sources } returns MutableStateFlow(emptyList()) }
     override val novelRegistry: NovelSourceManager = mockk {
         every { loadedSources() } returns installed

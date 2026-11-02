@@ -17,11 +17,22 @@ fun PreferenceStore.shownContent(): Preference<ContentType> = getEnum("shown_con
 fun ContentType.within(shown: ContentType): ContentType = if (shown == ContentType.ALL) this else shown
 
 /**
+ * This list with [shownOrder], the rows a filter left visible in their new order, written back into the
+ * slots those rows hold, so a row the filter hid keeps its place among them.
+ */
+fun <T> List<T>.withShownOrder(shownOrder: List<T>): List<T> {
+    val moved = shownOrder.toSet()
+    val next = shownOrder.iterator()
+    return map { if (it in moved) next.next() else it }
+}
+
+/**
  * A surface's chip selection read through the Show setting, so every reader of the chip follows it and
  * none has to ask. The stored choice is left alone while a type is hidden, so it comes back on All.
  */
 class ShownContentPreference(
-    private val stored: Preference<ContentType>,
+    /** The choice itself, for a write that has to outlast Show: reading or setting this ignores it. */
+    val stored: Preference<ContentType>,
     private val shown: Preference<ContentType>,
 ) : Preference<ContentType> by stored {
 

@@ -27,6 +27,9 @@ internal val contentTypedScreens: Map<Any, ContentType> = mapOf(
     SettingsRecommendationsScreen to ContentType.MANGA,
 )
 
+// RK: whether a settings screen stays under this Show value, as the list, search and its Browse row ask
+internal fun ContentType.showsScreen(screen: Any): Boolean = includes(contentTypedScreens[screen] ?: this)
+
 // RK: "$category · Manga|Novels" for the content-type sub-group headers, so a duplicated setting reads
 // distinctly and its settings-search breadcrumb differs between the two content types.
 @ReadOnlyComposable

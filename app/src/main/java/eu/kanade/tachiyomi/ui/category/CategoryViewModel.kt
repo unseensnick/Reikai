@@ -89,9 +89,12 @@ class CategoryViewModel(
         val shown = categoriesForContentType(visible, contentType)
         CategoryScreenState.Success(
             categories = reikaiSortCategories(shown, sortOrder),
-            // RK: every name, not just the shown ones, so the chip cannot let a duplicate
-            // name through the create and rename dialogs' check.
-            allNames = visible.map { it.name },
+            // RK: every name a flip of the chip can reach, so it cannot let a duplicate through the
+            // create and rename dialogs' check. A name only Show hides stays free.
+            allNames = categoriesForContentType(
+                visible,
+                ContentType.ALL.within(reikaiLibraryPreferences.shownContent.get()),
+            ).map { it.name },
             categorySortOrder = sortOrder,
             selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
             contentType = contentType,

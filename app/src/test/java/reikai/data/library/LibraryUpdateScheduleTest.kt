@@ -4,6 +4,8 @@ import androidx.work.ListenableWorker
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkQuery
+import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
+import exh.eh.EHentaiUpdateWorker
 import io.kotest.matchers.shouldBe
 import io.mockk.CapturingSlot
 import io.mockk.every
@@ -15,11 +17,21 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 import tachiyomi.domain.library.service.LibraryPreferences.Companion.DEVICE_ONLY_ON_WIFI
 import java.util.UUID
 
 class LibraryUpdateScheduleTest {
+
+    @Test
+    fun `each update worker runs as its own job`() {
+        listOf(
+            mockk<LibraryUpdateWorker>().libraryUpdateJob,
+            mockk<NovelUpdateWorker>().libraryUpdateJob,
+            mockk<EHentaiUpdateWorker>().libraryUpdateJob,
+        ) shouldBe listOf(LibraryUpdateJob.MANGA, LibraryUpdateJob.NOVEL, LibraryUpdateJob.GALLERY)
+    }
 
     @ParameterizedTest
     @EnumSource(LibraryUpdateJob::class)

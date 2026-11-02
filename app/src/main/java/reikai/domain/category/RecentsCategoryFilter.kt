@@ -57,11 +57,12 @@ internal fun ReikaiSourcePreferences.categoryFilterPrefs(
  * Gives the combined surface the filter and chip Updates was using, the first time that tab is turned
  * on. Without it, turning the setting on reads an untouched selection and silently stops filtering
  * what the two tabs were filtering. Updates rather than History because its filters are the ones that
- * narrow a feed. Runs once: a selection already made on the combined surface is never overwritten.
+ * narrow a feed. Runs once: a selection already made on the combined surface is never overwritten. It
+ * copies the stored chips, because a write through Show would be dropped and the seed would run again.
  */
 fun ReikaiSourcePreferences.seedRecentsSurfaceFromUpdates() {
-    if (recentsContentType.isSet()) return
-    recentsContentType.set(updatesContentType.get())
+    if (recentsContentType.stored.isSet()) return
+    recentsContentType.stored.set(updatesContentType.stored.get())
 
     val (fromEnabled, fromInclude, fromExclude) = categoryFilterPrefs(RecentsSurface.UPDATES)
     val (toEnabled, toInclude, toExclude) = categoryFilterPrefs(RecentsSurface.RECENTS)

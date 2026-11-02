@@ -27,7 +27,9 @@ import androidx.compose.ui.unit.dp
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.mergeCategorySelection
 import reikai.domain.library.ContentType
+import reikai.domain.library.within
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.rememberChipScrollState
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
@@ -121,7 +123,11 @@ private fun CategoryFilterDialog(
                         .verticalScroll(rememberChipScrollState(chipContentType)),
                 ) {
                     CategoryTriStateRows(
-                        categories = categoriesForContentType(categories, chipContentType),
+                        // Under Show the chip row is gone, so the shown type narrows it instead.
+                        categories = categoriesForContentType(
+                            categories,
+                            chipContentType.within(LocalShownContent.current),
+                        ),
                         states = states,
                         defaultLabel = defaultLabel,
                     )

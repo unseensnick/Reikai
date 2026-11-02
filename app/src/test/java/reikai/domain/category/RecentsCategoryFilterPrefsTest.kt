@@ -7,11 +7,11 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
-import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import reikai.presentation.recents.EmittingPreferenceStore
 
 class RecentsCategoryFilterPrefsTest {
 
-    private val preferences = ReikaiSourcePreferences(InMemoryPreferenceStore())
+    private val preferences = ReikaiSourcePreferences(EmittingPreferenceStore())
 
     @ParameterizedTest
     @EnumSource(RecentsSurface::class)
@@ -58,6 +58,31 @@ class RecentsCategoryFilterPrefsTest {
 
         listOf(include.get(), preferences.recentsContentType.get()) shouldBe
             listOf(setOf("3"), ContentType.MANGA)
+    }
+
+    /** A write through Show is dropped, so a seed that wrote there never latched and ran on every flip. */
+    @Test
+    fun `the seed runs once under Show too`() {
+        preferences.shownContent.set(ContentType.MANGA)
+        val (_, include, _) = preferences.categoryFilterPrefs(RecentsSurface.RECENTS)
+        preferences.categoryFilterPrefs(RecentsSurface.UPDATES).second.set(setOf("7"))
+        preferences.seedRecentsSurfaceFromUpdates()
+        include.set(setOf("3"))
+
+        preferences.seedRecentsSurfaceFromUpdates()
+
+        include.get() shouldBe setOf("3")
+    }
+
+    @Test
+    fun `a seed under Show carries the chip the user chose, not the one Show forces`() {
+        preferences.updatesContentType.set(ContentType.NOVELS)
+        preferences.shownContent.set(ContentType.MANGA)
+        preferences.seedRecentsSurfaceFromUpdates()
+
+        preferences.shownContent.set(ContentType.ALL)
+
+        preferences.recentsContentType.get() shouldBe ContentType.NOVELS
     }
 
     @Test

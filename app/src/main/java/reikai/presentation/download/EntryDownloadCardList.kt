@@ -33,9 +33,10 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import mihon.icons.materialsymbols.rounded.KeyboardArrowUp
 import reikai.domain.library.ContentType
+import reikai.domain.library.labelRes
 import reikai.presentation.components.CardKicker
-import reikai.presentation.components.ContentTypeBadge
 import reikai.presentation.components.ReikaiListCard
+import reikai.presentation.components.TypeBadge
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
@@ -170,7 +171,8 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
                 )
                 Column(modifier = Modifier.weight(1f)) {
                     CardKicker(item.sourceName) {
-                        if (showTypeBadge) ContentTypeBadge(item.contentType)
+                        // Not the Show-aware badge: the queue keeps a hidden type's cards.
+                        if (showTypeBadge) TypeBadge(stringResource(item.contentType.labelRes))
                     }
                     Text(
                         text = item.title,
