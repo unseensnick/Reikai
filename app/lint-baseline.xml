@@ -2367,17 +2367,6 @@
 
     <issue
         id="ClickableViewAccessibility"
-        message="Custom view `ReaderButton` overrides `onTouchEvent` but not `performClick`"
-        errorLine1="    override fun onTouchEvent(event: MotionEvent): Boolean {"
-        errorLine2="                 ~~~~~~~~~~~~">
-        <location
-            file="src/main/java/eu/kanade/tachiyomi/ui/reader/viewer/ReaderButton.kt"
-            line="22"
-            column="18"/>
-    </issue>
-
-    <issue
-        id="ClickableViewAccessibility"
         message="Custom view `WebtoonRecyclerView` overrides `onTouchEvent` but not `performClick`"
         errorLine1="    override fun onTouchEvent(e: MotionEvent): Boolean {"
         errorLine2="                 ~~~~~~~~~~~~">

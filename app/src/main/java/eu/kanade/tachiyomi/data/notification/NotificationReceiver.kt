@@ -74,8 +74,6 @@ class NotificationReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         context.appGraph.inject(this)
         when (intent.action) {
-            // Dismiss notification
-            ACTION_DISMISS_NOTIFICATION -> dismissNotification(context, intent.getIntExtra(EXTRA_NOTIFICATION_ID, -1))
             // Resume the download service
             ACTION_RESUME_DOWNLOADS -> downloadManager.startDownloads()
             // Pause the download service
@@ -175,15 +173,6 @@ class NotificationReceiver : BroadcastReceiver() {
         }
     }
     // RK <--
-
-    /**
-     * Dismiss the notification
-     *
-     * @param notificationId the id of the notification
-     */
-    private fun dismissNotification(context: Context, notificationId: Int) {
-        context.cancelNotification(notificationId)
-    }
 
     /**
      * Called to start share intent to share image
@@ -307,8 +296,6 @@ class NotificationReceiver : BroadcastReceiver() {
         private const val ACTION_RESUME_DOWNLOADS = "$ID.$NAME.ACTION_RESUME_DOWNLOADS"
         private const val ACTION_PAUSE_DOWNLOADS = "$ID.$NAME.ACTION_PAUSE_DOWNLOADS"
         private const val ACTION_CLEAR_DOWNLOADS = "$ID.$NAME.ACTION_CLEAR_DOWNLOADS"
-
-        private const val ACTION_DISMISS_NOTIFICATION = "$ID.$NAME.ACTION_DISMISS_NOTIFICATION"
 
         private const val EXTRA_URI = "$ID.$NAME.URI"
         private const val EXTRA_NOTIFICATION_ID = "$ID.$NAME.NOTIFICATION_ID"

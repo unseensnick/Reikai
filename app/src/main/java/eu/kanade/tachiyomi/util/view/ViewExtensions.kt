@@ -14,8 +14,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionContext
 import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.ComposeView
-import androidx.compose.ui.platform.ViewCompositionStrategy
 import androidx.core.view.inputmethod.EditorInfoCompat
 import dev.zacsweers.metrox.viewmodel.LocalMetroViewModelFactory
 import eu.kanade.domain.base.BasePreferences
@@ -37,25 +35,6 @@ inline fun ComponentActivity.setComposeContent(
                 LocalTextStyle provides MaterialTheme.typography.bodySmall,
                 LocalContentColor provides MaterialTheme.colorScheme.onBackground,
                 LocalMetroViewModelFactory provides appGraph.viewModelFactory,
-                LocalCoverImagesHidden provides rememberCoverImagesHidden(), // RK: the debug menu's hidden covers
-            ) {
-                content()
-            }
-        }
-    }
-}
-
-fun ComposeView.setComposeContent(
-    content: @Composable () -> Unit,
-) {
-    setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnViewTreeLifecycleDestroyed)
-    setContent {
-        TachiyomiTheme {
-            CompositionLocalProvider(
-                LocalTextStyle provides MaterialTheme.typography.bodySmall,
-                LocalContentColor provides MaterialTheme.colorScheme.onBackground,
-                // RK: the view-model factory, so metroViewModel resolves inside a ComposeView too
-                LocalMetroViewModelFactory provides context.appGraph.viewModelFactory,
                 LocalCoverImagesHidden provides rememberCoverImagesHidden(), // RK: the debug menu's hidden covers
             ) {
                 content()
