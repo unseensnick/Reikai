@@ -2,7 +2,6 @@ package reikai.data.novel.update
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
@@ -123,11 +122,7 @@ class NovelUpdateWorker(
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress(null, 0, 0)
         val id = Notifications.ID_NOVEL_LIBRARY_PROGRESS
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
-        } else {
-            ForegroundInfo(id, notification)
-        }
+        return ForegroundInfo(id, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
     }
 
     override suspend fun doWork(): Result {

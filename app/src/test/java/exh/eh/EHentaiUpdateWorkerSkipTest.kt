@@ -2,6 +2,7 @@ package exh.eh
 
 import exh.metadata.metadata.EHentaiSearchMetadata
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CancellationException
 import org.junit.jupiter.api.Test
 import kotlin.time.Duration.Companion.hours
 
@@ -13,6 +14,13 @@ class EHentaiUpdateWorkerSkipTest {
     private fun gallery(checkedHoursAgo: Int, aged: Boolean = false) = EHentaiSearchMetadata().apply {
         lastUpdateCheck = now - checkedHoursAgo.hours.inWholeMilliseconds
         this.aged = aged
+    }
+
+    @Test
+    fun `a stopped run is not counted as a failed gallery`() {
+        val stopped = CancellationException("stopped")
+
+        EHentaiUpdateWorker.networkFailure(stopped) shouldBe stopped
     }
 
     @Test

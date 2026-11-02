@@ -2,7 +2,6 @@ package exh.eh
 
 import android.content.Context
 import android.content.pm.ServiceInfo
-import android.os.Build
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ForegroundInfo
@@ -20,6 +19,7 @@ import eu.kanade.tachiyomi.util.system.workManager
 import exh.debug.DebugToggles
 import exh.metadata.metadata.EHentaiSearchMetadata
 import exh.source.ExhPreferences
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -97,6 +97,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                 startUpdating()
                 Result.success()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "EHentai update job failed, retrying next run" }
             Result.success() // retry again later in next periodic run
@@ -109,11 +111,7 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
         return ForegroundInfo(
             Notifications.ID_EHENTAI_PROGRESS,
             updateNotifier.progressNotificationBuilder.build(),
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            } else {
-                0
-            },
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC,
         )
     }
 
@@ -248,11 +246,15 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                 }
                 throw GalleryNotUpdatedException(false, t)
             }
-            throw GalleryNotUpdatedException(true, t)
+            throw networkFailure(t)
         }
     }
 
     companion object {
+        /** What a failed gallery raises. Cancellation stays itself: a stopped run is not a failed gallery. */
+        internal fun networkFailure(t: Throwable): Throwable =
+            t as? CancellationException ?: GalleryNotUpdatedException(true, t)
+
         private const val MAX_UPDATE_FAILURES = 5
         private const val UPDATES_PER_ITERATION = 50
 
