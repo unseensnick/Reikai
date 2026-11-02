@@ -17,7 +17,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,12 +35,12 @@ import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderThemedContent
+import eu.kanade.tachiyomi.ui.reader.viewer.transitionDownloadState
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import reikai.presentation.reader.NeighbourChapterRetry
 import reikai.presentation.reader.STRIP_CAPTURE_SCALE
 import reikai.presentation.reader.keepTallestHeight
 import reikai.presentation.reader.stripCaptureSize
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.presentation.core.components.CombinedCircularProgressIndicator
 
 /** The side padding `PagerTransitionHolder` gave the same transition view. */
@@ -196,10 +196,8 @@ class TransitionPage(
     @Composable
     override fun PageContent() {
         val transition = transition ?: return
-        val goingToChapterDownloaded by produceState(false, transition) {
-            // RK: the chapter's own merged source, from the download cache, as PagerTransitionHolder
-            value = withIOContext { viewer.activity.viewModel.isChapterDownloaded(transition.to) }
-        }
+        // RK: the state the other viewers bind, so the badge is right on the first frame
+        val downloadState = remember(transition) { viewer.activity.viewModel.transitionDownloadState(transition) }
 
         CompositionLocalProvider(
             LocalTextStyle provides MaterialTheme.typography.bodySmall,
@@ -223,8 +221,8 @@ class TransitionPage(
                 ) {
                     ChapterTransition(
                         transition = transition,
-                        currChapterDownloaded = transition.from.pageLoader?.isLocal == true,
-                        goingToChapterDownloaded = goingToChapterDownloaded,
+                        currChapterDownloaded = downloadState.currChapterDownloaded,
+                        goingToChapterDownloaded = downloadState.goingToChapterDownloaded,
                     )
                     NeighbourChapterRetry(prevChapter, nextChapter, onRetry = viewer::retryChapter)
                 }

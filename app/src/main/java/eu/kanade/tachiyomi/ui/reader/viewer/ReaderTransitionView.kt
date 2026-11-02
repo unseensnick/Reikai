@@ -5,7 +5,6 @@ import android.util.AttributeSet
 import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -45,7 +44,6 @@ class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedC
     @Composable
     override fun Content() {
         val data = data ?: return
-        LaunchedEffect(data.downloadState) { data.downloadState?.checkDisk() }
         // RK: tint the transition view from the cover color when enabled
         val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
         ReaderThemedContent(context, seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
