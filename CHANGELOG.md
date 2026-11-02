@@ -57,6 +57,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
+- **Failed pages and chapter transitions now look the same in every manga reading mode (from Mihon).**
+
 - **Grayscale and inverted colors in the reader now change only the page, not what is drawn over it (from Mihon).**
 
 - **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**

@@ -11,16 +11,12 @@
 #>
 $ErrorActionPreference = 'Stop'
 . (Join-Path $PSScriptRoot 'live-twins.ps1')
+. (Join-Path $PSScriptRoot 'test-git.ps1')
 $work = Join-Path ([IO.Path]::GetTempPath()) ("live-twins-test-" + [guid]::NewGuid().ToString('N'))
 $broke = 0
 
 function Assert-That([string]$name, [bool]$held) {
     if ($held) { Write-Host "ok   $name" } else { Write-Host "FAIL $name"; $script:broke++ }
-}
-
-function Invoke-Git([string]$dir) {
-    git -C $dir -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false -c core.autocrlf=false @args | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "git $args failed in $dir" }
 }
 
 try {
@@ -48,6 +44,12 @@ try {
     ) | Set-Content $table
     $twins = @(Get-LiveTwins $table)
     Assert-That 'the header and rule rows are not read as twins' ($twins.Count -eq 2)
+
+    $empty = Join-Path $work 'empty.md'
+    @('# Live twins', '', '| Mihon file | Reikai twin | Pin |', '|---|---|---|', '| ./app/X.kt | app/Y.kt | none |') | Set-Content $empty
+    $threw = $false
+    try { Get-LiveTwins $empty | Out-Null } catch { $threw = $true }
+    Assert-That 'a table with no readable rows throws' $threw
 
     $changes = @(Get-LiveTwinChanges $mihon $base 'HEAD' $twins)
     Assert-That 'a changed Mihon file is reported' ($changes.Count -eq 1 -and $changes[0] -match 'Changed\.kt')

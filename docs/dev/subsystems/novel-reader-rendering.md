@@ -121,7 +121,7 @@ The WebView side is split: `reader.js`'s `paged` module measures (text client re
 - **Paged position is the first character on the page plus a percent.** A page index changes with every font or size change; the character offset both renderers already report does not.
 - **Page turns slide by default, as manga's pager does, and Animate page transitions turns them off.** Off is for e-ink screens, where an animation smears. A page is a slice of one column with nothing beside it to drag, so the slide moves a copy of the old page rather than following the finger; the copy is taken by `PixelCopy` because a WebView's own draw into a bitmap is slow and unreliable.
 - **A swipe always turns a page when paged.** The chapter-swipe setting was off by default, which left paged reading with no swipe at all; it now only steps chapters while scrolling.
-- **Fetched chapter text lives in manga's `ChapterCache`, not a cache of its own.** It has its own store there, kept for 7 days where page lists expire in an hour, since text carries no signed url. Clear chapter cache and the clear-on-launch switch cover novels with no second setting. The text is stored as the source answered it, before the pipeline, so a reading setting changed since still applies. A `DiskLruCache` directory takes one owner, which rules out a second cache beside it.
+- **Fetched chapter text lives in manga's `ChapterCache`, not a cache of its own.** It has its own store there, kept for 7 days where page lists expire in an hour, since text carries no signed url. Clear chapter cache and the clear-on-launch switch cover novels with no second setting. The text is stored as the source answered it, before the pipeline, so a reading setting changed since still applies.
 
 ## Upstream divergences
 

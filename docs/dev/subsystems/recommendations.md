@@ -138,7 +138,7 @@ The recommendations client rate-limits per host (`RecommendationProviders`): Ani
 - **No fuzzy title matching.** Normalized equality plus alternate titles and URL identity only, so distinct series are never merged.
 - **Origin grouping is See-all only.** The carousel stays flat-ranked in its small strip; the provenance already rides on each candidate.
 - **No adult-content filter.** It reached only the carousel and Fill from tracker, most tracker candidates carry no adult signal to screen (only AniList offers a clean flag), and the trackers' own flags either mix in BL and GL (Shikimori's `isCensored`) or are missing from the library call and sparse (Bangumi's `nsfw`). Void if the recommendation and library endpoints of most trackers expose a sexual-content flag.
-- **Novels have no recommendations.** LN sources expose no related titles and mainstream trackers track light novels unreliably, so a novel row would have almost no input. Void if novel tracking proves out.
+- **Novels have no recommendations.** LN plugins expose no related titles, and no one has measured whether the novel trackers would give a row enough input. Novel tracking has shipped, so this stands only until that is measured.
 - **The cross-tracker dedup reaches AniList, MyAnimeList and Kitsu only.** Shikimori and Bangumi rows carry no cross ids, so a series tracked there and on MAL counts twice.
 
 ## Upstream divergences

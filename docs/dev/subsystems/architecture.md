@@ -79,7 +79,6 @@ The layout, by subject:
 - **Changing a lazy read to a constructor parameter changes when the object is built.** A dependency whose `init` starts work then starts it wherever its owner is built, transitively: the novel library once resumed downloads through `SetNovelReadStatus` to `DeleteNovelChaptersAfterRead`. Read the type's `init` and its whole closure before promoting it, and keep a deferral as `() -> T`.
 - **A new screen joins `settingScreens`, or search never sees it.** Nothing fails; its rows are just absent.
 - **Moving a row to another group changes its `HighlightKey`.** A stale key fails silently: the result opens the screen but does not scroll.
-- **Never push a screen from `SourcePreferencesScreen`.** It hosts a Fragment behind a one-time commit guarded by `rememberSaveable`, and coming back from a pushed screen leaves the body empty.
 - **A gate read in a composable is observed state, never a bare `isEnabled()` call.** A one-shot read does not update when the preference flips, so the row appears only after the screen is recreated.
 - **Workers inject in `init`, not at the top of `doWork`.** WorkManager may call `getForegroundInfo` first, and `NovelDownloadWorker` reads an injected field there.
 - **`App.onCreate` also runs in `:error_handler`.** The migration set and the image loader's dependencies are read off the graph after that process's early return, since building them there would load WebView and could take down the crash screen.

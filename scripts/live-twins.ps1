@@ -1,12 +1,11 @@
 # Reads docs/dev/live-twins.md for off-path-check.ps1. Dot-source it; it defines functions and runs nothing.
 
+. (Join-Path $PSScriptRoot 'doc-table-rows.ps1')
+
 function Get-LiveTwins([string]$tablePath) {
-    Get-Content $tablePath |
-        Where-Object { $_ -match '^\|\s*[a-z0-9-]+/' } |
-        ForEach-Object {
-            $cols = ($_ -split '\|') | ForEach-Object { $_.Trim() }
-            [pscustomobject]@{ Mihon = $cols[1]; Twin = $cols[2]; Pin = $cols[3] }
-        }
+    Get-PathTableRows $tablePath | ForEach-Object {
+        [pscustomobject]@{ Mihon = $_[1]; Twin = $_[2]; Pin = $_[3] }
+    }
 }
 
 # One line per row whose Mihon file changed in base..through, naming the twin to carry the change to.

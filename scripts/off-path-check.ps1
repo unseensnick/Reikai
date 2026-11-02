@@ -50,14 +50,9 @@ $manifestPath = Join-Path $repoRoot 'docs/dev/off-path-manifest.md'
 if (-not (Test-Path $manifestPath)) { throw "manifest not found: $manifestPath" }
 
 # Parse the manifest table: data rows look like `| <path> | <upstream> | <replacement> |`.
-$entries = Get-Content $manifestPath |
-    Where-Object { $_ -match '^\|\s*[a-z0-9-]+/' } |
-    ForEach-Object {
-        $cols = ($_ -split '\|') | ForEach-Object { $_.Trim() }
-        [pscustomobject]@{ Path = $cols[1]; Upstream = $cols[2]; Replacement = $cols[3] }
-    }
-
-if (-not $entries) { Write-Host 'off-path check: manifest has no entries.'; exit 0 }
+$entries = Get-PathTableRows $manifestPath | ForEach-Object {
+    [pscustomobject]@{ Path = $_[1]; Upstream = $_[2]; Replacement = $_[3] }
+}
 
 $bases = @{ mihon = $MihonBase; tsundoku = $TsundokuBase }
 $throughs = @{ mihon = $MihonThrough; tsundoku = 'HEAD' }

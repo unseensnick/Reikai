@@ -21,10 +21,7 @@ function Write-Text([string]$path, [string]$text) {
     [IO.File]::WriteAllText($path, $text)
 }
 
-function Invoke-Git([string]$dir) {
-    git -C $dir -c user.name=test -c user.email=test@example.com -c commit.gpgsign=false -c core.autocrlf=false @args | Out-Null
-    if ($LASTEXITCODE -ne 0) { throw "git $args failed in $dir" }
-}
+. (Join-Path $PSScriptRoot 'test-git.ps1')
 
 New-Item -ItemType Directory -Path $work | Out-Null
 $mihon = Join-Path $work 'mihon'
