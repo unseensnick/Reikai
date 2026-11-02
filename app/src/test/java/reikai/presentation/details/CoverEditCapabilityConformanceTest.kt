@@ -1,5 +1,7 @@
 package reikai.presentation.details
 
+import android.content.Context
+import android.net.Uri
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -30,6 +32,7 @@ import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.source.local.LocalSource
+import java.io.ByteArrayInputStream
 import kotlin.time.Instant
 
 /**
@@ -70,6 +73,23 @@ class CoverEditCapabilityConformanceTest {
         MangaCover.vibrantCoverColorMap[key] = 1
 
         model.deleteCustomCover(mockk(relaxed = true))
+
+        MangaCover.vibrantCoverColorMap[key] shouldBe null
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `setting a custom cover drops the tint of the one it replaced`(probe: CoverEditProbe) = runTest {
+        mockIoDispatcher(UnconfinedTestDispatcher(testScheduler))
+        val model = probe.model(inLibrary = true)
+        editable(model)
+        val key = probe.id.signedKey()
+        MangaCover.vibrantCoverColorMap[key] = 1
+        val context = mockk<Context>(relaxed = true) {
+            every { contentResolver.openInputStream(any()) } returns ByteArrayInputStream(ByteArray(1))
+        }
+
+        model.editCover(context, mockk<Uri>())
 
         MangaCover.vibrantCoverColorMap[key] shouldBe null
     }

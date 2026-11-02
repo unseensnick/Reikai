@@ -23,10 +23,12 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
 import reikai.domain.library.updateerror.DeleteLibraryUpdateErrors
 import reikai.domain.library.updateerror.GetLibraryUpdateErrors
 import reikai.domain.library.updateerror.LibraryUpdateError
+import reikai.domain.library.within
 import reikai.domain.novel.updateerror.DeleteNovelUpdateErrors
 import reikai.domain.novel.updateerror.GetNovelUpdateErrors
 import reikai.domain.novel.updateerror.NovelUpdateError
@@ -43,7 +45,7 @@ import tachiyomi.domain.source.service.SourceManager
  */
 @AssistedInject
 class UpdateErrorsViewModel(
-    @Assisted private val initialContentType: ContentType,
+    @Assisted initialContentType: ContentType,
     private val getLibraryUpdateErrors: GetLibraryUpdateErrors,
     private val deleteLibraryUpdateErrors: DeleteLibraryUpdateErrors,
     private val getNovelUpdateErrors: GetNovelUpdateErrors,
@@ -51,7 +53,10 @@ class UpdateErrorsViewModel(
     private val sourceManager: SourceManager,
     private val novelSourceManager: NovelSourceManager,
     private val getEntryCustomInfo: GetEntryCustomInfo,
+    reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
+
+    private val openingContentType = initialContentType.within(reikaiLibraryPreferences.shownContent.get())
 
     val state: StateFlow<UpdateErrorsScreenState>
         field = MutableStateFlow<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading)
@@ -91,7 +96,7 @@ class UpdateErrorsViewModel(
                     val prev = current as? UpdateErrorsScreenState.Success
                     UpdateErrorsScreenState.Success(
                         entries = entries,
-                        contentType = prev?.contentType ?: initialContentType,
+                        contentType = prev?.contentType ?: openingContentType,
                         selection = EntrySelection.retain(
                             prev?.selection ?: SelectionState(),
                             entries.map { it.entryId },

@@ -40,10 +40,8 @@ import mihon.icons.materialsymbols.rounded.Refresh
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.rounded.SwapCalls
 import reikai.domain.library.ContentType
-import reikai.domain.library.within
 import reikai.domain.novel.model.NovelCover
 import reikai.presentation.components.ContentTypeFilterChips
-import reikai.presentation.components.LocalShownContent
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.rememberChipListState
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -67,9 +65,8 @@ class UpdateErrorsScreen(
     override fun Content() {
         val context = LocalContext.current
         val navigator = LocalNavigator.currentOrThrow
-        val shownContent = LocalShownContent.current
         val viewModel = assistedMetroViewModel<UpdateErrorsViewModel, UpdateErrorsViewModel.Factory> {
-            create(initialContentType = initialContentType.within(shownContent))
+            create(initialContentType = initialContentType)
         }
         val state by viewModel.state.collectAsState()
         val scope = rememberCoroutineScope()

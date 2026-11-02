@@ -57,7 +57,7 @@ class EntrySourcesFilterScreen(
         // Held as a boolean rather than the enum: only two of the three chips exist here, and a
         // boolean is saveable without asking whether the enum is.
         val shownContent = LocalShownContent.current
-        var showNovels by rememberSaveable { mutableStateOf(initial.within(shownContent) == ContentType.NOVELS) }
+        var showNovels by rememberSaveable { mutableStateOf(opensOnNovels(initial, shownContent)) }
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -219,3 +219,7 @@ private fun <S> section(
 ) = SourceFilterSection(language, enabled, if (enabled) sources.map(entry) else emptyList())
 
 private val FILTER_TYPES = listOf(ContentType.MANGA, ContentType.NOVELS)
+
+/** The Browse chip this opened from, unless Show hides that half. */
+internal fun opensOnNovels(initial: ContentType, shown: ContentType): Boolean =
+    initial.within(shown) == ContentType.NOVELS

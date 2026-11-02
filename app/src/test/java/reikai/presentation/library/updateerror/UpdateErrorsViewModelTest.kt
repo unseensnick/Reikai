@@ -97,6 +97,15 @@ class UpdateErrorsViewModelTest {
     }
 
     @Test
+    fun `opening on a hidden type lands on the shown one`() = runTest {
+        val viewModel = viewModel(ContentType.NOVELS, shown = ContentType.MANGA)
+
+        val state = viewModel.state.first { it is UpdateErrorsScreenState.Success }
+
+        (state as UpdateErrorsScreenState.Success).contentType shouldBe ContentType.MANGA
+    }
+
+    @Test
     fun `flipping the chip drops the selection`() = runTest {
         val viewModel = selectingOne(ContentType.ALL)
 
@@ -184,6 +193,7 @@ class UpdateErrorsViewModelTest {
         novels: List<NovelUpdateError> = emptyList(),
         custom: Map<EntryId, EntryCustomInfo> = emptyMap(),
         novelSources: NovelSourceManager = mockk(relaxed = true),
+        shown: ContentType = ContentType.ALL,
     ) = UpdateErrorsViewModel(
         initialContentType = chip,
         getLibraryUpdateErrors = mockk { every { subscribeAll() } returns flowOf(manga) },
@@ -193,6 +203,7 @@ class UpdateErrorsViewModelTest {
         sourceManager = mockk(relaxed = true),
         novelSourceManager = novelSources,
         getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
+        reikaiLibraryPreferences = mockk { every { shownContent.get() } returns shown },
     )
 
     private fun mangaError(id: Long, message: String) = LibraryUpdateError(
