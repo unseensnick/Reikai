@@ -6,7 +6,6 @@ import android.net.Uri
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.network.interceptor.rateLimitHost
-import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
@@ -25,9 +24,11 @@ import exh.source.NHENTAI_NET_SOURCE_ID
 import exh.source.NhGallery
 import exh.source.NhServers
 import exh.source.fillFrom
+import exh.source.nhGalleryUrl
 import exh.source.nhJson
 import exh.source.nhPagePreviews
 import exh.source.nhPreferredTitle
+import exh.source.nhPreviewImage
 import exh.source.singleChapterGalleryUpdate
 import exh.util.SourceTagsUtil
 import exh.util.urlImportFetchSearchMangaSuspend
@@ -144,9 +145,7 @@ class NHentaiNet(private val context: Context) :
     // --- Metadata ---
 
     override suspend fun parseIntoMetadata(metadata: NHentaiSearchMetadata, input: Response) {
-        servers.ensure(client, headers)
-        val gallery = nhJson.decodeFromString<NhGallery>(input.body.string())
-        metadata.fillFrom(gallery, servers.thumbServer, nhPreferredTitle(sourcePreferences))
+        metadata.fillFrom(input, servers, client, headers, nhPreferredTitle(sourcePreferences))
     }
 
     // --- URL import ---
@@ -156,10 +155,7 @@ class NHentaiNet(private val context: Context) :
     )
 
     override suspend fun mapUrlToMangaUrl(uri: Uri): String? {
-        if (uri.pathSegments.firstOrNull()?.lowercase() != "g") {
-            return null
-        }
-        return "$baseUrl/g/${uri.pathSegments[1]}/"
+        return nhGalleryUrl(baseUrl, uri)
     }
 
     // --- Page previews (the per-gallery thumbnail grid) ---
@@ -173,10 +169,7 @@ class NHentaiNet(private val context: Context) :
     }
 
     override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {
-        return client.newCachelessCallWithProgress(
-            if (cacheControl != null) GET(page.imageUrl, cache = cacheControl) else GET(page.imageUrl),
-            page,
-        ).awaitSuccess()
+        return nhPreviewImage(client, page, cacheControl)
     }
 
     private fun galleryApiUrl(mangaUrl: String) =

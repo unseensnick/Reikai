@@ -1,8 +1,10 @@
 package exh.source
 
 import android.content.SharedPreferences
+import android.net.Uri
 import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
+import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import exh.metadata.metadata.NHentaiSearchMetadata
@@ -12,8 +14,10 @@ import exh.util.trimOrNull
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import okhttp3.CacheControl
 import okhttp3.Headers
 import okhttp3.OkHttpClient
+import okhttp3.Response
 import tachiyomi.core.common.util.lang.withIOContext
 
 // nhentai's v2 API, read the same way by the built-in NHentaiNet and the extension wrapper NHentai.
@@ -133,3 +137,29 @@ internal fun nhPagePreviews(page: Int, thumbnailPaths: List<String>, thumbServer
     hasNextPage = false,
     pagePreviewPages = 1,
 )
+
+/** [response]'s gallery, read through [servers], which it needs for its thumbnails. */
+internal suspend fun NHentaiSearchMetadata.fillFrom(
+    response: Response,
+    servers: NhServers,
+    client: OkHttpClient,
+    headers: Headers,
+    preferredTitle: Int,
+) {
+    servers.ensure(client, headers)
+    fillFrom(nhJson.decodeFromString<NhGallery>(response.body.string()), servers.thumbServer, preferredTitle)
+}
+
+/** The gallery a pasted site link names, or null when it names something else. */
+internal fun nhGalleryUrl(baseUrl: String, uri: Uri): String? =
+    if (uri.pathSegments.firstOrNull()?.lowercase() == "g") "$baseUrl/g/${uri.pathSegments[1]}/" else null
+
+internal suspend fun nhPreviewImage(
+    client: OkHttpClient,
+    page: PagePreviewInfo,
+    cacheControl: CacheControl?,
+): Response =
+    client.newCachelessCallWithProgress(
+        if (cacheControl != null) GET(page.imageUrl, cache = cacheControl) else GET(page.imageUrl),
+        page,
+    ).awaitSuccess()

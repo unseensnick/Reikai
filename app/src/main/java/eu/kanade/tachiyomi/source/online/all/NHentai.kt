@@ -3,9 +3,7 @@ package eu.kanade.tachiyomi.source.online.all
 import android.content.Context
 import android.content.SharedPreferences
 import android.net.Uri
-import eu.kanade.tachiyomi.network.GET
 import eu.kanade.tachiyomi.network.awaitSuccess
-import eu.kanade.tachiyomi.network.newCachelessCallWithProgress
 import eu.kanade.tachiyomi.source.PagePreviewInfo
 import eu.kanade.tachiyomi.source.PagePreviewPage
 import eu.kanade.tachiyomi.source.PagePreviewSource
@@ -20,13 +18,13 @@ import eu.kanade.tachiyomi.source.online.NamespaceSource
 import eu.kanade.tachiyomi.source.online.UrlImportableSource
 import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.source.DelegatedHttpSource
-import exh.source.NhGallery
 import exh.source.NhServers
 import exh.source.fillFrom
 import exh.source.layeredMangaUpdate
-import exh.source.nhJson
+import exh.source.nhGalleryUrl
 import exh.source.nhPagePreviews
 import exh.source.nhPreferredTitle
+import exh.source.nhPreviewImage
 import exh.util.SourceTagsUtil
 import exh.util.urlImportFetchSearchMangaSuspend
 import okhttp3.CacheControl
@@ -67,9 +65,7 @@ class NHentai(delegate: HttpSource, val context: Context) :
     }
 
     override suspend fun parseIntoMetadata(metadata: NHentaiSearchMetadata, input: Response) {
-        servers.ensure(client, headers)
-        val gallery = nhJson.decodeFromString<NhGallery>(input.body.string())
-        metadata.fillFrom(gallery, servers.thumbServer, nhPreferredTitle(sourcePreferences))
+        metadata.fillFrom(input, servers, client, headers, nhPreferredTitle(sourcePreferences))
     }
 
     override val matchingHosts = listOf(
@@ -77,11 +73,7 @@ class NHentai(delegate: HttpSource, val context: Context) :
     )
 
     override suspend fun mapUrlToMangaUrl(uri: Uri): String? {
-        if (uri.pathSegments.firstOrNull()?.lowercase() != "g") {
-            return null
-        }
-
-        return "$baseUrl/g/${uri.pathSegments[1]}/"
+        return nhGalleryUrl(baseUrl, uri)
     }
 
     override suspend fun getPagePreviewList(manga: SManga, chapters: List<SChapter>, page: Int): PagePreviewPage {
@@ -93,13 +85,6 @@ class NHentai(delegate: HttpSource, val context: Context) :
     }
 
     override suspend fun fetchPreviewImage(page: PagePreviewInfo, cacheControl: CacheControl?): Response {
-        return client.newCachelessCallWithProgress(
-            if (cacheControl != null) {
-                GET(page.imageUrl, cache = cacheControl)
-            } else {
-                GET(page.imageUrl)
-            },
-            page,
-        ).awaitSuccess()
+        return nhPreviewImage(client, page, cacheControl)
     }
 }
