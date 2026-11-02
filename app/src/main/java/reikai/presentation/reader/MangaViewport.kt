@@ -98,8 +98,8 @@ class MangaViewport(
         val ctrl = event.metaState and KeyEvent.META_CTRL_ON != 0
         val action = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (!input.volumeKeysEnabled || input.menuVisible) return false
-                val forward = (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) != input.volumeKeysInverted
+                if (!volumeKeysActive(input.volumeKeysEnabled, input.menuVisible)) return false
+                val forward = volumeKeyReadsOn(event.keyCode, input.volumeKeysInverted)
                 if (viewer is WebtoonViewer) {
                     if (isUp) viewer.moveByVolumeKey(forward)
                     return true
@@ -113,14 +113,15 @@ class MangaViewport(
             KeyEvent.KEYCODE_MENU -> Action.MENU
             else -> return false
         }
-        if (isUp) {
-            when (action) {
-                Action.MENU -> input.toggleMenu()
-                Action.FORWARD -> viewer.moveForward()
-                Action.BACKWARD -> viewer.moveBackward()
-            }
-        }
+        if (isUp) perform(action)
         return true
+    }
+
+    /** What a tap or a key asked for. */
+    fun perform(action: Action) = when (action) {
+        Action.MENU -> input.toggleMenu()
+        Action.FORWARD -> viewer.moveForward()
+        Action.BACKWARD -> viewer.moveBackward()
     }
 
     // The viewers take the wheel in Compose, through `mouseWheelPaging`.

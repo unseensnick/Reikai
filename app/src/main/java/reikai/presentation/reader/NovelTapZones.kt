@@ -14,8 +14,6 @@ import reikai.presentation.reader.navigation.CenterNavigation
 import reikai.presentation.reader.navigation.ThirdsNavigation
 import reikai.presentation.reader.navigation.actionAt
 
-enum class NovelTapAction { MENU, BACK, FORWARD, NONE }
-
 /**
  * The tap zones a novel session reads, as one value so both renderers answer a tap from the same rule.
  * [bottomZoneHeightPercent] only shapes [NovelTapLayout.BOTTOM].
@@ -34,17 +32,12 @@ data class NovelTapZones(
     }
 
     /**
-     * What a tap at [x], [y], each a fraction of the page, asks for. Next reads on; right reads on too, unless
-     * the pages turn [rtl], where left does, as Mihon's right-to-left pager reads the same regions.
+     * What a tap at [x], [y], each a fraction of the page, asks for, null outside every zone. Next reads on;
+     * right reads on too, unless the pages turn [rtl], where left does, as Mihon's right-to-left pager reads
+     * the same regions.
      */
-    fun actionAt(x: Float, y: Float, rtl: Boolean): NovelTapAction {
-        return when ((if (rtl) reversed else navigation).actionAt(Offset(x, y))) {
-            null -> NovelTapAction.NONE
-            ViewerNavigation.Action.MENU -> NovelTapAction.MENU
-            ViewerNavigation.Action.FORWARD -> NovelTapAction.FORWARD
-            ViewerNavigation.Action.BACKWARD -> NovelTapAction.BACK
-        }
-    }
+    fun actionAt(x: Float, y: Float, rtl: Boolean): ViewerNavigation.Action? =
+        (if (rtl) reversed else navigation).actionAt(Offset(x, y))
 
     companion object {
         /** How much of the screen a tap that reads on or back moves, in both renderers. */

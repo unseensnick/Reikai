@@ -420,9 +420,8 @@ class NovelPreferences(
     fun readerAutoScrollInterval() = preferenceStore.getInt("ln_reader_auto_scroll_interval", 5)
 
     /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
-     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. No pin: manga's half
-     *  is upstream's key handling inside its View-based viewers, which a JVM test cannot drive; this side's
-     *  rule is NovelVolumeKeysTest. */
+     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. Both readers answer it
+     *  through `volumeKeysActive`. */
     fun readerUseVolumeButtons() = preferenceStore.getBoolean("ln_reader_use_volume_buttons", false)
 
     /** Swap which volume key scrolls forward vs back, mirroring `readWithVolumeKeysInverted`. */
@@ -436,8 +435,8 @@ class NovelPreferences(
     )
 
     /** How far a finger scroll must move before the menu hides, the novel twin of the manga reader's
-     *  `readerHideThreshold`. Both read the distance off the shared [ReaderHideThreshold]. No pin: manga's
-     *  half is upstream's scroll listener in `WebtoonViewer`, a View a JVM test cannot drive. */
+     *  `readerHideThreshold`, twin of `WebtoonPageTracker.onScrolledBy`, pinned by HideThresholdConformanceTest.
+     *  Both read the distance off the shared [ReaderHideThreshold]. */
     fun readerHideThreshold() = preferenceStore.getEnum("ln_reader_hide_threshold", ReaderHideThreshold.LOW)
 
     /** Reopen a read chapter where it was left rather than at its start, as the manga reader's

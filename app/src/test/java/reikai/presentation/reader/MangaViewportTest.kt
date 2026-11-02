@@ -69,6 +69,16 @@ class MangaViewportTest {
     }
 
     @Test
+    fun `a volume key is left to the system with the setting off`() {
+        val viewer = RecordingViewer()
+
+        val handled = viewport(viewer, input = FakeInput(volumeKeysEnabled = false))
+            .handleKeyEvent(key(KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.ACTION_UP))
+
+        (handled to viewer.forward) shouldBe (false to 0)
+    }
+
+    @Test
     fun `a volume key is left to the system while the menu is open`() {
         val handled = viewport(RecordingViewer(), input = FakeInput(menuVisible = true))
             .handleKeyEvent(key(KeyEvent.KEYCODE_VOLUME_UP, KeyEvent.ACTION_UP))
@@ -273,8 +283,8 @@ private class FakeInput(
     override val navigation: ViewerNavigation? = RightAndLeftNavigation(TappingInvertMode.NONE, isReversed = false),
     inverted: Boolean = false,
     override val menuVisible: Boolean = false,
+    override val volumeKeysEnabled: Boolean = true,
 ) : MangaViewportInput {
-    override val volumeKeysEnabled = true
     override val volumeKeysInverted = inverted
     var toggled = 0
         private set

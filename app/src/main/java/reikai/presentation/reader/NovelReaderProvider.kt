@@ -36,7 +36,6 @@ import reikai.presentation.details.novelDetailsIntent
 import reikai.presentation.reader.text.NovelWindowDiff
 import reikai.util.snapshotOnChange
 import tachiyomi.core.common.util.system.logcat
-import kotlin.math.abs
 
 /**
  * The light-novel half of the reader's provider seam, over the live [NovelReaderViewModel] the host
@@ -264,7 +263,7 @@ class NovelReaderProvider(
         val callbacks = NovelViewportCallbacks(
             // The keys are the reader's only while the menu is down, as they are for manga. Read from the
             // host each press, since the menu opens and closes mid-session.
-            volumeKeysActive = { viewModel.settings.value.useVolumeButtons && !host.isMenuVisible },
+            volumeKeysActive = { volumeKeysActive(viewModel.settings.value.useVolumeButtons, host.isMenuVisible) },
             // Both persist: the live percent debounced, since an auto-scrolled or scrubbed read never
             // settles, and the settled one at once. Either one finishing a chapter marks it read.
             onProgressChanged = viewModel::reportProgress,
@@ -281,7 +280,7 @@ class NovelReaderProvider(
             cutoutTopDp = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
-            onReaderScrolled = { dy -> if (abs(dy) > hideThreshold) host.hideMenu() },
+            onReaderScrolled = { dy -> if (scrollHidesMenu(dy.toFloat(), hideThreshold)) host.hideMenu() },
             onPageTurned = host::pageTurned,
             onPageShown = { page, count -> shownPage.value = ChapterProgress.Pages(page, count) },
         )

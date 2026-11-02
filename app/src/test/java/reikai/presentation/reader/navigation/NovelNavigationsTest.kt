@@ -2,13 +2,13 @@ package reikai.presentation.reader.navigation
 
 import androidx.compose.ui.geometry.Offset
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TappingInvertMode
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.Action
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelTapLayout
-import reikai.presentation.reader.NovelTapAction
 import reikai.presentation.reader.NovelTapZones
 
 /** Reikai's own layouts over upstream's regions, which a settings change must not be taken for no change. */
@@ -48,12 +48,12 @@ class NovelNavigationsTest {
 
     @Test
     fun `a novel's right edge reads on when its pages run left to right`() {
-        zones().actionAt(0.9f, 0.5f, rtl = false) shouldBe NovelTapAction.FORWARD
+        zones().actionAt(0.9f, 0.5f, rtl = false) shouldBe ViewerNavigation.Action.FORWARD
     }
 
     @Test
     fun `a novel's right edge reads back when its pages run right to left`() {
-        zones().actionAt(0.9f, 0.5f, rtl = true) shouldBe NovelTapAction.BACK
+        zones().actionAt(0.9f, 0.5f, rtl = true) shouldBe ViewerNavigation.Action.BACKWARD
     }
 
     private fun zones() = NovelTapZones(NovelTapLayout.RIGHT_AND_LEFT, none, bottomZoneHeightPercent = 20)

@@ -29,6 +29,7 @@ import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -1183,16 +1184,16 @@ class NovelTextViewport(
         }
         val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
         when (zones.actionAt(x / width, y / height, pageLayout.isRtl)) {
-            NovelTapAction.MENU -> callbacks.onToggleMenu()
-            NovelTapAction.BACK -> {
+            ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
+            ViewerNavigation.Action.BACKWARD -> {
                 readerMoved()
                 if (paged) turnPage(forward = false) else recycler.smoothScrollBy(0, -step)
             }
-            NovelTapAction.FORWARD -> {
+            ViewerNavigation.Action.FORWARD -> {
                 readerMoved()
                 if (paged) turnPage(forward = true) else recycler.smoothScrollBy(0, step)
             }
-            NovelTapAction.NONE -> Unit
+            null -> Unit
         }
     }
 
