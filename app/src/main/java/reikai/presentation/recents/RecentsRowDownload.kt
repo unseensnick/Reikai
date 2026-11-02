@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.transform
+import reikai.data.merge.MAX_SQL_IDS_PER_QUERY
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.entry.EntryId
@@ -156,7 +157,7 @@ internal class RecentsRowCopiesIndex {
         val copies: Flow<Map<Long, List<ChapterCopyRow>>> = if (ids.isEmpty()) {
             flowOf(emptyMap())
         } else {
-            combine(ids.chunked(MAX_IDS_PER_QUERY).map(query)) { maps ->
+            combine(ids.chunked(MAX_SQL_IDS_PER_QUERY).map(query)) { maps ->
                 maps.fold(emptyMap<Long, List<ChapterCopyRow>>()) { a, b -> a + b }
             }
         }
@@ -171,9 +172,5 @@ internal class RecentsRowCopiesIndex {
             missingSources = if (sources.isEmpty()) emptySet() else missingAmong(sources)
             changes.tryEmit(Unit)
         }
-    }
-
-    private companion object {
-        const val MAX_IDS_PER_QUERY = 500
     }
 }

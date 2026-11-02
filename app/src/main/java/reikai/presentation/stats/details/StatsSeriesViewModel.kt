@@ -14,7 +14,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
-import eu.kanade.core.preference.asState
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.Dispatchers
@@ -36,6 +35,8 @@ import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.novel.NovelRepository
 import reikai.presentation.library.MangaLibraryRows
+import reikai.presentation.library.gridColumns
+import reikai.presentation.library.gridDisplayMode
 import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.memberIds
 import reikai.presentation.library.mixedLibraryItemSortFields
@@ -137,11 +138,10 @@ class StatsSeriesViewModel(
         .stateIn(viewModelScope, SharingStarted.Eagerly, libraryPreferences.showContinueReadingButton.get())
 
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
-        libraryPreferences.displayMode.asState(viewModelScope)
+        libraryPreferences.gridDisplayMode(viewModelScope)
 
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
-        (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
-            .asState(viewModelScope)
+        libraryPreferences.gridColumns(viewModelScope, isLandscape)
 
     suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
 

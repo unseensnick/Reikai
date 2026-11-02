@@ -6,6 +6,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.expandToUnits
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.model.NovelChapter
 import reikai.domain.reader.chapterToDeleteBehind
 import reikai.domain.reader.duplicatesOfRead
 import reikai.novel.download.NovelDownloadManager
@@ -41,21 +42,8 @@ class DeleteNovelChaptersBehindReader(
         if (!target.read) return
         // The copies "mark duplicate read" marked with it go too, as manga's trim takes them
         // (DeleteDuplicatesBehindReaderConformanceTest).
-        val markDuplicates = libraryPreferences.markDuplicateReadChapterAsRead.get()
-            .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-        val duplicates = if (!markDuplicates) {
-            emptyList()
-        } else {
-            memberIds.flatMap { chapterRepository.getByNovelId(it) }
-                .duplicatesOfRead(
-                    target,
-                    expandToUnits(setOf(target.id), stitch),
-                    numberOf = { it.chapterNumber },
-                    idOf = { it.id },
-                    ownerOf = { it.novelId },
-                )
-                .map { it.copy(read = true) }
-        }
+        val duplicates = chapterRepository.duplicatesOfFinished(target, memberIds, stitch, libraryPreferences)
+            .map { it.copy(read = true) }
         val removable = removableDownloads(listOf(target) + duplicates)
         if (removable.isNotEmpty()) pendingDeleter.addChapters(removable)
     }
@@ -66,4 +54,23 @@ class DeleteNovelChaptersBehindReader(
         if (ids.isEmpty()) return
         downloadManager().deleteChapters(ids.mapNotNull { chapterRepository.getById(it) })
     }
+}
+
+/** [chapter]'s copies across [memberIds] that "mark duplicate read" reaches, or none while it is off. */
+internal suspend fun NovelChapterRepository.duplicatesOfFinished(
+    chapter: NovelChapter,
+    memberIds: List<Long>,
+    stitch: List<ChapterUnit>,
+    libraryPreferences: LibraryPreferences,
+): List<NovelChapter> {
+    val markDuplicates = libraryPreferences.markDuplicateReadChapterAsRead.get()
+        .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
+    if (!markDuplicates) return emptyList()
+    return memberIds.flatMap { getByNovelId(it) }.duplicatesOfRead(
+        chapter,
+        expandToUnits(setOf(chapter.id), stitch),
+        numberOf = { it.chapterNumber },
+        idOf = { it.id },
+        ownerOf = { it.novelId },
+    )
 }

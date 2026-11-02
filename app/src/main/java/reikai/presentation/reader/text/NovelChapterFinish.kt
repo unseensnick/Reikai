@@ -5,9 +5,9 @@ import eu.kanade.domain.track.service.TrackPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import reikai.domain.merge.ChapterUnit
-import reikai.domain.merge.expandToUnits
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
+import reikai.domain.novel.interactor.duplicatesOfFinished
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.TrackNovelChapter
 import reikai.domain.reader.ChapterIncognito
@@ -46,19 +46,8 @@ class NovelChapterFinish(
         trimBehind: suspend () -> Unit,
     ) {
         if (!completion.claim(chapter.id)) return
-        val markDuplicates = libraryPreferences.markDuplicateReadChapterAsRead.get()
-            .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
-        val duplicates = if (!markDuplicates) {
-            emptyList()
-        } else {
-            memberIds.flatMap { chapterRepo.getByNovelId(it) }.duplicatesOfRead(
-                chapter,
-                expandToUnits(setOf(chapter.id), stitch),
-                numberOf = { it.chapterNumber },
-                idOf = { it.id },
-                ownerOf = { it.novelId },
-            ).filterNot { incognito.of(it.novelId) } // a private source's copy is not written, as manga's
-        }
+        val duplicates = chapterRepo.duplicatesOfFinished(chapter, memberIds, stitch, libraryPreferences)
+            .filterNot { incognito.of(it.novelId) } // a private source's copy is not written, as manga's
         // Without "delete after marked as read", as in Mihon's reader: the trim behind is the reader's rule.
         setNovelReadStatus.awaitFinishedInReader(listOf(chapter) + duplicates)
         // Launched, as manga's is: a finish runs under the reader's write lock, which crossings share.

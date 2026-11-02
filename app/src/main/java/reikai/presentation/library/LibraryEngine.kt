@@ -11,7 +11,6 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
-import eu.kanade.core.preference.asState
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -314,11 +313,10 @@ class LibraryEngine(
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */
     fun displayMode(): PreferenceMutableState<LibraryDisplayMode> =
-        libraryPreferences.displayMode.asState(viewModelScope)
+        libraryPreferences.gridDisplayMode(viewModelScope)
 
     fun columnsForOrientation(isLandscape: Boolean): PreferenceMutableState<Int> =
-        (if (isLandscape) libraryPreferences.landscapeColumns else libraryPreferences.portraitColumns)
-            .asState(viewModelScope)
+        libraryPreferences.gridColumns(viewModelScope, isLandscape)
 
     private val selectionStore = SelectionStore<EntryId>()
     val selection: StateFlow<Set<EntryId>> = selectionStore.selection

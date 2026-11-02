@@ -1446,8 +1446,7 @@ class NovelDetailsViewModel(
     )
 
     /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
-     *  manga path's `executeChapterSwipeAction`; the download mapping is [swipeDownloadAction]). No pin:
-     *  the manga dispatch is upstream code, which keeps its own copy of that mapping. */
+     *  manga path's `executeChapterSwipeAction`; both take the download mapping from [swipeDownloadAction]). */
     fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.

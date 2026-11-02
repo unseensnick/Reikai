@@ -103,6 +103,7 @@ import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.downloadStateOf
+import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.ResetEntryInfo
 import reikai.domain.library.ContentType
@@ -1346,18 +1347,9 @@ class MangaViewModel(
                 bookmarkChapters(listOf(chapter), !chapterItem.isBookmarked)
             }
             LibraryPreferences.ChapterSwipeAction.Download -> {
-                val downloadAction: ChapterDownloadAction = when (chapterItem.downloadState) {
-                    Download.State.ERROR,
-                    Download.State.NOT_DOWNLOADED,
-                    -> ChapterDownloadAction.START_NOW
-                    Download.State.QUEUE,
-                    Download.State.DOWNLOADING,
-                    -> ChapterDownloadAction.CANCEL
-                    Download.State.DOWNLOADED -> ChapterDownloadAction.DELETE
-                }
                 runChapterDownloadActions(
                     items = listOf(chapterItem),
-                    action = downloadAction,
+                    action = chapterItem.downloadState.swipeDownloadAction(), // RK: the novel swipe's own rule
                 )
             }
             LibraryPreferences.ChapterSwipeAction.Disabled -> throw IllegalStateException()

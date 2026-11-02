@@ -103,7 +103,7 @@ class MergedChapterUnitRepositoryImpl(
         if (readAll) {
             downloadUnitsQuery(contentType, null).awaitAsList().filter { it.ownerId in ownerIds }
         } else {
-            ownerIds.chunked(MAX_IDS_PER_QUERY).flatMap { downloadUnitsQuery(contentType, it).awaitAsList() }
+            ownerIds.chunked(MAX_SQL_IDS_PER_QUERY).flatMap { downloadUnitsQuery(contentType, it).awaitAsList() }
         }
 
     private fun downloadUnitsQuery(contentType: ContentType, ownerIds: Collection<Long>?) =
@@ -241,8 +241,8 @@ class MergedChapterUnitRepositoryImpl(
         // read, measured with each member's chapter rows interleaved, as years of updates leave them
         // (rows stored in one block favour the narrow read further). See merged-series.md.
         const val READ_ALL_SHARE = 0.3
-
-        // Under SQLite's 999-variable limit on older Android versions.
-        const val MAX_IDS_PER_QUERY = 500
     }
 }
+
+/** How many ids one IN list binds, under SQLite's 999-variable limit on older Android versions. */
+const val MAX_SQL_IDS_PER_QUERY = 500
