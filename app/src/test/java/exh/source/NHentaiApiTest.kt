@@ -1,6 +1,7 @@
 package exh.source
 
 import android.content.SharedPreferences
+import android.net.Uri
 import exh.metadata.metadata.NHentaiSearchMetadata
 import exh.metadata.metadata.RaisedSearchMetadata
 import io.kotest.matchers.collections.shouldBeIn
@@ -82,6 +83,20 @@ class NHentaiApiTest {
     fun `the page previews are the page thumbnails on the thumbnail host`() {
         nhPagePreviews(1, metadata.pageImagePreviewUrls, THUMBS).pagePreviews.map { it.index to it.imageUrl } shouldBe
             listOf(1 to "$THUMBS/galleries/987560/1t.jpg", 2 to "$THUMBS/galleries/987560/2t.jpg")
+    }
+
+    @Test
+    fun `a gallery link opens on the site asked for`() {
+        val link = mockk<Uri> { every { pathSegments } returns listOf("g", "987560") }
+
+        nhGalleryUrl("https://example.org", link) shouldBe "https://example.org/g/987560/"
+    }
+
+    @Test
+    fun `a link that is not a gallery opens nothing`() {
+        val link = mockk<Uri> { every { pathSegments } returns listOf("search") }
+
+        nhGalleryUrl("https://example.org", link) shouldBe null
     }
 
     @Test
