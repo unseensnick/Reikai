@@ -29,6 +29,8 @@ import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import ireader.core.source.HttpSource as IReaderHttpSource
 
+private const val ON_SITE = "https://apk.example/x"
+
 /** Every novel picture is fetched with its own source's client and headers, whatever format it comes in. */
 class NovelImageRequestsTest {
 
@@ -148,8 +150,17 @@ class NovelImageRequestsTest {
 
     @Test
     fun `the WebView gets an APK source's own headers`() = runTest {
-        requests(loaded = listOf(apkWithToken())).webViewHeaders("tachiyomi:42") shouldBe
+        requests(loaded = listOf(apkWithToken())).webViewHeaders("tachiyomi:42", ON_SITE) shouldBe
             mapOf("X-Token" to "secret")
+    }
+
+    /** A failed page's address is whatever the site named, so a login goes no further than the source's own site. */
+    @Test
+    fun `a WebView on another host gets no login`() = runTest {
+        val apk = novelApp(apkSource(headersOf("Authorization", "secret", "User-Agent", "agent", "Referer", "site")))
+
+        requests(loaded = listOf(apk)).webViewHeaders("tachiyomi:42", "https://elsewhere.example/1.jpg") shouldBe
+            mapOf("User-Agent" to "agent", "Referer" to "site")
     }
 
     /** A WebView whose request names an Origin other than its own kills its renderer, as manga's does. */
@@ -157,18 +168,18 @@ class NovelImageRequestsTest {
     fun `the WebView never gets a source's Origin header`() = runTest {
         val apk = novelApp(apkSource(headersOf("Origin", "https://apk.example", "X-Token", "secret")))
 
-        requests(loaded = listOf(apk)).webViewHeaders("tachiyomi:42") shouldBe mapOf("X-Token" to "secret")
+        requests(loaded = listOf(apk)).webViewHeaders("tachiyomi:42", ON_SITE) shouldBe mapOf("X-Token" to "secret")
     }
 
     @Test
     fun `the WebView gets the headers an IReader source's cover request carries`() = runTest {
-        requests(loaded = listOf(iReaderApp())).webViewHeaders("ireader:42") shouldBe
+        requests(loaded = listOf(iReaderApp())).webViewHeaders("ireader:42", "https://ir.example/x") shouldBe
             mapOf("Referer" to "https://ir.example/")
     }
 
     @Test
     fun `an LNReader source's WebView headers come without waiting for the extension scan`() = runTest {
-        (requests(scanDone = false).webViewHeaders("p").keys - "user-agent") shouldBe emptySet()
+        (requests(scanDone = false).webViewHeaders("p", ON_SITE).keys - "user-agent") shouldBe emptySet()
     }
 
     /** A Cloudflare clearance is tied to the agent that earned it, so the WebView must pass as the fetches. */

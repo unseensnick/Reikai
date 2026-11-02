@@ -17,7 +17,8 @@ import eu.kanade.tachiyomi.ui.reader.viewer.LocalPageColorFilter
 /** Mounts a viewport's [view]. The container blocks descendant focus until a text renderer lifts it. */
 @Composable
 fun ViewportHost(view: View, modifier: Modifier = Modifier) {
-    // A novel's page is the whole renderer, so it takes on the view what a manga viewer applies per image
+    // A novel's page is the whole renderer, so it takes on the view what a manga viewer applies per image.
+    // On the view rather than its container, which also holds a page turn's copy of the filtered screen.
     val filter = LocalPageColorFilter.current
     val paint = remember(filter) { filter?.let { Paint().apply { colorFilter = it.asAndroidColorFilter() } } }
     AndroidView(
@@ -28,13 +29,14 @@ fun ViewportHost(view: View, modifier: Modifier = Modifier) {
             }
         },
         modifier = modifier,
-        update = { it.setLayerType(View.LAYER_TYPE_HARDWARE, paint) },
+        update = { view.setLayerType(View.LAYER_TYPE_HARDWARE, paint) },
         onRelease = { it.removeAllViews() },
     )
 }
 
 // Keeps requestDisallowInterceptTouchEvent from Compose, whose interop filter cancels the gesture when
-// a child re-allows intercepting mid-drag (mihon 00335b2a7). Also lays out a child before any pre-draw
+// a child re-allows intercepting mid-drag (mihon 00335b2a7), as `DisallowInterceptBarrier` does; that one is
+// private to a viewer no edit may widen, and this one does more. Also lays out a child before any pre-draw
 // reader: Compose measures a held view after pre-draw, and the novel renderer's page turn measures there.
 private class ViewportContainer(context: Context) : FrameLayout(context) {
     private val layoutBeforeDraw = ViewTreeObserver.OnPreDrawListener {

@@ -15,7 +15,6 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.openInBrowser
 import eu.kanade.tachiyomi.util.system.toShareIntent
-import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -24,6 +23,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.network.NovelImageRequests
+import reikai.novel.network.webViewHeadersFor
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.service.SourceManager
@@ -32,6 +32,7 @@ import tachiyomi.domain.source.service.SourceManager
 class WebViewViewModel(
     @Assisted val sourceId: Long?,
     // RK -->
+    @Assisted private val url: String,
     @Assisted private val novelSourceId: String?,
     private val novelImageRequests: NovelImageRequests,
     // RK <--
@@ -45,6 +46,7 @@ class WebViewViewModel(
     interface Factory : ManualViewModelAssistedFactory {
         fun create(
             sourceId: Long?,
+            url: String, // RK
             novelSourceId: String?, // RK
         ): WebViewViewModel
     }
@@ -57,13 +59,13 @@ class WebViewViewModel(
         viewModelScope.launchIO {
             // RK --> a novel source is found by its text id, which the manga source manager cannot resolve
             if (novelSourceId != null) {
-                headers.value = novelImageRequests.webViewHeaders(novelSourceId)
+                headers.value = novelImageRequests.webViewHeaders(novelSourceId, url)
                 return@launchIO
             }
             // RK <--
             val source = sourceId?.let { sourceManager.get(it) as? HttpSource }
             headers.value = try {
-                source?.headers?.toWebViewHeaders().orEmpty()
+                source?.headers?.webViewHeadersFor(url, source.baseUrl).orEmpty() // RK
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "Failed to build headers" }
                 emptyMap()

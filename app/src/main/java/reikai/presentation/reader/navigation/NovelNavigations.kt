@@ -39,7 +39,7 @@ class CenterNavigation(private val large: Boolean, invertMode: TappingInvertMode
         ),
     )
 
-    // Upstream's equality reads the class alone, which would take a resized zone for no change.
+    // Upstream's equality reads the class and the two tap modes, not the zone, so a resize would count as no change.
     override fun equals(other: Any?): Boolean = super.equals(other) && (other as CenterNavigation).large == large
 
     override fun hashCode(): Int = 31 * super.hashCode() + large.hashCode()

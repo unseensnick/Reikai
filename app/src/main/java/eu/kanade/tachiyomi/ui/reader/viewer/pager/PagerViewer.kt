@@ -32,7 +32,6 @@ import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import eu.kanade.tachiyomi.ui.reader.viewer.position
 import kotlinx.coroutines.MainScope
 import kotlinx.coroutines.cancel
-import mihon.app.di.appGraph
 import tachiyomi.core.common.util.system.logcat
 import kotlin.math.min
 
@@ -41,9 +40,6 @@ import kotlin.math.min
  */
 @Suppress("LeakingThis")
 abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
-
-    val graph by lazy { activity.appGraph }
-    val downloadManager by lazy { graph.downloadManager }
 
     // RK: cover seed color for per-page theming; leaf views gate on the pref themselves
     val seedColor: Int? get() = activity.viewModel.coverSeedColor
@@ -113,10 +109,10 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
         pager.isVisible = false // Don't layout the pager yet
         pager.layoutParams = LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT)
         pager.isFocusable = false
+        pager.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         pager.offscreenPageLimit = 1
         pager.id = R.id.reader_pager
         pager.adapter = adapter
-        pager.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS // RK: keys stay with the Activity
         pager.addOnPageChangeListener(pagerListener)
         pager.tapListener = { event ->
             val viewPosition = IntArray(2)
@@ -224,7 +220,6 @@ abstract class PagerViewer(val activity: ReaderActivity) : Viewer {
             pager.isVisible = true
         }
 
-        pager.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS // RK: keys stay with the Activity
         pager.addOnPageChangeListener(pagerListener)
         // Manually call onPageChange to update the UI
         tracker.onPageChange(pager.currentItem)

@@ -1,15 +1,21 @@
 package eu.kanade.tachiyomi.ui.reader.viewer
 
+import androidx.compose.ui.geometry.Offset
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.DisabledNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.navigation.LNavigation
+import eu.kanade.tachiyomi.ui.reader.viewer.navigation.RightAndLeftNavigation
+import io.kotest.matchers.collections.shouldHaveSize
 import io.kotest.matchers.floats.plusOrMinus
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -21,6 +27,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.presentation.reader.navigation.MangaTapLayouts
+import reikai.presentation.reader.navigation.actionAt
 import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
@@ -32,7 +40,6 @@ import reikai.presentation.recents.EmittingPreferenceStore
 class ViewerSettingsTapZonesTest {
 
     private val preferences = ReaderPreferences(EmittingPreferenceStore())
-    private var calls = 0
 
     @Before
     fun setUp() = Dispatchers.setMain(UnconfinedTestDispatcher())
@@ -48,19 +55,75 @@ class ViewerSettingsTapZonesTest {
     )
 
     private fun TestScope.openViewer(): ReaderSettingsViewModel = viewModel().also {
-        it.simpleLongStrip.collectChanges(backgroundScope) { old, new ->
-            if (old?.navigation != new.navigation) calls++
-        }
+        backgroundScope.launch { it.simpleLongStrip.collect() }
         runCurrent()
     }
 
     private fun ReaderSettingsViewModel.zones() = simpleLongStrip.value.navigation.navigator(false, ::LNavigation)
 
+    private fun TestScope.zonesOf(mode: ReadingMode, isWebGpu: Boolean = false): ViewerNavigation? {
+        val settings = openViewer()
+        backgroundScope.launch { settings.navigation.collect() }
+        settings.setViewerReadingMode(mode, isWebGpu)
+        runCurrent()
+        return settings.navigation.value
+    }
+
     @Test
     fun `opening a viewer hands the overlay its zones once`() = runTest {
-        openViewer()
+        val settings = openViewer()
+        val zones = mutableListOf<ViewerNavigation?>()
+        backgroundScope.launch { settings.navigation.collect(zones::add) }
 
-        calls shouldBe 1
+        settings.setViewerReadingMode(ReadingMode.WEBTOON, isWebGpu = false)
+        runCurrent()
+
+        zones.filterNotNull() shouldHaveSize 1
+    }
+
+    @Test
+    fun `a new height reaches the running viewer's zones`() = runTest {
+        preferences.navigationModeWebtoon.set(BOTTOM)
+        val settings = openViewer()
+        backgroundScope.launch { settings.navigation.collect() }
+        settings.setViewerReadingMode(ReadingMode.WEBTOON, isWebGpu = false)
+        runCurrent()
+
+        preferences.tapBottomZoneHeight.set(30)
+        runCurrent()
+
+        settings.navigation.value!!.getRegions().single().rect.top shouldBe (0.7f plusOrMinus 0.0001f)
+    }
+
+    @Test
+    fun `the view renderer's strip reads the strip's own layout`() = runTest {
+        preferences.navigationModeWebtoon.set(DISABLED)
+
+        zonesOf(ReadingMode.WEBTOON).shouldBeInstanceOf<DisabledNavigation>()
+    }
+
+    @Test
+    fun `the WebGPU renderer's strip reads the paged layout`() = runTest {
+        preferences.navigationModePager.set(DISABLED)
+
+        zonesOf(ReadingMode.WEBTOON, isWebGpu = true).shouldBeInstanceOf<DisabledNavigation>()
+    }
+
+    @Test
+    fun `a vertical mode defaults to L`() = runTest {
+        zonesOf(ReadingMode.VERTICAL).shouldBeInstanceOf<LNavigation>()
+    }
+
+    @Test
+    fun `a horizontal mode defaults to right and left`() = runTest {
+        zonesOf(ReadingMode.LEFT_TO_RIGHT).shouldBeInstanceOf<RightAndLeftNavigation>()
+    }
+
+    @Test
+    fun `a right to left book reverses its zones`() = runTest {
+        val zones = zonesOf(ReadingMode.RIGHT_TO_LEFT)!!
+
+        zones.actionAt(Offset(0.1f, 0.5f)) shouldBe ViewerNavigation.Action.FORWARD
     }
 
     @Test
@@ -119,5 +182,6 @@ class ViewerSettingsTapZonesTest {
 
     private companion object {
         const val BOTTOM = 9
+        const val DISABLED = MangaTapLayouts.DISABLED
     }
 }

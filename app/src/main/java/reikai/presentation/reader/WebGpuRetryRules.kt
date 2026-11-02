@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.loader.PageLoader
 import eu.kanade.tachiyomi.ui.reader.model.DownloadStream
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
@@ -31,6 +32,14 @@ internal fun requeueForRetry(page: ReaderPage, loader: PageLoader) {
     page.downloadStream = DownloadStream()
     loader.retryPage(page)
 }
+
+/**
+ * Whether a failed page waits for its Retry rather than decoding. One that failed to load decodes as soon
+ * as the loader's own chunk has fetched it. One that failed decoding has nothing new to try, and would
+ * otherwise fail again on every preload.
+ */
+internal fun holdsForRetry(failedDecoding: Boolean, status: Page.State): Boolean =
+    failedDecoding || status != Page.State.Ready
 
 /**
  * The preview a page keeps once [shown] gives way to its error page. A streaming decode's preview is

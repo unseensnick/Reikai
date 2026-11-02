@@ -35,7 +35,7 @@ class WebViewScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<WebViewViewModel, WebViewViewModel.Factory> {
-            create(sourceId = sourceId, novelSourceId = novelSourceId) // RK
+            create(sourceId = sourceId, url = url, novelSourceId = novelSourceId) // RK
         }
 
         val headers by viewModel.headers.collectAsState()

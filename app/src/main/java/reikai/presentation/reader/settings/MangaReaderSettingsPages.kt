@@ -53,11 +53,15 @@ private fun Viewer?.running(): RunningViewer = when (this) {
     else -> RunningViewer.Pager
 }
 
+/** Whether the running viewer honours grayscale and inverted colours, which the WebGPU renderer cannot apply. */
+@Composable
+internal fun takesPageColorFilter(viewer: StateFlow<Viewer?>): Boolean = viewer.collectAsState().value !is WebGpuViewer
+
 private val readerThemes = listOf(
-    MR.strings.black_background to 1,
-    MR.strings.gray_background to 2,
-    MR.strings.white_background to 0,
-    MR.strings.automatic_background to 3,
+    MR.strings.black_background to ReaderPreferences.ReaderTheme.BLACK.value,
+    MR.strings.gray_background to ReaderPreferences.ReaderTheme.GRAY.value,
+    MR.strings.white_background to ReaderPreferences.ReaderTheme.WHITE.value,
+    MR.strings.automatic_background to ReaderPreferences.ReaderTheme.AUTOMATIC.value,
 )
 
 /** This series' reading mode and rotation, then how the running viewer lays a page out. */
@@ -117,7 +121,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
         is RunningViewer.WebGpu -> {
             HeadingItem(MR.strings.webgpu_viewer)
             val webGpu = running.viewer
-            if (!webGpu.isContinuous && !webGpu.isVertical) {
+            if (!webGpu.isContinuous) {
                 val dualPageView by preferences.dualPageView.collectAsState()
                 SettingsChipRow(MR.strings.pref_dual_page_view) {
                     ReaderPreferences.DualPageView.entries.map {
@@ -221,13 +225,12 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, v
     val preferences = viewModel.preferences
     val viewer by viewerFlow.collectAsState()
 
+    MangaTapZones(preferences, pager = !viewModel.usesWebtoonZones)
     when (val running = viewer.running()) {
         RunningViewer.Pager -> {
-            MangaTapZones(preferences, pager = true)
             CheckboxItem(label = stringResource(MR.strings.pref_navigate_pan), pref = preferences.navigateToPan)
         }
         RunningViewer.Webtoon -> {
-            MangaTapZones(preferences, pager = false)
             CheckboxItem(
                 label = stringResource(MR.strings.pref_double_tap_zoom),
                 pref = preferences.webtoonDoubleTapZoomEnabled,
@@ -238,7 +241,6 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, v
             )
         }
         is RunningViewer.WebGpu -> {
-            MangaTapZones(preferences, pager = true)
             val webGpu = running.viewer
             if (webGpu.isContinuous) {
                 CheckboxItem(
@@ -287,7 +289,7 @@ private fun ColumnScope.ImageScaleTypeRow(
     SettingsChipRow(MR.strings.pref_image_scale_type) {
         offered.forEach {
             FilterChip(
-                selected = ReaderPreferences.ImageScaleType[imageScaleType - 1] == it,
+                selected = imageScaleType == ReaderPreferences.ImageScaleType.indexOf(it) + 1,
                 onClick = { preferences.imageScaleType.set(ReaderPreferences.ImageScaleType.indexOf(it) + 1) },
                 label = { Text(stringResource(it)) },
             )

@@ -215,7 +215,8 @@ class PagerPageHolder(
     }
 
     private fun showErrorLayout(error: Throwable?) {
-        val errorLayout = errorLayout ?: ReaderPageErrorView(context).also {
+        val errorLayout = errorLayout ?: ReaderPageErrorView(context, viewer.seedColor).also {
+            // RK
             addView(it, LayoutParams(LayoutParams.MATCH_PARENT, LayoutParams.MATCH_PARENT))
             errorLayout = it
         }

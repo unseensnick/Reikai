@@ -34,7 +34,7 @@ data class NavigationSettings(
                 2 -> KindlishNavigation(inverted, isReversed)
                 3 -> EdgeNavigation(inverted, isReversed)
                 4 -> RightAndLeftNavigation(inverted, isReversed)
-                5 -> DisabledNavigation(inverted, isReversed)
+                MangaTapLayouts.DISABLED -> DisabledNavigation(inverted, isReversed) // RK
                 else -> default(inverted, isReversed)
             }
     }

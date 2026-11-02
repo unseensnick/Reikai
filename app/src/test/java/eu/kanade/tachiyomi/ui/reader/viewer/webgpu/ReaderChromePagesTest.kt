@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webgpu
 
 import android.content.Context
 import android.content.ContextWrapper
+import android.content.Intent
 import android.util.DisplayMetrics
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -14,6 +15,8 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import ca.mpreg.webgpuviewer.viewer.ComposePageSize
@@ -22,6 +25,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
+import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
@@ -39,6 +43,8 @@ import kotlin.math.abs
 
 private const val WINDOW_WIDTH = 2256
 private const val WINDOW_HEIGHT = 2504
+private const val ANCHOR_SOURCE = 1L
+private const val CHAPTER_SOURCE = 2L
 
 /**
  * The chrome pages themselves, built and drawn as the viewer builds them. A plain composable cannot
@@ -60,7 +66,13 @@ class ReaderChromePagesTest {
             every { uiPreferences } returns UiPreferences(InMemoryPreferenceStore())
         }
 
+        var started: Intent? = null
+
         override fun getApplicationContext(): Context = this
+
+        override fun startActivity(intent: Intent) {
+            started = intent
+        }
     }
 
     private inline fun <reified T : WebGpuViewer> viewer(): T = mockk(relaxed = true) {
@@ -126,6 +138,25 @@ class ReaderChromePagesTest {
         val widths = compose.onAllNodesWithText("Retry").fetchSemanticsNodes().map { it.size.width }
 
         (abs(widths.max() - widths.min() * STRIP_CAPTURE_SCALE) <= 3) shouldBe true
+    }
+
+    /** A merged series crosses sources, and only the chapter's own gets past a host's hotlink check. */
+    @Test
+    fun `Open in WebView uses the source of the chapter the page is in`() {
+        val viewer = viewer<WebGpuViewerContinuous>()
+        val failed = mockk<WebGpuViewer.ViewerReaderPage> {
+            every { page } returns ReaderPage(index = 0, imageUrl = "https://cdn.example/1.jpg").apply {
+                chapter = this@ReaderChromePagesTest.next
+            }
+        }
+        every { model.manga?.source } returns ANCHOR_SOURCE
+        every { model.getSource(next.chapter.id) } returns mockk { every { id } returns CHAPTER_SOURCE }
+        show(ErrorPage(viewer, failed, null))
+
+        compose.onNodeWithText("Open in WebView").performClick()
+
+        val started = (viewer.readerThemedContext as Themed).started
+        started?.extras?.getLong("source_key") shouldBe CHAPTER_SOURCE
     }
 
     @Test

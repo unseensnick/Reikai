@@ -60,6 +60,28 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The chapter page in the high quality renderer no longer gets cut off after Retry on a failed next chapter.**
 
+- **Auto-scroll in the high quality renderer's long strip now saves your reading progress and waits for pages that are still loading.**
+
+- **Reload chapter no longer jumps ahead and saves the wrong page in a chapter with split pages.**
+
+- **Retry on a manga page that failed to decode now shows the new copy.**
+
+- **A failed page in the high quality renderer now fills in by itself when the page downloads anyway.**
+
+- **Open in WebView on a failed page in the high quality renderer now uses the chapter's own source in a merged series.**
+
+- **Novel pages in inverted colors no longer flash the wrong colors during a page turn.**
+
+- **Novel text in WebView mode now moves with the screen cutout when the phone turns upside down.**
+
+- **Dual page view can now be turned off in Paged (vertical) with the high quality renderer.**
+
+- **Grayscale, Inverted and the long strip rows the high quality renderer ignores no longer show while it is on.**
+
+- **Failed manga pages now follow the cover colour theme in every reading mode.**
+
+- **The download badge on a chapter page in the high quality renderer now shows at once.**
+
 - **Settings -> Advanced -> Reset per-series reader settings now resets novels too.**
 
 - **Custom brightness in the reader stays off once you turn it off, in both readers (from Mihon).**

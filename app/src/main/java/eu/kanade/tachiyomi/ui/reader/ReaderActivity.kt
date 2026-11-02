@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.getSystemService
@@ -226,6 +227,8 @@ class ReaderActivity : BaseActivity() {
     // RK --> the host draws the viewport through Compose (mihon 00335b2a7), for both content types
     val navigationOverlayState = ReaderNavigationOverlayState()
     private var viewerInsets by mutableStateOf(ViewerInsets.SYSTEM_BARS)
+    private var coverEdges: Pair<Float?, Float?>? = null
+    private var obscured: Triple<ReaderViewport, Int, Int>? = null
     private var pageColorFilter by mutableStateOf<ColorFilter?>(null)
     private var navigationOverlayJob: Job? = null
     private var pageBackgroundColor by mutableStateOf<Int?>(null)
@@ -445,9 +448,11 @@ class ReaderActivity : BaseActivity() {
                     // on by itself, so the viewer is put back on the page the reader was at
                     ReaderViewModel.Event.ReloadedChapter -> {
                         viewModel.state.value.viewerChapters?.let { chapters ->
+                            // Read first: a pager left on its old index selects a different page as it rebuilds
+                            val requested = chapters.currChapter.requestedPage
                             setChapters(chapters)
                             val pages = chapters.currChapter.pages ?: return@let
-                            val page = pages[chapters.currChapter.requestedPage.coerceIn(0, pages.lastIndex)]
+                            val page = pages[requested.coerceIn(0, pages.lastIndex)]
                             (engine.viewport.value as? MangaViewport)?.viewer?.moveToPage(page)
                         }
                     }
@@ -493,7 +498,12 @@ class ReaderActivity : BaseActivity() {
             }
             CompositionLocalProvider(LocalPageColorFilter provides pageColorFilter) {
                 key(viewport) {
-                    viewport?.Content(Modifier.fillMaxSize().windowInsetsPadding(insets))
+                    viewport?.Content(
+                        Modifier.fillMaxSize().windowInsetsPadding(insets).onGloballyPositioned {
+                            // The fullscreen setting moves the viewport with the chrome standing still
+                            coverEdges?.let { (top, bottom) -> coverText(top, bottom) }
+                        },
+                    )
                 }
             }
             loadingIndicator?.let { indicator -> AndroidView(factory = { indicator }) }
@@ -755,7 +765,7 @@ class ReaderActivity : BaseActivity() {
      * are dp.
      */
     internal fun displayCutoutTopDp(): Int {
-        // RK: applyInsetsPadding already keeps the container clear of the cutout unless the reader
+        // RK: ReaderContent's viewport padding already keeps it clear of the cutout unless the reader
         // draws under it; a page adding the inset on top of that padding cleared the cutout twice.
         if (!engine.provider.fullscreen.get() || !engine.provider.drawUnderCutout.get()) return 0
         val insets = ViewCompat.getRootWindowInsets(window.decorView)
@@ -769,12 +779,15 @@ class ReaderActivity : BaseActivity() {
      * it reads aloud; an image viewer has no paragraph to choose or keep in view.
      */
     private fun coverText(topBarBottom: Float?, bottomChromeTop: Float?) {
+        coverEdges = topBarBottom to bottomChromeTop
         val viewport = engine.viewport.value ?: return
         if (viewport !is TextViewport) return
         val view = viewport.view
         val viewTop = IntArray(2).also(view::getLocationInWindow)[1]
         val top = topBarBottom?.let { (it - viewTop).roundToInt().coerceAtLeast(0) } ?: 0
         val bottom = bottomChromeTop?.let { (viewTop + view.height - it).roundToInt().coerceAtLeast(0) } ?: 0
+        if (obscured == Triple(viewport, top, bottom)) return
+        obscured = Triple(viewport, top, bottom)
         viewport.setObscured(top, bottom)
     }
     // RK <--
@@ -923,13 +936,8 @@ class ReaderActivity : BaseActivity() {
      * Called from the viewer when it's tapped at [pos], given as a fraction of its size.
      */
     fun onViewerTap(pos: Offset) {
-        val viewer = (engine.viewport.value as? MangaViewport)?.viewer ?: return
-        when (tapAction(pos)) {
-            null -> Unit
-            Action.MENU -> toggleMenu()
-            Action.FORWARD -> viewer.moveForward()
-            Action.BACKWARD -> viewer.moveBackward()
-        }
+        val viewport = engine.viewport.value as? MangaViewport ?: return
+        tapAction(pos)?.let(viewport::perform)
     }
     // RK <--
 
@@ -1343,6 +1351,8 @@ class ReaderActivity : BaseActivity() {
         }
     }
 
+    // RK --> upstream moved these into its model; the host keeps them per session, see upstream-sync.md
+
     /**
      * Class that handles the user preferences of the reader.
      */
@@ -1363,7 +1373,7 @@ class ReaderActivity : BaseActivity() {
                 .onEach(::setKeepScreenOn)
                 .launchIn(lifecycleScope)
 
-            // RK --> brightness, grayscale and invert are the open session's own values, as the overlay is.
+            // brightness, grayscale and invert are the open session's own values, as the overlay is.
             engine.provider.displayFilters.brightness()
                 .onEach(::setCustomBrightnessValue)
                 .launchIn(lifecycleScope)
@@ -1376,7 +1386,6 @@ class ReaderActivity : BaseActivity() {
                     setLayerPaint(grayscale, invertedColors)
                 }
                 .launchIn(lifecycleScope)
-            // RK <--
 
             // RK: the session's own fullscreen and cutout pair.
             combine(
@@ -1425,6 +1434,7 @@ class ReaderActivity : BaseActivity() {
             pageColorFilter = viewerColorFilter(grayscale, invertedColors)
         }
     }
+    // RK <--
 }
 
 // RK: which window insets pad the viewport

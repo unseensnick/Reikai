@@ -1,18 +1,22 @@
 package eu.kanade.tachiyomi.ui.reader.viewer
 
 import android.content.Context
+import androidx.annotation.ColorInt
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.presentation.reader.ReaderError
 import eu.kanade.presentation.util.formattedMessage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
+import mihon.app.di.appGraph
 
 /**
  * [ReaderError] for a [page] that failed with [error]: Retry asks its loader again, and an image from the web can
@@ -42,7 +46,11 @@ fun ReaderPageError(
 /**
  * [ReaderPageError] for the view-based viewers, filling the view, in the theme of its reader-themed [context].
  */
-class ReaderPageErrorView(context: Context) : AbstractComposeView(context) {
+// RK: split to take seedColor, as the transition and progress views do
+class ReaderPageErrorView(
+    context: Context,
+    @ColorInt private val seedColor: Int? = null,
+) : AbstractComposeView(context) {
 
     private var data by mutableStateOf<Data?>(null)
 
@@ -58,7 +66,9 @@ class ReaderPageErrorView(context: Context) : AbstractComposeView(context) {
     @Composable
     override fun Content() {
         val data = data ?: return
-        ReaderThemedContent(context) {
+        // RK: tint the error page from the cover color when enabled
+        val themeCoverBased = remember { context.appGraph.uiPreferences.themeCoverBased.get() }
+        ReaderThemedContent(context, seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
             ReaderPageError(
                 page = data.page,
                 error = data.error,

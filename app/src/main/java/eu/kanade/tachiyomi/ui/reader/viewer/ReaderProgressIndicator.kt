@@ -10,6 +10,7 @@ import androidx.annotation.IntRange
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
@@ -43,7 +44,7 @@ class ReaderProgressIndicator @JvmOverloads constructor(
     @Composable
     override fun Content() {
         // RK: tint the spinner from the cover color when enabled
-        val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
+        val themeCoverBased = remember { context.appGraph.uiPreferences.themeCoverBased.get() }
         TachiyomiTheme(seedColor = seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
             CombinedCircularProgressIndicator(progress = { progress })
         }

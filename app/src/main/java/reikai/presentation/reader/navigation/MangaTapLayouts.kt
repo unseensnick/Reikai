@@ -23,7 +23,7 @@ object MangaTapLayouts {
     )
 
     /** Mihon's Disabled, which is the novel reader's Disabled. */
-    private const val DISABLED = 5
+    const val DISABLED = 5
 
     /** Every layout's name, by stored index. */
     val names: List<StringResource> = ReaderPreferences.TapZones + added.map { it.titleRes }
@@ -31,7 +31,7 @@ object MangaTapLayouts {
     /** The added layout stored at [index], null for one of Mihon's. */
     fun added(index: Int): NovelTapLayout? = added.getOrNull(index - ReaderPreferences.TapZones.size)
 
-    /** An added layout's regions, null for Mihon's, which each viewer builds as upstream does. */
+    /** An added layout's regions, null for Mihon's, which `NavigationSettings.navigator` builds. */
     fun navigation(
         index: Int,
         bottomZoneHeightPercent: Int,

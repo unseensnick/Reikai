@@ -57,6 +57,7 @@ import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.takeWhile
 import kotlinx.coroutines.launch
@@ -65,6 +66,7 @@ import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
+import reikai.presentation.reader.holdsForRetry
 import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
 import reikai.presentation.reader.previewAfterError
@@ -207,8 +209,8 @@ open class WebGpuViewer(
     private fun queueForDecode(page: ViewerReaderPage, prioritize: Boolean = false) {
         // Already has a decoded image
         if (page.isDecoded) return
-        // RK: a failed page waits for its Retry tap, rather than failing again on every preload.
-        if (page.imagePage is ErrorPage) return
+        // RK: a failed page waits for its Retry tap, unless the loader has fetched it since
+        (page.imagePage as? ErrorPage)?.let { if (holdsForRetry(it.failedDecoding, page.page.status)) return }
 
         when (page.state) {
             PageState.IDLE -> {
@@ -261,7 +263,7 @@ open class WebGpuViewer(
                         synchronized(lock) {
                             if (pageInCache(page) && !page.isDecoded && !page.imagePage.destroyed) {
                                 val oldImagePage = page.imagePage
-                                page.imagePage = ErrorPage(this@WebGpuViewer, page, e)
+                                page.imagePage = ErrorPage(this@WebGpuViewer, page, e, failedDecoding = true) // RK
                                 page.preview = null
                                 page.state = PageState.IDLE
                                 cleanupImage(oldImagePage)
@@ -581,12 +583,26 @@ open class WebGpuViewer(
 
     /** Shows [page]'s load failure with its Retry, in place of a progress ring that never moves. Call under [lock]. */
     private fun showLoadError(page: ViewerReaderPage, error: Throwable) {
-        if (page.isDecoded || page.imagePage is ErrorPage) return
+        if (page.isDecoded) return
+        watchForRecovery(page)
+        if (page.imagePage is ErrorPage) return
         val oldImagePage = page.imagePage
         page.imagePage = ErrorPage(this, page, error)
         page.preview = previewAfterError(page.preview, oldImagePage)
         cleanupImage(oldImagePage)
         viewerState.invalidate()
+    }
+
+    /**
+     * Decodes [page] if the loader's chunk fetches it with no Retry, which would otherwise leave a false
+     * error over a good file. Ends with that page or with the viewer. Call under [lock].
+     */
+    private fun watchForRecovery(page: ViewerReaderPage) {
+        page.recoveryWatch?.cancel()
+        page.recoveryWatch = scope.launch {
+            page.page.statusFlow.first { it == Page.State.Ready }
+            synchronized(lock) { if (pageInCache(page)) queueForDecode(page) }
+        }
     }
 
     /**
@@ -602,12 +618,13 @@ open class WebGpuViewer(
                 .distinct()
             pages to chapters
         }
-        pages.forEach(::retryPage)
+        pages.forEach(::retryLoad)
         chapters.forEach(::retryChapter)
         return pages.isNotEmpty() || chapters.isNotEmpty()
     }
 
-    private fun retryPage(page: ViewerReaderPage) {
+    /** [ErrorPage]'s Retry, through the download path, so the refetch fills in as it arrives. */
+    internal fun retryLoad(page: ViewerReaderPage) {
         val loader = page.page.chapter.pageLoader ?: return
         synchronized(lock) {
             if (!pageInCache(page) || page.imagePage !is ErrorPage) return
@@ -616,14 +633,11 @@ open class WebGpuViewer(
             page.state = PageState.IDLE
             cleanupImage(oldImagePage)
         }
-        // The download path, so the refetch fills in as it arrives and a page turn can drop it.
+        // A page turn can drop this too.
         requeueForRetry(page.page, loader)
         startPageLoad(page)
         viewerState.invalidate()
     }
-
-    /** [ErrorPage]'s Retry, through the download path [retryPage] takes. */
-    internal fun retryLoad(page: ViewerReaderPage) = retryPage(page)
 
     /** [TransitionPage]'s Retry for a neighbour chapter that failed to load. */
     internal fun retryChapter(chapter: ReaderChapter) {
@@ -669,6 +683,9 @@ open class WebGpuViewer(
     inner class ViewerReaderPage(val page: ReaderPage) : ViewerPage() {
         /** Cached spread ImagePage when this page is the anchor of a dual-page spread */
         var spreadPage: ImagePage.ImageSpread? = null
+
+        // RK: see watchForRecovery, guarded by [lock]
+        var recoveryWatch: Job? = null
 
         /** The side the file names, or null for none. Never a value merely derived from the index. */
         @Volatile
@@ -1147,7 +1164,7 @@ open class WebGpuViewer(
         }
     }
 
-    // RK: retryLoad sits beside retryPage above, through its download path
+    // RK: retryLoad sits above, in the failed-load island
 
     /** Downloads [page] if needed, then re-queues it for decode once ready. */
     private fun startPageLoad(page: ViewerReaderPage) {

@@ -164,7 +164,13 @@ fun ReaderSettingsSheet(
                         NovelReadAloudPage(pages.preferences)
                     }
                     ReaderSettingsTab.Filters -> {
-                        ReaderFiltersPage(pages.filters)
+                        ReaderFiltersPage(
+                            filters = pages.filters,
+                            pageColorFilter = when (pages) {
+                                is ReaderSettingsPages.Manga -> takesPageColorFilter(pages.viewer)
+                                is ReaderSettingsPages.Novel -> true
+                            },
+                        )
                         if (pages is ReaderSettingsPages.Manga) MangaShaderFilters(pages.viewModel, pages.viewer)
                     }
                 }

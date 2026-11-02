@@ -22,7 +22,7 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /** Brightness and the colour treatment, Mihon's colour filter page over the open reader's own values. */
 @Composable
-internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters) {
+internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters, pageColorFilter: Boolean) {
     val customBrightness by filters.customBrightness.collectAsState()
     CheckboxItem(
         label = stringResource(MR.strings.pref_custom_brightness),
@@ -95,6 +95,7 @@ internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters) {
         }
     }
 
+    if (!pageColorFilter) return
     CheckboxItem(
         label = stringResource(MR.strings.pref_grayscale),
         pref = filters.grayscale,

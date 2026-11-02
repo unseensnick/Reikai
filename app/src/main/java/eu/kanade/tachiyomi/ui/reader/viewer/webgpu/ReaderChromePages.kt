@@ -108,6 +108,7 @@ class ErrorPage internal constructor(
     viewer: WebGpuViewer,
     private val viewerPage: WebGpuViewer.ViewerReaderPage?,
     private val error: Throwable?,
+    internal val failedDecoding: Boolean = false, // RK: see holdsForRetry
 ) : ReaderComposePage(
     viewer,
     // WebtoonPageHolder gave its error layout less than a screen, so the page below shows through.
@@ -132,7 +133,8 @@ class ErrorPage internal constructor(
             onRetry = { viewerPage?.let { viewer.retryLoad(it) } },
             onOpenInWebView = imageUrl?.let {
                 {
-                    val sourceId = viewer.activity.viewModel.manga?.source
+                    // RK: the chapter's own source, which a merged series' anchor is not
+                    val sourceId = viewerPage?.page?.chapter?.chapter?.id?.let(viewer.activity.viewModel::getSource)?.id
                     context.startActivity(WebViewActivity.newIntent(context, it, sourceId))
                 }
             },

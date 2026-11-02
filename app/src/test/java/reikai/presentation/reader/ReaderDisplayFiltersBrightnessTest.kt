@@ -37,6 +37,7 @@ class ReaderDisplayFiltersBrightnessTest {
 
     @Test
     fun `brightness that is off is applied as none`() = runTest {
+        preferences.customBrightnessValue.set(40)
         follow()
 
         applied.last() shouldBe 0

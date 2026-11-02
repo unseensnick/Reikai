@@ -35,6 +35,12 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         state.backgroundColor = readerBackgroundColor()
 
         state.onViewport = { readThrough ->
+            // RK: see autoScrollBy
+            if (autoScrollReporting) {
+                autoScrollReporting = false
+                state.isPanning = false
+            }
+
             val pageChanged = readThrough !== lastReadThrough
             if (pageChanged) {
                 lastReadThrough = readThrough
@@ -67,9 +73,16 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     @Volatile
     private var autoScrollAhead: List<ReaderPage> = emptyList()
 
+    // The library reports onViewport only for a fling or a pan, and a step is neither, so the hold list
+    // and reading progress would never move. This asks for the report of the frame this step draws.
+    @Volatile
+    private var autoScrollReporting = false
+
     fun autoScrollBy(px: Int): Boolean {
         if (holdsStripAutoScroll(autoScrollAhead.map { it.status })) return false
         state.scrollBy(px.toFloat())
+        autoScrollReporting = true
+        state.isPanning = true
         state.invalidate()
         return true
     }

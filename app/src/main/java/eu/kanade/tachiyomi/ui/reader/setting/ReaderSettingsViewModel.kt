@@ -2,7 +2,6 @@ package eu.kanade.tachiyomi.ui.reader.setting
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import eu.kanade.domain.manga.model.readingMode
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.LongStripSettings
 import eu.kanade.tachiyomi.ui.reader.viewer.NavigationSettings
@@ -50,6 +49,7 @@ class ReaderSettingsViewModel(
         .distinctUntilChanged()
         .stateIn(viewModelScope, SharingStarted.Lazily, null)
 
+    // RK: brightness moved to ReaderDisplayFilters.brightness, and readingMode to resolvedReadingMode
     // RK: the host keeps keep screen on, grayscale, invert, fullscreen and cutout, read per session (GeneralSettings.kt)
     val general = settings(
         preferences.readerTheme,
@@ -235,9 +235,7 @@ class ReaderSettingsViewModel(
         .flatMapLatest { viewerMode ->
             if (viewerMode == null) return@flatMapLatest flowOf(null)
 
-            val usesWebtoonZones = viewerMode.readingMode.type == ReadingMode.ViewerType.Webtoon &&
-                !viewerMode.isWebGpu
-            val settings = if (usesWebtoonZones) {
+            val settings = if (viewerMode.usesWebtoonZones) {
                 simpleLongStrip.map { it.navigation }
             } else {
                 paged.map { it.navigation }
@@ -252,6 +250,9 @@ class ReaderSettingsViewModel(
             settings.distinctUntilChanged().map { it.navigator(isReversed, defaultNavigation) }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    // RK: whether the running viewer reads the long strip's tap zones, for the sheet that edits them
+    val usesWebtoonZones: Boolean get() = viewerMode.value?.usesWebtoonZones == true
 
     /**
      * Called when a viewer is made for [readingMode].
@@ -285,5 +286,7 @@ class ReaderSettingsViewModel(
     private data class ViewerMode(
         val readingMode: ReadingMode,
         val isWebGpu: Boolean,
-    )
+    ) {
+        val usesWebtoonZones get() = readingMode.type == ReadingMode.ViewerType.Webtoon && !isWebGpu // RK
+    }
 }

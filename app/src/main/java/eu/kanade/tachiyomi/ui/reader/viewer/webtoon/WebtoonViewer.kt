@@ -41,7 +41,6 @@ import kotlin.math.min
 class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = true) : Viewer {
 
     val graph by lazy { activity.appGraph }
-    val downloadManager by lazy { graph.downloadManager }
     val readerPreferences by lazy { graph.readerPreferences }
 
     // RK: cover seed color for per-page theming; leaf views gate on the pref themselves
@@ -172,7 +171,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
             }
         }
 
-        frame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS // RK: keys stay with the Activity
+        frame.descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
         frame.layoutParams = ViewGroup.LayoutParams(MATCH_PARENT, MATCH_PARENT)
         frame.addView(recycler)
     }

@@ -16,7 +16,9 @@ import android.webkit.WebView
 import android.widget.FrameLayout
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.core.view.ViewCompat
 import coil3.imageLoader
+import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
@@ -323,9 +325,11 @@ class NovelWebViewport(
         if (textSelectable) addOnAttachStateChangeListener(SelectableWhileAttached())
         // Every layout of the view the reader lays out, because the inset is only known once the window has one
         // and it moves with the system bars; comparing first keeps an unchanged one from rewriting the page.
-        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ ->
-            val settings = documentSettings
-            if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
+        addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> refreshTopInset() }
+        // A 180 degree flip moves the cutout with no layout at all.
+        ViewCompat.setOnApplyWindowInsetsListener(this) { view, insets ->
+            refreshTopInset()
+            ViewCompat.onApplyWindowInsets(view, insets)
         }
     }
 
@@ -477,6 +481,11 @@ class NovelWebViewport(
      * object. Queued like a window verb, because a change made while a document is still loading
      * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
+    private fun refreshTopInset() {
+        val settings = documentSettings
+        if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
+    }
+
     override fun applySettings(settings: NovelReaderSettings) {
         val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
@@ -565,23 +574,23 @@ class NovelWebViewport(
 
     /** A tap the page passed up, read through the session's tap zones as the native renderer reads one. */
     private fun onPageTap(x: Float, y: Float) {
-        when (documentSettings?.tapZones?.actionAt(x, y, pageLayout.isRtl) ?: NovelTapAction.MENU) {
-            NovelTapAction.MENU -> callbacks.onToggleMenu()
-            NovelTapAction.BACK -> if (paged) {
+        when (documentSettings?.tapZones?.actionAt(x, y, pageLayout.isRtl) ?: ViewerNavigation.Action.MENU) {
+            ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
+            ViewerNavigation.Action.BACKWARD -> if (paged) {
                 turnPage(
                     forward = false,
                 )
             } else {
                 scrollByFraction(-NovelTapZones.SCROLL_FRACTION)
             }
-            NovelTapAction.FORWARD -> if (paged) {
+            ViewerNavigation.Action.FORWARD -> if (paged) {
                 turnPage(
                     forward = true,
                 )
             } else {
                 scrollByFraction(NovelTapZones.SCROLL_FRACTION)
             }
-            NovelTapAction.NONE -> Unit
+            null -> Unit
         }
     }
 

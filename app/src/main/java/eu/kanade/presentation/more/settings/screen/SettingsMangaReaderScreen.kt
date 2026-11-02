@@ -354,6 +354,8 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         readerPreferences.setTapLayout(pager = false, it)
                         false
                     },
+                    // That renderer's strip reads the paged viewer's zones
+                    visible = !highQualityRenderer,
                     // RK <--
                 ),
                 Preference.PreferenceItem.ListPreference(
@@ -362,7 +364,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     entries = MangaTapLayouts.invertModes(navMode)
                         .associateWith { stringResource(it.titleRes) },
                     title = stringResource(MR.strings.pref_read_with_tapping_inverted),
-                    visible = MangaTapLayouts.offersInvert(navMode), // RK
+                    visible = MangaTapLayouts.offersInvert(navMode) && !highQualityRenderer, // RK
                 ),
                 // RK -->
                 Preference.PreferenceItem.SliderPreference(
@@ -370,7 +372,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     valueRange = NovelTapZones.BOTTOM_ZONE_PERCENT,
                     title = stringResource(MR.strings.pref_tap_bottom_zone_height),
                     valueText = { "$it%" },
-                    visible = MangaTapLayouts.added(navMode) == NovelTapLayout.BOTTOM,
+                    visible = MangaTapLayouts.added(navMode) == NovelTapLayout.BOTTOM && !highQualityRenderer,
                 ),
                 // RK <--
                 // RK --> Min width under the high quality renderer, upstream's side padding otherwise
@@ -400,6 +402,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = dualPageSplitPref,
                     title = stringResource(MR.strings.pref_dual_page_split),
+                    visible = !highQualityRenderer, // RK: that renderer's strip does not split pages
                     onValueChanged = {
                         rotateToFitPref.set(false)
                         true
@@ -409,11 +412,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.dualPageInvertWebtoon,
                     title = stringResource(MR.strings.pref_dual_page_invert),
                     subtitle = stringResource(MR.strings.pref_dual_page_invert_summary),
-                    visible = dualPageSplit,
+                    visible = dualPageSplit && !highQualityRenderer, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = rotateToFitPref,
                     title = stringResource(MR.strings.pref_page_rotate),
+                    visible = !highQualityRenderer, // RK
                     onValueChanged = {
                         dualPageSplitPref.set(false)
                         true
@@ -422,11 +426,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.dualPageRotateToFitInvertWebtoon,
                     title = stringResource(MR.strings.pref_page_rotate_invert),
-                    visible = rotateToFit,
+                    visible = rotateToFit && !highQualityRenderer, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.webtoonDoubleTapZoomEnabled,
                     title = stringResource(MR.strings.pref_double_tap_zoom),
+                    visible = !highQualityRenderer, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.webtoonDisableZoomOut,

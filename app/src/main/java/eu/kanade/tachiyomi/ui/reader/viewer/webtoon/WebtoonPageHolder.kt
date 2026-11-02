@@ -251,7 +251,8 @@ class WebtoonPageHolder(
      */
     private fun initErrorLayout(error: Throwable?) {
         val page = page ?: return
-        val errorLayout = errorLayout ?: ReaderPageErrorView(context).also {
+        val errorLayout = errorLayout ?: ReaderPageErrorView(context, viewer.seedColor).also {
+            // RK
             frame.addView(it, FrameLayout.LayoutParams(MATCH_PARENT, (parentHeight * 0.8).toInt()))
             errorLayout = it
         }

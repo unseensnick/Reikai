@@ -6,11 +6,13 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -46,6 +48,25 @@ class HttpPageLoaderTest {
             loader.retryPage(page)
 
             coVerify(timeout = 5_000, exactly = 1) { source.getImage(page) }
+        } finally {
+            loader.recycle()
+        }
+    }
+
+    /** Ready to Ready emits nothing, so a viewer waiting on the refetch would never hear of it. */
+    @Test
+    fun `retry takes a ready page back through the queue`() {
+        val chapter = mockk<ReaderChapter>(relaxed = true)
+        val page = ReaderPage(index = 0, imageUrl = "https://example.com/page.jpg").apply {
+            status = Page.State.Ready
+        }
+        val loader = loader(chapter, canLoadAhead = true)
+        coEvery { source.getImage(page) } coAnswers { awaitCancellation() }
+
+        try {
+            loader.retryPage(page)
+
+            page.status shouldNotBe Page.State.Ready
         } finally {
             loader.recycle()
         }

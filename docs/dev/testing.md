@@ -176,6 +176,10 @@ library) afterwards and cannot fetch its UTP artifacts offline:
 With an emulator and a phone both attached, set `ANDROID_SERIAL` so the install and the run hit the
 same device.
 
+`reikai.presentation.reader.WebGpuStripMemoryTest` is the bound on the strip's capture buffers, on the
+library's real renderer. Rerun it on every `webgpuviewer` bump: nothing else runs that library's code,
+and the JVM tests only pin the size Reikai asks it for.
+
 ### The headless LN-plugin test
 
 `reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost` loads LNReader

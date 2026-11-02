@@ -103,7 +103,8 @@ internal class HttpPageLoader(
      * Retries a page. This method is only called from user interaction on the viewer.
      */
     override fun retryPage(page: ReaderPage) {
-        if (page.status is Page.State.Error) {
+        // RK: a Ready page failed decoding, and left Ready its refetch would look like nothing changed
+        if (page.status is Page.State.Error || page.status == Page.State.Ready) {
             page.status = Page.State.Queue
         }
 

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.AbstractComposeView
@@ -45,7 +46,7 @@ class ReaderTransitionView @JvmOverloads constructor( // RK: split to take seedC
     override fun Content() {
         val data = data ?: return
         // RK: tint the transition view from the cover color when enabled
-        val themeCoverBased = context.appGraph.uiPreferences.themeCoverBased.get()
+        val themeCoverBased = remember { context.appGraph.uiPreferences.themeCoverBased.get() }
         ReaderThemedContent(context, seedColor?.let { Color(it) }.takeIf { themeCoverBased }) {
             ReaderTransitionPage(
                 transition = data.transition,
