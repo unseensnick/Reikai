@@ -400,6 +400,7 @@ object SettingsAdvancedScreen : SearchableSettings {
                 // (fixed, but rows written before the fix stay wrong until something re-fetches them).
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_repair_novel_details),
+                    visible = showsContent(ContentType.NOVELS), // RK
                     subtitle = stringResource(MR.strings.pref_repair_novel_details_summary),
                     onClick = {
                         appScope.launch {
@@ -437,11 +438,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = basePreferences.highQualityRenderer,
                     title = stringResource(MR.strings.pref_high_quality_renderer),
+                    visible = showsContent(ContentType.MANGA), // RK
                 ),
                 // RK -->
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerWebViewDevTools(),
                     title = stringResource(MR.strings.pref_novel_webview_dev_tools),
+                    visible = showsContent(ContentType.NOVELS),
                     subtitle = stringResource(MR.strings.pref_novel_webview_dev_tools_summary),
                 ),
                 // RK <--

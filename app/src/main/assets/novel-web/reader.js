@@ -441,7 +441,14 @@
     function measure(id) {
       // The screen's own top rather than below the inset, as the native renderer measures: the inset reaches a
       // rebuilt page after it lands, and measured below it the next report named the line under the landed one.
-      // Paged, the page's top, whose first line the reader is on.
+      // Paged, the line the page holds, which a rebuild lands on again. The page's own first line sits above
+      // it after a reflow, and reporting that walked the reader back a page on every rotation.
+      var line = paged.line();
+      if (line && line.node.nodeType === Node.TEXT_NODE) {
+        var holder = line.node.parentElement && line.node.parentElement.closest(CHAPTER_SELECTOR);
+        var counted = holder && holder.getAttribute(CHAPTER_ID_ATTR) === id ? countsOf(holder).get(line.node) : undefined;
+        if (counted !== undefined) return counted + count(line.node.nodeValue.slice(0, line.offset));
+      }
       var caret = document.caretRangeFromPoint(0, Math.min(readingTop() + 1, viewportHeight() - 1));
       var node = caret && caret.startContainer;
       if (!node || node.nodeType !== Node.TEXT_NODE) return -1;
@@ -485,6 +492,7 @@
         paged.release();
         window.scrollTo({ top: Math.round(scrollTop() + rect.top - readingTop()), behavior: 'instant' });
         place.sync();
+        paged.hold(found.node, found.offset);
         var id = chapter.getAttribute(CHAPTER_ID_ATTR);
         lastChapterSeen = id;
         var landed = range.getClientRects()[0];
@@ -735,6 +743,10 @@
       moved: moved,
       /* The reader or a follow chose another place, which pageLine must not pull them back from. */
       release: function () { pageLine = null; },
+      /* A line seek names the reader's place, which the page shown for it starts above. */
+      hold: function (node, offset) { if (PAGED) pageLine = { node: node, offset: offset }; },
+      /* The line held, while it is still in the document. */
+      line: function () { return pageLineTop() === null ? null : pageLine; },
       /* After a frame: whatever scrolled the page that was not a page being shown. */
       check: function () {
         if (PAGED && (!shown || Math.abs(scrollTop() - shown.scrollY) > 0.5)) moved();
@@ -1305,10 +1317,10 @@
         return null;
       },
       /* from and to name the sentence being spoken inside the paragraph, and -1 names the whole paragraph. */
-      highlight: function (id, index, from, to) {
+      highlight: function (id, index, from, to, follows) {
         spoken = id === null ? null : { id: String(id), index: index, from: from, to: to };
         draw();
-        follow();
+        if (follows) follow();
       },
       /* Read by the next choice only: following here would move the text as the chrome comes up. */
       setObscured: function (top, bottom) {

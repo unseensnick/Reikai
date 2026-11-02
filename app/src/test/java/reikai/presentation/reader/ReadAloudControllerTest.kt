@@ -854,6 +854,28 @@ class ReadAloudControllerTest {
         surface.highlights.drop(before) shouldBe listOf(ReadAloudPosition(1L, 1), ReadAloudPosition(1L, 2))
     }
 
+    /** While paused the reader may have scrolled ahead, and a rotation must not pull them back. */
+    @Test
+    fun `a landing while paused marks the paragraph without following it`() = runTest {
+        val controller = playing()
+        act { controller.pause() }
+        val before = surface.follows.size
+
+        act { controller.onRendererLanded(1L) }
+
+        surface.follows.drop(before) shouldBe listOf(false, false)
+    }
+
+    @Test
+    fun `a landing while playing follows the paragraph`() = runTest {
+        val controller = playing()
+        val before = surface.follows.size
+
+        act { controller.onRendererLanded(1L) }
+
+        surface.follows.drop(before) shouldBe listOf(true, true)
+    }
+
     @Test
     fun `a chapter read on from the window leaves no earlier paragraph to place`() = runTest {
         preferences.readerTtsAutoPageAdvance().set(true)
@@ -1093,6 +1115,7 @@ class ReadAloudControllerTest {
     ) : ReadAloudSurface {
         val highlights = mutableListOf<ReadAloudPosition?>()
         val ranges = mutableListOf<IntRange?>()
+        val follows = mutableListOf<Boolean>()
 
         /** How long each question takes to answer, in virtual time, as a page still starting up does. */
         var answerDelayMs = 0L
@@ -1107,9 +1130,10 @@ class ReadAloudControllerTest {
             return firstVisible
         }
 
-        override fun highlight(position: ReadAloudPosition?, range: IntRange?) {
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?, follows: Boolean) {
             highlights += position
             ranges += range
+            this.follows += follows
         }
     }
 

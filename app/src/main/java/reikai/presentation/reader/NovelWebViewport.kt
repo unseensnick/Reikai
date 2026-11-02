@@ -932,11 +932,11 @@ class NovelWebViewport(
             }.getOrNull()
         }
 
-        override fun highlight(position: ReadAloudPosition?, range: IntRange?) {
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?, follows: Boolean) {
             val id = position?.let { JSONObject.quote(it.chapterId.toString()) } ?: "null"
             val from = range?.first ?: -1
             val to = range?.let { it.last + 1 } ?: -1
-            runOrQueue("rkReader.readAloud.highlight($id, ${position?.paragraph ?: -1}, $from, $to);")
+            runOrQueue("rkReader.readAloud.highlight($id, ${position?.paragraph ?: -1}, $from, $to, $follows);")
         }
     }
 

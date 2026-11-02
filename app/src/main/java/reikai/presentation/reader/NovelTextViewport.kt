@@ -511,11 +511,11 @@ class NovelTextViewport(
             firstParagraphOnScreen()
         }
 
-        override fun highlight(position: ReadAloudPosition?, range: IntRange?) {
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?, follows: Boolean) {
             spokenParagraph = position
             spokenRange = range
             drawSpokenParagraph()
-            position?.let(::followSpokenParagraph)
+            if (follows) position?.let(::followSpokenParagraph)
         }
     }
 
@@ -1294,14 +1294,18 @@ class NovelTextViewport(
     private var reportedTopLine: Triple<Long, Int, Int>? = null
 
     private fun reportTopLine(slot: ChapterSlot) {
-        val anchor = lineAtTop()
-        val chunk = anchor?.let { slot.block.chunkViews.indexOf(it.view) } ?: -1
-        val key = Triple(slot.chapter.chapterId, chunk, anchor?.offset ?: -1)
+        // Paged, the line the page holds, which a rebuild lands on again. The page's own first line sits above it
+        // after a reflow, and reporting that walked the reader back a page on every rotation.
+        val held = pageLine?.takeIf { it.chapterId == slot.chapter.chapterId && pageLineTop() != null }
+        val at = held?.let { it.chunk to it.offset }
+            ?: lineAtTop()?.let { slot.block.chunkViews.indexOf(it.view) to it.offset }
+        val chunk = at?.first ?: -1
+        val key = Triple(slot.chapter.chapterId, chunk, at?.second ?: -1)
         if (key == reportedTopLine) return
         reportedTopLine = key
-        val line = anchor?.takeIf { chunk >= 0 }?.let {
+        val line = at?.takeIf { chunk >= 0 }?.let { (_, offset) ->
             val prefix = slot.shownPrefixes[chunk]
-            (0 until chunk).sumOf(slot::shownCount) + prefix[it.offset.coerceIn(0, prefix.lastIndex)]
+            (0 until chunk).sumOf(slot::shownCount) + prefix[offset.coerceIn(0, prefix.lastIndex)]
         }
         callbacks.onTopLine(slot.chapter.chapterId, line)
     }

@@ -176,7 +176,7 @@ private class FakeTextViewport : ReaderViewport, TextViewport {
             return null
         }
 
-        override fun highlight(position: ReadAloudPosition?, range: IntRange?) = Unit
+        override fun highlight(position: ReadAloudPosition?, range: IntRange?, follows: Boolean) = Unit
     }
 
     override val view: View get() = error("no view in a unit test")

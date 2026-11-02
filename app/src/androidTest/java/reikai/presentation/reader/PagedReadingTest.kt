@@ -273,6 +273,23 @@ class PagedReadingTest(private val renderer: Renderer) {
         )
     }
 
+    /** A rotation rebuilds the renderer at a new width, carrying only the reported line across. */
+    @Test
+    fun aRebuildAtAnotherSizeAndBackKeepsThePage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        val page = shownPage.get()
+        val wider = readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6)
+        repeat(3) {
+            open(1L, long("first"), topLine = lastTopLine(), settings = wider)
+            open(1L, long("first"), topLine = lastTopLine())
+            assertEquals("[$renderer] the page moved", page, shownPage.get())
+            assertEquals("[$renderer] the line moved", start, lastTopLine())
+        }
+    }
+
     private fun applyAndSettle(settings: NovelReaderSettings, settles: Int = 3) {
         openedWith = settings
         onMain { viewport.applySettings(settings) }

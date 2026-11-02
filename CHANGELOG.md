@@ -67,6 +67,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Read from here in the novel reader now skips a paragraph whose last line sits under the top bar.**
 - **Paged novels now stay on your page through a rotation or a text size or margin change.** Each change used to move you back a page.
+- **Rotating with novel read-aloud paused no longer pulls you back to the paragraph it stopped on.**
 - **Long strip with the high quality renderer no longer runs out of memory when many pages are loading or have failed at once.**
 
 - **Deleting chapters after reading no longer removes an unread copy from a source in incognito, in merged manga and novels.**

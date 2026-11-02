@@ -221,7 +221,7 @@ class ReadAloudController(
         if (playback == TtsPlayback.Stopped) return
         unplaced = true
         // Drawn as soon as the renderer can, since a layout that did not shift needs no relocation.
-        surface?.highlight(position, sentence)
+        surface?.highlight(position, sentence, follows = playback == TtsPlayback.Playing)
         scope.launch { relocate() }
     }
 
@@ -366,7 +366,7 @@ class ReadAloudController(
         paragraphs = laidOut
         // The sentence state holds only in the text it was taken from, which a different match is not.
         if (laidOut[index] == spokenText) position = ReadAloudPosition(id, index) else moveTo(id, index)
-        surface?.highlight(position, sentence)
+        surface?.highlight(position, sentence, follows = playback == TtsPlayback.Playing)
         publish()
     }
 
