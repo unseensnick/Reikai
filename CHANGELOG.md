@@ -24,6 +24,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Settings -> Advanced -> Refresh library covers now refreshes novels too.**
 
+- **A novel keeps its real cover when its source page offers only a generic placeholder image.**
+
 ### Downloads
 
 #### Changed

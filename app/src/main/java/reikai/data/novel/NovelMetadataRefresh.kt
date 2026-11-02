@@ -50,7 +50,7 @@ class NovelMetadataRefresh(
         val source = sourceManager.get(novel.source) ?: return
         storeRefreshedNovel(
             novel,
-            source.parseNovel(novel.url).toNovel(sourceId = source.id, favorite = novel.favorite),
+            source.parseNovel(novel.url).toNovel(sourceId = source.id, favorite = novel.favorite).withoutPageCount(),
             novelRepository,
             libraryPreferences,
             novelDownloadManager(),

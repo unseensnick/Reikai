@@ -111,6 +111,12 @@ suspend fun storeRefreshedNovel(
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 
+/**
+ * [this] for a write that syncs no chapters. The stored page count is the mark the next update walks from, so raising
+ * it without walking would leave the pages between never fetched. Zero keeps the stored count.
+ */
+fun Novel.withoutPageCount(): Novel = copy(totalPages = 0L)
+
 /** What [refreshNovelFromSource] left stored: the merged novel, and the chapters its syncs report as new. */
 data class NovelRefreshResult(val novel: Novel, val newChapters: List<NovelChapter>)
 

@@ -22,6 +22,12 @@ class PlaceholderCoverTest {
         isPlaceholderCover("data:image/svg+xml,%3Csvg%3E%3C/svg%3E") shouldBe true
     }
 
+    /** The plugin host's `defaultCover`, which a plugin returns when its page has no image. */
+    @Test
+    fun `the plugin host default cover is a placeholder`() {
+        isPlaceholderCover("https://github.com/LNReader/lnreader-sources/blob/main/icons/no-cover.jpg?raw=true") shouldBe true
+    }
+
     @Test
     fun `a cover whose name only mentions lazy is a cover`() {
         isPlaceholderCover("https://site.example/covers/the-lazy-prince.jpg") shouldBe false

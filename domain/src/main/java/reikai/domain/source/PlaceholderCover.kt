@@ -9,8 +9,9 @@ fun isPlaceholderCover(url: String): Boolean =
     url.startsWith("data:image/svg", ignoreCase = true) ||
         url.substringBefore('?').substringAfterLast('/').substringBeforeLast('.').lowercase() in PLACEHOLDER_NAMES
 
-// Madara's `themes/madara/images/dflazy.jpg`; the theme's other placeholder is the inline SVG above.
-private val PLACEHOLDER_NAMES = setOf("dflazy")
+// Madara's `themes/madara/images/dflazy.jpg` (its other placeholder is the inline SVG above), and the `no-cover.jpg`
+// the LN plugin host hands a plugin as `defaultCover`.
+private val PLACEHOLDER_NAMES = setOf("dflazy", "no-cover")
 
 /** The cover a parse leaves stored: [parsed], unless it is blank or a placeholder, then [current]. */
 fun keptCover(current: String?, parsed: String?): String? =

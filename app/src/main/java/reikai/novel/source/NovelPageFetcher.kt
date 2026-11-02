@@ -11,6 +11,7 @@ import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.data.novel.toNovel
+import reikai.data.novel.withoutPageCount
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -52,7 +53,9 @@ class NovelPageFetcher(
         val source = sourceManager.get(novel.source) ?: return@attempt false
         val fetch = source.pageFetch ?: return@attempt false
         val parsed = fetch.details(novel.url, url, html).toNovel(sourceId = source.id, favorite = novel.favorite)
-        storeRefreshedNovel(novel, parsed, novelRepo, libraryPreferences, novelDownloadManager(), coverCache)
+        // A novel with no chapters yet has nothing to walk from, and its page selector needs the count.
+        val details = if (chapterRepo.getByNovelId(novel.id).isEmpty()) parsed else parsed.withoutPageCount()
+        storeRefreshedNovel(novel, details, novelRepo, libraryPreferences, novelDownloadManager(), coverCache)
         true
     } ?: false
 
