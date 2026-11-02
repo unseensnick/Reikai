@@ -8,6 +8,7 @@ import android.view.ViewGroup
 import android.webkit.WebView
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.view.ViewCompat
 import androidx.core.view.children
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
@@ -62,6 +63,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val shownPage = AtomicReference<Pair<Int, Int>?>(null)
     private val lastShare = AtomicReference<ChapterProgress.Percent?>(null)
     private var volumeKeys = false
+    private var cutoutDp = 0
     private var openedAt = 0L
 
     /** The settings the last chapter opened with, whose top margin is a page's. */
@@ -79,7 +81,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         onStepChapter = { steps += it },
         onVisibleChapter = { visible += it },
         onRetryBoundary = {},
-        cutoutTopDp = { 0 },
+        cutoutTopDp = { cutoutDp },
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = {},
         onReaderScrolled = {},
@@ -176,6 +178,98 @@ class PagedReadingTest(private val renderer: Renderer) {
         forwardTap()
         val nextStart = checkNotNull(lastTopLine())
         assertTrue("[$renderer] the next page starts after $character, at $nextStart", nextStart > character)
+    }
+
+    @Test
+    fun aCutoutComingAndGoingKeepsThePageAcrossFlips() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        repeat(3) {
+            flipCutout(53)
+            assertTrue(
+                "[$renderer] line $start left the page, at ${lastTopLine()}",
+                checkNotNull(lastTopLine()) <= start,
+            )
+            flipCutout(0)
+            assertEquals("[$renderer] the page moved over a flip", start, lastTopLine())
+        }
+    }
+
+    @Test
+    fun aTopMarginChangeThereAndBackKeepsThePage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        val margins = readerTestSettings.margins
+        repeat(3) {
+            applyAndSettle(readerTestSettings.copy(margins = margins.copy(top = margins.top + 53)))
+            applyAndSettle(readerTestSettings)
+            assertEquals("[$renderer] the page moved", start, lastTopLine())
+        }
+    }
+
+    @Test
+    fun aFontChangeThereAndBackKeepsThePage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        repeat(3) {
+            applyAndSettle(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6))
+            applyAndSettle(readerTestSettings)
+            assertEquals("[$renderer] the page moved", start, lastTopLine())
+        }
+    }
+
+    @Test
+    fun aTurnAfterAReflowStartsFromTheNewPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        flipCutout(53)
+        forwardTap()
+        val next = checkNotNull(lastTopLine())
+        assertTrue("[$renderer] the turn went on from $start, to $next", next > start)
+        flipCutout(0)
+        val held = checkNotNull(lastTopLine())
+        assertTrue("[$renderer] the turned-to line $next left the page, at $held", held <= next)
+        forwardTap()
+        assertTrue("[$renderer] the page after it starts past $next", checkNotNull(lastTopLine()) > next)
+    }
+
+    @Test
+    fun aReadAloudFollowIsWhereAReflowHolds() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(2) { forwardTap() }
+        val turned = checkNotNull(lastTopLine())
+        onMain { viewport.readAloud.highlight(ReadAloudPosition(1L, 60)) }
+        repeat(3) { settle() }
+        val followed = checkNotNull(lastTopLine())
+        assertTrue("[$renderer] the follow moved on from $turned, to $followed", followed > turned)
+        flipCutout(53)
+        assertTrue(
+            "[$renderer] the reflow went back to $turned, at ${lastTopLine()}",
+            checkNotNull(lastTopLine()) > turned,
+        )
+    }
+
+    private fun applyAndSettle(settings: NovelReaderSettings) {
+        openedWith = settings
+        onMain { viewport.applySettings(settings) }
+        repeat(3) { settle() }
+        assertWholeLines()
+    }
+
+    /** A 180 degree flip: the inset moves with no layout, and the insets dispatch is what says so. */
+    private fun flipCutout(dp: Int) {
+        cutoutDp = dp
+        onMain { ViewCompat.requestApplyInsets(view) }
+        repeat(3) { settle() }
     }
 
     @Test
@@ -688,7 +782,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     /** The top margin a page keeps clear, the chapter's own top padding. */
     private fun readingTop(): Float = when (renderer) {
         Renderer.NATIVE ->
-            openedWith.margins.top * instrumentation.targetContext.resources.displayMetrics.density
+            (openedWith.margins.top + cutoutDp) * instrumentation.targetContext.resources.displayMetrics.density
         Renderer.WEB -> evalString(
             "String(parseFloat(getComputedStyle(document.querySelector('.rk-chapter')).paddingTop))",
         ).toFloat()

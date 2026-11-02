@@ -671,6 +671,7 @@ class NovelTextViewport(
         val bounds = boundsOf(spoken.view, spoken.start, spoken.end)
         if (bounds == null) {
             val item = adapter.positionOf(slot).takeIf { it >= 0 && retry } ?: return
+            pageLine = null
             (recycler.layoutManager as LinearLayoutManager).scrollToPositionWithOffset(item, 0)
             recycler.post { if (spokenParagraph == position) followSpokenParagraph(position, retry = false) }
             return
@@ -682,6 +683,7 @@ class NovelTextViewport(
             // By page: text starting on this one stays, since the snap would only show it again. Otherwise it goes to the
             // reading line, where the snap that follows shows the page holding it.
             if (top >= visibleTop && top < visibleBottom) return
+            pageLine = null
             scrollColumnBy(top - readingTop())
             return
         }
@@ -936,6 +938,18 @@ class NovelTextViewport(
     }
 
     private class LineAnchor(val view: TextView, val offset: Int, val y: Int)
+
+    /** The line the reader's page started on. A reflow recuts the pages, and the page shown after one starts
+     *  above this line, so holding that start instead walks the reader back a page on every reflow. */
+    private class PageLine(val chapterId: Long, val chunk: Int, val offset: Int)
+
+    private var pageLine: PageLine? = null
+
+    private val PageLine.slot get() = slots.firstOrNull { it.chapter.chapterId == chapterId }
+
+    private fun pageLineTop(): Int? = pageLine?.let { line ->
+        line.slot?.block?.chunkViews?.getOrNull(line.chunk)?.let { lineTopOf(it, line.offset) }
+    }
 
     /** The line at the top of the screen ([readingTop]), or the last one above it when that falls below the
      *  text. Null when the chapter's text starts below it, where the item's own anchor already holds it. */
@@ -1305,6 +1319,7 @@ class NovelTextViewport(
      * behalf, and a seek names a landing of its own.
      */
     private fun readerMoved() {
+        pageLine = null
         slots.forEach {
             it.landing = null
             it.shortLanding = null
@@ -1506,10 +1521,11 @@ class NovelTextViewport(
     private class PageAt(val slot: ChapterSlot, val pages: List<NovelPaging.Page>, val index: Int, val itemTop: Int)
 
     private fun pageAt(): PageAt? {
-        val slot = visibleSlot() ?: return null
+        val line = pageLineTop()
+        val slot = (if (line != null) pageLine?.slot else visibleSlot()) ?: return null
         val (pages, itemTop) = pagesOf(slot) ?: return null
         if (pages.isEmpty()) return null
-        return PageAt(slot, pages, NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat()), itemTop)
+        return PageAt(slot, pages, NovelPaging.pageAt(pages, ((line ?: readingTop()) - itemTop).toFloat()), itemTop)
     }
 
     /** Turns a page by [NovelPaging.turn], into the chapter beside this one at either end, and past the window by
@@ -1604,9 +1620,21 @@ class NovelTextViewport(
     }
 
     private fun markShownPage() {
+        holdPageLine()
         val at = pageAt() ?: return
         shownPage.value = ShownPage(at.slot.chapter.chapterId to at.index, ready = !at.slot.block.imagesLoading)
         callbacks.onPageShown(at.index, at.pages.size)
+    }
+
+    /** Takes the page's first line, unless the line already held is still on this page. */
+    private fun holdPageLine() {
+        val top = pageLineTop()
+        val onPage = top != null && top >= readingTop() - 1 && top < readingTop() + (shownPageHeight ?: 0f)
+        if (onPage) return
+        val slot = visibleSlot()
+        pageLine = lineAtTop()?.let { line ->
+            slot?.let { PageLine(it.chapter.chapterId, it.block.chunkViews.indexOf(line.view), line.offset) }
+        }
     }
 
     /**

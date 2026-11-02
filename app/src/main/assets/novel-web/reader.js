@@ -373,6 +373,9 @@
     }
 
     return {
+      /* The line held now and where it sits on screen, null while it has left the document. */
+      line: function () { return held ? { node: held.node, offset: held.offset } : null; },
+      topOf: topOf,
       /* Puts the held line back, then holds the line now at the top, saying whether the page moved. Safe
          at any point: nothing moved reads as a shift of zero. */
       sync: function () {
@@ -479,6 +482,7 @@
         range.setEnd(found.node, found.offset + 1);
         var rect = range.getClientRects()[0];
         if (!rect) return false;
+        paged.release();
         window.scrollTo({ top: Math.round(scrollTop() + rect.top - readingTop()), behavior: 'instant' });
         place.sync();
         var id = chapter.getAttribute(CHAPTER_ID_ATTR);
@@ -521,6 +525,9 @@
   var paged = (function () {
     // { id, scrollY, height, fraction } of the page last shown, null before one has been.
     var shown = null;
+    // The line the reader's page started on. A reflow recuts the pages, and the page shown after one starts
+    // above this line, so holding that start instead walks the reader back a page on every reflow.
+    var pageLine = null;
     var notifyPending = false;
     var maskTop = null;
     var maskBottom = null;
@@ -638,10 +645,19 @@
       };
     }
 
-    /* The chapter at the reading line, how far down its item that line is, and each held chapter's item
-       height, which is what the host's measured pages are keyed on. */
+    /* pageLine's top on screen, null without one. */
+    function pageLineTop() {
+      var top = pageLine ? place.topOf(pageLine.node, pageLine.offset) : null;
+      if (top === null) pageLine = null;
+      return top;
+    }
+
+    /* The chapter at the reader's line, how far down its item that line is and the column's own reading line
+       is, and each held chapter's item height, which is what the host's measured pages are keyed on. */
     function where() {
-      var probe = scrollTop() + readingTop();
+      var line = pageLineTop();
+      var reading = scrollTop() + readingTop();
+      var probe = line === null ? reading : scrollTop() + line;
       var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
       var heights = {};
       var at = null;
@@ -649,13 +665,16 @@
         var item = itemOf(chapters[i]);
         var id = chapters[i].getAttribute(CHAPTER_ID_ATTR);
         heights[id] = item.bottom - item.top;
-        if (at === null || item.top <= probe + EDGE_TOLERANCE) at = { id: id, y: probe - item.top };
+        if (at === null || item.top <= probe + EDGE_TOLERANCE) {
+          at = { id: id, y: probe - item.top, columnY: reading - item.top };
+        }
       }
       if (at === null) return null;
       var m = margins();
       return {
         id: at.id,
         y: at.y,
+        columnY: at.columnY,
         heights: heights,
         contentHeight: viewportHeight() - m.top - m.bottom,
       };
@@ -669,7 +688,8 @@
       return el;
     }
 
-    function show(id, top, height, fraction) {
+    /* keepLine: a page put back after the column moved, which leaves the reader's line as it was. */
+    function show(id, top, height, fraction, keepLine) {
       var el = chapterEl(id);
       if (!el) return;
       var m = margins();
@@ -682,6 +702,7 @@
       shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction };
       // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
       place.sync();
+      if (!keepLine || pageLineTop() === null) pageLine = place.line();
       onScroll();
       // A page is where the reader stops, and a jump the page cannot scroll itself may end in no scrollend.
       persist();
@@ -712,6 +733,8 @@
       where: where,
       show: show,
       moved: moved,
+      /* The reader or a follow chose another place, which pageLine must not pull them back from. */
+      release: function () { pageLine = null; },
       /* After a frame: whatever scrolled the page that was not a page being shown. */
       check: function () {
         if (PAGED && (!shown || Math.abs(scrollTop() - shown.scrollY) > 0.5)) moved();
@@ -931,6 +954,7 @@
       var target = anchorTarget(chapter, fragment);
       if (!target) return;
       onReaderMove();
+      paged.release();
       window.scrollTo({ top: window.scrollY + target.getBoundingClientRect().top - readingTop(), behavior: 'instant' });
       place.sync();
     }, true);
@@ -1241,6 +1265,7 @@
       // the reading line, where the host then shows the page holding it.
       if (PAGED) {
         if (rect.top >= visible.top - EDGE_TOLERANCE && rect.top < visible.bottom) return;
+        paged.release();
         window.scrollBy({ top: Math.round(rect.top - readingTop()), behavior: 'instant' });
         return;
       }

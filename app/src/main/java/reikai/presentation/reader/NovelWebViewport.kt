@@ -594,10 +594,11 @@ class NovelWebViewport(
         }
     }
 
-    /** Where the page's reading line is: the chapter there, how far down its item, and every held item's height. */
+    /** Where the reader is: the chapter, how far down its item, where the column stands, and every held item's height. */
     private class Where(
         val chapterId: Long,
         val y: Float,
+        val columnY: Float,
         val heights: Map<Long, Double>,
         val contentHeight: Double,
     )
@@ -610,6 +611,7 @@ class NovelWebViewport(
             Where(
                 chapterId = at.getString("id").toLong(),
                 y = at.getDouble("y").toFloat(),
+                columnY = at.getDouble("columnY").toFloat(),
                 heights = heights.keys().asSequence().associate { it.toLong() to heights.getDouble(it) },
                 contentHeight = at.getDouble("contentHeight"),
             )
@@ -708,11 +710,11 @@ class NovelWebViewport(
                 val pages = pagesOf(at.chapterId, at) ?: return@withLock
                 val index = NovelPaging.pageAt(pages, at.y)
                 val shown = shownPage.value.key == (at.chapterId to index)
-                if (shown && abs(at.y - pages[index].top) < 1f && pages[index].height == shownHeight) {
+                if (shown && abs(at.columnY - pages[index].top) < 1f && pages[index].height == shownHeight) {
                     pageSettled(joinsSeen)
                     return@withLock
                 }
-                showPage(at.chapterId, pages, index)
+                showPage(at.chapterId, pages, index, keepLine = true)
             }
         }
     }
@@ -720,7 +722,13 @@ class NovelWebViewport(
     /** The height of the page last shown, which the page's mask was drawn for. */
     private var shownHeight = 0f
 
-    private fun showPage(chapterId: Long, pages: List<NovelPaging.Page>, index: Int, sliding: Boolean = false) {
+    private fun showPage(
+        chapterId: Long,
+        pages: List<NovelPaging.Page>,
+        index: Int,
+        sliding: Boolean = false,
+        keepLine: Boolean = false,
+    ) {
         // Gone only once a new document cleared them, which leaves nothing of this chapter to show.
         val measured = measuredPages[chapterId] ?: return
         val progress = NovelPaging.progressOf(pages, index, measured.textTop, measured.scrollable)
@@ -733,7 +741,7 @@ class NovelWebViewport(
         // counts a page's time from then, as the native renderer does.
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
-                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL});",
+                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL}, $keepLine);",
         ) { answer ->
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
