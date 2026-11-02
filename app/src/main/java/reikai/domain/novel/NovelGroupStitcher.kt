@@ -15,9 +15,10 @@ import reikai.domain.novel.model.NovelChapter
 
 /**
  * The novel half of keeping a merge group's stored stitch current. Twin of
- * [reikai.domain.manga.MangaGroupStitcher], pinned by MergedTrunkConformanceTest, the shared
- * [MergedGroupStitcher] contract and the one reconciliation that drives both; the novel stitch reads no scanlator filter and has no
- * gallery notion, so this side only differs in where the chapters and the source ranking come from.
+ * [reikai.domain.manga.MangaGroupStitcher], pinned by MergedTrunkConformanceTest,
+ * MergedStitchReconcileTest and TrackedChapterNumberConformanceTest; the novel stitch reads no scanlator
+ * filter and has no gallery notion, so this side only differs in where the chapters and the source
+ * ranking come from.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -54,12 +55,12 @@ class NovelGroupStitcher(
 
     override suspend fun trunkNumbers(groupId: Long): Map<Long, Double> {
         val group = load(groupId) ?: return emptyMap()
-        val trunk = NovelChapterAggregation.trunkId(
+        val trunk = NovelChapterAggregation.ranking.walkOrder(
             group.chaptersByNovel,
             group.sourceIdByNovel,
             reikaiLibraryPreferences.preferredNovelSources.get(),
             group.memberRanking,
-        )
+        ).firstOrNull()?.memberId
         return group.chaptersByNovel[trunk].orEmpty().associate { it.id to it.chapterNumber }
     }
 
