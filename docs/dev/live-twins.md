@@ -9,8 +9,8 @@ Add a row when a Reikai file starts mirroring a Mihon one. Reikai-to-Reikai twin
 | Mihon file | Reikai twin | Pin |
 |---|---|---|
 | app/src/main/java/eu/kanade/tachiyomi/data/library/LibraryUpdateWorker.kt | app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt | `updateBySource`, `checkUpdateEntry`, `runLibraryUpdate` |
-| app/src/main/java/eu/kanade/tachiyomi/data/library/LibraryUpdateNotifier.kt | app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt | none |
-| app/src/main/java/eu/kanade/tachiyomi/data/library/MetadataUpdateWorker.kt | app/src/main/java/reikai/data/novel/NovelMetadataRefresh.kt | `updateBySource`, `refreshedCover` |
+| app/src/main/java/eu/kanade/tachiyomi/data/library/LibraryUpdateNotifier.kt | app/src/main/java/reikai/data/novel/update/NovelUpdateNotifier.kt | `updatingText`, `UpdateNoticeTitleConformanceTest` |
+| app/src/main/java/eu/kanade/tachiyomi/data/library/MetadataUpdateWorker.kt | app/src/main/java/reikai/data/novel/NovelMetadataRefresh.kt | `updateBySource`, `refreshedCover`, `updatingText` |
 | app/src/main/java/eu/kanade/tachiyomi/data/download/Downloader.kt | app/src/main/java/reikai/novel/download/NovelDownloadManager.kt | `DownloadRetry`, `hasRoomToDownload`, `downloadNetworkIssue`, `parallelSourcesFor`, `ParallelSourceLimitConformanceTest` |
 | app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadManager.kt | app/src/main/java/reikai/novel/download/NovelDownloadManager.kt | `EmptiedPausedQueueConformanceTest`, `movesDownloadFolder` |
 | app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadCache.kt | app/src/main/java/reikai/novel/download/NovelDownloadCache.kt | `DownloadIndexRules` |

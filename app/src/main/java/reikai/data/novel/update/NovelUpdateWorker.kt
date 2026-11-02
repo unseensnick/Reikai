@@ -11,7 +11,6 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.getUriCompat
@@ -31,6 +30,7 @@ import mihon.core.migration.Migrator
 import reikai.data.library.EntryCheck
 import reikai.data.library.LibraryUpdateJob
 import reikai.data.library.LibraryUpdateRun
+import reikai.data.library.UpdateProgressList
 import reikai.data.library.UpdateRunLedger
 import reikai.data.library.checkUpdateEntry
 import reikai.data.library.libraryUpdateGate
@@ -45,13 +45,11 @@ import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
 import reikai.domain.chapter.ChapterNumberOverrideRepository
-import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
 import reikai.domain.library.smartUpdateFacts
 import reikai.domain.library.smartUpdateSkip
-import reikai.domain.manga.AdultContentChecker
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -71,7 +69,6 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.util.concurrent.CopyOnWriteArrayList
-import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Clock
 import kotlin.time.Instant
 
@@ -122,12 +119,7 @@ class NovelUpdateWorker(
 
     @Inject private lateinit var libraryUpdateRun: LibraryUpdateRun
 
-    @Inject private lateinit var securityPreferences: SecurityPreferences
-
-    @Inject private lateinit var adultChecker: AdultContentChecker
-
-    @Inject private lateinit var getEntryCustomInfo: GetEntryCustomInfo
-    private val notifier = NovelUpdateNotifier(context, securityPreferences, adultChecker, getEntryCustomInfo)
+    @Inject private lateinit var notifier: NovelUpdateNotifier
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
         val notification = notifier.progress(null, 0, 0)
@@ -197,17 +189,11 @@ class NovelUpdateWorker(
         if (favorites.isEmpty()) return
 
         val failed = CopyOnWriteArrayList<UpdateErrorEntry>()
-        val done = AtomicInteger(0)
+        val updates = UpdateProgressList(favorites.size, notifier::showProgress)
         updateBySource(favorites, sourceOf = Novel::source) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
-                // The count done so far is what the bar reports while this one runs; again once it is done,
-                // so the bar actually reaches its end.
-                progress = { check ->
-                    notifier.showProgress(novel, done.get(), favorites.size)
-                    check()
-                    notifier.showProgress(novel, done.incrementAndGet(), favorites.size)
-                },
+                progress = { check -> updates.around(novel, check) },
                 trackErrors = trackErrors,
                 clearError = { deleteNovelUpdateErrors.byNovelIds(listOf(novel.id)) },
                 recordError = { upsertNovelUpdateError.await(novel.id, it) },

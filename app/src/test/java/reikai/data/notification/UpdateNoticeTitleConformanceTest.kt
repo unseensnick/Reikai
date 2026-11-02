@@ -58,6 +58,20 @@ class UpdateNoticeTitleConformanceTest {
         }
     }
 
+    /** Several sources run at once, so a notice naming one entry would hide the rest. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `the progress notice names every entry being updated`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        half: () -> UpdateNoticeHalf,
+    ) = half().use {
+        runTest {
+            it.showProgressOfTwo()
+
+            it.progressText() shouldBe "Mine\nOther"
+        }
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("halves")
     fun `the new-chapters summary names a sole updated entry by its Edit info title`(
@@ -87,8 +101,14 @@ abstract class UpdateNoticeHalf : AutoCloseable {
     protected val shade = FakeNotificationShade()
     protected val context = mockk<Application>(relaxed = true)
     protected val security = SecurityPreferences(InMemoryPreferenceStore())
+    private var bigText: CharSequence? = null
 
     init {
+        mockkConstructor(NotificationCompat.BigTextStyle::class)
+        every { anyConstructed<NotificationCompat.BigTextStyle>().bigText(any()) } answers {
+            bigText = firstArg()
+            self as NotificationCompat.BigTextStyle
+        }
         // The manga updater posts its per-entry notices from the main thread, which runTest then drives.
         Dispatchers.setMain(StandardTestDispatcher())
         mockkStatic(MAIN_INTENT, NEW_CHAPTERS)
@@ -111,13 +131,16 @@ abstract class UpdateNoticeHalf : AutoCloseable {
 
     abstract suspend fun showProgress()
 
+    abstract suspend fun showProgressOfTwo()
+
     abstract suspend fun showNewChapters()
 
-    abstract fun progressText(): CharSequence?
+    fun progressText(): CharSequence? = bigText
 
     abstract fun summaryText(): CharSequence?
 
     override fun close() {
+        unmockkConstructor(NotificationCompat.BigTextStyle::class)
         shade.close()
         unmockkStatic(MAIN_INTENT, NEW_CHAPTERS)
         Dispatchers.resetMain()
@@ -132,7 +155,6 @@ abstract class UpdateNoticeHalf : AutoCloseable {
 class MangaUpdateNoticeHalf : UpdateNoticeHalf() {
 
     private val manga = Manga.create().copy(id = 1L, title = "Source title")
-    private var bigText: CharSequence? = null
 
     private val notifier = LibraryUpdateNotifier(
         context = context,
@@ -145,27 +167,15 @@ class MangaUpdateNoticeHalf : UpdateNoticeHalf() {
         ),
     )
 
-    init {
-        mockkConstructor(NotificationCompat.BigTextStyle::class)
-        every { anyConstructed<NotificationCompat.BigTextStyle>().bigText(any()) } answers {
-            bigText = firstArg()
-            self as NotificationCompat.BigTextStyle
-        }
-    }
-
     override suspend fun showProgress() = notifier.showProgressNotification(listOf(manga), 0, 1)
+
+    override suspend fun showProgressOfTwo() =
+        notifier.showProgressNotification(listOf(manga, manga.copy(id = 2L, title = "Other")), 0, 2)
 
     override suspend fun showNewChapters() =
         notifier.showUpdateNotifications(listOf(manga to arrayOf(Chapter.create().copy(id = 1L, mangaId = 1L))))
 
-    override fun progressText() = bigText
-
     override fun summaryText() = shade.textOf(Notifications.ID_NEW_CHAPTERS)
-
-    override fun close() {
-        unmockkConstructor(NotificationCompat.BigTextStyle::class)
-        super.close()
-    }
 
     private companion object {
         val CUSTOM = CustomMangaInfo(mangaId = 1L, title = "Mine")
@@ -186,11 +196,12 @@ class NovelUpdateNoticeHalf : UpdateNoticeHalf() {
         ),
     )
 
-    override suspend fun showProgress() = notifier.showProgress(novel, 0, 1)
+    override suspend fun showProgress() = notifier.showProgress(listOf(novel), 0, 1)
+
+    override suspend fun showProgressOfTwo() =
+        notifier.showProgress(listOf(novel, novel.copy(id = 2L, title = "Other")), 0, 2)
 
     override suspend fun showNewChapters() = notifier.showResults(listOf(novel to listOf(chapter)))
-
-    override fun progressText() = shade.textOf(Notifications.ID_NOVEL_LIBRARY_PROGRESS)
 
     override fun summaryText() = shade.textOf(Notifications.ID_NOVEL_LIBRARY_RESULT)
 

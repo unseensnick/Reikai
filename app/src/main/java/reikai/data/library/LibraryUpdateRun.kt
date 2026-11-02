@@ -19,6 +19,7 @@ import reikai.domain.novel.NovelMergeManager
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.domain.library.service.LibraryPreferences
 import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.atomic.AtomicInteger
 
 /** [runLibraryUpdate] over the graph's merge stitch and the shared Updates badge, for one [ContentType]. */
 @Inject
@@ -103,6 +104,23 @@ suspend fun <E, S> updateBySource(entries: List<E>, sourceOf: (E) -> S, check: s
 }
 
 private const val UPDATE_SOURCE_LIMIT = 5
+
+/**
+ * The entries a pass over [total] of them is on right now, handed to [show] as each starts and ends, since
+ * [updateBySource] runs several at once. Manga's workers keep the same list by hand, in upstream's shape.
+ */
+class UpdateProgressList<E>(private val total: Int, private val show: suspend (List<E>, Int, Int) -> Unit) {
+    private val updating = CopyOnWriteArrayList<E>()
+    private val done = AtomicInteger(0)
+
+    suspend fun around(entry: E, block: suspend () -> Unit) {
+        updating += entry
+        show(updating.toList(), done.get(), total)
+        block()
+        updating -= entry
+        show(updating.toList(), done.incrementAndGet(), total)
+    }
+}
 
 /**
  * One library update run, for either content type: [run] fills the ledger, the merged stitch is

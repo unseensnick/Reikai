@@ -25,6 +25,7 @@ import reikai.data.notification.postedEntries
 import reikai.data.notification.setNewChaptersEntry
 import reikai.data.notification.setNewChaptersSummary
 import reikai.data.notification.updateProgressPercent
+import reikai.data.notification.updatingText
 import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.entry.EntryId
@@ -75,8 +76,8 @@ class NovelUpdateNotifier(
         }
     }
 
-    /** Build the progress notification (also used for the worker's `getForegroundInfo`, with no [name]). */
-    fun progress(name: String?, current: Int, total: Int): Notification =
+    /** Build the progress notification (also used for the worker's `getForegroundInfo`, with no [text]). */
+    fun progress(text: String?, current: Int, total: Int): Notification =
         progressBuilder
             .setContentTitle(
                 if (total == 0) {
@@ -88,16 +89,23 @@ class NovelUpdateNotifier(
                     )
                 },
             )
-            .setContentText(name)
+            .setContentText(text)
+            .apply { text?.let { setStyle(NotificationCompat.BigTextStyle().bigText(it)) } }
             .setProgress(total, current, total == 0)
             .build()
 
     private val progressThrottle = UpdateProgressThrottle()
 
-    suspend fun showProgress(novel: Novel, current: Int, total: Int) {
+    suspend fun showProgress(novels: List<Novel>, current: Int, total: Int) {
         if (!progressThrottle.tryPass(isFinal = current >= total)) return
-        val name = listOf(novel).shown().single().title.takeUnless { novel.id in hiddenNovelIds(listOf(novel)) }
-        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(name, current, total))
+        val text = updatingText(visibleTitles(novels)).takeIf { it.isNotEmpty() }
+        context.notify(Notifications.ID_NOVEL_LIBRARY_PROGRESS, progress(text, current, total))
+    }
+
+    /** What a progress notice may name of [novels], by Edit info title. */
+    suspend fun visibleTitles(novels: List<Novel>): List<String> {
+        val hidden = hiddenNovelIds(novels)
+        return novels.filterNot { it.id in hidden }.shown().map { it.title }
     }
 
     fun dismissProgress() {

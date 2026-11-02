@@ -14,7 +14,6 @@ import eu.kanade.tachiyomi.data.notification.NotificationHandler
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.source.UnmeteredSource
-import eu.kanade.tachiyomi.util.lang.chop
 import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
@@ -29,6 +28,7 @@ import reikai.data.notification.postedEntries
 import reikai.data.notification.setNewChaptersEntry
 import reikai.data.notification.setNewChaptersSummary
 import reikai.data.notification.updateProgressPercent
+import reikai.data.notification.updatingText
 import reikai.data.updateerror.setUpdateErrorContent
 import reikai.data.updateerror.updateErrorPendingIntent
 import reikai.domain.entry.EntryId
@@ -134,9 +134,9 @@ class LibraryUpdateNotifier(
         if (!securityPreferences.hideNotificationContent.get()) {
             // RK -->
             val hidden = hiddenContentIds(manga)
-            val updatingText = manga.filterNot { it.id in hidden }.shown().joinToString("\n") { it.title.chop(40) }
+            val titles = manga.filterNot { it.id in hidden }.shown().map { it.title }
+            progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText(titles)))
             // RK <--
-            progressNotificationBuilder.setStyle(NotificationCompat.BigTextStyle().bigText(updatingText))
         }
 
         context.notify(
@@ -146,6 +146,24 @@ class LibraryUpdateNotifier(
                 .build(),
         )
     }
+
+    // RK --> Refresh library covers' novel pass, reporting on this notice, whose Cancel stops the whole worker
+    suspend fun showProgressTitles(titles: List<String>, current: Int, total: Int) {
+        if (!progressThrottle.tryPass(isFinal = current >= total)) return
+        progressNotificationBuilder
+            .setContentTitle(
+                context.stringResource(
+                    MR.strings.notification_updating_progress,
+                    updateProgressPercent(current, total),
+                ),
+            )
+            .setStyle(NotificationCompat.BigTextStyle().bigText(updatingText(titles)))
+        context.notify(
+            Notifications.ID_LIBRARY_PROGRESS,
+            progressNotificationBuilder.setProgress(total, current, false).build(),
+        )
+    }
+    // RK <--
 
     /**
      * Warn when excessively checking any single source.

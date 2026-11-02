@@ -23,6 +23,7 @@ class NovelMetadataRefreshTest {
         Novel.create().copy(id = id, source = source, url = "/$id", title = "N$id", thumbnailUrl = "old$id")
 
     private val written = mutableListOf<NovelUpdate>()
+    private val progress = mutableListOf<Pair<Int, Int>>()
     private val parseFails = mutableSetOf<String>()
 
     private val source = mockk<NovelSource> {
@@ -54,7 +55,7 @@ class NovelMetadataRefreshTest {
             coverCache = mockk(relaxed = true),
             notifier = mockk(relaxed = true),
             novelDownloadManager = { mockk(relaxed = true) },
-        ).run()
+        ).run { _, done, total -> progress += done to total }
     }
 
     @Test
@@ -82,6 +83,13 @@ class NovelMetadataRefreshTest {
         refresh(novel(1), novel(2))
 
         written.single().id shouldBe 2L
+    }
+
+    @Test
+    fun `progress reaches the end through its caller`() = runTest {
+        refresh(novel(1))
+
+        progress shouldBe listOf(0 to 1, 1 to 1)
     }
 
     @Test

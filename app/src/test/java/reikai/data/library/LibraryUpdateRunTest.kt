@@ -202,6 +202,48 @@ class LibraryUpdateRunTest {
         announced shouldBe emptyList()
     }
 
+    /** Each content type reads its own memberships and stitch, or a group would not collapse. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `with series merging on a copy of a chapter the group had is not announced`(type: ContentType) = runTest {
+        val managers = TestMergeManagers(mapOf(type to mapOf(1L to 7L, 2L to 7L)), mergingOn = true)
+        val run = LibraryUpdateRun(
+            ReconcileMergedChapters(mockk(), stitchers = emptySet()),
+            managers.manga,
+            managers.novel,
+            mockk<MergedChapterUnitRepository> {
+                coEvery { getStitch(any(), any()) } returns emptyList()
+                coEvery { getStitch(type, any()) } returns stitch
+            },
+            LibraryPreferences(InMemoryPreferenceStore()),
+        )
+
+        run<Entry, Row>(
+            type,
+            entryId = { it.id },
+            chapterId = { it.id },
+            announce = { announced += it },
+            queueDownloads = {},
+        ) { it.arrived(second, listOf(Row(20)), emptyList()) }
+
+        announced shouldBe emptyList()
+    }
+
+    @Test
+    fun `an entry is on the progress list only while it runs`() = runTest {
+        val shown = mutableListOf<Triple<List<String>, Int, Int>>()
+        val progress = UpdateProgressList<String>(2) { updating, done, total -> shown += Triple(updating, done, total) }
+
+        progress.around("a") { progress.around("b") {} }
+
+        shown shouldBe listOf(
+            Triple(listOf("a"), 0, 2),
+            Triple(listOf("a", "b"), 0, 2),
+            Triple(listOf("a"), 1, 2),
+            Triple(emptyList(), 2, 2),
+        )
+    }
+
     /** With merging off every source is its own card, so a stored group collapses nothing. */
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])

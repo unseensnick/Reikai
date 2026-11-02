@@ -26,6 +26,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A novel keeps its real cover when its source page offers only a generic placeholder image.**
 
+- **Cancel on the library progress notification now also stops Settings -> Advanced -> Refresh library covers.**
+
+- **Details and the reader take their tint from a series' new cover once its cover changes.**
+
 ### Downloads
 
 #### Changed

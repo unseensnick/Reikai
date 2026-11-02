@@ -3,6 +3,7 @@ package reikai.data.novel
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import logcat.LogPriority
+import reikai.data.library.UpdateProgressList
 import reikai.data.library.updateBySource
 import reikai.data.novel.update.NovelUpdateNotifier
 import reikai.domain.novel.NovelRepository
@@ -13,11 +14,11 @@ import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
-import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * The novel half of Refresh library covers: re-reads each library novel's details, cover included, and
  * leaves its chapters alone, as `MetadataUpdateWorker` does for manga. One novel failing skips only it.
+ * Progress goes through that worker's own notice, whose Cancel is the one that stops this.
  */
 @Inject
 class NovelMetadataRefresh(
@@ -30,19 +31,17 @@ class NovelMetadataRefresh(
     private val novelDownloadManager: () -> NovelDownloadManager,
 ) {
 
-    suspend fun run() {
+    suspend fun run(onProgress: suspend (titles: List<String>, done: Int, total: Int) -> Unit) {
         runCatchingCancellable { installer.ensureLoaded() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
         val novels = novelRepository.getFavorites()
-        val done = AtomicInteger(0)
-        try {
-            updateBySource(novels, sourceOf = Novel::source) { novel ->
-                notifier.showProgress(novel, done.get(), novels.size)
+        val updates = UpdateProgressList<Novel>(novels.size) { updating, done, total ->
+            onProgress(notifier.visibleTitles(updating), done, total)
+        }
+        updateBySource(novels, sourceOf = Novel::source) { novel ->
+            updates.around(novel) {
                 runCatchingCancellable { refresh(novel) }.onFailure { logcat(LogPriority.ERROR, it) }
-                notifier.showProgress(novel, done.incrementAndGet(), novels.size)
             }
-        } finally {
-            notifier.dismissProgress()
         }
     }
 

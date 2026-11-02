@@ -14,18 +14,13 @@ import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.ensureActive
-import kotlinx.coroutines.sync.Semaphore
-import kotlinx.coroutines.sync.withPermit
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.library.updateBySource
 import reikai.data.novel.NovelMetadataRefresh
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -106,45 +101,33 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
     }
 
     private suspend fun updateMetadata() {
-        val semaphore = Semaphore(5)
         val progressCount = AtomicInt(0)
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
-        coroutineScope {
-            mangaToUpdate.groupBy { it.manga.source }
-                .values
-                .map { mangaInSource ->
-                    async {
-                        semaphore.withPermit {
-                            mangaInSource.forEach { libraryManga ->
-                                val manga = libraryManga.manga
-                                ensureActive()
+        // RK: the kernel the novel pass and both update jobs run on, in place of upstream's own semaphore
+        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }) { libraryManga ->
+            val manga = libraryManga.manga
 
-                                withUpdateNotification(
-                                    currentlyUpdatingManga,
-                                    progressCount,
-                                    manga,
-                                ) {
-                                    val source = sourceManager.get(manga.source) ?: return@withUpdateNotification
-                                    try {
-                                        updateMangaFromRemote(
-                                            source = source,
-                                            manga = manga,
-                                            fetchDetails = true,
-                                        ).getOrThrow()
-                                    } catch (e: Throwable) {
-                                        // Ignore errors and continue
-                                        logcat(LogPriority.ERROR, e)
-                                    }
-                                }
-                            }
-                        }
-                    }
+            withUpdateNotification(
+                currentlyUpdatingManga,
+                progressCount,
+                manga,
+            ) {
+                val source = sourceManager.get(manga.source) ?: return@withUpdateNotification
+                try {
+                    updateMangaFromRemote(
+                        source = source,
+                        manga = manga,
+                        fetchDetails = true,
+                    ).getOrThrow()
+                } catch (e: Throwable) {
+                    // Ignore errors and continue
+                    logcat(LogPriority.ERROR, e)
                 }
-                .awaitAll()
+            }
         }
 
-        novelMetadataRefresh.run() // RK: the one Settings action covers both content types
+        novelMetadataRefresh.run(notifier::showProgressTitles) // RK: the one Settings action covers both content types
 
         notifier.cancelProgressNotification()
     }
@@ -182,6 +165,11 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         private const val WORK_NAME_MANUAL = "MetadataUpdate"
 
         private const val MANGA_PER_SOURCE_QUEUE_WARNING_THRESHOLD = 60
+
+        // RK: upstream's shared progress notice cancels only the library update, which left a refresh running
+        fun stop(workManager: WorkManager) {
+            workManager.cancelUniqueWork(WORK_NAME_MANUAL)
+        }
 
         suspend fun startNow(workManager: WorkManager): Boolean {
             if (workManager.isRunning(TAG)) {
