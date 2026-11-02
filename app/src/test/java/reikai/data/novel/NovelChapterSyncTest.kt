@@ -7,7 +7,10 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.unmockkAll
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import mihon.core.common.extensions.toEpochMillisOrZero
 import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.api.AfterEach
@@ -248,6 +251,30 @@ class NovelChapterSyncTest {
                 match { it.url == "/c/5" && it.name == "Renamed" },
             )
         }
+    }
+
+    /** The rows are committed by then, so a later sync sees no change of name and would never move the rest. */
+    @Test
+    fun `a sync cancelled during its renames still finishes them`() = runTest {
+        val source =
+            listOf(srcItem("/c/5", number = 5.0, name = "New 5"), srcItem("/c/4", number = 4.0, name = "New 4"))
+        val moved = mutableListOf<String>()
+        var job: Job? = null
+        val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
+            coEvery { renameChapter(any(), any(), any()) } coAnswers {
+                moved += thirdArg<NovelChapter>().name
+                job?.cancel()
+                yield()
+            }
+        }
+
+        job =
+            launch {
+                sync(listOf(dbChapter("/c/5", number = 5.0), dbChapter("/c/4", number = 4.0)), source, downloadManager)
+            }
+        job.join()
+
+        moved.size shouldBe 2
     }
 
     @Test

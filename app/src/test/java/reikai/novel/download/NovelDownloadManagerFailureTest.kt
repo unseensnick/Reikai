@@ -91,7 +91,10 @@ class NovelDownloadManagerFailureTest {
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
         novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
-        saver = mockk { coEvery { save(any(), any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN },
+        saver = mockk {
+            coEvery { prepare(any(), any()) } answers { secondArg() }
+            coEvery { write(any(), any(), any()) } returns NovelChapterSaver.SaveResult.NAME_TAKEN
+        },
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),

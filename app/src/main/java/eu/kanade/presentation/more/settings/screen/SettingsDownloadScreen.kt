@@ -14,6 +14,7 @@ import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.novel.NovelSourceDelaysScreen
 import eu.kanade.presentation.more.settings.screen.novel.downloadDelayLabel
 import mihon.app.di.appGraph
+import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.download.NovelDownloadPacing
@@ -61,7 +62,7 @@ object SettingsDownloadScreen : SearchableSettings {
             ),
             Preference.PreferenceItem.SliderPreference(
                 preference = downloadPreferences.parallelSourceLimit,
-                valueRange = 1..10,
+                valueRange = 1..MAX_PARALLEL_SOURCES, // RK
                 title = stringResource(MR.strings.pref_download_concurrent_sources),
             ),
             Preference.PreferenceItem.SliderPreference(

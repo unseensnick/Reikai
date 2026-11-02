@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -27,11 +28,13 @@ import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.notification.isHiddenAdult
 import reikai.domain.download.DownloadRetry
+import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
 import reikai.domain.download.hasRoomToDownload
 import reikai.domain.download.movesDownloadFolder
+import reikai.domain.download.parallelSourcesFor
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.manga.AdultContentChecker
@@ -60,8 +63,9 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 /**
- * App-scoped, text-only download engine for light-novel chapters. One queue, drained a source at a time per
- * [runQueue]'s lanes, writes a self-contained HTML file per chapter under a stable-name path ([NovelDownloadProvider]), and "downloaded" is decided from a disk scan
+ * App-scoped, text-only download engine for light-novel chapters. One queue, drained by [runQueue]'s lanes with
+ * sources side by side up to the parallel limit, writes a self-contained HTML file per chapter under a stable-name
+ * path ([NovelDownloadProvider]), and "downloaded" is decided from a disk scan
  * ([NovelDownloadCache]), so downloads survive reinstall, restore and storage moves. Draining runs inside
  * [NovelDownloadWorker], a foreground worker, so downloads survive backgrounding. Each chapter's source is resolved
  * from its `novelId`, so the entry points work from a cold background process.
@@ -120,15 +124,18 @@ class NovelDownloadManager(
     private val drainLock = Mutex()
 
     /**
-     * Held across a chapter's save, which first checks the row is still queued, and across each removal
-     * that also moves or deletes files. A chapter dropped while its fetch ran is then never written back
-     * into a folder that was deleted or renamed meanwhile, which Mihon gets by cancelling the removed
-     * download's job.
+     * Held across a chapter's write, which first checks the row is still queued and reads its names afresh,
+     * and across each change that moves or deletes files. A chapter dropped or renamed while its fetch ran is
+     * then never written under a folder or name that has gone, which Mihon gets by cancelling the removed
+     * download's job. Never held across a fetch, or one slow site would stop every source's writes.
      */
     private val saveLock = Mutex()
 
     /** Held while a lane picks its next chapter, so two lanes can never take one source. */
     private val claimLock = Mutex()
+
+    /** Held through a wait for the network, so one lane reports it and the others queue behind that one. */
+    private val networkWait = Mutex()
 
     /** Which source each queued novel reads from, filled as [claimNext] meets them. Under [claimLock]. */
     private val novelSources = HashMap<Long, String>()
@@ -285,7 +292,7 @@ class NovelDownloadManager(
 
     /** Relocate a downloaded chapter's file after a source re-title, keeping the disk index in sync.
      *  Called from the chapter sync; no-op when the chapter isn't downloaded. */
-    suspend fun renameChapter(novel: Novel, oldChapter: NovelChapter, newChapter: NovelChapter) {
+    suspend fun renameChapter(novel: Novel, oldChapter: NovelChapter, newChapter: NovelChapter) = saveLock.withLock {
         val renamed = withIOContext { provider.renameChapter(novel, oldChapter, newChapter) }
         if (renamed) cache.renameChapter(novel, oldChapter, newChapter)
     }
@@ -296,12 +303,13 @@ class NovelDownloadManager(
      * folder being moved.
      */
     suspend fun renameNovel(novel: Novel, newTitle: String) {
-        val dir = provider.findNovelDir(novel) ?: return
-        val newName = provider.novelDirName(newTitle)
-        if (dir.name == newName) return
-        val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
-        if (!movesDownloadFolder(dir, newName, otherFolders)) return
+        // The folder is looked up under the lock too: the chapter being saved may be the one creating it.
         saveLock.withLock {
+            val dir = provider.findNovelDir(novel) ?: return
+            val newName = provider.novelDirName(newTitle)
+            if (dir.name == newName) return
+            val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
+            if (!movesDownloadFolder(dir, newName, otherFolders)) return
             cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
             if (withIOContext { provider.renameNovel(novel, newTitle) }) {
                 cache.renameNovel(novel, newTitle)
@@ -397,34 +405,36 @@ class NovelDownloadManager(
         onProgress: suspend (NovelDownloadProgress) -> Unit,
         onError: (novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
     ) = drainLock.withLock {
-        try {
-            installer.ensureLoaded()
-            restoreJob.join()
-            // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
-            // finished download leaves the queue, so what is left is either DOWNLOADING from a drain
-            // that was cancelled (a user pause, a crash, a force-kill) or ERROR, which is exactly what
-            // Resume is for. The loop below only picks QUEUE, so an ERROR row left as it is would never run.
-            _queueState.update { q -> q.map { it.copy(state = NovelDownload.State.QUEUE) } }
-            val done = AtomicInteger(0)
-            val reporting = Mutex()
-            val report: suspend (NovelDownloadProgress) -> Unit = { reporting.withLock { onProgress(it) } }
-            coroutineScope {
-                repeat(MAX_LANES) {
-                    launch {
-                        while (true) {
-                            val next = claimNext(report) ?: break
-                            try {
-                                download(next, done, report, onError)
-                            } finally {
-                                lanes.update { it - next.source }
+        // Off WorkManager's default dispatcher, since an image fetch and a file write block.
+        withIOContext {
+            try {
+                installer.ensureLoaded()
+                restoreJob.join()
+                // Everything still in the queue goes back to QUEUE, matching manga's Downloader.start. A
+                // finished download leaves the queue, so what is left is either DOWNLOADING from a drain
+                // that was cancelled (a user pause, a crash, a force-kill) or ERROR, which is exactly what
+                // Resume is for. The loop below only picks QUEUE, so an ERROR row left as it is would never run.
+                _queueState.update { q -> q.map { it.copy(state = NovelDownload.State.QUEUE) } }
+                val done = AtomicInteger(0)
+                val reporting = Mutex()
+                val report: suspend (NovelDownloadProgress) -> Unit = { reporting.withLock { onProgress(it) } }
+                coroutineScope {
+                    repeat(MAX_PARALLEL_SOURCES) {
+                        launch {
+                            while (true) {
+                                val next = claimNext(report) ?: break
+                                try {
+                                    download(next, done, report, onError)
+                                } finally {
+                                    lanes.update { it - next.source }
+                                }
                             }
                         }
                     }
                 }
+            } finally {
+                novelSources.clear()
             }
-        } finally {
-            lanes.value = emptyMap()
-            novelSources.clear()
         }
     }
 
@@ -439,13 +449,14 @@ class NovelDownloadManager(
     private suspend fun claimNext(report: suspend (NovelDownloadProgress) -> Unit): Claimed? {
         while (true) {
             if (hasQueued() && networkIssue() != null) {
-                awaitNetwork(report)
+                networkWait.withLock { awaitNetwork(report) }
                 continue
             }
-            val seen = _queueState.value to lanes.value
+            val limit = downloadPreferences.parallelSourceLimit
+            val seen = Triple(_queueState.value, lanes.value, limit.get())
             val claimed = claimLock.withLock {
                 if (lanes.value.isEmpty() && !hasQueued()) return null
-                if (lanes.value.size >= downloadPreferences.parallelSourceLimit.get()) return@withLock null
+                if (lanes.value.size >= parallelSourcesFor(seen.third)) return@withLock null
 
                 val next = _queueState.value
                     .asSequence()
@@ -458,7 +469,7 @@ class NovelDownloadManager(
                 Claimed(next, source)
             }
             if (claimed != null) return claimed
-            combine(_queueState, lanes) { queue, held -> queue to held }.first { it != seen }
+            combine(_queueState, lanes, limit.changes().onStart { emit(limit.get()) }, ::Triple).first { it != seen }
         }
     }
 
@@ -510,11 +521,17 @@ class NovelDownloadManager(
                     ?: return@runCatchingCancellable false
                 if (chapter == null) return@runCatchingCancellable false
                 val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
+                val selfContained = saver.prepare(source, html)
                 saveLock.withLock {
                     // Cancelled, or its novel deleted or renamed, while the fetch ran: nothing to write
                     dropped = _queueState.value.none { it.chapterId == next.chapterId }
+                    // Read again, since a sync may have renamed either during the fetch and the file takes their names.
                     // A name another chapter's download holds counts as downloaded, as manga's downloader counts it
-                    dropped || saver.save(novel, chapter, source, html) != NovelChapterSaver.SaveResult.FAILED
+                    dropped || saver.write(
+                        novelRepo.getById(novel.id) ?: novel,
+                        chapterRepo.getById(chapter.id) ?: chapter,
+                        selfContained,
+                    ) != NovelChapterSaver.SaveResult.FAILED
                 }
             }.getOrElse {
                 lastError = it
@@ -568,7 +585,8 @@ class NovelDownloadManager(
         )
         val paceMs = NovelDownloadPacing.next(sourceDelays[novel?.source.orEmpty()] ?: floorMs, ok, floorMs)
         novel?.source?.let { sourceDelays[it] = paceMs }
-        if (hasQueued()) {
+        // Only with more of this source to come, so a finished source frees its slot for one still waiting.
+        if (hasQueuedFrom(claimed.source)) {
             // Up to a quarter more, never less, so the cadence is not metronomic and the
             // user's delay stays a minimum.
             delay((paceMs * (1.0 + Random.nextDouble() * 0.25)).toLong())
@@ -592,6 +610,10 @@ class NovelDownloadManager(
 
     private fun hasQueued() = _queueState.value.any { it.state == NovelDownload.State.QUEUE }
 
+    private suspend fun hasQueuedFrom(source: String) = claimLock.withLock {
+        _queueState.value.any { it.state == NovelDownload.State.QUEUE && sourceOf(it.novelId) == source }
+    }
+
     // Failed chapters stay queued but are not counted: only Resume runs them again.
     private fun pendingTotal(done: Int) = done + _queueState.value.count { it.state != NovelDownload.State.ERROR }
 
@@ -602,9 +624,6 @@ class NovelDownloadManager(
     }
 
     companion object {
-        /** The most the parallel source limit can be set to; the limit decides how many of these work. */
-        private const val MAX_LANES = 10
-
         /** How often a drain paused for the network checks it again. */
         private const val NETWORK_RECHECK_MS = 5_000L
     }

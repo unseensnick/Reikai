@@ -1,5 +1,7 @@
 package reikai.data.novel
 
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.StoredChapter
@@ -148,7 +150,11 @@ suspend fun syncChaptersWithNovelSource(
     // Relocate any downloaded file whose chapter was re-titled, so recognition follows the new name
     // (mirrors the manga rename-on-sync, pinned by RenameOnSyncConformanceTest). No-op when the chapter
     // isn't downloaded.
-    downloadRenames.forEach { (old, new) -> novelDownloadManager?.renameChapter(novel, old, new) }
+    // After the commit, not before it as manga does: a chapter a lane saves before the commit lands under the old
+    // name, and this moves it. Not cancellable, since a later sync sees no change of name and would strand the file.
+    withContext(NonCancellable) {
+        downloadRenames.forEach { (old, new) -> novelDownloadManager?.renameChapter(novel, old, new) }
+    }
     // The source no longer lists these, so their queued downloads could only fail, as the manga sync
     // cancels them too (RemovedChapterQueueConformanceTest).
     novelDownloadManager?.cancelDownloads(toDelete.map { it.id })

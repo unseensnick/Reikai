@@ -32,6 +32,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**
 
+#### Fixed
+
+- **Manga cards in the download queue now read Queued while the queue waits for a network, as novel cards do.**
+
+- **A downloaded novel chapter stays readable offline when an update is cancelled just as its source renames it.**
+
 ### Reader
 
 #### Added

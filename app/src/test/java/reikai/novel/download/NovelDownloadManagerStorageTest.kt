@@ -73,7 +73,10 @@ class NovelDownloadManagerStorageTest {
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         sourcePreferences = ReikaiSourcePreferences(InMemoryPreferenceStore()),
         novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
-        saver = mockk { coEvery { save(any(), any(), any(), any()) } returns NovelChapterSaver.SaveResult.SAVED },
+        saver = mockk {
+            coEvery { prepare(any(), any()) } answers { secondArg() }
+            coEvery { write(any(), any(), any()) } returns NovelChapterSaver.SaveResult.SAVED
+        },
         securityPreferences = SecurityPreferences(InMemoryPreferenceStore()),
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),

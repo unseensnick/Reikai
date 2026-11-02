@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.onStart
+import reikai.domain.download.parallelSourcesFor
 import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.library.ContentType
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -29,13 +30,16 @@ class MangaDownloadQueueProvider(
 
     override val snapshots: Flow<DownloadQueueSnapshot> = combine(
         downloadManager.queueState,
-        downloadManager.isDownloaderRunning,
+        // The worker stays running through a network pause, waiting for the connection, so it alone is no answer.
+        combine(downloadManager.isDownloaderRunning, downloader.pausedChanges) { running, paused ->
+            running && !paused
+        },
         downloadPreferences.parallelSourceLimit.changes(),
         downloader.completions.counts,
         downloadManager.queuedDownloadChanges().onStart { emit(Unit) },
     ) { _, running, sourceLimit, completed, _ ->
         val (queue, restored) = readQueueAfterRestore({ downloadManager.isQueueRestored }, downloadManager.queueState)
-        snapshotOf(queue, if (running) sourceLimit else 0, completed, restored)
+        snapshotOf(queue, if (running) parallelSourcesFor(sourceLimit) else 0, completed, restored)
     }
         // A pass over the whole queue per status change and progress sample, as the novel provider does.
         .flowOn(Dispatchers.Default)
@@ -91,7 +95,7 @@ class MangaDownloadQueueProvider(
 /**
  * The series the downloader works on now, by its own selection rule: the front pending chapter of each
  * of the first [sourceLimit] sources in queue order. A chapter's DOWNLOADING flag lags that selection
- * and drops out between chapters, so it is not used. [sourceLimit] is 0 while the downloader is stopped.
+ * and drops out between chapters, so it is not used. [sourceLimit] is 0 while the downloader is stopped or paused.
  */
 private fun snapshotOf(
     queue: List<Download>,

@@ -67,7 +67,8 @@ class NovelMetadataRefreshTest {
     /** The update walks on from the stored count, so raising it here would skip the pages between. */
     @Test
     fun `a refresh leaves the stored page count for the update to walk`() = runTest {
-        coEvery { source.parseNovel("/1") } returns SourceNovel(path = "/1", name = "N1", cover = "new/1", totalPages = 4)
+        coEvery { source.parseNovel("/1") } returns
+            SourceNovel(path = "/1", name = "N1", cover = "new/1", totalPages = 4)
 
         refresh(novel(1).copy(totalPages = 2L))
 

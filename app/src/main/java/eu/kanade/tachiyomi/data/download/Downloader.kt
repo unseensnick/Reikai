@@ -55,6 +55,7 @@ import okhttp3.Response
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.hasRoomToDownload // RK
+import reikai.domain.download.parallelSourcesFor // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -117,8 +118,16 @@ class Downloader(
     /**
      * Whether the downloader is paused
      */
-    @Volatile
-    var isPaused: Boolean = false
+    // RK --> a flow behind the flag, so the queue screen sees a pause no status change reports
+    private val pausedState = MutableStateFlow(false)
+    val pausedChanges = pausedState.asStateFlow()
+
+    var isPaused: Boolean
+        get() = pausedState.value
+        set(value) {
+            pausedState.value = value
+        }
+    // RK <--
 
     // RK: completes once the persisted queue has been restored on startup. A resume triggered by
     // WorkManager after a force-kill awaits this, so it doesn't check the still-empty queue before
@@ -264,7 +273,7 @@ class Downloader(
                         .filter { it.status.value <= Download.State.DOWNLOADING.value }
                         .groupBy { it.source }
                         .toList()
-                        .take(parallelCount)
+                        .take(parallelSourcesFor(parallelCount)) // RK: a restored backup can hold any value
                         .map { (_, downloads) -> downloads.first() }
                     emit(activeDownloads)
 
