@@ -173,7 +173,7 @@ fun StatsGroupKey.label(name: String?): String = when (this) {
         pluralStringResource(MR.plurals.manga_num_chapters, count, band)
     }
     is StatsGroupKey.Tracker -> when (trackerId) {
-        null -> stringResource(MR.strings.stats_not_tracked)
+        null -> stringResource(MR.strings.not_tracked)
         else -> name ?: stringResource(MR.strings.unknown)
     }
     is StatsGroupKey.Source -> name ?: key

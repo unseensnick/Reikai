@@ -250,7 +250,7 @@ object Notifications {
                 },
                 // RK: novel read-aloud (TTS) playback notification
                 buildNotificationChannel(CHANNEL_NOVEL_TTS, IMPORTANCE_LOW) {
-                    setName(context.stringResource(MR.strings.channel_novel_tts))
+                    setName(context.stringResource(MR.strings.tts_novel_read_aloud))
                     setShowBadge(false)
                 },
                 buildNotificationChannel(CHANNEL_EXTENSIONS_UPDATE, IMPORTANCE_DEFAULT) {

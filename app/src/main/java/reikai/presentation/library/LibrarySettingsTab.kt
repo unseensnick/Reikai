@@ -20,7 +20,7 @@ enum class HopperLongPressAction(val code: Int, val labelRes: StringResource) {
     SEARCH(0, MR.strings.hopper_action_search),
     EXPAND_COLLAPSE(1, MR.strings.hopper_action_expand_collapse),
     DISPLAY(2, MR.strings.hopper_action_display),
-    GROUP(3, MR.strings.hopper_action_group),
+    GROUP(3, MR.strings.group),
     RANDOM(4, MR.strings.hopper_action_random),
     RANDOM_GLOBAL(5, MR.strings.hopper_action_random_global),
     ;

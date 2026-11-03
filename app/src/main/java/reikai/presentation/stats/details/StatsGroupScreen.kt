@@ -114,5 +114,5 @@ private val StatsSort.label: StringResource
         StatsSort.COUNT -> MR.strings.stats_sort_count
         StatsSort.READ -> MR.strings.stats_sort_read
         StatsSort.SCORE -> MR.strings.stats_sort_score
-        StatsSort.TIME -> MR.strings.stats_sort_time
+        StatsSort.TIME -> MR.strings.stats_group_reading_time
     }
