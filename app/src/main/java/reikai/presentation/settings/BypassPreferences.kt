@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.data.library.LibraryUpdateWorker
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestFailure
 import eu.kanade.tachiyomi.network.interceptor.FlareSolverrTestResult
+import eu.kanade.tachiyomi.network.interceptor.TurnstileBench
 import eu.kanade.tachiyomi.network.interceptor.TurnstileSolver
 import eu.kanade.tachiyomi.network.interceptor.isPrivateChannel
 import eu.kanade.tachiyomi.network.interceptor.splitFlareSolverrUserInfo
@@ -54,6 +55,7 @@ fun bypassPreferenceItems(networkPreferences: NetworkPreferences): List<Preferen
     // Spike state, debug only: mirrors the solver's own flag so the row can show it.
     var forceHeadlessSolver by remember { mutableStateOf(TurnstileSolver.forceHeadless) }
     var forceNoWatchSolver by remember { mutableStateOf(TurnstileSolver.forceNoWatch) }
+    var benchBlocks by remember { mutableStateOf(false) }
 
     // A local copy, so the row below can tell the two outcomes apart.
     val lastTest = flareSolverrTestResult
@@ -122,6 +124,30 @@ fun bypassPreferenceItems(networkPreferences: NetworkPreferences): List<Preferen
             onClick = {
                 LibraryUpdateWorker.startDelayed(context.workManager, delaySeconds = 60)
                 context.toast("Library update queued for 60s, kill the app now")
+            },
+        ),
+        Preference.PreferenceItem.TextPreference(
+            title = "Turnstile: run the solver on a test widget (spike)",
+            subtitle = "Next: ${if (benchBlocks) "always refuses" else "asks once"}. Arms the real solver on " +
+                "Cloudflare's test widget for 35 seconds and logs focus, events and the token under " +
+                "TurnstileBench, alternating keys. The two force rows below apply",
+            visible = BuildConfig.DEBUG,
+            onClick = {
+                TurnstileBench.run(
+                    context,
+                    if (benchBlocks) TurnstileBench.REFUSING_SITEKEY else TurnstileBench.INTERACTIVE_SITEKEY,
+                )
+                benchBlocks = !benchBlocks
+                context.toast("Test widget running for 35s")
+            },
+        ),
+        Preference.PreferenceItem.TextPreference(
+            title = "Turnstile: run the solver on a real site (spike)",
+            subtitle = "Loads the next address in bench-urls.txt in the app's external files folder, " +
+                "after dropping its clearance, and logs it the same way",
+            visible = BuildConfig.DEBUG,
+            onClick = {
+                context.toast(TurnstileBench.runOnNextSite(context) ?: "No addresses in bench-urls.txt")
             },
         ),
         Preference.PreferenceItem.TextPreference(
