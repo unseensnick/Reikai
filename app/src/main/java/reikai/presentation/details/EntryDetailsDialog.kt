@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -43,7 +42,6 @@ sealed interface EntryDetailsDialog {
     data class EditInfo(
         val initial: EntryEditInfoUi,
         val source: EntryEditInfoUi,
-        val seedColor: Color?,
         val coverModel: (String) -> Any,
     ) : EntryDetailsDialog
 
@@ -95,7 +93,6 @@ fun Screen.EntryDetailsDialogHost(
         is EntryDetailsDialog.EditInfo -> EntryEditInfoDialog(
             initial = dialog.initial,
             source = dialog.source,
-            seedColor = dialog.seedColor,
             coverModel = dialog.coverModel,
             onDismissRequest = onDismissRequest,
             onSave = behavior::saveInfo,
@@ -104,6 +101,7 @@ fun Screen.EntryDetailsDialogHost(
                 candidates = behavior::autofillCandidates,
                 fetch = behavior::fetchTrackerMetadata,
             ),
+            mergedTags = behavior::mergedSourceTags,
         )
         EntryDetailsDialog.Cover -> {
             // The behavior returns the per-type subclass through the star-projected base. Voyager only

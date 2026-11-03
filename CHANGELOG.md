@@ -31,6 +31,18 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 
+### Details
+
+#### Added
+
+- **Edit info tags can be dragged into a new order (ported from TachiyomiSY).** Hold a tag near the top or bottom edge to scroll the form.
+- **Edit info on a merged series can collate every source's tags (ported from TachiyomiSY).**
+
+#### Fixed
+
+- **A tag typed in Edit info no longer doubles one that differs only in capitals.**
+- **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
+
 ### Merged series
 
 #### Fixed

@@ -284,7 +284,6 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             // override on an untouched Save. Matches the manga side (seed and diff share one entry).
             initial = novel.withCustomInfo(customInfo).toEntryEditInfoUi(),
             source = novel.toEntryEditInfoUi(),
-            seedColor = seedColor,
             coverModel = { url -> novel.asNovelCover(url.ifBlank { null }) },
         )
         NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover

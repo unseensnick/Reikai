@@ -163,6 +163,7 @@ import reikai.presentation.details.ScanlatorFilterView
 import reikai.presentation.details.ShownWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
+import reikai.presentation.details.groupSourceTags
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.loadThenRenderOn
@@ -1783,6 +1784,9 @@ class MangaViewModel(
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)
+
+    suspend fun mergedSourceTags(): List<String>? =
+        groupSourceTags(mergeGroup.relatedIds) { getMangaAndChapters.awaitManga(it).genre }
 
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
     // models run). showManageSourcesDialog stays here: its body genuinely diverges.

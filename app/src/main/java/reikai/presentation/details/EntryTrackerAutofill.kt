@@ -22,14 +22,6 @@ fun buildTrackerAutofillCandidates(
     tracks.mapNotNull { track -> trackerManager.get(track.trackerId)?.let { track to it } }
         .filterNot { (_, tracker) -> tracker is EnhancedTracker }
 
-/**
- * The tag chips after "Fill from tracker", for manga and novels alike: the tags already there stay, since
- * they may be the user's own, and the tracker's genres are appended. A genre matching a tag bar case or
- * surrounding spaces is the same genre, and the spelling already on the entry wins.
- */
-fun mergeTrackerGenres(current: List<String>, fromTracker: List<String>): List<String> =
-    (current + fromTracker).filter { it.isNotBlank() }.distinctBy { it.trim().lowercase() }
-
 /** The tracker has no entry at the bound id, the one failure "Fill from tracker" words its own way. */
 fun isMissingOnTracker(error: Throwable): Boolean =
     error is TrackerEntryMissingException || (error is HttpException && error.code == 404)

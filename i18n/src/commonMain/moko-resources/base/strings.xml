@@ -266,6 +266,11 @@
     <string name="action_reset_info">Reset info</string>
     <string name="action_reset_all">Reset all</string>
     <string name="action_fill_from_tracker">Fill from tracker</string>
+    <string name="action_collate_tags">Collate tags</string>
+    <string name="edit_info_cover_url">Cover URL</string>
+    <string name="edit_info_description">Description</string>
+    <string name="edit_info_add_tags">Add tags</string>
+    <string name="edit_info_add_tags_hint">Separate tags with commas</string>
     <string name="select_tracker">Select tracker</string>
     <string name="entry_not_tracked">Entry not tracked</string>
     <!-- RK: a background job that could not start -->

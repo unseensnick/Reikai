@@ -161,6 +161,7 @@ import reikai.presentation.details.EntryWebPage
 import reikai.presentation.details.ShownWebPage
 import reikai.presentation.details.buildTrackerAutofillCandidates
 import reikai.presentation.details.downloadFolderOwner
+import reikai.presentation.details.groupSourceTags
 import reikai.presentation.details.headerNamesWholeGroup
 import reikai.presentation.details.hiddenChapterIdsIn
 import reikai.presentation.details.offerToDeleteDownloads
@@ -1192,6 +1193,9 @@ class NovelDetailsViewModel(
 
     suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
         tracker.getMangaMetadata(track)
+
+    suspend fun mergedSourceTags(): List<String>? =
+        groupSourceTags(mergeGroup.relatedIds) { novelRepo.getById(it)?.genre }
 
     fun setSortMode(sort: Long) =
         changeChapterSettings { setNovelChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) }

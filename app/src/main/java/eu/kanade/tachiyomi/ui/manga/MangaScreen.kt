@@ -370,7 +370,6 @@ private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalE
             // Seed with the effective (overlaid) values; save diffs each field against the raw source manga.
             initial = d.manga.withCustomInfo(customInfo).toEntryEditInfoUi(),
             source = d.manga.toEntryEditInfoUi(),
-            seedColor = seedColor,
             coverModel = { url ->
                 MangaCover(
                     mangaId = d.manga.id,

@@ -57,7 +57,7 @@ These run on the main thread (cheap) so the subagents you spawn next get briefed
 1. Check `Handoff.md` in the project root if present (untracked is fine). Note the branch, what shipped, what was deferred, which legacy files are off-limits.
 2. `git log --oneline -20` for recent shape of work. If the task references a phase, `git log --oneline -50 --grep="<phase keyword>"` to find prior commits in the same series.
 3. Look for a plan file in `C:\Users\<user>\.claude\plans\` matching the task (Reikai stores plans there; latest plan often has a "what really shipped" rewrite).
-4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Voyager throughout; the reader and the edit-info form are the only View-based holdouts).
+4. Skim `.claude/rules/architecture.md` and `.claude/rules/screen-conventions.md` for the conventions the affected surface must follow (Mihon is Compose + Voyager throughout; the reader's page views are the only View-based holdout).
 
 Write down for Step 3 (briefing the subagents):
 

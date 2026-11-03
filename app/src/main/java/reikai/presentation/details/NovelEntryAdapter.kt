@@ -248,6 +248,8 @@ class NovelEntryAdapter(
     override fun showTrackDialog() {
         model.showTrackDialog()
     }
+    override suspend fun mergedSourceTags(): List<String>? = model.mergedSourceTags()
+
     override suspend fun autofillCandidates(): List<Pair<Track, Tracker>> = model.autofillCandidates()
 
     override suspend fun fetchTrackerMetadata(track: Track, tracker: Tracker): TrackMangaMetadata =
