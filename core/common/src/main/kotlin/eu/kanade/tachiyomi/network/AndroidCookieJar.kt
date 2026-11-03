@@ -49,17 +49,22 @@ class AndroidCookieJar : CookieJar {
             //     request's own directory. The store keys on (name, domain, path), so a bare
             //     "name=" removes nothing when the cookie was set on a parent domain or at "/",
             //     which is how Cloudflare sets cf_clearance.
-            .onEach { name -> scopesOf(url.host).forEach { manager.setCookie(urlString, expiry(name, maxAge, it)) } }
+            .onEach { name -> scopesOf(url).forEach { manager.setCookie(urlString, expiry(name, maxAge, it)) } }
             .count()
     }
 
     // RK -->
     fun saveCookieString(url: HttpUrl, cookieString: String) = manager.setCookie(url.toString(), cookieString)
 
-    /** The host itself, then every dotted parent short of the public suffix. */
-    private fun scopesOf(host: String): List<String> {
-        val labels = host.split('.')
-        return listOf("") + (0..labels.size - 2).map { "; Domain=.${labels.drop(it).joinToString(".")}" }
+    /**
+     * The host itself, then every dotted parent short of the public suffix. Over https each scope is
+     * expired twice, since the store keeps a Partitioned copy apart and only an expiry carrying the
+     * attribute reaches it; Cloudflare sets cf_clearance that way on some sites.
+     */
+    private fun scopesOf(url: HttpUrl): List<String> {
+        val labels = url.host.split('.')
+        val domains = listOf("") + (0..labels.size - 2).map { "; Domain=.${labels.drop(it).joinToString(".")}" }
+        return if (url.isHttps) domains.flatMap { listOf(it, "$it; Secure; SameSite=None; Partitioned") } else domains
     }
 
     private fun expiry(name: String, maxAge: Int, domain: String) = "$name=; Max-Age=$maxAge; Path=/$domain"

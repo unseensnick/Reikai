@@ -70,7 +70,7 @@ class AndroidCookieJarTest {
         every { manager.getCookie(any()) } returns "cf_clearance=1"
         val expiries = captureExpiries()
 
-        AndroidCookieJar().remove("https://sub.example.com/".toHttpUrl(), cookieNames = listOf("cf_clearance"))
+        AndroidCookieJar().remove("http://sub.example.com/".toHttpUrl(), cookieNames = listOf("cf_clearance"))
 
         expiries shouldContainExactly listOf(
             "cf_clearance=; Max-Age=-1; Path=/",
@@ -84,11 +84,28 @@ class AndroidCookieJarTest {
         every { manager.getCookie(any()) } returns "cf_clearance=1"
         val expiries = captureExpiries()
 
-        AndroidCookieJar().remove(url, cookieNames = listOf("cf_clearance"))
+        AndroidCookieJar().remove("http://example.com/".toHttpUrl(), cookieNames = listOf("cf_clearance"))
 
         expiries shouldContainExactly listOf(
             "cf_clearance=; Max-Age=-1; Path=/",
             "cf_clearance=; Max-Age=-1; Path=/; Domain=.example.com",
+        )
+    }
+
+    @Test
+    fun `removal over https also expires the partitioned copy in every scope`() {
+        // Cloudflare can set cf_clearance Partitioned, and the store keeps that copy apart: only an
+        // expiry carrying Partitioned (which needs Secure and SameSite=None) reaches it.
+        every { manager.getCookie(any()) } returns "cf_clearance=1"
+        val expiries = captureExpiries()
+
+        AndroidCookieJar().remove(url, cookieNames = listOf("cf_clearance"))
+
+        expiries shouldContainExactly listOf(
+            "cf_clearance=; Max-Age=-1; Path=/",
+            "cf_clearance=; Max-Age=-1; Path=/; Secure; SameSite=None; Partitioned",
+            "cf_clearance=; Max-Age=-1; Path=/; Domain=.example.com",
+            "cf_clearance=; Max-Age=-1; Path=/; Domain=.example.com; Secure; SameSite=None; Partitioned",
         )
     }
 
