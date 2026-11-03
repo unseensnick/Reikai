@@ -7,9 +7,12 @@ import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.addJsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 import okhttp3.Call
@@ -110,6 +113,9 @@ class FlareSolverrClient(
     // The login a failed probe ran under: a proxy 401 before the reader saved theirs says nothing once they have.
     @Volatile private var sessionlessUnder: String? = null
 
+    // What the banner said, for the address and login it was read under.
+    @Volatile private var bannerUnder: Pair<String, Boolean>? = null
+
     private fun currentLogin(): String = flareSolverrAuthHeader(
         networkPreferences.flareSolverrUsername.get().trim(),
         networkPreferences.flareSolverrPassword.get(),
@@ -128,6 +134,21 @@ class FlareSolverrClient(
     }
 
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)
+
+    /**
+     * Whether the server can send [request] as asked. Byparr reads only a command's url, so a POST
+     * through it goes out as a GET and that page would be served as the POST's answer; such a request
+     * stays with the WebView, which can post. Only a FlareSolverr banner vouches for a server.
+     */
+    fun carries(request: Request): Boolean =
+        !request.method.equals("POST", ignoreCase = true) ||
+            speaksFlareSolverr(networkPreferences.flareSolverrUrl.get().trim())
+
+    private fun speaksFlareSolverr(flareSolverrUrl: String): Boolean {
+        val under = flareSolverrUrl + currentLogin()
+        bannerUnder?.takeIf { it.first == under }?.let { return it.second }
+        return flareSolverrSupportsSessions(flareSolverrUrl).also { bannerUnder = under to it }
+    }
 
     /**
      * Mark a host as WebView-unsolvable so later requests skip the WebView pre-attempt and go
@@ -186,6 +207,13 @@ class FlareSolverrClient(
         val text = try {
             flareSolverrClient.newBuilder().eventListener(listener).build().newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
+                    // The solver's own failure says why; a proxy's error page in front of it does not.
+                    flareSolverrFailureReason(resp.body.string())?.let { reason ->
+                        return@withIOContext FlareSolverrTestResult.Failure(
+                            FlareSolverrTestFailure.SOLVE_FAILED,
+                            reason,
+                        )
+                    }
                     return@withIOContext FlareSolverrTestResult.Failure(
                         FlareSolverrTestFailure.ofStatus(resp.code),
                         listOfNotNull("HTTP ${resp.code} ${resp.message}".trim(), resp.header("Location"))
@@ -230,10 +258,8 @@ class FlareSolverrClient(
         FlareSolverrTestResult.Success
     }
 
-    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response {
-        val sessionId = ensureFlareSolverrSession(flareSolverrUrl)
-        return runFlareSolverrRequest(flareSolverrUrl, request, sessionId, allowRetry = sessionId != null)
-    }
+    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response =
+        runFlareSolverrRequest(flareSolverrUrl, request, ensureFlareSolverrSession(flareSolverrUrl))
 
     /**
      * Returns the shared FlareSolverr session id, or null when the server is sessionless (Byparr) or
@@ -250,7 +276,7 @@ class FlareSolverrClient(
             // Only real FlareSolverr implements sessions. Byparr is sessionless and 500s on
             // sessions.create (it has no url to navigate), spamming its console with a stack trace.
             // Probe the root banner so we attempt sessions.create only on FlareSolverr.
-            if (!flareSolverrSupportsSessions(flareSolverrUrl)) {
+            if (!speaksFlareSolverr(flareSolverrUrl)) {
                 sessionlessUnder = currentLogin()
                 fsSessionsSupported = false
                 return@synchronized null
@@ -297,7 +323,6 @@ class FlareSolverrClient(
         flareSolverrUrl: String,
         request: Request,
         sessionId: String?,
-        allowRetry: Boolean,
     ): Response {
         val targetUrl = request.url.toString()
 
@@ -325,23 +350,15 @@ class FlareSolverrClient(
         val fsResponse = flareSolverrClient.newCall(fsRequest).execute()
         val fsBody = fsResponse.body.string()
 
+        // A solver answers every failure with an error status and says why in the body.
         if (!fsResponse.isSuccessful) {
-            throw IOException("FlareSolverr returned HTTP ${fsResponse.code}")
+            throw IOException(
+                listOfNotNull("FlareSolverr returned HTTP ${fsResponse.code}", flareSolverrFailureReason(fsBody))
+                    .joinToString(": "),
+            )
         }
 
         val result = json.decodeFromString(FlareSolverrResponse.serializer(), fsBody)
-
-        // FS restart, container reboot, or session GC invalidates the cached ID. Detect that
-        // case via the error message ("Session ${id} not found.") and recreate once.
-        if (result.status != "ok" && allowRetry && sessionId != null &&
-            result.message.contains("session", ignoreCase = true)
-        ) {
-            synchronized(fsSessionLock) {
-                if (fsSessionId == sessionId) fsSessionId = null
-            }
-            val freshId = ensureFlareSolverrSession(flareSolverrUrl)
-            return runFlareSolverrRequest(flareSolverrUrl, request, freshId, allowRetry = false)
-        }
 
         if (result.status != "ok") {
             throw IOException("FlareSolverr error: ${result.message}")
@@ -443,6 +460,24 @@ enum class FlareSolverrTestFailure {
             e is InterruptedIOException && connected -> TIMED_OUT
             else -> UNREACHABLE
         }
+    }
+}
+
+/**
+ * Why the solver says a command failed: FlareSolverr and Solverr send `status: "error"` with a
+ * `message`, Byparr a FastAPI `detail`, a sentence or a list of `msg`. Null for any other body, such
+ * as a proxy's error page, so its status still decides how the failure reads.
+ */
+internal fun flareSolverrFailureReason(body: String): String? {
+    val reply = runCatching { Json.parseToJsonElement(body) as? JsonObject }.getOrNull() ?: return null
+    val message = (reply["message"] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+    if ((reply["status"] as? JsonPrimitive)?.contentOrNull == "error" && message != null) return message
+    return when (val detail = reply["detail"]) {
+        is JsonPrimitive -> detail.contentOrNull?.takeIf { it.isNotBlank() }
+        is JsonArray -> detail.mapNotNull { ((it as? JsonObject)?.get("msg") as? JsonPrimitive)?.contentOrNull }
+            .joinToString("; ")
+            .ifBlank { null }
+        else -> null
     }
 }
 

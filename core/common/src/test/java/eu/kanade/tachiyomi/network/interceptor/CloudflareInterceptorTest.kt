@@ -192,6 +192,21 @@ class CloudflareInterceptorTest {
         blockedUrl(search) shouldBe "https://site.example/"
     }
 
+    /** Byparr would send it as a GET and that page would come back as the POST's answer. */
+    @Test
+    fun `a POST the server cannot carry stays with the WebView, even on a host the server solves`() {
+        val server = mockk<FlareSolverrClient> {
+            every { isActive() } returns true
+            every { carries(any()) } returns false
+            every { shouldSkipWebView(any()) } returns true
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("flareSolverr").apply { isAccessible = true }
+            .set(interceptor, server)
+        val search = Request.Builder().url("https://site.example/api/search?q=x").post("q=x".toRequestBody()).build()
+
+        blockedUrl(search) shouldBe "https://site.example/"
+    }
+
     @Test
     fun `a challenged GET that cannot be solved offers the page itself to open`() {
         val page = Request.Builder().url("https://site.example/series/1?page=2").build()

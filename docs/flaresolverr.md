@@ -37,6 +37,8 @@ It can usually clear newer challenges that FlareSolverr fails on, though no solv
 [Byparr](https://github.com/ThePhaseless/Byparr) runs Camoufox, an anti-detect Firefox, and can clear the newer challenges.
 
 It is sessionless, so every request sent to it pays a full solve, typically about 15 to 20 seconds. There is no fast follow-up path.
+
+It can only fetch pages. A search or sign-in that a source sends as a form goes through Reikai's own browser instead, and the cookies Reikai passes along are ignored, so a page you are signed in to comes back signed out.
 == FlareSolverr
 [FlareSolverr](https://github.com/FlareSolverr/FlareSolverr) runs headless Chromium and keeps sessions, so it is the lightest of the three.
 

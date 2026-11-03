@@ -133,7 +133,7 @@ class CloudflareInterceptor(
             // RK -->
             val host = request.url.host
             val flareSolverrUrl = networkPreferences.flareSolverrUrl.get().trim()
-            val fsActive = flareSolverr.isActive()
+            val fsActive = flareSolverr.isActive() && flareSolverr.carries(request)
 
             // The challenged request as it left the application interceptors, auth headers included.
             val fetchRequest = response.request
