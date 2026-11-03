@@ -44,9 +44,9 @@ class ShownContentUiTest {
     fun `the setting offers all three choices and marks the current one`() {
         compose.setContent { ShownContentPreferenceWidget(value = ContentType.MANGA, onItemClick = {}) }
 
-        compose.onNodeWithText("Manga and novels").assertExists()
-        compose.onNodeWithText("Novels only").assertExists()
-        compose.onNodeWithText("Manga only").assertIsOn()
+        compose.onNodeWithText("All").assertExists()
+        compose.onNodeWithText("Novels").assertExists()
+        compose.onNodeWithText("Manga").assertIsOn()
     }
 
     @Test
@@ -54,7 +54,7 @@ class ShownContentUiTest {
         var picked: ContentType? = null
         compose.setContent { ShownContentPreferenceWidget(value = ContentType.ALL, onItemClick = { picked = it }) }
 
-        compose.onNodeWithText("Novels only").performClick()
+        compose.onNodeWithText("Novels").performClick()
 
         picked shouldBe ContentType.NOVELS
     }
