@@ -160,6 +160,6 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
         )
 
-        manager.renameNovel(novel, newTitle)
+        manager.renameNovel(novel, newTitle) { true }
     }
 }

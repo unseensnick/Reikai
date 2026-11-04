@@ -298,24 +298,31 @@ class NovelDownloadManager(
     }
 
     /**
-     * Moves the novel's downloads to [newTitle]'s folder, the twin of `DownloadManager.renameManga`, pinned by
-     * [movesDownloadFolder]. As there, the novel's queued chapters are dropped first, so none is written into the
-     * folder being moved.
+     * Stores [newTitle] through [commit], then moves the novel's downloads to its folder, the twin of
+     * `DownloadManager.renameManga`, pinned by [movesDownloadFolder]. Both happen under the save lock: a chapter
+     * saved between them takes the new title and makes its folder first, stranding the old one. As there, the
+     * novel's queued chapters are dropped first, so none is written into the folder being moved. Answers what
+     * [commit] did; the folder moves only once it stored the title.
      */
-    suspend fun renameNovel(novel: Novel, newTitle: String) {
-        // The folder is looked up under the lock too: the chapter being saved may be the one creating it.
+    suspend fun renameNovel(novel: Novel, newTitle: String, commit: suspend () -> Boolean): Boolean =
         saveLock.withLock {
-            val dir = provider.findNovelDir(novel) ?: return
-            val newName = provider.novelDirName(newTitle)
-            if (dir.name == newName) return
-            val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
-            if (!movesDownloadFolder(dir, newName, otherFolders)) return
-            cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
-            if (withIOContext { provider.renameNovel(novel, newTitle) }) {
-                cache.renameNovel(novel, newTitle)
-            } else {
-                logcat(LogPriority.ERROR) { "Failed to rename novel download folder: ${dir.name}" }
-            }
+            if (!commit()) return@withLock false
+            moveNovelFolder(novel, newTitle)
+            true
+        }
+
+    // Under the save lock, which the folder is looked up under too: the chapter being saved may be creating it.
+    private suspend fun moveNovelFolder(novel: Novel, newTitle: String) {
+        val dir = provider.findNovelDir(novel) ?: return
+        val newName = provider.novelDirName(newTitle)
+        if (dir.name == newName) return
+        val otherFolders = sourceTitles.otherNovelTitles(novel.source, novel.id).map { provider.novelDirName(it) }
+        if (!movesDownloadFolder(dir, newName, otherFolders)) return
+        cancelDownloads(_queueState.value.filter { it.novelId == novel.id }.map { it.chapterId })
+        if (withIOContext { provider.renameNovel(novel, newTitle) }) {
+            cache.renameNovel(novel, newTitle)
+        } else {
+            logcat(LogPriority.ERROR) { "Failed to rename novel download folder: ${dir.name}" }
         }
     }
 

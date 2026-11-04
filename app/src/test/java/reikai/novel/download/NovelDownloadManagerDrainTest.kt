@@ -317,10 +317,27 @@ class NovelDownloadManagerDrainTest {
     @Test
     fun `a novel rename waits for a write in progress before it looks for the folder`() = runTest(io) {
         whileWriteHeld {
-            launch { manager.renameNovel(novel, "New") }
+            launch { manager.renameNovel(novel, "New") { true } }
             runCurrent()
 
             verify(exactly = 0) { provider.findNovelDir(any()) }
+        }
+    }
+
+    /** A title stored mid-write would hand the next save a folder name the move then finds taken. */
+    @Test
+    fun `a novel's new title waits for a write in progress before it is stored`() = runTest(io) {
+        var stored = false
+        whileWriteHeld {
+            launch {
+                manager.renameNovel(novel, "New") {
+                    stored = true
+                    true
+                }
+            }
+            runCurrent()
+
+            stored shouldBe false
         }
     }
 

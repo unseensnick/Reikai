@@ -96,21 +96,25 @@ suspend fun storeRefreshedNovel(
     if (cover.stamps) EntryId.Novel(existing.id).forgetSeedColor()
     if (merged == existing && coverLastModified == null) return existing
     val newTitle = merged.title.takeIf { it != existing.title }
-    val stored = novelRepository.update(
-        NovelUpdate(existing.id) {
-            title = newTitle
-            author = merged.author
-            artist = merged.artist
-            description = merged.description
-            genre = merged.genre
-            status = merged.status
-            thumbnailUrl = merged.thumbnailUrl
-            this.coverLastModified = coverLastModified
-            totalPages = merged.totalPages
-            initialized = true
-        },
-    )
-    if (stored && newTitle != null) novelDownloadManager?.renameNovel(existing, newTitle)
+    val write: suspend () -> Boolean = {
+        novelRepository.update(
+            NovelUpdate(existing.id) {
+                title = newTitle
+                author = merged.author
+                artist = merged.artist
+                description = merged.description
+                genre = merged.genre
+                status = merged.status
+                thumbnailUrl = merged.thumbnailUrl
+                this.coverLastModified = coverLastModified
+                totalPages = merged.totalPages
+                initialized = true
+            },
+        )
+    }
+    // A new title is stored together with the folder move, so no chapter saved between them strands its downloads.
+    val downloads = novelDownloadManager
+    if (newTitle != null && downloads != null) downloads.renameNovel(existing, newTitle, write) else write()
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 

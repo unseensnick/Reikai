@@ -175,7 +175,7 @@ class NovelRefreshTest {
             downloadManager = downloads,
         )
 
-        coVerify { downloads.renameNovel(match { it.title == "Novel" }, "Renamed") }
+        coVerify { downloads.renameNovel(match { it.title == "Novel" }, "Renamed", any()) }
     }
 
     // A plugin fills a name its page lacks with a placeholder (webnovel.ts `'No Title Found'`).

@@ -283,7 +283,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                     manager.cancelDownloads(listOf(chapters.first().id))
                 EmptiedPausedQueueConformanceTest.Removal.DELETE_CHAPTER -> manager.deleteChapters(chapters.take(1))
                 EmptiedPausedQueueConformanceTest.Removal.DELETE_SERIES -> manager.awaitDeleteNovel(novel)
-                EmptiedPausedQueueConformanceTest.Removal.RENAME_SERIES -> manager.renameNovel(novel, "New")
+                EmptiedPausedQueueConformanceTest.Removal.RENAME_SERIES -> manager.renameNovel(novel, "New") { true }
             }
             test.advanceTimeBy(PAUSE_RECHECK_MS)
             test.runCurrent()
