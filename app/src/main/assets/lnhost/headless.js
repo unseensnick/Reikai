@@ -624,7 +624,7 @@
   // -- @libs/fetch shim -------------------------------------------------------
   // Plugins expect a Response-like object. We synthesize the methods plugins actually use.
   // No .blob(): QuickJS has no Blob and novel sources are text-only; a plugin calling .blob()
-  // would throw (surfaced by the Phase 0 compatibility sweep).
+  // would throw.
 
   function makeResponse(payload) {
     var headersObj = payload.headers || {};

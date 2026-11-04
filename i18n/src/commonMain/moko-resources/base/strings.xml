@@ -179,16 +179,16 @@
     <string name="merge_sources_all">All</string>
     <string name="merge_unified">Unified</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
-    <!-- RK: master merging switch (Phase 5) -->
+    <!-- RK: master merging switch -->
     <string name="action_series_merging">Merge series across sources</string>
     <string name="pref_series_merging_summary">Collapse the same series from different sources into one entry</string>
-    <!-- RK: add-time grouping prompt (Phase 5) -->
+    <!-- RK: add-time grouping prompt -->
     <string name="action_add_to_group">Add to existing group</string>
     <string name="action_add_to_group_hint">Pick the entries it belongs with</string>
     <string name="action_add_to_group_selected">%1$d picked</string>
     <string name="pref_suggest_group_same_title">Suggest merging same-titled series</string>
     <string name="pref_suggest_group_same_title_summary">Offer to merge a new series with a matching library entry</string>
-    <!-- RK: novel merge (P5 S8) -->
+    <!-- RK: novel merge -->
     <string name="pref_clear_merges">Clear all merges</string>
     <string name="pref_clear_merges_summary">Split every merged series back into separate per-source entries</string>
     <string name="merges_cleared">Merged series cleared</string>
@@ -323,7 +323,7 @@
     <string name="pref_combined_recents_tab_summary">Replaces the two tabs with a single Recents tab</string>
     <!-- RK: refresh feedback on the combined All chip (both libraries update at once) -->
     <string name="updating_both_libraries">Updating both libraries</string>
-    <!-- RK: light-novel browse (P5 S3a) -->
+    <!-- RK: light-novel browse -->
     <string name="repos">Repos</string>
     <string name="bulk_selected_types">%1$s, %2$s</string>
     <string name="categories_for_type">Categories for %1$s</string>
@@ -364,7 +364,7 @@
     <string name="tts_sleep_timer">Sleep timer</string>
     <string name="tts_sleep_timer_end_of_chapter">End of chapter</string>
     <string name="tts_sleep_timer_ends_with_chapter">Stops at the end of this chapter</string>
-    <!-- RK: light-novel chapter updates (P5 S7) -->
+    <!-- RK: light-novel chapter updates -->
     <string name="novel_library_update">Light novel updates</string>
     <!-- missing undo feature after Compose rewrite #7454 -->
     <string name="action_undo">Undo</string>
@@ -1273,13 +1273,13 @@
     <string name="publishing_finished">Publishing finished</string>
     <string name="cancelled">Cancelled</string>
     <string name="on_hiatus">On hiatus</string>
-    <!-- RK: dynamic grouping by tracking status (Y3) -->
+    <!-- RK: dynamic grouping by tracking status -->
     <string name="not_tracked">Not tracked</string>
-    <!-- RK: single-list library view toggle (Y1) -->
+    <!-- RK: single-list library view toggle -->
     <string name="action_display_show_all_categories">Show all categories in one list</string>
-    <!-- RK: category hopper jump-to-category picker (Y2) -->
+    <!-- RK: category hopper jump-to-category picker -->
     <string name="jump_to_category">Jump to category</string>
-    <!-- RK: library settings sheet, Stage 4 (group tab, lewd filter, dynamic-grouping labels) -->
+    <!-- RK: library settings sheet (group tab, lewd filter, dynamic-grouping labels) -->
     <string name="group">Group</string>
     <string name="lewd">Lewd</string>
     <string name="group_by_default">By default</string>
@@ -1675,7 +1675,7 @@
 
 
 
-    <!-- RK: adult/EXH subsystem - gallery metadata field labels (Phase 1) -->
+    <!-- RK: adult/EXH subsystem - gallery metadata field labels -->
     <string name="id">Id</string>
     <string name="thumbnail_url">Thumbnail url</string>
     <string name="uploader">Uploader</string>
@@ -1699,7 +1699,7 @@
     <string name="gallery_size">Gallery size</string>
     <string name="total_ratings">Total ratings</string>
     <string name="average_rating">Average rating</string>
-    <!-- RK: E-Hentai gallery metadata field labels (Phase 2) -->
+    <!-- RK: E-Hentai gallery metadata field labels -->
     <string name="genre">Genre</string>
     <string name="token">Token</string>
     <string name="is_exhentai_gallery">is Exhentai gallery</string>
@@ -1709,7 +1709,7 @@
     <string name="translated">Translated</string>
     <string name="aged">Aged</string>
     <string name="last_update_check">Last update check</string>
-    <!-- RK: MangaDex enhanced-source gallery metadata field labels (Phase 2) -->
+    <!-- RK: MangaDex enhanced-source gallery metadata field labels -->
     <string name="last_chapter_number">Last chapter number</string>
     <string name="follow_status">Follow status</string>
     <string name="anilist_id">Anilist id</string>
@@ -1717,15 +1717,15 @@
     <string name="mal_id">Mal id</string>
     <string name="manga_updates_id">Manga updates id</string>
     <string name="anime_planet_id">Anime planet id</string>
-    <!-- RK: MangaDex follows sync (Phase 4) -->
+    <!-- RK: MangaDex follows sync -->
     <string name="mangadex_follows">MangaDex follows</string>
-    <!-- RK: MangaDex browse Random button (Phase 6) -->
+    <!-- RK: MangaDex browse Random button -->
     <string name="mangadex_random">Random</string>
-    <!-- RK: browse bulk multi-select (Phase 4): action to enter selection mode -->
+    <!-- RK: browse bulk multi-select: action to enter selection mode -->
     <string name="action_bulk_select">Select</string>
     <!-- RK: gallery-info card (metadata details) -->
     <string name="more_info">More info</string>
-    <!-- RK: MangaDex rating descriptors (Phase 2 details card) -->
+    <!-- RK: MangaDex rating descriptors (details card) -->
     <string name="rating10">Masterpiece</string>
     <string name="rating9">Amazing</string>
     <string name="rating8">Great</string>
@@ -1747,7 +1747,7 @@
     <string name="skip_page_restyling">Skip page restyling</string>
     <string name="custom_igneous_cookie">Custom igneous cookie</string>
     <string name="custom_igneous_cookie_message">Some users cannot access ExHentai the normal way, and have to pass in a specific igneous cookie value, this option is for those users.</string>
-    <!-- RK: MangaDex enhanced-source settings screen (Phase 5) -->
+    <!-- RK: MangaDex enhanced-source settings screen -->
     <string name="pref_category_mangadex">MangaDex</string>
     <string name="pref_mangadex_summary">Language, follow sync, library sync</string>
     <string name="pref_mangadex_account">Account</string>
