@@ -109,8 +109,8 @@ class MangaScreen(
             viewModel.loadRelatedMangas()
         }
 
-        // RK: extract the cover's vibrant color to tint the screen.
-        LaunchedEffect(successState.manga.id) {
+        // RK: extract the cover's vibrant color to tint the screen, again when the cover changes.
+        LaunchedEffect(successState.manga.id, successState.manga.thumbnailUrl, successState.manga.coverLastModified) {
             viewModel.updateSeedColor()
         }
 

@@ -80,7 +80,10 @@ class NovelReaderProvider(
 
     override fun seedColor(context: Context): Flow<Int?> = viewModel.cover
         .filterNotNull()
-        .map { cover -> EntryId.Novel(cover.novelId).seedColor { context.extractCoverColor(cover) } }
+        .distinctUntilChanged()
+        .map { cover ->
+            EntryId.Novel(cover.novelId).seedColor(cover.url, cover.lastModified) { context.extractCoverColor(cover) }
+        }
 
     override val displayFilters = ReaderDisplayFilters(
         customBrightness = novelPreferences.readerCustomBrightness(),

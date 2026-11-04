@@ -62,8 +62,6 @@ class MangaEntryCoverViewModel(
         entry.editCover(coverManager, stream, updateManga, coverCache)
     }
 
-    override fun idOf(entry: Manga) = EntryId.Manga(entry.id)
-
     override suspend fun removeCustomCover(entry: Manga) {
         clearCustomCover.await(EntryId.Manga(entry.id))
     }

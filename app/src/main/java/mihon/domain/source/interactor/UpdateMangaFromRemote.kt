@@ -11,8 +11,6 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
-import reikai.data.coil.forgetSeedColor
-import reikai.domain.entry.EntryId
 import reikai.domain.source.keptCover
 import reikai.domain.source.keptDetail
 import reikai.domain.source.keptGenres
@@ -122,7 +120,6 @@ class UpdateMangaFromRemote(
         }
         if (cover.deletesCachedFile) coverCache.deleteFromCache(localManga, false)
         val coverLastModified = Clock.System.now().takeIf { cover.stamps }
-        if (cover.stamps) EntryId.Manga(localManga.id).forgetSeedColor()
         // RK <--
 
         val success = mangaRepository.updateRemote(

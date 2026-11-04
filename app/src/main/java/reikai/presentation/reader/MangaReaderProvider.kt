@@ -21,7 +21,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
@@ -81,9 +80,11 @@ class MangaReaderProvider(
     override val bottomButtonScope = ReaderBottomButton.Scope.Manga
 
     override fun seedColor(context: Context): Flow<Int?> = viewModel.state
-        .mapNotNull { it.manga }
-        .distinctUntilChangedBy { it.id }
-        .map { manga -> EntryId.Manga(manga.id).seedColor { context.extractCoverColor(manga.asMangaCover()) } }
+        .mapNotNull { it.manga?.asMangaCover() }
+        .distinctUntilChanged()
+        .map { cover ->
+            EntryId.Manga(cover.mangaId).seedColor(cover.url, cover.lastModified) { context.extractCoverColor(cover) }
+        }
 
     override val displayFilters = ReaderDisplayFilters(
         customBrightness = readerPreferences.customBrightness,

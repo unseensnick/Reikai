@@ -111,6 +111,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelChapterFlags
+import reikai.domain.novel.model.NovelCover
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.NovelWithChapterCount
@@ -276,7 +277,7 @@ class NovelDetailsViewModel(
     private val failure = MutableStateFlow<String?>(null)
 
     private var refreshJob: Job? = null
-    private var seedExtracted = false
+    private var seededCover: NovelCover? = null
 
     /** The opened novel's id (the merge "current" source); set once the anchor resolves. */
     @Volatile
@@ -792,17 +793,19 @@ class NovelDetailsViewModel(
     val themeCoverBased = uiPreferences.themeCoverBased.get()
 
     /**
-     * Seed the header tint from the cover once. Computed whatever [themeCoverBased] says, as manga's is,
-     * because the edit-info dialog tints from the cover either way.
+     * Seed the header tint from the cover, again whenever the cover changes. Computed whatever [themeCoverBased]
+     * says, as manga's is, because the edit-info dialog tints from the cover either way.
      */
     private fun updateSeedColor(novel: Novel) {
-        if (seedExtracted) return
         val url = novel.thumbnailUrl?.takeIf { it.isNotBlank() } ?: return
         if (novel.id <= 0L) return
-        seedExtracted = true
         val cover = novel.asNovelCover(url)
+        if (cover == seededCover) return
+        seededCover = cover
         viewModelScope.launchIO {
-            val color = EntryId.Novel(novel.id).seedColor { context.extractCoverColor(cover) } ?: return@launchIO
+            val color = EntryId.Novel(novel.id).seedColor(cover.url, cover.lastModified) {
+                context.extractCoverColor(cover)
+            } ?: return@launchIO
             seedColor.value = Color(color)
         }
     }

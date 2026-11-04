@@ -12,23 +12,34 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.MangaCover
+import java.util.concurrent.ConcurrentHashMap
+import kotlin.time.Instant
 
 /**
- * The colour this entry's cover tints its screens with: the one already found, or what [extract] takes
- * from the cover, kept for next time. Both details screens and both readers ask here, so an entry tints
- * the same wherever it is opened. Whether a screen applies it is the cover-theme setting's call, made
- * by the screen, because the edit-info dialog tints from the cover either way.
+ * The colour this entry's cover tints its screens with: the one found for this cover, or what [extract] takes
+ * from it, kept for next time. Both details screens and both readers ask here, so an entry tints the same
+ * wherever it is opened. A cover is named by its address and change stamp, which every cover change moves, so
+ * a new cover is read again without any caller remembering to say so. Whether a screen applies the colour is
+ * the cover-theme setting's call, made by the screen, because the edit-info dialog tints from the cover either way.
  */
-suspend fun EntryId.seedColor(extract: suspend () -> Int?): Int? {
+suspend fun EntryId.seedColor(coverUrl: String?, coverLastModified: Instant?, extract: suspend () -> Int?): Int? {
     val key = signedKey()
-    return MangaCover.vibrantCoverColorMap[key]
-        ?: extract()?.also { MangaCover.vibrantCoverColorMap[key] = it }
+    val cover = coverCacheKey(null, coverUrl, coverLastModified)
+    if (seedCovers[key] == cover) MangaCover.vibrantCoverColorMap[key]?.let { return it }
+    val color = extract()
+    if (color == null) {
+        MangaCover.vibrantCoverColorMap.remove(key)
+        seedCovers.remove(key)
+    } else {
+        MangaCover.vibrantCoverColorMap[key] = color
+        seedCovers[key] = cover
+    }
+    return color
 }
 
-/** A cover changed, so the next [seedColor] takes the colour from the new one. */
-fun EntryId.forgetSeedColor() {
-    MangaCover.vibrantCoverColorMap.remove(signedKey())
-}
+// Which cover each kept colour came from. Kept for the process only: a colour restored from disk, or found by
+// the library's cover loads, carries no cover, so the first open after a start reads it again.
+private val seedCovers = ConcurrentHashMap<Long, String>()
 
 /**
  * Palette's pick from the cover [coverData] names, loaded through that content type's own fetcher (a

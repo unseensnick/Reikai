@@ -63,37 +63,6 @@ class CoverEditCapabilityConformanceTest {
         editable(probe.model(inLibrary = true)) shouldBe true
     }
 
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `removing a custom cover drops the tint taken from it`(probe: CoverEditProbe) = runTest {
-        mockIoDispatcher(UnconfinedTestDispatcher(testScheduler))
-        val model = probe.model(inLibrary = true)
-        editable(model)
-        val key = probe.id.signedKey()
-        MangaCover.vibrantCoverColorMap[key] = 1
-
-        model.deleteCustomCover(mockk(relaxed = true))
-
-        MangaCover.vibrantCoverColorMap[key] shouldBe null
-    }
-
-    @ParameterizedTest(name = "{0}")
-    @MethodSource("probes")
-    fun `setting a custom cover drops the tint of the one it replaced`(probe: CoverEditProbe) = runTest {
-        mockIoDispatcher(UnconfinedTestDispatcher(testScheduler))
-        val model = probe.model(inLibrary = true)
-        editable(model)
-        val key = probe.id.signedKey()
-        MangaCover.vibrantCoverColorMap[key] = 1
-        val context = mockk<Context>(relaxed = true) {
-            every { contentResolver.openInputStream(any()) } returns ByteArrayInputStream(ByteArray(1))
-        }
-
-        model.editCover(context, mockk<Uri>())
-
-        MangaCover.vibrantCoverColorMap[key] shouldBe null
-    }
-
     @Test
     fun `a local manga outside the library can take a custom cover`() = runTest {
         editable(MangaCoverEditProbe(source = LocalSource.ID).model(inLibrary = false)) shouldBe true

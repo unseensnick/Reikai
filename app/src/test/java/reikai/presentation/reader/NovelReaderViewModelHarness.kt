@@ -237,6 +237,11 @@ class NovelReaderViewModelHarness private constructor(
     /** The stored row of [url] on [sourceId], if opening it stored one. */
     suspend fun storedNovel(sourceId: String, url: String): Novel? = novelRepo.getByUrlAndSource(url, sourceId)
 
+    /** Gives [novelId] a new cover, as an edit or a refresh that finds one does. */
+    suspend fun changeCover(novelId: Long, url: String) {
+        novelRepo.update(NovelUpdate(novelId) { thumbnailUrl = url })
+    }
+
     /** Rewrites [novelId]'s stored row, as a refresh does. */
     suspend fun updateNovel(novelId: Long, block: NovelUpdate.() -> Unit) {
         novelRepo.update(NovelUpdate(novelId, block))

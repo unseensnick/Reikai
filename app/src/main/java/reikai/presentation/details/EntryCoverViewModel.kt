@@ -24,8 +24,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
-import reikai.data.coil.forgetSeedColor
-import reikai.domain.entry.EntryId
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -61,8 +59,6 @@ abstract class EntryCoverViewModel<T : Any>(
 
     /** True when the entry has a user-set custom cover (drives the edit/delete dropdown). */
     abstract fun hasCustomCover(): Boolean
-
-    protected abstract fun idOf(entry: T): EntryId
 
     /** Persist a picked image as the custom cover and bump `coverLastModified`. */
     protected abstract suspend fun persistCustomCover(entry: T, stream: InputStream)
@@ -149,7 +145,6 @@ abstract class EntryCoverViewModel<T : Any>(
                 val input = context.contentResolver.openInputStream(data)
                     ?: error("Could not open the chosen image")
                 input.use { persistCustomCover(entry, it) }
-                idOf(entry).forgetSeedColor()
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
                 notifyFailed(context, e)
@@ -162,7 +157,6 @@ abstract class EntryCoverViewModel<T : Any>(
         viewModelScope.launchIO {
             try {
                 removeCustomCover(entry)
-                idOf(entry).forgetSeedColor()
                 notifyCoverUpdated(context)
             } catch (e: Exception) {
                 notifyFailed(context, e)

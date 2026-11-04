@@ -215,16 +215,6 @@ class NovelRefreshTest {
     }
 
     @Test
-    fun `a new cover drops the tint taken from the old one`() = runTest {
-        val novel = storedNovel(cover = COVER)
-        MangaCover.vibrantCoverColorMap[EntryId.Novel(novel.id).signedKey()] = 1
-
-        refresh(novel, PagedSource(oneChapter, cover = "https://src.example/new.jpg"))
-
-        MangaCover.vibrantCoverColorMap[EntryId.Novel(novel.id).signedKey()] shouldBe null
-    }
-
-    @Test
     fun `a background refresh leaves a cover whose address did not change`() = runTest {
         val novel = storedNovel(cover = COVER)
         val cached = coverCache.getCoverFile(COVER)!!.apply { writeText("kept") }

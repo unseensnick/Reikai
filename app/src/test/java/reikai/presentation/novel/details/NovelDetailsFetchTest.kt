@@ -22,6 +22,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.data.coil.seedColor
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import reikai.domain.novel.model.NovelChapterFlags
@@ -226,11 +227,31 @@ class NovelDetailsFetchTest {
         val tint = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val novel = harness.novel(harness.source("alpha"), cover = "https://alpha.example/cover.jpg")
             harness.chapter(novel, 1.0)
-            MangaCover.vibrantCoverColorMap[EntryId.Novel(novel).signedKey()] = TINT
+            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null) { TINT }
             harness.openDetails(novel).awaitLoaded { it.seedColor != null }.seedColor
         }
 
         tint shouldBe Color(TINT)
+    }
+
+    /** The screen stays open across an edit or a refresh, so a new cover has to reach its tint there. */
+    @Test
+    fun `an open header takes the tint of a cover that changes under it`() = runTest {
+        val tint = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"), cover = "https://alpha.example/cover.jpg")
+            harness.chapter(novel, 1.0)
+            EntryId.Novel(novel).seedColor("https://alpha.example/cover.jpg", null) { TINT }
+            val details = harness.openDetails(novel)
+            details.awaitLoaded { it.seedColor == Color(TINT) }
+            // Found ahead, since a test cannot decode a cover; the screen still has to ask for the new one.
+            EntryId.Novel(novel).seedColor("https://alpha.example/new.jpg", null) { OTHER_TINT }
+
+            harness.changeCover(novel, "https://alpha.example/new.jpg")
+
+            details.awaitLoaded { it.seedColor == Color(OTHER_TINT) }.seedColor
+        }
+
+        tint shouldBe Color(OTHER_TINT)
     }
 
     @Test
@@ -287,6 +308,7 @@ class NovelDetailsFetchTest {
     private companion object {
         const val NEW_URL = "/novel/new"
         const val TINT = 0xFF336699.toInt()
+        const val OTHER_TINT = 0xFF993366.toInt()
 
         // Far beyond the milliseconds a second ask takes to land when one is made.
         const val REFETCH_WINDOW_MS = 1_500L
