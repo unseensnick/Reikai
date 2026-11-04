@@ -197,6 +197,15 @@ private fun StatsReadingWeek(charts: StatsCharts) {
     // Fractional, so a day read for under a minute still shows a bar rather than none.
     val minutes = charts.lastWeek.map { (_, ms) -> ms.toDouble() / MS_PER_MINUTE }
     val spoken = charts.lastWeek.map { (_, ms) -> statsDuration(ms) }
+    Text(
+        text = stringResource(
+            MR.strings.stats_logged_since,
+            since.toJavaLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
+        ),
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(bottom = MaterialTheme.padding.small),
+    )
     StatsColumns(
         values = minutes,
         label = { days[it] },
@@ -215,15 +224,6 @@ private fun StatsReadingWeek(charts: StatsCharts) {
         )
     }
     StatsPaceRow(charts.paces)
-    Text(
-        text = stringResource(
-            MR.strings.stats_logged_since,
-            since.toJavaLocalDate().format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
-        ),
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.padding(top = MaterialTheme.padding.small),
-    )
 }
 
 /** Each type's overall pace in its own measure, or Learning until three finished chapters say. */
