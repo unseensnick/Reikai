@@ -31,13 +31,18 @@ internal class PngServer(
 
     private val socket = ServerSocket(0, 16, InetAddress.getByName("127.0.0.1"))
 
+    // A closed server's port is handed out again, so the port alone would let Coil's disk cache answer one
+    // test's picture with an earlier test's (or an earlier run's), never asking this server at all.
+    private val instance = java.util.UUID.randomUUID()
+
     val url = url("picture")
 
     /** Pictures written out in full, which is all a renderer that never lays a chapter out can be waited on by. */
     val served = AtomicInteger()
 
     /** A distinct address per [name], so no cache answers one for another, served [delayMs] after [release]. */
-    fun url(name: String, delayMs: Long = 0) = "http://127.0.0.1:${socket.localPort}/$name.png?delay=$delayMs"
+    fun url(name: String, delayMs: Long = 0) =
+        "http://127.0.0.1:${socket.localPort}/$instance/$name.png?delay=$delayMs"
 
     init {
         Thread {
