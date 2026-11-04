@@ -87,7 +87,9 @@ internal suspend fun NovelChapterRepository.duplicatesOfFinished(
         chapter,
         expandToUnits(setOf(chapter.id), stitch),
         numberOf = { it.chapterNumber },
+        nameOf = { it.name },
         idOf = { it.id },
+        originOf = { it.scanlator },
         ownerOf = { it.novelId },
     ).filterNot { incognito.of(it.novelId) }
 }

@@ -81,10 +81,10 @@ class DeleteDuplicatesBehindReaderConformanceTest {
         override suspend fun queuedForDeletion(scope: TestScope, markDuplicates: Boolean): Set<String> =
             MangaReaderViewModelHarness.create().use { harness ->
                 val manga = harness.manga(1L, source = 100L, title = "Series")
-                harness.chapter(10L, manga, 1.0, scanlator = "x")
-                harness.chapter(20L, manga, 2.0, scanlator = "x")
-                harness.chapter(21L, manga, 2.0, scanlator = "y")
-                harness.chapter(30L, manga, 3.0, scanlator = "x")
+                harness.chapter(10L, manga, 1.0, scanlator = "x", name = "Chapter 1")
+                harness.chapter(20L, manga, 2.0, scanlator = "x", name = "Chapter 2")
+                harness.chapter(21L, manga, 2.0, scanlator = "y", name = "Ch. 2")
+                harness.chapter(30L, manga, 3.0, scanlator = "x", name = "Chapter 3")
                 val labels = mapOf(10L to "1", 20L to "2", 21L to "2y", 30L to "3")
                 val queued = mutableSetOf<String>()
                 val prefs = mapOf(

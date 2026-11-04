@@ -36,6 +36,17 @@ Position is a typed `ChapterProgress`, never an `Int`: `Pages(lastPageRead, page
 
 Both readers resolve their list through shared kernels: ordering by `readingOrderComparator`, hidden chapters, `removeDuplicateChapters` (kept inside one entry, since across a merge group a number identifies nothing), `neighbourChapter` (previous steps once over the whole list, next skips to the first still-eligible chapter; after a scroll across a seam, `neighbourChapters` keeps the chapter scrolled out of beside the new one, where a skipped read chapter would otherwise replace it under the reader), `navigableChapters` (which copy of a duplicate set a forward step may land on, ranking an on-disk copy first under Downloaded only), and `withOpenedChapter` for a merged sibling's copy opened from History. Each type keeps its own skip settings on its own screen. Download-ahead, the trim behind the reader and Downloaded only are in [downloads.md](downloads.md); merged groups in [merged-series.md](merged-series.md).
 
+### Duplicate chapters
+
+What counts as a copy of a chapter is one rule, `chapterCopySets` (`domain/.../reikai/domain/chapter/ChapterCopies.kt`), used by skip duplicate chapters (`removeDuplicateChapters`), mark duplicate read on finishing and the trim behind the reader (`duplicatesOfRead`), and mark new duplicates read when a sync adds a chapter (`chapterArrivals`), for manga and novels. Two chapters of one entry are copies only when all of these hold:
+
+- they share a recognised chapter number;
+- the name writes that number as the chapter's own: after a chapter word (Chapter, Ch., Ep, Episode, #, a typo within two letters of "chapter", or 第, 章, 話, 화, Глава, Capítulo, Chapitre, Kapitel and the like) or leading the name, and not as a range ("Chapter 16-20", which the recognizer reads as 16.2);
+- a volume or season both names state is the same one;
+- they come from different scanlators, or their titles match once the number and chapter words are dropped: equal, one with no title, or one's words all in the other's, and a title marking an extra (side story, extra, bonus, special, notice, interlude, afterword) matches only another such title.
+
+So "Interlude 1", "Side Story 7", "Volume 1: The Trap 2" and "Notice.32" are never copies of Chapter 1, 7, 2 or 32. Skip duplicate keeps each chosen copy at its own place in the list, so opening a later copy does not move it into the first copy's slot.
+
 The latest chapter switch wins in both readers by two mechanisms: manga's overlapping background loads go through `ChapterSwitches` (a pick, a step or the first open always lands; a page switch something newer overtook is dropped), and novels serialize switches under the model's `lane`.
 
 ### Loading ahead
@@ -83,7 +94,7 @@ Read aloud has a pace of its own. The read-aloud controller publishes the words 
 - `app/src/main/java/reikai/presentation/reader/ReaderViewport.kt`, `app/src/main/java/reikai/presentation/reader/MangaViewport.kt`, `app/src/main/java/reikai/presentation/reader/TextViewport.kt`: the viewer contract and its adapters.
 - `app/src/main/java/reikai/presentation/reader/ReaderIntent.kt`: `putEntryId`, `readEntryId`, `isSameLaunch`.
 - `app/src/main/java/reikai/domain/reader/ChapterProgress.kt` and `app/src/main/java/reikai/domain/reader/ReaderPosition.kt`: the typed position and completion.
-- `app/src/main/java/reikai/domain/reader/DuplicateChapters.kt`, `app/src/main/java/reikai/domain/reader/ChapterNeighbours.kt`, `app/src/main/java/reikai/domain/reader/ReaderChapterFilters.kt`: the chapter-list kernels.
+- `app/src/main/java/reikai/domain/reader/DuplicateChapters.kt`, `app/src/main/java/reikai/domain/reader/ChapterNeighbours.kt`, `app/src/main/java/reikai/domain/reader/ReaderChapterFilters.kt`: the chapter-list kernels; `domain/src/main/java/reikai/domain/chapter/ChapterCopies.kt` (`chapterCopySets`): what counts as a copy.
 - `app/src/main/java/reikai/presentation/reader/ChapterSwitches.kt`, `app/src/main/java/reikai/presentation/reader/ReaderLoadState.kt`, `app/src/main/java/reikai/presentation/reader/ReaderDialog.kt`.
 - `app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderAppBars.kt`, `app/src/main/java/eu/kanade/presentation/reader/components/ChapterNavigator.kt`, `app/src/main/java/eu/kanade/presentation/reader/ReaderPageIndicator.kt`, `app/src/main/java/reikai/presentation/reader/VerticalReaderRail.kt`, `app/src/main/java/reikai/presentation/reader/ReaderActionRow.kt`: the chrome.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/reader/setting/ReaderBottomButton.kt` and `app/src/main/java/reikai/presentation/reader/ReaderBottomButtonsScreen.kt`: the ordered bar.
@@ -127,6 +138,7 @@ Read aloud has a pace of its own. The read-aloud controller publishes the words 
 - **Settings stay per content type.** A reader may want to skip read chapters in one library and not the other, and one value editable from two screens surprises.
 - **A page list served from the cache is not written back on close** (`HttpPageLoader.getPages`), where Mihon writes it back every time. A write restarts the cached list's hour, and signed image addresses inside it expire on their own clock, so rewriting kept serving addresses that had already expired. The cost: image addresses resolved while reading a cached list are not kept for the next open, which fetches them again within that hour.
 - **Auto webtoon is computed per open and never stored**, and any merge member votes. A stored guess would outlive the preference being switched off. Manga only: long strip is an image layout.
+- **A shared number does not make a duplicate**, where upstream groups by number alone (`ChapterRemoveDuplicates`). Measured over three real libraries (about 627,000 chapters), the number-only rule hid real chapters (parts, side stories, interludes, notices, extras, chapters a source misnumbered); the copy rule hides only double listings and multi-scanlator copies, and keeps about 99% of what upstream hides on manga. A missed duplicate shows a chapter twice, which is the cheaper mistake. Not handled: "Chapter 12" against "Chapter 12 (Season 2)" when only one name states the season, since telling that apart needs list-wide evidence that numbering restarts, and such evidence also matches a source listing its chapters twice. Re-listing on a sync (a chapter removed and one with its number added together) still matches by number, since a source often fixes the title while re-listing.
 - **Auto-scroll pauses rather than stops, and the bar never writes start-on-open.** The sheet keeps it paused, speed controls included; a speed change is judged after closing it.
 
 ## Upstream divergences

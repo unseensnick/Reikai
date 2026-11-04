@@ -52,8 +52,9 @@ class NovelChapterSyncTest {
         id: Long = 1L,
         dateUpload: Long = 0L,
         scanlator: String? = null,
+        name: String = "name",
     ) = NovelChapter(
-        id = id, novelId = 1L, url = url, name = "name", read = read, bookmark = bookmark,
+        id = id, novelId = 1L, url = url, name = name, read = read, bookmark = bookmark,
         lastTextProgress = 0L, chapterNumber = number, sourceOrder = 0L,
         dateFetch = Instant.fromEpochMilliseconds(dateFetch), dateUpload = dateUpload.toInstantOrNull(),
         page = "", scanlator = scanlator, rawChapterNumber = number,
@@ -173,8 +174,12 @@ class NovelChapterSyncTest {
 
     @Test
     fun `a new chapter matching a read chapter's number is marked read`() = runTest {
-        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true))
-        val source = listOf(srcItem("/c/5-a", number = 5.0), srcItem("/c/5-b", number = 5.0))
+        val db = listOf(dbChapter("/c/5-a", number = 5.0, read = true, name = "Chapter 5"))
+        val source =
+            listOf(
+                srcItem("/c/5-a", number = 5.0, name = "Chapter 5"),
+                srcItem("/c/5-b", number = 5.0, name = "Chapter 5"),
+            )
 
         sync(db, source).inserted.single().read shouldBe true
     }

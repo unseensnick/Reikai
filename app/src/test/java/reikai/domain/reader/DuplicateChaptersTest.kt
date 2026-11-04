@@ -16,12 +16,14 @@ class DuplicateChaptersTest {
         val origin: String?,
         val owner: Long = 1L,
         val eligible: Boolean = true,
+        val name: String = "Chapter $number",
     )
 
     private fun List<Ch>.dedup(current: Ch) = removeDuplicateChapters(
         current,
         rank = { if (it.eligible) 0 else 1 },
         numberOf = { it.number },
+        nameOf = { it.name },
         idOf = { it.id },
         originOf = { it.origin },
         ownerOf = { it.owner },
@@ -59,6 +61,20 @@ class DuplicateChaptersTest {
     fun `a group with no entry from that origin falls back to its first`() {
         val orphan = Ch(id = 5, number = 3.0, origin = "gamma")
         listOf(b1, orphan).dedup(b1).map { it.id } shouldBe listOf(2L, 5L)
+    }
+
+    @Test
+    fun `the copy kept stays where it is listed`() {
+        // Kept at the first copy's place, an opened later copy took that slot (unseensnick/Reikai#85).
+        listOf(a1, a2, b1).dedup(b1).map { it.id } shouldBe listOf(3L, 2L)
+    }
+
+    @Test
+    fun `an interlude numbered like a chapter is its own chapter`() {
+        val chapterOne = Ch(id = 30, number = 1.0, origin = null)
+        val interludeOne = Ch(id = 31, number = 1.0, origin = null, name = "Interlude 1")
+
+        listOf(chapterOne, interludeOne).dedup(chapterOne).map { it.id } shouldBe listOf(30L, 31L)
     }
 
     @Test

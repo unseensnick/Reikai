@@ -113,13 +113,14 @@ class MangaReaderViewModelHarness private constructor(
         scanlator: String? = null,
         read: Boolean = false,
         order: Long = (1_000 - number * 10).toLong(),
+        name: String = "Chapter $number",
     ): Chapter {
         val scanlatorValue = scanlator?.let { "'$it'" } ?: "NULL"
         driver.execute(
             null,
             "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, user_read, " +
                 "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
-                "remote_date_upload, remote_memo) VALUES ($id, ${manga.id}, '/$id', '$id', $scanlatorValue, " +
+                "remote_date_upload, remote_memo) VALUES ($id, ${manga.id}, '/$id', '$name', $scanlatorValue, " +
                 "${if (read) 1 else 0}, 0, 0, $number, $order, 0, 0, '{}')",
             0,
         ).await()
@@ -182,16 +183,17 @@ class MangaReaderViewModelHarness private constructor(
         val store = ViewModelStore()
         var modelJob: Job? = null
         try {
-            val isOnDisk = { name: String, title: String ->
-                resolved.pooledChapters.any { it.name == name && titles[it.mangaId] == title && it.id in onDisk }
+            // By url, which is unique here, so same-titled copies on two scanlators can differ on disk.
+            val isOnDisk = { url: String, title: String ->
+                resolved.pooledChapters.any { it.url == url && titles[it.mangaId] == title && it.id in onDisk }
             }
             val downloadManager = mockk<DownloadManager>(relaxed = true) {
                 every { isChapterDownloaded(any(), any(), any(), any(), any()) } answers {
-                    isOnDisk(firstArg(), arg(3))
+                    isOnDisk(arg(2), arg(3))
                 }
                 every { getDownloadedChapterIds(any(), any()) } answers {
                     val title = secondArg<Manga>().title
-                    firstArg<List<Chapter>>().filter { isOnDisk(it.name, title) }.mapTo(HashSet()) { it.id }
+                    firstArg<List<Chapter>>().filter { isOnDisk(it.url, title) }.mapTo(HashSet()) { it.id }
                 }
                 coEvery { downloadChapters(any(), any(), any()) } answers { onDownload(secondArg()) }
                 coEvery { deleteChapters(any(), any(), any()) } answers { onDelete(firstArg()) }
@@ -251,7 +253,7 @@ class MangaReaderViewModelHarness private constructor(
                 chapterCache = mockk(relaxed = true),
                 downloadCache = mockk(relaxed = true) {
                     every { isChapterDownloaded(any(), any(), any(), any(), any()) } answers {
-                        isOnDisk(firstArg(), arg(3))
+                        isOnDisk(arg(2), arg(3))
                     }
                 },
                 mergedChapterProvider = mockk { coEvery { load(any()) } returns resolved },

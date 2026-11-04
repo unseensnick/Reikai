@@ -40,7 +40,7 @@ import kotlin.time.Instant
 class NovelChapterFinishTest {
 
     private fun chapter(id: Long, novelId: Long, number: Double) = NovelChapter(
-        id = id, novelId = novelId, url = "/$id", name = "", read = false, bookmark = false,
+        id = id, novelId = novelId, url = "/$id", name = "Chapter $number", read = false, bookmark = false,
         lastTextProgress = 0L, chapterNumber = number, sourceOrder = id, dateFetch = Instant.fromEpochMilliseconds(0L),
         dateUpload = null, page = "",
     )

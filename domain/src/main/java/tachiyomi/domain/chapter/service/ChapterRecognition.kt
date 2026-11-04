@@ -47,7 +47,8 @@ object ChapterRecognition {
      * A volume or season, the short forms only right before the number since "s" also ends words.
      * Example: Mokushiroku Alice Vol.1 Ch. 4: Misrepresentation -R> 1, The Gamer S3 - Chapter 20 -R> 3
      */
-    private val volume = Regex("""\b(?:(?:vol(?:ume)?|season)[^a-z0-9]? *|[vs]\.?)([0-9]+(?:\.[0-9]+)?)\b""")
+    // RK: internal, read by reikai.domain.chapter.chapterCopySets
+    internal val volume = Regex("""\b(?:(?:vol(?:ume)?|season)[^a-z0-9]? *|[vs]\.?)([0-9]+(?:\.[0-9]+)?)\b""")
 
     /**
      * Example: Chapter 1.5 Part II -R> b
@@ -65,7 +66,8 @@ object ChapterRecognition {
      * A number after this is the chapter number, even when every similar name has the same one.
      * Example: Oshi no Ko Chapter 5 Part 1 -R> 5a
      */
-    private val chapterPrefix = Regex("""(?:\b(?:ch|chap|chapter|ep|episode)\.? *|#)$""")
+    // RK: internal, read by reikai.domain.chapter.chapterCopySets
+    internal val chapterPrefix = Regex("""(?:\b(?:ch|chap|chapter|ep|episode)\.? *|#)$""")
 
     /**
      * Example: Bonus Chapter: Beach Episode

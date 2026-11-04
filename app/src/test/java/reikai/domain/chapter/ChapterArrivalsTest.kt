@@ -16,6 +16,13 @@ class ChapterArrivalsTest {
     ) = chapterArrivals(listOf(added), stored, removed, markDuplicateAsRead, now = NOW).single()
 
     @Test
+    fun `an arriving interlude numbered like a read chapter does not arrive read`() {
+        val interlude = ArrivingChapter(5.0, name = "Interlude 5")
+
+        arrive(interlude, stored = listOf(StoredChapter(5.0, read = true, name = "Chapter 5"))).read shouldBe false
+    }
+
+    @Test
     fun `a new chapter numbered like a read one arrives read and held back as a duplicate`() {
         val arrival = arrive(ArrivingChapter(5.0), stored = listOf(StoredChapter(5.0, read = true)))
 

@@ -12,6 +12,7 @@ class NavigableChaptersTest {
         val hidden: Boolean = false,
         val origin: String? = null,
         val eligible: Boolean = true,
+        val name: String = "Chapter $number",
     )
 
     private fun List<Ch>.navigable(
@@ -25,6 +26,7 @@ class NavigableChaptersTest {
         downloadedOnlyIds = downloadedOnlyIds,
         skipDuplicates = skipDuplicates,
         numberOf = { it.number },
+        nameOf = { it.name },
         idOf = { it.id },
         originOf = { it.origin },
         ownerOf = { 1L },

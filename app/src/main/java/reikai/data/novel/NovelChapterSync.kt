@@ -124,7 +124,9 @@ suspend fun syncChaptersWithNovelSource(
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
-        added = toAdd.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload) },
+        added = toAdd.map {
+            ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator)
+        },
         stored = dbChapters.map { it.toStoredChapter(sourceNumbers[it.url] ?: it.chapterNumber) },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
@@ -202,4 +204,4 @@ private fun numbered(novelTitle: String, chapters: List<NovelChapter>): List<Nov
     ).asReversed()
 
 private fun NovelChapter.toStoredChapter(number: Double = chapterNumber) =
-    StoredChapter(number, read, bookmark, dateFetch)
+    StoredChapter(number, read, bookmark, dateFetch, name, scanlator)

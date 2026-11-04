@@ -9,13 +9,15 @@ import org.junit.jupiter.api.Test
  */
 class DuplicatesOfReadTest {
 
-    private data class Ch(val id: Long, val number: Double, val owner: Long = 1L)
+    private data class Ch(val id: Long, val number: Double, val owner: Long = 1L, val name: String = "Chapter $number")
 
     private fun List<Ch>.duplicatesOf(read: Ch, stitchCopies: Set<Long> = emptySet()) = duplicatesOfRead(
         read,
         stitchCopies,
         numberOf = { it.number },
+        nameOf = { it.name },
         idOf = { it.id },
+        originOf = { null },
         ownerOf = { it.owner },
     ).map { it.id }
 
@@ -26,6 +28,13 @@ class DuplicatesOfReadTest {
     @Test
     fun `another scanlator's copy in the same entry is marked with it`() {
         listOf(alphaFive, betaFive, six).duplicatesOf(alphaFive) shouldBe listOf(2L)
+    }
+
+    @Test
+    fun `an interlude numbered like the chapter read is not marked with it`() {
+        val interludeFive = Ch(id = 10, number = 5.0, name = "Interlude 5")
+
+        listOf(alphaFive, interludeFive).duplicatesOf(alphaFive) shouldBe emptyList()
     }
 
     @Test

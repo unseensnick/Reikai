@@ -1259,6 +1259,7 @@ class NovelReaderViewModel(
             downloadedOnlyIds = { onDisk },
             skipDuplicates = novelPreferences.readerSkipDuplicateChapters().get(),
             numberOf = { it.chapterNumber },
+            nameOf = { it.name },
             idOf = { it.id },
             originOf = { it.scanlator },
             ownerOf = { it.novelId },

@@ -147,8 +147,17 @@ class SyncChaptersWithSource(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
         // Sources MUST return the chapters from most to less recent, which the fetch dates rely on.
         val arrivals = chapterArrivals(
-            added = newChapters.map { ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload) },
-            stored = dbChapters.map { StoredChapter(sourceNumbers[it.url] ?: it.chapterNumber, it.read) },
+            added = newChapters.map {
+                ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator)
+            },
+            stored = dbChapters.map {
+                StoredChapter(
+                    sourceNumbers[it.url] ?: it.chapterNumber,
+                    it.read,
+                    name = it.name,
+                    scanlator = it.scanlator,
+                )
+            },
             removed = removedChapters.map { StoredChapter(it.chapterNumber, it.read, it.bookmark, it.dateFetch) },
             markDuplicateAsRead = markDuplicateAsRead,
             now = nowInstant,

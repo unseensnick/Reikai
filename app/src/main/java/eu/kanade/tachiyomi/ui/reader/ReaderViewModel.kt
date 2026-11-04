@@ -341,6 +341,7 @@ class ReaderViewModel(
             downloadedOnlyIds = { if (basePreferences.downloadedOnly.get()) onDiskIds(chapters) else null },
             skipDuplicates = readerPreferences.skipDupe.get(),
             numberOf = { it.chapterNumber },
+            nameOf = { it.name },
             idOf = { it.id },
             originOf = { it.scanlator },
             ownerOf = { it.mangaId },
@@ -1069,8 +1070,9 @@ class ReaderViewModel(
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
         if (!markDuplicateAsRead) return sourceTracker.readStateWritten(true, listOfNotNull(newlyRead)) // RK
 
-        // RK: upstream's same-number match, kept inside the chapter's own entry, plus the group's copies
-        // the stored stitch places with it. A number match across sources marked a chapter several
+        // RK: copies by the shared chapterCopySets rule inside the chapter's own entry, in place of
+        // upstream's same-number match, which reached "Interlude 1" from "Chapter 1"; plus the group's
+        // copies the stored stitch places with it. A number match across sources marked a chapter several
         // along on the sibling, since two sources of one series count differently. Read fresh, as the
         // novel finish does: the chapters loaded at open miss a copy unmarked or fetched since.
         val readChapter = readerChapter.chapter
@@ -1079,7 +1081,9 @@ class ReaderViewModel(
                 readChapter,
                 groupCopyIds(readChapter.id).toSet(),
                 numberOf = { it.chapterNumber },
+                nameOf = { it.name },
                 idOf = { it.id },
+                originOf = { it.scanlator },
                 ownerOf = { it.mangaId },
             )
             // RK: a copy on a source in incognito is not written, as its own chapter would not be
@@ -1694,7 +1698,9 @@ class ReaderViewModel(
                     chapter,
                     groupCopyIds(chapter.id).toSet(),
                     numberOf = { it.chapterNumber },
+                    nameOf = { it.name },
                     idOf = { it.id },
+                    originOf = { it.scanlator },
                     ownerOf = { it.mangaId },
                 )
                 // A private source's copy is not marked read, so it stays too

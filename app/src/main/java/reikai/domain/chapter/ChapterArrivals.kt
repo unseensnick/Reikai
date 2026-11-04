@@ -9,6 +9,8 @@ data class ArrivingChapter(
     val read: Boolean = false,
     val bookmark: Boolean = false,
     val dateUpload: Instant? = null,
+    val name: String = "Chapter $number",
+    val scanlator: String? = null,
 )
 
 /** A chapter already stored, or one the sync is removing. [dateFetch] is read only for a removed one. */
@@ -17,6 +19,8 @@ data class StoredChapter(
     val read: Boolean,
     val bookmark: Boolean = false,
     val dateFetch: Instant = Instant.fromEpochMilliseconds(0),
+    val name: String = "Chapter $number",
+    val scanlator: String? = null,
 )
 
 /**
@@ -44,8 +48,8 @@ fun foundRelease(hadChapters: Boolean, arrivals: List<Arrival>): Boolean =
 /**
  * Upstream `SyncChaptersWithSource`'s rules for the chapters a sync adds, which the manga and novel syncs
  * both call. Fetch dates count down from [now] in source order, and an undated chapter takes the latest
- * date listed before it, or [now]. With [markDuplicateAsRead], a chapter numbered like a stored read one
- * arrives read, so [stored] carries the numbers this sync leaves them with, not the ones they had. One
+ * date listed before it, or [now]. With [markDuplicateAsRead], a copy of a stored read chapter, by
+ * [chapterCopySets], arrives read, so [stored] carries the numbers this sync leaves them with. One
  * numbered like a [removed] one takes its state and its earliest fetch date, so a re-listed chapter is
  * not new. An unnumbered chapter (below zero) matches nothing.
  */
@@ -56,7 +60,7 @@ fun chapterArrivals(
     markDuplicateAsRead: Boolean,
     now: Instant,
 ): List<Arrival> {
-    val readNumbers = stored.filter { it.read && isRecognizedChapterNumber(it.number) }.map { it.number }.toSet()
+    val readByNumber = stored.filter { it.read && isRecognizedChapterNumber(it.number) }.groupBy { it.number }
     val removedByNumber = removed.groupBy { it.number }
     // Keeps an older undated chapter from sorting above a newer dated one.
     var maxSeenUploadDate: Instant? = null
@@ -65,7 +69,7 @@ fun chapterArrivals(
             ?.also { maxSeenUploadDate = listOfNotNull(maxSeenUploadDate, it).max() }
             ?: maxSeenUploadDate
             ?: now
-        val duplicate = markDuplicateAsRead && chapter.number in readNumbers
+        val duplicate = markDuplicateAsRead && readByNumber[chapter.number]?.let(chapter::isCopyOfAny) == true
         val twins = removedByNumber[chapter.number].takeIf { isRecognizedChapterNumber(chapter.number) }
         if (twins == null) {
             val dateFetch = now + (added.size - index).milliseconds
@@ -82,3 +86,8 @@ fun chapterArrivals(
         }
     }
 }
+
+private fun ArrivingChapter.isCopyOfAny(reads: List<StoredChapter>): Boolean =
+    (listOf(name to scanlator) + reads.map { it.name to it.scanlator })
+        .chapterCopySets({ number }, { it.first }, { it.second }, { 0L })
+        .first().size > 1
