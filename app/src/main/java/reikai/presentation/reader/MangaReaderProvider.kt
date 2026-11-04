@@ -34,8 +34,11 @@ import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.download.queuedDownloadChanges
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.reader.ChapterLength
+import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.pageIndex
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
@@ -141,6 +144,16 @@ class MangaReaderProvider(
     }
 
     override val showProgress: Flow<Boolean> = readerPreferences.showPageNumber.changes()
+
+    override val showTimeLeft: Flow<Boolean> = readerPreferences.showTimeLeft.changes()
+
+    // The chapter the position is on, as the readout counts it, rather than the active one.
+    override val chapterLength: Flow<ChapterLength?> = viewModel.state.map { state ->
+        val position = state.position ?: return@map null
+        val pages = (position.progress as? ChapterProgress.Pages)?.pageCount?.takeIf { it > 0 } ?: return@map null
+        val mangaId = state.manga?.id ?: return@map null
+        ChapterLength(ContentType.MANGA, mangaId, position.chapterId, pages.toLong())
+    }.distinctUntilChanged()
 
     // A step, a pick or a reload that failed is reported, and stays so until the next one starts. A
     // first open that failed is upstream's initError, reported the same way with nothing to keep

@@ -36,9 +36,14 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderTimeLeft
+import reikai.domain.readinglog.PaceSample
+import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -75,7 +80,48 @@ class ReaderEngineTest {
             ),
         ),
         mockk { every { subscribeAll() } returns flowOf(customInfo) },
+        paceRepository,
     )
+
+    private val paceRepository = FakePaceRepository()
+
+    @Test
+    fun `time left is the chapter's share left at the learned pace`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        // Three finished chapters at ten seconds a page, and half of a 30-page chapter left.
+        paceRepository.samples = List(3) { PaceSample(entryId = 1, durationMs = 200_000, units = 20) }
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(15, 30))
+        val engine = engine(provider)
+
+        provider.chapterLength.value = ChapterLength(ContentType.MANGA, entryId = 1, chapterId = 9, units = 30)
+
+        engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Remaining(150.seconds)
+    }
+
+    @Test
+    fun `time left is learning until three chapters are finished`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
+        val engine = engine(provider)
+
+        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 30)
+
+        engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning
+    }
+
+    @Test
+    fun `a chapter's length is kept while time left is off, which shows nothing`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
+        val engine = engine(provider)
+
+        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+
+        paceRepository.lengths.first { it.isNotEmpty() } shouldBe listOf(9L to 2_000L)
+        engine.timeLeft.value shouldBe null
+    }
 
     /** Ids overlap across the two types, so the override is found by the entry's typed id. */
     @ParameterizedTest(name = "{0}")
@@ -1096,6 +1142,10 @@ private class FakeReaderProvider(
 
     override val showProgress = MutableStateFlow(false)
 
+    override val showTimeLeft = MutableStateFlow(false)
+
+    override val chapterLength = MutableStateFlow<ChapterLength?>(null)
+
     override val loadState = MutableStateFlow<ReaderLoadState>(ReaderLoadState.Idle)
 
     override fun reloadChapter(fromSource: Boolean) = Unit
@@ -1245,4 +1295,17 @@ private class RecordingPageActions : ReaderPageActions {
     }
 
     override fun setAsCover() = Unit
+}
+
+/** Answers [samples] for either type and keeps each length it is given, chapter id to units. */
+private class FakePaceRepository : ReadingPaceRepository {
+    var samples: List<PaceSample> = emptyList()
+
+    val lengths = MutableStateFlow(emptyList<Pair<Long, Long>>())
+
+    override suspend fun samples(contentType: ContentType, limit: Int): List<PaceSample> = samples
+
+    override suspend fun setLength(contentType: ContentType, chapterId: Long, units: Long) {
+        lengths.value += chapterId to units
+    }
 }

@@ -235,6 +235,7 @@ internal fun ColumnScope.ReaderPageRows(
     titleFormat: Preference<ChapterTitleFormat>,
     progressLabel: StringResource,
     showProgress: Preference<Boolean>,
+    showTimeLeft: Preference<Boolean>,
     fullscreen: Preference<Boolean>,
     drawUnderCutout: Preference<Boolean>,
     keepScreenOn: Preference<Boolean>,
@@ -250,6 +251,7 @@ internal fun ColumnScope.ReaderPageRows(
         }
     }
     CheckboxItem(label = stringResource(progressLabel), pref = showProgress)
+    CheckboxItem(label = stringResource(MR.strings.pref_show_time_left), pref = showTimeLeft)
     CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = fullscreen)
     val isFullscreen by fullscreen.collectAsState()
     if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {

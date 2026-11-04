@@ -15,23 +15,30 @@ import androidx.compose.ui.tooling.preview.PreviewLightDark
 import androidx.compose.ui.unit.sp
 import eu.kanade.presentation.theme.TachiyomiPreviewTheme
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.reader.leadingLabel
 import reikai.domain.reader.trailingLabel
+import reikai.presentation.reader.readerTimeLeftLabel
 
 @Composable
 fun ReaderPageIndicator(
     // RK: a typed chapter position both readers answer, in place of page ints
     progress: ChapterProgress?,
     modifier: Modifier = Modifier,
+    // RK: the chapter's time left, beside the position or alone when the position is off
+    timeLeft: ReaderTimeLeft? = null,
 ) {
-    if (progress == null) return
-    // RK: upstream's `totalPages <= 0` guard, kept through the retyping. A chapter whose pages have
-    // not loaded reports a count of zero, and "1 / 0" is worse than showing nothing.
-    if (progress is ChapterProgress.Pages && progress.pageCount <= 0) return
-
-    // RK: labels come from the position kernel, so this reads a page count for manga and a percentage
-    // for a continuously scrolled chapter without knowing which it has.
-    val text = "${progress.leadingLabel} / ${progress.trailingLabel}"
+    // RK -->
+    // Upstream's `totalPages <= 0` guard, kept through the retyping. A chapter whose pages have not
+    // loaded reports a count of zero, and "1 / 0" is worse than showing nothing. The labels come from
+    // the position kernel, so this reads a page count for manga and a percentage for a continuously
+    // scrolled chapter without knowing which it has.
+    val position = progress?.takeUnless { it is ChapterProgress.Pages && it.pageCount <= 0 }
+        ?.let { "${it.leadingLabel} / ${it.trailingLabel}" }
+    val text = listOfNotNull(position, timeLeft?.let { readerTimeLeftLabel(it) })
+        .joinToString("  ·  ")
+        .ifEmpty { return }
+    // RK <--
 
     val style = TextStyle(
         color = Color(235, 235, 235),

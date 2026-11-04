@@ -24,6 +24,8 @@ data class StatsCharts(
     val groups: Map<StatsDimension, List<StatsRow>>,
     /** The series read longest, most first; one never read is left out. */
     val mostRead: List<ReadTitle>,
+    /** The overall reading pace of each type shown, one entry per type. */
+    val paces: List<StatsPace>,
 )
 
 /** The groupings the overview shows a card of rows for; status and score have charts of their own. */
@@ -44,6 +46,7 @@ fun statsCharts(
     titles: List<StatsTitle>,
     sessions: List<TitleReadingSession>,
     mostRead: List<ReadTitle>,
+    paces: List<StatsPace>,
     groups: Map<StatsDimension, List<StatsRow>>,
     today: LocalDate,
     timeZone: TimeZone,
@@ -59,5 +62,6 @@ fun statsCharts(
             ?.toLocalDateTime(timeZone)?.date,
         groups = groups.mapValues { (_, rows) -> rows.take(OVERVIEW_ROWS) },
         mostRead = mostRead.take(OVERVIEW_ROWS),
+        paces = paces,
     )
 }

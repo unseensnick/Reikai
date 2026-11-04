@@ -45,6 +45,9 @@ class ReaderPreferences(
 
     val showPageNumber: Preference<Boolean> = preferenceStore.getBoolean("pref_show_page_number_key", true)
 
+    // RK: the open chapter's time left at the reader's learned pace, beside the page number
+    val showTimeLeft: Preference<Boolean> = preferenceStore.getBoolean("pref_show_time_left", false)
+
     // RK: off hides the progress navigator in every reading mode, moving the chapter buttons into the bar
     val showNavigator: Preference<Boolean> = preferenceStore.getBoolean("reader_show_navigator", true)
 

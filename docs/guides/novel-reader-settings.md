@@ -253,6 +253,9 @@ Keeps the screen from going to sleep while reading a novel.
 ### Show reading progress <Badge type="info" text="On" />
 Shows how far through the chapter you are.
 
+### Show time left in chapter <Badge type="info" text="Off" />
+Shows how long the rest of the chapter should take, from your reading speed in the chapters you finished. It reads **Learning reading speed** until you have finished three chapters opened after updating, since a chapter's length is counted when you open it.
+
 ### Bionic reading <Badge type="info" text="Off" />
 Bolds the first part of each word, which some readers find easier to track.
 

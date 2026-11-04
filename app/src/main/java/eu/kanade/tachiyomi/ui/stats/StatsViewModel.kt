@@ -166,6 +166,7 @@ class StatsViewModel(
                 i.library.titles(type),
                 i.library.sessions(type),
                 i.library.mostRead(type),
+                i.library.paces(type),
                 OVERVIEW_GROUPINGS.associateWith { i.library.rows(it, type, StatsSort.COUNT, timeZone) },
                 Clock.System.now().toLocalDateTime(timeZone).date,
                 timeZone,

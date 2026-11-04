@@ -1,0 +1,8 @@
+-- A novel chapter's word count, which its reading pace is learned against. Empty on upgrade: a chapter is
+-- counted when the reader next opens it.
+CREATE TABLE novel_chapter_words(
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    words INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);

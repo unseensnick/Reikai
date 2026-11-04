@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -58,6 +59,7 @@ import com.patrykandpatrick.vico.compose.pie.rememberPieChart
 import eu.kanade.presentation.more.stats.components.StatsItem
 import kotlinx.datetime.toJavaLocalDate
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.recommendation.taste.TrackStatus
 import reikai.presentation.components.EntryStatus
 import reikai.presentation.components.entryStatusRes
@@ -184,6 +186,8 @@ private fun StatsReadingWeek(charts: StatsCharts) {
             text = stringResource(MR.strings.stats_reading_not_logged),
             style = MaterialTheme.typography.bodyMedium,
         )
+        // History predates the log, so a pace can be known before any day is.
+        StatsPaceRow(charts.paces)
         return
     }
     val locale = LocalLocale.current.platformLocale
@@ -198,7 +202,9 @@ private fun StatsReadingWeek(charts: StatsCharts) {
         label = { days[it] },
         description = days.zip(spoken).joinToString { (day, time) -> "$day: $time" },
     )
-    Row {
+    // Intrinsic height: a StatsItem fills the height it is given, which here would leave nothing for the
+    // rows under it.
+    Row(Modifier.height(IntrinsicSize.Min)) {
         StatsItem(
             pluralStringResource(MR.plurals.day, charts.streaks.current, charts.streaks.current),
             stringResource(MR.strings.stats_current_streak),
@@ -208,6 +214,7 @@ private fun StatsReadingWeek(charts: StatsCharts) {
             stringResource(MR.strings.stats_longest_streak),
         )
     }
+    StatsPaceRow(charts.paces)
     Text(
         text = stringResource(
             MR.strings.stats_logged_since,
@@ -217,6 +224,28 @@ private fun StatsReadingWeek(charts: StatsCharts) {
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(top = MaterialTheme.padding.small),
     )
+}
+
+/** Each type's overall pace in its own measure, or Learning until three finished chapters say. */
+@Composable
+private fun StatsPaceRow(paces: List<StatsPace>) {
+    if (paces.isEmpty()) return
+    Row(Modifier.height(IntrinsicSize.Min)) {
+        paces.forEach { pace ->
+            val measure = pace.measure()
+            val isManga = pace.contentType == ContentType.MANGA
+            StatsItem(
+                title = when {
+                    measure == null -> stringResource(MR.strings.stats_pace_learning)
+                    isManga -> stringResource(MR.strings.seconds_short, measure.toInt())
+                    else -> measure.toString()
+                },
+                subtitle = stringResource(
+                    if (isManga) MR.strings.stats_pace_per_page else MR.strings.stats_pace_words_per_minute,
+                ),
+            )
+        }
+    }
 }
 
 /** One slice and its legend row; [onClick] opens the slice's series from its legend row. */

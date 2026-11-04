@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -36,8 +37,16 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.reader.ChapterPace
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderTimeLeft
+import reikai.domain.reader.chapterTimeLeft
 import reikai.domain.reader.seekTo
+import reikai.domain.readinglog.PACE_SAMPLE_LIMIT
+import reikai.domain.readinglog.PaceUnit
+import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.domain.readinglog.learnPace
+import tachiyomi.core.common.util.lang.withIOContext
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -54,6 +63,7 @@ class ReaderEngine(
     @Assisted val provider: ReaderProvider,
     private val uiPreferences: UiPreferences,
     getEntryCustomInfo: GetEntryCustomInfo,
+    private val paceRepository: ReadingPaceRepository,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -87,6 +97,29 @@ class ReaderEngine(
     /** Whether this session wants a progress readout while the chrome is hidden. */
     val showProgress: StateFlow<Boolean> =
         provider.showProgress.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    // Eager whether or not time left is shown, so a length is kept and the pace goes on learning while it
+    // is off, and turning it on finds a pace already known. Asked once a chapter, since history only
+    // changes when the reader moves to another one.
+    private val chapterPace: StateFlow<ChapterPace?> = provider.chapterLength
+        .distinctUntilChanged()
+        .mapLatest { length ->
+            length?.let {
+                withIOContext {
+                    paceRepository.setLength(it.contentType, it.chapterId, it.units)
+                    val samples = paceRepository.samples(it.contentType, PACE_SAMPLE_LIMIT)
+                    ChapterPace(it.units, learnPace(samples, it.entryId, PaceUnit.of(it.contentType)))
+                }
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The open chapter's time left while this session's setting asks for it, else null. */
+    val timeLeft: StateFlow<ReaderTimeLeft?> =
+        combine(provider.showTimeLeft, chapterPace, navigator) { show, pace, navigator ->
+            if (show) pace?.let { chapterTimeLeft(it, navigator.progress) } else null
+        }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Whether a chapter is loading or failed, which this raises as a dialog for the host to show. */
     private val loadState: StateFlow<ReaderLoadState> =

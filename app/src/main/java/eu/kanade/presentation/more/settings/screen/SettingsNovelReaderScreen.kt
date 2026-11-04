@@ -596,6 +596,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_show_reading_progress),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerShowTimeLeft(),
+                    title = stringResource(MR.strings.pref_show_time_left),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerBionicReading(),
                     title = stringResource(MR.strings.pref_bionic_reading),
                 ),

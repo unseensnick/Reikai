@@ -5,6 +5,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.merge.MergeBucket
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.readinglog.EntryReadDuration
+import reikai.domain.readinglog.ReadingPace
 import tachiyomi.domain.library.model.LibraryManga
 
 /** A [StatsLibrary] holding only what a test names, each library entry its own series. */
@@ -14,6 +15,8 @@ internal fun statsLibrary(
     customInfo: Map<EntryId, EntryCustomInfo> = emptyMap(),
     mangaReadDurations: List<EntryReadDuration> = emptyList(),
     novelReadDurations: List<EntryReadDuration> = emptyList(),
+    mangaPace: ReadingPace = ReadingPace.Learning,
+    novelPace: ReadingPace = ReadingPace.Learning,
 ) = StatsLibrary(
     manga = StatsSeries(manga.map { MergeBucket(null, listOf(it)) }, emptyMap()) { it.manga.id },
     novels = StatsSeries(novels.map { MergeBucket(null, listOf(it)) }, emptyMap()) { it.novel.id },
@@ -30,4 +33,6 @@ internal fun statsLibrary(
     novelSessions = emptyList(),
     mangaReadDurations = mangaReadDurations,
     novelReadDurations = novelReadDurations,
+    mangaPace = mangaPace,
+    novelPace = novelPace,
 )

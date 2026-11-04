@@ -658,6 +658,11 @@
     <string name="pref_double_tap_anim_speed">Double tap animation speed</string>
     <string name="pref_show_page_number">Show page number</string>
     <!-- RK: novel reader always-on reading percentage (twin of the manga page number) --><string name="pref_show_reading_progress">Show reading progress</string>
+    <!-- RK: the open chapter's time left at the reader's learned pace, for both readers -->
+    <string name="pref_show_time_left">Show time left in chapter</string>
+    <string name="reader_time_left">%1$s left</string>
+    <string name="reader_time_left_under_minute">Under a minute left</string>
+    <string name="reader_time_left_learning">Learning reading speed</string>
     <string name="pref_vertical_navigator">Use vertical chapter navigator in</string>
     <string name="pref_vertical_navigator_height">Vertical navigator height</string>
     <string name="pref_webtoon_vertical_navigator_on_left">Place vertical navigator on the left side</string>
@@ -1928,6 +1933,9 @@
     <string name="stats_most_read">Most read</string>
     <string name="stats_current_streak">Current streak</string>
     <string name="stats_longest_streak">Longest streak</string>
+    <string name="stats_pace_per_page">Time per page</string>
+    <string name="stats_pace_words_per_minute">Words per minute</string>
+    <string name="stats_pace_learning">Learning</string>
     <string name="stats_logged_since">Logged since %1$s</string>
     <string name="stats_reading_not_logged">Reading time per day is logged from now on</string>
     <string name="stats_see_all">See all</string>

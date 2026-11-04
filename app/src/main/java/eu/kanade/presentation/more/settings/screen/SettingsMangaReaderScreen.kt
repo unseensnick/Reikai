@@ -153,6 +153,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_show_page_number),
                 ),
                 // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.showTimeLeft,
+                    title = stringResource(MR.strings.pref_show_time_left),
+                ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.chapterTitleFormat,
                     entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },

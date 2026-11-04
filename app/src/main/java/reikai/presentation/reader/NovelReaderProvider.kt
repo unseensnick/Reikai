@@ -8,26 +8,33 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import logcat.LogPriority
+import org.jsoup.Jsoup
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.novel.tts.NovelTtsSession
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
+import reikai.domain.novel.text.NovelWords
+import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
@@ -132,6 +139,18 @@ class NovelReaderProvider(
     }
 
     override val showProgress: Flow<Boolean> = viewModel.settings.map { it.showProgressPercentage }
+
+    override val showTimeLeft: Flow<Boolean> = novelPreferences.readerShowTimeLeft().changes()
+
+    // Counted once a chapter, off the main thread: a chapter's text is parsed whole to count it.
+    override val chapterLength: Flow<ChapterLength?> = viewModel.chapter
+        .filterNotNull()
+        .distinctUntilChangedBy { it.chapterId }
+        .map { chapter ->
+            val words = NovelWords.count(Jsoup.parse(chapter.html).body().text()).toLong()
+            ChapterLength(ContentType.NOVELS, viewModel.novelId, chapter.chapterId, words).takeIf { words > 0 }
+        }
+        .flowOn(Dispatchers.Default)
 
     override val loadState: Flow<ReaderLoadState> = viewModel.loadState
 

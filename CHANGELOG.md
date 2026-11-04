@@ -65,6 +65,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** It reads Learning reading speed until you have finished three chapters.
 - **A mouse wheel now turns pages in paged novels.**
 
 #### Changed
@@ -113,6 +114,16 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Custom brightness in the reader stays off once you turn it off, in both readers (from Mihon).**
 
 - **A failed manga page only offers Open in WebView when the image came from the web (from Mihon).**
+
+### Statistics
+
+#### Added
+
+- **Statistics shows your reading speed: time per manga page and words per minute in novels.**
+
+#### Fixed
+
+- **Statistics' Reading this week card now shows the date reading time was first logged.**
 
 ### Browse
 

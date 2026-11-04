@@ -40,6 +40,7 @@ class StatsChartsTest {
         listOf(title),
         sessions,
         emptyList(),
+        emptyList(),
         emptyMap(),
         today,
         TimeZone.UTC,

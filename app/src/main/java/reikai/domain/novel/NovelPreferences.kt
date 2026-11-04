@@ -344,6 +344,8 @@ class NovelPreferences(
      *  which the shared engine draws for both. On by default (matches manga and LNReader). */
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
 
+    fun readerShowTimeLeft() = preferenceStore.getBoolean("ln_reader_show_time_left", false)
+
     /** How far into a chapter, as a whole percent, a novel counts it as read. */
     fun readerMarkReadPercent() = preferenceStore.getInt("ln_reader_mark_read_percent", CONTINUOUS_COMPLETE_PERCENT)
 
@@ -419,9 +421,9 @@ class NovelPreferences(
     /** Seconds per page while auto-scroll turns pages, in paged reading. */
     fun readerAutoScrollInterval() = preferenceStore.getInt("ln_reader_auto_scroll_interval", 5)
 
-    /** Scroll the chapter with the hardware volume keys (down = forward), the novel twin of the manga
-     *  reader's `readWithVolumeKeys`. Intercepted at the host window; off by default. Both readers answer it
-     *  through `volumeKeysActive`. */
+    /** Scroll the chapter with the hardware volume keys (down = forward), twin of the manga reader's
+     *  `readWithVolumeKeys`, pinned by `volumeKeysActive`, which both readers answer it through. Intercepted at
+     *  the host window; off by default. */
     fun readerUseVolumeButtons() = preferenceStore.getBoolean("ln_reader_use_volume_buttons", false)
 
     /** Swap which volume key scrolls forward vs back, mirroring `readWithVolumeKeysInverted`. */

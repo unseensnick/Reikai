@@ -5,6 +5,7 @@ import android.content.Intent
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.reader.ChapterLength
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -107,6 +108,15 @@ interface ReaderProvider {
      * stores its own answer, which is why the host cannot read one preference for both.
      */
     val showProgress: Flow<Boolean>
+
+    /** Whether to show the open chapter's time left beside that readout, likewise each type's own setting. */
+    val showTimeLeft: Flow<Boolean>
+
+    /**
+     * The open chapter's length in this type's pace unit, null until it has one. The engine learns the
+     * reading pace against it, and keeps it where the type stores no length of its own.
+     */
+    val chapterLength: Flow<ChapterLength?>
 
     /**
      * Whether a chapter is in flight and whether the last attempt failed. Shared because a blank

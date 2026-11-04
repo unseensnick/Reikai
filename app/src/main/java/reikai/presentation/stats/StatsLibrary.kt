@@ -23,7 +23,12 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.readinglog.EntryReadDuration
 import reikai.domain.readinglog.EntryReadingSession
+import reikai.domain.readinglog.PACE_SAMPLE_LIMIT
+import reikai.domain.readinglog.PaceUnit
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.ReadingPace
+import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.domain.readinglog.learnPace
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.badgeSource
@@ -36,6 +41,7 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
+import kotlin.math.roundToLong
 
 /** Both content types' libraries as Statistics reads them, loaded once per screen. */
 class StatsLibrary(
@@ -58,6 +64,8 @@ class StatsLibrary(
     private val novelSessions: List<EntryReadingSession>,
     private val mangaReadDurations: List<EntryReadDuration>,
     private val novelReadDurations: List<EntryReadDuration>,
+    private val mangaPace: ReadingPace,
+    private val novelPace: ReadingPace,
 ) {
     fun titles(type: ContentType): List<StatsTitle> = buildList {
         if (type.includes(ContentType.MANGA)) addAll(mangaTitles)
@@ -74,6 +82,12 @@ class StatsLibrary(
         }
     }
 
+    /** The overall reading pace of each type [type] includes, as the reader learns it for time left. */
+    fun paces(type: ContentType): List<StatsPace> = buildList {
+        if (type.includes(ContentType.MANGA)) add(StatsPace(ContentType.MANGA, mangaPace))
+        if (type.includes(ContentType.NOVELS)) add(StatsPace(ContentType.NOVELS, novelPace))
+    }
+
     /** Every series read, by lifetime reading time from history, longest first, keyed as [sessions] are. */
     fun mostRead(type: ContentType): List<ReadTitle> = buildList {
         if (type.includes(ContentType.MANGA)) {
@@ -84,6 +98,21 @@ class StatsLibrary(
         }
     }.sortedByDescending { it.readMs }
 }
+
+data class StatsPace(val contentType: ContentType, val pace: ReadingPace) {
+    /** Seconds a page for manga and words a minute for a novel, each at least 1; null while learning. */
+    fun measure(): Long? {
+        val msPerUnit = (pace as? ReadingPace.Known)?.msPerUnit ?: return null
+        val measure = when (contentType) {
+            ContentType.MANGA -> msPerUnit / MS_PER_SECOND
+            ContentType.NOVELS -> MS_PER_MINUTE / msPerUnit
+            ContentType.ALL -> error("ContentType.ALL has no pace")
+        }
+        return measure.roundToLong().coerceAtLeast(1)
+    }
+}
+
+private const val MS_PER_SECOND = 1_000.0
 
 /** A logged session and the series it counts under, named as the library names that series. */
 data class TitleReadingSession(val entryId: EntryId, val name: String, val session: EntryReadingSession)
@@ -143,6 +172,7 @@ class StatsLibraryLoader(
     private val getNovelTracks: GetNovelTracks,
     private val trackerManager: TrackerManager,
     private val readingLog: ReadingLogRepository,
+    private val paceRepository: ReadingPaceRepository,
     private val sourceManager: SourceManager,
     private val novelSourceManager: NovelSourceManager,
     private val getEntryCustomInfo: GetEntryCustomInfo,
@@ -243,8 +273,13 @@ class StatsLibraryLoader(
             novelSessions = novelSessions,
             mangaReadDurations = mangaReadDurations,
             novelReadDurations = novelReadDurations,
+            mangaPace = overallPace(ContentType.MANGA),
+            novelPace = overallPace(ContentType.NOVELS),
         )
     }
+
+    private suspend fun overallPace(type: ContentType): ReadingPace =
+        learnPace(paceRepository.samples(type, PACE_SAMPLE_LIMIT), entryId = null, PaceUnit.of(type))
 
     private suspend fun getMangaTrackMap(
         libraryManga: List<LibraryManga>,

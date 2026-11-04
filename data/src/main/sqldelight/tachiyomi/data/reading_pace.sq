@@ -1,0 +1,30 @@
+-- What reading pace is learned from: a finished chapter's time in history against its length. Manga
+-- keeps its length as chapter.page_count, written with progress; a novel chapter's word count is kept
+-- here, written when the reader opens it, since nothing else counts its words.
+CREATE TABLE novel_chapter_words(
+    chapter_id INTEGER NOT NULL PRIMARY KEY,
+    words INTEGER NOT NULL,
+    FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
+    ON DELETE CASCADE
+);
+
+setNovelWords:
+INSERT OR REPLACE INTO novel_chapter_words(chapter_id, words)
+VALUES (:chapterId, :words);
+
+mangaSamples:
+SELECT C.manga_id, H.read_duration, C.page_count
+FROM history H
+JOIN chapter C ON C.id = H.chapter_id
+WHERE C.user_read = 1 AND C.page_count > 0 AND H.read_duration > 0 AND H.read_at IS NOT NULL
+ORDER BY H.read_at DESC
+LIMIT :limit;
+
+novelSamples:
+SELECT C.novel_id, H.time_read, W.words
+FROM novel_history H
+JOIN novel_chapters C ON C._id = H.chapter_id
+JOIN novel_chapter_words W ON W.chapter_id = C._id
+WHERE C.read = 1 AND W.words > 0 AND H.time_read > 0 AND H.last_read IS NOT NULL
+ORDER BY H.last_read DESC
+LIMIT :limit;

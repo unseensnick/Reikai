@@ -520,6 +520,7 @@ class ReaderActivity : BaseActivity() {
         // RK: the session's own answer, so a novel gets its readout and its own setting decides it.
         val showProgress by engine.showProgress.collectAsState()
         val navigatorState by engine.navigator.collectAsState()
+        val timeLeft by engine.timeLeft.collectAsState() // RK
 
         // RK -->
         // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does. Null while
@@ -531,9 +532,11 @@ class ReaderActivity : BaseActivity() {
             Box(modifier = Modifier.fillMaxSize()) {
                 // RK: both from the engine. Read off manga's preference and manga's position, the
                 // readout never appeared in a novel session and its setting did nothing.
-                if (!state.menuVisible && showProgress) {
+                // RK: time left shows with the position or on its own, each behind its own setting.
+                if (!state.menuVisible && (showProgress || timeLeft != null)) {
                     ReaderPageIndicator(
-                        progress = navigatorState.progress,
+                        progress = navigatorState.progress.takeIf { showProgress },
+                        timeLeft = timeLeft,
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding(),
