@@ -644,6 +644,26 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertTrue("a volume-down moved $moved of the screen", moved in 0.08f..0.12f)
     }
 
+    /**
+     * The slowest auto-scroll moves under a device pixel a frame, which a page left to round each step
+     * loses on a screen over 60Hz and overshoots at 60Hz. 0.2 is CSS pixels a frame at 60Hz, so 12 a second.
+     */
+    @Test
+    fun theSlowestAutoScrollMovesAtItsSpeed() {
+        open(chapter(FIRST, long("first")))
+        instrumentation.runOnMainSync { (viewport as ReaderViewport).seekTo(ChapterProgress.Percent(2_000)) }
+        awaitScrollStill()
+        val autoScroll = (viewport as ReaderViewport).autoScroll as ViewportAutoScroll.Continuous
+        val before = scrollOffset()
+        instrumentation.runOnMainSync { autoScroll.run(SLOW_AUTO_SCROLL) }
+        Thread.sleep(AUTO_SCROLL_MS)
+        instrumentation.runOnMainSync { autoScroll.run(0f) }
+        val moved = scrollOffset() - before
+        val cssPixels = SLOW_AUTO_SCROLL * 60 * AUTO_SCROLL_MS / 1000f
+        val expected = if (renderer == Renderer.NATIVE) dp(1) * cssPixels else cssPixels
+        assertTrue("moved $moved, expected about $expected", moved in expected * 0.6f..expected * 1.4f)
+    }
+
     /** A drag is the reader scrolling, which the host hides its menu on past a threshold. */
     @Test
     fun aVerticalDragReportsTheReaderScrolling() {
@@ -3360,6 +3380,8 @@ class TextViewportContractTest(private val renderer: Renderer) {
         const val COVERED_UNITS = 120f
         const val STILL_SAMPLES = 3
         const val STILL_SAMPLE_MS = 150L
+        const val SLOW_AUTO_SCROLL = 0.2f
+        const val AUTO_SCROLL_MS = 4_000L
         const val LARGER_FONT = 24
 
         /** Past what a line's first character and its line box differ by, far short of one line. */

@@ -78,6 +78,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Auto-scroll at its slowest speeds now moves at the speed set in novels shown with WebView.** It stood still on some fast screens and ran ahead on others.
+
 - **Read from here in the novel reader now skips a paragraph whose last line sits under the top bar.**
 - **Paged novels now stay on your page through a rotation or a text size or margin change.** Each change used to move you back a page.
 - **Rotating with novel read-aloud paused no longer pulls you back to the paragraph it stopped on.**

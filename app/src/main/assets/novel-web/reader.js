@@ -1058,16 +1058,30 @@
    * a plain scrollBy starts an animation the next frame interrupts, which crawls and stutters.
    */
   var autoScroll = (function () {
-    var raf = null, rate = 0, last = 0;
+    var raf = null, rate = 0, last = 0, carry = 0;
+    // The distance is carried between frames and spent in whole device pixels, as FrameScroller does:
+    // the page rounds each step to one, so a slow speed on a fast screen otherwise never moves, and on
+    // a 60Hz one runs well over its speed. What actually moved is taken off, and a step that moves
+    // nothing (the chapter's end) drops the carry.
     function step(now) {
-      if (last) window.scrollBy({ top: rate * (now - last) / 1000, behavior: 'instant' });
+      if (last) {
+        carry += rate * (now - last) / 1000;
+        var ratio = window.devicePixelRatio || 1;
+        var whole = Math.trunc(carry * ratio) / ratio;
+        if (whole !== 0) {
+          var before = window.scrollY;
+          window.scrollBy({ top: whole, behavior: 'instant' });
+          var moved = window.scrollY - before;
+          carry = moved === 0 ? 0 : carry - moved;
+        }
+      }
       last = now;
       raf = requestAnimationFrame(step);
     }
     return {
       start: function (perFrame) {
         rate = perFrame * 60;
-        if (!raf) { last = 0; raf = requestAnimationFrame(step); }
+        if (!raf) { last = 0; carry = 0; raf = requestAnimationFrame(step); }
       },
       stop: function () {
         if (!raf) return;
