@@ -113,7 +113,8 @@ class FlareSolverrClient(
     // The login a failed probe ran under: a proxy 401 before the reader saved theirs says nothing once they have.
     @Volatile private var sessionlessUnder: String? = null
 
-    // What the banner said, for the address and login it was read under.
+    // What the banner said, for the address and login it was read under. Only an answer the server gave
+    // is kept: a probe that failed asks again next time, or one outage would keep POSTs off it until restart.
     @Volatile private var bannerUnder: Pair<String, Boolean>? = null
 
     private fun currentLogin(): String = flareSolverrAuthHeader(
@@ -147,7 +148,8 @@ class FlareSolverrClient(
     private fun speaksFlareSolverr(flareSolverrUrl: String): Boolean {
         val under = flareSolverrUrl + currentLogin()
         bannerUnder?.takeIf { it.first == under }?.let { return it.second }
-        return flareSolverrSupportsSessions(flareSolverrUrl).also { bannerUnder = under to it }
+        val answer = flareSolverrBanner(flareSolverrUrl) ?: return false
+        return answer.also { bannerUnder = under to it }
     }
 
     /**
@@ -310,14 +312,16 @@ class FlareSolverrClient(
     /**
      * True only for real FlareSolverr, whose root endpoint returns a JSON banner containing
      * "FlareSolverr". Byparr (and other sessionless solvers) return something else, so we skip the
-     * sessions.create command they can't handle. Failures default to false (go sessionless).
+     * sessions.create command they can't handle. Null when the server gave no answer: unreachable, or a
+     * server error such as a proxy's 502 while the solver boots.
      */
-    private fun flareSolverrSupportsSessions(flareSolverrUrl: String): Boolean = runCatching {
+    private fun flareSolverrBanner(flareSolverrUrl: String): Boolean? = runCatching {
         val req = Request.Builder().url("${flareSolverrUrl.trimEnd('/')}/").get().build()
         flareSolverrClient.newCall(req).execute().use { resp ->
+            if (resp.code >= 500) return@use null
             resp.isSuccessful && resp.body.string().contains("FlareSolverr", ignoreCase = true)
         }
-    }.getOrDefault(false)
+    }.getOrNull()
 
     private fun runFlareSolverrRequest(
         flareSolverrUrl: String,
