@@ -30,6 +30,7 @@ import reikai.presentation.stats.StatsShelf
 import reikai.presentation.stats.StatsShelfContent
 import reikai.presentation.stats.statsChartCards
 import reikai.presentation.stats.statsGroupCards
+import reikai.presentation.stats.statsReadingCard
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
 import tachiyomi.presentation.core.components.material.padding
@@ -76,7 +77,12 @@ fun StatsScreenContent(
                 ),
             )
         }
-        item { StatsShelfContent(StatsShelf.CHARTS, statsChartCards(state.charts, onSeeAll, onOpenKey, onOpenReading)) }
+        item {
+            StatsShelfContent(
+                StatsShelf.CHARTS,
+                statsChartCards(state.charts, onSeeAll, onOpenKey) + statsReadingCard(state.charts, onOpenReading),
+            )
+        }
         item {
             StatsShelfContent(
                 StatsShelf.LISTS,

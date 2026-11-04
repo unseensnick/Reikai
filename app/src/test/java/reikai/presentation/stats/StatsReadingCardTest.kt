@@ -48,12 +48,19 @@ class StatsReadingCardTest {
             today = today,
             timeZone = TimeZone.UTC,
         )
-        val card = statsChartCards(charts, onSeeAll = {}, onOpenKey = {}, onOpenReading = {}).last()
+        val card = statsReadingCard(charts, onOpenReading = {})
         compose.setContent {
             ComposeTestHost {
                 Column { card(Modifier.height(900.dp)) }
             }
         }
+    }
+
+    @Test
+    fun `the card shows the time read today`() {
+        show()
+
+        compose.onNodeWithText("Today").assertIsDisplayed()
     }
 
     @Test

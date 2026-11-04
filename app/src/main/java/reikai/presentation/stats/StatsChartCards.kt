@@ -75,12 +75,19 @@ import java.time.format.TextStyle
 /** One overview card; [fill] goes on its card body, so a shelf can stretch the body to its row's height. */
 typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
 
+/** Reading this week, the last of the chart cards. */
+fun statsReadingCard(charts: StatsCharts, onOpenReading: () -> Unit): StatsCard = { fill ->
+    StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
+    SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
+        StatsReadingWeek(charts)
+    }
+}
+
 /** The chart cards, each left out when it would draw nothing. */
 fun statsChartCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenKey: (StatsGroupKey) -> Unit,
-    onOpenReading: () -> Unit,
 ): List<StatsCard> = buildList {
     if (charts.status.isNotEmpty()) {
         add { fill ->
@@ -130,12 +137,6 @@ fun statsChartCards(
                     },
                 )
             }
-        }
-    }
-    add { fill ->
-        StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
-        SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
-            StatsReadingWeek(charts)
         }
     }
 }
@@ -214,6 +215,8 @@ private fun StatsReadingWeek(charts: StatsCharts) {
     // Intrinsic height: a StatsItem fills the height it is given, which here would leave nothing for the
     // rows under it.
     Row(Modifier.height(IntrinsicSize.Min)) {
+        // The week ends today, so its last day is the time read today.
+        StatsItem(statsDuration(charts.lastWeek.last().second), stringResource(MR.strings.relative_time_today))
         StatsItem(
             pluralStringResource(MR.plurals.day, charts.streaks.current, charts.streaks.current),
             stringResource(MR.strings.stats_current_streak),

@@ -182,6 +182,7 @@ class ScreenshotTest {
                 onRefresh = {},
                 showsClearHistory = false,
                 onClearHistory = {},
+                onStatsClicked = {},
             )
         }
         capture()

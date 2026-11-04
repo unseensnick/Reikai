@@ -55,6 +55,7 @@ import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.presentation.util.rememberIs24HourSystem
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.ui.category.CategoryScreen
+import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import eu.kanade.tachiyomi.util.lang.toLocalDate
 import eu.kanade.tachiyomi.util.lang.toTimestampString
 import kotlinx.coroutines.launch
@@ -235,6 +236,7 @@ fun Screen.RecentsScreen(
                 onRefresh = { scope.launch { refresh() } },
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
+                onStatsClicked = { navigator.push(StatsScreen()) },
             )
         },
         bottomBar = {
@@ -377,6 +379,7 @@ internal fun RecentsToolbar(
     onRefresh: () -> Unit,
     showsClearHistory: Boolean,
     onClearHistory: () -> Unit,
+    onStatsClicked: () -> Unit,
 ) {
     if (selectionCount > 0) {
         AppBar(
@@ -451,6 +454,8 @@ internal fun RecentsToolbar(
                             ),
                         )
                     }
+                    // Statistics otherwise sits under More, and reading time is what this screen is about.
+                    add(AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = onStatsClicked))
                 },
             )
         },

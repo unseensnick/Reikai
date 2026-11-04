@@ -122,6 +122,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Added
 
 - **Statistics shows your reading speed: time per manga page, and words per minute in novels, read and read aloud.**
+- **Statistics' Reading this week card shows your reading time today, and Statistics opens from the Library and Recents menus.**
 
 #### Fixed
 

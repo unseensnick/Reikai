@@ -40,6 +40,7 @@ fun LibraryToolbar(
     onClickRefreshTrackers: () -> Unit,
     // RK: opt-in "Update errors" overflow entry (null = hidden)
     onClickUpdateErrors: (() -> Unit)? = null,
+    onClickStats: () -> Unit, // RK: a shortcut to Statistics
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
@@ -62,6 +63,7 @@ fun LibraryToolbar(
         // RK: tracker refresh and the opt-in update-errors entry
         onClickRefreshTrackers = onClickRefreshTrackers,
         onClickUpdateErrors = onClickUpdateErrors,
+        onClickStats = onClickStats, // RK
         scrollBehavior = scrollBehavior,
     )
 }
@@ -79,6 +81,7 @@ private fun LibraryRegularToolbar(
     // RK: tracker refresh and the opt-in update-errors entry
     onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
+    onClickStats: () -> Unit, // RK
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
@@ -137,6 +140,8 @@ private fun LibraryRegularToolbar(
                             onClick = it,
                         )
                     },
+                    // RK: a shortcut to Statistics, which otherwise sits under More
+                    AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = onClickStats),
                 ),
             )
         },

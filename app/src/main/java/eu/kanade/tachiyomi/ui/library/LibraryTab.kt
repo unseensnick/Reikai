@@ -56,6 +56,7 @@ import eu.kanade.tachiyomi.ui.home.HomeScreen
 import eu.kanade.tachiyomi.ui.main.MainActivity
 import eu.kanade.tachiyomi.ui.manga.MangaScreen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
+import eu.kanade.tachiyomi.ui.stats.StatsScreen
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
@@ -471,6 +472,7 @@ data object LibraryTab : Tab {
                                 null
                             }
                         },
+                        onClickStats = { navigator.push(StatsScreen()) }, // RK
                         searchQuery = activeSearchQuery,
                         onSearchQueryChange = onSearch,
                         // For scroll overlay when no tab

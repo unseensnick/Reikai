@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
@@ -41,6 +42,7 @@ class RecentsToolbarTest {
                 onRefresh = {},
                 showsClearHistory = false,
                 onClearHistory = {},
+                onStatsClicked = { calls += "stats" },
             )
         }
     }
@@ -70,6 +72,16 @@ class RecentsToolbarTest {
         compose.onNodeWithContentDescription("Cancel").performClick()
 
         calls shouldBe listOf("cancel")
+    }
+
+    @Test
+    fun `the overflow opens Statistics`() {
+        showBar(selectionCount = 0)
+        compose.onNodeWithContentDescription("More options").performClick()
+
+        compose.onNodeWithText("Statistics").performClick()
+
+        calls shouldBe listOf("stats")
     }
 
     @Test
