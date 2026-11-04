@@ -42,7 +42,7 @@ A source you remove with the heart or from the library keeps its place in the gr
 ## Grouping series
 
 Grouping is on by default.
-Turn it off or back on with **Group series across sources**, in <nav to="library"> under **Merged series**, or in the library display sheet.
+Turn it off or back on with **Merge series across sources**, in <nav to="library"> under **Merged series**, or in the library display sheet.
 
 With it on, every group renders as one card.
 Turning it off expands each group back into its per-source entries and keeps the groups, so turning it on again collapses them exactly as they were.
@@ -62,7 +62,7 @@ Pick the entry it belongs with, and the new copy is added to your library and jo
 Adding from Browse, global search, a series' own details page, History or Updates, or MangaDex Follows.
 :::
 
-The **Add to existing group** option is controlled by **Suggest grouping same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**, and is also hidden while **Group series across sources** is off.
+The **Add to existing group** option is controlled by **Suggest merging same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**, and is also hidden while **Merge series across sources** is off.
 With it off, adding a matching series never offers to group it.
 
 ### Reading a merged card
@@ -125,7 +125,7 @@ Merge those by hand.
 
 The selection bar draws its actions as icons with no text beside them, so look for the shape rather than the word.
 The merge icon only appears once you have selected two or more entries **of the same type**, since a group is either manga or novels, never a mix.
-It is also hidden while **Group series across sources** is off.
+It is also hidden while **Merge series across sources** is off.
 
 The selected entries become one card and share one chapter list, read and bookmark marks, and chapter settings from then on. Moving the card to another category moves every source in it.
 

@@ -74,6 +74,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
         return listOfNotNull(
             getReadingGroup(novelPreferences = novelPref),
+            getDisplayGroup(novelPreferences = novelPref),
             getTapGroup(novelPreferences = novelPref, paged = true),
             getTapGroup(novelPreferences = novelPref, paged = false),
             getTextDisplayGroup(novelPreferences = novelPref),
@@ -82,7 +83,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
             // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
             readerFlashGroup(ReaderFlash.novel(novelPref)).takeIf { pageLayout.isPaged },
             getReadAloudGroup(novelPreferences = novelPref),
-            getAccessibilityGroup(novelPreferences = novelPref),
         )
     }
 
@@ -241,7 +241,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val fontLabel = remember(fontFamily, defaultFontLabel) { readerFontLabel(fontFamily, defaultFontLabel) }
 
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_category_text_display),
+            title = stringResource(MR.strings.pref_category_text),
             preferenceItems = listOf(
                 // Its own screen rather than a list dialog: it also imports, downloads and removes
                 // fonts, and a second place to pick one would be a second answer to the same question.
@@ -279,6 +279,11 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_paragraph_spacing_summary),
                     valueText = { tenthsLabel(it, "%.1fem") },
                 ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerBionicReading(),
+                    title = stringResource(MR.strings.pref_bionic_reading),
+                    subtitle = stringResource(MR.strings.pref_bionic_reading_summary),
+                ),
             ),
         )
     }
@@ -314,6 +319,10 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerHideChapterTitle(),
                     title = stringResource(MR.strings.pref_hide_chapter_title),
                     subtitle = stringResource(MR.strings.pref_hide_chapter_title_summary),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerRemoveExtraSpacing(),
+                    title = stringResource(MR.strings.pref_remove_extra_spacing),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerForceLowercase(),
@@ -388,7 +397,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
-        val fullscreen by novelPreferences.readerFullscreen().collectAsState()
         val pagedTaps by novelPreferences.readerTapLayout(paged = true).collectAsState()
         val scrollTaps by novelPreferences.readerTapLayout(paged = false).collectAsState()
 
@@ -431,26 +439,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_auto_load_next_at),
                     valueText = { "$it%" },
                 ).takeIf { seamless },
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerChapterTitleFormat(),
-                    entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
-                    title = stringResource(MR.strings.pref_chapter_title_format),
-                ),
-                Preference.PreferenceItem.ListPreference(
-                    preference = novelPreferences.readerDefaultOrientation(),
-                    entries = readerOrientationChoices.associate { it.flagValue to stringResource(it.stringRes) },
-                    title = stringResource(MR.strings.pref_rotation_type),
-                    subtitle = "%s",
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerFullscreen(),
-                    title = stringResource(MR.strings.pref_fullscreen),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerDrawUnderCutout(),
-                    title = stringResource(MR.strings.pref_cutout_short),
-                    visible = LocalView.current.hasDisplayCutout() && fullscreen,
-                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowTapZonesOnStart(),
                     title = stringResource(MR.strings.pref_show_navigation_mode),
@@ -582,11 +570,28 @@ object SettingsNovelReaderScreen : SearchableSettings {
         )
     }
 
+    /** What surrounds the page, in the order and under the name the manga screen gives them. */
     @Composable
-    private fun getAccessibilityGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup =
-        Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_category_accessibility),
+    private fun getDisplayGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val fullscreen by novelPreferences.readerFullscreen().collectAsState()
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_display),
             preferenceItems = listOf(
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerDefaultOrientation(),
+                    entries = readerOrientationChoices.associate { it.flagValue to stringResource(it.stringRes) },
+                    title = stringResource(MR.strings.pref_rotation_type),
+                    subtitle = "%s",
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerFullscreen(),
+                    title = stringResource(MR.strings.pref_fullscreen),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerDrawUnderCutout(),
+                    title = stringResource(MR.strings.pref_cutout_short),
+                    visible = LocalView.current.hasDisplayCutout() && fullscreen,
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerKeepScreenOn(),
                     title = stringResource(MR.strings.pref_keep_screen_on),
@@ -599,16 +604,14 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     preference = novelPreferences.readerShowTimeLeft(),
                     title = stringResource(MR.strings.pref_show_time_left),
                 ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerBionicReading(),
-                    title = stringResource(MR.strings.pref_bionic_reading),
-                ),
-                Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerRemoveExtraSpacing(),
-                    title = stringResource(MR.strings.pref_remove_extra_spacing),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerChapterTitleFormat(),
+                    entries = ChapterTitleFormat.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_chapter_title_format),
                 ),
             ),
         )
+    }
 }
 
 /** Custom's key in a colour list. Fully transparent, so no colour the picker writes can equal it. */

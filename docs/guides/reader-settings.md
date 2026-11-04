@@ -152,10 +152,10 @@ When you jump to the next chapter, marks the one you skipped as read.
 ### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
 Starts auto-scroll each time you open the reader. **Auto-scroll** in the reader's Controls tab starts or stops it until you leave the reader, without changing this setting, and so does its bottom bar button once you add it under **Bottom bar buttons**. It pauses while the menu is open and while your finger is on the screen.
 
-### Page turn interval <Badge type="info" text="5 s" />
+### Auto-scroll page interval <Badge type="info" text="5 s" />
 Paged modes only. How long a page stays on screen before auto-scroll turns it, counted from when the page has loaded, so it never turns past a page that is still loading.
 
-### Scroll speed <Badge type="info" text="1.0x" />
+### Auto-scroll speed <Badge type="info" text="1.0x" />
 Long strip modes only. How fast auto-scroll moves the strip. It waits at a page that is still loading and scrolls on past one that failed, so its Retry button comes into view.
 
 ### Auto webtoon mode <Badge type="info" text="On" />

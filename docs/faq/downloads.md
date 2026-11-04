@@ -14,10 +14,10 @@ Two settings in <nav to="downloads"> control this for manga, and both start cons
 
 Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
 
-Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Pacing · Novels**.
+Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Download delays · Novels**.
 
 ## How do I slow novel downloads down?
-Novel sources do not limit their own request rate the way manga extensions do, so a fast queue can get you blocked. The **Pacing · Novels** group in <nav to="downloads"> sets the wait between novel chapter downloads. It has no effect on manga.
+Novel sources do not limit their own request rate the way manga extensions do, so a fast queue can get you blocked. The **Download delays · Novels** group in <nav to="downloads"> sets the wait between novel chapter downloads. It has no effect on manga.
 
 * **Delay between chapters** applies to every novel source. It defaults to 0.5 s, and goes up to 10 s.
 * **Delay per source** lists your novel sources so you can give one its own delay. A source that declares a minimum shows **Needs at least** that much, and its choices never go below it.

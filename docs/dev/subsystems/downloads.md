@@ -42,7 +42,7 @@ Error notices follow Mihon on "Hide notification content" and keep the title. Re
 
 ### Pacing
 
-Settings, Downloads, Pacing sets the shortest wait between two chapters from one novel source, globally and per source (`NovelSourceDelaysScreen`), never below the source's declared minimum. `NovelDownloadPacing` adapts above that floor: halving toward it after a success, doubling after a failure up to 30 seconds. The drain adds up to a quarter more at random, so the set delay stays a minimum. Novels only.
+Settings, Downloads, Download delays sets the shortest wait between two chapters from one novel source, globally and per source (`NovelSourceDelaysScreen`), never below the source's declared minimum. `NovelDownloadPacing` adapts above that floor: halving toward it after a success, doubling after a failure up to 30 seconds. The drain adds up to a quarter more at random, so the set delay stays a minimum. Novels only.
 
 ### Storage layout and names
 

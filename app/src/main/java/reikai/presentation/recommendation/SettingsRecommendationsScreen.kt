@@ -209,6 +209,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 Preference.PreferenceItem.SliderPreference(
                     preference = prefs.recommendationStyle,
                     title = stringResource(MR.strings.pref_recommendation_style),
+                    subtitle = stringResource(MR.strings.pref_recommendation_style_summary),
                     valueText = { "$it%" },
                     valueRange = 0..100,
                     visible = rerank,
@@ -216,6 +217,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 Preference.PreferenceItem.SliderPreference(
                     preference = prefs.serendipity,
                     title = stringResource(MR.strings.pref_serendipity),
+                    subtitle = stringResource(MR.strings.pref_serendipity_summary),
                     valueText = { "$it%" },
                     valueRange = 0..100,
                     visible = rerank,
@@ -232,12 +234,10 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.hideInLibraryRecommendations,
                     title = stringResource(MR.strings.pref_hide_in_library_recommendations),
-                    subtitle = stringResource(MR.strings.pref_hide_in_library_recommendations_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.hideTrackedReadingCompleted,
                     title = stringResource(MR.strings.pref_hide_tracked_reading_completed),
-                    subtitle = stringResource(MR.strings.pref_recommendation_filters_summary),
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.hideTrackedDropped,

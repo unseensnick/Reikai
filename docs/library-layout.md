@@ -42,7 +42,7 @@ These add small badges to each cover:
 | **Show source icons on merged covers** | every source behind a [merged series](multi-source.md) | On |
 | **Continue reading button** | a button on the cover that opens the next chapter | Off |
 
-**Group series across sources** also sits in this section. It is described with [merged series](multi-source.md).
+**Merge series across sources** also sits in this section. It is described with [merged series](multi-source.md).
 
 ### Tabs
 

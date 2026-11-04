@@ -14,14 +14,14 @@ Most of these can also be changed while reading: open a chapter, tap the middle 
 
 ## Reading
 
-### Rendering mode <Badge type="info" text="Native text" />
+### Chapter display <Badge type="info" text="Native text" />
 How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. Changing it from the reader's settings sheet rebuilds the reader in place, at the same position.
 
 ### Reading mode <Badge type="info" text="Scrolling" />
 **Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. Changing it from the reader's settings sheet rebuilds the reader at the same place.
 
 ### Select text by long press <Badge type="info" text="Off" />
-Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Rendering mode**, it takes effect at once.
+Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once.
 
 ### Continuous chapters <Badge type="info" text="On" />
 Scrolls straight on into the next chapter. Off makes each chapter its own page.
@@ -29,20 +29,8 @@ Scrolls straight on into the next chapter. Off makes each chapter its own page.
 ### Always show chapter transition <Badge type="info" text="On" />
 Shows the marker between two chapters every time, not only where chapters are missing. Only shown while **Continuous chapters** is on.
 
-### Add the next chapter at <Badge type="info" text="95%" />
+### Load the next chapter after reading <Badge type="info" text="95%" />
 How far into a chapter you have to read before the next one appears below it. A chapter shorter than the screen adds the next one straight away. Only shown while **Continuous chapters** is on.
-
-### Chapter title <Badge type="info" text="Name" />
-What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**.
-
-### Default rotation <Badge type="info" text="Free" />
-How the screen is oriented. It offers the same choices as the manga reader.
-
-### Fullscreen <Badge type="info" text="On" />
-Lets the page extend under the status and navigation bars.
-
-### Show content in cutout area <Badge type="info" text="On" />
-Draws the page into the camera cutout. Only available on a device with a cutout, while **Fullscreen** is on.
 
 ### Show tap zones overlay <Badge type="info" text="Off" />
 Briefly shows the tap zones when the reader opens. The overlay always shows when you change the layout you are reading with; this only adds it on opening. Hidden while both the **Paged** and the **Scrolling** tap zones are **Disabled**.
@@ -65,14 +53,37 @@ When you jump to the next chapter, marks the one you skipped as read.
 ### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
 Starts scrolling the text on its own each time you open the reader. The **Auto-scroll** checkbox in the reader's Controls tab, and the **Auto-scroll** button once you add it under **Bottom bar buttons**, start or stop it until you leave the reader without changing this setting. It pauses while the menu is open, while your finger is on the screen and during read aloud.
 
-### Scroll speed <Badge type="info" text="1.0x" />
-How fast auto-scroll moves the text. While reading a page at a time, **Page turn interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
+### Auto-scroll speed <Badge type="info" text="1.0x" />
+How fast auto-scroll moves the text. While reading a page at a time, **Auto-scroll page interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
 
 ### Bottom bar buttons
 Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off.
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
+
+## Display
+
+### Default rotation <Badge type="info" text="Free" />
+How the screen is oriented. It offers the same choices as the manga reader.
+
+### Fullscreen <Badge type="info" text="On" />
+Lets the page extend under the status and navigation bars.
+
+### Show content in cutout area <Badge type="info" text="On" />
+Draws the page into the camera cutout. Only available on a device with a cutout, while **Fullscreen** is on.
+
+### Keep screen on <Badge type="info" text="Off" />
+Keeps the screen from going to sleep while reading a novel.
+
+### Show reading progress <Badge type="info" text="On" />
+Shows how far through the chapter you are.
+
+### Show time left in chapter <Badge type="info" text="Off" />
+Shows how long the rest of the chapter should take, from your reading speed in the chapters you finished. It reads **Learning reading speed** until you have finished three chapters opened after updating, since a chapter's length is counted when you open it.
+
+### Chapter title <Badge type="info" text="Name" />
+What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**.
 
 ## Paged
 
@@ -110,7 +121,7 @@ The same setting as under **Paged**, shown for the **Bottom** layout.
 ### Swipe between chapters <Badge type="info" text="Off" />
 Swipe sideways to move to the previous or next chapter.
 
-## Text display
+## Text
 
 ### Font <Badge type="info" text="Default" />
 Opens the font list, with **Built in** fonts and **Your fonts**, each drawn in its own face. **Default** is your device's font, or the source's own. Adding and removing fonts is covered in [the guide](/docs/novel-reader#fonts).
@@ -130,6 +141,9 @@ Indents the first line of every paragraph, as a multiple of your text size.
 ### Paragraph spacing <Badge type="info" text="1.5em" />
 The gap between paragraphs, as a multiple of your text size.
 
+### Bionic reading <Badge type="info" text="Off" />
+Bolds the first part of each word, which some readers find easier to track.
+
 ## Theme
 
 Set in the reader itself: the **Appearance** tab of the settings sheet, or the theme button on the bottom bar.
@@ -144,6 +158,9 @@ These change a chapter before it is shown. Several only exist for **WebView**, b
 
 ### Hide repeated chapter title <Badge type="info" text="Off" />
 Drops a heading at the top of a chapter that just repeats its name.
+
+### Remove blank lines between paragraphs <Badge type="info" text="Off" />
+Strips the blank space some sources leave between paragraphs.
 
 ### Force lowercase <Badge type="info" text="Off" />
 Shows the whole chapter in lowercase.
@@ -160,11 +177,11 @@ Keeps a chapter's CSS instead of stripping it. **WebView** only.
 ### Run scripts a chapter embeds <Badge type="info" text="Off" />
 Usually leftover code from the source page rather than part of the chapter. **WebView** only.
 
-### Chapter styling wins <Badge type="info" text="Off" />
+### Chapter styling overrides yours <Badge type="info" text="Off" />
 Lets the chapter's size, colour and spacing override yours. **WebView** only.
 
 ### Use the chapter's own fonts <Badge type="info" text="Off" />
-Keeps the typeface a chapter asks for. **WebView** only, and hidden while **Chapter styling wins** is on, since the chapter's styling already decides the font.
+Keeps the typeface a chapter asks for. **WebView** only, and hidden while **Chapter styling overrides yours** is on, since the chapter's styling already decides the font.
 
 ### Show raw HTML <Badge type="info" text="Off" />
 Shows a chapter's markup as text.
@@ -192,7 +209,7 @@ How quickly you have to scroll before the menu hides: **Highest** hides it on th
 ### Show chapter navigator <Badge type="info" text="On" />
 Shows the progress slider or the vertical navigator. While reading a page at a time it is always a slider above the buttons, showing the page you are on and the chapter's page count. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.
 
-### Vertical chapter navigator <Badge type="info" text="On" />
+### Use vertical chapter navigator <Badge type="info" text="On" />
 Shows a vertical progress slider at the side of the screen while scrolling. Hidden while reading a page at a time, along with the two settings below it, which only appear while it is on.
 
 ### Place vertical navigator on the left side <Badge type="info" text="Off" />
@@ -237,27 +254,10 @@ How fast and how high the voice reads.
 Keeps reading into the next chapter when one ends.
 
 ### Keep paragraph in view <Badge type="info" text="On" />
-Scrolls the paragraph being read back on screen when it moves off. **Scroll to top** <Badge type="info" text="On" /> below it puts that paragraph at the top rather than the middle.
+Scrolls the paragraph being read back on screen when it moves off. **Keep the paragraph at the top** <Badge type="info" text="On" /> below it puts that paragraph at the top rather than the middle.
 
 ### Highlight paragraph <Badge type="info" text="On" />
 Marks the paragraph being read. With it on, **Highlight style** <Badge type="info" text="Background" /> picks a background, an underline or an outline, **Highlight color** picks its colour, and **Text color** sets the text drawn over a background highlight.
 
 ### Highlight sentence <Badge type="info" text="Off" />
 Marks only the sentence being read instead of its whole paragraph, in the same style and colours. It sends the text to the voice one sentence at a time, so some engines pause slightly between sentences. Only shown while **Highlight paragraph** is on.
-
-## Accessibility
-
-### Keep screen on <Badge type="info" text="Off" />
-Keeps the screen from going to sleep while reading a novel.
-
-### Show reading progress <Badge type="info" text="On" />
-Shows how far through the chapter you are.
-
-### Show time left in chapter <Badge type="info" text="Off" />
-Shows how long the rest of the chapter should take, from your reading speed in the chapters you finished. It reads **Learning reading speed** until you have finished three chapters opened after updating, since a chapter's length is counted when you open it.
-
-### Bionic reading <Badge type="info" text="Off" />
-Bolds the first part of each word, which some readers find easier to track.
-
-### Remove extra spacing <Badge type="info" text="Off" />
-Strips the blank space some sources leave between paragraphs.

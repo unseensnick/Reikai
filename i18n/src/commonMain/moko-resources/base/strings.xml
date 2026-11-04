@@ -180,25 +180,25 @@
     <string name="merge_unified">Unified</string>
     <string name="action_merge_source_icons">Show source icons on merged covers</string>
     <!-- RK: master merging switch (Phase 5) -->
-    <string name="action_series_merging">Group series across sources</string>
+    <string name="action_series_merging">Merge series across sources</string>
     <string name="pref_series_merging_summary">Collapse the same series from different sources into one entry</string>
     <!-- RK: add-time grouping prompt (Phase 5) -->
     <string name="action_add_to_group">Add to existing group</string>
     <string name="action_add_to_group_hint">Pick the entries it belongs with</string>
     <string name="action_add_to_group_selected">%1$d picked</string>
-    <string name="pref_suggest_group_same_title">Suggest grouping same-titled series</string>
-    <string name="pref_suggest_group_same_title_summary">Offer to group a new series with a matching library entry</string>
+    <string name="pref_suggest_group_same_title">Suggest merging same-titled series</string>
+    <string name="pref_suggest_group_same_title_summary">Offer to merge a new series with a matching library entry</string>
     <!-- RK: novel merge (P5 S8) -->
     <string name="pref_clear_merges">Clear all merges</string>
     <string name="pref_clear_merges_summary">Split every merged series back into separate per-source entries</string>
     <string name="merges_cleared">Merged series cleared</string>
     <string name="pref_repair_novel_details">Repair novel details</string>
-    <string name="pref_repair_novel_details_summary">Find novels showing another novel\'s title or cover and re-fetch them from their own source.</string>
+    <string name="pref_repair_novel_details_summary">Re-fetch novels showing another novel's title or cover</string>
     <string name="novel_details_repair_none">No affected novels found</string>
     <string name="novel_details_repair_done">Refreshed %1$d of %2$d affected novels</string>
     <string name="related_mangas">Related</string>
     <string name="pref_preferred_sources">Preferred sources</string>
-    <string name="pref_preferred_sources_summary">Rank sources to pick which one leads a merged chapter list</string>
+    <string name="pref_preferred_sources_summary">Rank which source a merged series takes its chapters from first</string>
     <string name="pref_preferred_sources_guide">Higher-ranked sources lead a merged series\' combined chapter list. Unranked sources fall back to the one with the most chapters.</string>
     <string name="pref_preferred_sources_empty">No sources ranked yet</string>
     <string name="pref_preferred_sources_add">Add a source</string>
@@ -216,7 +216,7 @@
     <string name="pref_include_tracker_recommendations">Tracker recommendations</string>
     <string name="pref_include_tracker_recommendations_summary">Suggest similar manga from your trackers</string>
     <string name="pref_taste_profile">Taste profile</string>
-    <string name="pref_tracker_library_auto_refresh">Auto-refresh library</string>
+    <string name="pref_tracker_library_auto_refresh">Refresh tracker lists automatically</string>
     <string name="pref_update_monthly">Monthly</string>
     <string name="pref_refresh_now">Refresh now</string>
     <string name="pref_refresh_now_summary">Pull your tracker libraries now</string>
@@ -225,16 +225,16 @@
     <string name="pref_inject_cross_recommendation">Because you\'re reading…</string>
     <string name="pref_inject_cross_recommendation_summary">Also suggest what your highly rated titles are similar to</string>
     <string name="pref_inject_tag_search">Matching your taste</string>
-    <string name="pref_inject_tag_search_summary">For a tracked manga, search this source for the genres you enjoy</string>
-    <string name="pref_recommendation_reranking">Reranking</string>
+    <string name="pref_inject_tag_search_summary">Adds this source's titles in genres you like, for tracked manga</string>
+    <string name="pref_recommendation_reranking">Taste ranking</string>
     <string name="pref_enable_recommendation_rerank">Rerank by taste</string>
     <string name="pref_enable_recommendation_rerank_summary">Reorder suggestions toward your taste profile</string>
-    <string name="pref_recommendation_style">Recommendation style</string>
-    <string name="pref_serendipity">Serendipity</string>
+    <string name="pref_recommendation_style">Personal over popular</string>
+    <string name="pref_recommendation_style_summary">Higher favors your taste over what is popular</string>
+    <string name="pref_serendipity">Picks outside your taste</string>
+    <string name="pref_serendipity_summary">Share of suggestions kept outside your taste</string>
     <string name="pref_recommendation_filters">Filters</string>
     <string name="pref_hide_in_library_recommendations">Hide manga already in my library</string>
-    <string name="pref_hide_in_library_recommendations_summary">Hide suggestions already in your library</string>
-    <string name="pref_recommendation_filters_summary">Hide already-tracked manga from suggestions by their status</string>
     <string name="pref_hide_tracked_reading_completed">Hide reading &amp; completed</string>
     <string name="pref_hide_tracked_dropped">Hide dropped</string>
     <string name="pref_hide_tracked_on_hold">Hide on-hold</string>
@@ -419,7 +419,7 @@
     <string name="pref_category_reader">Reader</string>
     <!-- RK: the two per-content-type reader settings screens, reached from the Reader screen. -->
     <string name="pref_category_manga_reader">Manga reader</string>
-    <string name="pref_category_manga_reader_summary">Viewers, page layout, tap zones and E-Ink</string>
+    <string name="pref_category_manga_reader_summary">Reading modes, page layout, tap zones and E-Ink</string>
     <string name="pref_category_novel_reader">Novel reader</string>
     <string name="pref_category_novel_reader_summary">Text display, scrolling and accessibility</string>
     <string name="pref_category_downloads">Downloads</string>
@@ -461,10 +461,10 @@
     <string name="theme_yotsuba">Yotsuba</string>
     <string name="theme_tidalwave">Tidal Wave</string>
     <string name="pref_dark_theme_pure_black">Pure black dark mode</string>
-    <!-- RK --><string name="pref_shown_content">Show</string>
+    <!-- RK --><string name="pref_shown_content">Content shown</string>
     <!-- RK --><string name="pref_theme_cover_based">Theme based on cover</string>
     <string name="pref_theme_cover_based_summary">Tint the reader and details screens with the cover\'s color</string>
-    <string name="pref_theme_cover_based_style">Cover based theme style</string><!-- RK -->
+    <string name="pref_theme_cover_based_style">Cover color style</string><!-- RK -->
     <string name="pref_relative_format">Relative timestamps</string>
     <!-- "Today" instead of "2023-12-31" -->
     <string name="pref_relative_format_summary">\"%1$s\" instead of \"%2$s\"</string>
@@ -479,7 +479,7 @@
     <string name="pref_display_images_description">Render images in manga descriptions</string>
     <!-- RK: adult-source gallery page previews -->
     <string name="pref_previews_row_count">Page preview rows</string>
-    <string name="pref_previews_row_count_summary">Rows of gallery page thumbnails on the details screen for adult sources (0 to hide)</string>
+    <string name="pref_previews_row_count_summary">Thumbnail rows on adult sources' details pages, 0 hides them</string>
     <string name="more_previews">More previews</string>
     <string name="page_previews">Page previews</string>
     <string name="page_preview_page_go_to">Go to page</string>
@@ -690,11 +690,12 @@
     <string name="auto_webtoon_snack">Reading webtoon style</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
     <string name="pref_auto_scroll">Auto-scroll</string>
-    <string name="pref_auto_scroll_speed">Scroll speed</string>
+    <string name="pref_auto_scroll_speed">Auto-scroll speed</string>
     <string name="pref_auto_scroll_on_open">Start auto-scroll when opening a chapter</string>
-    <string name="pref_auto_scroll_interval">Page turn interval</string>
+    <string name="pref_auto_scroll_interval">Auto-scroll page interval</string>
     <string name="pref_auto_scroll_paged_only">Paged modes only</string>
     <string name="pref_bionic_reading">Bionic reading</string>
+    <string name="pref_bionic_reading_summary">Bolds the start of each word</string>
     <string name="pref_reader_text_size">Text size</string>
     <!-- RK: the in-reader settings sheet's +/- steppers -->
     <string name="action_decrease">Decrease</string>
@@ -715,7 +716,6 @@
     <!-- RK: shown when a chapter fails to load while the reader is already open -->
     <string name="chapter_load_failed">Couldn\'t load this chapter</string>
     <!-- RK: novel text display, applied by whichever renderer draws the chapter -->
-    <string name="pref_category_text_display">Text display</string>
     <string name="pref_novel_font">Font</string>
     <string name="pref_novel_font_default">Default</string>
     <string name="pref_novel_font_default_summary">Your device's font, or the source's own</string>
@@ -778,23 +778,23 @@
     <string name="pref_block_media">Block images and video</string>
     <string name="pref_block_media_summary">Skip media a chapter embeds, for text-only reading or to save data</string>
     <string name="pref_keep_embedded_css">Use the chapter\'s own styling</string>
-    <string name="pref_keep_embedded_css_summary">Keeps a chapter\'s CSS instead of stripping it</string>
+    <string name="pref_keep_embedded_css_summary">Keeps the source's own fonts, colors and layout</string>
     <string name="pref_keep_embedded_js">Run scripts a chapter embeds</string>
-    <string name="pref_keep_embedded_js_summary">Usually leftover code from the source page rather than part of the chapter</string>
-    <string name="pref_source_css_priority">Chapter styling wins</string>
-    <string name="pref_source_css_priority_summary">Its size, colour and spacing override yours</string>
+    <string name="pref_keep_embedded_js_summary">Rarely needed, most are leftovers from the source page</string>
+    <string name="pref_source_css_priority">Chapter styling overrides yours</string>
+    <string name="pref_source_css_priority_summary">Its text size, color and spacing replace your settings</string>
     <string name="pref_use_original_fonts">Use the chapter\'s own fonts</string>
     <string name="pref_use_original_fonts_summary">Keeps the typeface a chapter asks for</string>
     <string name="pref_auto_split_text">Split walls of text</string>
     <string name="pref_auto_split_text_summary">Add paragraph breaks to chapters that arrive as one unbroken block</string>
     <string name="pref_auto_split_word_count">Words before a split</string>
-    <string name="pref_novel_rendering_mode">Rendering mode</string>
+    <string name="pref_novel_rendering_mode">Chapter display</string>
     <!-- Do not translate "WebView" -->
     <string name="pref_novel_rendering_mode_webview">WebView</string>
     <string name="pref_novel_rendering_mode_native">Native text</string>
     <string name="pref_novel_text_selectable">Select text by long press</string>
-    <string name="pref_novel_text_selectable_summary">In Native text, links stop responding to taps</string>
-    <string name="pref_novel_auto_load_next_at">Add the next chapter at</string>
+    <string name="pref_novel_text_selectable_summary">Links stop responding to taps</string>
+    <string name="pref_novel_auto_load_next_at">Load the next chapter after reading</string>
     <string name="novel_page_layout_scroll">Scrolling</string>
     <string name="pref_novel_seamless_chapters">Continuous chapters</string>
     <string name="pref_novel_seamless_chapters_summary">Scroll straight on into the next chapter</string>
@@ -818,7 +818,7 @@
     <string name="pref_tts_rate">Speed</string>
     <string name="pref_tts_pitch">Pitch</string>
     <string name="pref_tts_auto_page_advance">Continue to the next chapter</string>
-    <string name="pref_tts_scroll_to_top">Scroll to top</string>
+    <string name="pref_tts_scroll_to_top">Keep the paragraph at the top</string>
     <string name="pref_tts_scroll_to_top_summary">Puts the paragraph being read at the top, not the middle</string>
     <string name="pref_tts_keep_in_view">Keep paragraph in view</string>
     <string name="pref_tts_highlight">Highlight paragraph</string>
@@ -838,7 +838,6 @@
     <string name="tts_color_gray">Gray</string>
     <string name="tts_color_dark">Dark</string>
     <string name="tts_color_light">Light</string>
-    <string name="pref_category_accessibility">Accessibility</string>
     <!-- RK: the novel reader's tap layouts beside Mihon's -->
     <string name="nav_thirds">Top and bottom</string>
     <string name="nav_center">Center</string>
@@ -847,19 +846,19 @@
     <string name="pref_tap_bottom_zone_height">Bottom zone height</string>
     <!-- RK: what the reader's bar calls the open chapter -->
     <string name="pref_chapter_title_format">Chapter title</string>
-    <string name="pref_novel_use_rail">Vertical chapter navigator</string>
+    <string name="pref_novel_use_rail">Use vertical chapter navigator</string>
     <string name="action_scroll_to_top">Scroll to top</string>
     <string name="action_edit_bottom_buttons">Edit bottom bar</string>
     <string name="pref_novel_mark_read_percent">Mark chapter read at</string>
     <string name="pref_novel_show_raw_html">Show raw HTML</string>
     <string name="pref_novel_show_raw_html_summary">Shows a chapter's markup as text</string>
     <string name="pref_novel_webview_dev_tools">Novel web page developer tools</string>
-    <string name="pref_novel_webview_dev_tools_summary">Shows script errors and lets a connected computer inspect every web page in the app. Takes effect on the next chapter opened</string>
+    <string name="pref_novel_webview_dev_tools_summary">Shows script errors and lets a connected computer inspect every web page in the app</string>
     <string name="chapter_title_number">Number</string>
     <string name="chapter_title_number_and_name">Number and name</string>
     <string name="chapter_title_numbered">Ch. %1$s: %2$s</string>
     <string name="pref_swipe_between_chapters">Swipe between chapters</string>
-    <string name="pref_remove_extra_spacing">Remove extra spacing</string>
+    <string name="pref_remove_extra_spacing">Remove blank lines between paragraphs</string>
     <string name="pref_preserve_reading_position">Resume reading position</string>
     <string name="pref_preserve_reading_position_summary">Reopen chapters at your last position, even ones already marked read</string>
     <string name="pref_reader_preload_size">Pages to load ahead off Wi-Fi</string><!-- RK -->
@@ -995,7 +994,7 @@
     <string name="download_ahead">Download ahead</string>
     <string name="auto_download_while_reading">Auto download while reading</string>
     <string name="download_ahead_info">Only works if the current chapter + the next one are already downloaded.</string>
-    <string name="pref_category_download_pacing">Pacing</string>
+    <string name="pref_category_download_pacing">Download delays</string>
     <string name="pref_novel_chapter_delay">Delay between chapters</string>
     <string name="pref_novel_source_delay">Delay per source</string>
     <string name="pref_novel_source_delay_none">No source has its own delay</string>
@@ -1013,7 +1012,7 @@
     <string name="pref_auto_update_manga_sync">Update progress after reading</string>
     <string name="pref_auto_update_manga_on_mark_read">Update progress when marked as read</string>
     <!-- RK: extensions that sync reading to their own site -->
-    <string name="pref_source_tracker_on_migration">Tell source sites about migrations</string>
+    <string name="pref_source_tracker_on_migration">Update source sites after migrating</string>
     <string name="pref_source_tracker_on_migration_summary">For extensions that sync reading to their own site</string>
     <string name="source_tracker_failed">%1$s couldn&apos;t sync to its site: %2$s</string>
     <string name="services">Trackers</string>
@@ -1023,7 +1022,7 @@
     <string name="pref_novelupdates_custom_lists">Use my own NovelUpdates lists</string>
     <string name="pref_novelupdates_custom_lists_summary">Pick which list each status moves a novel to</string>
     <string name="pref_novelupdates_configure_lists">Match statuses to lists</string>
-    <string name="pref_novelupdates_configure_lists_summary">Tap a status to move it to your next list</string>
+    <string name="pref_novelupdates_configure_lists_summary">Choose which list each reading status goes to</string>
     <string name="pref_novelupdates_never_backwards">Never move progress back</string>
     <string name="pref_novelupdates_never_backwards_summary">Reading an earlier chapter leaves NovelUpdates where it is</string>
     <string name="pref_novelupdates_unread_push">Move back on unread</string>
@@ -1177,8 +1176,8 @@
     <string name="pref_verbose_logging_summary">Print verbose logs to system log (reduces app performance)</string>
     <string name="pref_redact_sensitive_headers">Redact sensitive headers</string>
     <string name="pref_redact_sensitive_headers_summary">Redacts certain sensitive values in the logs. Keep enabled for your security when sharing logs with other people.</string>
-    <string name="pref_track_update_errors">Track update errors</string>
-    <string name="pref_track_update_errors_summary">Keep a list of entries that fail to update, opened from the notification</string>
+    <string name="pref_track_update_errors">Keep a list of failed updates</string>
+    <string name="pref_track_update_errors_summary">Opened from the update notification</string>
     <string name="label_update_errors">Update errors</string>
     <string name="info_empty_update_errors">No update errors</string>
     <string name="action_clear">Clear</string>
@@ -1741,7 +1740,7 @@
     <string name="no_rating">No rating</string>
     <string name="pref_enable_adult_sources">Enable adult sources (E-Hentai)</string>
     <string name="pref_enable_adult_sources_summary">Adds the built-in E-Hentai sources to Browse. ExHentai also needs a sign-in.</string>
-    <string name="toggle_delegated_sources">Enable delegated sources</string>
+    <string name="toggle_delegated_sources">Use enhanced sources</string>
     <string name="toggle_delegated_sources_summary">Apply %1$s enhancements to the following sources if they are installed: %2$s</string>
     <string name="recheck_login_status">Recheck login status</string>
     <string name="alternative_login_page">Alternative login page</string>
@@ -1815,8 +1814,8 @@
     <string name="use_hentai_at_home_option_1">Any client (Recommended)</string>
     <string name="use_hentai_at_home_option_2">Default port clients only</string>
     <string name="show_japanese_titles">Show Japanese titles in search results</string>
-    <string name="show_japanese_titles_option_1">Currently showing Japanese titles in search results. Clear the chapter cache after changing this (in the Advanced section)</string>
-    <string name="show_japanese_titles_option_2">Currently showing English/Romanized titles in search results. Clear the chapter cache after changing this (in the Advanced section)</string>
+    <string name="show_japanese_titles_option_1">Currently showing Japanese titles in search results. Clear the chapter cache after changing this (in Data and storage)</string>
+    <string name="show_japanese_titles_option_2">Currently showing English/Romanized titles in search results. Clear the chapter cache after changing this (in Data and storage)</string>
     <string name="use_original_images">Use original images</string>
     <string name="use_original_images_on">Currently using original images</string>
     <string name="use_original_images_off">Currently using resampled images</string>

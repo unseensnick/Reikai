@@ -35,7 +35,7 @@ Tap the middle of the screen to show the menu, and the gear icon in it to change
 
 ## Choose how chapters are drawn
 
-**Rendering mode**, in <nav to="novel-reader"> under **Reading**, has two choices.
+**Chapter display**, in <nav to="novel-reader"> under **Reading**, has two choices.
 
 * **Native text** <Badge type="info" text="Default" /> lays the text out in the app.
 * **WebView** shows the chapter as a web page. It keeps more of the chapter's own formatting, and it is the only mode where the chapter's own styling, scripts and fonts, and your own CSS and JavaScript snippets, can apply.
@@ -45,7 +45,7 @@ Switching from the reader's settings sheet rebuilds the reader at the same place
 
 ## Read a page at a time
 
-**Reading mode**, beside **Rendering mode**, turns a chapter into pages, as an e-book reader does.
+**Reading mode**, beside **Chapter display**, turns a chapter into pages, as an e-book reader does.
 
 <img
   src="/docs/novel-reader/paged.webp"
@@ -68,7 +68,7 @@ Paged reading has its own tap zones, under **Paged** in <nav to="novel-reader">,
 
 With **Continuous chapters** on, which it is by default, the next chapter appears below the one you are reading, so you can keep scrolling.
 A marker names each boundary between chapters.
-**Add the next chapter at** sets how far into a chapter you have to be before the next one is added, 95% by default.
+**Load the next chapter after reading** sets how far into a chapter you have to be before the next one is added, 95% by default.
 
 Turn it off to read one chapter at a time.
 While scrolling, **Swipe between chapters** lets you swipe sideways to move to the previous or next chapter. Reading a page at a time, a swipe always turns the page, and turning past a chapter's last page moves on to the next one.
@@ -120,7 +120,7 @@ The **Chapter text** section of <nav to="novel-reader"> can clean that up before
 * **Split walls of text** adds paragraph breaks to a chapter that arrives as one block.
 * **Force lowercase** shows the whole chapter in lowercase.
 
-**Remove extra spacing**, under **Accessibility**, strips blank space some sources leave between paragraphs.
+**Remove blank lines between paragraphs**, under **Chapter text**, strips blank space some sources leave between paragraphs.
 
 ## Find and replace
 

@@ -12,7 +12,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Hide manga or novels across the app with Settings -> Appearance -> Show.** A hidden type skips library updates, and nothing is deleted.
+- **Hide manga or novels across the app with Settings -> Appearance -> Content shown.** A hidden type skips library updates, and nothing is deleted.
 
 ### Library
 
@@ -124,6 +124,13 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Statistics' Reading this week card now shows the date reading time was first logged.**
+
+### Settings
+
+#### Changed
+
+- **Settings -> Novel reader now uses the same sections as Settings -> Manga reader, with its page readout and screen options under Display.**
+- **About twenty-five settings have clearer names, such as Merge series across sources and Load the next chapter after reading.**
 
 ### Browse
 

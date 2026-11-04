@@ -40,7 +40,8 @@
 # - SavedSearchDialogs / FeedDialogs: dialog scaffolding around different fields.
 # - Novel repository implementations: one-line query-and-map methods (by id, by ids, as a flow) over
 #   different tables.
-app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	4c95e27df5c79ab2
+app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	2bbcb70481ae4872
+app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	38f3f7e648005bc6
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomMangaInfo.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomNovelInfo.kt	3f25b0ac5f1f9294
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupManga.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovel.kt	eb95fab0158a498f
 app/src/main/java/eu/kanade/tachiyomi/data/download/DownloadStore.kt	app/src/main/java/reikai/novel/download/NovelDownloadStore.kt	165a5301275c7653

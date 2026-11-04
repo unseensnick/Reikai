@@ -119,8 +119,8 @@ Which login you get depends on the service: most open your browser, a few ask fo
 
 Each tracker you are signed in to with an account, except MDList, has a refresh button in its row, **Refresh tracker profile**. It reloads your account details, such as a changed nickname or score format, without signing out. It does not touch your tracked entries.
 
-### What does Tell source sites about migrations do?
-Some extensions sync your reading to their own site once their own tracking setting is on. **Tell source sites about migrations** in <nav to="tracking">, on by default, also tells those extensions when you migrate an entry, so the site follows the move. It has no effect on any other source.
+### What does Update source sites after migrating do?
+Some extensions sync your reading to their own site once their own tracking setting is on. **Update source sites after migrating** in <nav to="tracking">, on by default, also tells those extensions when you migrate an entry, so the site follows the move. It has no effect on any other source.
 
 ### How do I set up tracking for each series?
 1. Go into the series.

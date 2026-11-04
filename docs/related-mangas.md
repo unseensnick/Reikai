@@ -81,7 +81,7 @@ Building it reads your tracker library through your sign-in, so nothing is pulle
 :::
 
 Your library is then cached locally, so the row does not call out to every tracker each time you open a page.
-It is pulled again in the background when you open a manga's details with the related row turned on and a tracker's cached copy is more than six hours old, and **Auto-refresh library** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
+It is pulled again in the background when you open a manga's details with the related row turned on and a tracker's cached copy is more than six hours old, and **Refresh tracker lists automatically** <Badge type="info" text="Off" /> can also re-pull it weekly or monthly.
 **Refresh now** shows when each tracker was last pulled, and has a short cooldown between presses.
 
 The cache is not included in your backups. After a restore it rebuilds from your trackers on the next pull. Tracker sign-ins come back only if the backup was made with **Include sensitive settings** ticked; otherwise sign in to each tracker again first.
@@ -95,8 +95,8 @@ The row holds 30, and up to 12 of those places are kept for tracker recommendati
 
 Two sliders shape it, and both are hidden while reranking is off.
 
-- **Recommendation style** <Badge type="info" text="25%" /> weighs your taste against the order the suggestions arrived in. At 0% your taste no longer scores titles, though titles that turn up in more than one search or tracker still rise, and the serendipity share and the genre limit below still apply; at 100% it is ordered almost entirely by taste.
-- **Serendipity** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and keeps that share of the source's suggestions at the top of the list in the order they arrived. That reservation is what stops a high style setting from showing you the same five genres forever. On a long list it can take up the whole row, so the taste-ranked picks then start further along, in **See all**.
+- **Personal over popular** <Badge type="info" text="25%" /> weighs your taste against the order the suggestions arrived in. At 0% your taste no longer scores titles, though titles that turn up in more than one search or tracker still rise, and the serendipity share and the genre limit below still apply; at 100% it is ordered almost entirely by taste.
+- **Picks outside your taste** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and keeps that share of the source's suggestions at the top of the list in the order they arrived. That reservation is what stops a high style setting from showing you the same five genres forever. On a long list it can take up the whole row, so the taste-ranked picks then start further along, in **See all**.
 
 No more than two of the taste-ranked picks may share a dominant genre; the rest are pushed further down, so one genre cannot take over the taste-ranked picks.
 
