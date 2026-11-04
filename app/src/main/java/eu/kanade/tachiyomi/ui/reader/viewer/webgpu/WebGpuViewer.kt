@@ -595,7 +595,8 @@ open class WebGpuViewer(
 
     /**
      * Decodes [page] if the loader's chunk fetches it with no Retry, which would otherwise leave a false
-     * error over a good file. Ends with that page or with the viewer. Call under [lock].
+     * error over a good file. Ends when the page is ready, when a new watch on it replaces it, or with the viewer: an
+     * evicted page's watch waits on, and [pageInCache] keeps it from decoding. Call under [lock].
      */
     private fun watchForRecovery(page: ViewerReaderPage) {
         page.recoveryWatch?.cancel()
