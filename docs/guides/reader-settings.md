@@ -276,7 +276,7 @@ TBA
 
 ## Long strip
 
-**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, every mode uses the **Paged** answers for all of these apart from **Crop borders**, so changing them here has no effect.
+**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, every mode uses the **Paged** answers for all of these apart from **Crop borders**, so they are hidden here.
 
 ### Side padding <Badge type="info" text="0%" />
 Adds the specified padding to the left and right of the screen. Shown while **Use high quality renderer** in <nav to="advanced"> is off.
@@ -288,7 +288,7 @@ How wide the strip is drawn, as a share of the screen. Shown in place of **Side 
 How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Double tap to zoom <Badge type="info" text="On" />
-Zooms into the image on double tap. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
+Zooms into the image on double tap. Hidden while **Use high quality renderer** in <nav to="advanced"> is on.
 
 ### Disable zoom out <Badge type="info" text="Off" />
 Stops a pinch from zooming a long strip out smaller than its normal width.
@@ -298,7 +298,7 @@ Stops a pinch from zooming a long strip out smaller than its normal width.
 **Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own, which are not on the settings screen.
 
 ### Dual page view <Badge type="info" text="Never" />
-On the **Reading** tab, for **Paged (left to right)** and **Paged (right to left)** only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
+On the **Reading** tab, for the three **Paged** modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
 
 ### Gap <Badge type="info" text="10%" />
 On the **Reading** tab, for **Long strip with gaps** only. The space between pages, as a share of the screen.

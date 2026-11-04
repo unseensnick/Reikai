@@ -95,8 +95,8 @@ The row holds 30, and up to 12 of those places are kept for tracker recommendati
 
 Two sliders shape it, and both are hidden while reranking is off.
 
-- **Personal over popular** <Badge type="info" text="25%" /> weighs your taste against the order the suggestions arrived in. At 0% your taste no longer scores titles, though titles that turn up in more than one search or tracker still rise, and the serendipity share and the genre limit below still apply; at 100% it is ordered almost entirely by taste.
-- **Picks outside your taste** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and keeps that share of the source's suggestions at the top of the list in the order they arrived. That reservation is what stops a high style setting from showing you the same five genres forever. On a long list it can take up the whole row, so the taste-ranked picks then start further along, in **See all**.
+- **Personal over popular** <Badge type="info" text="25%" /> weighs your taste against the order the suggestions arrived in. At 0% your taste no longer scores titles, though titles that turn up in more than one search or tracker still rise, and **Picks outside your taste** and the genre limit below still apply; at 100% it is ordered almost entirely by taste.
+- **Picks outside your taste** <Badge type="info" text="20%" /> decides how much weight unfamiliar genres get, and keeps that share of the source's suggestions at the top of the list in the order they arrived. That reservation is what stops a high **Personal over popular** from showing you the same five genres forever. On a long list it can take up the whole row, so the taste-ranked picks then start further along, in **See all**.
 
 No more than two of the taste-ranked picks may share a dominant genre; the rest are pushed further down, so one genre cannot take over the taste-ranked picks.
 

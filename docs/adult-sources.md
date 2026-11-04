@@ -80,7 +80,7 @@ It runs daily by default, can be limited to Wi-Fi, an unmetered network or while
 
 <nav to="batch-add"> adds a list of galleries to your library in one go. It only shows in the More tab while adult sources are on.
 
-1. Paste the gallery links, one per line. Links from E-Hentai, NHentai and Pururin work, ExHentai links once ExHentai is on, and 8Muses, HentaiNexus, NineHentai and Hitomi links once their extensions are installed, while **Enable delegated sources** is on. Data exported from the E-H Visited browser extension works too.
+1. Paste the gallery links, one per line. Links from E-Hentai, NHentai and Pururin work, ExHentai links once ExHentai is on, and 8Muses, HentaiNexus, NineHentai and Hitomi links once their extensions are installed, while **Use enhanced sources** is on. Data exported from the E-H Visited browser extension works too.
 1. Tap **Add galleries**.
 
 Each link is matched to an installed, enabled source for its site, preferring sources in the languages you have turned on, and tried up to twice. A link to a single page of a gallery on E-Hentai, ExHentai, NHentai, 8Muses, HentaiNexus or Hitomi adds the whole gallery. Galleries go into your default category, if you have set one; with the default set to always ask, they get no category.
@@ -98,7 +98,7 @@ This is the main reason to use the built-in source rather than the stock E-Henta
 
 **Not a general adult-content unlock.**
 Other adult sources are extensions you install from a repository in <nav to="extensions">, and the switch does not gate them.
-Some of them, the Enhanced rows in [built-in-sources.md](built-in-sources.md), get searchable tags in your library whenever they are installed (unless you turn off **Enable delegated sources** under **Extensions** in <nav to="browse">), and nHentai galleries from its extension are left out of the normal library update.
+Some of them, the Enhanced rows in [built-in-sources.md](built-in-sources.md), get searchable tags in your library whenever they are installed (unless you turn off **Use enhanced sources** under **Extensions** in <nav to="browse">), and nHentai galleries from its extension are left out of the normal library update.
 The one exception is the stock E-Hentai extension, which is hidden while the switch is on, because the built-in source replaces it.
 The switch registers a small set of built-in sources, listed in [built-in-sources.md](built-in-sources.md); this page covers the E-Hentai and ExHentai support, which is the part with settings of its own.
 
