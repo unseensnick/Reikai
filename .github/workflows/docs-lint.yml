@@ -11,10 +11,10 @@ name: Docs lint
 
 on:
   pull_request:
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/live-twins.md', 'scripts/live-twins.ps1', 'scripts/live-twins-test.ps1', 'scripts/doc-table-rows.ps1', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/comment-cap.ps1', 'scripts/comment-cap-test.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/live-twins.md', 'scripts/live-twins.ps1', 'scripts/live-twins-test.ps1', 'scripts/doc-table-rows.ps1', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/lint-docs-test.sh', 'scripts/test-git.ps1', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/comment-cap.ps1', 'scripts/comment-cap-test.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
   push:
     branches: [main]
-    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/live-twins.md', 'scripts/live-twins.ps1', 'scripts/live-twins-test.ps1', 'scripts/doc-table-rows.ps1', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/comment-cap.ps1', 'scripts/comment-cap-test.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
+    paths: ['CHANGELOG.md', 'ROADMAP.md', 'docs/dev/upstream-sync.md', 'docs/dev/feature-ports.md', 'docs/dev/off-path-manifest.md', 'docs/dev/live-twins.md', 'scripts/live-twins.ps1', 'scripts/live-twins-test.ps1', 'scripts/doc-table-rows.ps1', 'docs/dev/plans/**', 'docs/dev/subsystems/**', 'scripts/lint-docs.sh', 'scripts/lint-docs-test.sh', 'scripts/test-git.ps1', 'scripts/dup-check.ps1', 'scripts/dup-check-test.ps1', 'scripts/mihon-ownership.ps1', 'scripts/comment-cap.ps1', 'scripts/comment-cap-test.ps1', 'scripts/dup-baseline.txt', '**/*.kt', '**/*.kts', '**/*.sq', '**/*.sqm']
 
 permissions:
   contents: read
