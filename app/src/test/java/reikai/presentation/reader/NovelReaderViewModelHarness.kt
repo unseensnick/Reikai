@@ -82,7 +82,6 @@ import reikai.novel.source.testChapterCache
 import reikai.novel.source.testChapterTextCache
 import reikai.presentation.novel.details.NovelDetailsViewModel
 import reikai.presentation.recents.EmittingPreferenceStore
-import reikai.util.testAppScope
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -156,7 +155,8 @@ class NovelReaderViewModelHarness private constructor(
         }
     }
     private val sourceManager = NovelSourceManager(
-        scope = testAppScope(),
+        // On the test scheduler, or a source lookup waits on a real thread advanceUntilIdle cannot see
+        scope = appScope,
         installer = { installer },
         extensionManager = mockk { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
         prefs = novelPreferences,
