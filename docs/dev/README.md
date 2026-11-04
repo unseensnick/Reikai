@@ -24,6 +24,7 @@ The machine-enforced conventions (commits, CHANGELOG, screen rules) live in [`.c
 | [upstream-sync.md](upstream-sync.md) | the Mihon sync process, the deliberate divergences and the frontier (sole owner of "synced through X") | you port a Mihon commit |
 | [feature-ports.md](feature-ports.md) | what was borrowed from Komikku / Tsundoku / IReader / LNReader, per feature | you port from a non-Mihon ref |
 | [off-path-manifest.md](off-path-manifest.md) | Mihon files deleted for a `reikai.*` twin, and the sync check that guards them | you delete a Mihon file for a twin |
+| [live-twins.md](live-twins.md) | Mihon files kept live on the manga path with a Reikai-owned novel twin, and the pin that holds each pair | a Reikai file starts mirroring a Mihon one |
 | [parked.md](parked.md) | items set aside or declined, with the reason and what would revive them | you park, decline or revive an item |
 | [plans/](plans/README.md) | design still in flight; a plan is folded into its subsystem doc and deleted once the work lands | you start or finish a substantial piece of work |
 

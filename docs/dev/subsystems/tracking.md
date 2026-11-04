@@ -39,7 +39,7 @@ Failures are worded in one place, `trackerErrorMessage` in `TrackerErrorMessage.
 
 ### Fill from tracker
 
-The shared edit-info dialog fills title, cover, description, authors and genres from a bound tracker's `getMangaMetadata` (`// RK` on `Tracker`, ported from Komikku with a genres field). `EntryTrackerAutofill` picks the eligible trackers (self-hosted enhanced ones are dropped) and appends genres to existing tags. `metadataAccess` says whether the fetch needs a login: `SignedIn` by default, `Public` for the three novel services. A signed-out fill on a `SignedIn` tracker is refused before it fetches.
+The shared edit-info dialog fills title, cover, description, authors and genres from a bound tracker's `getMangaMetadata` (`// RK` on `Tracker`, ported from Komikku with a genres field). `EntryTrackerAutofill` picks the eligible trackers (`buildTrackerAutofillCandidates`, self-hosted enhanced ones dropped); the genres join the existing tags through `appendTags`, described in [details.md](details.md). `metadataAccess` says whether the fetch needs a login: `SignedIn` by default, `Public` for the three novel services. A signed-out fill on a `SignedIn` tracker is refused before it fetches.
 
 ### The novel services
 
@@ -71,7 +71,7 @@ Some extensions keep reading state on their own site (`SourceTracker` in `source
 - `app/src/main/java/reikai/domain/novel/track/`: `NovelTrackUpdater`, `TrackNovelChapter`, `NovelDelayedTrackingStore`, `NovelDelayedTrackingUpdateWorker`, `PushNovelUnread`, `PropagateNovelTrackerLinks`.
 - `app/src/main/java/reikai/domain/novel/interactor/AddNovelTrack.kt`, `GetNovelTracks.kt`; `data/src/main/sqldelight/tachiyomi/data/novel_tracks.sq`.
 - `app/src/main/java/reikai/data/track/`: `TrackerRefreshWorker`, `TrackerEntryResponse.kt` (`trackerEntryOrThrow`), `TrackerSignedOutException.kt`, `MetadataAccess.kt`, `CheckedCredential.kt`.
-- `app/src/main/java/reikai/presentation/details/EntryAutoTrackOnMarkRead.kt`, `EntryTrackerAutofill.kt`.
+- `app/src/main/java/reikai/presentation/details/EntryAutoTrackOnMarkRead.kt`, `EntryTrackerAutofill.kt`, `EntryTags.kt`.
 - `app/src/main/java/reikai/domain/track/KitsuLibraryEntryResolver.kt`, `KitsuEntryIdCopies.kt`, over `app/src/main/graphql/reikai/graphql/kitsu/ReikaiKitsuFindLibraryEntry.graphql`.
 
 ## Invariants and traps

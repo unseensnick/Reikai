@@ -49,7 +49,7 @@ A rule that must hold for both types lives once, as a pure function both sides c
 - Updates: `smartUpdateSkip`, `isUpdateScope`, `keptDetail`, the `NewChaptersSummary` and `NewChaptersDescription` notification rules.
 - Backup: `backupEntries` over `BackupEntryParts` (`reikai/data/backup/BackupEntryDriver.kt`) decides which series are backed up and gates chapters, categories, tracks, history and custom info once, while each type keeps its frozen wire fields.
 
-### The Show setting
+### The Content shown setting
 
 `shownContent` (`ShownContent.kt`) says which content types the app shows, as a `ContentType`, so `ALL` shows both. Every persisted chip is a `ShownContentPreference`, which reads as the shown type while the other is hidden, so an engine that reads its chip follows the setting without asking. A chip held in memory, or a type passed in, goes through `within` once. `LocalShownContent` lets the chip row, the type badge and the settings rows leave themselves out. Lists that are not behind a chip filter by `includes`: the Feed, the widget, the extension badges and notices.
 

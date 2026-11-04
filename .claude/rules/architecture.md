@@ -12,7 +12,7 @@ Screens are Voyager `Screen` / `Tab` classes whose `Content()` resolves an Andro
 
 Voyager routes; AndroidX holds the state. Reikai took Mihon's move off `ScreenModel` (mihonapp/mihon#3594, mihon `c3b99aea0`), so a model extends androidx `ViewModel()` directly and the scope is `viewModelScope`. **There is no state base class.** Upstream's `StateViewModel<S>` and the `core:viewmodel` module were removed in a later sync (mihonapp/mihon#3763, mihon `b1efee47f`); a model now declares its own `val state: StateFlow<S>` with a Kotlin explicit backing field, as `MangaViewModel` does (`) : ViewModel() {`, then `val state: StateFlow<State>` / `field = MutableStateFlow<State>(State.Loading)`). The syntax needs no compiler flag, and a backing field is private to its declaring class, so a base that writes subclass state is not expressible. No screen is on `ScreenModel` any more, and `voyager-screenModel` is out of the build, as upstream.
 
-The one View-based holdout, shared with upstream, is the page views of the **reader**'s `PagerViewer` and `WebtoonViewer`, hosted through `AndroidView`. `ReaderActivity`, its chrome and the WebGPU viewers are Compose.
+Two View-based holdouts remain, both hosted through `AndroidView`: the page views of the **reader**'s `PagerViewer` and `WebtoonViewer`, shared with upstream, and the novel renderers `NovelTextViewport` and `NovelWebViewport` (`ViewportHost`). `ReaderActivity`, its chrome and the WebGPU viewers are Compose.
 
 ## Reikai screens on Mihon
 

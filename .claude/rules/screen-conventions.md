@@ -61,4 +61,4 @@ A clean example of conventions 1-7 on the Mihon base is the library: [LibraryTab
 
 - Not a license to refactor Mihon's screens. Touch Mihon code only to attach a Reikai feature, fenced with `// RK`.
 - Not a justification for a standalone "fix the screens" sprint. Convention gaps get fixed when the screen is next touched for a feature or bug.
-- Not a licence for native XML UI. Every new or ported screen is Compose + Voyager; the reader's page views are the one View-based holdout, shared with upstream.
+- Not a licence for native XML UI. Every new or ported screen is Compose + Voyager; the reader's page views and the novel renderers are the View-based holdouts.

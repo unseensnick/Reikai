@@ -67,7 +67,7 @@ Updates draws the 56dp row (`UpdatesRowShell`), with group and child rows from `
 
 ### Widget
 
-`UnifiedUpdatesGlanceWidget` shows recent manga and novel updates in two labelled strips, refreshed by `UnifiedUpdatesWidgetManager`. Both read one flow, `unifiedWidgetUpdates`, which asks unread in SQL on both types (manga through `GetUpdates.subscribe(read = false)`, novels through the filtered updates query with `unread = true`). It lives in the app module because the novel query and `NovelCover` do. Mihon's `UpdatesGridGlanceWidget` stays the manga-only widget. Every cover widget draws a merged series once through `onePerSeries` (`MergeGroupDedup.kt`); Mihon's two reach it through `MangaUpdatesPerSeries`, an interface in the widget module the app binds, since that module cannot see the merge groups.
+`UnifiedUpdatesGlanceWidget` shows recent manga and novel updates in one labelled strip per type the **Content shown** setting includes, refreshed by `UnifiedUpdatesWidgetManager`. Both read one flow, `unifiedWidgetUpdates`, which asks unread in SQL on both types (manga through `GetUpdates.subscribe(read = false)`, novels through the filtered updates query with `unread = true`). It lives in the app module because the novel query and `NovelCover` do. Mihon's `UpdatesGridGlanceWidget` stays the manga-only widget. Every cover widget draws a merged series once through `onePerSeries` (`MergeGroupDedup.kt`); Mihon's two reach it through `MangaUpdatesPerSeries`, an interface in the widget module the app binds, since that module cannot see the merge groups.
 
 ## Key files
 
