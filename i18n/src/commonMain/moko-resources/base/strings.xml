@@ -1772,7 +1772,7 @@
     <string name="pref_mangadex_skipped_header">Skipped:</string>
     <string name="pref_mangadex_failed_header">Failed:</string>
 
-    <!-- RK: E-Hentai settings screen + server profile config (Phase B2) -->
+    <!-- RK: E-Hentai settings screen + server profile config -->
     <string name="pref_category_eh">E-Hentai</string>
     <string name="pref_ehentai_summary">Login, image quality, gallery updates, favorites backup</string>
     <string name="gallery_update_checker">Gallery update checker</string>
@@ -1786,7 +1786,7 @@
     <string name="eh_back_up_favorites_now">Back up all favorites now</string>
     <string name="eh_favorites_backup_progress">Backing up favorites… (%s)</string>
     <string name="ehentai_prefs_account_settings">E-Hentai Website Account Settings</string>
-    <!-- RK: E-Hentai gallery category badges in enhanced browse rows (Phase B2). "Manga" reuses content_type_manga. -->
+    <!-- RK: E-Hentai gallery category badges in enhanced browse rows. "Manga" reuses content_type_manga. -->
     <string name="doujinshi">Doujinshi</string>
     <string name="artist_cg">Artist CG</string>
     <string name="game_cg">Game CG</string>
