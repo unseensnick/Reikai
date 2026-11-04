@@ -2,12 +2,14 @@ package reikai.data.novel
 
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import io.mockk.runs
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.data.novel.update.NovelUpdateNotifier
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
@@ -25,6 +27,7 @@ class NovelMetadataRefreshTest {
     private val written = mutableListOf<NovelUpdate>()
     private val progress = mutableListOf<Pair<Int, Int>>()
     private val parseFails = mutableSetOf<String>()
+    private val notifier = mockk<NovelUpdateNotifier>(relaxed = true)
 
     private val source = mockk<NovelSource> {
         every { id } returns "src"
@@ -53,7 +56,7 @@ class NovelMetadataRefreshTest {
             installer = mockk { coEvery { ensureLoaded() } just runs },
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             coverCache = mockk(relaxed = true),
-            notifier = mockk(relaxed = true),
+            notifier = notifier,
             novelDownloadManager = { mockk(relaxed = true) },
         ).run { _, done, total -> progress += done to total }
     }
@@ -83,6 +86,14 @@ class NovelMetadataRefreshTest {
         refresh(novel(1), novel(2))
 
         written.single().id shouldBe 2L
+    }
+
+    /** The notice throttles most ticks, so a tick's titles are looked up only when the notice asks. */
+    @Test
+    fun `a progress tick reads no titles unless the notice asks for them`() = runTest {
+        refresh(novel(1))
+
+        coVerify(exactly = 0) { notifier.visibleTitles(any()) }
     }
 
     @Test

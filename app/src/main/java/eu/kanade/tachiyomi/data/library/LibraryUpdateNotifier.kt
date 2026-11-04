@@ -147,8 +147,9 @@ class LibraryUpdateNotifier(
         )
     }
 
-    // RK --> Refresh library covers' novel pass, reporting on this notice, whose Cancel stops the whole worker
-    suspend fun showProgressTitles(titles: List<String>, current: Int, total: Int) {
+    // RK --> Refresh library covers' novel pass, reporting on this notice, whose Cancel stops the whole worker.
+    // The titles are looked up only for a tick the throttle lets through.
+    suspend fun showProgressTitles(titles: suspend () -> List<String>, current: Int, total: Int) {
         if (!progressThrottle.tryPass(isFinal = current >= total)) return
         progressNotificationBuilder
             .setContentTitle(
@@ -157,7 +158,10 @@ class LibraryUpdateNotifier(
                     updateProgressPercent(current, total),
                 ),
             )
-            .setStyle(NotificationCompat.BigTextStyle().bigText(updatingText(titles)))
+        val shown = titles()
+        progressNotificationBuilder.setStyle(
+            NotificationCompat.BigTextStyle().bigText(updatingText(shown)).takeIf { shown.isNotEmpty() },
+        )
         context.notify(
             Notifications.ID_LIBRARY_PROGRESS,
             progressNotificationBuilder.setProgress(total, current, false).build(),

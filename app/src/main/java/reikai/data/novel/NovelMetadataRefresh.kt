@@ -31,12 +31,13 @@ class NovelMetadataRefresh(
     private val novelDownloadManager: () -> NovelDownloadManager,
 ) {
 
-    suspend fun run(onProgress: suspend (titles: List<String>, done: Int, total: Int) -> Unit) {
+    /** [onProgress] gets the titles as a lookup, so a tick the notice throttles away reads nothing. */
+    suspend fun run(onProgress: suspend (titles: suspend () -> List<String>, done: Int, total: Int) -> Unit) {
         runCatchingCancellable { installer.ensureLoaded() }
             .onFailure { logcat(LogPriority.ERROR, it) { "Could not load the novel plugins" } }
         val novels = novelRepository.getFavorites()
         val updates = UpdateProgressList<Novel>(novels.size) { updating, done, total ->
-            onProgress(notifier.visibleTitles(updating), done, total)
+            onProgress({ notifier.visibleTitles(updating) }, done, total)
         }
         updateBySource(novels, sourceOf = Novel::source) { novel ->
             updates.around(novel) {

@@ -58,6 +58,21 @@ class UpdateNoticeTitleConformanceTest {
         }
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `hide notification content keeps the progress notice from naming the entry`(
+        @Suppress("UNUSED_PARAMETER") name: String,
+        half: () -> UpdateNoticeHalf,
+    ) = half().use {
+        runTest {
+            it.hideContent()
+
+            it.showProgress()
+
+            it.progressText() shouldBe null
+        }
+    }
+
     /** Several sources run at once, so a notice naming one entry would hide the rest. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("halves")
@@ -136,6 +151,8 @@ abstract class UpdateNoticeHalf : AutoCloseable {
     abstract suspend fun showNewChapters()
 
     fun progressText(): CharSequence? = bigText
+
+    fun hideContent() = security.hideNotificationContent.set(true)
 
     abstract fun summaryText(): CharSequence?
 
