@@ -10,7 +10,6 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.extension.interactor.GetExtensionsByType
 import eu.kanade.domain.extension.model.Extensions
-import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.extension.model.InstallStep
@@ -38,7 +37,6 @@ import kotlin.time.Duration.Companion.seconds
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class ExtensionsViewModel(
-    private val preferences: SourcePreferences,
     basePreferences: BasePreferences,
     private val extensionManager: ExtensionManager,
     getExtensions: GetExtensionsByType,
@@ -73,10 +71,6 @@ class ExtensionsViewModel(
         .map { it.requiresSystemPermission }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), false)
     // RK <--
-
-    // Public so the tab badge can observe it without subscribing to the whole state.
-    val updatesCount = preferences.extensionUpdatesCount.changes()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), 0)
 
     val isRefreshing: StateFlow<Boolean>
         field = MutableStateFlow(false)
