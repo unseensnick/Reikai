@@ -11,13 +11,13 @@ import kotlin.time.Duration.Companion.milliseconds
  */
 data class ChapterLength(val contentType: ContentType, val entryId: Long, val chapterId: Long, val units: Long)
 
-/** The open chapter's length with the pace learned for it. */
-data class ChapterPace(val units: Long, val pace: ReadingPace)
+/** The open chapter's length with the paces learned for it, read and listened to. */
+data class ChapterPace(val units: Long, val reading: ReadingPace, val listening: ReadingPace)
 
 /** What the reader shows of the chapter's remaining time. */
 sealed interface ReaderTimeLeft {
-    /** Not enough finished chapters yet to know the reader's pace. */
-    data object Learning : ReaderTimeLeft
+    /** Not enough finished chapters yet to know the pace, read or [listening]. */
+    data class Learning(val listening: Boolean) : ReaderTimeLeft
 
     data class Remaining(val duration: Duration) : ReaderTimeLeft
 }
@@ -28,10 +28,21 @@ sealed interface ReaderTimeLeft {
  */
 fun chapterTimeLeft(chapter: ChapterPace, progress: ChapterProgress?): ReaderTimeLeft? {
     val left = progress?.remainingFraction ?: return null
-    return when (val pace = chapter.pace) {
-        ReadingPace.Learning -> ReaderTimeLeft.Learning
+    return when (val pace = chapter.reading) {
+        ReadingPace.Learning -> ReaderTimeLeft.Learning(listening = false)
         is ReadingPace.Known -> ReaderTimeLeft.Remaining((chapter.units * left * pace.msPerUnit).milliseconds)
     }
+}
+
+/**
+ * How long read-aloud takes over the rest of what it speaks, the paragraph being spoken counted as
+ * unspoken: at the [live] pace measured since play, else the [learned] listening pace.
+ */
+fun listeningTimeLeft(progress: ReadAloudProgress, live: Double?, learned: ReadingPace): ReaderTimeLeft {
+    val msPerWord = live ?: (learned as? ReadingPace.Known)?.msPerUnit
+        ?: return ReaderTimeLeft.Learning(listening = true)
+    val left = (progress.words - progress.wordsSpoken).coerceAtLeast(0)
+    return ReaderTimeLeft.Remaining((left * msPerWord).milliseconds)
 }
 
 private val ChapterProgress.remainingFraction: Double?

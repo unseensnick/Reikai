@@ -66,6 +66,7 @@ class StatsLibrary(
     private val novelReadDurations: List<EntryReadDuration>,
     private val mangaPace: ReadingPace,
     private val novelPace: ReadingPace,
+    private val novelListeningPace: ReadingPace,
 ) {
     fun titles(type: ContentType): List<StatsTitle> = buildList {
         if (type.includes(ContentType.MANGA)) addAll(mangaTitles)
@@ -85,7 +86,10 @@ class StatsLibrary(
     /** The overall reading pace of each type [type] includes, as the reader learns it for time left. */
     fun paces(type: ContentType): List<StatsPace> = buildList {
         if (type.includes(ContentType.MANGA)) add(StatsPace(ContentType.MANGA, mangaPace))
-        if (type.includes(ContentType.NOVELS)) add(StatsPace(ContentType.NOVELS, novelPace))
+        if (type.includes(ContentType.NOVELS)) {
+            add(StatsPace(ContentType.NOVELS, novelPace))
+            add(StatsPace(ContentType.NOVELS, novelListeningPace, listening = true))
+        }
     }
 
     /** Every series read, by lifetime reading time from history, longest first, keyed as [sessions] are. */
@@ -99,7 +103,8 @@ class StatsLibrary(
     }.sortedByDescending { it.readMs }
 }
 
-data class StatsPace(val contentType: ContentType, val pace: ReadingPace) {
+/** One type's overall pace, read or, for novels, [listening] to read-aloud. */
+data class StatsPace(val contentType: ContentType, val pace: ReadingPace, val listening: Boolean = false) {
     /** Seconds a page for manga and words a minute for a novel, each at least 1; null while learning. */
     fun measure(): Long? {
         val msPerUnit = (pace as? ReadingPace.Known)?.msPerUnit ?: return null
@@ -273,13 +278,17 @@ class StatsLibraryLoader(
             novelSessions = novelSessions,
             mangaReadDurations = mangaReadDurations,
             novelReadDurations = novelReadDurations,
-            mangaPace = overallPace(ContentType.MANGA),
-            novelPace = overallPace(ContentType.NOVELS),
+            mangaPace = overallPace(ContentType.MANGA, listened = false),
+            novelPace = overallPace(ContentType.NOVELS, listened = false),
+            novelListeningPace = overallPace(ContentType.NOVELS, listened = true),
         )
     }
 
-    private suspend fun overallPace(type: ContentType): ReadingPace =
-        learnPace(paceRepository.samples(type, PACE_SAMPLE_LIMIT), entryId = null, PaceUnit.of(type))
+    /** The pace the reader shows for [type], learned from chapters read or, when [listened], read aloud. */
+    private suspend fun overallPace(type: ContentType, listened: Boolean): ReadingPace {
+        val samples = paceRepository.samples(type, PACE_SAMPLE_LIMIT).filter { it.isListened == listened }
+        return learnPace(samples, entryId = null, PaceUnit.of(type))
+    }
 
     private suspend fun getMangaTrackMap(
         libraryManga: List<LibraryManga>,

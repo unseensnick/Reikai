@@ -12,7 +12,13 @@ import kotlin.time.Duration.Companion.minutes
 /** Time left in whole minutes, so a page turn does not tick seconds that an estimate cannot promise. */
 @Composable
 fun readerTimeLeftLabel(timeLeft: ReaderTimeLeft): String = when (timeLeft) {
-    ReaderTimeLeft.Learning -> stringResource(MR.strings.reader_time_left_learning)
+    is ReaderTimeLeft.Learning -> stringResource(
+        if (timeLeft.listening) {
+            MR.strings.reader_time_left_learning_listening
+        } else {
+            MR.strings.reader_time_left_learning
+        },
+    )
     is ReaderTimeLeft.Remaining -> {
         val minutes = (timeLeft.duration.inWholeSeconds / 60.0).roundToLong()
         if (minutes == 0L) {

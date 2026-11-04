@@ -5,12 +5,15 @@ import androidx.compose.runtime.Stable
 import kotlinx.coroutines.flow.Flow
 import reikai.data.novel.tts.SleepTimer
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.reader.ReadAloudProgress
 
 @Immutable
 data class ReaderReadAloudState(
     val playback: TtsPlayback = TtsPlayback.Stopped,
     val controlsVisible: Boolean = false,
     val sleepTimer: SleepTimer = SleepTimer.Off,
+    /** Where speech is in the chapter it reads, which time left counts down while it plays. */
+    val progress: ReadAloudProgress? = null,
 )
 
 /**

@@ -1,19 +1,27 @@
 -- What reading pace is learned from: a finished chapter's time in history against its length. Manga
 -- keeps its length as chapter.page_count, written with progress; a novel chapter's word count is kept
--- here, written when the reader opens it, since nothing else counts its words.
+-- here, written when the reader opens it, since nothing else counts its words. listened_ms is the part
+-- of its history time spent read aloud (69.sqm), which tells a listened chapter from a read one.
 CREATE TABLE novel_chapter_words(
     chapter_id INTEGER NOT NULL PRIMARY KEY,
     words INTEGER NOT NULL,
+    listened_ms INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY(chapter_id) REFERENCES novel_chapters (_id)
     ON DELETE CASCADE
 );
 
 setNovelWords:
-INSERT OR REPLACE INTO novel_chapter_words(chapter_id, words)
-VALUES (:chapterId, :words);
+INSERT INTO novel_chapter_words(chapter_id, words)
+VALUES (:chapterId, :words)
+ON CONFLICT(chapter_id) DO UPDATE SET words = excluded.words;
+
+addNovelListened:
+INSERT INTO novel_chapter_words(chapter_id, words, listened_ms)
+VALUES (:chapterId, 0, :ms)
+ON CONFLICT(chapter_id) DO UPDATE SET listened_ms = listened_ms + excluded.listened_ms;
 
 mangaSamples:
-SELECT C.manga_id, H.read_duration, C.page_count
+SELECT C.manga_id, H.read_duration, C.page_count, 0 AS listened_ms
 FROM history H
 JOIN chapter C ON C.id = H.chapter_id
 WHERE C.user_read = 1 AND C.page_count > 0 AND H.read_duration > 0 AND H.read_at IS NOT NULL
@@ -21,7 +29,7 @@ ORDER BY H.read_at DESC
 LIMIT :limit;
 
 novelSamples:
-SELECT C.novel_id, H.time_read, W.words
+SELECT C.novel_id, H.time_read, W.words, W.listened_ms
 FROM novel_history H
 JOIN novel_chapters C ON C._id = H.chapter_id
 JOIN novel_chapter_words W ON W.chapter_id = C._id

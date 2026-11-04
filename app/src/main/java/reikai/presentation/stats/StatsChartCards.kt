@@ -241,7 +241,11 @@ private fun StatsPaceRow(paces: List<StatsPace>) {
                     else -> measure.toString()
                 },
                 subtitle = stringResource(
-                    if (isManga) MR.strings.stats_pace_per_page else MR.strings.stats_pace_words_per_minute,
+                    when {
+                        isManga -> MR.strings.stats_pace_per_page
+                        pace.listening -> MR.strings.stats_pace_listening
+                        else -> MR.strings.stats_pace_words_per_minute
+                    },
                 ),
             )
         }

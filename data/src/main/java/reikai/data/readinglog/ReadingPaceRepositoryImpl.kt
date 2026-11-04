@@ -20,10 +20,12 @@ class ReadingPaceRepositoryImpl(
     private val queries = database.reading_paceQueries
 
     override suspend fun samples(contentType: ContentType, limit: Int): List<PaceSample> {
-        val mapper = { entryId: Long, duration: Long, units: Long -> PaceSample(entryId, duration, units) }
+        val mapper = { entryId: Long, duration: Long, units: Long, listened: Long ->
+            PaceSample(entryId, duration, units, listened)
+        }
         return when (contentType) {
-            ContentType.MANGA -> queries.mangaSamples(limit.toLong()) { id, duration, pages ->
-                mapper(id, duration, pages.toLong())
+            ContentType.MANGA -> queries.mangaSamples(limit.toLong()) { id, duration, pages, listened ->
+                mapper(id, duration, pages.toLong(), listened)
             }
             ContentType.NOVELS -> queries.novelSamples(limit.toLong(), mapper)
             ContentType.ALL -> error("ContentType.ALL has no reading pace")
@@ -36,5 +38,9 @@ class ReadingPaceRepositoryImpl(
             ContentType.NOVELS -> queries.setNovelWords(chapterId, units)
             ContentType.ALL -> error("ContentType.ALL has no reading pace")
         }
+    }
+
+    override suspend fun addListenedTime(chapterId: Long, ms: Long) {
+        queries.addNovelListened(chapterId, ms)
     }
 }

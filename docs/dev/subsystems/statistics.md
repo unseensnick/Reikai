@@ -36,7 +36,7 @@ Vico draws the donuts and the column charts (`StatsChartCards.kt`), themed throu
 
 ### Reading pace
 
-The reading card ends with each shown type's overall pace (`StatsLibrary.paces`, from the same `learnPace` the reader's time left uses, with no series): seconds a page for manga and words a minute for novels (`StatsPace.measure`), or Learning. A row of `StatsItem`s with anything under it sizes itself with `IntrinsicSize.Min`, since a `StatsItem` fills the height it is given and would leave the rows under it none.
+The reading card ends with each shown type's overall pace (`StatsLibrary.paces`, from the same `learnPace` the reader's time left uses, with no series): seconds a page for manga and words a minute for novels (`StatsPace.measure`), or Learning. Novels show two: the reading pace and the listening pace, learned from chapters mostly read aloud. A row of `StatsItem`s with anything under it sizes itself with `IntrinsicSize.Min`, since a `StatsItem` fills the height it is given and would leave the rows under it none.
 
 ## Key files
 

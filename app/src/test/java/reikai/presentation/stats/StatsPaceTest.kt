@@ -32,11 +32,12 @@ class StatsPaceTest {
         library.paces(ContentType.ALL) shouldBe listOf(
             StatsPace(ContentType.MANGA, ReadingPace.Known(4_000.0)),
             StatsPace(ContentType.NOVELS, ReadingPace.Learning),
+            StatsPace(ContentType.NOVELS, ReadingPace.Learning, listening = true),
         )
     }
 
     @Test
     fun `a type not shown leaves its pace out`() {
-        statsLibrary().paces(ContentType.NOVELS) shouldBe listOf(StatsPace(ContentType.NOVELS, ReadingPace.Learning))
+        statsLibrary().paces(ContentType.MANGA) shouldBe listOf(StatsPace(ContentType.MANGA, ReadingPace.Learning))
     }
 }

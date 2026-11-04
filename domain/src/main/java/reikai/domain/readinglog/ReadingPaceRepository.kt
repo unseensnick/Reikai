@@ -16,6 +16,9 @@ interface ReadingPaceRepository {
      * manga chapter's page count is already kept with its progress, so there it stores nothing.
      */
     suspend fun setLength(contentType: ContentType, chapterId: Long, units: Long)
+
+    /** Adds [ms] of read-aloud to a novel chapter, the only type that reads aloud. */
+    suspend fun addListenedTime(chapterId: Long, ms: Long)
 }
 
 /** How many finished chapters a pace is asked for, enough for one series' and the overall one. */

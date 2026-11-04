@@ -8,13 +8,17 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.text.NovelWords
 import reikai.domain.novel.tts.NovelTtsEngine
 import reikai.domain.novel.tts.TtsPiece
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.domain.reader.ReadAloudProgress
 import kotlin.math.abs
 
+/** [progress] is where speech is in its chapter, null before a chapter is taken up. */
 data class ReadAloudState(
     val playback: TtsPlayback = TtsPlayback.Stopped,
+    val progress: ReadAloudProgress? = null,
 )
 
 /** The chapters read-aloud can move through, answered by the reader model. */
@@ -83,6 +87,9 @@ class ReadAloudController(
     private var playback = TtsPlayback.Stopped
     private var chapterId: Long? = null
     private var paragraphs: List<String> = emptyList()
+
+    /** Words before each paragraph of [paragraphs], then the chapter's total, for [ReadAloudState.progress]. */
+    private var wordsBefore: LongArray = LongArray(1)
     private var position: ReadAloudPosition? = null
 
     /** The sentence of [position] being spoken, while sentences are marked; null marks the paragraph. */
@@ -265,7 +272,7 @@ class ReadAloudController(
 
     private suspend fun beginChapter(id: Long, chapter: List<String>, index: Int) {
         chapterId = id
-        paragraphs = chapter
+        takeUp(chapter)
         unplaced = false
         if (chapter.isEmpty()) return endChapter()
         playAt(index.coerceIn(0, chapter.lastIndex))
@@ -303,7 +310,7 @@ class ReadAloudController(
     /** Paused across a chapter handoff: take the new chapter up without speaking it. */
     private fun holdAt(id: Long, chapter: List<String>) {
         chapterId = id
-        paragraphs = chapter
+        takeUp(chapter)
         unplaced = false
         moveTo(id, 0)
         surface?.highlight(position)
@@ -363,7 +370,7 @@ class ReadAloudController(
             .filter { laidOut[it] == spokenText }
             .minByOrNull { abs(it - at.paragraph) }
             ?: at.paragraph.coerceIn(0, laidOut.lastIndex)
-        paragraphs = laidOut
+        takeUp(laidOut)
         // The sentence state holds only in the text it was taken from, which a different match is not.
         if (laidOut[index] == spokenText) position = ReadAloudPosition(id, index) else moveTo(id, index)
         surface?.highlight(position, sentence, follows = playback == TtsPlayback.Playing)
@@ -432,8 +439,17 @@ class ReadAloudController(
         const val LAST_SENTENCE = -1
     }
 
+    private fun takeUp(chapter: List<String>) {
+        paragraphs = chapter
+        wordsBefore = LongArray(chapter.size + 1)
+        chapter.forEachIndexed { i, text -> wordsBefore[i + 1] = wordsBefore[i] + NovelWords.count(text) }
+    }
+
     private fun publish() {
-        state.value = ReadAloudState(playback)
+        val progress = position?.let { at ->
+            ReadAloudProgress(at.chapterId, wordsBefore[at.paragraph.coerceIn(0, paragraphs.size)], wordsBefore.last())
+        }
+        state.value = ReadAloudState(playback, progress)
         val title = chapterId?.let(navigation::titleOf).orEmpty()
         transport.publish(playback, title, position?.paragraph ?: 0, paragraphs.size)
     }

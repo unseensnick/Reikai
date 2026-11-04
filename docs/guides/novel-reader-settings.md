@@ -80,7 +80,7 @@ Keeps the screen from going to sleep while reading a novel.
 Shows how far through the chapter you are.
 
 ### Show time left in chapter <Badge type="info" text="Off" />
-Shows how long the rest of the chapter should take, from your reading speed in the chapters you finished. It reads **Learning reading speed** until you have finished three chapters opened after updating, since a chapter's length is counted when you open it.
+Shows how long the rest of the chapter should take, from your reading speed in the chapters you finished. It reads **Learning reading speed** until you have finished three chapters opened after updating, since a chapter's length is counted when you open it. While read aloud plays, it counts down at the voice's speed instead, measured within a minute of pressing play; until then it reads **Learning listening speed**.
 
 ### Chapter title <Badge type="info" text="Name" />
 What the reader's bar calls the open chapter: its **Name**, its **Number**, or **Number and name**.

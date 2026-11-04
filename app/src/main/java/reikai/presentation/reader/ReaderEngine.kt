@@ -13,6 +13,7 @@ import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -31,23 +32,31 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.merge
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.scan
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.yield
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterPace
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.Listening
 import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.reader.chapterTimeLeft
+import reikai.domain.reader.listeningTimeLeft
 import reikai.domain.reader.seekTo
 import reikai.domain.readinglog.PACE_SAMPLE_LIMIT
 import reikai.domain.readinglog.PaceUnit
+import reikai.domain.readinglog.ReadingPace
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.learnPace
+import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import kotlin.time.Duration.Companion.seconds
+import kotlin.time.TimeSource
 
 /**
  * The Reikai-owned reader engine, above one provider per content type. It owns dialog dispatch and
@@ -64,6 +73,7 @@ class ReaderEngine(
     private val uiPreferences: UiPreferences,
     getEntryCustomInfo: GetEntryCustomInfo,
     private val paceRepository: ReadingPaceRepository,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -108,18 +118,18 @@ class ReaderEngine(
                 withIOContext {
                     paceRepository.setLength(it.contentType, it.chapterId, it.units)
                     val samples = paceRepository.samples(it.contentType, PACE_SAMPLE_LIMIT)
-                    ChapterPace(it.units, learnPace(samples, it.entryId, PaceUnit.of(it.contentType)))
+                    val unit = PaceUnit.of(it.contentType)
+                    // A chapter mostly read aloud teaches the voice's pace, so the two are learned apart.
+                    val (listened, read) = samples.partition { sample -> sample.isListened }
+                    ChapterPace(
+                        it.units,
+                        reading = learnPace(read, it.entryId, unit),
+                        listening = learnPace(listened, it.entryId, unit),
+                    )
                 }
             }
         }
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
-
-    /** The open chapter's time left while this session's setting asks for it, else null. */
-    val timeLeft: StateFlow<ReaderTimeLeft?> =
-        combine(provider.showTimeLeft, chapterPace, navigator) { show, pace, navigator ->
-            if (show) pace?.let { chapterTimeLeft(it, navigator.progress) } else null
-        }
-            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     /** Whether a chapter is loading or failed, which this raises as a dialog for the host to show. */
     private val loadState: StateFlow<ReaderLoadState> =
@@ -274,6 +284,51 @@ class ReaderEngine(
     val readAloudState: StateFlow<ReaderReadAloudState> =
         (provider.readAloud?.state ?: flowOf(ReaderReadAloudState()))
             .stateIn(viewModelScope, SharingStarted.Eagerly, ReaderReadAloudState())
+
+    private val clock = TimeSource.Monotonic.markNow()
+
+    // Below readAloudState, which it reads as it is built. Each step's listened time is written on the app
+    // scope, so a reader closing mid-paragraph still keeps what was listened before it.
+    private val listening: StateFlow<Listening> = readAloudState
+        .map { (it.playback == TtsPlayback.Playing) to it.progress }
+        .distinctUntilChanged()
+        .scan(Listening()) { state, (playing, progress) ->
+            state.next(playing, progress, clock.elapsedNow().inWholeMilliseconds)
+        }
+        .onEach { it.listened?.let(::recordListened) }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, Listening())
+
+    /**
+     * The open chapter's time left while this session's setting asks for it, else null: while read-aloud
+     * plays, at the voice's pace over what it has still to speak, otherwise at the reader's own.
+     */
+    val timeLeft: StateFlow<ReaderTimeLeft?> =
+        combine(
+            provider.showTimeLeft,
+            chapterPace,
+            navigator,
+            readAloudState,
+            listening,
+        ) { show, pace, nav, speech, heard ->
+            val progress = speech.progress
+            when {
+                !show -> null
+                speech.playback == TtsPlayback.Playing && progress != null ->
+                    listeningTimeLeft(progress, heard.msPerWord, pace?.listening ?: ReadingPace.Learning)
+                else -> pace?.let { chapterTimeLeft(it, nav.progress) }
+            }
+        }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    private fun recordListened(listened: Pair<Long, Long>) {
+        appScope.launchIO { paceRepository.addListenedTime(listened.first, listened.second) }
+    }
+
+    override fun onCleared() {
+        // The paragraph being spoken when the reader closes has had no step to credit it yet.
+        listening.value.next(playing = false, progress = null, nowMs = clock.elapsedNow().inWholeMilliseconds)
+            .listened?.let(::recordListened)
+    }
 
     fun previousChapter() = stepChapter { provider.previousChapter() }
 

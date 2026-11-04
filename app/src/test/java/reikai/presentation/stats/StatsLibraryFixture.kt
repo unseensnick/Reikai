@@ -17,6 +17,7 @@ internal fun statsLibrary(
     novelReadDurations: List<EntryReadDuration> = emptyList(),
     mangaPace: ReadingPace = ReadingPace.Learning,
     novelPace: ReadingPace = ReadingPace.Learning,
+    novelListeningPace: ReadingPace = ReadingPace.Learning,
 ) = StatsLibrary(
     manga = StatsSeries(manga.map { MergeBucket(null, listOf(it)) }, emptyMap()) { it.manga.id },
     novels = StatsSeries(novels.map { MergeBucket(null, listOf(it)) }, emptyMap()) { it.novel.id },
@@ -35,4 +36,5 @@ internal fun statsLibrary(
     novelReadDurations = novelReadDurations,
     mangaPace = mangaPace,
     novelPace = novelPace,
+    novelListeningPace = novelListeningPace,
 )

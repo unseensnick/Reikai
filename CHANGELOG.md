@@ -65,7 +65,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** It reads Learning reading speed until you have finished three chapters.
+- **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
 - **A mouse wheel now turns pages in paged novels.**
 
 #### Changed
@@ -119,7 +119,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **Statistics shows your reading speed: time per manga page and words per minute in novels.**
+- **Statistics shows your reading speed: time per manga page, and words per minute in novels, read and read aloud.**
 
 #### Fixed
 

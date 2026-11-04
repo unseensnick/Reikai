@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
@@ -54,6 +55,30 @@ class ReadingPaceRepositoryTest {
         (1L..3L).forEach { chapter(type, id = it, read = true, length = 20, readAt = it * 1_000, duration = 60_000) }
 
         repository.samples(type, limit = 2).size shouldBe 2
+    }
+
+    @Test
+    fun `a novel chapter's listened time adds up and survives its word count being written again`() = runTest {
+        entry(ContentType.NOVELS, id = 1)
+        chapter(ContentType.NOVELS, id = 1, read = true, length = 2_000, readAt = 1_000, duration = 600_000)
+        repository.addListenedTime(chapterId = 1, ms = 200_000)
+        repository.addListenedTime(chapterId = 1, ms = 200_000)
+
+        repository.setLength(ContentType.NOVELS, chapterId = 1, units = 2_100)
+
+        repository.samples(ContentType.NOVELS, limit = 10) shouldBe
+            listOf(PaceSample(1, 600_000, 2_100, listenedMs = 400_000))
+    }
+
+    @Test
+    fun `listening to a chapter before it is counted keeps the time`() = runTest {
+        entry(ContentType.NOVELS, id = 1)
+        chapter(ContentType.NOVELS, id = 1, read = true, length = 0, readAt = 1_000, duration = 600_000)
+        repository.addListenedTime(chapterId = 1, ms = 300_000)
+
+        repository.setLength(ContentType.NOVELS, chapterId = 1, units = 2_000)
+
+        repository.samples(ContentType.NOVELS, limit = 10).single().listenedMs shouldBe 300_000
     }
 
     private suspend fun entry(type: ContentType, id: Long) = exec(

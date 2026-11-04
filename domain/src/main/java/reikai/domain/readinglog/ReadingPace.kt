@@ -4,9 +4,13 @@ import reikai.domain.library.ContentType
 
 /**
  * A finished chapter's reading time and length in its type's [PaceUnit], from history: [durationMs] is
- * every session spent in it, re-reads included, which is why [learnPace] takes a median.
+ * every session spent in it, re-reads included, which is why [learnPace] takes a median. [listenedMs] is
+ * the part of it read aloud, which only a novel has.
  */
-data class PaceSample(val entryId: Long, val durationMs: Long, val units: Long)
+data class PaceSample(val entryId: Long, val durationMs: Long, val units: Long, val listenedMs: Long = 0) {
+    /** Mostly listened to, so it teaches the voice's pace rather than the reader's. */
+    val isListened: Boolean get() = listenedMs * 2 > durationMs
+}
 
 /** How long one unit takes to read, or [Learning] until enough finished chapters say. */
 sealed interface ReadingPace {

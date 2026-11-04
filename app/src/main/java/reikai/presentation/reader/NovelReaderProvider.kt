@@ -224,7 +224,7 @@ class NovelReaderProvider(
             controller.state,
             controlsVisible.changes(),
             sleepTimer.timer,
-        ) { speech, visible, timer -> ReaderReadAloudState(speech.playback, visible, timer) }
+        ) { speech, visible, timer -> ReaderReadAloudState(speech.playback, visible, timer, speech.progress) }
 
         override fun play() = controller.play()
 

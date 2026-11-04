@@ -1,0 +1,3 @@
+-- The part of a novel chapter's history time spent read aloud, which tells a listened chapter from a
+-- read one when the reading pace is learned. 0 on upgrade: listening is counted from now on.
+ALTER TABLE novel_chapter_words ADD COLUMN listened_ms INTEGER NOT NULL DEFAULT 0;

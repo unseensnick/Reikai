@@ -16,6 +16,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +42,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReadAloudProgress
 import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.readinglog.PaceSample
 import reikai.domain.readinglog.ReadingPaceRepository
@@ -81,6 +83,7 @@ class ReaderEngineTest {
         ),
         mockk { every { subscribeAll() } returns flowOf(customInfo) },
         paceRepository,
+        CoroutineScope(UnconfinedTestDispatcher(scheduler)),
     )
 
     private val paceRepository = FakePaceRepository()
@@ -108,7 +111,40 @@ class ReaderEngineTest {
 
         provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 30)
 
-        engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning
+        engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning(listening = false)
+    }
+
+    @Test
+    fun `chapters mostly listened to do not teach the reading pace`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        paceRepository.samples = List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(0))
+        val engine = engine(provider)
+
+        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+
+        engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning(listening = false)
+    }
+
+    @Test
+    fun `while read aloud plays, time left is the voice's over what it has still to speak`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        // Three chapters listened to at 250 ms a word, and 500 words left to speak.
+        paceRepository.samples = List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
+        provider.showTimeLeft.value = true
+        provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(0))
+        val readAloud = FakeReadAloud()
+        readAloud.state.value = ReaderReadAloudState(
+            playback = TtsPlayback.Playing,
+            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 1_500, words = 2_000),
+        )
+        provider.readAloudSlot = readAloud
+        val engine = engine(provider)
+
+        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+
+        engine.timeLeft.first { it is ReaderTimeLeft.Remaining } shouldBe ReaderTimeLeft.Remaining(125.seconds)
     }
 
     @Test
@@ -1308,4 +1344,6 @@ private class FakePaceRepository : ReadingPaceRepository {
     override suspend fun setLength(contentType: ContentType, chapterId: Long, units: Long) {
         lengths.value += chapterId to units
     }
+
+    override suspend fun addListenedTime(chapterId: Long, ms: Long) = Unit
 }
