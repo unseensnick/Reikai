@@ -176,7 +176,12 @@ class RepairNovelDetailsTest {
             novelRepository = novels,
             novelChapterRepository = NovelChapterRepositoryImpl(database),
             sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source },
-            downloadManager = { mockk(relaxed = true) },
+            // A title change is stored through the download manager, together with the folder move.
+            downloadManager = {
+                mockk(relaxed = true) {
+                    coEvery { renameNovel(any(), any(), any()) } coAnswers { thirdArg<suspend () -> Boolean>()() }
+                }
+            },
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             coverCache = CoverCache(idleAppScope(), context),
             reconcileMergedChapters = ReconcileMergedChapters(
