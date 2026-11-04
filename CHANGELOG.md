@@ -123,7 +123,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Statistics shows your reading speed: time per manga page, and words per minute in novels, read and read aloud.**
 - **Statistics' Reading this week card shows your reading time today, and Statistics opens from the Library and Recents menus.**
-- **Statistics' Scores card shows a bar and count for every score, with how many series you scored and the score you give most.**
+- **Statistics' Scores card shows a bar and count for every score.**
+
+#### Changed
+
+- **Statistics' status charts list each status with its count and share, and its library figures sit in one grid of labelled icons.** A tablet or unfolded foldable phones also keeps the pie chart above Publishing status.
 
 #### Fixed
 

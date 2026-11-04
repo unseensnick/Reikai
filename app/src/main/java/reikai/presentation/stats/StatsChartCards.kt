@@ -8,9 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -26,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -74,6 +75,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
+import kotlin.math.roundToInt
 
 /** One overview card; [fill] goes on its card body, so a shelf can stretch the body to its row's height. */
 typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
@@ -97,14 +99,15 @@ fun statsChartCards(
             StatsCardHeader(MR.strings.stats_publishing_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.STATUS)
             }
-            SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
-                StatsDonut(
-                    charts.status.toSortedMap().map { (code, count) ->
-                        DonutSlice(stringResource(entryStatusRes(code)), count, statusColor(code)) {
-                            onOpenKey(StatsGroupKey.Status(code))
-                        }
-                    },
-                )
+            SectionCard(modifier = fill) {
+                val slices = charts.status.toSortedMap().map { (code, count) ->
+                    DonutSlice(stringResource(entryStatusRes(code)), count, statusColor(code)) {
+                        onOpenKey(StatsGroupKey.Status(code))
+                    }
+                }
+                // Only beside the taller Reading card, where the card would otherwise end in empty space
+                if (StatsShelf.CHARTS.columns(LocalConfiguration.current.screenWidthDp.dp) > 1) StatsDonut(slices)
+                StatsShareBars(slices)
             }
         }
     }
@@ -113,8 +116,8 @@ fun statsChartCards(
             StatsCardHeader(MR.strings.stats_tracking_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.TRACK_STATUS)
             }
-            SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
-                StatsDonut(
+            SectionCard(modifier = fill) {
+                StatsShareBars(
                     TrackStatus.entries.mapNotNull { status ->
                         charts.trackStatus[status]?.let {
                             DonutSlice(stringResource(status.label), it, status.color) {
@@ -171,9 +174,6 @@ fun statsGroupCards(
 /** The narrowest a See all card gets before its grid drops a column, so a phone keeps one column. */
 val STATS_CARD_MIN_WIDTH: Dp = 340.dp
 
-// Tall enough to aim at, short enough that a six-slice legend stays beside its pie.
-private val LEGEND_ROW_HEIGHT: Dp = 32.dp
-
 @Composable
 private fun StatsReadingWeek(charts: StatsCharts) {
     val since = charts.loggedSince
@@ -225,60 +225,52 @@ private fun StatsReadingWeek(charts: StatsCharts) {
 }
 
 /**
- * Scores as a ratings breakdown: how many series are scored and the score given most beside a row per score from
- * 10 down, its bar as long as its share of the most given and its count at the end. Tapping a row with series lists
- * them. The mean is the Trackers card's, so it is not repeated here.
+ * Scores as a ratings breakdown, a row for each score given from 10 down: its bar as long as its share of the
+ * largest and its count of series at the end. Tapping a row lists that score's series.
  */
 @Composable
-private fun StatsScoreBreakdown(scores: Map<Int, Int>, onOpenScore: (Int) -> Unit) {
-    val most = scores.values.max()
-    val mostGiven = scores.entries.maxWith(compareBy({ it.value }, { it.key })).key
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Column(Modifier.weight(0.35f)) {
-            Row { StatsItem(scores.values.sum().toString(), stringResource(MR.strings.stats_scored)) }
-            Row { StatsItem(mostGiven.toString(), stringResource(MR.strings.stats_most_given)) }
-        }
-        Column(Modifier.weight(0.65f)) {
-            (10 downTo 1).forEach { score ->
-                val count = scores[score] ?: 0
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clickable(enabled = count > 0) { onOpenScore(score) }
-                        .padding(vertical = 4.dp),
-                ) {
-                    Text(
-                        text = score.toString(),
-                        style = MaterialTheme.typography.labelMedium,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.width(24.dp),
-                    )
-                    Box(
-                        Modifier
-                            .padding(horizontal = MaterialTheme.padding.small)
-                            .weight(1f)
-                            .height(8.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceVariant),
-                    ) {
-                        if (count > 0) {
-                            Box(
-                                Modifier
-                                    .fillMaxWidth(count.toFloat() / most)
-                                    .height(8.dp)
-                                    .clip(CircleShape)
-                                    .background(MaterialTheme.colorScheme.primary),
-                            )
-                        }
-                    }
-                    Text(
-                        text = if (count > 0) count.toString() else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        modifier = Modifier.width(32.dp),
-                    )
-                }
+private fun StatsScoreBreakdown(
+    scores: Map<Int, Int>,
+    onOpenScore: (Int) -> Unit,
+) {
+    val most = scores.values.maxOrNull()?.coerceAtLeast(1) ?: 1
+    scores.keys.sortedDescending().forEach { score ->
+        val count = scores.getValue(score)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenScore(score) }
+                .padding(vertical = 6.dp),
+        ) {
+            Text(
+                text = score.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(24.dp),
+            )
+            Box(
+                Modifier
+                    .padding(horizontal = MaterialTheme.padding.small)
+                    .weight(1f)
+                    .height(8.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+            ) {
+                Box(
+                    Modifier
+                        .fillMaxWidth(count.toFloat() / most)
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primary),
+                )
             }
+            Text(
+                text = count.toString(),
+                style = MaterialTheme.typography.bodyMedium,
+                textAlign = TextAlign.End,
+                modifier = Modifier.width(48.dp),
+            )
         }
     }
 }
@@ -312,46 +304,89 @@ private fun StatsPaceRow(paces: List<StatsPace>) {
 /** One slice and its legend row; [onClick] opens the slice's series from its legend row. */
 data class DonutSlice(val label: String, val count: Int, val color: Color, val onClick: () -> Unit)
 
-/** A donut of [slices] beside its legend; the legend carries the numbers. */
+/**
+ * [slices] as one labelled row each, most first: the name, the count and its share, over a bar as long as that
+ * share. Tapping a row opens its series, as a donut's legend row does.
+ */
+@Composable
+fun StatsShareBars(slices: List<DonutSlice>) {
+    val total = slices.sumOf { it.count }.coerceAtLeast(1)
+    Column(Modifier.fillMaxWidth()) {
+        slices.sortedByDescending { it.count }.forEach { slice ->
+            val share = slice.count.toFloat() / total
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .clip(MaterialTheme.shapes.small)
+                    .clickable(onClick = slice.onClick)
+                    .padding(vertical = 6.dp),
+            ) {
+                Row(Modifier.fillMaxWidth()) {
+                    Text(
+                        text = slice.label,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = "${slice.count} · ${(share * 100).roundToInt()}%",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                Box(
+                    Modifier
+                        .padding(top = 4.dp)
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                ) {
+                    Box(
+                        Modifier
+                            .fillMaxWidth(share)
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(slice.color),
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A donut of [slices] with their total in the hole; the bars under it are its legend and carry the numbers. */
 @Composable
 fun StatsDonut(slices: List<DonutSlice>) {
     val producer = remember { PieChartModelProducer() }
     // Keyed on the counts: a slice's click lambda is new on every composition and must not redraw the pie.
     val counts = slices.map { it.count }
     LaunchedEffect(counts) { producer.runTransaction { pieModel { series(counts) } } }
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium),
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = MaterialTheme.padding.medium)
+            .height(112.dp),
+        contentAlignment = Alignment.Center,
     ) {
         ProvideVicoTheme(rememberM3VicoTheme()) {
             PieChartHost(
                 chart = rememberPieChart(
                     sliceProvider = PieChart.SliceProvider.series(slices.map { PieChart.Slice(fill = Fill(it.color)) }),
-                    innerSize = PieSize.Inner.fixed(56.dp),
+                    innerSize = PieSize.Inner.fixed(68.dp),
                     spacing = 2.dp,
                 ),
                 modelProducer = producer,
-                // The legend beside it reads every slice, so the chart itself is silent.
-                modifier = Modifier.size(112.dp).clearAndSetSemantics {},
+                // The bars under it read every slice, so the chart itself is silent.
+                modifier = Modifier.fillMaxSize().clearAndSetSemantics {},
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.extraSmall)) {
-            slices.forEach { slice ->
-                Row(
-                    modifier = Modifier
-                        .heightIn(min = LEGEND_ROW_HEIGHT)
-                        .clickable(onClick = slice.onClick),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(Modifier.size(10.dp).background(slice.color, CircleShape))
-                    Text(
-                        text = "${slice.label}  ${slice.count}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.padding(start = MaterialTheme.padding.small),
-                    )
-                }
-            }
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(text = counts.sum().toString(), style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = stringResource(MR.strings.stats_donut_series),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
         }
     }
 }

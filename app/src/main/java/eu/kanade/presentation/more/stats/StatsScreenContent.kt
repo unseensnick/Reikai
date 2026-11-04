@@ -28,8 +28,10 @@ import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsShelf
 import reikai.presentation.stats.StatsShelfContent
+import reikai.presentation.stats.StatsStrip
 import reikai.presentation.stats.statsChartCards
 import reikai.presentation.stats.statsGroupCards
+import reikai.presentation.stats.statsOverviewFigures
 import reikai.presentation.stats.statsReadingCard
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SectionCard
@@ -67,20 +69,19 @@ fun StatsScreenContent(
         }
         // Shelves of cards, side by side on a wide screen and one column on a phone
         item {
+            val figures = statsOverviewFigures(state.overview, state.titles, state.chapters, state.trackers)
             StatsShelfContent(
                 StatsShelf.GLANCE,
-                listOf<StatsCard>(
-                    { OverviewSection(state.overview, it) },
-                    { TitlesStats(state.titles, it) },
-                    { ChapterStats(state.chapters, it) },
-                    { TrackerStats(state.trackers, it) },
-                ),
+                listOf<StatsCard>({ fill -> SectionCard(modifier = fill) { StatsStrip(figures) } }),
             )
         }
         item {
             StatsShelfContent(
                 StatsShelf.CHARTS,
-                statsChartCards(state.charts, onSeeAll, onOpenKey) + statsReadingCard(state.charts, onOpenReading),
+                // Reading second, so on a wide screen the two tall cards share a row and the two short ones the next
+                statsChartCards(state.charts, onSeeAll, onOpenKey).toMutableList().apply {
+                    add(minOf(1, size), statsReadingCard(state.charts, onOpenReading))
+                },
             )
         }
         item {

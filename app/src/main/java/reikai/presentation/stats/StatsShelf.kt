@@ -26,12 +26,15 @@ import tachiyomi.presentation.core.i18n.stringResource
  * number cards go two across and never three and one.
  */
 enum class StatsShelf(val title: StringResource, private val minCardWidth: Dp, private val columnCounts: List<Int>) {
-    GLANCE(MR.strings.stats_shelf_glance, 240.dp, listOf(1, 2)),
+    GLANCE(MR.strings.stats_shelf_glance, 240.dp, listOf(1)),
     CHARTS(MR.strings.stats_shelf_charts, 340.dp, listOf(1, 2)),
     LISTS(MR.strings.stats_shelf_lists, 340.dp, listOf(1, 2, 3)),
     ;
 
     fun columns(width: Dp): Int = columnCounts.last { it == 1 || width >= minCardWidth * it }
+
+    /** Wide enough for two of its cards, which is when the screen shows shelf titles, one card across or not. */
+    fun isTitled(width: Dp): Boolean = width >= minCardWidth * 2
 }
 
 /**
@@ -43,8 +46,9 @@ fun StatsShelfContent(shelf: StatsShelf, cards: List<StatsCard>) {
     if (cards.isEmpty()) return
     BoxWithConstraints {
         val columns = shelf.columns(maxWidth)
+        val isTitled = shelf.isTitled(maxWidth)
         Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
-            if (columns > 1) {
+            if (isTitled) {
                 Text(
                     text = stringResource(shelf.title),
                     style = MaterialTheme.typography.titleLarge,
