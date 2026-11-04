@@ -19,6 +19,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.ContentType
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.manga.MangaRepositoryImpl
@@ -130,6 +131,7 @@ class GroupMemberBackupConformanceTest {
                 novelSourceManager = mockk(),
                 chapterNumberOverrides = NoChapterNumberOverrides,
                 readingLog = NoReadingLog,
+                readingPace = NoReadingPace,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         }

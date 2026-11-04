@@ -20,6 +20,25 @@ INSERT INTO novel_chapter_words(chapter_id, words, listened_ms)
 VALUES (:chapterId, 0, :ms)
 ON CONFLICT(chapter_id) DO UPDATE SET listened_ms = listened_ms + excluded.listened_ms;
 
+-- Backup restore and migration: a chapter's listened time is at least [ms], the longer of the two, as
+-- novel_history.sq restoreUpsert keeps the longer time_read, so restoring twice adds nothing.
+keepNovelListened:
+INSERT INTO novel_chapter_words(chapter_id, words, listened_ms)
+VALUES (:chapterId, 0, :ms)
+ON CONFLICT(chapter_id) DO UPDATE SET listened_ms = MAX(listened_ms, excluded.listened_ms);
+
+-- Clearing all novel history clears the listened share of the time it removed; the word counts stay,
+-- as manga's page counts do.
+clearNovelListened:
+UPDATE novel_chapter_words SET listened_ms = 0;
+
+-- Each kept chapter of these novels, keyed by url as a backup carries chapters.
+novelChapterPace:
+SELECT C.novel_id, C._id, C.url, W.words, W.listened_ms
+FROM novel_chapters C
+JOIN novel_chapter_words W ON W.chapter_id = C._id
+WHERE C.novel_id IN :novelIds;
+
 mangaSamples:
 SELECT C.manga_id, H.read_duration, C.page_count, 0 AS listened_ms
 FROM history H

@@ -214,6 +214,9 @@ class NovelReaderViewModel(
         isIncognito = getIncognitoState::await,
     )
 
+    /** Whether reading a chapter owned by [ownerId] is recorded, which incognito turns off. */
+    suspend fun isRecorded(ownerId: Long): Boolean = !incognito.of(ownerId)
+
     /** Owning novel of the current chapter. Defaults to the host (== owner for a standalone novel);
      *  a merged session re-points it per chapter so the web actions resolve the source being read. */
     @Volatile
@@ -588,7 +591,8 @@ class NovelReaderViewModel(
     /** The novels of the opened one's merge group, itself alone when ungrouped, and the group's stored
      *  stitch (empty when ungrouped). Resolved with [orderedIds], in either scope. */
     @Volatile
-    private var memberIds: List<Long> = listOf(novelId)
+    var memberIds: List<Long> = listOf(novelId)
+        private set
 
     @Volatile
     private var groupStitch: List<ChapterUnit> = emptyList()

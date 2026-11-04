@@ -6,6 +6,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.NovelChapterPace
 import reikai.domain.readinglog.PaceSample
 import reikai.domain.readinglog.ReadingPaceRepository
 import tachiyomi.data.Database
@@ -43,4 +44,11 @@ class ReadingPaceRepositoryImpl(
     override suspend fun addListenedTime(chapterId: Long, ms: Long) {
         queries.addNovelListened(chapterId, ms)
     }
+
+    override suspend fun keepListenedTime(chapterId: Long, ms: Long) {
+        queries.keepNovelListened(chapterId, ms)
+    }
+
+    override suspend fun novelChapterPace(novelIds: List<Long>): List<NovelChapterPace> =
+        queries.novelChapterPace(novelIds, ::NovelChapterPace).awaitAsList()
 }

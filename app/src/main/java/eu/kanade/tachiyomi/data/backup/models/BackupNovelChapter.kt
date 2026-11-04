@@ -24,6 +24,9 @@ class BackupNovelChapter(
     @ProtoNumber(11) var scanlator: String? = null,
     // The source's own number when the user corrected it, as BackupChapter carries it. Null when uncorrected.
     @ProtoNumber(12) var sourceChapterNumber: Double? = null,
+    // The word count a reading pace is learned against, as BackupChapter carries manga's page count. 0
+    // when the reader never counted it.
+    @ProtoNumber(13) var words: Long = 0,
     // No download flag is carried: the on-disk text file isn't in the backup, so downloaded state is
     // rederived from disk by NovelDownloadCache after restore.
 ) {

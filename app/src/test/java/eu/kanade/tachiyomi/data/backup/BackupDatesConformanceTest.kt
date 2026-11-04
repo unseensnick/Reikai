@@ -19,6 +19,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.manga.model.Manga
@@ -163,6 +164,7 @@ class BackupDatesConformanceTest {
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
+                    readingPace = NoReadingPace,
                 )
                 val batch = listOf(novel to creator.base(listOf(novel)).single())
                 creator.chapters(batch)

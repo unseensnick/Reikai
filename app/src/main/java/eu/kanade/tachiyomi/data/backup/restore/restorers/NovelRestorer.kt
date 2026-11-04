@@ -46,6 +46,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.ReadingPaceRepository
 import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 import kotlin.time.Clock
@@ -61,6 +62,7 @@ class NovelRestorer(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
+    private val readingPace: ReadingPaceRepository,
 ) {
 
     private val timeZone = TimeZone.currentSystemDefault()
@@ -94,6 +96,7 @@ class NovelRestorer(
         val novelId = restored.id
 
         val chapters = restoreChapters(novelId, backupNovel.chapters)
+        restoreWords(chapters, backupNovel.chapters)
         chapterNumberOverrides.restore(
             ContentType.NOVELS,
             novelId,
@@ -185,6 +188,15 @@ class NovelRestorer(
         return dbChapters + inserted
     }
 
+    /** Each chapter's word count, so a restored history teaches a pace as manga's page counts do. */
+    private suspend fun restoreWords(chapters: List<NovelChapter>, backupChapters: List<BackupNovelChapter>) {
+        val chapterIdsByUrl = chapters.associate { it.url to it.id }
+        backupChapters.filter { it.words > 0 }.forEach { backupChapter ->
+            val chapterId = chapterIdsByUrl[backupChapter.url] ?: return@forEach
+            readingPace.setLength(ContentType.NOVELS, chapterId, backupChapter.words)
+        }
+    }
+
     private suspend fun restoreCategoryMembership(
         novelId: Long,
         categoryOrders: List<Long>,
@@ -236,6 +248,12 @@ class NovelRestorer(
                 val chapterId = chapterIdsByUrl[history.chapterUrl] ?: return@forEach
                 novelHistoryRepository.restoreHistory(chapterId, history.readAt, history.readDuration)
             }
+        // Copies of one chapter are one chapter's listening, as their read time is.
+        backupHistory.groupBy { it.url }.forEach { (url, copies) ->
+            val listened = copies.sumOf { it.listenedMs }
+            val chapterId = chapterIdsByUrl[url] ?: return@forEach
+            if (listened > 0) readingPace.keepListenedTime(chapterId, listened)
+        }
     }
 
     /**

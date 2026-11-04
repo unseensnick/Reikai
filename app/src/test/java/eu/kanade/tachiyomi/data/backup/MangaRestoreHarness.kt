@@ -11,6 +11,7 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -88,6 +89,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
+        readingPace = NoReadingPace,
     )
 
     /** Stores a bare device copy under a chosen [id], for a test that pins the id a restore writes under. */

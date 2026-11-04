@@ -26,6 +26,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import kotlin.time.Instant
 
 class NovelBackupRoundTripTest {
@@ -49,6 +50,7 @@ class NovelBackupRoundTripTest {
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
+        readingPace = NoReadingPace,
     )
 
     @Test
@@ -74,6 +76,7 @@ class NovelBackupRoundTripTest {
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
+            readingPace = NoReadingPace,
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
         val options = BackupOptions(
@@ -184,6 +187,7 @@ class NovelBackupRoundTripTest {
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
+            readingPace = NoReadingPace,
         )
         val backup = BackupNovel(source = "s1", url = "u")
         creator.chapters(listOf(novel(1, "u", "s1") to backup))

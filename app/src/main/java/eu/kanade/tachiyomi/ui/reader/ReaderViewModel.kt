@@ -288,6 +288,14 @@ class ReaderViewModel(
     // it; for an unmerged manga it holds just that manga and its own chapters.
     private var mergedGroup: MergedChapterProvider.Group? = null
 
+    // RK -->
+    // The series a pace is learned for, every member of the merge group, as the novel reader's.
+    val seriesIds: Set<Long>? get() = mergedGroup?.mangaById?.keys
+
+    /** Whether reading a chapter owned by [ownerId] is recorded, which incognito turns off. */
+    suspend fun isRecorded(ownerId: Long): Boolean = !incognito.of(ownerId)
+    // RK <--
+
     // RK: which copy of a merged chapter an open reads, one on disk over the one online. Resolved in
     // init with the group and null in source scope, which reads only the opened source's chapters.
     private var copiesToOpen: CopyToOpen<Chapter>? = null

@@ -44,6 +44,7 @@ import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReadAloudProgress
 import reikai.domain.reader.ReaderTimeLeft
+import reikai.domain.readinglog.NovelChapterPace
 import reikai.domain.readinglog.PaceSample
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.presentation.components.UndatedChapterDate
@@ -88,16 +89,20 @@ class ReaderEngineTest {
 
     private val paceRepository = FakePaceRepository()
 
+    private fun length(type: ContentType, units: Long, recorded: Boolean = true) =
+        ChapterLength(type, seriesIds = setOf(1), chapterId = 9, units = units, recorded = recorded)
+
     @Test
     fun `time left is the chapter's share left at the learned pace`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
         // Three finished chapters at ten seconds a page, and half of a 30-page chapter left.
-        paceRepository.samples = List(3) { PaceSample(entryId = 1, durationMs = 200_000, units = 20) }
+        paceRepository.samples[ContentType.MANGA] =
+            List(3) { PaceSample(entryId = 1, durationMs = 200_000, units = 20) }
         provider.showTimeLeft.value = true
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(15, 30))
         val engine = engine(provider)
 
-        provider.chapterLength.value = ChapterLength(ContentType.MANGA, entryId = 1, chapterId = 9, units = 30)
+        provider.chapterLength.value = length(ContentType.MANGA, units = 30)
 
         engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Remaining(150.seconds)
     }
@@ -109,7 +114,7 @@ class ReaderEngineTest {
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
         val engine = engine(provider)
 
-        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 30)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 30)
 
         engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning(listening = false)
     }
@@ -117,12 +122,13 @@ class ReaderEngineTest {
     @Test
     fun `chapters mostly listened to do not teach the reading pace`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
-        paceRepository.samples = List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
+        paceRepository.samples[ContentType.NOVELS] =
+            List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
         provider.showTimeLeft.value = true
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(0))
         val engine = engine(provider)
 
-        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
 
         engine.timeLeft.first { it != null } shouldBe ReaderTimeLeft.Learning(listening = false)
     }
@@ -131,7 +137,8 @@ class ReaderEngineTest {
     fun `while read aloud plays, time left is the voice's over what it has still to speak`() = runTest(scheduler) {
         val provider = FakeReaderProvider()
         // Three chapters listened to at 250 ms a word, and 500 words left to speak.
-        paceRepository.samples = List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
+        paceRepository.samples[ContentType.NOVELS] =
+            List(3) { PaceSample(1, durationMs = 500_000, units = 2_000, listenedMs = 400_000) }
         provider.showTimeLeft.value = true
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Percent(0))
         val readAloud = FakeReadAloud()
@@ -142,7 +149,7 @@ class ReaderEngineTest {
         provider.readAloudSlot = readAloud
         val engine = engine(provider)
 
-        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
 
         engine.timeLeft.first { it is ReaderTimeLeft.Remaining } shouldBe ReaderTimeLeft.Remaining(125.seconds)
     }
@@ -153,11 +160,47 @@ class ReaderEngineTest {
         provider.navigator.value = ReaderNavigatorState(progress = ChapterProgress.Pages(0, 30))
         val engine = engine(provider)
 
-        provider.chapterLength.value = ChapterLength(ContentType.NOVELS, entryId = 1, chapterId = 9, units = 2_000)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
 
-        paceRepository.lengths.first { it.isNotEmpty() } shouldBe listOf(9L to 2_000L)
+        paceRepository.lengths.first { it.isNotEmpty() } shouldBe listOf(KeptLength(ContentType.NOVELS, 9, 2_000))
         engine.timeLeft.value shouldBe null
     }
+
+    @Test
+    fun `a chapter read in incognito keeps no length`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        engine(provider)
+
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000, recorded = false)
+        advanceUntilIdle()
+
+        paceRepository.lengths.value shouldBe emptyList()
+    }
+
+    @ParameterizedTest(name = "recorded {0}")
+    @MethodSource("listenedByRecorded")
+    fun `read-aloud time is kept only for a recorded chapter`(recorded: Boolean, kept: List<Long>) =
+        runTest(scheduler) {
+            val provider = FakeReaderProvider()
+            val readAloud = FakeReadAloud()
+            readAloud.state.value = ReaderReadAloudState(
+                playback = TtsPlayback.Playing,
+                progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 0, words = 2_000),
+            )
+            provider.readAloudSlot = readAloud
+            engine(provider)
+            provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000, recorded = recorded)
+            advanceUntilIdle()
+            // The listening clock is a real monotonic one, so a step needs real time between paragraphs.
+            Thread.sleep(5)
+
+            readAloud.state.value = readAloud.state.value.copy(
+                progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 100, words = 2_000),
+            )
+            advanceUntilIdle()
+
+            paceRepository.listened.value.map { it.first } shouldBe kept
+        }
 
     /** Ids overlap across the two types, so the override is found by the entry's typed id. */
     @ParameterizedTest(name = "{0}")
@@ -1026,6 +1069,12 @@ class ReaderEngineTest {
 
     companion object {
         @JvmStatic
+        fun listenedByRecorded(): List<Arguments> = listOf(
+            Arguments.of(true, listOf(9L)),
+            Arguments.of(false, emptyList<Long>()),
+        )
+
+        @JvmStatic
         fun editedEntries(): List<Arguments> = listOf(
             Arguments.of(EntryId.Manga(1L), CustomMangaInfo(mangaId = 1L, title = "Mine")),
             Arguments.of(EntryId.Novel(1L), CustomNovelInfo(novelId = 1L, title = "Mine")),
@@ -1333,17 +1382,28 @@ private class RecordingPageActions : ReaderPageActions {
     override fun setAsCover() = Unit
 }
 
-/** Answers [samples] for either type and keeps each length it is given, chapter id to units. */
+private data class KeptLength(val type: ContentType, val chapterId: Long, val units: Long)
+
+/** Answers each type its own [samples], so a call for the wrong type learns nothing, and keeps each write. */
 private class FakePaceRepository : ReadingPaceRepository {
-    var samples: List<PaceSample> = emptyList()
+    val samples = mutableMapOf<ContentType, List<PaceSample>>()
 
-    val lengths = MutableStateFlow(emptyList<Pair<Long, Long>>())
+    val lengths = MutableStateFlow(emptyList<KeptLength>())
 
-    override suspend fun samples(contentType: ContentType, limit: Int): List<PaceSample> = samples
+    val listened = MutableStateFlow(emptyList<Pair<Long, Long>>())
+
+    override suspend fun samples(contentType: ContentType, limit: Int): List<PaceSample> =
+        samples[contentType].orEmpty()
 
     override suspend fun setLength(contentType: ContentType, chapterId: Long, units: Long) {
-        lengths.value += chapterId to units
+        lengths.value += KeptLength(contentType, chapterId, units)
     }
 
-    override suspend fun addListenedTime(chapterId: Long, ms: Long) = Unit
+    override suspend fun addListenedTime(chapterId: Long, ms: Long) {
+        listened.value += chapterId to ms
+    }
+
+    override suspend fun keepListenedTime(chapterId: Long, ms: Long) = Unit
+
+    override suspend fun novelChapterPace(novelIds: List<Long>): List<NovelChapterPace> = emptyList()
 }

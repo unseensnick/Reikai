@@ -287,7 +287,7 @@ class StatsLibraryLoader(
     /** The pace the reader shows for [type], learned from chapters read or, when [listened], read aloud. */
     private suspend fun overallPace(type: ContentType, listened: Boolean): ReadingPace {
         val samples = paceRepository.samples(type, PACE_SAMPLE_LIMIT).filter { it.isListened == listened }
-        return learnPace(samples, entryId = null, PaceUnit.of(type))
+        return learnPace(samples, seriesIds = null, PaceUnit.of(type))
     }
 
     private suspend fun getMangaTrackMap(

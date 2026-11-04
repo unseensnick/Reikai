@@ -25,6 +25,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.sessionMoves
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
@@ -63,6 +64,7 @@ class MigrateNovelUseCase(
     private val sourceTracker: SourceTrackerDispatcher,
     private val novelHistoryRepository: NovelHistoryRepository,
     private val readingLog: ReadingLogRepository,
+    private val readingPace: ReadingPaceRepository,
 ) {
 
     private val novelDownloadManager: NovelDownloadManager get() = novelDownloadManagerProvider()
@@ -128,10 +130,15 @@ class MigrateNovelUseCase(
                     novelHistoryRepository.getHistoryByNovelId(current.id),
                     novelHistoryRepository.getHistoryByNovelId(target.id),
                 ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
-                readingLog.move(
-                    ContentType.NOVELS,
-                    sessionMoves(matchedSourceChapters(currentChapters, targetChapters).toList()),
-                )
+                val matched = matchedSourceChapters(currentChapters, targetChapters)
+                readingLog.move(ContentType.NOVELS, sessionMoves(matched.toList()))
+                // The listened share of the history time carried above, so a listened chapter stays one.
+                // Word counts stay behind: the target's text is its own, counted when it is next read.
+                val listened = readingPace.novelChapterPace(listOf(current.id))
+                    .associate { it.chapterId to it.listenedMs }
+                matched.forEach { (targetId, sourceId) ->
+                    listened[sourceId]?.takeIf { it > 0 }?.let { readingPace.keepListenedTime(targetId, it) }
+                }
             }
 
             // Read here, written once the target is in the library, see the group write below

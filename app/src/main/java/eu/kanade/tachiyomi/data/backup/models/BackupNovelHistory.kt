@@ -11,4 +11,6 @@ class BackupNovelHistory(
     @ProtoNumber(1) var url: String,
     @ProtoNumber(2) var lastRead: Long = 0,
     @ProtoNumber(3) var readDuration: Long = 0,
+    // The part of readDuration spent read aloud, which keeps a listened chapter from teaching the reading pace.
+    @ProtoNumber(4) var listenedMs: Long = 0,
 )

@@ -152,7 +152,14 @@ class MangaReaderProvider(
         val position = state.position ?: return@map null
         val pages = (position.progress as? ChapterProgress.Pages)?.pageCount?.takeIf { it > 0 } ?: return@map null
         val mangaId = state.manga?.id ?: return@map null
-        ChapterLength(ContentType.MANGA, mangaId, position.chapterId, pages.toLong())
+        val owner = state.currentChapter?.chapter?.takeIf { it.id == position.chapterId }?.mangaId ?: mangaId
+        ChapterLength(
+            ContentType.MANGA,
+            viewModel.seriesIds ?: setOf(mangaId),
+            position.chapterId,
+            pages.toLong(),
+            recorded = viewModel.isRecorded(owner),
+        )
     }.distinctUntilChanged()
 
     // A step, a pick or a reload that failed is reported, and stays so until the next one starts. A

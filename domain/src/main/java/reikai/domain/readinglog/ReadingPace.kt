@@ -41,13 +41,14 @@ enum class PaceUnit(val floorMs: Double, val capMs: Double) {
 }
 
 /**
- * The pace for [entryId] from [samples], newest first: its own most recent chapters once it has
+ * The pace for a series from [samples], newest first: its own most recent chapters once it has
  * [MIN_SAMPLES] of them, else the most recent across everything read, else [ReadingPace.Learning]. A
- * null [entryId] asks for the overall pace.
+ * series is every entry in [seriesIds], so a merged one learns from each member's chapters; null asks for
+ * the overall pace.
  */
-fun learnPace(samples: List<PaceSample>, entryId: Long?, unit: PaceUnit): ReadingPace {
+fun learnPace(samples: List<PaceSample>, seriesIds: Set<Long>?, unit: PaceUnit): ReadingPace {
     val plausible = samples.filter { it.units > 0 && it.msPerUnit in unit.floorMs..unit.capMs }
-    val own = plausible.filter { it.entryId == entryId }.take(RECENT_SAMPLES)
+    val own = plausible.filter { seriesIds != null && it.entryId in seriesIds }.take(RECENT_SAMPLES)
     val pool = if (own.size >= MIN_SAMPLES) own else plausible.take(RECENT_SAMPLES)
     if (pool.size < MIN_SAMPLES) return ReadingPace.Learning
     val sorted = pool.map { it.msPerUnit }.sorted()

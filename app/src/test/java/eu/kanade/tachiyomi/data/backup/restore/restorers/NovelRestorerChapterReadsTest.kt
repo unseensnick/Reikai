@@ -19,6 +19,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -88,6 +89,7 @@ class NovelRestorerChapterReadsTest {
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
+        readingPace = NoReadingPace,
     ).restore(
         BackupNovel(
             source = "src",

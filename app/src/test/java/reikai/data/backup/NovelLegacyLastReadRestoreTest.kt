@@ -18,6 +18,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -82,5 +83,6 @@ class NovelLegacyLastReadRestoreTest {
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
+        readingPace = NoReadingPace,
     )
 }

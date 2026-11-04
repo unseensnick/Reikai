@@ -21,6 +21,7 @@ import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.domain.manga.model.Manga
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
@@ -94,6 +95,7 @@ class RestoreNextUpdateConformanceTest {
                         novelHistoryRepository = NovelHistoryRepositoryImpl(harness.database),
                         chapterNumberOverrides = NoChapterNumberOverrides,
                         readingLog = NoReadingLog,
+                        readingPace = NoReadingPace,
                     ).restore(wire.overTheWire(BackupNovel.serializer()), emptyList())
                     novels.getByUrlAndSource(URL, "s")!!.nextUpdate
                 }

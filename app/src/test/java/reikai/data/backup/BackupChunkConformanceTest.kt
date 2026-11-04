@@ -23,6 +23,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
+import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.novel.model.Novel
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -195,6 +196,7 @@ class BackupChunkConformanceTest {
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     readingLog = ReadingLogRepositoryImpl(database),
+                    readingPace = ReadingPaceRepositoryImpl(database),
                 )
                 return options.backupChunk(
                     ids.map {

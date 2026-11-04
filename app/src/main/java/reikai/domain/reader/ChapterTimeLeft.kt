@@ -6,10 +6,17 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 
 /**
- * The open chapter's length in its type's pace unit (pages for manga, words for a novel) and who it
- * belongs to, which is what a pace is learned for and stored against.
+ * The open chapter's length in its type's pace unit (pages for manga, words for a novel) and the series
+ * it is read in, every member of a merge group, which is what a pace is learned for. [recorded] is false
+ * for a chapter read in incognito, which keeps no length or listened time, as it keeps no history.
  */
-data class ChapterLength(val contentType: ContentType, val entryId: Long, val chapterId: Long, val units: Long)
+data class ChapterLength(
+    val contentType: ContentType,
+    val seriesIds: Set<Long>,
+    val chapterId: Long,
+    val units: Long,
+    val recorded: Boolean,
+)
 
 /** The open chapter's length with the paces learned for it, read and listened to. */
 data class ChapterPace(val units: Long, val reading: ReadingPace, val listening: ReadingPace)

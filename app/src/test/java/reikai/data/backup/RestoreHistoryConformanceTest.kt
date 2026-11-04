@@ -23,6 +23,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
+import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -199,6 +200,7 @@ class RestoreHistoryConformanceTest {
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = ReadingLogRepositoryImpl(database),
+                    readingPace = ReadingPaceRepositoryImpl(database),
                 ).restore(
                     BackupNovel(
                         source = "src",

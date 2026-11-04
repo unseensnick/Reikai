@@ -17,6 +17,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import kotlin.time.Instant
 
 /**
@@ -97,6 +98,7 @@ class NovelRestorerWriteFailureTest {
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
+        readingPace = NoReadingPace,
     )
 
     private val backup = BackupNovel(

@@ -40,6 +40,7 @@ import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import reikai.novel.source.NovelSourceManager
 import reikai.util.testAppScope
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
@@ -209,6 +210,7 @@ class BackupCustomInfoConformanceTest {
                     ),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
+                    readingPace = NoReadingPace,
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
@@ -356,6 +358,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
+            readingPace = NoReadingPace,
         )
         restoreEncoded(backup, ENTRIES_ONLY, novelRestorer = restorer)
         return written

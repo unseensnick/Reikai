@@ -148,7 +148,13 @@ class NovelReaderProvider(
         .distinctUntilChangedBy { it.chapterId }
         .map { chapter ->
             val words = NovelWords.count(Jsoup.parse(chapter.html).body().text()).toLong()
-            ChapterLength(ContentType.NOVELS, viewModel.novelId, chapter.chapterId, words).takeIf { words > 0 }
+            ChapterLength(
+                ContentType.NOVELS,
+                viewModel.memberIds.toSet(),
+                chapter.chapterId,
+                words,
+                recorded = viewModel.isRecorded(chapter.novelId),
+            ).takeIf { words > 0 }
         }
         .flowOn(Dispatchers.Default)
 

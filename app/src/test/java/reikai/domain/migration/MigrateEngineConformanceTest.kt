@@ -39,6 +39,7 @@ import reikai.domain.novel.model.NovelMigrationFlag
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.readinglog.NoReadingLog
+import reikai.domain.readinglog.NoReadingPace
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.track.source.SourceTrackerDispatcher
 import reikai.novel.download.NovelDownloadManager
@@ -999,6 +1000,7 @@ class NovelEngine : MigrateEngine {
             novelHistoryRepository = history,
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = rec.readingLog,
+            readingPace = NoReadingPace,
         )
         val current = Novel.create().copy(
             id = MigrateEngineConformanceTest.SOURCE,

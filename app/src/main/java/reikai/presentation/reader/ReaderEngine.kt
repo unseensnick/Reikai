@@ -55,6 +55,7 @@ import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.learnPace
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.TimeSource
 
@@ -108,23 +109,27 @@ class ReaderEngine(
     val showProgress: StateFlow<Boolean> =
         provider.showProgress.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
+    // Each chapter this session measured, to whether its reading is recorded.
+    private val recordedChapters = ConcurrentHashMap<Long, Boolean>()
+
     // Eager whether or not time left is shown, so a length is kept and the pace goes on learning while it
     // is off, and turning it on finds a pace already known. Asked once a chapter, since history only
     // changes when the reader moves to another one.
     private val chapterPace: StateFlow<ChapterPace?> = provider.chapterLength
         .distinctUntilChanged()
+        .onEach { length -> length?.let { recordedChapters[it.chapterId] = it.recorded } }
         .mapLatest { length ->
             length?.let {
                 withIOContext {
-                    paceRepository.setLength(it.contentType, it.chapterId, it.units)
+                    if (it.recorded) paceRepository.setLength(it.contentType, it.chapterId, it.units)
                     val samples = paceRepository.samples(it.contentType, PACE_SAMPLE_LIMIT)
                     val unit = PaceUnit.of(it.contentType)
                     // A chapter mostly read aloud teaches the voice's pace, so the two are learned apart.
                     val (listened, read) = samples.partition { sample -> sample.isListened }
                     ChapterPace(
                         it.units,
-                        reading = learnPace(read, it.entryId, unit),
-                        listening = learnPace(listened, it.entryId, unit),
+                        reading = learnPace(read, it.seriesIds, unit),
+                        listening = learnPace(listened, it.seriesIds, unit),
                     )
                 }
             }
@@ -320,7 +325,9 @@ class ReaderEngine(
         }
             .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    // Only a chapter whose length said it is recorded: one in incognito, or never measured, keeps nothing.
     private fun recordListened(listened: Pair<Long, Long>) {
+        if (recordedChapters[listened.first] != true) return
         appScope.launchIO { paceRepository.addListenedTime(listened.first, listened.second) }
     }
 

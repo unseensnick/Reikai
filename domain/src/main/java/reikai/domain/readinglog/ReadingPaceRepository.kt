@@ -19,7 +19,22 @@ interface ReadingPaceRepository {
 
     /** Adds [ms] of read-aloud to a novel chapter, the only type that reads aloud. */
     suspend fun addListenedTime(chapterId: Long, ms: Long)
+
+    /** Raises a novel chapter's read-aloud to at least [ms], for a restore or a migration carrying it. */
+    suspend fun keepListenedTime(chapterId: Long, ms: Long)
+
+    /** What is kept for these novels' chapters, which a backup and a migration carry. */
+    suspend fun novelChapterPace(novelIds: List<Long>): List<NovelChapterPace>
 }
+
+/** A novel chapter's kept word count and read-aloud time, with the url a backup keys it by. */
+data class NovelChapterPace(
+    val novelId: Long,
+    val chapterId: Long,
+    val url: String,
+    val words: Long,
+    val listenedMs: Long,
+)
 
 /** How many finished chapters a pace is asked for, enough for one series' and the overall one. */
 const val PACE_SAMPLE_LIMIT = 200

@@ -62,8 +62,10 @@ class NovelHistoryRepositoryImpl(
     override suspend fun deleteAllNovelHistory(): Boolean =
         try {
             database.novel_historyQueries.removeAll()
-            // The reading log goes with the time it adds up to, as for manga.
+            // The reading log goes with the time it adds up to, as for manga, and so does the part of that
+            // time spent read aloud.
             database.reading_sessionQueries.removeAllNovel()
+            database.reading_paceQueries.clearNovelListened()
             true
         } catch (e: Exception) {
             logcat(LogPriority.ERROR, e) { "Failed to clear novel history" }

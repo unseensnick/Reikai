@@ -36,6 +36,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.readinglog.ReadingLogRepository
+import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -51,6 +52,7 @@ class NovelBackupCreator(
     private val novelSourceManager: NovelSourceManager,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
+    private val readingPace: ReadingPaceRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
@@ -80,9 +82,12 @@ class NovelBackupCreator(
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
+        val wordsByChapterId = readingPace.novelChapterPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
-            backup.chapters = chapters.map { it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber) }
+            backup.chapters = chapters.map {
+                it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber, words = wordsByChapterId[it.id])
+            }
         }
     }
 
@@ -104,12 +109,17 @@ class NovelBackupCreator(
         val novelIds = batch.map { it.first.id }
         val historyByNovelId = novelHistoryRepository.getUrlKeyedHistoryByNovelIds(novelIds)
         val sessionsByNovelId = readingLog.sessionsByUrl(ContentType.NOVELS, novelIds)
+        val listenedByNovelId = readingPace.novelChapterPace(novelIds)
+            .groupBy({ it.novelId }, { it.url to it.listenedMs })
+            .mapValues { (_, listened) -> listened.toMap() }
         batch.forEach { (entry, backup) ->
+            val listened = listenedByNovelId[entry.id].orEmpty()
             val history = historyByNovelId[entry.id].orEmpty().map {
                 BackupNovelHistory(
                     url = it.chapterUrl,
                     lastRead = it.readAt.toEpochMillisOrZero(),
                     readDuration = it.readDuration,
+                    listenedMs = listened[it.chapterUrl] ?: 0,
                 )
             }
             if (history.isNotEmpty()) {
@@ -166,7 +176,7 @@ private fun Novel.toBackupNovel() = BackupNovel(
     nextUpdate = this.nextUpdate.toEpochMillisOrZero(),
 )
 
-private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?) = BackupNovelChapter(
+private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?, words: Long?) = BackupNovelChapter(
     url = this.url,
     name = this.name,
     read = this.read,
@@ -179,6 +189,7 @@ private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?) = BackupNov
     page = this.page,
     scanlator = this.scanlator,
     sourceChapterNumber = sourceNumber,
+    words = words ?: 0,
 )
 
 private fun NovelTrack.toBackupNovelTracking() = BackupNovelTracking(

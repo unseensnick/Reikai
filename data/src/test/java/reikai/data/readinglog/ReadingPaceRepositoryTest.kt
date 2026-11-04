@@ -8,6 +8,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.library.ContentType
 import reikai.domain.readinglog.PaceSample
 import tachiyomi.data.Database
@@ -79,6 +80,29 @@ class ReadingPaceRepositoryTest {
         repository.setLength(ContentType.NOVELS, chapterId = 1, units = 2_000)
 
         repository.samples(ContentType.NOVELS, limit = 10).single().listenedMs shouldBe 300_000
+    }
+
+    @Test
+    fun `clearing all novel history clears the listened time but keeps the word count`() = runTest {
+        entry(ContentType.NOVELS, id = 1)
+        chapter(ContentType.NOVELS, id = 1, read = true, length = 2_000, readAt = 1_000, duration = 600_000)
+        repository.addListenedTime(chapterId = 1, ms = 400_000)
+
+        NovelHistoryRepositoryImpl(database).deleteAllNovelHistory()
+
+        repository.novelChapterPace(listOf(1L)).single().let { it.words to it.listenedMs } shouldBe (2_000L to 0L)
+    }
+
+    @Test
+    fun `a carried read-aloud time keeps the longer of the two`() = runTest {
+        entry(ContentType.NOVELS, id = 1)
+        chapter(ContentType.NOVELS, id = 1, read = true, length = 2_000, readAt = 1_000, duration = 600_000)
+        repository.addListenedTime(chapterId = 1, ms = 300_000)
+
+        repository.keepListenedTime(chapterId = 1, ms = 200_000)
+        repository.keepListenedTime(chapterId = 1, ms = 400_000)
+
+        repository.novelChapterPace(listOf(1L)).single().listenedMs shouldBe 400_000
     }
 
     private suspend fun entry(type: ContentType, id: Long) = exec(
