@@ -1929,6 +1929,8 @@
     <string name="stats_publishing_status">Publishing status</string>
     <string name="stats_tracking_status">Tracking status</string>
     <string name="stats_scores">Scores</string>
+    <string name="stats_scored">Scored</string>
+    <string name="stats_most_given">Most given</string>
     <string name="stats_reading_week">Reading this week</string>
     <string name="stats_most_read">Most read</string>
     <string name="stats_current_streak">Current streak</string>

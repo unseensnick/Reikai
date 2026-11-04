@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,11 +24,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.patrykandpatrick.vico.compose.cartesian.CartesianChartHost
@@ -127,15 +130,7 @@ fun statsChartCards(
         add { fill ->
             StatsCardHeader(MR.strings.stats_scores, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
             SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
-                StatsColumns(
-                    values = (1..10).map { charts.scores[it] ?: 0 },
-                    label = { (it + 1).toString() },
-                    description = (1..10).joinToString { "$it: ${charts.scores[it] ?: 0}" },
-                    // Column x is the bar less one; an empty bar has no series to list.
-                    onColumnClick = { x ->
-                        (x + 1).takeIf { charts.scores[it] != null }?.let { onOpenKey(StatsGroupKey.Score(it)) }
-                    },
-                )
+                StatsScoreBreakdown(charts.scores) { onOpenKey(StatsGroupKey.Score(it)) }
             }
         }
     }
@@ -227,6 +222,65 @@ private fun StatsReadingWeek(charts: StatsCharts) {
         )
     }
     StatsPaceRow(charts.paces)
+}
+
+/**
+ * Scores as a ratings breakdown: how many series are scored and the score given most beside a row per score from
+ * 10 down, its bar as long as its share of the most given and its count at the end. Tapping a row with series lists
+ * them. The mean is the Trackers card's, so it is not repeated here.
+ */
+@Composable
+private fun StatsScoreBreakdown(scores: Map<Int, Int>, onOpenScore: (Int) -> Unit) {
+    val most = scores.values.max()
+    val mostGiven = scores.entries.maxWith(compareBy({ it.value }, { it.key })).key
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(0.35f)) {
+            Row { StatsItem(scores.values.sum().toString(), stringResource(MR.strings.stats_scored)) }
+            Row { StatsItem(mostGiven.toString(), stringResource(MR.strings.stats_most_given)) }
+        }
+        Column(Modifier.weight(0.65f)) {
+            (10 downTo 1).forEach { score ->
+                val count = scores[score] ?: 0
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = count > 0) { onOpenScore(score) }
+                        .padding(vertical = 4.dp),
+                ) {
+                    Text(
+                        text = score.toString(),
+                        style = MaterialTheme.typography.labelMedium,
+                        textAlign = TextAlign.End,
+                        modifier = Modifier.width(24.dp),
+                    )
+                    Box(
+                        Modifier
+                            .padding(horizontal = MaterialTheme.padding.small)
+                            .weight(1f)
+                            .height(8.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceVariant),
+                    ) {
+                        if (count > 0) {
+                            Box(
+                                Modifier
+                                    .fillMaxWidth(count.toFloat() / most)
+                                    .height(8.dp)
+                                    .clip(CircleShape)
+                                    .background(MaterialTheme.colorScheme.primary),
+                            )
+                        }
+                    }
+                    Text(
+                        text = if (count > 0) count.toString() else "",
+                        style = MaterialTheme.typography.labelMedium,
+                        modifier = Modifier.width(32.dp),
+                    )
+                }
+            }
+        }
+    }
 }
 
 /** Each type's overall pace in its own measure, or Learning until three finished chapters say. */
