@@ -48,9 +48,11 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.domain.library.ContentType
+import reikai.domain.stats.StatsShortcut
 import reikai.presentation.recents.RecentsMode
 import reikai.presentation.recents.RecentsTab
 import reikai.presentation.recents.ShowsUpdatesBadge
+import reikai.presentation.stats.StatsTab
 import soup.compose.material.motion.animation.materialFadeThroughIn
 import soup.compose.material.motion.animation.materialFadeThroughOut
 import tachiyomi.i18n.MR
@@ -73,15 +75,16 @@ object HomeScreen : Screen() {
     private const val TabNavigatorKey = "HomeTabs"
 
     // RK --> the tab set is a value now, not a constant: one setting replaces Updates and History
-    // with a single Recents tab holding both. Off by default, so this is the upstream list until
-    // someone asks for the other one. `NavTab` is the navigable kind, aliased because this file's
-    // own `Tab` is the sealed intent declared at the bottom.
-    private fun tabs(combinedRecents: Boolean): List<NavTab> = listOfNotNull(
+    // with a single Recents tab holding both, another adds a Statistics tab. Both off by default, so
+    // this is the upstream list until someone asks for otherwise. `NavTab` is the navigable kind,
+    // aliased because this file's own `Tab` is the sealed intent declared at the bottom.
+    private fun tabs(combinedRecents: Boolean, statsTab: Boolean): List<NavTab> = listOfNotNull(
         LibraryTab,
         RecentsTab.takeIf { combinedRecents },
         UpdatesTab.takeUnless { combinedRecents },
         HistoryTab.takeUnless { combinedRecents },
         BrowseTab,
+        StatsTab.takeIf { statsTab },
         MoreTab,
     )
 
@@ -96,9 +99,12 @@ object HomeScreen : Screen() {
     private fun replacementFor(
         tab: cafe.adriel.voyager.navigator.tab.Tab,
         combinedRecents: Boolean,
+        statsTab: Boolean,
     ): NavTab? = when {
         combinedRecents && (tab is UpdatesTab || tab is HistoryTab) -> RecentsTab
         !combinedRecents && tab is RecentsTab -> UpdatesTab
+        // The setting is reached through More, so that is where the user came from.
+        !statsTab && tab is StatsTab -> MoreTab
         else -> null
     }
     // RK <--
@@ -109,15 +115,17 @@ object HomeScreen : Screen() {
         val navigator = LocalNavigator.currentOrThrow
         // RK: read here rather than per bar, so both bars and the fixup below agree within a frame.
         val combinedRecents by remember { context.appGraph.uiPreferences.combinedRecentsTab }.collectAsState()
-        val tabs = tabs(combinedRecents)
+        val statsTab = remember { context.appGraph.uiPreferences.statsShortcut }.collectAsState().value ==
+            StatsShortcut.TAB
+        val tabs = tabs(combinedRecents, statsTab)
         TabNavigator(
             tab = LibraryTab,
             key = TabNavigatorKey,
         ) { tabNavigator ->
             // RK: a tab dropped from the list keeps rendering with nothing selected, since selection
             // is a per-item class comparison rather than a lookup, so it is moved on deliberately.
-            LaunchedEffect(combinedRecents) {
-                replacementFor(tabNavigator.current, combinedRecents)?.let { tabNavigator.current = it }
+            LaunchedEffect(combinedRecents, statsTab) {
+                replacementFor(tabNavigator.current, combinedRecents, statsTab)?.let { tabNavigator.current = it }
             }
             // Provide usable navigator to content screen
             CompositionLocalProvider(LocalNavigator provides navigator) {

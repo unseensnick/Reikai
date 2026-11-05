@@ -17,7 +17,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.more.stats.data.StatsData
@@ -96,15 +95,14 @@ fun statsOverviewFigures(
 }
 
 /**
- * [figures] as icon tiles, two across on a phone and more as the screen allows. Counted from the screen, not the
- * card: a shelf measures its rows by intrinsic height, which BoxWithConstraints cannot answer.
+ * [figures] as icon tiles, two across on a phone and more as its shelf's width allows ([LocalStatsShelfWidth]).
  */
 @Composable
 fun StatsStrip(figures: List<StatsFigure>, modifier: Modifier = Modifier) {
-    val width = LocalConfiguration.current.screenWidthDp
+    val width = LocalStatsShelfWidth.current
     val columns = when {
-        width >= 840 -> 6
-        width >= 560 -> 4
+        width >= 840.dp -> 6
+        width >= 560.dp -> 4
         else -> 2
     }
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.medium)) {

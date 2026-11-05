@@ -40,6 +40,7 @@ fun MoreScreen(
     // RK -->
     showBatchAdd: Boolean,
     onClickBatchAdd: () -> Unit,
+    showStats: Boolean,
     // RK <--
     onClickSettings: () -> Unit,
     onClickAbout: () -> Unit,
@@ -110,12 +111,15 @@ fun MoreScreen(
                     onPreferenceClick = onClickCategories,
                 )
             }
-            item {
-                TextPreferenceWidget(
-                    title = stringResource(MR.strings.label_stats),
-                    icon = MaterialSymbols.Rounded.QueryStats,
-                    onPreferenceClick = onClickStats,
-                )
+            // RK: hidden while Statistics is a tab of its own
+            if (showStats) {
+                item {
+                    TextPreferenceWidget(
+                        title = stringResource(MR.strings.label_stats),
+                        icon = MaterialSymbols.Rounded.QueryStats,
+                        onPreferenceClick = onClickStats,
+                    )
+                }
             }
             item {
                 TextPreferenceWidget(

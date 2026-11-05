@@ -29,15 +29,7 @@ data class StatsCharts(
 )
 
 /** The groupings the overview shows a card of rows for; status and score have charts of their own. */
-val OVERVIEW_GROUPINGS = listOf(
-    StatsDimension.SOURCE,
-    StatsDimension.TAG,
-    StatsDimension.CATEGORY,
-    StatsDimension.TRACKER,
-    StatsDimension.LANGUAGE,
-    StatsDimension.LENGTH,
-    StatsDimension.START_YEAR,
-)
+val OVERVIEW_GROUPINGS = StatsCardKind.entries.mapNotNull { it.grouping }
 
 /** How many rows an overview card shows before its See all. */
 const val OVERVIEW_ROWS = 5

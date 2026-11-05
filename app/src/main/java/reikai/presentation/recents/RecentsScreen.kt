@@ -73,6 +73,7 @@ import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ChapterSwipeActions
+import reikai.domain.stats.StatsShortcut
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
@@ -123,6 +124,7 @@ fun Screen.RecentsScreen(
     val locale = LocalLocale.current
     val is24HourSystem = rememberIs24HourSystem()
     val timeFormat by remember { context.appGraph.uiPreferences.timeFormat }.collectAsState()
+    val statsShortcut by remember { context.appGraph.uiPreferences.statsShortcut }.collectAsState()
     val timeFormatter = remember(timeFormat, locale, is24HourSystem) {
         UiPreferences.timeFormat(timeFormat, locale.platformLocale, is24HourSystem)
     }
@@ -236,7 +238,7 @@ fun Screen.RecentsScreen(
                 onRefresh = { scope.launch { refresh() } },
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
-                onStatsClicked = { navigator.push(StatsScreen()) },
+                onStatsClicked = { navigator.push(StatsScreen()) }.takeIf { statsShortcut == StatsShortcut.MENUS },
             )
         },
         bottomBar = {
@@ -379,7 +381,7 @@ internal fun RecentsToolbar(
     onRefresh: () -> Unit,
     showsClearHistory: Boolean,
     onClearHistory: () -> Unit,
-    onStatsClicked: () -> Unit,
+    onStatsClicked: (() -> Unit)?,
 ) {
     if (selectionCount > 0) {
         AppBar(
@@ -454,8 +456,10 @@ internal fun RecentsToolbar(
                             ),
                         )
                     }
-                    // Statistics otherwise sits under More, and reading time is what this screen is about.
-                    add(AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = onStatsClicked))
+                    // Opt-in: Statistics otherwise sits under More, and reading time is what this screen is about.
+                    onStatsClicked?.let {
+                        add(AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = it))
+                    }
                 },
             )
         },

@@ -26,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -80,7 +79,7 @@ import kotlin.math.roundToInt
 /** One overview card; [fill] goes on its card body, so a shelf can stretch the body to its row's height. */
 typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
 
-/** Reading this week, the last of the chart cards. */
+/** Reading this week, one of the chart cards. */
 fun statsReadingCard(charts: StatsCharts, onOpenReading: () -> Unit): StatsCard = { fill ->
     StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
     SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
@@ -88,14 +87,14 @@ fun statsReadingCard(charts: StatsCharts, onOpenReading: () -> Unit): StatsCard 
     }
 }
 
-/** The chart cards, each left out when it would draw nothing. */
+/** The chart cards, each left out when it would draw nothing. Reading this week is [statsReadingCard]. */
 fun statsChartCards(
     charts: StatsCharts,
     onSeeAll: (StatsDimension) -> Unit,
     onOpenKey: (StatsGroupKey) -> Unit,
-): List<StatsCard> = buildList {
+): Map<StatsCardKind, StatsCard> = buildMap {
     if (charts.status.isNotEmpty()) {
-        add { fill ->
+        put(StatsCardKind.PUBLISHING) { fill ->
             StatsCardHeader(MR.strings.stats_publishing_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.STATUS)
             }
@@ -106,13 +105,13 @@ fun statsChartCards(
                     }
                 }
                 // Only beside the taller Reading card, where the card would otherwise end in empty space
-                if (StatsShelf.CHARTS.columns(LocalConfiguration.current.screenWidthDp.dp) > 1) StatsDonut(slices)
+                if (StatsShelf.CHARTS.columns(LocalStatsShelfWidth.current) > 1) StatsDonut(slices)
                 StatsShareBars(slices)
             }
         }
     }
     if (charts.trackStatus.isNotEmpty()) {
-        add { fill ->
+        put(StatsCardKind.TRACKING) { fill ->
             StatsCardHeader(MR.strings.stats_tracking_status, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.TRACK_STATUS)
             }
@@ -130,7 +129,7 @@ fun statsChartCards(
         }
     }
     if (charts.scores.isNotEmpty()) {
-        add { fill ->
+        put(StatsCardKind.SCORES) { fill ->
             StatsCardHeader(MR.strings.stats_scores, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
             SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsScoreBreakdown(charts.scores) { onOpenKey(StatsGroupKey.Score(it)) }
@@ -149,19 +148,20 @@ fun statsGroupCards(
     onOpenRow: (StatsRow) -> Unit,
     onOpenEntry: (EntryId) -> Unit,
     onOpenMostRead: () -> Unit,
-): List<StatsCard> = buildList {
+): Map<StatsCardKind, StatsCard> = buildMap {
     if (charts.mostRead.isNotEmpty()) {
-        add { fill ->
+        put(StatsCardKind.MOST_READ) { fill ->
             StatsCardHeader(MR.strings.stats_most_read, MR.strings.stats_see_all, onOpenMostRead)
             SectionCard(modifier = fill) {
                 charts.mostRead.forEach { StatsTitleLine(it.name, it.readMs) { onOpenEntry(it.entryId) } }
             }
         }
     }
-    OVERVIEW_GROUPINGS.forEach { dimension ->
+    StatsCardKind.entries.forEach { kind ->
+        val dimension = kind.grouping ?: return@forEach
         val rows = charts.groups[dimension].orEmpty()
         if (rows.isNotEmpty()) {
-            add { fill ->
+            put(kind) { fill ->
                 StatsCardHeader(dimension.title, MR.strings.stats_see_all) { onSeeAll(dimension) }
                 SectionCard(modifier = fill) {
                     rows.forEach { StatsRowLine(it, onOpenRow) }

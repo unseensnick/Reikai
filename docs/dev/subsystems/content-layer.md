@@ -94,7 +94,7 @@ A pure-UI Mihon file fully replaced by a shared component is deleted and given a
 - **Mihon's own updates widget stays manga.** The user placed it, and it has no setting to read; the combined widget follows Show.
 - **Details, deep links and backups ignore Show.** Opening an entry by link is an explicit act, and a backup stays complete.
 - **Refresh library covers and tracker refresh ignore Show.** Both change stored data rather than what a user sees, and the first is a deliberate tap.
-- **The bottom nav and More stay as they are.** Neither has a per-type entry; Downloads and Statistics inside More serve whichever type shows.
+- **The bottom nav and More stay as they are.** Neither has a per-type entry; Downloads and Statistics (in More, or the optional Statistics tab) serve whichever type shows.
 - **A repo card stays while it serves a shown type or its contents are unknown.** A store listing both types stays, and the Repos count in settings can still include a store that only serves the hidden type, since that count is read before any fetch. The Repos screen counts what it leaves out under the list, so a repo added for a hidden type does not just vanish, and its Add dialog still refuses that address.
 - **What Show hides takes no room and keeps its place.** A hidden Feed row takes no slot of the cap, since it can be neither seen nor removed; a restore counts every row, because backups ignore Show. A drag writes the visible rows back into the slots they held (`withShownOrder`), and a name only a hidden category holds stays free.
 - **A seed that must outlast Show writes the stored chip.** `ShownContentPreference.stored` is for a one-off copy like the Recents seed, which would otherwise be dropped and run again.

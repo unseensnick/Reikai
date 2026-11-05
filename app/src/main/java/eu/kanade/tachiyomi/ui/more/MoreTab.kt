@@ -18,6 +18,7 @@ import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import dev.zacsweers.metrox.viewmodel.metroViewModel
 import eu.kanade.core.preference.asState
 import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.more.MoreScreen
 import eu.kanade.presentation.util.Tab
 import eu.kanade.presentation.util.rememberAnimatedVectorPainter
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
+import reikai.domain.stats.StatsShortcut
 import reikai.novel.download.NovelDownloadManager
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.download.EngineQueueStatus // RK
@@ -79,6 +81,7 @@ data object MoreTab : Tab {
             // RK -->
             showBatchAdd = viewModel.isHentaiEnabled,
             onClickBatchAdd = { navigator.push(BatchAddScreen()) },
+            showStats = viewModel.showStats,
             // RK <--
             onClickSettings = { navigator.push(SettingsScreen()) },
             onClickAbout = { navigator.push(SettingsScreen(SettingsScreen.Destination.About)) },
@@ -95,6 +98,7 @@ class MoreViewModel(
     // RK -->
     exhPreferences: ExhPreferences,
     novelDownloadManager: () -> NovelDownloadManager,
+    uiPreferences: UiPreferences,
     // RK <--
 ) : ViewModel() {
 
@@ -103,6 +107,10 @@ class MoreViewModel(
 
     // RK: drives the reactive batch-add entry in the More tab; flips with the adult-sources toggle.
     val isHentaiEnabled by exhPreferences.isHentaiEnabled().asState(viewModelScope)
+
+    // RK: Statistics leaves the list while it is a tab of its own, one tap away in the bar.
+    private val statsShortcut by uiPreferences.statsShortcut.asState(viewModelScope)
+    val showStats: Boolean get() = statsShortcut != StatsShortcut.TAB
 
     private var _downloadQueueState: MutableStateFlow<DownloadQueueState> = MutableStateFlow(DownloadQueueState.Stopped)
     val downloadQueueState: StateFlow<DownloadQueueState> = _downloadQueueState.asStateFlow()

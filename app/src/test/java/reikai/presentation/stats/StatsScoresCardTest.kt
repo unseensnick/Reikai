@@ -36,7 +36,7 @@ class StatsScoresCardTest {
             mostRead = emptyList(),
             paces = emptyList(),
         )
-        val card = statsChartCards(charts, onSeeAll = {}, onOpenKey = { opened += it }).single()
+        val card = statsChartCards(charts, onSeeAll = {}, onOpenKey = { opened += it }).values.single()
         compose.setContent {
             ComposeTestHost {
                 Column { card(Modifier) }

@@ -29,6 +29,7 @@ import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import mihon.app.di.appGraph
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
+import reikai.domain.stats.StatsShortcut
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -212,6 +213,12 @@ object SettingsAppearanceScreen : SearchableSettings {
                         if (enabled) sourcePreferences.seedRecentsSurfaceFromUpdates()
                         true
                     },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.statsShortcut,
+                    entries = StatsShortcut.entries
+                        .associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_stats_shortcut),
                 ),
                 // RK <--
             ),

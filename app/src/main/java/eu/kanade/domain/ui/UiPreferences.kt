@@ -12,6 +12,7 @@ import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isDynamicColorAvailable
 import logcat.LogPriority
+import reikai.domain.stats.StatsShortcut
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.preference.getEnum
@@ -52,6 +53,8 @@ class UiPreferences(
 
     // RK --> Updates and History as one Recents tab, off so nothing moves until it is asked for
     val combinedRecentsTab: Preference<Boolean> = preferenceStore.getBoolean("pref_combined_recents_tab", false)
+
+    val statsShortcut: Preference<StatsShortcut> = preferenceStore.getEnum("pref_stats_shortcut", StatsShortcut.OFF)
     // RK <--
 
     // RK --> cover-based theming

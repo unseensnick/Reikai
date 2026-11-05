@@ -70,6 +70,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
+import reikai.domain.stats.StatsShortcut
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
@@ -102,6 +103,7 @@ import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.screens.EmptyScreen
 import tachiyomi.presentation.core.screens.EmptyScreenAction
 import tachiyomi.presentation.core.screens.LoadingScreen
+import tachiyomi.presentation.core.util.collectAsState
 
 data object LibraryTab : Tab {
 
@@ -148,6 +150,8 @@ data object LibraryTab : Tab {
         // hand the tab a second pair while the engine kept dispatching through the first. All three models
         // share this tab host's ViewModelStore, so the pair the factory captures is cleared alongside them.
         val graph = remember { context.appGraph }
+        // RK: Statistics in the overflow menu only when the user asked for it there
+        val statsInMenus = remember { graph.uiPreferences.statsShortcut }.collectAsState().value == StatsShortcut.MENUS
         val engine = assistedMetroViewModel<LibraryEngine, LibraryEngine.Factory> {
             create(
                 providers = listOf(
@@ -472,7 +476,7 @@ data object LibraryTab : Tab {
                                 null
                             }
                         },
-                        onClickStats = { navigator.push(StatsScreen()) }, // RK
+                        onClickStats = { navigator.push(StatsScreen()) }.takeIf { statsInMenus }, // RK
                         searchQuery = activeSearchQuery,
                         onSearchQueryChange = onSearch,
                         // For scroll overlay when no tab

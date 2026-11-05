@@ -7,11 +7,11 @@ description: Charts of your library and reading, for manga and novels, with list
 
 _Dev record: [statistics.md](dev/subsystems/statistics.md). Doc map: [README.md](README.md)._
 
-Open <nav to="statistics">, or pick **Statistics** from the ⋮ menu in the Library, Updates or History. The **All** / **Manga** / **Novels** chips at the top choose what every number, chart and list below counts.
+Open <nav to="statistics">. To reach it faster, set **Statistics shortcut** in <nav to="appearance"> to put it in the ⋮ menu of the Library, Updates and History, or to give it its own tab in the bottom bar, which also takes it out of More. The **All** / **Manga** / **Novels** chips at the top choose what every number, chart and list below counts.
 
 ## The overview
 
-The first card counts your library, chapters and trackers, each figure with an icon.
+By default the first card counts your library, chapters and trackers, each figure with an icon.
 Below it:
 
 * **Publishing status** and **Tracking status** list each status with how many series have it and their share of the total. Tracking status counts series you track, by the status of your first signed-in tracker. Tap a status to list those series. On a tablet or an unfolded phone, Publishing status also shows a pie chart with the total in the middle.
@@ -64,6 +64,15 @@ Below it:
 On a tablet or an unfolded phone the cards sit side by side in three groups, **At a glance**, **Charts** and **Your library by**, with every card in a row the same height. A phone shows one column.
 
 A series merged from several sources counts once, except in **Sources**, **Tags**, **Trackers** and **Languages**, where it counts under each one it has. Those lists can add up to more than your library.
+
+## Arranging the cards
+
+Tap the pencil at the top of Statistics to arrange its cards. They sit in three groups: **At a glance**, **Charts** and **Your library by**.
+
+* Drag a group by its handle to move it with all its cards, or drag a card to move it within its group.
+* Untick a card to hide it, or untick a group to hide all of its cards. A hidden card stays in the list, so you can tick it again.
+* Tap the arrow beside a group to fold it while you arrange the others.
+* **Reset** in the ⋮ menu puts every card back in its first place and shows them all.
 
 ## Opening a list
 

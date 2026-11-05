@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.TimeZone
@@ -31,11 +32,14 @@ import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
+import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibraryLoader
 import reikai.presentation.stats.StatsSeries
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.rows
+import reikai.presentation.stats.statsCardLayout
+import reikai.presentation.stats.statsCardsByKey
 import reikai.presentation.stats.statsCharts
 import reikai.presentation.stats.statsDetailsScreen
 import tachiyomi.core.common.util.lang.launchIO
@@ -68,11 +72,30 @@ class StatsViewModel(
 
     // RK: loggedInTrackers comes with the loaded library (StatsLibrary.loggedInTrackers)
 
-    // RK --> All / Manga / Novels switch; flips which content's stats show (persisted)
+    // RK --> All / Manga / Novels switch; flips which content's stats show (persisted), and the saved card layout
     val contentType: StateFlow<ContentType> = sourcePreferences.statsContentType.changes()
         .stateIn(viewModelScope, SharingStarted.Eagerly, sourcePreferences.statsContentType.get())
 
     fun setContentType(type: ContentType) = sourcePreferences.statsContentType.set(type)
+
+    val cardLayout: StateFlow<List<StatsCardKind>> = sourcePreferences.statsCardOrder.changes()
+        .map(::statsCardLayout)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, statsCardLayout(sourcePreferences.statsCardOrder.get()))
+
+    fun setCardLayout(cards: List<StatsCardKind>) = sourcePreferences.statsCardOrder.set(cards.map { it.key })
+
+    val hiddenCards: StateFlow<Set<StatsCardKind>> = sourcePreferences.statsHiddenCards.changes()
+        .map(::statsCardsByKey)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, statsCardsByKey(sourcePreferences.statsHiddenCards.get()))
+
+    fun setHiddenCards(cards: Set<StatsCardKind>) =
+        sourcePreferences.statsHiddenCards.set(cards.mapTo(mutableSetOf()) { it.key })
+
+    /** Back to the default layout with every card shown. */
+    fun resetCardLayout() {
+        sourcePreferences.statsCardOrder.delete()
+        sourcePreferences.statsHiddenCards.delete()
+    }
 
     suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
     // RK <--

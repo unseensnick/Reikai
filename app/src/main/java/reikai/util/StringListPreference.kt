@@ -13,3 +13,13 @@ fun PreferenceStore.getStringList(key: String): Preference<List<String>> = getOb
     serializer = { it.joinToString("\n") },
     deserializer = { it.split("\n").filter(String::isNotBlank) },
 )
+
+/**
+ * This list in a saved [order] of keys: the items it names first, as saved, then the rest in their own
+ * order, so an item added after the order was saved goes last. A key that names nothing is ignored.
+ */
+fun <T> List<T>.inSavedOrder(order: List<String>, keyOf: (T) -> String): List<T> {
+    val byKey = associateBy(keyOf)
+    val placed = order.distinct().mapNotNull(byKey::get)
+    return placed + (this - placed.toSet())
+}

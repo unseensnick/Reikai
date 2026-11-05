@@ -40,7 +40,7 @@ fun LibraryToolbar(
     onClickRefreshTrackers: () -> Unit,
     // RK: opt-in "Update errors" overflow entry (null = hidden)
     onClickUpdateErrors: (() -> Unit)? = null,
-    onClickStats: () -> Unit, // RK: a shortcut to Statistics
+    onClickStats: (() -> Unit)?, // RK: a shortcut to Statistics (null = hidden)
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
@@ -81,7 +81,7 @@ private fun LibraryRegularToolbar(
     // RK: tracker refresh and the opt-in update-errors entry
     onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
-    onClickStats: () -> Unit, // RK
+    onClickStats: (() -> Unit)?, // RK
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
@@ -108,7 +108,7 @@ private fun LibraryRegularToolbar(
         actions = {
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
-                // RK: listOfNotNull, since the update-errors entry is null when hidden
+                // RK: listOfNotNull, since the update-errors and Statistics entries are null when hidden
                 listOfNotNull(
                     AppBar.Action(
                         title = stringResource(MR.strings.action_filter),
@@ -140,8 +140,10 @@ private fun LibraryRegularToolbar(
                             onClick = it,
                         )
                     },
-                    // RK: a shortcut to Statistics, which otherwise sits under More
-                    AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = onClickStats),
+                    // RK: an opt-in shortcut to Statistics, which otherwise sits under More
+                    onClickStats?.let {
+                        AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = it)
+                    },
                 ),
             )
         },
