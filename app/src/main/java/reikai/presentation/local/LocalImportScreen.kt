@@ -71,6 +71,7 @@ import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.LocalImport
 import reikai.domain.library.ContentType
+import reikai.domain.library.labelRes
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
@@ -99,9 +100,11 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
         var renaming by remember { mutableStateOf<ImportGroup?>(null) }
 
         // A single series opens once imported, since reading it is why the user came; several land in the library.
+        // Not while files shared in during the import wait, which leaving would drop.
         LaunchedEffect(state.result) {
             val only = state.result?.series?.singleOrNull() ?: return@LaunchedEffect
             if (state.result?.problems?.isNotEmpty() == true || only.entryId == null) return@LaunchedEffect
+            if (state.groups.isNotEmpty()) return@LaunchedEffect
             navigator.replace(
                 if (only.type == ContentType.NOVELS) {
                     NovelScreen(LocalNovelSource.ID, only.path)
@@ -175,7 +178,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                 onDismissRequest = viewModel::dismissCategories,
                 onEditCategories = { navigator.push(CategoryScreen()) },
                 onConfirm = { include, _ -> viewModel.confirmCategories(pick.type, include) },
-                title = stringResource(pick.type.label()),
+                title = stringResource(pick.type.labelRes),
             )
         }
     }
@@ -210,7 +213,7 @@ private fun StartPrompt(padding: PaddingValues, onPick: () -> Unit) {
 }
 
 @Composable
-private fun ImportList(
+internal fun ImportList(
     padding: PaddingValues,
     state: LocalImportViewModel.State,
     onRename: (ImportGroup) -> Unit,
@@ -242,7 +245,7 @@ private fun ImportList(
                     modifier = Modifier.centred().padding(MaterialTheme.padding.medium),
                 )
             }
-            items(result.series, key = { "done:${it.type}:${it.path}" }) { series ->
+            items(result.series, key = { "done:${it.key}" }) { series ->
                 Row(
                     modifier = Modifier.centred().padding(horizontal = MaterialTheme.padding.medium),
                     verticalAlignment = Alignment.CenterVertically,
@@ -273,7 +276,8 @@ private fun ImportList(
                         .padding(start = MaterialTheme.padding.medium, top = MaterialTheme.padding.medium),
                 )
             }
-            items(problems, key = { "problem:${it.name}:${it.reason}" }) { problem ->
+            // By position: two files can share a name and a reason, and the list only grows.
+            items(problems) { problem ->
                 Column(
                     Modifier
                         .centred()
@@ -347,7 +351,7 @@ internal fun GroupCard(
                 val count = pluralStringResource(MR.plurals.local_import_file_count, group.files.size, group.files.size)
                 Text(
                     // A series that cannot change type says which it is; one that can shows the choice below.
-                    text = if (group.canBeEitherType) count else "$count · ${stringResource(group.type.label())}",
+                    text = if (group.canBeEitherType) count else "$count · ${stringResource(group.type.labelRes)}",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -359,7 +363,7 @@ internal fun GroupCard(
                                 selected = group.type == type,
                                 onClick = { onType(type) },
                                 enabled = enabled,
-                                label = { Text(stringResource(type.label())) },
+                                label = { Text(stringResource(type.labelRes)) },
                             )
                         }
                     }
@@ -442,9 +446,6 @@ private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (Str
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
     )
 }
-
-private fun ContentType.label() =
-    if (this == ContentType.NOVELS) MR.strings.content_type_novels else MR.strings.content_type_manga
 
 private val IMPORTING = MR.strings.local_import_importing
 private val READING = MR.strings.local_import_reading

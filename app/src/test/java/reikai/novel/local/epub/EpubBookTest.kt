@@ -14,6 +14,11 @@ class EpubBookTest {
 
     private fun book(vararg files: Pair<String, String>) = EpubBook.parse(epub(files.toMap()))
 
+    @Test
+    fun `an archive with only the default package and pictures is an EPUB`() {
+        EpubBook.looksLikeEpub(listOf("OEBPS/content.opf", "OEBPS/a.jpg")) shouldBe true
+    }
+
     // Browse lists every local series through this read, so it must stay off the chapter files.
     @Test
     fun `reading a book's details reads none of its chapter files`() {

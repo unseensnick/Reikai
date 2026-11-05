@@ -116,6 +116,7 @@ import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.novelDetailsScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.local.ImportHandOff
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.local.importedFiles
 import reikai.util.isLauncherIntent
@@ -154,6 +155,8 @@ class MainActivity : BaseActivity() {
 
     // RK: a novel shortcut opens only a novel saved here
     @Inject private lateinit var novelRepository: NovelRepository
+
+    @Inject private lateinit var importHandOff: ImportHandOff // RK
 
     @Inject private lateinit var chapterCache: ChapterCache
 
@@ -506,11 +509,17 @@ class MainActivity : BaseActivity() {
             )
         }
 
-        // RK --> a book or comic archive opened with or shared to the app goes to the import screen
-        val imported = importedFiles(intent)
+        // RK --> a book or comic archive opened with or shared to the app goes to the import screen, joining
+        // the picks of one already open rather than replacing it
+        val imported = importedFiles(intent, contentResolver)
         if (imported.isNotEmpty()) {
-            navigator.popUntilRoot()
-            navigator.push(LocalImportScreen(imported.map { it.toString() }))
+            if (navigator.items.any { it is LocalImportScreen }) {
+                navigator.popUntil { it is LocalImportScreen }
+                importHandOff.send(imported)
+            } else {
+                navigator.popUntilRoot()
+                navigator.push(LocalImportScreen(imported.map { it.toString() }))
+            }
             ready = true
             return true
         }

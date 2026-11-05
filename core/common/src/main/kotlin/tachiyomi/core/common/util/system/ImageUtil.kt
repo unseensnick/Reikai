@@ -37,7 +37,8 @@ object ImageUtil {
     fun isImage(name: String?, openStream: (() -> InputStream)? = null): Boolean {
         if (name == null) return false
 
-        val extension = name.substringAfterLast('.')
+        // RK: any case, and .jpeg is a JPEG, so a name-only caller (the local import) knows the common names
+        val extension = name.substringAfterLast('.').lowercase().let { if (it == "jpeg") "jpg" else it }
         return ImageType.entries.any { it.extension == extension } || openStream?.let { findImageType(it) } != null
     }
 

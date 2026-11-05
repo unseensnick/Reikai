@@ -46,6 +46,10 @@ class EpubBook(
     fun imageType(path: String): String? = mediaTypes[path]?.takeIf { it.startsWith("image/") }
 
     companion object {
+        /** Whether an archive holding [entryNames] is a book [parse] can open: a container, or its default package. */
+        fun looksLikeEpub(entryNames: Collection<String>): Boolean =
+            CONTAINER in entryNames || DEFAULT_PACKAGE in entryNames
+
         fun parse(archive: EpubArchive): EpubBook {
             val packagePath = archive.readText(CONTAINER)?.let(::xml)?.firstLocal("rootfile")?.attr("full-path")
                 ?.ifBlank { null } ?: DEFAULT_PACKAGE

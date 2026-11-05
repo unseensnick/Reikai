@@ -1,7 +1,9 @@
 package reikai.data.local
 
+import android.content.ContentResolver
 import android.content.Context
 import android.net.Uri
+import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
@@ -21,16 +23,20 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
 import reikai.novel.local.epub.EpubException
+import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import tachiyomi.core.common.util.lang.withIOContext
+import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
+import tachiyomi.source.local.io.Archive
+import java.io.File
 import java.io.IOException
 
-/** One file the user picked, as the system names it. */
+/** One file the user picked, as the system names it; [size] is -1 when the provider does not say. */
 data class ImportFile(val uri: Uri, val name: String, val size: Long)
 
 /**
@@ -48,15 +54,22 @@ data class ImportGroup(
     val canBeEitherType: Boolean,
 )
 
-/** A file or series an import had to skip, and why. */
-data class ImportProblem(val name: String, val reason: Reason) {
+/** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
+data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
     enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed }
 }
 
 /** What an import did: the series it touched, by [ImportedSeries.type], and what it had to skip. */
 data class ImportResult(val series: List<ImportedSeries>, val problems: List<ImportProblem>)
 
-data class ImportedSeries(val type: ContentType, val title: String, val path: String, val entryId: Long?)
+/** A series an import touched. [key] is its group's, unique where two renamed groups can share a [path]. */
+data class ImportedSeries(
+    val key: String,
+    val type: ContentType,
+    val title: String,
+    val path: String,
+    val entryId: Long?,
+)
 
 /**
  * Copies books and archives the user picked into the local source folders, `localnovels` for novels and
@@ -82,28 +95,12 @@ class LocalImport(
     suspend fun preview(uris: List<Uri>): Pair<List<ImportGroup>, List<ImportProblem>> = withIOContext {
         val problems = mutableListOf<ImportProblem>()
         val read = uris.distinct().mapNotNull { uri ->
-            val file = describe(uri)
+            val file = context.contentResolver.describe(uri)
             runCatching { readFile(file) }
-                .onFailure { problems += ImportProblem(file.name, readFailure(it)) }
+                .onFailure { problems += ImportProblem(file.name, readFailure(it), uri) }
                 .getOrNull()
         }
-        val groups = read.groupBy { it.type to groupKey(it.series) }.map { (key, members) ->
-            val ordered = members.sortedWith(
-                compareBy<ReadFile> { it.seriesIndex ?: Double.MAX_VALUE }
-                    .thenComparator { a, b -> a.file.name.compareToCaseInsensitiveNaturalOrder(b.file.name) },
-            )
-            val first = ordered.first()
-            ImportGroup(
-                key = "${key.first}:${key.second}",
-                type = key.first,
-                title = if (ordered.size > 1) first.series else first.title ?: first.series,
-                author = first.author,
-                cover = first.cover,
-                files = ordered.map { it.file },
-                canBeEitherType = ordered.all { it.isEpub },
-            )
-        }
-        groups to problems
+        groupSeries(read) to problems
     }
 
     /**
@@ -123,8 +120,12 @@ class LocalImport(
                     return@mapNotNull null
                 }
                 val folderName = DiskUtil.buildValidFilename(group.title)
-                val folder = root.findFile(folderName)?.takeIf { it.isDirectory } ?: root.createDirectory(folderName)
-                if (folder == null) {
+                // Matched as a batch groups its files, so "foo bar" joins the "Foo Bar" folder a past import made.
+                val folder = root.listFiles().orEmpty()
+                    .firstOrNull { it.isDirectory && groupKey(it.name.orEmpty()) == groupKey(folderName) }
+                    ?: root.createDirectory(folderName)
+                val path = folder?.name
+                if (folder == null || path == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
@@ -135,20 +136,20 @@ class LocalImport(
                     val name = if (numbered) "%02d - %s".format(index + 1, file.name) else file.name
                     runCatching { copy(file, folder, name) }
                         .onSuccess { if (it) copied++ }
-                        .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed) }
+                        .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
                 }
                 if (copied == 0 && folder.listFiles().isNullOrEmpty()) {
                     folder.delete()
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {
-                    runCatching { add(group.type, folderName, categoryIds) }
+                    runCatching { add(group.type, path, categoryIds) }
                         .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
                         .getOrNull()
                 } else {
                     null
                 }
-                ImportedSeries(group.type, group.title, folderName, entryId)
+                ImportedSeries(group.key, group.type, group.title, path, entryId)
             }
             ImportResult(series, problems)
         }
@@ -165,7 +166,10 @@ class LocalImport(
                 libraryPreferences,
                 chapterNumberOverrides,
             )
-            novelAdder.addToBatch(NovelItem(parsed.name ?: path, path, parsed.cover), LocalNovelSource.ID, categoryIds)
+            val item = NovelItem(parsed.name ?: path, path, parsed.cover)
+            if (novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {
+                throw NotAddedException()
+            }
             novel?.id ?: novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
         }
         else -> {
@@ -177,7 +181,7 @@ class LocalImport(
                     }.toDomainManga(LocalSource.ID),
                 )
             updateMangaFromRemote(stored, fetchDetails = true, fetchChapters = true, manualFetch = true).getOrThrow()
-            mangaAdder.addToBatch(stored.id, categoryIds)
+            if (mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) throw NotAddedException()
             stored.id
         }
     }
@@ -205,79 +209,73 @@ class LocalImport(
         return generateSequence(2) { it + 1 }.map { "$stem ($it).$extension" }.first { folder.findFile(it) == null }
     }
 
-    private fun describe(uri: Uri): ImportFile {
-        var name: String? = null
-        var size = -1L
-        runCatching {
-            context.contentResolver.query(
-                uri,
-                arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
-                null,
-                null,
-                null,
-            )
-                ?.use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        name = cursor.getString(0)
-                        size = cursor.getLong(1)
-                    }
-                }
-        }
-        return ImportFile(uri, name ?: uri.lastPathSegment?.substringAfterLast('/') ?: "file", size)
-    }
-
+    /** Reads [file]; one whose provider gave no size takes the descriptor's, so a repeat import is spotted. */
     private fun readFile(file: ImportFile): ReadFile {
-        val extension = file.name.substringAfterLast('.', "").lowercase()
         val pfd =
             context.contentResolver.openFileDescriptor(file.uri, "r")
                 ?: throw IOException("Could not open ${file.name}")
+        if (pfd.statSize >= 0) {
+            val sized = if (file.size < 0) file.copy(size = pfd.statSize) else file
+            return pfd.use { ArchiveReader(it) }.use { read(sized, it) }
+        }
+        // A pipe has no size and cannot be mapped, so a streamed share is read from a copy in the cache.
+        val spool = File.createTempFile("import", null, context.cacheDir)
+        try {
+            ParcelFileDescriptor.AutoCloseInputStream(pfd).use { input -> spool.outputStream().use(input::copyTo) }
+            val sized = file.copy(size = spool.length())
+            return ParcelFileDescriptor.open(spool, ParcelFileDescriptor.MODE_READ_ONLY)
+                .use { ArchiveReader(it) }
+                .use { read(sized, it) }
+        } finally {
+            spool.delete()
+        }
+    }
+
+    private fun read(file: ImportFile, reader: ArchiveReader): ReadFile {
+        val extension = file.name.substringAfterLast('.', "").lowercase()
         val stem = file.name.substringBeforeLast('.')
-        return pfd.use { ArchiveReader(it) }.use { reader ->
-            val kind = kindOf(file, extension, reader)
-            // Named for its kind when its name did not say, so the local source lists the copy.
-            val named = when {
-                kind == "epub" && extension != "epub" -> file.copy(name = "${file.name}.epub")
-                kind == "comic" && extension !in MANGA_ARCHIVES -> file.copy(name = "${file.name}.cbz")
-                else -> file
+        val kind = kindOf(file, extension, reader)
+        // Named for its kind when its name did not say, so the local source lists the copy.
+        val named = when {
+            kind == "epub" && extension != "epub" -> file.copy(name = "${file.name}.epub")
+            kind == "comic" && !Archive.isSupported(extension) -> file.copy(name = "${file.name}.cbz")
+            else -> file
+        }
+        return when (kind) {
+            "epub" -> {
+                val archive = EpubArchive(reader::readEntries)
+                val book = EpubBook.parse(archive)
+                val meta = book.metadata
+                ReadFile(
+                    file = named,
+                    type = if (book.isFixedLayout) ContentType.MANGA else ContentType.NOVELS,
+                    series = meta.series ?: meta.title ?: stem,
+                    seriesIndex = meta.seriesIndex,
+                    author = meta.author,
+                    cover = book.coverPath?.let { archive.read(setOf(it))[it] },
+                    isEpub = true,
+                )
             }
-            when (kind) {
-                "epub" -> {
-                    val archive = EpubArchive(reader::readEntries)
-                    val book = EpubBook.parse(archive)
-                    val meta = book.metadata
-                    ReadFile(
-                        file = named,
-                        type = if (book.isFixedLayout) ContentType.MANGA else ContentType.NOVELS,
-                        title = meta.title,
-                        series = meta.series ?: meta.title ?: stem,
-                        seriesIndex = meta.seriesIndex,
-                        author = meta.author,
-                        cover = book.coverPath?.let { archive.read(setOf(it))[it] },
-                        isEpub = true,
-                    )
+            "comic" -> {
+                val comicInfo = reader.readEntries(setOf(COMIC_INFO))[COMIC_INFO]?.toString(Charsets.UTF_8)
+                // The first page in reading order stands in for a cover, picked as the manga local source does.
+                val firstPage = reader.useEntries { entries ->
+                    entries.sortedWith { a, b -> a.name.compareToCaseInsensitiveNaturalOrder(b.name) }
+                        .find { it.isFile && ImageUtil.isImage(it.name) { reader.getInputStream(it.name)!! } }
+                        ?.name
                 }
-                "comic" -> {
-                    val comicInfo = reader.readEntries(setOf(COMIC_INFO))[COMIC_INFO]?.toString(Charsets.UTF_8)
-                    // The first page in reading order stands in for a cover, as the manga local source's does.
-                    val firstPage = reader.useEntries { entries ->
-                        entries.filter { it.isFile && it.name.substringAfterLast('.').lowercase() in PAGE_EXTENSIONS }
-                            .map { it.name }
-                            .toList()
-                    }.minWithOrNull { a, b -> a.compareToCaseInsensitiveNaturalOrder(b) }
-                    val series = comicInfo?.let { COMIC_SERIES.find(it)?.groupValues?.get(1)?.trim() }?.ifEmpty { null }
-                    ReadFile(
-                        file = named,
-                        type = ContentType.MANGA,
-                        title = null,
-                        series = series ?: stem.replace(TRAILING_NUMBER, "").trim().ifEmpty { stem },
-                        seriesIndex = null,
-                        author = comicInfo?.let { COMIC_WRITER.find(it)?.groupValues?.get(1)?.trim() },
-                        cover = firstPage?.let { reader.readEntries(setOf(it))[it] },
-                        isEpub = false,
-                    )
-                }
-                else -> throw UnsupportedFileException()
+                val series = comicInfo?.let { COMIC_SERIES.find(it)?.groupValues?.get(1)?.trim() }?.ifEmpty { null }
+                ReadFile(
+                    file = named,
+                    type = ContentType.MANGA,
+                    series = series ?: seriesFromStem(stem),
+                    seriesIndex = null,
+                    author = comicInfo?.let { COMIC_WRITER.find(it)?.groupValues?.get(1)?.trim() },
+                    cover = firstPage?.let { reader.readEntries(setOf(it))[it] },
+                    isEpub = false,
+                )
             }
+            else -> throw UnsupportedFileException()
         }
     }
 
@@ -287,16 +285,16 @@ class LocalImport(
      */
     private fun kindOf(file: ImportFile, extension: String, reader: ArchiveReader): String? {
         if (extension == "epub") return "epub"
-        if (extension in MANGA_ARCHIVES) return "comic"
+        if (Archive.isSupported(extension)) return "comic"
         when (context.contentResolver.getType(file.uri)) {
-            "application/epub+zip" -> return "epub"
+            EPUB_TYPE -> return "epub"
             in COMIC_TYPES -> return "comic"
         }
         val names = runCatching { reader.useEntries { entries -> entries.map { it.name }.toList() } }.getOrNull()
             ?: return null
         return when {
-            "META-INF/container.xml" in names -> "epub"
-            names.any { it.substringAfterLast('.').lowercase() in PAGE_EXTENSIONS } -> "comic"
+            EpubBook.looksLikeEpub(names) -> "epub"
+            names.any { ImageUtil.isImage(it) } -> "comic"
             else -> null
         }
     }
@@ -309,10 +307,12 @@ class LocalImport(
 
     private class UnsupportedFileException : IOException()
 
-    private class ReadFile(
+    /** The favorite write failed without throwing, so the series is not in the library. */
+    private class NotAddedException : IOException()
+
+    internal class ReadFile(
         val file: ImportFile,
         val type: ContentType,
-        val title: String?,
         val series: String,
         val seriesIndex: Double?,
         val author: String?,
@@ -337,8 +337,10 @@ class LocalImport(
             "application/octet-stream",
         )
 
-        private val MANGA_ARCHIVES = setOf("zip", "cbz", "rar", "cbr", "7z", "cb7", "tar", "cbt")
-        private val COMIC_TYPES = setOf(
+        internal const val EPUB_TYPE = "application/epub+zip"
+
+        /** The types that name a comic archive, which a plain archive's type does not. */
+        internal val COMIC_TYPES = setOf(
             "application/x-cbz",
             "application/vnd.comicbook+zip",
             "application/x-cbr",
@@ -346,13 +348,57 @@ class LocalImport(
             "application/x-cb7",
         )
         private const val COMIC_INFO = "ComicInfo.xml"
-        private val PAGE_EXTENSIONS = setOf("jpg", "jpeg", "png", "webp", "gif", "avif", "jxl")
         private val COMIC_SERIES = Regex("<Series>([^<]*)</Series>")
         private val COMIC_WRITER = Regex("<Writer>([^<]*)</Writer>")
-        private val TRAILING_NUMBER =
-            Regex("""[\s_\-.]*(?:vol(?:ume)?|v|ch(?:apter)?|c|#)?\.?\s*\d+(?:\.\d+)?\s*$""", RegexOption.IGNORE_CASE)
+
+        // The marker must start a word, so the c ending "Bleach 001" stays part of the name.
+        private val TRAILING_NUMBER = Regex(
+            """[\s_\-.]*(?:\b(?:vol(?:ume)?|v|ch(?:apter)?|c)\.?|#)?\s*\d+(?:\.\d+)?\s*$""",
+            RegexOption.IGNORE_CASE,
+        )
 
         /** Series that differ only in case, spacing or punctuation are one series. */
         internal fun groupKey(series: String): String = series.lowercase().filter { it.isLetterOrDigit() }
+
+        /** A comic's series from its file name: the name without a trailing volume or chapter number. */
+        internal fun seriesFromStem(stem: String): String = stem.replace(TRAILING_NUMBER, "").trim().ifEmpty { stem }
+
+        /**
+         * The batch as series: files of one type whose series match by [groupKey], in volume order, each named
+         * after its series, so a volume imported alone lands where its siblings do.
+         */
+        internal fun groupSeries(read: List<ReadFile>): List<ImportGroup> =
+            read.groupBy { it.type to groupKey(it.series) }.map { (key, members) ->
+                val ordered = members.sortedWith(
+                    compareBy<ReadFile> { it.seriesIndex ?: Double.MAX_VALUE }
+                        .thenComparator { a, b -> a.file.name.compareToCaseInsensitiveNaturalOrder(b.file.name) },
+                )
+                val first = ordered.first()
+                ImportGroup(
+                    key = "${key.first}:${key.second}",
+                    type = key.first,
+                    title = first.series,
+                    author = first.author,
+                    cover = first.cover,
+                    files = ordered.map { it.file },
+                    canBeEitherType = ordered.all { it.isEpub },
+                )
+            }
     }
+}
+
+/** Names [uri] as its provider does, made safe as a file name, since the name comes from another app. */
+internal fun ContentResolver.describe(uri: Uri): ImportFile {
+    var name: String? = null
+    var size = -1L
+    runCatching {
+        query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                name = cursor.getString(0)
+                if (!cursor.isNull(1)) size = cursor.getLong(1)
+            }
+        }
+    }
+    val raw = name ?: uri.lastPathSegment?.substringAfterLast('/') ?: "file"
+    return ImportFile(uri, DiskUtil.buildValidFilename(raw), size)
 }

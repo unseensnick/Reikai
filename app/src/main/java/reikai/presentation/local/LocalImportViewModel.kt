@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
@@ -38,6 +39,7 @@ class LocalImportViewModel(
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     @AppCoroutineScope private val appScope: CoroutineScope,
+    handOff: ImportHandOff,
 ) : ViewModel() {
 
     val state: StateFlow<State>
@@ -45,6 +47,7 @@ class LocalImportViewModel(
 
     init {
         if (initialUris.isNotEmpty()) add(initialUris.map(Uri::parse))
+        viewModelScope.launch { handOff.files.collect(::add) }
     }
 
     fun add(uris: List<Uri>) {
@@ -53,13 +56,14 @@ class LocalImportViewModel(
         viewModelScope.launchIO {
             val (groups, problems) = localImport.preview(uris)
             state.update { current ->
-                val known = current.groups.flatMap { g -> g.files.map { it.uri } }.toSet()
+                val known = current.groups.flatMap { g -> g.files.map { it.uri } }.toSet() +
+                    current.problems.mapNotNull { it.uri }
                 val fresh = groups.map { g ->
                     g.copy(files = g.files.filterNot { it.uri in known })
                 }.filter { it.files.isNotEmpty() }
                 current.copy(
                     groups = merge(current.groups, fresh),
-                    problems = current.problems + problems,
+                    problems = current.problems + problems.filterNot { it.uri in known },
                     isReading = false,
                 )
             }
@@ -76,10 +80,13 @@ class LocalImportViewModel(
 
     fun setAddToLibrary(add: Boolean) = state.update { it.copy(addToLibrary = add) }
 
-    /** Ask for categories only where a type's batch rule says to, once per type, then copy and add. */
+    /**
+     * Ask for categories only where a type's batch rule says to, once per type, then copy and add. Import turns
+     * off at once, since the category read leaves room for a second tap to start a second copy.
+     */
     fun startImport() {
-        val groups = state.value.groups.takeIf { it.isNotEmpty() } ?: return
-        state.update { it.copy(pending = emptyMap()) }
+        val groups = state.value.groups.takeIf { it.isNotEmpty() && !state.value.isImporting } ?: return
+        state.update { it.copy(pending = emptyMap(), isImporting = true) }
         viewModelScope.launchIO {
             val categories = mutableMapOf<ContentType, List<Long>>()
             if (state.value.addToLibrary) {
@@ -91,6 +98,7 @@ class LocalImportViewModel(
                                 it.copy(
                                     pickCategories = CategoryPick(type, batch.initialSelection),
                                     pending = categories.toMap(),
+                                    isImporting = false,
                                 )
                             }
                             return@launchIO
@@ -105,13 +113,15 @@ class LocalImportViewModel(
     /** The picker's answer for [type]; the next type that asks is asked in turn. */
     fun confirmCategories(type: ContentType, categoryIds: List<Long>) {
         val chosen = state.value.pending + (type to categoryIds)
-        state.update { it.copy(pickCategories = null, pending = chosen) }
+        state.update { it.copy(pickCategories = null, pending = chosen, isImporting = true) }
         val groups = state.value.groups
         viewModelScope.launchIO {
             for (next in groups.map { it.type }.distinct().filter { it !in chosen }) {
                 val batch = batchCategories(next)
                 if (batch is BatchCategories.Ask) {
-                    state.update { it.copy(pickCategories = CategoryPick(next, batch.initialSelection)) }
+                    state.update {
+                        it.copy(pickCategories = CategoryPick(next, batch.initialSelection), isImporting = false)
+                    }
                     return@launchIO
                 }
                 state.update {
@@ -131,14 +141,18 @@ class LocalImportViewModel(
     }
 
     private fun runImport(groups: List<ImportGroup>, categories: Map<ContentType, List<Long>>) {
-        state.update { it.copy(isImporting = true) }
         val addToLibrary = state.value.addToLibrary
         appScope.launchIO {
             val results = groups.groupBy { it.type }.map { (type, ofType) ->
                 localImport.import(ofType, addToLibrary, categories[type].orEmpty())
             }
             val result = ImportResult(results.flatMap { it.series }, results.flatMap { it.problems })
-            state.update { it.copy(isImporting = false, result = result, groups = emptyList()) }
+            // Only what was imported leaves, so files shared in while it ran stay to be imported next.
+            val imported = groups.flatMap { g -> g.files.map { it.uri } }.toSet()
+            state.update { s ->
+                val left = s.groups.map { g -> g.copy(files = g.files.filterNot { it.uri in imported }) }
+                s.copy(isImporting = false, result = result, groups = left.filter { it.files.isNotEmpty() })
+            }
         }
     }
 
