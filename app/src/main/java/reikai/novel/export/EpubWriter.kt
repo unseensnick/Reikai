@@ -4,10 +4,11 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.nodes.Entities
+import reikai.novel.content.NovelHtmlUtils
+import reikai.novel.content.RenderTarget
 import java.io.OutputStream
 import java.security.MessageDigest
 import java.util.Base64
-import java.util.UUID
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -72,14 +73,21 @@ class EpubWriter(private val includePictures: Boolean = true) {
         pictures: MutableMap<String, Pair<String, String>>,
         writePicture: (path: String, picture: ExportPicture) -> Unit,
     ): String {
-        val body = Jsoup.parseBodyFragment(chapter.html()).body()
-        body.select(
-            "script, noscript, iframe, frame, frameset, object, embed, applet, form, input, button, style, link, meta, base",
+        // The reader's own prune drops what runs; inline styles stay, since they are the book's formatting.
+        val safe = NovelHtmlUtils.sanitizeForRender(
+            chapter.html(),
+            RenderTarget.WEB_VIEW,
+            keepEmbeddedCss = true,
+            keepEmbeddedJs = false,
+            blockMedia = false,
         )
-            .remove()
+        val body = Jsoup.parseBodyFragment(safe).body()
+        // What a book needs gone beyond that: controls with nothing to drive them, styling the book's own
+        // sheet replaces, and prefixed attributes, whose undeclared namespace makes the XHTML invalid.
+        body.select("input, button, style, link").remove()
         for (element in body.getAllElements()) {
             element.attributes().asList()
-                .filter { it.key.startsWith("on") || it.key == "contenteditable" || ':' in it.key }
+                .filter { it.key == "contenteditable" || ':' in it.key }
                 .forEach { element.removeAttr(it.key) }
         }
         for (img in body.select("img")) {
@@ -236,16 +244,15 @@ $points
     }
 
     companion object {
-        /** A fresh identifier for a book that has no stable one of its own. */
-        fun newIdentifier(): String = "urn:uuid:${UUID.randomUUID()}"
-
         /** A `data:` picture's bytes and type, or null for any other address or type. Parsed by hand, not by a
          *  regex, since a picture's base64 runs to megabytes. */
         internal fun decodeDataAddress(src: String): ExportPicture? {
             if (!src.startsWith("data:")) return null
             val marker = src.indexOf(";base64,")
             if (marker < 0) return null
-            val mime = src.substring(5, marker).substringBefore(';').ifEmpty { "image/jpeg" }.lowercase()
+            val declared = src.substring(5, marker).substringBefore(';').ifEmpty { "image/jpeg" }.lowercase()
+            // Servers often send the unregistered image/jpg, which a book's manifest may not declare.
+            val mime = if (declared == "image/jpg") "image/jpeg" else declared
             if (mime !in PICTURE_TYPES) return null
             val data = src.substring(marker + BASE64_MARKER.length)
             return runCatching { ExportPicture(Base64.getMimeDecoder().decode(data), mime) }.getOrNull()
@@ -270,7 +277,7 @@ $points
 
         private const val BASE64_MARKER = ";base64,"
         private val PICTURE_TYPES =
-            setOf("image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp", "image/svg+xml")
+            setOf("image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml")
 
         /** BCP 47's tag for a language nobody stated, rather than guessing English. */
         private const val UNDETERMINED = "und"

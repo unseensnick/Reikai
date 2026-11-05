@@ -147,5 +147,31 @@ class EpubWriterTest {
         Regex("<h2[^>]*>I</h2>").findAll(chapter).count() shouldBe 1
     }
 
+    @Test
+    fun `a script address and foreign markup do not survive`() = runTest {
+        val scripted = book.copy(
+            chapters = listOf(
+                ExportChapter("I") {
+                    "<p>Text</p><map><area href=\"javascript:alert(1)\"></map>" +
+                        "<svg><set attributeName=\"href\" to=\"javascript:x\"/></svg>"
+                },
+            ),
+        )
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(scripted, out)
+        val chapter = ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.first { it.name.endsWith("chapter-0001.xhtml") }
+            zip.readBytes().toString(Charsets.UTF_8)
+        }
+
+        listOf("javascript:", "<svg").filter { it in chapter } shouldBe emptyList()
+    }
+
+    @Test
+    fun `a picture typed image jpg is declared by its registered type`() {
+        EpubWriter.decodeDataAddress("data:image/jpg;base64," + Base64.getEncoder().encodeToString(png))!!.mime shouldBe
+            "image/jpeg"
+    }
+
     private infix fun String.shouldNotContain_(text: String) = (text in this) shouldBe false
 }

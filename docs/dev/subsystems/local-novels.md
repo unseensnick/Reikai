@@ -20,7 +20,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 
 **Import** (`LocalImport`, `LocalImportScreen`) serves both types. A picked, opened or shared file is read for a preview: an EPUB through the kernel (fixed-layout books suggest manga), a comic archive for its ComicInfo series and writer and its first page. The kind comes from the name, else the provider's MIME type, else the archive's contents, and a copy without an extension gets one. Files group by type and series key (`groupKey`). Import copies each group into `local` or `localnovels` (numbered when a new series gets several files, skipped when a file of that name and size is there), then stores and favorites it through each type's batch add: `insertOpenedNovel` and `NovelLibraryAdder.addToBatch` for novels, `NetworkToLocalManga`, `UpdateMangaFromRemote` and `MangaLibraryAdder.addToBatch` for manga. Categories are asked once per type when the batch rule says so. The copy runs on the app scope.
 
-**Export** (`EpubWriter`, `NovelEpubExportWorker`) writes EPUB 3 with an EPUB 2 NCX beside the nav. `mimetype` is stored first; each chapter is well-formed XHTML with its `data:` pictures written once each as files, web pictures and anything that runs dropped, and a heading added only when the chapter does not open with one. The metadata is what the import reads back: title, author, the artist as an illustrator contributor, the status in a `reikai:status` meta, genres as subjects and the description as paragraphs, so a source novel exported and imported keeps its details. The worker exports the chapters on the device in reading order (`NovelDownloadedTexts.chaptersOf`), a run of them if asked, to one file or, for a library selection, one file per novel in a folder.
+**Export** (`EpubWriter`, `NovelEpubExportWorker`) writes EPUB 3 with an EPUB 2 NCX beside the nav. `mimetype` is stored first; each chapter is well-formed XHTML with its `data:` pictures written once each as files, web pictures and anything that runs dropped, and a heading added only when the chapter does not open with one. The metadata is what the import reads back: title, author, the artist as an illustrator contributor, the status in a `reikai:status` meta, genres as subjects and the description as paragraphs, so a source novel exported and imported keeps its details. The worker exports the chapters on the device in reading order (`NovelDownloadedTexts.chaptersOf`), a run of them if asked, to one file or, for a library selection, one file per novel in a folder. Chapter text comes through `NovelDownloadedTexts.storedHtml`, the read search and word count use, and chapter markup through the reader's own prune (`NovelHtmlUtils.sanitizeForRender`) before the book's extra drops. The cover is loaded the way the library draws it (custom, a local series' `cover.*`, cached or fetched) and written as JPEG, or PNG when it has transparency. A file is written from empty (`openTruncatingOutputStream`, since a document provider takes plain "w" as write in place) and deleted when the write fails or is cancelled, so no half book is left behind.
 
 ## Key files
 
@@ -33,6 +33,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 - `app/src/main/java/reikai/presentation/local/ImportIntents.kt`: `importedFiles`, read by `MainActivity`.
 - `app/src/main/java/reikai/novel/export/EpubWriter.kt`: `EpubWriter`, `EpubExportBook`.
 - `app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt`: `NovelEpubExportWorker.start`.
+- `app/src/main/java/reikai/novel/export/EpubExportFiles.kt`: `writeOrDelete`, `coverPicture`.
 - `app/src/main/java/reikai/presentation/novel/details/NovelExportDialog.kt`: `NovelExportDialog`.
 
 ## Invariants and traps
@@ -60,7 +61,7 @@ A new book format: give `LocalImport.kindOf` its name, type and contents test, a
 
 ## Tests
 
-`EpubBookTest` (contents, metadata, DRM, namespaces), `EpubChaptersTest` (cuts, joins, rendering), `EpubWriterTest` (structure, XML, round trip through the kernel), `LocalNovelChapterPathTest`, `LocalImportGroupKeyTest`. Run with `./gradlew :app:testDebugUnitTest --tests "reikai.novel.local.*" --tests "reikai.novel.export.*" --tests "reikai.data.local.*"`.
+`EpubBookTest` (contents, metadata, DRM, namespaces), `EpubChaptersTest` (cuts, joins, rendering), `EpubWriterTest` (structure, XML, round trip through the kernel), `EpubExportFilesTest` (truncating write, cleanup, cover encoding), `LocalNovelChapterPathTest`, `LocalImportGroupKeyTest`. Run with `./gradlew :app:testDebugUnitTest --tests "reikai.novel.local.*" --tests "reikai.novel.export.*" --tests "reikai.data.local.*"`.
 
 ## Related
 

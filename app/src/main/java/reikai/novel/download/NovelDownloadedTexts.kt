@@ -8,6 +8,7 @@ import org.jsoup.Jsoup
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
 import reikai.novel.content.NovelHtmlUtils
@@ -54,22 +55,28 @@ class NovelDownloadedTexts(
         )
     }
 
+    /**
+     * [chapter]'s HTML as stored on the device, or null when [owners] (from `ownersOf`) lacks its novel or
+     * no download file holds it. Throws for a file that cannot be read.
+     */
+    suspend fun storedHtml(chapter: NovelChapter, owners: Map<Long, Novel>): String? {
+        val owner = owners[chapter.novelId] ?: return null
+        // A local chapter's text is its book, which counts as on disk with no download file.
+        val stored = if (LocalNovelSource.isLocal(owner.source)) {
+            localNovels.parseChapter(chapter.url)
+        } else {
+            downloadManager().getChapterText(owner, chapter)
+        }
+        return stored?.let { NovelHtmlUtils.normalizeContentForHtml(it, chapter.url) }
+    }
+
     /** Hands [onChapter] each of [chapters] with its visible text, or null for a file that cannot be read. */
     suspend fun readEach(chapters: List<NovelChapter>, onChapter: suspend (NovelChapter, String?) -> Unit) {
         val owners = novelRepository.ownersOf(chapters)
         for (chapter in chapters) {
             currentCoroutineContext().ensureActive()
             val text = runCatchingCancellable {
-                // A local chapter's text is its book, which counts as on disk with no download file.
-                owners[chapter.novelId]?.let { owner ->
-                    if (LocalNovelSource.isLocal(owner.source)) {
-                        localNovels.parseChapter(chapter.url)
-                    } else {
-                        downloadManager().getChapterText(owner, chapter)
-                    }
-                }?.let { stored ->
-                    Jsoup.parse(NovelHtmlUtils.normalizeContentForHtml(stored, chapter.url)).body().text()
-                }
+                storedHtml(chapter, owners)?.let { Jsoup.parse(it).body().text() }
             }
                 .onFailure { logcat(LogPriority.WARN, it) { "Could not read the downloaded text of ${chapter.name}" } }
                 .getOrNull()

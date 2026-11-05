@@ -14,6 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okhttp3.Request
+import reikai.util.openTruncatingOutputStream
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -191,7 +192,8 @@ class NovelFontManager(
         val dir = storageManager.getFontsDirectory() ?: return Result.failure(FontError.NoStorage)
         val target = dir.createFile(fileName) ?: return Result.failure(FontError.NoStorage)
         return runCatching {
-            target.openOutputStream().use { it.write(bytes) }
+            // createFile hands back a font already of this name, so a smaller replacement must truncate it.
+            target.openTruncatingOutputStream(context).use { it.write(bytes) }
             // What the provider actually called it, not what we asked for: it derives the extension
             // from the MIME type, and a name that differs is one the reader could never resolve again.
             val stored = target.name ?: fileName

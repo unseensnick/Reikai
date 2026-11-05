@@ -36,12 +36,13 @@ object NovelDownloadedTextsFixture {
 
     /**
      * [stored] is what each chapter on disk holds, and a null value throws as an unreadable file does;
-     * [hidden] are the urls the user hid.
+     * [hidden] are the urls the user hid, and [books] what a local chapter's book holds, by its url.
      */
     fun texts(
         chapters: List<NovelChapter>,
         stored: Map<Long, String?>,
         hidden: Set<String> = emptySet(),
+        books: Map<String, String> = emptyMap(),
     ): NovelDownloadedTexts {
         val novel = Novel.create().copy(id = 1L, source = "src")
         val novelRepository = mockk<NovelRepository> { coEvery { getById(1L) } returns novel }
@@ -74,7 +75,7 @@ object NovelDownloadedTextsFixture {
                     }
                 }
             },
-            mockk(),
+            mockk { coEvery { parseChapter(any()) } answers { books.getValue(firstArg()) } },
         )
     }
 }

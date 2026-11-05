@@ -9,11 +9,17 @@ import androidx.work.ForegroundInfo
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
+import coil3.asDrawable
+import coil3.imageLoader
+import coil3.request.ImageRequest
+import coil3.request.allowHardware
+import coil3.size.Size
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.util.storage.DiskUtil
+import eu.kanade.tachiyomi.util.system.cancelNotification
+import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
@@ -23,23 +29,21 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.novel.NovelStatusCode
-import reikai.domain.entry.EntryId
 import reikai.domain.library.entryLanguage
 import reikai.domain.library.localLanguage
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.ownersOf
-import reikai.novel.content.NovelHtmlUtils
-import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
-import java.io.File
 import java.io.IOException
 import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
@@ -63,12 +67,6 @@ class NovelEpubExportWorker(
 
     @Inject private lateinit var downloadedTexts: NovelDownloadedTexts
 
-    @Inject private lateinit var downloadManager: NovelDownloadManager
-
-    @Inject private lateinit var localNovels: LocalNovelSource
-
-    @Inject private lateinit var coverCache: CoverCache
-
     @Inject private lateinit var sourceManager: NovelSourceManager
 
     @Inject private lateinit var localNovelLanguages: LocalNovelLanguageRepository
@@ -88,6 +86,15 @@ class NovelEpubExportWorker(
     override suspend fun doWork(): Result {
         Migrator.await()
         setForegroundSafely()
+        // WorkManager clears the progress only with a foreground service it started; a refused start leaves it.
+        return try {
+            exportAll()
+        } finally {
+            context.cancelNotification(Notifications.ID_EPUB_EXPORT_PROGRESS)
+        }
+    }
+
+    private suspend fun exportAll(): Result {
         val ids = inputData.getLongArray(KEY_NOVEL_IDS)?.toList().orEmpty()
         val target = inputData.getString(KEY_TARGET)?.let(Uri::parse) ?: return Result.failure()
         val toFolder = inputData.getBoolean(KEY_TO_FOLDER, false)
@@ -99,7 +106,7 @@ class NovelEpubExportWorker(
         val failed = mutableListOf<String>()
         for (id in ids) {
             val novel = novelRepository.getById(id) ?: continue
-            val outcome = runCatching { export(novel, target, toFolder, writer, from, to) }
+            val outcome = runCatchingCancellable { export(novel, target, toFolder, writer, from, to) }
                 .onFailure { logcat(LogPriority.ERROR, it) { "Could not export ${novel.title}" } }
             if (outcome.getOrDefault(false)) written++ else failed += novel.title
         }
@@ -147,24 +154,18 @@ class NovelEpubExportWorker(
             status = NovelStatusCode.toSourceString(novel.status.toInt()),
             chapters = chosen.map { chapter ->
                 ExportChapter(chapter.name) {
-                    val owner = owners[chapter.novelId] ?: novel
-                    val stored = if (LocalNovelSource.isLocal(owner.source)) {
-                        localNovels.parseChapter(chapter.url)
-                    } else {
-                        downloadManager.getChapterText(owner, chapter) ?: throw IOException("Missing ${chapter.name}")
-                    }
-                    NovelHtmlUtils.normalizeContentForHtml(stored, chapter.url)
+                    downloadedTexts.storedHtml(chapter, owners) ?: throw IOException("Missing ${chapter.name}")
                 }
             },
         )
-        val output = if (toFolder) {
+        val file = if (toFolder) {
             val folder = UniFile.fromUri(context, target) ?: throw IOException("No folder")
             val name = DiskUtil.buildValidFilename("${novel.title}.epub")
-            (folder.findFile(name) ?: folder.createFile(name))?.openOutputStream() ?: throw IOException("No file")
+            folder.findFile(name) ?: folder.createFile(name)
         } else {
-            context.contentResolver.openOutputStream(target, "wt") ?: throw IOException("No file")
-        }
-        output.use { out ->
+            UniFile.fromUri(context, target)
+        } ?: throw IOException("No file")
+        file.writeOrDelete(context) { out ->
             writer.write(book, out) { done ->
                 progress
                     .setContentTitle(context.stringResource(MR.strings.export_epub_progress, novel.title))
@@ -175,19 +176,17 @@ class NovelEpubExportWorker(
         return true
     }
 
-    private fun cover(novel: Novel): ExportPicture? {
-        val custom = coverCache.getCustomCoverFile(EntryId.Novel(novel.id)).takeIf { it.exists() }
-        val file = custom
-            ?: coverCache.getCoverFile(novel.thumbnailUrl)?.takeIf { it.exists() }
-            ?: novel.thumbnailUrl?.takeIf { it.startsWith("/") }?.let(::File)?.takeIf { it.exists() }
-            ?: return null
-        val bytes = runCatching { file.readBytes() }.getOrNull() ?: return null
-        val mime = when {
-            bytes.size > 3 && bytes[0] == 0x89.toByte() && bytes[1] == 'P'.code.toByte() -> "image/png"
-            bytes.size > 12 && String(bytes, 8, 4) == "WEBP" -> "image/webp"
-            else -> "image/jpeg"
-        }
-        return ExportPicture(bytes, mime)
+    /** Loaded as the library draws it, so a custom cover, a local series' own file and a cached one all count. */
+    private suspend fun cover(novel: Novel): ExportPicture? {
+        val request = ImageRequest.Builder(context)
+            .data(novel.asNovelCover())
+            .size(Size.ORIGINAL)
+            .allowHardware(false)
+            .build()
+        return context.imageLoader.execute(request).image
+            ?.asDrawable(context.resources)
+            ?.getBitmapOrNull()
+            ?.let(::coverPicture)
     }
 
     companion object {

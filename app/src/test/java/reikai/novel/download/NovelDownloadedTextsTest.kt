@@ -3,8 +3,11 @@ package reikai.novel.download
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.download.NovelDownloadedTextsFixture.chapter
+import reikai.novel.local.LocalNovelSource
 
 /** Novel 1 alone, chapters 10..13 listed by the source out of order; 13 is hidden. */
 class NovelDownloadedTextsTest {
@@ -52,6 +55,15 @@ class NovelDownloadedTextsTest {
     @Test
     fun `a plain-text chapter keeps an angle bracket as text`() = runTest {
         visibleText("a <b and c", chapter(10, 1).copy(url = "u10.txt")) shouldBe "a <b and c"
+    }
+
+    @Test
+    fun `a local chapter's stored HTML is its book's, with no download file`() = runTest {
+        val local = Novel.create().copy(id = 1L, source = LocalNovelSource.ID)
+        val texts = NovelDownloadedTextsFixture.texts(chapters, stored = emptyMap(), books = mapOf("u10" to "a\n\nb"))
+
+        texts.storedHtml(chapter(10, 1), mapOf(1L to local)) shouldBe
+            NovelHtmlUtils.normalizeContentForHtml("a\n\nb", "u10")
     }
 
     private suspend fun visibleText(stored: String, chapter: NovelChapter): String? {
