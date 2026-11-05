@@ -17,7 +17,7 @@ import io.kotest.matchers.types.shouldBeSameInstanceAs
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -25,12 +25,10 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
-import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
-import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -47,6 +45,7 @@ import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.readinglog.NovelChapterPace
 import reikai.domain.readinglog.PaceSample
 import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -60,15 +59,19 @@ class ReaderEngineTest {
     // Shared with runTest below, so a test can advance work the engine posted to the main thread.
     private val scheduler = TestCoroutineScheduler()
 
-    // The engine shares the provider's flows in its own scope, which is the main one.
-    @BeforeEach
-    fun setUp() {
-        Dispatchers.setMain(UnconfinedTestDispatcher(scheduler))
-    }
+    // The engine shares the provider's flows in its own scope, which is the main one. Every engine is
+    // tracked so its scope, and the pace work it runs on IO, is cancelled before Main is reset: an
+    // engine left running resumed on the next test's Main, which reported the failure to that test.
+    @JvmField
+    @RegisterExtension
+    val main = MainDispatcherExtension { UnconfinedTestDispatcher(scheduler) }
 
+    private val appScope = CoroutineScope(UnconfinedTestDispatcher(scheduler))
+
+    // Runs before the extension's teardown, so the engines' saves stop with them.
     @AfterEach
     fun tearDown() {
-        Dispatchers.resetMain()
+        appScope.cancel()
     }
 
     private fun engine(
@@ -84,8 +87,8 @@ class ReaderEngineTest {
         ),
         mockk { every { subscribeAll() } returns flowOf(customInfo) },
         paceRepository,
-        CoroutineScope(UnconfinedTestDispatcher(scheduler)),
-    )
+        appScope,
+    ).also(main::track)
 
     private val paceRepository = FakePaceRepository()
 
