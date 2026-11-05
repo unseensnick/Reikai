@@ -1,6 +1,7 @@
 package reikai.presentation.library
 
 import android.content.Context
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
@@ -34,6 +35,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.i18n.stringResource
@@ -93,14 +95,28 @@ class LibraryEngineTest {
         verify { novels.search("q") }
     }
 
+    @Test
+    fun `the overflow menu offers Statistics when the shortcut puts it in the menus`() {
+        engineOver(listOf(provider(ContentType.MANGA)), statsShortcut = StatsShortcut.MENUS)
+            .statsInMenus.value shouldBe true
+    }
+
+    @Test
+    fun `the overflow menu leaves Statistics out when it is a tab`() {
+        engineOver(listOf(provider(ContentType.MANGA)), statsShortcut = StatsShortcut.TAB)
+            .statsInMenus.value shouldBe false
+    }
+
     private fun engineOver(
         providers: List<LibraryProvider>,
         categories: List<Category> = emptyList(),
         sort: LibrarySort = LibrarySort.default,
         groupBy: Int = LibraryGroup.BY_DEFAULT,
         shown: ContentType = ContentType.ALL,
+        statsShortcut: StatsShortcut = StatsShortcut.OFF,
     ): LibraryEngine {
         val store = EmittingPreferenceStore()
+        val uiPreferences = UiPreferences(store).also { it.statsShortcut.set(statsShortcut) }
         val repository = mockk<CategoryRepository>(relaxed = true)
         every { repository.getUnfilteredAsFlow() } returns flowOf(categories)
         val libraryPreferences = LibraryPreferences(store).also { it.sortingMode.set(sort) }
@@ -115,6 +131,7 @@ class LibraryEngineTest {
                 libraryPreferences = libraryPreferences,
                 categoryRepository = repository,
                 setSortModeForCategory = mockk(relaxed = true),
+                uiPreferences = uiPreferences,
                 // Only the dynamic-grouping assembly reaches these, which no case here exercises.
                 context = mockk(relaxed = true),
                 trackerManager = mockk(relaxed = true),

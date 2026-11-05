@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
@@ -35,7 +37,8 @@ import reikai.novel.local.LocalNovelSource
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
 import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsLibrary
-import reikai.presentation.stats.StatsLibraryLoader
+import reikai.presentation.stats.StatsLibrarySource
+import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.StatsSeries
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.rows
@@ -63,7 +66,7 @@ class StatsViewModel(
     private val novelPreferences: NovelPreferences,
     private val sourcePreferences: ReikaiSourcePreferences,
     private val novelDownloadManager: () -> NovelDownloadManager,
-    private val statsLibraryLoader: StatsLibraryLoader,
+    private val statsLibraryLoader: StatsLibrarySource,
     private val novelRepository: NovelRepository,
     // RK <--
 ) : ViewModel() {
@@ -101,26 +104,36 @@ class StatsViewModel(
     suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)
     // RK <--
 
+    // RK --> both content types loaded on each refresh, then folded per selected type on chip change.
+    // StatsContent refreshes whenever it comes back on screen: as a tab this model lives all session.
+    private val ingredients = StatsReload(viewModelScope) {
+        val library = statsLibraryLoader.load()
+        StatsIngredients(
+            library = library,
+            mangaReadDuration = getTotalReadDuration.await(),
+            novelReadDuration = novelHistoryRepository.getTotalReadDuration(),
+            mangaDownloadCount = downloadManager.getDownloadCount(),
+            // Asked of the download cache, as manga asks its own manager. The library-view row carries a
+            // hardcoded 0 (NovelMapper), filled in only by the library screen's own overlay, so reading
+            // it here reported no novel downloads at all.
+            novelDownloadCount = library.novels.members.sumOf {
+                novelDownloadManager().getDownloadCount(it.novel)
+            },
+        )
+    }
+
+    fun refresh() = ingredients.reload()
+    // RK <--
+
     init {
         viewModelScope.launchIO {
-            // RK --> load both content types once, then fold per selected type on chip change.
-            val library = statsLibraryLoader.load()
-            val ingredients = StatsIngredients(
-                library = library,
-                mangaReadDuration = getTotalReadDuration.await(),
-                novelReadDuration = novelHistoryRepository.getTotalReadDuration(),
-                mangaDownloadCount = downloadManager.getDownloadCount(),
-                // RK: asked of the download cache, as manga asks its own manager. The library-view row
-                //     carries a hardcoded 0 (NovelMapper), filled in only by the library screen's own
-                //     overlay, so reading it here reported no novel downloads at all.
-                novelDownloadCount = library.novels.members.sumOf {
-                    novelDownloadManager().getDownloadCount(it.novel)
-                },
-            )
-
-            sourcePreferences.statsContentType.changes()
-                .onStart { emit(sourcePreferences.statsContentType.get()) }
-                .collectLatest { state.value = buildSuccess(it, ingredients) }
+            // RK --> the last figures stay on screen while a refresh loads
+            combine(
+                ingredients.value.filterNotNull(),
+                sourcePreferences.statsContentType.changes()
+                    .onStart { emit(sourcePreferences.statsContentType.get()) },
+            ) { ingredients, type -> buildSuccess(type, ingredients) }
+                .collectLatest { state.value = it }
             // RK <--
         }
     }

@@ -1,10 +1,16 @@
 package reikai.presentation.stats
 
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.unit.dp
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -64,6 +70,40 @@ class StatsArrangeListTest {
         hidden shouldBe setOf(StatsCardKind.MOST_READ)
     }
 
+    /** The second shelf's cards did not change, so a stale drop there would put the first shelf back. */
+    @Test
+    fun `a card drag in one shelf keeps an earlier drag in another`() {
+        var layout by mutableStateOf<List<StatsCardKind>>(StatsCardKind.entries)
+        compose.setContent {
+            ComposeTestHost {
+                StatsArrangeList(
+                    layout = layout,
+                    hidden = emptySet(),
+                    contentPadding = PaddingValues(),
+                    onArrange = { layout = it },
+                    onHide = {},
+                )
+            }
+        }
+
+        drag("Scores", rows = -3.5f)
+        drag("Tags", rows = -1.5f)
+
+        layout.first { it.shelf == StatsShelf.CHARTS } shouldBe StatsCardKind.SCORES
+    }
+
+    /** Drags [card] by its handle, at the row's end, [rows] row heights (negative is up). */
+    private fun drag(card: String, rows: Float) {
+        val row = compose.onNodeWithText(card)
+        val height = row.fetchSemanticsNode().boundsInRoot.height
+        row.performTouchInput {
+            down(Offset(width - 28.dp.toPx(), centerY))
+            repeat(STEPS) { moveBy(Offset(0f, rows * height / STEPS)) }
+            up()
+        }
+        compose.waitForIdle()
+    }
+
     @Test
     fun `a collapsed shelf hides its cards from the list`() {
         show()
@@ -71,5 +111,9 @@ class StatsArrangeListTest {
         compose.onAllNodesWithContentDescription("Expand/collapse")[1].performClick()
 
         compose.onNodeWithText("Scores").assertDoesNotExist()
+    }
+
+    private companion object {
+        const val STEPS = 20
     }
 }

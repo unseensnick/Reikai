@@ -151,7 +151,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Statistics shows your reading speed: time per manga page, and words per minute in novels, read and read aloud.**
 - **Statistics' Reading this week card shows your reading time today.**
-- **Statistics can open from the Library and Recents menus or its own tab, set in Settings -> Appearance -> Statistics shortcut.** As a tab, it leaves the More list.
+- **Statistics can open from the Library, Updates and History menus or its own tab, set in Settings -> Appearance -> Statistics shortcut.** As a tab, it leaves the More list.
 - **Statistics' cards and their groups can be rearranged or hidden with the pencil button in its top bar.**
 - **Statistics' Scores card shows a bar and count for each score you've given.**
 
@@ -161,6 +161,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Statistics and its detail screens now show your latest reading when you come back to them, such as after reading a series from one.**
+- **Statistics' Reading time period chips now wrap instead of squeezing at the largest text size.**
 - **Statistics' Reading this week card now shows the date reading time was first logged.**
 
 ### Settings

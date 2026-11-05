@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.datetime.LocalDate
@@ -28,12 +30,11 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
 import reikai.presentation.stats.ReadingWindow
-import reikai.presentation.stats.StatsLibrary
-import reikai.presentation.stats.StatsLibraryLoader
+import reikai.presentation.stats.StatsLibrarySource
+import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.readingTimeByDayAndTitle
 import reikai.presentation.stats.statsCovers
 import reikai.presentation.stats.statsDetailsScreen
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.manga.repository.MangaRepository
 import kotlin.time.Clock
 
@@ -59,7 +60,7 @@ data class ReadTitle(val entryId: EntryId, val name: String, val readMs: Long, v
 @ViewModelKey
 @ContributesIntoMap(AppScope::class, binding = binding<ViewModel>())
 class StatsReadingViewModel(
-    private val loader: StatsLibraryLoader,
+    private val loader: StatsLibrarySource,
     sourcePreferences: ReikaiSourcePreferences,
     private val novelRepository: NovelRepository,
     private val mangaRepository: MangaRepository,
@@ -68,14 +69,21 @@ class StatsReadingViewModel(
     private val timeZone = TimeZone.currentSystemDefault()
     private val today = Clock.System.now().toLocalDateTime(timeZone).date
 
-    private val library = MutableStateFlow<StatsLibrary?>(null)
-    private val covers = MutableStateFlow<Map<EntryId, Any>>(emptyMap())
+    private val library = StatsReload(viewModelScope, loader::load)
     private val view = MutableStateFlow(View(ReadingWindow.week(today), selected = null))
+
+    // The list shows before its covers; a reload keeps the last covers until the new ones are read.
+    private val covers = library.value.filterNotNull()
+        .mapLatest { loaded ->
+            val ids = loaded.sessions(ContentType.ALL).mapTo(HashSet()) { it.entryId }
+            statsCovers(ids, loaded, mangaRepository, novelRepository)
+        }
+        .onStart { emit(emptyMap()) }
 
     // Each day's time per series and each series' name, over the whole log: rebuilt only when the log or the
     // content type changes, so a bar tap or a step only slices it.
     private val byDayAndNames = combine(
-        library.filterNotNull(),
+        library.value.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
     ) { library, type ->
         val sessions = library.sessions(type)
@@ -89,14 +97,8 @@ class StatsReadingViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    init {
-        viewModelScope.launchIO {
-            val loaded = loader.load()
-            library.value = loaded
-            val ids = loaded.sessions(ContentType.ALL).mapTo(HashSet()) { it.entryId }
-            covers.value = statsCovers(ids, loaded, mangaRepository, novelRepository)
-        }
-    }
+    /** Called each time the screen comes back on screen, so it shows the library as it is now. */
+    fun refresh() = library.reload()
 
     fun selectPeriod(period: ReadingPeriod) {
         view.value = View(ReadingWindow.current(period, today), selected = null)

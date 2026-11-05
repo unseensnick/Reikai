@@ -3,6 +3,7 @@ package reikai.presentation.recents
 import android.content.Intent
 import androidx.compose.runtime.snapshots.Snapshot
 import cafe.adriel.voyager.core.screen.Screen
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.collections.shouldContainExactly
@@ -41,6 +42,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeManager
 import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -69,6 +71,7 @@ class RecentsEngineTest {
     private val sourcePreferences = ReikaiSourcePreferences(store)
     private val updatesPreferences = UpdatesPreferences(store)
     private val libraryPreferences = LibraryPreferences(store)
+    private val uiPreferences = UiPreferences(store)
 
     // Every engine is tracked: its stop timeouts and its off-main transforms otherwise outlive the test and
     // resume on a Main that has been reset, failing whichever test runs next.
@@ -90,6 +93,7 @@ class RecentsEngineTest {
                 sourcePreferences = sourcePreferences,
                 updatesPreferences = updatesPreferences,
                 libraryPreferences = libraryPreferences,
+                uiPreferences = uiPreferences,
             ),
         )
     }
@@ -112,6 +116,7 @@ class RecentsEngineTest {
             sourcePreferences = ReikaiSourcePreferences(emittingStore),
             updatesPreferences = emittingUpdatesPreferences,
             libraryPreferences = LibraryPreferences(emittingStore),
+            uiPreferences = UiPreferences(emittingStore),
         ),
     )
 
@@ -162,6 +167,20 @@ class RecentsEngineTest {
         groupIdByRawId = emptyMap(),
         suggestGroup = false,
     )
+
+    @Test
+    fun `the overflow menu offers Statistics when the shortcut puts it in the menus`() {
+        uiPreferences.statsShortcut.set(StatsShortcut.MENUS)
+
+        engine(listOf(provider(ContentType.MANGA))).statsInMenus.value shouldBe true
+    }
+
+    @Test
+    fun `the overflow menu leaves Statistics out when it is a tab`() {
+        uiPreferences.statsShortcut.set(StatsShortcut.TAB)
+
+        engine(listOf(provider(ContentType.MANGA))).statsInMenus.value shouldBe false
+    }
 
     @Test
     fun `both content types assemble into one feed, newest first`() = runTest {

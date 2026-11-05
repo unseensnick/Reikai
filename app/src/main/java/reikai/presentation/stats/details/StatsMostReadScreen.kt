@@ -18,6 +18,7 @@ import eu.kanade.presentation.components.AppBar
 import eu.kanade.presentation.util.Screen
 import kotlinx.coroutines.launch
 import reikai.presentation.stats.StatsCoverTitleLine
+import reikai.presentation.stats.StatsRefreshOnResume
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.components.material.padding
@@ -32,6 +33,7 @@ class StatsMostReadScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = metroViewModel<StatsMostReadViewModel>()
+        StatsRefreshOnResume(viewModel::refresh)
         val scope = rememberCoroutineScope()
         val titles by viewModel.titles.collectAsState()
 

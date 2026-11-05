@@ -12,8 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CardDefaults
@@ -32,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.toMutableStateList
@@ -44,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import reikai.presentation.components.readableColumn
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableColumn
 import sh.calvin.reorderable.ReorderableItem
@@ -96,7 +96,7 @@ fun StatsArrangeList(
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 modifier = Modifier
-                    .centredColumn()
+                    .readableColumn()
                     .padding(horizontal = MaterialTheme.padding.extraLarge, vertical = MaterialTheme.padding.small),
             )
         }
@@ -135,10 +135,13 @@ private fun ShelfCard(
     val chevron by animateFloatAsState(if (isCollapsed) 0f else 180f, label = "shelfChevron")
     val shownCount = cards.count { it !in hidden }
     val toggleShelf = { onHide(if (shownCount < cards.size) hidden - cards.toSet() else hidden + cards) }
+    // The reorder state keeps its first onSettle while this shelf's cards are unchanged, and onArrange
+    // closes over the whole layout, so a drop must reach the latest one or it undoes other shelves.
+    val currentOnArrange by rememberUpdatedState(onArrange)
 
     ElevatedCard(
         modifier = Modifier
-            .centredColumn()
+            .readableColumn()
             .padding(horizontal = MaterialTheme.padding.medium),
         shape = MaterialTheme.shapes.extraLarge,
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = elevation),
@@ -187,7 +190,9 @@ private fun ShelfCard(
                 )
                 ReorderableColumn(
                     list = cards,
-                    onSettle = { from, to -> onArrange(cards.toMutableList().apply { add(to, removeAt(from)) }) },
+                    onSettle = { from, to ->
+                        currentOnArrange(cards.toMutableList().apply { add(to, removeAt(from)) })
+                    },
                     modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
                 ) { _, card, isCardDragging ->
                     key(card) {
@@ -255,7 +260,3 @@ private fun DragHandle(modifier: Modifier) {
         )
     }
 }
-
-/** A readable column on a wide screen, centred, rather than rows stretched across an unfolded phone. */
-private fun Modifier.centredColumn(): Modifier =
-    fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 640.dp).fillMaxWidth()

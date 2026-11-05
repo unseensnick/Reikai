@@ -11,6 +11,7 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import eu.kanade.core.preference.PreferenceMutableState
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -38,6 +39,7 @@ import reikai.domain.library.includes
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.toSortMode
 import reikai.domain.library.within
+import reikai.domain.stats.inMenus
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.components.chipUpdating
 import reikai.presentation.selection.EntrySelection
@@ -76,6 +78,7 @@ class LibraryEngine(
     private val libraryPreferences: LibraryPreferences,
     private val categoryRepository: CategoryRepository,
     private val setSortModeForCategory: SetSortModeForCategory,
+    private val uiPreferences: UiPreferences,
     // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
     private val context: Context,
     private val trackerManager: TrackerManager,
@@ -105,6 +108,9 @@ class LibraryEngine(
         reikaiLibraryPreferences.libraryContentType.changes()
             .stateIn(viewModelScope, SharingStarted.Eagerly, reikaiLibraryPreferences.libraryContentType.get())
     }
+
+    /** Whether the overflow menu offers Statistics. */
+    val statsInMenus: StateFlow<Boolean> by lazy { uiPreferences.statsShortcut.inMenus(viewModelScope) }
 
     /**
      * The library-wide display config, hoisted off the manga model because it is one setting for the

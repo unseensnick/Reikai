@@ -13,6 +13,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +51,7 @@ import reikai.domain.library.chapterSwipeActionsChanges
 import reikai.domain.library.includes
 import reikai.domain.merge.MergeScope
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.stats.inMenus
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
 import reikai.presentation.components.chipUpdating
@@ -83,6 +85,7 @@ class RecentsEngine(
     private val sourcePreferences: ReikaiSourcePreferences,
     private val updatesPreferences: UpdatesPreferences,
     private val libraryPreferences: LibraryPreferences,
+    private val uiPreferences: UiPreferences,
 ) : ViewModel() {
 
     /**
@@ -150,6 +153,9 @@ class RecentsEngine(
     val contentType: StateFlow<ContentType> by lazy {
         chipPreference.changes().stateIn(viewModelScope, SharingStarted.Eagerly, chipPreference.get())
     }
+
+    /** Whether the overflow menu offers Statistics. */
+    val statsInMenus: StateFlow<Boolean> by lazy { uiPreferences.statsShortcut.inMenus(viewModelScope) }
 
     /** Flipping the chip drops the selection through [EntrySelection.afterChipFlip]. */
     fun setContentType(type: ContentType) {

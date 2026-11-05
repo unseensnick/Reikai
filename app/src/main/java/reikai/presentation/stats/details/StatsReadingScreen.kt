@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -66,6 +67,7 @@ import reikai.presentation.stats.ReadingBar
 import reikai.presentation.stats.ReadingPeriod
 import reikai.presentation.stats.ReadingWindow
 import reikai.presentation.stats.StatsCoverTitleLine
+import reikai.presentation.stats.StatsRefreshOnResume
 import reikai.presentation.stats.statsDuration
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -89,6 +91,7 @@ class StatsReadingScreen : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = metroViewModel<StatsReadingViewModel>()
+        StatsRefreshOnResume(viewModel::refresh)
         val scope = rememberCoroutineScope()
         val state by viewModel.state.collectAsState()
         var pickingRange by rememberSaveable { mutableStateOf(false) }
@@ -174,8 +177,8 @@ private val PERIOD_LABELS: List<Pair<ReadingPeriod, StringResource>> = listOf(
 )
 
 @Composable
-private fun PeriodChips(selected: ReadingPeriod, onSelect: (ReadingPeriod) -> Unit) {
-    Row(
+internal fun PeriodChips(selected: ReadingPeriod, onSelect: (ReadingPeriod) -> Unit) {
+    FlowRow(
         modifier = Modifier.fillMaxWidth().padding(horizontal = MaterialTheme.padding.medium),
         horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
     ) {

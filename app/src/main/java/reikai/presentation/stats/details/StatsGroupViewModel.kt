@@ -22,12 +22,11 @@ import kotlinx.datetime.TimeZone
 import reikai.domain.library.ContentType
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.stats.StatsDimension
-import reikai.presentation.stats.StatsLibrary
-import reikai.presentation.stats.StatsLibraryLoader
+import reikai.presentation.stats.StatsLibrarySource
+import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.rows
-import tachiyomi.core.common.util.lang.launchIO
 
 @Immutable
 data class StatsGroupState(val contentType: ContentType, val sort: StatsSort, val rows: List<StatsRow>)
@@ -36,7 +35,7 @@ data class StatsGroupState(val contentType: ContentType, val sort: StatsSort, va
 @AssistedInject
 class StatsGroupViewModel(
     @Assisted private val dimension: StatsDimension,
-    private val loader: StatsLibraryLoader,
+    private val loader: StatsLibrarySource,
     sourcePreferences: ReikaiSourcePreferences,
 ) : ViewModel() {
 
@@ -47,12 +46,12 @@ class StatsGroupViewModel(
         fun create(dimension: StatsDimension): StatsGroupViewModel
     }
 
-    private val library = MutableStateFlow<StatsLibrary?>(null)
+    private val library = StatsReload(viewModelScope, loader::load)
     private val sort = MutableStateFlow(StatsSort.COUNT)
 
     /** Null while the library loads. */
     val state: StateFlow<StatsGroupState?> = combine(
-        library.filterNotNull(),
+        library.value.filterNotNull(),
         sourcePreferences.statsContentType.changes(),
         sort,
     ) { library, type, sort ->
@@ -61,9 +60,8 @@ class StatsGroupViewModel(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
-    init {
-        viewModelScope.launchIO { library.value = loader.load() }
-    }
+    /** Called each time the screen comes back on screen, so it shows the library as it is now. */
+    fun refresh() = library.reload()
 
     fun setSort(sort: StatsSort) {
         this.sort.value = sort

@@ -1,6 +1,8 @@
 package reikai.presentation.stats
 
 import androidx.compose.ui.util.fastFilter
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -172,7 +174,13 @@ private fun titleKeys(
     }
 }
 
+/** Loads [StatsLibrary] afresh on each call; an interface so the screens' reloads can run over a fake. */
+fun interface StatsLibrarySource {
+    suspend fun load(): StatsLibrary
+}
+
 @Inject
+@ContributesBinding(AppScope::class)
 class StatsLibraryLoader(
     private val getLibraryManga: GetLibraryManga,
     private val novelRepository: NovelRepository,
@@ -191,9 +199,9 @@ class StatsLibraryLoader(
     private val getNovelCategories: GetNovelCategories,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val localNovelLanguages: LocalNovelLanguageRepository,
-) {
+) : StatsLibrarySource {
 
-    suspend fun load(): StatsLibrary {
+    override suspend fun load(): StatsLibrary {
         // A series favorited from three sources is three rows here and one card in the library, so
         // StatsSeries counts it once.
         // Each merged series ranked as its library row ranks it, so its status and categories are the lead's.

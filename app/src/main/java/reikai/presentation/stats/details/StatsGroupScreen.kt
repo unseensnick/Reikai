@@ -29,6 +29,7 @@ import mihon.icons.materialsymbols.automirroredrounded.Sort
 import mihon.icons.materialsymbols.rounded.Check
 import reikai.presentation.stats.STATS_CARD_MIN_WIDTH
 import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.StatsRefreshOnResume
 import reikai.presentation.stats.StatsRowCard
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.isSortable
@@ -46,6 +47,7 @@ class StatsGroupScreen(private val dimension: StatsDimension) : Screen() {
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
         val viewModel = assistedMetroViewModel<StatsGroupViewModel, StatsGroupViewModel.Factory> { create(dimension) }
+        StatsRefreshOnResume(viewModel::refresh)
         val state by viewModel.state.collectAsState()
 
         Scaffold(

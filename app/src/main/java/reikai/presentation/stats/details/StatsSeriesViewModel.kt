@@ -21,7 +21,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
@@ -44,7 +44,8 @@ import reikai.presentation.library.novels.NovelLibraryRows
 import reikai.presentation.stats.ReadState
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsLibrary
-import reikai.presentation.stats.StatsLibraryLoader
+import reikai.presentation.stats.StatsLibrarySource
+import reikai.presentation.stats.StatsReload
 import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsSort
 import reikai.presentation.stats.dimension
@@ -72,7 +73,7 @@ data class StatsSeriesState(val summary: StatsRow?, val readState: ReadState?, v
 class StatsSeriesViewModel(
     @Assisted private val key: StatsGroupKey,
     @Assisted private val contentType: ContentType,
-    private val loader: StatsLibraryLoader,
+    private val loader: StatsLibrarySource,
     private val mangaLibraryRows: MangaLibraryRows,
     private val novelLibraryRows: NovelLibraryRows,
     getEntryCustomInfo: GetEntryCustomInfo,
@@ -87,10 +88,11 @@ class StatsSeriesViewModel(
         fun create(key: StatsGroupKey, contentType: ContentType): StatsSeriesViewModel
     }
 
+    private val library = StatsReload(viewModelScope, loader::load)
     private val readState = MutableStateFlow<ReadState?>(null)
 
     private val rowsOfRow = combine(
-        flow { emit(loader.load()) },
+        library.value.filterNotNull(),
         // A type the row does not cover is never built, so it waits on nothing.
         if (contentType.includes(ContentType.MANGA)) mangaLibraryRows.rows() else flowOf(emptyList()),
         if (contentType.includes(ContentType.NOVELS)) novelLibraryRows.rows() else flowOf(emptyList()),
@@ -133,6 +135,9 @@ class StatsSeriesViewModel(
     fun setReadState(state: ReadState?) {
         readState.value = state
     }
+
+    /** Called each time the screen comes back on screen, so a series read from it counts as read. */
+    fun refresh() = library.reload()
 
     val showContinueReading: StateFlow<Boolean> = libraryPreferences.showContinueReadingButton.changes()
         .stateIn(viewModelScope, SharingStarted.Eagerly, libraryPreferences.showContinueReadingButton.get())

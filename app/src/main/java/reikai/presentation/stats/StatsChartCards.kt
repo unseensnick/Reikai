@@ -81,7 +81,7 @@ typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
 
 /** Reading this week, one of the chart cards. */
 fun statsReadingCard(charts: StatsCharts, onOpenReading: () -> Unit): StatsCard = { fill ->
-    StatsCardHeader(MR.strings.stats_reading_week, MR.strings.stats_open, onOpenReading)
+    StatsCardHeader(StatsCardKind.READING.title, MR.strings.stats_open, onOpenReading)
     SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
         StatsReadingWeek(charts)
     }
@@ -95,7 +95,7 @@ fun statsChartCards(
 ): Map<StatsCardKind, StatsCard> = buildMap {
     if (charts.status.isNotEmpty()) {
         put(StatsCardKind.PUBLISHING) { fill ->
-            StatsCardHeader(MR.strings.stats_publishing_status, MR.strings.stats_see_all) {
+            StatsCardHeader(StatsCardKind.PUBLISHING.title, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.STATUS)
             }
             SectionCard(modifier = fill) {
@@ -104,7 +104,7 @@ fun statsChartCards(
                         onOpenKey(StatsGroupKey.Status(code))
                     }
                 }
-                // Only beside the taller Reading card, where the card would otherwise end in empty space
+                // Only on a two-column shelf: on one column the pie would only add height
                 if (StatsShelf.CHARTS.columns(LocalStatsShelfWidth.current) > 1) StatsDonut(slices)
                 StatsShareBars(slices)
             }
@@ -112,7 +112,7 @@ fun statsChartCards(
     }
     if (charts.trackStatus.isNotEmpty()) {
         put(StatsCardKind.TRACKING) { fill ->
-            StatsCardHeader(MR.strings.stats_tracking_status, MR.strings.stats_see_all) {
+            StatsCardHeader(StatsCardKind.TRACKING.title, MR.strings.stats_see_all) {
                 onSeeAll(StatsDimension.TRACK_STATUS)
             }
             SectionCard(modifier = fill) {
@@ -130,7 +130,7 @@ fun statsChartCards(
     }
     if (charts.scores.isNotEmpty()) {
         put(StatsCardKind.SCORES) { fill ->
-            StatsCardHeader(MR.strings.stats_scores, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
+            StatsCardHeader(StatsCardKind.SCORES.title, MR.strings.stats_see_all) { onSeeAll(StatsDimension.SCORE) }
             SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
                 StatsScoreBreakdown(charts.scores) { onOpenKey(StatsGroupKey.Score(it)) }
             }
@@ -151,7 +151,7 @@ fun statsGroupCards(
 ): Map<StatsCardKind, StatsCard> = buildMap {
     if (charts.mostRead.isNotEmpty()) {
         put(StatsCardKind.MOST_READ) { fill ->
-            StatsCardHeader(MR.strings.stats_most_read, MR.strings.stats_see_all, onOpenMostRead)
+            StatsCardHeader(StatsCardKind.MOST_READ.title, MR.strings.stats_see_all, onOpenMostRead)
             SectionCard(modifier = fill) {
                 charts.mostRead.forEach { StatsTitleLine(it.name, it.readMs) { onOpenEntry(it.entryId) } }
             }

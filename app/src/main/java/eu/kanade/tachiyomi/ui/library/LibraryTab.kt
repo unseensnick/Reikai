@@ -74,7 +74,6 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
-import reikai.domain.stats.StatsShortcut
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
@@ -168,8 +167,6 @@ data object LibraryTab : Tab {
             }
             exportIds = emptyList()
         }
-        // RK: Statistics in the overflow menu only when the user asked for it there
-        val statsInMenus = remember { graph.uiPreferences.statsShortcut }.collectAsState().value == StatsShortcut.MENUS
         val engine = assistedMetroViewModel<LibraryEngine, LibraryEngine.Factory> {
             create(
                 providers = listOf(
@@ -179,6 +176,8 @@ data object LibraryTab : Tab {
             )
         }
         val libraryContentType by engine.contentType.collectAsState()
+        // RK: Statistics in the overflow menu only when the user asked for it there
+        val statsInMenus by engine.statsInMenus.collectAsState()
         val refreshing by engine.refreshing.collectAsStateWithLifecycle()
         val libraryDialog by engine.dialog.collectAsState()
         // RK: the library-wide display config, read from the engine rather than off the manga model, so

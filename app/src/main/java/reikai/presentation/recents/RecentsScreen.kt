@@ -73,7 +73,6 @@ import reikai.domain.chapter.isRecognizedChapterNumber
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ChapterSwipeActions
-import reikai.domain.stats.StatsShortcut
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
@@ -124,13 +123,13 @@ fun Screen.RecentsScreen(
     val locale = LocalLocale.current
     val is24HourSystem = rememberIs24HourSystem()
     val timeFormat by remember { context.appGraph.uiPreferences.timeFormat }.collectAsState()
-    val statsShortcut by remember { context.appGraph.uiPreferences.statsShortcut }.collectAsState()
     val timeFormatter = remember(timeFormat, locale, is24HourSystem) {
         UiPreferences.timeFormat(timeFormat, locale.platformLocale, is24HourSystem)
     }
 
     val mode by engine.mode.collectAsState()
     val contentType by engine.contentType.collectAsState()
+    val statsInMenus by engine.statsInMenus.collectAsState()
     val query by engine.query.collectAsState()
     // The three flows the engine shares with WhileSubscribed are read with a lifecycle, so the window
     // can actually close: a plain collectAsState runs for as long as this tab stays composed, which
@@ -238,7 +237,7 @@ fun Screen.RecentsScreen(
                 onRefresh = { scope.launch { refresh() } },
                 showsClearHistory = showsRead,
                 onClearHistory = { engine.openDialog(RecentsDialog.ClearHistory) },
-                onStatsClicked = { navigator.push(StatsScreen()) }.takeIf { statsShortcut == StatsShortcut.MENUS },
+                onStatsClicked = { navigator.push(StatsScreen()) }.takeIf { statsInMenus },
             )
         },
         bottomBar = {

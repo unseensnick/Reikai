@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import reikai.domain.library.ContentType
 import reikai.presentation.library.LibraryItemsLayout
 import reikai.presentation.stats.StatsGroupKey
+import reikai.presentation.stats.StatsRefreshOnResume
 import reikai.presentation.stats.StatsRowCardContent
 import reikai.presentation.stats.label
 import tachiyomi.core.common.i18n.stringResource
@@ -57,6 +58,7 @@ class StatsSeriesScreen(
         val viewModel = assistedMetroViewModel<StatsSeriesViewModel, StatsSeriesViewModel.Factory> {
             create(groupKey, contentType)
         }
+        StatsRefreshOnResume(viewModel::refresh)
         val state by viewModel.state.collectAsState()
         val showContinueReading by viewModel.showContinueReading.collectAsState()
         val displayMode by remember { viewModel.displayMode() }

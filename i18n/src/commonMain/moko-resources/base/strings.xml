@@ -354,7 +354,7 @@
     <string name="pref_combined_recents_tab_summary">Replaces the two tabs with a single Recents tab</string>
     <!-- RK: optional ways into Statistics besides More -->
     <string name="pref_stats_shortcut">Statistics shortcut</string>
-    <string name="pref_stats_shortcut_menus">In the Library and Recents menus</string>
+    <string name="pref_stats_shortcut_menus">In the Library, Updates and History menus</string>
     <string name="pref_stats_shortcut_tab">As its own tab</string>
     <!-- RK: refresh feedback on the combined All chip (both libraries update at once) -->
     <string name="updating_both_libraries">Updating both libraries</string>

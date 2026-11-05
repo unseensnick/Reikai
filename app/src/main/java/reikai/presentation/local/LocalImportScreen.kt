@@ -17,9 +17,7 @@ import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
-import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -73,6 +71,7 @@ import reikai.data.local.LocalImport
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.novel.local.LocalNovelSource
+import reikai.presentation.components.readableColumn
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -227,7 +226,7 @@ internal fun ImportList(
     ) {
         if (state.isReading || state.isImporting) {
             item(key = "progress") {
-                Column(Modifier.centred().padding(MaterialTheme.padding.medium)) {
+                Column(Modifier.readableColumn().padding(MaterialTheme.padding.medium)) {
                     Text(
                         text = stringResource(if (state.isImporting) IMPORTING else READING),
                         style = MaterialTheme.typography.bodyMedium,
@@ -242,12 +241,12 @@ internal fun ImportList(
                 Text(
                     text = pluralStringResource(MR.plurals.local_import_done, result.series.size, result.series.size),
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.centred().padding(MaterialTheme.padding.medium),
+                    modifier = Modifier.readableColumn().padding(MaterialTheme.padding.medium),
                 )
             }
             items(result.series, key = { "done:${it.key}" }) { series ->
                 Row(
-                    modifier = Modifier.centred().padding(horizontal = MaterialTheme.padding.medium),
+                    modifier = Modifier.readableColumn().padding(horizontal = MaterialTheme.padding.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(series.title, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
@@ -272,7 +271,7 @@ internal fun ImportList(
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.error,
                     modifier = Modifier
-                        .centred()
+                        .readableColumn()
                         .padding(start = MaterialTheme.padding.medium, top = MaterialTheme.padding.medium),
                 )
             }
@@ -280,7 +279,7 @@ internal fun ImportList(
             items(problems) { problem ->
                 Column(
                     Modifier
-                        .centred()
+                        .readableColumn()
                         .padding(horizontal = MaterialTheme.padding.medium)
                         .padding(vertical = MaterialTheme.padding.extraSmall),
                 ) {
@@ -310,7 +309,7 @@ internal fun GroupCard(
     onRemove: () -> Unit,
 ) {
     ElevatedCard(
-        modifier = Modifier.centred().padding(horizontal = MaterialTheme.padding.medium),
+        modifier = Modifier.readableColumn().padding(horizontal = MaterialTheme.padding.medium),
         shape = MaterialTheme.shapes.extraLarge,
     ) {
         Row(Modifier.padding(MaterialTheme.padding.medium)) {
@@ -458,7 +457,3 @@ private fun ImportProblem.Reason.label() = when (this) {
     ImportProblem.Reason.CopyFailed -> MR.strings.local_import_reason_copy_failed
     ImportProblem.Reason.AddFailed -> MR.strings.local_import_reason_add_failed
 }
-
-/** A readable column on a wide screen, centred, rather than cards stretched across an unfolded phone. */
-private fun Modifier.centred(): Modifier =
-    fillMaxWidth().wrapContentWidth(Alignment.CenterHorizontally).widthIn(max = 640.dp).fillMaxWidth()
