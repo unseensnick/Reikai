@@ -82,6 +82,18 @@ class CategoryViewModelTest {
     private val CategoryViewModel.selection
         get() = (state.value as CategoryScreenState.Success).selection
 
+    /** The chip row hides itself then, so a chip left on Novels must not keep the list on novels. */
+    @Test
+    fun `hiding the chip's type while the screen is open follows the Show setting`() = runTest {
+        table.value += novel
+        val model = model()
+        model.setContentType(ContentType.NOVELS)
+
+        reikaiLibraryPreferences.shownContent.set(ContentType.MANGA)
+
+        (model.state.value as CategoryScreenState.Success).categories shouldBe listOf(a, b, c)
+    }
+
     @Test
     fun `the list narrows to the shown type while the other is hidden`() = runTest {
         table.value += novel

@@ -56,7 +56,9 @@ class UpdateErrorsViewModel(
     reikaiLibraryPreferences: ReikaiLibraryPreferences,
 ) : ViewModel() {
 
-    private val openingContentType = initialContentType.within(reikaiLibraryPreferences.shownContent.get())
+    // The chip as picked; the list reads it through the Show setting live, so hiding the chip's type
+    // while the screen is open cannot leave the list on it.
+    private val chip = MutableStateFlow(initialContentType)
 
     val state: StateFlow<UpdateErrorsScreenState>
         field = MutableStateFlow<UpdateErrorsScreenState>(UpdateErrorsScreenState.Loading)
@@ -73,7 +75,7 @@ class UpdateErrorsViewModel(
             // Drop errors for entries no longer in the library before showing the list.
             runCatching { deleteLibraryUpdateErrors.nonFavorites() }
             runCatching { deleteNovelUpdateErrors.nonFavorites() }
-            combine(
+            val entries = combine(
                 getLibraryUpdateErrors.subscribeAll(),
                 getNovelUpdateErrors.subscribeAll(),
                 getEntryCustomInfo.subscribeAll(),
@@ -91,12 +93,15 @@ class UpdateErrorsViewModel(
                     )
                 }
                 manga + novel
-            }.collectLatest { entries ->
+            }
+            combine(entries, chip, reikaiLibraryPreferences.shownContent.changes()) { entries, chip, shown ->
+                entries to chip.within(shown)
+            }.collectLatest { (entries, contentType) ->
                 state.update { current ->
                     val prev = current as? UpdateErrorsScreenState.Success
                     UpdateErrorsScreenState.Success(
                         entries = entries,
-                        contentType = prev?.contentType ?: openingContentType,
+                        contentType = contentType,
                         selection = EntrySelection.retain(
                             prev?.selection ?: SelectionState(),
                             entries.map { it.entryId },
@@ -107,10 +112,12 @@ class UpdateErrorsViewModel(
         }
     }
 
-    fun setContentType(type: ContentType) = state.update { state ->
-        if (state !is UpdateErrorsScreenState.Success) return@update state
-        val kept = EntrySelection.afterChipFlip(state.selection, state.contentType, type)
-        state.copy(contentType = type, selection = kept)
+    fun setContentType(type: ContentType) {
+        state.update { state ->
+            if (state !is UpdateErrorsScreenState.Success) return@update state
+            state.copy(selection = EntrySelection.afterChipFlip(state.selection, state.contentType, type))
+        }
+        chip.value = type
     }
 
     fun toggleSelection(id: EntryId) = select { EntrySelection.toggle(it.selection, id) }

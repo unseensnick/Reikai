@@ -56,8 +56,11 @@ class EntrySourcesFilterScreen(
         val navigator = LocalNavigator.currentOrThrow
         // Held as a boolean rather than the enum: only two of the three chips exist here, and a
         // boolean is saveable without asking whether the enum is.
-        val shownContent = LocalShownContent.current
-        var showNovels by rememberSaveable { mutableStateOf(opensOnNovels(initial, shownContent)) }
+        // The chip as picked, read through Show on every composition, so hiding novels while the
+        // screen is open moves the list to manga rather than leaving it under a chip row now hidden.
+        var pickedNovels by rememberSaveable { mutableStateOf(initial == ContentType.NOVELS) }
+        val showNovels =
+            showsNovels(if (pickedNovels) ContentType.NOVELS else ContentType.MANGA, LocalShownContent.current)
 
         Scaffold(
             topBar = { scrollBehavior ->
@@ -69,7 +72,7 @@ class EntrySourcesFilterScreen(
                     )
                     ContentTypeFilterChips(
                         selected = if (showNovels) ContentType.NOVELS else ContentType.MANGA,
-                        onSelect = { showNovels = it == ContentType.NOVELS },
+                        onSelect = { pickedNovels = it == ContentType.NOVELS },
                         types = FILTER_TYPES,
                     )
                 }
@@ -220,6 +223,6 @@ private fun <S> section(
 
 private val FILTER_TYPES = listOf(ContentType.MANGA, ContentType.NOVELS)
 
-/** The Browse chip this opened from, unless Show hides that half. */
-internal fun opensOnNovels(initial: ContentType, shown: ContentType): Boolean =
-    initial.within(shown) == ContentType.NOVELS
+/** Whether the novel list shows: the picked chip, unless Show hides that half. */
+internal fun showsNovels(chip: ContentType, shown: ContentType): Boolean =
+    chip.within(shown) == ContentType.NOVELS

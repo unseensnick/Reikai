@@ -8,6 +8,8 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -16,6 +18,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryBrowseRow
 import reikai.presentation.recents.EmittingPreferenceStore
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Global search remembers which sources it last covered, and says why a finished search shows nothing
@@ -59,6 +62,20 @@ class GlobalSearchEngineTest {
         preferences.shownContent.set(ContentType.NOVELS)
 
         engine(scoped = ContentType.MANGA).state.first { it.searched }.contentType shouldBe ContentType.NOVELS
+    }
+
+    /** The tab row hides itself then, so a search left on Novels must move to the type still shown. */
+    @Test
+    fun `hiding the search's type while the screen is open moves it to the shown type`() = runTest(dispatcher) {
+        preferences.browseContentType.set(ContentType.NOVELS)
+        val engine = engine()
+        engine.state.first { it.searched }
+
+        preferences.shownContent.set(ContentType.MANGA)
+
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(5.seconds) { engine.state.first { it.contentType == ContentType.MANGA } }
+        }?.contentType shouldBe ContentType.MANGA
     }
 
     @Test

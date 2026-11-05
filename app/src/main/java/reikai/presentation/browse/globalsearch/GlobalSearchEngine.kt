@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import reikai.domain.library.ContentType
 import reikai.domain.library.includes
@@ -56,18 +57,20 @@ class GlobalSearchEngine(
     private var lastFilter: SearchSourceFilter? = null
     private var lastContentType: ContentType? = null
 
+    // The chip as picked, the Browse tab's or the entry's type a scoped search opened from. The search
+    // reads it through the Show setting live, so hiding its type while the screen is open re-runs the
+    // search over the type still shown instead of leaving it on one the hidden chip cannot leave.
+    private val chip = MutableStateFlow(scopedContentType ?: sourcePreferences.browseContentType.get())
+
     init {
         viewModelScope.launchIO {
-            // Read once rather than followed: nothing else can move the Browse chip while this
-            // screen is up, and a search opened from a manga or a novel is scoped to that instead.
             state.update {
-                it.copy(
-                    contentType = (scopedContentType ?: sourcePreferences.browseContentType.get())
-                        .within(sourcePreferences.shownContent.get()),
-                    sourceFilter = initialSourceFilter ?: sourcePreferences.globalSearchSourceFilter.get(),
-                )
+                it.copy(sourceFilter = initialSourceFilter ?: sourcePreferences.globalSearchSourceFilter.get())
             }
-            search(state.value.query)
+            combine(chip, sourcePreferences.shownContent.changes(), ContentType::within).collectLatest { type ->
+                state.update { it.copy(contentType = type) }
+                search(state.value.query)
+            }
         }
         viewModelScope.launchIO {
             mihonSourcePreferences.globalSearchFilterState.changes().collectLatest { onlyHasResults ->
@@ -82,6 +85,7 @@ class GlobalSearchEngine(
         // A scoped search keeps its choice to itself: it was opened from an entry of a known type,
         // so switching tabs here must not reprogram what the Browse tab opens on.
         if (scopedContentType == null) sourcePreferences.browseContentType.set(contentType)
+        chip.value = contentType
         state.update { it.copy(contentType = contentType) }
         // The tab changes which sources are in scope, so the current query is re-run over the new
         // set rather than left showing the old one's rows.

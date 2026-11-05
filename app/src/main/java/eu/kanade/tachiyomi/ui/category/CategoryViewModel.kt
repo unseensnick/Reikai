@@ -66,8 +66,13 @@ class CategoryViewModel(
     private var nextDeleteBatch = 0L
 
     // RK: which library's categories the list is narrowed to. Per visit, not persisted: this is a
-    // settings destination rather than somewhere the user lives.
-    private val chipContentType = MutableStateFlow(ContentType.ALL.within(reikaiLibraryPreferences.shownContent.get()))
+    // settings destination rather than somewhere the user lives. Read through the Show setting live,
+    // so hiding the chip's type while the screen is open cannot leave the list on it.
+    private val chipContentType = MutableStateFlow(ContentType.ALL)
+    private val contentTypes =
+        combine(chipContentType, reikaiLibraryPreferences.shownContent.changes()) { chip, shown ->
+            chip.within(shown) to ContentType.ALL.within(shown)
+        }
 
     private val dialog = MutableStateFlow<CategoryDialog?>(null)
     // RK <--
@@ -80,8 +85,8 @@ class CategoryViewModel(
         reikaiLibraryPreferences.categorySortOrder.changes(),
         selectionStore.selection,
         pendingDelete,
-        chipContentType,
-    ) { categories, sortOrder, selected, pending, contentType ->
+        contentTypes,
+    ) { categories, sortOrder, selected, pending, (contentType, reachable) ->
         val pendingIds = pending.values.flatten().mapTo(HashSet()) { it.id }
         val visible = categories
             .filterNot(Category::isSystemCategory)
@@ -91,10 +96,7 @@ class CategoryViewModel(
             categories = reikaiSortCategories(shown, sortOrder),
             // RK: every name a flip of the chip can reach, so it cannot let a duplicate through the
             // create and rename dialogs' check. A name only Show hides stays free.
-            allNames = categoriesForContentType(
-                visible,
-                ContentType.ALL.within(reikaiLibraryPreferences.shownContent.get()),
-            ).map { it.name },
+            allNames = categoriesForContentType(visible, reachable).map { it.name },
             categorySortOrder = sortOrder,
             selection = selected.intersect(shown.mapTo(HashSet()) { it.id }),
             contentType = contentType,

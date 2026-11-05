@@ -7,17 +7,17 @@ import reikai.domain.library.ContentType
 class EntrySourcesFilterScreenTest {
 
     @Test
-    fun `the Novels chip opens on novels`() {
-        opensOnNovels(ContentType.NOVELS, ContentType.ALL) shouldBe true
+    fun `the Novels chip shows novels`() {
+        showsNovels(ContentType.NOVELS, ContentType.ALL) shouldBe true
     }
 
     @Test
-    fun `the Novels chip opens on manga while novels are hidden`() {
-        opensOnNovels(ContentType.NOVELS, ContentType.MANGA) shouldBe false
+    fun `the Novels chip shows manga while novels are hidden`() {
+        showsNovels(ContentType.NOVELS, ContentType.MANGA) shouldBe false
     }
 
     @Test
-    fun `any chip opens on novels while manga is hidden`() {
-        opensOnNovels(ContentType.MANGA, ContentType.NOVELS) shouldBe true
+    fun `any chip shows novels while manga is hidden`() {
+        showsNovels(ContentType.MANGA, ContentType.NOVELS) shouldBe true
     }
 }

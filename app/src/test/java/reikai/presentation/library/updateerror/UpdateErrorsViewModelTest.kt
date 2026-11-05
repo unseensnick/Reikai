@@ -22,6 +22,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -29,10 +30,12 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.updateerror.LibraryUpdateError
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.novel.source.NovelSourceManager
+import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.manga.model.CustomMangaInfo
 import kotlin.time.Duration.Companion.seconds
 
@@ -41,6 +44,7 @@ class UpdateErrorsViewModelTest {
     private val workManager = mockk<WorkManager>()
     private val context = mockk<Context>()
     private var novelStarted = false
+    private val library = ReikaiLibraryPreferences(EmittingPreferenceStore())
 
     @BeforeEach
     fun setUp() {
@@ -103,6 +107,21 @@ class UpdateErrorsViewModelTest {
         val state = viewModel.state.first { it is UpdateErrorsScreenState.Success }
 
         (state as UpdateErrorsScreenState.Success).contentType shouldBe ContentType.MANGA
+    }
+
+    /** The chip row hides itself then, so a chip left on Novels must not keep the list on novels. */
+    @Test
+    fun `hiding the chip's type while the screen is open follows the Show setting`() = runTest {
+        val viewModel = viewModel(ContentType.NOVELS)
+        viewModel.state.first { it is UpdateErrorsScreenState.Success }
+
+        library.shownContent.set(ContentType.MANGA)
+
+        withContext(Dispatchers.Default) {
+            withTimeoutOrNull(5.seconds) {
+                viewModel.state.first { (it as? UpdateErrorsScreenState.Success)?.contentType == ContentType.MANGA }
+            }
+        }.let { (it as? UpdateErrorsScreenState.Success)?.contentType } shouldBe ContentType.MANGA
     }
 
     @Test
@@ -203,7 +222,7 @@ class UpdateErrorsViewModelTest {
         sourceManager = mockk(relaxed = true),
         novelSourceManager = novelSources,
         getEntryCustomInfo = mockk { every { subscribeAll() } returns flowOf(custom) },
-        reikaiLibraryPreferences = mockk { every { shownContent.get() } returns shown },
+        reikaiLibraryPreferences = library.also { it.shownContent.set(shown) },
     )
 
     private fun mangaError(id: Long, message: String) = LibraryUpdateError(
