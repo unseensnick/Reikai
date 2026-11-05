@@ -544,6 +544,7 @@ open class WebGpuViewer(
             if (!chapterPreloadsInFlight.add(chapterId)) return
         }
 
+        // RK: coroutine helper in place of upstream's raw dispatcher
         scope.launchIO {
             // RK: a transition page draws the chapter's state, so it repaints as that changes.
             val repaint = launch { chapter.stateFlow.collect { repaintTransitionPages(chapter) } }
@@ -552,7 +553,7 @@ open class WebGpuViewer(
                 repeat(25) {
                     if (chapter.state is ReaderChapter.State.Loaded) {
                         currentPage?.let { preloadPages(it) }
-                        return@launchIO
+                        return@launchIO // RK: the helper's label
                     }
                     // RK -->
                     if (chapter.state is ReaderChapter.State.Error) {
