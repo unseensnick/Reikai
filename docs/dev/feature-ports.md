@@ -133,6 +133,8 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 
 [IReader](https://github.com/IReaderorg/IReader), a novel reader with its own compiled-APK extension format and source API. The reference for running those extensions. Ref: `refs/IReader` (branch `master`); the API Reikai runs is the published `source-api` 1.5.1 (`548bd934f`). 1.5.3 is declined while it ships its own copies of `eu.kanade.tachiyomi`'s network, source and model classes (104 of its 714), which would shadow the ones manga extensions link against, and its `HttpClients` takes a cookie storage the host does not build; the decline lapses if a later release drops those copies. The host's Ktor follows upstream's pin (3.6.0). `scripts/ireader-pin-check.sh` compares both after a pull.
 
+**Watch, reported upstream 2026-11-05.** IReaderorg/IReader-extensions#249: every readwn site's search (Readwn, Novelmt, Ltnovel, Wuxiabox, Wuxiafox, FanMTL, WuxiaSpot, WuxiaV) gives each result the site root as its link, from a `linkSelector = "a'"` typo in `ReaderWnScraper.kt`, so Reikai collapses the results into one row. Nothing to change here: once a fixed extension ships, check that a WuxiaBox search lists every result. IReaderorg/IReader#294: IReader does not follow a form POST's redirect, which Reikai already does (`IReaderHttpClients`); it needs no action here, but a fix there confirms the diagnosis. Check both on each IReader pass and drop this paragraph once both close.
+
 ### Ported features
 
 | Feature | Reikai home | Last checked | Notes |
