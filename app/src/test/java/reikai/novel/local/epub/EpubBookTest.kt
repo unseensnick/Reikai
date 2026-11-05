@@ -14,6 +14,27 @@ class EpubBookTest {
 
     private fun book(vararg files: Pair<String, String>) = EpubBook.parse(epub(files.toMap()))
 
+    // Browse lists every local series through this read, so it must stay off the chapter files.
+    @Test
+    fun `reading a book's details reads none of its chapter files`() {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml", "b" to "b.xhtml"), nav = "nav.xhtml"),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml", "Two" to "b.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("<p>one</p>"),
+                "OEBPS/b.xhtml" to xhtml("<p>two</p>"),
+            ),
+        )
+        val read = mutableSetOf<String>()
+
+        val parsed = EpubBook.parse { paths ->
+            read += paths
+            book.read(paths)
+        }
+
+        read.filter { it in parsed.spine } shouldBe emptyList()
+    }
+
     @Test
     fun `an EPUB 3 nav is read before the EPUB 2 contents`() {
         book(

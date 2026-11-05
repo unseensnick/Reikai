@@ -8,6 +8,7 @@ import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
+import reikai.novel.host.withDecodedDetails
 
 /**
  * [NovelSource] backed by an upstream lnreader plugin running inside an [LnPluginHost]. The adapter
@@ -62,7 +63,7 @@ class LnPluginSource(
         listingOrFailedFetch { host.searchNovels(info.id, query, page).toPage() }
 
     override suspend fun parseNovel(novelPath: String): SourceNovel =
-        novelOrFailedFetch { host.parseNovel(info.id, novelPath) }
+        novelOrFailedFetch { host.parseNovel(info.id, novelPath) }.withDecodedDetails()
 
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? =
         host.parsePage(info.id, novelPath, page)

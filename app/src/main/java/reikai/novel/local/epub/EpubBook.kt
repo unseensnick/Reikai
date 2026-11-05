@@ -4,7 +4,7 @@ import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
-import java.net.URLDecoder
+import reikai.novel.content.decodePercentKeepingPlus
 
 /** The files inside one EPUB, by their path in the zip, read several at a time in one pass. */
 fun interface EpubArchive {
@@ -42,6 +42,9 @@ class EpubBook(
     /** Laid out as fixed pages, as a comic is, rather than as text that reflows. */
     val isFixedLayout: Boolean = false,
 ) {
+    /** The picture type the manifest declares for [path], or null when it declares no picture there. */
+    fun imageType(path: String): String? = mediaTypes[path]?.takeIf { it.startsWith("image/") }
+
     companion object {
         fun parse(archive: EpubArchive): EpubBook {
             val packagePath = archive.readText(CONTAINER)?.let(::xml)?.firstLocal("rootfile")?.attr("full-path")
@@ -241,5 +244,4 @@ internal fun resolve(base: String, href: String): String {
     return parts.joinToString("/")
 }
 
-private fun decode(value: String): String =
-    runCatching { URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8) }.getOrDefault(value)
+private fun decode(value: String): String = decodePercentKeepingPlus(value) ?: value

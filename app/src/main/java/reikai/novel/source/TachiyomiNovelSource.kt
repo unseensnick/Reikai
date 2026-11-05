@@ -20,6 +20,7 @@ import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
+import reikai.novel.host.withDecodedDetails
 import reikai.util.runCatchingCancellable
 
 /**
@@ -98,7 +99,7 @@ class TachiyomiNovelSource(
             status = NovelStatusCode.toSourceString(manga.status),
             // The contract lists the newest chapter first; novels keep them in reading order.
             chapters = update.chapters.asReversed().map { it.toChapterItem() },
-        )
+        ).withDecodedDetails()
     }
 
     // Strip control characters only, as the plugin adapter does: the text is HTML the reader renders.

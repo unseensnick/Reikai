@@ -7,6 +7,7 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
+import reikai.novel.content.elementNamed
 
 /**
  * Where a chapter starts: the top of spine file [spineIndex], or inside it at the element [fragment] names
@@ -16,7 +17,14 @@ data class EpubCut(val spineIndex: Int, val fragment: String? = null, val headin
     val isTop: Boolean get() = fragment == null && heading == null
 }
 
-data class EpubChapterRef(val title: String, val start: EpubCut)
+/**
+ * What a chapter is known by from one version of its book to the next: the file and anchor its contents
+ * entry points at, or the heading it is cut at, never its place in the spine, so a file added to the book
+ * moves no later chapter.
+ */
+data class EpubChapterKey(val path: String, val fragment: String? = null, val heading: Int? = null)
+
+data class EpubChapterRef(val title: String, val start: EpubCut, val key: EpubChapterKey)
 
 /**
  * The book read as one stream in spine order, cut where the table of contents points: a chapter runs from
@@ -48,7 +56,7 @@ object EpubChapters {
                     merged[merged.lastIndex] = last.first.copy(title = "${last.first.title} - $title") to entry.depth
                 }
             } else {
-                merged += EpubChapterRef(title, cut) to entry.depth
+                merged += EpubChapterRef(title, cut, EpubChapterKey(entry.path, entry.fragment)) to entry.depth
             }
         }
         // Whatever comes before the first entry (a cover, a title page) opens the first chapter.
@@ -61,9 +69,15 @@ object EpubChapters {
             if (!document.hasText()) return@flatMapIndexed emptyList()
             val headings = topHeadings(document.body())
             if (book.spine.size == 1 && headings.size > 1) {
-                headings.mapIndexed { n, heading -> EpubChapterRef(heading.text().trim(), EpubCut(index, heading = n)) }
+                headings.mapIndexed { n, heading ->
+                    EpubChapterRef(
+                        heading.text().trim(),
+                        EpubCut(index, heading = n),
+                        EpubChapterKey(path, heading = n),
+                    )
+                }
             } else {
-                listOf(EpubChapterRef(titleOf(document) ?: "${index + 1}", EpubCut(index)))
+                listOf(EpubChapterRef(titleOf(document) ?: "${index + 1}", EpubCut(index), EpubChapterKey(path)))
             }
         }.mapIndexed { n, ref -> if (n == 0) ref.copy(start = EpubCut(0)) else ref }
 
@@ -79,7 +93,7 @@ object EpubChapters {
         val joined = mutableListOf<EpubChapterRef>()
         var pending: EpubChapterRef? = null
         for ((index, ref) in refs.withIndex()) {
-            val current = pending?.let { EpubChapterRef("${it.title} - ${ref.title}", it.start) } ?: ref
+            val current = pending?.let { it.copy(title = "${it.title} - ${ref.title}") } ?: ref
             pending = null
             val bodies = if (index <
                 refs.lastIndex
@@ -118,7 +132,10 @@ object EpubChapters {
                 val cssPath = resolve(parentOf(path), it.attr("href"))
                 styles += StyleSource(base = parentOf(cssPath), path = cssPath)
             }
-            document.head().local("style").forEach { styles += StyleSource(base = parentOf(path), text = it.data()) }
+            // An XML parse holds a style block as text, an HTML one as data.
+            document.head().local("style").forEach {
+                styles += StyleSource(base = parentOf(path), text = it.data().ifEmpty { it.wholeText() })
+            }
             val body = document.body()
             prepare(body, path, files)
             out.body().appendElement("div").addClass(SECTION_CLASS).insertChildren(0, body.childNodes().toList())
@@ -131,7 +148,7 @@ object EpubChapters {
 
         val pictures = out.body().local("img").mapNotNull { img -> img.attr(PATH_ATTR).ifEmpty { null } }.toSet()
         val cssUrls = css.flatMap { (base, text) ->
-            CSS_URL.findAll(text).map { resolve(base, it.groupValues[2]) }.filter { it.isPictureName() }
+            CSS_URL.findAll(text).map { resolve(base, it.groupValues[2]) }.filter { book.imageType(it) != null }
         }
         val bytes = archive.read(pictures + cssUrls)
 
@@ -171,14 +188,15 @@ object EpubChapters {
             val doc = document(path) ?: return@mapIndexedNotNull null
             val body = doc.body()
             val spineIndex = start.spineIndex + offset
-            if (spineIndex == start.spineIndex &&
-                !start.isTop
-            ) {
-                target(body, start)?.let { keepFrom(body, lift(it, body)) }
+            // Both ends are found before either cut: a heading cut counts headings in the whole file.
+            val from = if (offset == 0 && !start.isTop) target(body, start)?.let { lift(it, body) } else null
+            val until = if (end != null && spineIndex == end.spineIndex && !end.isTop) {
+                target(body, end)?.let { lift(it, body) }
+            } else {
+                null
             }
-            if (end != null && spineIndex == end.spineIndex && !end.isTop) {
-                target(body, end)?.let { keepUntil(body, lift(it, body)) }
-            }
+            from?.let { keepFrom(body, it) }
+            until?.let { keepUntil(body, it) }
             path to doc
         }
     }
@@ -192,9 +210,7 @@ object EpubChapters {
 
     /** The element a cut points at, or null when the book names an anchor its file does not have. */
     private fun target(body: Element, cut: EpubCut): Element? = when {
-        cut.fragment != null -> body.getElementById(cut.fragment) ?: body.getAllElements().firstOrNull {
-            it.attr("name") == cut.fragment || it.attr("xml:id") == cut.fragment
-        }
+        cut.fragment != null -> elementNamed(body, cut.fragment)
         cut.heading != null -> topHeadings(body).getOrNull(cut.heading)
         else -> null
     }
@@ -234,8 +250,8 @@ object EpubChapters {
 
     /**
      * Readies one file's body for the reader: an SVG that only frames a picture becomes that picture (the
-     * renderers drop SVG), each picture records its zip path, links stay only where they still lead, and
-     * nothing can run.
+     * renderers drop SVG), each picture records its zip path, and links stay only where they still lead.
+     * Scripts are left to the reader's sanitizer, which honours keep-embedded-JS as for any source.
      */
     private fun prepare(body: Element, path: String, files: List<String>) {
         val base = parentOf(path)
@@ -259,9 +275,7 @@ object EpubChapters {
             val target = if (file.isEmpty()) path else resolve(base, file)
             if (target in files && fragment.isNotEmpty()) link.attr("href", "#$fragment") else link.removeAttr("href")
         }
-        body.local("script").forEach(Element::remove)
         for (element in body.getAllElements()) {
-            element.attributes().asList().filter { it.key.startsWith("on") }.forEach { element.removeAttr(it.key) }
             if (element.hasAttr("style")) element.attr("style", stripThemeDeclarations(element.attr("style")))
         }
     }
@@ -308,9 +322,6 @@ object EpubChapters {
     /** One stylesheet a chapter's files use: a linked file at [path], or a `<style>` block's [text]. */
     private data class StyleSource(val base: String, val path: String? = null, val text: String? = null)
 
-    private fun String.isPictureName(): Boolean = substringAfterLast('.').lowercase() in PICTURE_EXTENSIONS
-
-    private val PICTURE_EXTENSIONS = setOf("jpg", "jpeg", "png", "gif", "webp", "svg", "bmp")
     private const val NEARLY_EMPTY_CHARS = 100
     private val CAPTIONED_TITLE = Regex(
         """(.+?[.!?”"’)\]]\s+)((?:chapter|book|part|volume|canto|section)\s*[ivxlcdm\d]+\.?)""",

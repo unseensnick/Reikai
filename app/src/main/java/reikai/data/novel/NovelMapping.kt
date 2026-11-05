@@ -58,15 +58,16 @@ private val PLACEHOLDER_NAMES = setOf(UNTITLED, "No Title Found")
  */
 fun sentNovelName(name: String?): String? = name?.takeUnless { it.isBlank() || it.trim() in PLACEHOLDER_NAMES }
 
-/** The parse's name decoded, or null when it names nothing. */
+/** The parse's name, or null when it names nothing. */
 val SourceNovel.sentName: String?
-    get() = sentNovelName(name?.let(NovelTextSanitizer::decodeEntities))
+    get() = sentNovelName(name)
 
 /**
  * Translate a freshly-parsed [SourceNovel] (lnreader plugin output) into an unsaved domain [Novel]
  * (`id = -1L`). A refresh stores it over the stored row with [storeRefreshedNovel]; a novel opened
  * from Browse is inserted through [reikai.domain.novel.NovelRepository.insertOrGet]. `genres` is a
- * comma-joined string per the lnreader convention, split to a list here.
+ * comma-joined string per the lnreader convention, split to a list here. The details arrive decoded:
+ * each scraping adapter decodes its own ([reikai.novel.host.withDecodedDetails]).
  */
 fun SourceNovel.toNovel(
     sourceId: String,
@@ -77,10 +78,10 @@ fun SourceNovel.toNovel(
     source = sourceId,
     url = path,
     title = sentName ?: UNTITLED,
-    author = author?.let { NovelTextSanitizer.decodeEntities(it) },
-    artist = artist?.let { NovelTextSanitizer.decodeEntities(it) },
-    description = summary?.let { NovelTextSanitizer.decodeEntities(it) },
-    genre = genres?.split(",")?.map { NovelTextSanitizer.decodeEntities(it).trim() }?.filter { it.isNotEmpty() },
+    author = author,
+    artist = artist,
+    description = summary,
+    genre = genres?.split(",")?.map { it.trim() }?.filter { it.isNotEmpty() },
     status = NovelStatusCode.fromString(status).toLong(),
     thumbnailUrl = cover,
     favoriteAt = now.takeIf { favorite },

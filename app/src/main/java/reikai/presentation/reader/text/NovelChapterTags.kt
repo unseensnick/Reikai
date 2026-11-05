@@ -12,8 +12,9 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.xml.sax.XMLReader
 import reikai.novel.content.NovelChapterAddress
+import reikai.novel.content.decodePercentKeepingPlus
+import reikai.novel.content.elementNamed
 import reikai.presentation.reader.NovelTextScale
-import java.net.URLDecoder
 import kotlin.math.max
 import kotlin.math.roundToInt
 
@@ -58,9 +59,9 @@ internal object NovelChapterTags : Html.TagHandler {
      * reader.js mirrors. An empty name names nothing, and jsoup throws on one.
      */
     private fun anchorTarget(doc: Document, fragment: String): Element? {
-        val decoded = runCatching { URLDecoder.decode(fragment.replace("+", "%2B"), "UTF-8") }.getOrNull()
+        val decoded = decodePercentKeepingPlus(fragment)
         return listOfNotNull(fragment, decoded).distinct().filter { it.isNotEmpty() }.firstNotNullOfOrNull { name ->
-            doc.getElementById(name) ?: doc.getElementsByAttributeValue("name", name).firstOrNull()
+            elementNamed(doc, name)
         }
     }
 

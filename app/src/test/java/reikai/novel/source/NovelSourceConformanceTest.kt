@@ -91,6 +91,13 @@ class NovelSourceConformanceTest {
         source(kind).search("query", page = 1, filters = null).items.single().name shouldBe DECODED
     }
 
+    // Each adapter decodes its own details: the shared mapper no longer does, since the local source's are clean.
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a novel's details are decoded`(kind: Kind) = runTest {
+        source(kind).parseNovel("novel").summary shouldBe DECODED
+    }
+
     // A down site answers with an error page, which a plugin or an IReader extension parses into nothing.
     // A manga source's awaitSuccess reports the status instead, and every novel kind owes the same.
     @ParameterizedTest
@@ -384,7 +391,8 @@ class NovelSourceConformanceTest {
         every { lang } returns "en"
         every { getFilters() } returns emptyList()
         every { getListings() } returns listOf(listing)
-        coEvery { getMangaDetails(any(), any()) } returns MangaInfo(key = "novel", title = "Novel")
+        coEvery { getMangaDetails(any(), any()) } returns
+            MangaInfo(key = "novel", title = "Novel", description = ENCODED)
         coEvery { getChapterList(any(), any()) } returns
             listOf(
                 ChapterInfo(key = "c1", name = "1", dateUpload = UPLOADED, scanlator = "Group"),
@@ -402,6 +410,7 @@ class NovelSourceConformanceTest {
     private fun pluginHost() = mockk<LnPluginHost> {
         coEvery { parseNovel("p", "novel") } returns SourceNovel(
             path = "novel",
+            summary = ENCODED,
             chapters = listOf(ChapterItem(name = "1", path = "c1"), ChapterItem(name = "2", path = "c2")),
         )
         coEvery { parseChapter("p", "c1") } returns "<p>a\u0000b</p>"
@@ -419,7 +428,7 @@ class NovelSourceConformanceTest {
         every { getFilterList() } returns FilterList()
         coEvery { getMangaUpdate(any(), any(), any(), any()) } answers {
             SMangaUpdate(
-                firstArg(),
+                firstArg<SManga>().apply { description = ENCODED },
                 listOf(
                     chapter("c2"),
                     chapter("c1").apply {

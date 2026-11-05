@@ -26,3 +26,16 @@ object NovelTextSanitizer {
      */
     fun decodeEntities(text: String): String = stripInvalidChars(Parser.unescapeEntities(text, true))
 }
+
+/**
+ * The parse with its plain-text details decoded, called by each adapter whose source hands them over
+ * HTML-escaped, as scraped. The local source reads its books' text already decoded and must not decode a
+ * second time, or a description that spells `&amp;` loses it.
+ */
+fun SourceNovel.withDecodedDetails(): SourceNovel = copy(
+    name = name?.let(NovelTextSanitizer::decodeEntities),
+    author = author?.let(NovelTextSanitizer::decodeEntities),
+    artist = artist?.let(NovelTextSanitizer::decodeEntities),
+    summary = summary?.let(NovelTextSanitizer::decodeEntities),
+    genres = genres?.split(",")?.joinToString(",") { NovelTextSanitizer.decodeEntities(it) },
+)

@@ -10,9 +10,11 @@ Lets a reader bring their own books and comics in and take novels out. EPUB book
 
 `EpubChapters.list` reads the book as one stream in spine order and cuts it where the contents point (`EpubCut`): a chapter runs from its cut to the next, across files, so a file the contents skip continues the chapter before it and a file holding several chapters is divided at their anchors. Whatever comes before the first entry opens the first chapter. With no contents, each file is a chapter, and a book that is a single file is cut at its top-level headings. A chapter with under 100 characters and no picture joins the next, named for both ("BOOK ONE - CHAPTER I"), and a Gutenberg caption in front of a chapter name is dropped (`cleanTitle`).
 
-`EpubChapters.render` cuts each file the chapter covers (`keepFrom`, `keepUntil`; an anchor that opens its element stands for the element, `lift`), turns an SVG that only frames a picture into an `<img>` (the renderers drop SVG), keeps links only within the chapter, strips scripts and event handlers, and inlines pictures as `data:` addresses through `inlinedImageAddress`, the cap downloads use. Linked and inline stylesheets come along without fonts, imports, colours or backgrounds, so the reader's theme wins while indents and alignment stay.
+`EpubChapters.render` cuts each file the chapter covers (`keepFrom`, `keepUntil`; an anchor that opens its element stands for the element, `lift`), turns an SVG that only frames a picture into an `<img>` (the renderers drop SVG), keeps links only within the chapter, and inlines pictures as `data:` addresses through `inlinedImageAddress`, the cap downloads use. Linked and inline stylesheets come along without fonts, imports, colours or backgrounds, so the reader's theme wins while indents and alignment stay; a stylesheet picture is inlined when the manifest declares it an image (`EpubBook.imageType`). Scripts and event handlers are left to the reader's shared sanitizer (`NovelHtmlUtils`), so a local book follows keep-embedded-JS like any source.
 
-**The source** is `LocalNovelSource`, id `local`, handed to `NovelSourceManager` as a built-in through `ReikaiBindings.providesBuiltInNovelSources`. Each folder under `localnovels` is a series and its EPUBs are volumes in natural name order; a loose EPUB is a series of one. A `details.json` (manga's `MangaDetails` schema) or a `cover.*` in the folder wins over the books; otherwise the first book's cover is copied once into app storage. A chapter's path names the series, the volume file and the cut (`chapterPath`), and a parsed book is cached per file version. Its web address is blank, which hides WebView, Share and Copy link.
+**The source** is `LocalNovelSource`, id `local`, handed to `NovelSourceManager` as a built-in through `ReikaiBindings.providesBuiltInNovelSources`. Each folder under `localnovels` is a series and its EPUBs are volumes in natural name order; a loose EPUB is a series of one. A `details.json` (manga's `MangaDetails` schema) or a `cover.*` picture in the folder (`localCover`, the rule manga's local source reads too) wins over the books; otherwise the first readable book's cover is copied once into app storage. Browse and search read only each book's package, cached per file version; a book's chapter list, which parses every chapter file, is cached only for the few novels being opened.
+
+A chapter's path (`chapterPath`) names the series, the volume file and the chapter's `EpubChapterKey`: the file and anchor its contents entry points at, or the heading it is cut at, never its place in the spine. Each part is percent-encoded, so a `::` in a folder or file name reads back. A book updated with a chapter added partway through keeps every other chapter's path, so the sync hands no read state to the wrong chapter; renaming a volume file gives its chapters new paths and loses their history, as renaming a manga local chapter does. A refresh leaves out only a volume that is protected or not an EPUB; any other failure to open one fails the refresh (`readableVolumes`), since a list missing a volume would delete its chapters' read state. Its web address is blank, which hides WebView, Share and Copy link.
 
 **Language.** A local source's own language is the placeholder `other`, so a local series' language is read from its files and the library, search, group by language, Statistics and export read that instead (`entryLanguage`, `localLanguage` in `domain/.../EntryLanguage.kt`, which keeps a region only where sources split by it). A novel's is written to `local_novel_language` by series path each time `parseNovel` reads it, `details.json` over the EPUB's `dc:language`; it is not backed up, since the next refresh rebuilds it. A manga's rides in its `memo` (`reikai:language`), from ComicInfo `LanguageISO`, and a legacy `details.json` language survives its conversion to `ComicInfo.xml`.
 
@@ -26,7 +28,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 
 - `app/src/main/java/reikai/novel/local/epub/EpubBook.kt`: `EpubBook.parse`, `EpubArchive`, `EpubException`.
 - `app/src/main/java/reikai/novel/local/epub/EpubChapters.kt`: `EpubChapters.list`, `render`, `cleanTitle`.
-- `app/src/main/java/reikai/novel/local/LocalNovelSource.kt`: `LocalNovelSource`, `chapterPath`.
+- `app/src/main/java/reikai/novel/local/LocalNovelSource.kt`: `LocalNovelSource`, `chapterPath`, `readableVolumes`.
 - `app/src/main/java/reikai/data/local/LocalImport.kt`: `LocalImport.preview`, `import`, `groupKey`.
 - `app/src/main/java/reikai/presentation/local/LocalImportScreen.kt`: `LocalImportScreen`.
 - `app/src/main/java/reikai/presentation/local/LocalImportViewModel.kt`: `LocalImportViewModel`, the category ask per type.
@@ -42,6 +44,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 - **Only an encrypted chapter file means DRM.** Most books carrying `encryption.xml` only obfuscate fonts.
 - **The category dialog dismisses before it confirms.** Answers already given survive a dismiss; a new import resets them.
 - **A test chapter needs real length.** Under 100 characters it is read as a part title and joined to the next.
+- **The local source's text arrives decoded.** The EPUB reader decodes its XML and HTML already, so entity decoding happens in each scraping adapter (`withDecodedDetails`), never in the shared `toNovel`, or a description that spells `&amp;` loses it.
 - **Local chapters are on the device but have no download file.** Anything that reads stored text for a local chapter goes through the source, never `getChapterText`.
 
 ## Decisions
@@ -61,7 +64,7 @@ A new book format: give `LocalImport.kindOf` its name, type and contents test, a
 
 ## Tests
 
-`EpubBookTest` (contents, metadata, DRM, namespaces), `EpubChaptersTest` (cuts, joins, rendering), `EpubWriterTest` (structure, XML, round trip through the kernel), `EpubExportFilesTest` (truncating write, cleanup, cover encoding), `LocalNovelChapterPathTest`, `LocalImportGroupKeyTest`. Run with `./gradlew :app:testDebugUnitTest --tests "reikai.novel.local.*" --tests "reikai.novel.export.*" --tests "reikai.data.local.*"`.
+`EpubBookTest` (contents, metadata, DRM, namespaces), `EpubChaptersTest` (cuts, joins, rendering), `EpubWriterTest` (structure, XML, round trip through the kernel), `EpubExportFilesTest` (truncating write, cleanup, cover encoding), `LocalNovelChapterPathTest`, `LocalNovelChapterIdentityTest` (an added chapter moves no read state), `LocalNovelVolumesTest`, `LocalImportGroupKeyTest`. Run with `./gradlew :app:testDebugUnitTest --tests "reikai.novel.local.*" --tests "reikai.novel.export.*" --tests "reikai.data.local.*"`.
 
 ## Related
 

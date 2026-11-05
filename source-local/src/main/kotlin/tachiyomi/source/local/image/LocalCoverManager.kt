@@ -7,8 +7,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import tachiyomi.core.common.storage.nameWithoutExtension
-import tachiyomi.core.common.util.system.ImageUtil
+import reikai.storage.localCover
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.InputStream
 
@@ -22,11 +21,8 @@ class LocalCoverManager(
 ) {
 
     fun find(mangaUrl: String): UniFile? {
-        return fileSystem.getFilesInMangaDirectory(mangaUrl)
-            // Get all file whose names start with "cover"
-            .filter { it.isFile && it.nameWithoutExtension.equals("cover", ignoreCase = true) }
-            // Get the first actual image
-            .firstOrNull { ImageUtil.isImage(it.name) { it.openInputStream() } }
+        // RK: the rule moved to localCover, which the local novel source reads too
+        return fileSystem.getFilesInMangaDirectory(mangaUrl).localCover()
     }
 
     fun update(

@@ -17,6 +17,7 @@ import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
+import reikai.novel.host.withDecodedDetails
 import reikai.novel.source.AppNovelSource
 import reikai.novel.source.IREADER_NOVEL_SOURCE_PREFIX
 import reikai.novel.source.NovelExtensionFormat
@@ -159,7 +160,7 @@ class IReaderNovelSource(
         // IReader numbers its statuses as tachiyomi does.
         status = NovelStatusCode.toSourceString(status.toInt()),
         chapters = chapters,
-    )
+    ).withDecodedDetails()
 
     // IReader's own rule: a key is used as it is when absolute, and joined to the site otherwise.
     override suspend fun resolveUrl(path: String, isNovel: Boolean): String = when {

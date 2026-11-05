@@ -6,6 +6,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.data.novel.toNovel
+import reikai.novel.host.SourceNovel
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
 import reikai.novel.local.epub.EpubChapters
@@ -121,6 +124,21 @@ class EpubWriterTest {
 
         listOf(meta.artist, meta.status, meta.description, meta.genres) shouldBe
             listOf("Drawer", "Ongoing", "First <it>.\n\nSecond\nline.", listOf("Fantasy"))
+    }
+
+    // The local source hands over a book's text decoded, so storing it must not decode it again.
+    @Test
+    fun `a description that spells an entity keeps it through an export and an import`() = runTest {
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(book.copy(description = "A &amp; B <tag>"), out)
+        val files = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.forEach { files[it.name] = zip.readBytes() }
+        }
+        val meta = EpubBook.parse { paths -> paths.mapNotNull { p -> files[p]?.let { p to it } }.toMap() }.metadata
+
+        SourceNovel(path = "p", name = meta.title, summary = meta.description).toNovel(LocalNovelSource.ID)
+            .description shouldBe "A &amp; B <tag>"
     }
 
     @Test

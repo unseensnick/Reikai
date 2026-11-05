@@ -6,6 +6,7 @@ import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import kotlinx.serialization.json.Json
@@ -20,20 +21,24 @@ import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
+import reikai.novel.local.epub.EpubChapterKey
 import reikai.novel.local.epub.EpubChapterRef
 import reikai.novel.local.epub.EpubChapters
-import reikai.novel.local.epub.EpubCut
+import reikai.novel.local.epub.EpubException
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
+import reikai.storage.localCover
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.metadata.tachiyomi.MangaDetails
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.i18n.MR
 import java.io.File
+import java.net.URLDecoder
+import java.net.URLEncoder
 import kotlin.time.Instant
 
 /**
@@ -64,7 +69,10 @@ class LocalNovelSource(
     override val contentWarning: ContentWarning = ContentWarning.SAFE
     override val supportsLatest: Boolean = true
 
-    private val books = LruCache<String, OpenedBook>(BOOK_CACHE_SIZE)
+    // A listing reads only each book's package, which is small; the chapter lists cost a parse of every
+    // chapter file, so only the novels being opened keep one.
+    private val books = LruCache<String, EpubBook>(BOOK_CACHE_SIZE)
+    private val chapterLists = LruCache<String, List<EpubChapterRef>>(CHAPTER_CACHE_SIZE)
 
     override suspend fun browse(listing: NovelListing, page: Int, filters: NovelFilterState?): NovelItemsPage =
         withIOContext {
@@ -86,33 +94,35 @@ class LocalNovelSource(
 
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
         val series = seriesAt(novelPath) ?: throw LocalNovelMissingException(novelPath)
-        // A book that cannot be read is left out of its series; a series none of whose books can be read
-        // fails with the first one's reason (protected, not an EPUB), which is what the user can act on.
-        val opened = series.volumes.map { file -> file to runCatching { open(file) } }
-        val volumes = opened.mapNotNull { (file, result) -> result.getOrNull()?.let { file to it } }
-        val first = volumes.firstOrNull()?.second
-            ?: throw opened.firstNotNullOfOrNull { it.second.exceptionOrNull() }
-                ?: LocalNovelMissingException(novelPath)
+        val volumes = readableVolumes(series.volumes.map { file -> file to runCatching { open(file) } }) {
+            LocalNovelMissingException(novelPath)
+        }
+        val (firstFile, first) = volumes.first()
         val details = series.details()
         val meta = first.book.metadata
         // Kept beside the novel, since a novel row has nowhere to hold it; details.json wins, as for every field.
         languages.set(series.path, (details?.language ?: meta.language)?.trim()?.takeIf { it.isNotEmpty() })
-        var number = 0
-        val chapters = volumes.flatMapIndexed { volumeIndex, (file, opened) ->
-            opened.chapters.map { ref ->
-                number++
-                ChapterItem(
-                    name = if (volumes.size > 1) volumeTitle(volumeIndex, opened, ref) else ref.title,
-                    path = chapterPath(series.path, file.name.orEmpty(), ref.start),
-                    releaseTime = Instant.fromEpochMilliseconds(file.lastModified()).toString(),
-                    chapterNumber = number.toDouble(),
-                )
-            }
+        val listed =
+            localChapters(series.path, volumes.map { (file, opened) -> file.name.orEmpty() to opened.chapters })
+        val chapters = listed.map { chapter ->
+            val (file, opened) = volumes[chapter.volume]
+            ChapterItem(
+                name = if (volumes.size >
+                    1
+                ) {
+                    volumeTitle(chapter.volume, opened.book, chapter.ref)
+                } else {
+                    chapter.ref.title
+                },
+                path = chapter.path,
+                releaseTime = Instant.fromEpochMilliseconds(file.lastModified()).toString(),
+                chapterNumber = chapter.number,
+            )
         }
         SourceNovel(
             path = series.path,
-            name = details?.title ?: series.title(first),
-            cover = series.coverAddress(first),
+            name = details?.title ?: series.title(first.book),
+            cover = series.coverAddress(firstFile, first.book),
             genres = (details?.genre ?: meta.genres).joinToString(","),
             summary = details?.description ?: meta.description,
             author = details?.author ?: meta.author,
@@ -123,16 +133,16 @@ class LocalNovelSource(
     }
 
     override suspend fun parseChapter(chapterPath: String): String = withIOContext {
-        val (seriesPath, volumeName, start) = parseChapterPath(chapterPath)
+        val (seriesPath, volumeName, key) = parseChapterPath(chapterPath)
             ?: throw LocalNovelMissingException(chapterPath)
         val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volumeName }
             ?: throw LocalNovelMissingException(chapterPath)
         val opened = open(file)
-        val index = opened.chapters.indexOfFirst { it.start == start }.takeIf { it >= 0 }
+        val index = opened.chapters.indexOfFirst { it.key == key }.takeIf { it >= 0 }
             ?: throw LocalNovelMissingException(chapterPath)
         file.archiveReader(context).use { reader ->
             EpubChapters.render(opened.book, EpubArchive(reader::readEntries), opened.chapters, index) { path, bytes ->
-                inlinedImageAddress(bytes, opened.book.mediaTypes[path]?.takeIf { it.startsWith("image/") })
+                inlinedImageAddress(bytes, opened.book.imageType(path))
             }
         }
     }
@@ -157,41 +167,53 @@ class LocalNovelSource(
                 val files = entry.listFiles().orEmpty()
                 val volumes = files.filter { it.isFile && it.isEpub() }
                     .sortedWith { a, b -> a.name.orEmpty().compareToCaseInsensitiveNaturalOrder(b.name.orEmpty()) }
-                if (volumes.isEmpty()) null else Series(name, volumes, entry, files.toList())
+                if (volumes.isEmpty()) null else Series(name, volumes, files.toList())
             }
-            entry.isFile && entry.isEpub() -> Series(name, listOf(entry), null, emptyList())
+            entry.isFile && entry.isEpub() -> Series(name, listOf(entry), emptyList())
             else -> null
         }
     }
 
-    /** The book in [file], parsed once per version of the file. */
-    private fun open(file: UniFile): OpenedBook {
-        val key = "${file.uri}|${file.length()}|${file.lastModified()}"
-        books.get(key)?.let { return it }
-        return file.archiveReader(context).use { reader ->
-            val archive = EpubArchive(reader::readEntries)
-            val book = EpubBook.parse(archive)
-            OpenedBook(book, EpubChapters.list(book, archive))
-        }.also { books.put(key, it) }
+    private fun UniFile.version(): String = "$uri|${length()}|${lastModified()}"
+
+    /** What the book in [file] says about itself, parsed once per version of the file. */
+    private fun book(file: UniFile): EpubBook {
+        val version = file.version()
+        books.get(version)?.let { return it }
+        return file.archiveReader(context).use { reader -> EpubBook.parse(EpubArchive(reader::readEntries)) }
+            .also { books.put(version, it) }
     }
 
-    private fun volumeTitle(index: Int, opened: OpenedBook, ref: EpubChapterRef): String {
-        val number = opened.book.metadata.seriesIndex?.let(::formatNumber) ?: (index + 1).toString()
+    /** The book in [file] with its chapters, each parsed once per version of the file. */
+    private fun open(file: UniFile): OpenedBook {
+        val version = file.version()
+        val cachedBook = books.get(version)
+        val cachedChapters = chapterLists.get(version)
+        if (cachedBook != null && cachedChapters != null) return OpenedBook(cachedBook, cachedChapters)
+        return file.archiveReader(context).use { reader ->
+            val archive = EpubArchive(reader::readEntries)
+            val book = cachedBook ?: EpubBook.parse(archive).also { books.put(version, it) }
+            OpenedBook(book, EpubChapters.list(book, archive).also { chapterLists.put(version, it) })
+        }
+    }
+
+    private fun volumeTitle(index: Int, book: EpubBook, ref: EpubChapterRef): String {
+        val number = book.metadata.seriesIndex?.let(::formatChapterNumber) ?: (index + 1).toString()
         return context.stringResource(MR.strings.local_novel_volume_chapter, number, ref.title)
     }
 
     private fun Series.toItem(): NovelItem {
-        val opened = volumes.firstNotNullOfOrNull { runCatching { open(it) }.getOrNull() }
+        val first = volumes.firstNotNullOfOrNull { file -> runCatching { book(file) }.getOrNull()?.let { file to it } }
         return NovelItem(
-            name = details()?.title ?: opened?.let { title(it) } ?: path.removeSuffix(EPUB_SUFFIX),
+            name = details()?.title ?: first?.let { title(it.second) } ?: path.removeSuffix(EPUB_SUFFIX),
             path = path,
-            cover = opened?.let { coverAddress(it) },
+            cover = first?.let { (file, book) -> coverAddress(file, book) },
         )
     }
 
     /** A series of several books reads as the series they name; one book as its own title. */
-    private fun Series.title(first: OpenedBook): String {
-        val meta = first.book.metadata
+    private fun Series.title(first: EpubBook): String {
+        val meta = first.metadata
         val fromBooks = if (volumes.size > 1) meta.series ?: meta.title else meta.title ?: meta.series
         return fromBooks ?: path.removeSuffix(EPUB_SUFFIX)
     }
@@ -205,18 +227,16 @@ class LocalNovelSource(
         }
 
     /**
-     * The series' picture: a `cover.*` the user put in its folder, else the first book's own, copied out of
-     * the book once into app storage so a library of covers does not open every EPUB.
+     * The series' picture: a cover the user put in its folder, else the picture of [book], read from its
+     * [file], copied out once into app storage so a library of covers does not open every EPUB.
      */
-    private fun Series.coverAddress(first: OpenedBook): String? {
-        files.firstOrNull { it.isFile && it.name.orEmpty().substringBeforeLast('.').equals("cover", ignoreCase = true) }
-            ?.let { return it.uri.toString() }
-        val coverPath = first.book.coverPath ?: return null
-        val volume = volumes.first()
-        val name = (path + volume.lastModified()).hashCode().toUInt()
+    private fun Series.coverAddress(file: UniFile, book: EpubBook): String? {
+        files.localCover()?.let { return it.uri.toString() }
+        val coverPath = book.coverPath ?: return null
+        val name = (path + file.lastModified()).hashCode().toUInt()
         val target = File(File(context.filesDir, COVER_DIR), "$name.${coverPath.substringAfterLast('.', "jpg")}")
         if (!target.exists()) {
-            val bytes = volume.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] } ?: return null
+            val bytes = file.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] } ?: return null
             target.parentFile?.mkdirs()
             target.writeBytes(bytes)
         }
@@ -226,7 +246,6 @@ class LocalNovelSource(
     private data class Series(
         val path: String,
         val volumes: List<UniFile>,
-        val dir: UniFile?,
         val files: List<UniFile>,
     ) {
         val lastModified: Long get() = volumes.maxOf { it.lastModified() }
@@ -237,7 +256,8 @@ class LocalNovelSource(
     companion object {
         const val ID = "local"
 
-        private const val BOOK_CACHE_SIZE = 8
+        private const val BOOK_CACHE_SIZE = 256
+        private const val CHAPTER_CACHE_SIZE = 8
         private const val DETAILS_FILE = "details.json"
         private const val COVER_DIR = "local_novel_covers"
         private const val EPUB_SUFFIX = ".epub"
@@ -249,31 +269,67 @@ class LocalNovelSource(
 
         private fun UniFile.isEpub(): Boolean = name.orEmpty().endsWith(EPUB_SUFFIX, ignoreCase = true)
 
-        private fun formatNumber(value: Double): String =
-            if (value % 1.0 == 0.0) value.toLong().toString() else value.toString()
-
-        /** A chapter's address: its series, its book and where in the book it starts. */
-        internal fun chapterPath(series: String, volume: String, start: EpubCut): String {
-            val at = when {
-                start.fragment != null -> "f:${start.fragment}"
-                start.heading != null -> "h:${start.heading}"
-                else -> "t"
-            }
-            return listOf(series, volume, start.spineIndex.toString(), at).joinToString(PATH_SEPARATOR)
+        /**
+         * The volumes of a series that open, with their files. Only a book that is protected or not an EPUB
+         * is left out, since the user can act on that; any other failure, a read error, fails the refresh
+         * instead, because a list missing a volume would delete its chapters' read state. With no volume
+         * left, the first one's reason is thrown, else [missing].
+         */
+        internal fun <F, B> readableVolumes(
+            opened: List<Pair<F, Result<B>>>,
+            missing: () -> Throwable,
+        ): List<Pair<F, B>> {
+            opened.firstNotNullOfOrNull { (_, result) -> result.exceptionOrNull()?.takeIf { it !is EpubException } }
+                ?.let { throw it }
+            return opened.mapNotNull { (file, result) -> result.getOrNull()?.let { file to it } }
+                .ifEmpty { throw opened.firstNotNullOfOrNull { it.second.exceptionOrNull() } ?: missing() }
         }
 
-        internal fun parseChapterPath(path: String): Triple<String, String, EpubCut>? {
-            val parts = path.split(PATH_SEPARATOR, limit = 4)
+        /** One chapter of a series as it is listed: its [volume]'s index, address and place in the series. */
+        internal data class LocalChapter(val volume: Int, val ref: EpubChapterRef, val path: String, val number: Double)
+
+        /** Every chapter of [series], volume by volume: each volume is its file name and its chapters. */
+        internal fun localChapters(
+            series: String,
+            volumes: List<Pair<String, List<EpubChapterRef>>>,
+        ): List<LocalChapter> {
+            var number = 0
+            return volumes.flatMapIndexed { index, (volume, chapters) ->
+                chapters.map { ref ->
+                    LocalChapter(index, ref, chapterPath(series, volume, ref.key), (++number).toDouble())
+                }
+            }
+        }
+
+        /**
+         * A chapter's address: its series, its book and the chapter's [EpubChapterKey]. Each part is
+         * percent-encoded, so a separator in a folder or file name reads back as part of that name.
+         */
+        internal fun chapterPath(series: String, volume: String, key: EpubChapterKey): String {
+            val at = when {
+                key.fragment != null -> "f:${key.fragment}"
+                key.heading != null -> "h:${key.heading}"
+                else -> "t"
+            }
+            return listOf(series, volume, key.path, at).joinToString(PATH_SEPARATOR) {
+                URLEncoder.encode(it, Charsets.UTF_8)
+            }
+        }
+
+        internal fun parseChapterPath(path: String): Triple<String, String, EpubChapterKey>? {
+            val parts = path.split(PATH_SEPARATOR)
+                .map { runCatching { URLDecoder.decode(it, Charsets.UTF_8) }.getOrNull() ?: return null }
             if (parts.size != 4) return null
-            val spineIndex = parts[2].toIntOrNull() ?: return null
-            val at = parts[3]
-            val cut = when {
-                at.startsWith("f:") -> EpubCut(spineIndex, fragment = at.removePrefix("f:"))
-                at.startsWith("h:") -> EpubCut(spineIndex, heading = at.removePrefix("h:").toIntOrNull() ?: return null)
-                at == "t" -> EpubCut(spineIndex)
+            val (series, volume, file, at) = parts
+            val key = when {
+                at.startsWith("f:") -> EpubChapterKey(file, fragment = at.removePrefix("f:"))
+                at.startsWith(
+                    "h:",
+                ) -> EpubChapterKey(file, heading = at.removePrefix("h:").toIntOrNull() ?: return null)
+                at == "t" -> EpubChapterKey(file)
                 else -> return null
             }
-            return Triple(parts[0], parts[1], cut)
+            return Triple(series, volume, key)
         }
     }
 }

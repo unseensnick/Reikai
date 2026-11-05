@@ -177,7 +177,7 @@ internal suspend fun <T> appSourceCall(block: suspend CoroutineScope.() -> T): T
 
 /**
  * One page of a listing or search, and how the source marks where its listing ends. Each adapter decodes
- * every name with `NovelTextSanitizer.decodeEntities`, as `SourceNovel.toNovel` decodes the details, so a
+ * every name with `NovelTextSanitizer.decodeEntities`, as it decodes a parse's details, so a
  * listed row and the novel stored from it read one name.
  */
 data class NovelItemsPage(val items: List<NovelItem>, val end: CatalogueEnd)

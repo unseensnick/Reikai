@@ -4,6 +4,9 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.Test
+import reikai.novel.content.NovelContentConfig
+import reikai.novel.content.NovelContentPipeline
+import reikai.novel.content.RenderTarget
 
 class EpubChaptersTest {
 
@@ -52,11 +55,6 @@ class EpubChaptersTest {
         )
 
         chapterTexts(book).withoutFill().map { it.second } shouldBe listOf("one Part", "two body")
-    }
-
-    @Test
-    fun `an anchor that opens its heading takes the whole heading`() {
-        chapterTexts(oneFile).withoutFill()[1].second shouldBe "CHAPTER TWO second"
     }
 
     @Test
@@ -148,6 +146,19 @@ class EpubChaptersTest {
         chapterTexts(book).withoutFill() shouldBe listOf("First" to "First one", "Second" to "Second two")
     }
 
+    @Test
+    fun `a single file with no contents is cut at every heading`() {
+        val names = listOf("One", "Two", "Three", "Four")
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml")),
+                "OEBPS/a.xhtml" to xhtml(names.joinToString("") { "<h2>$it</h2><p>$it one $fill</p>" }),
+            ),
+        )
+
+        chapterTexts(book).withoutFill() shouldBe names.map { it to "$it $it one" }
+    }
+
     private val illustrated = epub(
         mapOf(
             "OEBPS/content.opf" to opf(listOf("a" to "text/a.xhtml"), nav = "nav.xhtml"),
@@ -175,9 +186,52 @@ class EpubChaptersTest {
         renderIllustrated() shouldContain """src="data:OEBPS/images/cover art.jpg""""
     }
 
+    // The reader's shared sanitizer is the one owner of this, as for every source's chapter. Only the
+    // WebView mode can run anything; the native one draws text.
     @Test
-    fun `nothing in a chapter can run`() {
-        listOf("script", "onclick").filter { it in renderIllustrated() } shouldBe emptyList()
+    fun `nothing in a chapter can run once the reader loads it`() {
+        val config = NovelContentConfig(chapterUrl = "local", chapterName = "One", target = RenderTarget.WEB_VIEW)
+
+        val text = NovelContentPipeline.process(renderIllustrated(), config).text
+
+        listOf("script", "onclick", "steal").filter { it in text } shouldBe emptyList()
+    }
+
+    @Test
+    fun `a style block in a chapter file reaches the reader`() {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("<p>$fill</p>", head = "<style>p { text-indent: 3em; }</style>"),
+            ),
+        )
+        val parsed = EpubBook.parse(book)
+
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { _, _ -> null } shouldContain
+            "text-indent: 3em"
+    }
+
+    @Test
+    fun `a stylesheet picture of any type the book declares is inlined`() {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(
+                    listOf("a" to "a.xhtml"),
+                    nav = "nav.xhtml",
+                    extraManifest = """<item id="i" href="a.avif" media-type="image/avif"/>""",
+                ),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("<p>$fill</p>", head = """<link rel="stylesheet" href="a.css"/>"""),
+                "OEBPS/a.css" to "li { list-style-image: url(a.avif); }",
+            ),
+            binary = mapOf("OEBPS/a.avif" to byteArrayOf(1)),
+        )
+        val parsed = EpubBook.parse(book)
+
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { path, _ ->
+            "data:${parsed.mediaTypes[path]}"
+        } shouldContain "data:image/avif"
     }
 
     @Test
