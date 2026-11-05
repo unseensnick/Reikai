@@ -7,8 +7,7 @@ import tachiyomi.core.common.preference.PreferenceStore
 
 /**
  * Net-new manga preferences with no Mihon home, the manga twin of [reikai.domain.novel.NovelPreferences],
- * type only: a holder, so each key's rule is pinned where it is read. Currently only the hidden-chapters
- * set; grows as further manga/novel parity prefs land.
+ * type only: a holder, so each key's rule is pinned where it is read.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -22,4 +21,11 @@ class MangaPreferences(
      * re-inserted with new ids). Backed up automatically as a normal pref.
      */
     fun hiddenChapters() = preferenceStore.getStringSet("manga_hidden_chapters", emptySet())
+
+    /** The shortest wait between two downloaded chapters from one source; see `DownloadPacing`. Off by
+     *  default, which leaves Mihon's overlapping chapters untouched. */
+    fun downloadChapterDelayMs() = preferenceStore.getLong("manga_download_chapter_delay_ms", 0L)
+
+    /** A source's own delay, overriding [downloadChapterDelayMs], as `sourceId=ms` entries. */
+    fun downloadSourceDelays() = preferenceStore.getStringSet("manga_download_source_delays", emptySet())
 }

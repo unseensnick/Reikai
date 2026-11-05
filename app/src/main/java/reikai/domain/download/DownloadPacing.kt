@@ -1,18 +1,18 @@
-package reikai.novel.download
+package reikai.domain.download
 
 /**
- * How long the novel downloader waits before the next chapter from a source. The floor is the user's
- * delay, a source's own when one is set and the global one otherwise, never below the least delay the
- * source declares. Above it the wait adapts: it halves back toward the floor after a success and doubles
- * after a failure, up to [MAX_DELAY_MS] or the floor if that is higher. Manga has no twin: its
- * extensions rate-limit their own clients, which LN plugins cannot.
+ * How long a downloader waits before the next chapter from a source, for manga and novels alike. The floor is
+ * the user's delay, a source's own when one is set and the global one otherwise, never below the least delay
+ * the source declares. Above it the wait adapts: it halves back toward the floor after a success and doubles
+ * after a failure, up to [MAX_DELAY_MS] or the floor if that is higher. A floor of 0 is Off and never waits,
+ * which keeps manga's overlapping chapters exactly as upstream runs them.
  */
-object NovelDownloadPacing {
+object DownloadPacing {
 
     const val MAX_DELAY_MS = 30_000L
 
-    /** The delays Settings offers, the global one and a source's own alike. */
-    val DELAY_OPTIONS_MS = listOf(500L, 1_000L, 2_000L, 3_000L, 5_000L, 10_000L)
+    /** The slider's stops, the global delays and a source's own alike; 0 is Off. */
+    val DELAY_OPTIONS_MS = listOf(0L, 500L, 1_000L, 1_500L, 2_000L, 3_000L, 5_000L, 8_000L, 10_000L, 15_000L, 30_000L)
 
     fun floorFor(sourceId: String, globalMs: Long, perSourceMs: Map<String, Long>, minimumMs: Long): Long =
         effectiveDelay(perSourceMs[sourceId], globalMs, minimumMs)
@@ -28,6 +28,12 @@ object NovelDownloadPacing {
     } else {
         (currentMs.coerceAtLeast(floorMs) * 2).coerceAtMost(maxOf(MAX_DELAY_MS, floorMs))
     }
+
+    /** The wait actually slept: up to a quarter more, never less, so the cadence is not metronomic. */
+    fun jittered(paceMs: Long, random: Double): Long = (paceMs * (1.0 + random * 0.25)).toLong()
+
+    /** The most chapters a minute one source can start at [delayMs], or null when Off sets no limit. */
+    fun chaptersPerMinute(delayMs: Long): Int? = if (delayMs <= 0L) null else (60_000L / delayMs).toInt()
 
     /** Per-source delays are stored as `sourceId=ms` entries; a malformed one is skipped. */
     fun parse(entries: Set<String>): Map<String, Long> = entries.mapNotNull { entry ->

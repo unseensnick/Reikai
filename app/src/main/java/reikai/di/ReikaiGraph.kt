@@ -22,6 +22,7 @@ import reikai.domain.entry.ResetEntryViewerFlags
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
@@ -94,6 +95,7 @@ interface ReikaiGraph {
     // at construction, so every read has to build a fresh one.
     val galleryAdder: GalleryAdder
     val novelPreferences: NovelPreferences
+    val mangaPreferences: MangaPreferences // the Downloads settings read the manga delays
     val resetEntryViewerFlags: ResetEntryViewerFlags
     val novelSourceManager: NovelSourceManager
     val iReaderHostServices: IReaderHostServices // the extension loader builds IReader sources with it

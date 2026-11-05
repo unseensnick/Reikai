@@ -27,6 +27,7 @@ import kotlinx.coroutines.sync.withLock
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.notification.isHiddenAdult
+import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.download.SeriesCompletions
@@ -582,21 +583,19 @@ class NovelDownloadManager(
             setState(next.chapterId, NovelDownload.State.ERROR, reason)
             onError(shown, chapter?.name, reason, isAdult)
         }
-        // Per-source pacing, by the user's delay and NovelDownloadPacing's back-off, so a
+        // Per-source pacing, by the user's delay and DownloadPacing's back-off, so a
         // rate-limited or blocked site slows down on its own without dragging healthy sources.
-        val floorMs = NovelDownloadPacing.floorFor(
+        val floorMs = DownloadPacing.floorFor(
             novel?.source.orEmpty(),
             novelPreferences.downloadChapterDelayMs().get(),
-            NovelDownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
+            DownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
             minimumMs = minimumMs,
         )
-        val paceMs = NovelDownloadPacing.next(sourceDelays[novel?.source.orEmpty()] ?: floorMs, ok, floorMs)
+        val paceMs = DownloadPacing.next(sourceDelays[novel?.source.orEmpty()] ?: floorMs, ok, floorMs)
         novel?.source?.let { sourceDelays[it] = paceMs }
         // Only with more of this source to come, so a finished source frees its slot for one still waiting.
         if (hasQueuedFrom(claimed.source)) {
-            // Up to a quarter more, never less, so the cadence is not metronomic and the
-            // user's delay stays a minimum.
-            delay((paceMs * (1.0 + Random.nextDouble() * 0.25)).toLong())
+            delay(DownloadPacing.jittered(paceMs, Random.nextDouble()))
         }
     }
 

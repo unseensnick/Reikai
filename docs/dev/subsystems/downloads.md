@@ -42,7 +42,11 @@ Error notices follow Mihon on "Hide notification content" and keep the title. Re
 
 ### Pacing
 
-Settings, Downloads, Download delays sets the shortest wait between two chapters from one novel source, globally and per source (`NovelSourceDelaysScreen`), never below the source's declared minimum. `NovelDownloadPacing` adapts above that floor: halving toward it after a success, doubling after a failure up to 30 seconds. The drain adds up to a quarter more at random, so the set delay stays a minimum. Novels only.
+Settings, Downloads, Download speed sets the shortest wait between two chapters from one source, for each content type and per source (`SourceDelaysScreen`), on a slider of stops from Off to 30 seconds. A novel source's delay never goes below the source's declared minimum; manga sources declare none. `DownloadPacing` adapts above that floor for both downloaders: halving toward it after a success, doubling after a failure up to 30 seconds, with up to a quarter more at random so the set delay stays a minimum. Off never waits, not even after a failure. Manga starts at Off and novels at 0.5 seconds, the defaults that reproduce how each downloaded before the setting existed.
+
+Above Off, Mihon's downloader lets a chapter finish before the wait (an RK island in `Downloader.launchSourceJob`), since its chapters otherwise overlap and a wait between starts would leave no gap. At Off the overlap runs as upstream's. The delay spaces chapters, not the pages inside one: a site that refuses bursts of page requests needs Concurrent page downloads lowered instead.
+
+The per-source list shows both types under their own headers, those with their own delay first, narrowed by a name search and the All / Manga / Novels chip. The chip resolves against the Show setting live (`ContentType.within`), so hiding a type while the screen is open cannot leave it filtered by a chip the row no longer shows.
 
 ### Storage layout and names
 
@@ -79,14 +83,14 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 - `app/src/main/java/reikai/novel/download/NovelDownloadStore.kt`: the saved novel queue.
 - `app/src/main/java/reikai/novel/download/NovelChapterSaver.kt`: `save`, `NAME_TAKEN`.
 - `app/src/main/java/reikai/novel/download/NovelDownloadWorker.kt`, `app/src/main/java/reikai/novel/download/NovelDownloadNotifier.kt`: the novel worker and its notices.
-- `app/src/main/java/reikai/novel/download/NovelDownloadPacing.kt`: `floorFor`, `next`.
+- `app/src/main/java/reikai/domain/download/DownloadPacing.kt`: `floorFor`, `next`, `jittered`, the slider stops.
 - `app/src/main/java/reikai/domain/download/SeriesCompletions.kt`, `app/src/main/java/reikai/domain/download/DownloadIndexRules.kt`, `app/src/main/java/reikai/domain/download/DownloadRetry.kt`, `app/src/main/java/reikai/domain/download/DownloadSpace.kt`, `app/src/main/java/reikai/domain/download/DownloadNetworkGate.kt`: the rules both engines call.
 - `app/src/main/java/reikai/domain/download/DownloadFolderRename.kt`: `movesDownloadFolder`, `renameDownloadFolder`.
 - `app/src/main/java/reikai/domain/download/RemovalExclusion.kt` (`removableDownloads`, `deletableDownloads`) and `app/src/main/java/reikai/domain/download/NovelRemovableDownloads.kt`.
 - `app/src/main/java/reikai/domain/download/ChapterDownloadActions.kt`, `app/src/main/java/reikai/domain/download/DownloadStateOf.kt`, `app/src/main/java/reikai/domain/download/QueuedDownloadChanges.kt`: a row's download control.
 - `app/src/main/java/reikai/data/notification/ShownEntryName.kt`: `downloadErrorTitle`.
 - `app/src/main/java/reikai/domain/reader/DuplicateChapters.kt` (`downloadedOrCurrent`), `app/src/main/java/reikai/domain/reader/ReaderChapterFilters.kt` (`novelChapterListFilters`), `app/src/main/java/reikai/domain/reader/ChapterNeighbours.kt` (`chaptersToDownloadAhead`).
-- `app/src/main/java/eu/kanade/presentation/more/settings/screen/novel/NovelSourceDelaysScreen.kt`: per-source pacing.
+- `app/src/main/java/reikai/presentation/settings/download/SourceDelaysScreen.kt`, `SourceDelaysViewModel.kt`, `DownloadDelaySlider.kt`: the per-source list and the delay slider.
 - `app/src/main/java/mihon/core/migration/migrations/NovelDownloadRekeyMigration.kt`: moves files saved under the old numeric-id layout.
 
 ## Invariants and traps
@@ -113,7 +117,7 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 - **One list, no content-type chips, parallel lanes.** A shared slot budget would make cross-type order strict at the cost of manga and novels no longer downloading side by side; tabs would keep the barrier the list removes.
 - **Per-chapter control is a per-series sheet, not an expanding card.** A novel with thousands of queued chapters would nest thousands of rows in a draggable list.
 - **Progress counts live in the downloaders.** A count observed by the screen restarts when the screen reopens and counts a cancelled chapter as downloaded.
-- **Pacing is novels only.** Manga extensions rate-limit their own clients through `RateLimitInterceptor`; LN plugins have no equivalent. Overlapping a novel source's next chapter with the current one (Mihon's shared page slots) is manga only for the same reason: it would defeat the pacing.
+- **Pacing covers both types, off by default for manga.** Few manga extensions limit their own requests (about 6% of the extensions repo, none by default in its base class), so a manga site that blocks bursts of chapters needed a lever too. Overlapping a source's next chapter with the current one stays manga only, and only at Off, since it would defeat any wait.
 - **Download-ahead's on-disk gate is manga only.** A streamed manga chapter's page loads share the source with the download and would stutter; a novel chapter is one request.
 - **A manual Delete ignores the excluded categories; the bookmark switch still applies.** The exclusion governs automatic removal only, so a Delete on a read chapter in an excluded category no longer does nothing.
 - **"Downloaded" is a disk scan, not a flag.** A flag drifts from the disk on every reinstall or restore; the `is_downloaded` column is kept only to avoid a table rebuild.

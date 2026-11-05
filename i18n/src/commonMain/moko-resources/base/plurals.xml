@@ -60,9 +60,14 @@
         <item quantity="other">Next %d unread chapters</item>
     </plurals>
 
-    <plurals name="pref_novel_source_delay_count">
+    <plurals name="pref_source_delay_count">
         <item quantity="one">%d source has its own delay</item>
         <item quantity="other">%d sources have their own delay</item>
+    </plurals>
+
+    <plurals name="pref_download_delay_rate">
+        <item quantity="one">Up to %d chapter a minute per source</item>
+        <item quantity="other">Up to %d chapters a minute per source</item>
     </plurals>
 
     <plurals name="restore_completed_message">

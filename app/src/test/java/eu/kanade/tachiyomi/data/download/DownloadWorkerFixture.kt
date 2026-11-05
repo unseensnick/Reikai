@@ -29,6 +29,7 @@ import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import mihon.app.di.AppGraph
 import mihon.core.metro.GraphProvider
+import reikai.domain.manga.MangaPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
 import reikai.util.testAppScope
@@ -120,6 +121,7 @@ class DownloadWorkerFixture(
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } coAnswers { restored.await() } },
             notifier = notifier,
+            mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
         )
     }
 

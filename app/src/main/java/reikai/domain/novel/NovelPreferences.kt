@@ -590,7 +590,7 @@ class NovelPreferences(
         mangaDownloadDefaults.autoDownloadWhileReading.defaultValue(),
     )
 
-    /** The shortest wait between two downloaded chapters from one source; see `NovelDownloadPacing`. */
+    /** The shortest wait between two downloaded chapters from one source; see `DownloadPacing`. */
     fun downloadChapterDelayMs() = preferenceStore.getLong("novel_download_chapter_delay_ms", 500L)
 
     /** A source's own delay, overriding [downloadChapterDelayMs], as `sourceId=ms` entries. */

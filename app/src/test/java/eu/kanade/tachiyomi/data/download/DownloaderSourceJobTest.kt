@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
 import io.kotest.matchers.collections.shouldContain
+import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -25,6 +26,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.domain.manga.MangaPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
 import reikai.util.testAppScope
@@ -76,6 +78,7 @@ class DownloaderSourceJobTest {
         every { listFiles() } returns emptyArray()
     }
     private val context = mockk<Context>(relaxed = true)
+    private val mangaPreferences = MangaPreferences(EmittingPreferenceStore())
 
     @AfterEach
     fun tearDown() {
@@ -109,6 +112,42 @@ class DownloaderSourceJobTest {
         fetched shouldContain second.url
     }
 
+    @Test
+    fun `with a delay set a source's next chapter waits for the current one to finish`() = runTest {
+        fetch = { listOf(Page(0, imageUrl = "$it/0")) }
+        mangaPreferences.downloadChapterDelayMs().set(3_000L)
+        val downloader = downloader()
+        downloader.queueChapters(manga, listOf(first, second), autoStart = false)
+        downloader.start()
+        testScheduler.advanceUntilIdle()
+
+        fetched shouldNotContain second.url
+    }
+
+    @Test
+    fun `a failed chapter doubles the wait before the source's next one`() = runTest {
+        fetch = { throw IOException("$it gone") }
+        mangaPreferences.downloadChapterDelayMs().set(3_000L)
+        val downloader = downloader()
+        downloader.queueChapters(manga, listOf(first, second), autoStart = false)
+        downloader.start()
+        testScheduler.advanceTimeBy(5_999L)
+
+        fetched shouldBe listOf(first.url)
+    }
+
+    @Test
+    fun `after the wait the source's next chapter starts`() = runTest {
+        fetch = { throw IOException("$it gone") }
+        mangaPreferences.downloadChapterDelayMs().set(3_000L)
+        val downloader = downloader()
+        downloader.queueChapters(manga, listOf(first, second), autoStart = false)
+        downloader.start()
+        testScheduler.advanceUntilIdle()
+
+        fetched shouldBe listOf(first.url, second.url)
+    }
+
     private fun TestScope.downloader(): Downloader {
         // The downloader restores its saved queue on Main as it is built and downloads on IO, both the test's clock.
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
@@ -131,6 +170,7 @@ class DownloaderSourceJobTest {
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } returns emptyList() },
             notifier = mockk(relaxed = true),
+            mangaPreferences = mangaPreferences,
         )
     }
 

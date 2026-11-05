@@ -34,6 +34,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -128,6 +129,7 @@ class ParallelSourceLimitConformanceTest {
             getTracks = mockk(),
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } returns emptyList() },
             notifier = mockk(relaxed = true),
+            mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
         )
         mangas.forEach { manga ->
             val chapter = Chapter.create().copy(

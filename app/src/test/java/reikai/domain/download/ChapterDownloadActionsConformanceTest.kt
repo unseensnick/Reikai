@@ -48,6 +48,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
@@ -295,6 +296,7 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
                 // A stop with nothing paused posts the done notice; the worker ends on that stop.
                 every { onComplete() } answers { stopped.complete(Unit) }
             },
+            mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
         )
     }
     private val downloadManager by lazy {

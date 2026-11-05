@@ -52,10 +52,12 @@ import mihon.core.metro.AppCoroutineScope
 import mihon.data.cache.ChapterCache
 import nl.adaptivity.xmlutil.serialization.XML
 import okhttp3.Response
+import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.hasRoomToDownload // RK
 import reikai.domain.download.parallelSourcesFor // RK
+import reikai.domain.manga.MangaPreferences
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -72,6 +74,7 @@ import tachiyomi.domain.track.interactor.GetTracks
 import tachiyomi.i18n.MR
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 /**
  * This class is the one in charge of downloading chapters.
@@ -93,6 +96,7 @@ class Downloader(
     private val getTracks: GetTracks,
     private val store: DownloadStore,
     private val notifier: DownloadNotifier,
+    private val mangaPreferences: MangaPreferences, // RK
 ) {
 
     /**
@@ -329,6 +333,7 @@ class Downloader(
         owner: Job,
     ) = launchIO {
         val slots = Semaphore(downloadPreferences.parallelPageLimit.get())
+        var paceMs: Long? = null // RK
         while (true) {
             // A canceled job can mark a chapter as downloading after it's been reset, so that counts as waiting too
             val download = queueState
@@ -350,8 +355,30 @@ class Downloader(
                 pagesStarted.complete(Unit)
             }
             pagesStarted.await()
+            // RK --> a delay above Off lets the chapter finish, then paces by the rule novels share, so the
+            // wait is a real gap; Off keeps the overlap above exactly as upstream runs it
+            val floorMs = paceFloor(source)
+            if (floorMs > 0L) {
+                job.join()
+                val pace = DownloadPacing.next(paceMs ?: floorMs, download.status != Download.State.ERROR, floorMs)
+                paceMs = pace
+                if (hasQueuedFrom(source)) delay(DownloadPacing.jittered(pace, Random.nextDouble()))
+            }
+            // RK <--
         }
     }
+
+    // RK --> the source's delay between chapters: its own, or the global one
+    private fun paceFloor(source: HttpSource): Long = DownloadPacing.floorFor(
+        source.id.toString(),
+        mangaPreferences.downloadChapterDelayMs().get(),
+        DownloadPacing.parse(mangaPreferences.downloadSourceDelays().get()),
+        minimumMs = 0L,
+    )
+
+    private fun hasQueuedFrom(source: HttpSource) =
+        queueState.value.any { it.source == source && it.status == Download.State.QUEUE }
+    // RK <--
 
     private fun CoroutineScope.launchDownloadJob(
         download: Download,
