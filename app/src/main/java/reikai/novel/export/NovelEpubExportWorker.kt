@@ -22,6 +22,7 @@ import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
+import reikai.data.novel.NovelStatusCode
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -133,6 +134,8 @@ class NovelEpubExportWorker(
             genres = novel.genre.orEmpty(),
             identifier = "urn:reikai:novel:${novel.source}:${novel.url}",
             cover = cover(novel),
+            artist = novel.artist,
+            status = NovelStatusCode.toSourceString(novel.status.toInt()),
             chapters = chosen.map { chapter ->
                 ExportChapter(chapter.name) {
                     val owner = owners[chapter.novelId] ?: novel

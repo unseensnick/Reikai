@@ -22,6 +22,9 @@ data class EpubExportBook(
     val identifier: String,
     val cover: ExportPicture?,
     val chapters: List<ExportChapter>,
+    val artist: String? = null,
+    /** The source's own word for the status ("Ongoing"), kept so an import reads it back. */
+    val status: String? = null,
 )
 
 /** One chapter, its HTML read only when the writer reaches it, so a long novel is never held whole. */
@@ -179,12 +182,18 @@ $points
             add("<dc:title>${escape(book.title)}</dc:title>")
             add("<dc:language>${escape(book.language ?: UNDETERMINED)}</dc:language>")
             book.author?.let { add("<dc:creator>${escape(it)}</dc:creator>") }
-            book.description?.let { add("<dc:description>${escape(it)}</dc:description>") }
+            book.artist?.let {
+                add("""<dc:contributor id="artist">${escape(it)}</dc:contributor>""")
+                add("""<meta refines="#artist" property="role" scheme="marc:relators">ill</meta>""")
+            }
+            book.status?.let { add("""<meta property="reikai:status">${escape(it)}</meta>""") }
+            // As HTML paragraphs, the form readers and Calibre expect, so a reader keeps its line breaks.
+            book.description?.let { add("<dc:description>${escape(descriptionHtml(it))}</dc:description>") }
             book.genres.forEach { add("<dc:subject>${escape(it)}</dc:subject>") }
             add("""<meta property="dcterms:modified">${modifiedNow()}</meta>""")
             if (cover != null) add("""<meta name="cover" content="cover"/>""")
         }.joinToString("\n    ")
-        return """$XML_HEADER<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id">
+        return """$XML_HEADER<package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="book-id" prefix="reikai: https://reikai.app/epub#">
   <metadata xmlns:dc="http://purl.org/dc/elements/1.1/">
     $metadata
   </metadata>
@@ -249,6 +258,9 @@ $points
             "image/svg+xml" -> "svg"
             else -> "jpg"
         }
+
+        private fun descriptionHtml(text: String): String = text.trim().split(Regex("""\n\s*\n"""))
+            .joinToString("") { paragraph -> "<p>" + escape(paragraph.trim()).replace("\n", "<br/>") + "</p>" }
 
         private fun sha1(bytes: ByteArray): String =
             MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }

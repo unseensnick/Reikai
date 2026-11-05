@@ -24,6 +24,9 @@ data class EpubMetadata(
     val language: String?,
     val series: String?,
     val seriesIndex: Double?,
+    val artist: String? = null,
+    /** A status in a source's words, which Reikai's own exports record. */
+    val status: String? = null,
 )
 
 /**
@@ -88,12 +91,39 @@ class EpubBook(
             return EpubMetadata(
                 title = dc("title").firstOrNull(),
                 author = dc("creator").takeIf { it.isNotEmpty() }?.joinToString(", "),
-                description = dc("description").firstOrNull()?.let { Jsoup.parse(it).text() }?.ifBlank { null },
+                description = dc("description").firstOrNull()?.let(::descriptionText)?.ifBlank { null },
                 genres = dc("subject"),
                 language = dc("language").firstOrNull(),
                 series = (collection?.text()?.trim()?.ifEmpty { null } ?: named("calibre:series"))?.ifEmpty { null },
                 seriesIndex = (collectionIndex ?: named("calibre:series_index"))?.trim()?.toDoubleOrNull(),
+                artist = illustrators(metadata, metas).takeIf { it.isNotEmpty() }?.joinToString(", "),
+                status = metas.firstOrNull { it.attr("property") == "reikai:status" }?.text()?.trim()?.ifEmpty { null },
             )
+        }
+
+        /**
+         * A description as text with its paragraphs and line breaks kept: books write it as HTML (escaped in
+         * the package), and flattening that to one line would run a source's paragraphs together.
+         */
+        private fun descriptionText(html: String): String {
+            val body = Jsoup.parse(html).body()
+            // A line break inside the HTML's own text is formatting, which a page shows as a space.
+            body.getAllElements().flatMap { it.textNodes() }
+                .forEach { it.text(it.wholeText.replace(SPACES_AND_BREAKS, " ")) }
+            // wholeText already writes a line break for each <br>; a block ends its paragraph.
+            body.select("p, div, li, h1, h2, h3, h4").forEach { it.after("\n\n") }
+            return body.wholeText().lines().joinToString("\n") { it.replace(SPACES, " ").trim() }
+                .replace(BLANK_LINES, "\n\n").trim()
+        }
+
+        /** Contributors in an artist's role: EPUB 2's `opf:role` attribute, or EPUB 3's refining meta. */
+        private fun illustrators(metadata: Element?, metas: List<Element>): List<String> {
+            val roles = metas.filter { it.attr("property") == "role" }
+                .associate { it.attr("refines").removePrefix("#") to it.text().trim() }
+            return metadata?.local("contributor").orEmpty().filter { contributor ->
+                val role = contributor.attr("opf:role").ifEmpty { roles[contributor.id()].orEmpty() }
+                role in ARTIST_ROLES
+            }.map { it.text().trim() }.filter { it.isNotEmpty() }
         }
 
         /** EPUB 3's cover-image property, else EPUB 2's cover meta, else an image named or id'd as a cover. */
@@ -163,6 +193,10 @@ class EpubBook(
         private const val ENCRYPTION = "META-INF/encryption.xml"
         private const val DEFAULT_PACKAGE = "OEBPS/content.opf"
         private const val NCX_TYPE = "application/x-dtbncx+xml"
+        private val ARTIST_ROLES = setOf("ill", "art")
+        private val SPACES = Regex("""[ \t]+""")
+        private val SPACES_AND_BREAKS = Regex("""\s+""")
+        private val BLANK_LINES = Regex("""\n{3,}""")
         private val WHITESPACE = Regex("\\s+")
     }
 }

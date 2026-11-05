@@ -107,6 +107,23 @@ class EpubWriterTest {
     }
 
     @Test
+    fun `a source's details survive an export and an import`() = runTest {
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(
+            book.copy(artist = "Drawer", status = "Ongoing", description = "First <it>.\n\nSecond\nline."),
+            out,
+        )
+        val files = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.forEach { files[it.name] = zip.readBytes() }
+        }
+        val meta = EpubBook.parse { paths -> paths.mapNotNull { p -> files[p]?.let { p to it } }.toMap() }.metadata
+
+        listOf(meta.artist, meta.status, meta.description, meta.genres) shouldBe
+            listOf("Drawer", "Ongoing", "First <it>.\n\nSecond\nline.", listOf("Fantasy"))
+    }
+
+    @Test
     fun `a chapter keeps its text`() = runTest {
         written().getValue("OEBPS/text/chapter-0001.xhtml").toString(Charsets.UTF_8) shouldContain "One"
     }

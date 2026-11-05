@@ -112,8 +112,8 @@ class LocalNovelSource(
             genres = (details?.genre ?: meta.genres).joinToString(","),
             summary = details?.description ?: meta.description,
             author = details?.author ?: meta.author,
-            artist = details?.artist,
-            status = details?.status?.let(NovelStatusCode::toSourceString),
+            artist = details?.artist ?: meta.artist,
+            status = details?.status?.let(NovelStatusCode::toSourceString) ?: meta.status,
             chapters = chapters,
         )
     }
