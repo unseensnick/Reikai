@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import ca.mpreg.webgpuviewer.renderer.ImageFilterWgsl
+import ca.mpreg.webgpuviewer.renderer.Sampler
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
@@ -59,6 +60,7 @@ import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSliderItem
+import tachiyomi.presentation.core.components.CheckboxItem
 import tachiyomi.presentation.core.components.HeadingItem
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.components.material.padding
@@ -79,24 +81,35 @@ internal fun ColumnScope.MangaShaderFilters(viewModel: ReaderSettingsViewModel, 
     val preferences = viewModel.preferences
     val context = LocalContext.current
     LaunchedEffect(Unit) {
-        WebGpuShaders.prune(context, listOf(preferences.imageFilters, preferences.tileFilters))
+        WebGpuShaders.prune(
+            context,
+            listOf(preferences.imageFilters, preferences.tileFilters, preferences.upscaler, preferences.downscaler),
+        )
     }
-    ShaderList(MR.strings.pref_image_filters, preferences.imageFilters)
-    ShaderList(MR.strings.pref_tile_filters, preferences.tileFilters)
+
+    CheckboxItem(label = stringResource(MR.strings.pref_fast_rendering_only), pref = preferences.fastRenderingOnly)
+    val fastRenderingOnly by preferences.fastRenderingOnly.collectAsState()
+    if (!fastRenderingOnly) {
+        ShaderList(MR.strings.pref_image_filters, preferences.imageFilters)
+        ShaderList(MR.strings.pref_tile_filters, preferences.tileFilters)
+        SamplerItem(MR.strings.pref_upscaler, Sampler.CATMULL_ROM_FILE, preferences.upscaler)
+        SamplerItem(MR.strings.pref_downscaler, Sampler.BOX_FILE, preferences.downscaler)
+        CheckboxItem(label = stringResource(MR.strings.pref_hold_until_final), pref = preferences.holdUntilFinal)
+    }
 }
 
+/** Imports into [pref] - see [WebGpuShaders.import]. Shows its own errors. */
 @Composable
-private fun ShaderList(labelRes: StringResource, pref: Preference<List<WebGpuShader>>) {
+private fun rememberShaderPicker(pref: Preference<List<WebGpuShader>>, sampler: Boolean): () -> Unit {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val filters by pref.collectAsState()
     var error by remember { mutableStateOf<String?>(null) }
 
     val pickShader = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             try {
-                WebGpuShaders.import(context, uri, pref)
+                WebGpuShaders.import(context, uri, pref, sampler)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -126,6 +139,54 @@ private fun ShaderList(labelRes: StringResource, pref: Preference<List<WebGpuSha
             },
         )
     }
+
+    return {
+        try {
+            pickShader.launch(arrayOf("*/*"))
+        } catch (e: ActivityNotFoundException) {
+            error = e.message ?: e.toString()
+        }
+    }
+}
+
+@Composable
+private fun SamplerItem(labelRes: StringResource, defaultName: String, pref: Preference<List<WebGpuShader>>) {
+    val context = LocalContext.current
+    val shader = pref.collectAsState().value.firstOrNull()
+    val pick = rememberShaderPicker(pref, sampler = true)
+
+    HeadingItem(labelRes)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(start = SettingsItemsPaddings.Horizontal, end = MaterialTheme.padding.small),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = shader?.name ?: defaultName,
+            modifier = Modifier.weight(1f),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        TextButton(onClick = pick) {
+            Text(stringResource(MR.strings.action_choose_shader))
+        }
+        shader?.let {
+            IconButton(onClick = { WebGpuShaders.remove(context, pref, it) }) {
+                Icon(
+                    imageVector = MaterialSymbols.Rounded.Delete,
+                    contentDescription = stringResource(MR.strings.action_remove),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ShaderList(labelRes: StringResource, pref: Preference<List<WebGpuShader>>) {
+    val context = LocalContext.current
+    val filters by pref.collectAsState()
+    val pick = rememberShaderPicker(pref, sampler = false)
 
     HeadingItem(labelRes)
     ReorderableColumn(
@@ -193,13 +254,7 @@ private fun ShaderList(labelRes: StringResource, pref: Preference<List<WebGpuSha
         }
     }
     TextButton(
-        onClick = {
-            try {
-                pickShader.launch(arrayOf("*/*"))
-            } catch (e: ActivityNotFoundException) {
-                error = e.message ?: e.toString()
-            }
-        },
+        onClick = pick,
         modifier = Modifier.padding(horizontal = SettingsItemsPaddings.Horizontal - MaterialTheme.padding.small),
     ) {
         Icon(imageVector = MaterialSymbols.Rounded.Add, contentDescription = null)

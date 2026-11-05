@@ -82,6 +82,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
 - **A mouse wheel now turns pages in paged novels.**
+- **The WebGPU manga reader can crop a page's borders instead of zooming into them, and lets you tune a shader's own settings (from Mihon).** Upstream: mihonapp/mihon#4226.
+- **The WebGPU manga reader can turn tiles off and use your own upscaler and downscaler shaders (from Mihon).** Upstream: mihonapp/mihon#4242.
 
 #### Changed
 
@@ -175,6 +177,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
+
+### Other
+
+- Updated jsoup and Metro (from Mihon).
 
 ## [0.5.1]
 

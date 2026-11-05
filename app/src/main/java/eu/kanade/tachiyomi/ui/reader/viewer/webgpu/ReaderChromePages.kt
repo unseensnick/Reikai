@@ -147,6 +147,9 @@ class ProgressPage(viewer: WebGpuViewer) : ReaderComposePage(
     viewer,
     if (viewer is WebGpuViewerContinuous) viewer.stripCapture() else ComposePageSize.Auto, // RK: see stripCaptureSize
 ) {
+    init {
+        isPlaceholder = true
+    }
 
     /**
      * 0 to 1. On the page, not in the composition, which is dropped when the page goes out of
