@@ -64,7 +64,16 @@ class IReaderHttpClients(
     // named one alone, so the app's agent is set here, per request, never over an extension's own.
     private fun client(okHttp: OkHttpClient, configure: HttpClientConfig<OkHttpConfig>.() -> Unit) =
         HttpClient(OkHttp) {
-            engine { preconfigured = okHttp }
+            engine {
+                preconfigured = okHttp
+                // Ktor's engine turns OkHttp's redirects off and follows only GET and HEAD itself, so a
+                // search form that answers its POST with a 302 came back empty. OkHttp follows it as a
+                // browser does, as a GET, as it does for every manga source on this client.
+                config {
+                    followRedirects(true)
+                    followSslRedirects(true)
+                }
+            }
             defaultRequest { headers.appendIfNameAbsent(HttpHeaders.UserAgent, userAgent()) }
             configure()
         }.apply { plugin(HttpSend).intercept { request -> recordingFailure { execute(request) } } }
