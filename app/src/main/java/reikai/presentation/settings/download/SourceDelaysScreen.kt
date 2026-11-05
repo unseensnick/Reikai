@@ -27,6 +27,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.presentation.browse.browseLanguageLabel
 import reikai.presentation.components.ContentTypeFilterChips
+import reikai.presentation.components.KeepListAtTop
 import reikai.presentation.components.rememberChipListState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -68,10 +69,33 @@ class SourceDelaysScreen : Screen() {
                             MR.strings.no_results_found
                         },
                     )
-                    else -> LazyColumn(state = rememberChipListState(state.contentType)) {
-                        section(MR.strings.pref_source_delay_set, sections.own, state, viewModel::setDelay)
-                        section(ContentType.MANGA.labelRes, sections.manga, state, viewModel::setDelay)
-                        section(ContentType.NOVELS.labelRes, sections.novels, state, viewModel::setDelay)
+                    else -> {
+                        val listState = rememberChipListState(state.contentType)
+                        // A row let go into Own delay lands above the first row on screen; keep it in view.
+                        KeepListAtTop(listState, (sections.own + sections.manga + sections.novels).firstOrNull()?.key)
+                        LazyColumn(state = listState) {
+                            section(
+                                MR.strings.pref_source_delay_set,
+                                sections.own,
+                                state,
+                                viewModel::setDelay,
+                                viewModel::settle,
+                            )
+                            section(
+                                ContentType.MANGA.labelRes,
+                                sections.manga,
+                                state,
+                                viewModel::setDelay,
+                                viewModel::settle,
+                            )
+                            section(
+                                ContentType.NOVELS.labelRes,
+                                sections.novels,
+                                state,
+                                viewModel::setDelay,
+                                viewModel::settle,
+                            )
+                        }
                     }
                 }
             }
@@ -84,6 +108,7 @@ private fun LazyListScope.section(
     rows: List<SourceDelay>,
     state: SourceDelaysViewModel.State,
     onPick: (SourceDelay, Long?) -> Unit,
+    onLetGo: (SourceDelay) -> Unit,
 ) {
     if (rows.isEmpty()) return
     item(key = "header:${title.resourceId}") { PreferenceGroupHeader(title = stringResource(title)) }
@@ -96,6 +121,9 @@ private fun LazyListScope.section(
             options = listOf(null) + DownloadPacing.delayOptions(row.minimumMs),
             defaultMs = DownloadPacing.effectiveDelay(null, globalMs, row.minimumMs),
             onChange = { onPick(row, it) },
+            // The row moves to its new section only once the finger lifts, sliding there.
+            modifier = Modifier.animateItem(),
+            onChangeFinished = { onLetGo(row) },
             subtitle = if (row.minimumMs > 0L) {
                 language + " · " +
                     stringResource(MR.strings.pref_source_delay_minimum, downloadDelayLabel(row.minimumMs))

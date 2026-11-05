@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import reikai.domain.download.DownloadPacing
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -49,12 +50,15 @@ class SourceDelaysViewModel(
     // Null while the search field is closed.
     private val query = MutableStateFlow<String?>(null)
 
-    // Whether each source had its own delay when the list first showed it, by row key. A slider saves on every
-    // step, so sorting by the live value would move the row being dragged; the next visit sorts afresh.
+    // Whether each source had its own delay when its slider was last let go (or the list first showed it),
+    // by row key. A slider saves on every step, so sorting by the live value would move the row being
+    // dragged; settle re-sorts the row once the finger lifts.
     private val ownWhenListed = HashMap<String, Boolean>()
+    private val settled = MutableStateFlow(0)
 
     val state: StateFlow<State> = combine(
-        sourceDelayRows(sourceManager, novelSourceManager, mangaPreferences, novelPreferences),
+        sourceDelayRows(sourceManager, novelSourceManager, mangaPreferences, novelPreferences)
+            .combine(settled) { rows, _ -> rows },
         chip,
         reikaiLibraryPreferences.shownContent.changes(),
         query,
@@ -82,6 +86,12 @@ class SourceDelaysViewModel(
 
     fun setQuery(text: String?) {
         query.value = text
+    }
+
+    /** Lets [row] move to the section its delay now puts it in, once its slider is let go. */
+    fun settle(row: SourceDelay) {
+        ownWhenListed.remove(row.key)
+        settled.update { it + 1 }
     }
 
     /** Gives [row]'s source its own delay, or hands it back to the global one when [delayMs] is null. */

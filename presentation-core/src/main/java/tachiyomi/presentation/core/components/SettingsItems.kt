@@ -199,6 +199,7 @@ fun BaseSliderItem(
     titleStyle: TextStyle = MaterialTheme.typography.titleLarge,
     subtitleStyle: TextStyle = MaterialTheme.typography.bodySmall,
     pillColor: Color = MaterialTheme.colorScheme.surfaceContainerHigh,
+    onChangeFinished: (() -> Unit)? = null, // RK: a drag or tap is over
 ) {
     val haptic = LocalHapticFeedback.current
     Column(
@@ -239,6 +240,7 @@ fun BaseSliderItem(
             },
             valueRange = valueRange,
             steps = steps,
+            onValueChangeFinished = onChangeFinished, // RK
             // RK: keep slider drags off the OS edge back-gesture and off the tab pager while dragging.
             modifier = Modifier.systemGestureExclusion().lockPagerSwipeWhileDragging(),
         )

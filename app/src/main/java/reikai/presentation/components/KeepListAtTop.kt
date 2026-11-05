@@ -1,4 +1,4 @@
-package reikai.presentation.recents
+package reikai.presentation.components
 
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.Composable
@@ -8,7 +8,7 @@ import androidx.compose.runtime.remember
 /**
  * Whether a list sitting at its very top is taken back there as a new first row arrives. LazyColumn
  * holds on to its first visible item by key, so rows landing above it stay out of view: History
- * opened on Yesterday with today's reads above the fold.
+ * opened on Yesterday with today's reads above the fold, or a source delay sliding into Own delay out of view.
  */
 internal fun staysAtTop(firstVisibleIndex: Int, firstVisibleOffset: Int, shownFirstKey: Any?, firstKey: Any?) =
     firstVisibleIndex == 0 && firstVisibleOffset == 0 && shownFirstKey != firstKey

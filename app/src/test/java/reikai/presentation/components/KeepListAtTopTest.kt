@@ -1,9 +1,9 @@
-package reikai.presentation.recents
+package reikai.presentation.components
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 
-class RecentsListTopTest {
+class KeepListAtTopTest {
 
     @Test
     fun `a list at the top stays there when a new first row arrives`() {

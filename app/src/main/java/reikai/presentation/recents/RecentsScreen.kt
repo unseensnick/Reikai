@@ -76,6 +76,7 @@ import reikai.domain.library.ChapterSwipeActions
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.HeaderTabRow
+import reikai.presentation.components.KeepListAtTop
 import reikai.presentation.components.LibraryUpdatePullRefresh
 import reikai.presentation.components.libraryRefreshMessage
 import reikai.presentation.components.readProgressLabel

@@ -150,7 +150,7 @@ class SourceDelaysViewModelTest {
     /** A slider writes on every step, so a row that moved section would jump away mid-drag. */
     @ParameterizedTest
     @EnumSource(Kind::class)
-    fun `a source given its own delay stays in its section until the list opens again`(kind: Kind) = runTest {
+    fun `a source given its own delay stays in its section while the slider is held`(kind: Kind) = runTest {
         val model = model()
 
         model.setDelay(kind.rowIn(model.sections()), 500L)
@@ -160,7 +160,7 @@ class SourceDelaysViewModelTest {
 
     @ParameterizedTest
     @EnumSource(Kind::class)
-    fun `a source handed back to Default stays among the own delays until the list opens again`(kind: Kind) =
+    fun `a source handed back to Default stays among the own delays while the slider is held`(kind: Kind) =
         runTest {
             kind.delays().set(setOf("${kind.id}=3000"))
             val model = model()
@@ -169,6 +169,31 @@ class SourceDelaysViewModelTest {
 
             model.sectionOf(null) shouldBe "OWN"
         }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source given its own delay moves to the own delays once the slider is let go`(kind: Kind) = runTest {
+        val model = model()
+        val row = kind.rowIn(model.sections())
+
+        model.setDelay(row, 500L)
+        model.settle(row)
+
+        model.sectionOf(kind, 500L) shouldBe "OWN"
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source handed back to Default returns to its type once the slider is let go`(kind: Kind) = runTest {
+        kind.delays().set(setOf("${kind.id}=3000"))
+        val model = model()
+        val row = model.sections().own.single()
+
+        model.setDelay(row, null)
+        model.settle(row)
+
+        model.sectionOf(kind, null) shouldBe kind.name
+    }
 
     /** The Download speed summary's count, which must match the list it opens. */
     @Test
@@ -206,6 +231,13 @@ class SourceDelaysViewModelTest {
     }
 
     private suspend fun SourceDelaysViewModel.sections() = state.first { it.sections != null }.sections!!
+
+    /** The section [kind]'s source sits in, once its delay reads [delayMs]. */
+    private suspend fun SourceDelaysViewModel.sectionOf(kind: Kind, delayMs: Long?): String {
+        fun SourceDelaySections.named() = listOf("OWN" to own, "MANGA" to manga, "NOVELS" to novels)
+            .firstOrNull { (_, rows) -> rows.any { it.name == kind.sourceName && it.delayMs == delayMs } }
+        return state.first { it.sections?.named() != null }.sections!!.named()!!.first
+    }
 
     /** The section of the one source in [Kind], once its delay reads [delayMs]. */
     private suspend fun SourceDelaysViewModel.sectionOf(delayMs: Long?): String {

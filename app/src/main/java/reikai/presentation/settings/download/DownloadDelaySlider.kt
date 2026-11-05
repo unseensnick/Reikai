@@ -26,6 +26,8 @@ fun DownloadDelaySlider(
     defaultMs: Long,
     onChange: (Long?) -> Unit,
     subtitle: String? = rateLabel(selectedMs ?: defaultMs),
+    modifier: Modifier = Modifier,
+    onChangeFinished: (() -> Unit)? = null,
 ) {
     val index = stopIndex(options, selectedMs)
     BaseSliderItem(
@@ -38,7 +40,8 @@ fun DownloadDelaySlider(
             ?: stringResource(MR.strings.pref_source_delay_default, downloadDelayLabel(defaultMs)),
         onChange = { if (it != index) onChange(options[it]) },
         titleStyle = MaterialTheme.typography.titleLarge.copy(fontSize = TitleFontSize),
-        modifier = Modifier.padding(horizontal = PrefsHorizontalPadding, vertical = PrefsVerticalPadding),
+        modifier = modifier.padding(horizontal = PrefsHorizontalPadding, vertical = PrefsVerticalPadding),
+        onChangeFinished = onChangeFinished,
     )
 }
 
