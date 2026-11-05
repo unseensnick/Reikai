@@ -55,6 +55,7 @@ import okhttp3.Response
 import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.SourcePace
 import reikai.domain.download.hasRoomToDownload // RK
 import reikai.domain.download.parallelSourcesFor // RK
 import reikai.domain.manga.MangaPreferences
@@ -333,7 +334,7 @@ class Downloader(
         owner: Job,
     ) = launchIO {
         val slots = Semaphore(downloadPreferences.parallelPageLimit.get())
-        var paceMs: Long? = null // RK
+        val pace = SourcePace() // RK
         while (true) {
             // A canceled job can mark a chapter as downloading after it's been reset, so that counts as waiting too
             val download = queueState
@@ -358,12 +359,9 @@ class Downloader(
             // RK --> a delay above Off lets the chapter finish, then paces by the rule novels share, so the
             // wait is a real gap; Off keeps the overlap above exactly as upstream runs it
             val floorMs = paceFloor(source)
-            if (floorMs > 0L) {
-                job.join()
-                val pace = DownloadPacing.next(paceMs ?: floorMs, download.status != Download.State.ERROR, floorMs)
-                paceMs = pace
-                if (hasQueuedFrom(source)) delay(DownloadPacing.jittered(pace, Random.nextDouble()))
-            }
+            if (floorMs > 0L) job.join()
+            val succeeded = download.status != Download.State.ERROR
+            delay(pace.waitAfter(source.id.toString(), succeeded, floorMs, hasQueuedFrom(source), Random.nextDouble()))
             // RK <--
         }
     }

@@ -114,7 +114,12 @@ class DownloadPacingTest {
     /** Off is what manga starts at; a wait there would slow every existing manga download. */
     @Test
     fun `Off never waits, not even after a failure`() {
-        DownloadPacing.next(currentMs = 0, succeeded = false, floorMs = 0) shouldBe 0L
+        DownloadPacing.next(currentMs = 8_000, succeeded = false, floorMs = 0) shouldBe 0L
+    }
+
+    @Test
+    fun `Off never waits after a success either`() {
+        DownloadPacing.next(currentMs = 8_000, succeeded = true, floorMs = 0) shouldBe 0L
     }
 
     /** Each delay the old list could save is a stop, so an upgrade shows and keeps the stored value. */

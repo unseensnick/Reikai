@@ -87,7 +87,7 @@ private fun LazyListScope.section(
 ) {
     if (rows.isEmpty()) return
     item(key = "header:${title.resourceId}") { PreferenceGroupHeader(title = stringResource(title)) }
-    items(rows, key = { "${it.type}:${it.id}" }) { row ->
+    items(rows, key = { it.key }) { row ->
         val globalMs = if (row.type == ContentType.MANGA) state.mangaGlobalMs else state.novelGlobalMs
         val language = browseLanguageLabel(row.lang, LocalContext.current)
         DownloadDelaySlider(

@@ -23,7 +23,9 @@ object DownloadPacing {
     /** The delays a source can be given: none below the least it declares, which it would not keep to. */
     fun delayOptions(minimumMs: Long): List<Long> = DELAY_OPTIONS_MS.filter { it >= minimumMs }
 
-    fun next(currentMs: Long, succeeded: Boolean, floorMs: Long): Long = if (succeeded) {
+    fun next(currentMs: Long, succeeded: Boolean, floorMs: Long): Long = if (floorMs <= 0L) {
+        0L
+    } else if (succeeded) {
         (currentMs / 2).coerceAtLeast(floorMs)
     } else {
         (currentMs.coerceAtLeast(floorMs) * 2).coerceAtMost(maxOf(MAX_DELAY_MS, floorMs))

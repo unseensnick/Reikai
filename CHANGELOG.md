@@ -76,6 +76,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A downloaded novel chapter stays readable offline when an update is cancelled just as its source renames it.**
 
+- **A novel source slowed down by failed downloads returns to your set delay once its queued chapters finish.** It used to stay slow until the app restarted.
+
+- **The per-source delay count under Settings -> Downloads no longer counts sources you have uninstalled.** Their delay comes back if you reinstall them.
+
 ### Reader
 
 #### Added

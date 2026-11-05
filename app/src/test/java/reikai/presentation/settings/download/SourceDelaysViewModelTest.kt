@@ -12,6 +12,8 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaPreferences
@@ -32,6 +34,7 @@ class SourceDelaysViewModelTest {
     private val store = EmittingPreferenceStore()
     private val library = ReikaiLibraryPreferences(store)
     private val mangaPreferences = MangaPreferences(store)
+    private val novelPreferences = NovelPreferences(store)
 
     private val weebCentral = mockk<HttpSource> {
         every { id } returns 7L
@@ -45,16 +48,19 @@ class SourceDelaysViewModelTest {
         every { minimumRequestDelayMs } returns 0L
     }
 
+    private val sourceManager = mockk<SourceManager> { every { sources } returns MutableStateFlow(listOf(weebCentral)) }
+    private val novelSourceManager = mockk<NovelSourceManager> {
+        every { loadedSources() } returns MutableStateFlow(listOf(fenrir))
+    }
+
     private fun TestScope.model(): SourceDelaysViewModel {
         val model = main.track(
             SourceDelaysViewModel(
-                sourceManager = mockk { every { sources } returns MutableStateFlow(listOf(weebCentral)) },
-                novelSourceManager = mockk<NovelSourceManager> {
-                    every { loadedSources() } returns MutableStateFlow(listOf(fenrir))
-                },
+                sourceManager = sourceManager,
+                novelSourceManager = novelSourceManager,
                 reikaiLibraryPreferences = library,
                 mangaPreferences = mangaPreferences,
-                novelPreferences = NovelPreferences(store),
+                novelPreferences = novelPreferences,
             ),
         )
         backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.collect {} }
@@ -111,32 +117,102 @@ class SourceDelaysViewModelTest {
         model.names() shouldBe listOf("Weeb Central")
     }
 
-    @Test
-    fun `a source with its own delay is listed first`() = runTest {
-        mangaPreferences.downloadSourceDelays().set(setOf("7=3000"))
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source with its own delay is listed first`(kind: Kind) = runTest {
+        kind.delays().set(setOf("${kind.id}=3000"))
         val model = model()
 
-        model.state.first { it.sections != null }.sections!!.own.map { it.name } shouldBe listOf("Weeb Central")
+        model.sections().own.map { it.name } shouldBe listOf(kind.sourceName)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source's delay is saved under its type, keyed by its id`(kind: Kind) = runTest {
+        val model = model()
+
+        model.setDelay(kind.rowIn(model.sections()), 5_000L)
+
+        kind.delays().get() shouldBe setOf("${kind.id}=5000")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `choosing Default hands the source back to the global delay`(kind: Kind) = runTest {
+        kind.delays().set(setOf("${kind.id}=3000"))
+        val model = model()
+
+        model.setDelay(model.sections().own.single(), null)
+
+        kind.delays().get() shouldBe emptySet()
+    }
+
+    /** A slider writes on every step, so a row that moved section would jump away mid-drag. */
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source given its own delay stays in its section until the list opens again`(kind: Kind) = runTest {
+        val model = model()
+
+        model.setDelay(kind.rowIn(model.sections()), 500L)
+
+        model.sectionOf(500L) shouldBe kind.name
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a source handed back to Default stays among the own delays until the list opens again`(kind: Kind) =
+        runTest {
+            kind.delays().set(setOf("${kind.id}=3000"))
+            val model = model()
+
+            model.setDelay(model.sections().own.single(), null)
+
+            model.sectionOf(null) shouldBe "OWN"
+        }
+
+    /** The Download speed summary's count, which must match the list it opens. */
+    @Test
+    fun `a delay kept for a source no longer installed is not counted`() = runTest {
+        mangaPreferences.downloadSourceDelays().set(setOf("7=3000", "99=3000"))
+        novelPreferences.downloadSourceDelays().set(setOf("gone=3000"))
+
+        rows().ownDelayCount(ContentType.ALL) shouldBe 1
     }
 
     @Test
-    fun `a manga source's delay is saved under manga, keyed by its id`() = runTest {
-        val model = model()
-        val row = model.state.first { it.sections != null }.sections!!.manga.single()
+    fun `a hidden type's delays are not counted`() = runTest {
+        mangaPreferences.downloadSourceDelays().set(setOf("7=3000"))
+        novelPreferences.downloadSourceDelays().set(setOf("fenrir=3000"))
 
-        model.setDelay(row, 5_000L)
-
-        mangaPreferences.downloadSourceDelays().get() shouldBe setOf("7=5000")
+        rows().ownDelayCount(ContentType.NOVELS) shouldBe 1
     }
 
-    @Test
-    fun `choosing Default hands the source back to the global delay`() = runTest {
-        mangaPreferences.downloadSourceDelays().set(setOf("7=3000"))
-        val model = model()
-        val row = model.state.first { it.sections != null }.sections!!.own.single()
+    private suspend fun rows() =
+        sourceDelayRows(sourceManager, novelSourceManager, mangaPreferences, novelPreferences).first()
 
-        model.setDelay(row, null)
+    enum class Kind(val id: String, val sourceName: String) {
+        MANGA("7", "Weeb Central"),
+        NOVELS("fenrir", "Fenrir Realm"),
+    }
 
-        mangaPreferences.downloadSourceDelays().get() shouldBe emptySet()
+    private fun Kind.delays() = when (this) {
+        Kind.MANGA -> mangaPreferences.downloadSourceDelays()
+        Kind.NOVELS -> novelPreferences.downloadSourceDelays()
+    }
+
+    private fun Kind.rowIn(sections: SourceDelaySections) = when (this) {
+        Kind.MANGA -> sections.manga.single()
+        Kind.NOVELS -> sections.novels.single()
+    }
+
+    private suspend fun SourceDelaysViewModel.sections() = state.first { it.sections != null }.sections!!
+
+    /** The section of the one source in [Kind], once its delay reads [delayMs]. */
+    private suspend fun SourceDelaysViewModel.sectionOf(delayMs: Long?): String {
+        val sections = state.first { state ->
+            state.sections?.let { it.own + it.manga + it.novels }.orEmpty().any { it.delayMs == delayMs }
+        }.sections!!
+        return listOf("OWN" to sections.own, "MANGA" to sections.manga, "NOVELS" to sections.novels)
+            .first { (_, rows) -> rows.any { it.delayMs == delayMs } }.first
     }
 }

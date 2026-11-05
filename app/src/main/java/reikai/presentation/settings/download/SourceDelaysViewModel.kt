@@ -9,6 +9,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.binding
 import dev.zacsweers.metrox.viewmodel.ViewModelKey
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -48,24 +49,12 @@ class SourceDelaysViewModel(
     // Null while the search field is closed.
     private val query = MutableStateFlow<String?>(null)
 
-    private val rows = combine(
-        sourceManager.sources.map { all ->
-            all.filterIsInstance<HttpSource>()
-                .map { SourceDelay(ContentType.MANGA, it.id.toString(), it.name, it.lang, null, 0L) }
-        },
-        novelSourceManager.loadedSources().map { all ->
-            all.map { SourceDelay(ContentType.NOVELS, it.id, it.name, it.lang, null, it.minimumRequestDelayMs) }
-        },
-        mangaPreferences.downloadSourceDelays().changes(),
-        novelPreferences.downloadSourceDelays().changes(),
-    ) { manga, novels, mangaEntries, novelEntries ->
-        val mangaOwn = DownloadPacing.parse(mangaEntries)
-        val novelOwn = DownloadPacing.parse(novelEntries)
-        manga.map { it.copy(delayMs = mangaOwn[it.id]) } + novels.map { it.copy(delayMs = novelOwn[it.id]) }
-    }
+    // Whether each source had its own delay when the list first showed it, by row key. A slider saves on every
+    // step, so sorting by the live value would move the row being dragged; the next visit sorts afresh.
+    private val ownWhenListed = HashMap<String, Boolean>()
 
     val state: StateFlow<State> = combine(
-        rows,
+        sourceDelayRows(sourceManager, novelSourceManager, mangaPreferences, novelPreferences),
         chip,
         reikaiLibraryPreferences.shownContent.changes(),
         query,
@@ -77,7 +66,9 @@ class SourceDelaysViewModel(
     ) { rows, chip, shown, query, (mangaGlobalMs, novelGlobalMs) ->
         val type = chip.within(shown)
         State(
-            sections = sourceDelaySections(rows, type, query.orEmpty()),
+            sections = sourceDelaySections(rows, type, query.orEmpty()) { row ->
+                ownWhenListed.getOrPut(row.key) { row.delayMs != null }
+            },
             contentType = type,
             query = query,
             mangaGlobalMs = mangaGlobalMs,
@@ -125,7 +116,37 @@ data class SourceDelay(
     val lang: String,
     val delayMs: Long?,
     val minimumMs: Long,
-)
+) {
+    val key: String get() = "$type:$id"
+}
+
+/**
+ * Every installed manga and novel source with its own delay as stored, keyed by the id its downloader reads.
+ * A delay stored for a source not installed is kept, so a reinstall gets it back, but is not a row.
+ */
+fun sourceDelayRows(
+    sourceManager: SourceManager,
+    novelSourceManager: NovelSourceManager,
+    mangaPreferences: MangaPreferences,
+    novelPreferences: NovelPreferences,
+): Flow<List<SourceDelay>> = combine(
+    sourceManager.sources.map { all ->
+        all.filterIsInstance<HttpSource>()
+            .map { SourceDelay(ContentType.MANGA, it.id.toString(), it.name, it.lang, null, 0L) }
+    },
+    novelSourceManager.loadedSources().map { all ->
+        all.map { SourceDelay(ContentType.NOVELS, it.id, it.name, it.lang, null, it.minimumRequestDelayMs) }
+    },
+    mangaPreferences.downloadSourceDelays().changes(),
+    novelPreferences.downloadSourceDelays().changes(),
+) { manga, novels, mangaEntries, novelEntries ->
+    val mangaOwn = DownloadPacing.parse(mangaEntries)
+    val novelOwn = DownloadPacing.parse(novelEntries)
+    manga.map { it.copy(delayMs = mangaOwn[it.id]) } + novels.map { it.copy(delayMs = novelOwn[it.id]) }
+}
+
+/** How many of the [shown] types' sources have their own delay, counted as the list shows them. */
+fun List<SourceDelay>.ownDelayCount(shown: ContentType): Int = count { it.delayMs != null && shown.includes(it.type) }
 
 /** The sources with their own delay first, then the rest of each type, each by name. */
 @Immutable
@@ -137,12 +158,20 @@ data class SourceDelaySections(
     val isEmpty: Boolean get() = own.isEmpty() && manga.isEmpty() && novels.isEmpty()
 }
 
-/** [rows] narrowed to [type] (already resolved against the Show setting) and to names matching [query]. */
-internal fun sourceDelaySections(rows: List<SourceDelay>, type: ContentType, query: String): SourceDelaySections {
+/**
+ * [rows] narrowed to [type] (already resolved against the Show setting) and to names matching [query], with
+ * the rows [isOwn] says first.
+ */
+internal fun sourceDelaySections(
+    rows: List<SourceDelay>,
+    type: ContentType,
+    query: String,
+    isOwn: (SourceDelay) -> Boolean,
+): SourceDelaySections {
     val shown = rows
         .filter { type.includes(it.type) && (query.isBlank() || it.name.contains(query.trim(), ignoreCase = true)) }
         .sortedBy { it.name.lowercase() }
-    val (own, rest) = shown.partition { it.delayMs != null }
+    val (own, rest) = shown.partition(isOwn)
     return SourceDelaySections(
         own = own,
         manga = rest.filter { it.type == ContentType.MANGA },

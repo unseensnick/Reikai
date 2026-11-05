@@ -31,6 +31,7 @@ import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.SourcePace
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
 import reikai.domain.download.hasRoomToDownload
@@ -59,7 +60,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
@@ -140,9 +140,6 @@ class NovelDownloadManager(
 
     /** Which source each queued novel reads from, filled as [claimNext] meets them. Under [claimLock]. */
     private val novelSources = HashMap<Long, String>()
-
-    /** Per-source pacing delay (ms), adapted by [runQueue]: halved on success, doubled on failure. */
-    private val sourceDelays = ConcurrentHashMap<String, Long>()
 
     /**
      * Loads the saved queue on launch, off the main thread, behind anything queued meanwhile, as Mihon's
@@ -426,13 +423,14 @@ class NovelDownloadManager(
                 val done = AtomicInteger(0)
                 val reporting = Mutex()
                 val report: suspend (NovelDownloadProgress) -> Unit = { reporting.withLock { onProgress(it) } }
+                val pace = SourcePace()
                 coroutineScope {
                     repeat(MAX_PARALLEL_SOURCES) {
                         launch {
                             while (true) {
                                 val next = claimNext(report) ?: break
                                 try {
-                                    download(next, done, report, onError)
+                                    download(next, done, pace, report, onError)
                                 } finally {
                                     lanes.update { it - next.source }
                                 }
@@ -488,6 +486,7 @@ class NovelDownloadManager(
     private suspend fun download(
         claimed: Claimed,
         done: AtomicInteger,
+        pace: SourcePace,
         onProgress: suspend (NovelDownloadProgress) -> Unit,
         onError: (novel: Novel?, chapterName: String?, error: String?, isAdult: Boolean) -> Unit,
     ) {
@@ -586,17 +585,13 @@ class NovelDownloadManager(
         // Per-source pacing, by the user's delay and DownloadPacing's back-off, so a
         // rate-limited or blocked site slows down on its own without dragging healthy sources.
         val floorMs = DownloadPacing.floorFor(
-            novel?.source.orEmpty(),
+            claimed.source,
             novelPreferences.downloadChapterDelayMs().get(),
             DownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
             minimumMs = minimumMs,
         )
-        val paceMs = DownloadPacing.next(sourceDelays[novel?.source.orEmpty()] ?: floorMs, ok, floorMs)
-        novel?.source?.let { sourceDelays[it] = paceMs }
         // Only with more of this source to come, so a finished source frees its slot for one still waiting.
-        if (hasQueuedFrom(claimed.source)) {
-            delay(DownloadPacing.jittered(paceMs, Random.nextDouble()))
-        }
+        delay(pace.waitAfter(claimed.source, ok, floorMs, hasQueuedFrom(claimed.source), Random.nextDouble()))
     }
 
     private fun networkIssue() =

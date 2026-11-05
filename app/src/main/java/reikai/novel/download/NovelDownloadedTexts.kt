@@ -23,7 +23,7 @@ import tachiyomi.core.common.util.system.logcat
 data class NovelDownloadedChapters(
     val onDisk: List<NovelChapter>,
     val total: Int,
-    val missing: List<NovelChapter> = emptyList(),
+    val missing: List<NovelChapter>,
 )
 
 /**

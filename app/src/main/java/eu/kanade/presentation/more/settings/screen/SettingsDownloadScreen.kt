@@ -18,10 +18,13 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelPreferences
+import reikai.presentation.components.LocalShownContent
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.settings.categoryFilterPreference
 import reikai.presentation.settings.download.DownloadDelaySlider
 import reikai.presentation.settings.download.SourceDelaysScreen
+import reikai.presentation.settings.download.ownDelayCount
+import reikai.presentation.settings.download.sourceDelayRows
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.i18n.MR
@@ -177,12 +180,16 @@ object SettingsDownloadScreen : SearchableSettings {
         novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
         val navigator = LocalNavigator.currentOrThrow
-        val mangaOwn by mangaPreferences.downloadSourceDelays().collectAsState()
-        val novelOwn by novelPreferences.downloadSourceDelays().collectAsState()
+        val context = LocalContext.current
+        // The rows the per-source list shows, so a delay kept for an uninstalled source is not counted.
+        val sourceDelays by remember {
+            val graph = context.appGraph
+            sourceDelayRows(graph.sourceManager, graph.novelSourceManager, mangaPreferences, novelPreferences)
+        }.collectAsState(initial = null)
         val showsManga = showsContent(ContentType.MANGA)
         val showsNovels = showsContent(ContentType.NOVELS)
-        val setCount = (if (showsManga) DownloadPacing.parse(mangaOwn).size else 0) +
-            (if (showsNovels) DownloadPacing.parse(novelOwn).size else 0)
+        // Null until the rows load, so the summary shows nothing rather than a passing "none".
+        val setCount = sourceDelays?.ownDelayCount(LocalShownContent.current)
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_download_speed),
             preferenceItems = listOfNotNull(
@@ -204,10 +211,10 @@ object SettingsDownloadScreen : SearchableSettings {
                     .takeIf { showsNovels },
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_source_delay),
-                    subtitle = if (setCount == 0) {
-                        stringResource(MR.strings.pref_source_delay_none)
-                    } else {
-                        pluralStringResource(MR.plurals.pref_source_delay_count, count = setCount, setCount)
+                    subtitle = when (setCount) {
+                        null -> null
+                        0 -> stringResource(MR.strings.pref_source_delay_none)
+                        else -> pluralStringResource(MR.plurals.pref_source_delay_count, count = setCount, setCount)
                     },
                     onClick = { navigator.push(SourceDelaysScreen()) },
                 ),
