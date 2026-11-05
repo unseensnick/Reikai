@@ -7,16 +7,16 @@ description: Charts of your library and reading, for manga and novels, with list
 
 _Dev record: [statistics.md](dev/subsystems/statistics.md). Doc map: [README.md](README.md)._
 
-Open <nav to="statistics">. The **All** / **Manga** / **Novels** chips at the top choose what every number, chart and list below counts.
+Open <nav to="statistics">, or pick **Statistics** from the ⋮ menu in the Library, Updates or History. The **All** / **Manga** / **Novels** chips at the top choose what every number, chart and list below counts.
 
 ## The overview
 
-The first four cards count your library, chapters and trackers.
-Below them:
+The first card counts your library, chapters and trackers, each figure with an icon.
+Below it:
 
-* **Publishing status** and **Tracking status** show how your series split, with the counts beside each chart. Tracking status counts series you track, by the status of your first signed-in tracker. Tap a status in the list beside the chart to list those series; the chart itself does not respond to taps.
-* **Scores** shows how many series sit at each mean tracker score from 1 to 10. Tap a bar to list the series at that score.
-* **Reading this week** shows your reading time for the last seven days, your current streak of reading days and your longest one, and your reading speed: the time you spend on a manga page, the words a minute you read in novels, and the words a minute read aloud plays at. Each reads **Learning** until you have finished three chapters of that type.
+* **Publishing status** and **Tracking status** list each status with how many series have it and their share of the total. Tracking status counts series you track, by the status of your first signed-in tracker. Tap a status to list those series. On a tablet or an unfolded phone, Publishing status also shows a pie chart with the total in the middle.
+* **Scores** has a row for each mean tracker score you have given, from the highest down, with how many series sit at it. Tap a row to list the series at that score.
+* **Reading this week** shows your reading time for the last seven days, your time today, your current streak of reading days and your longest one, and your reading speed: the time you spend on a manga page, the words a minute you read in novels, and the words a minute read aloud plays at. Each reads **Learning** until you have finished three chapters of that type.
 * **Most read** ranks the series you have spent the longest reading. Tap one to open it, or **See all** for every series you have read.
 * **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Started reading** list your top five in each.
 
