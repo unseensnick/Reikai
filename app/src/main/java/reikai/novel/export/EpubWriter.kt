@@ -86,6 +86,8 @@ class EpubWriter(private val includePictures: Boolean = true) {
         // sheet replaces, and prefixed attributes, whose undeclared namespace makes the XHTML invalid.
         body.select("input, button, style, link").remove()
         for (element in body.getAllElements()) {
+            // A link can name its target by xml:id, which the book keeps as a plain id.
+            element.attr("xml:id").takeIf { it.isNotEmpty() && !element.hasAttr("id") }?.let { element.attr("id", it) }
             element.attributes().asList()
                 .filter { it.key == "contenteditable" || ':' in it.key }
                 .forEach { element.removeAttr(it.key) }
@@ -106,8 +108,13 @@ class EpubWriter(private val includePictures: Boolean = true) {
             img.attributes().asList().map { it.key }.filter { it != "alt" }.forEach(img::removeAttr)
             img.attr("src", "../$path").attr("alt", img.attr("alt"))
         }
-        // Links inside a chapter that pointed at the source's site lead nowhere in a book; keep their text.
-        body.select("a[href]").filterNot { it.attr("href").startsWith("http") }.forEach { it.unwrap() }
+        // A jump to a place in this chapter still works in the book. Any other relative link pointed at the
+        // source's site and leads nowhere here, so it keeps only its text.
+        body.select("a[href]").filterNot { link ->
+            val href = link.attr("href")
+            href.startsWith("http") ||
+                (href.length > 1 && href[0] == '#' && body.getElementById(href.substring(1)) != null)
+        }.forEach { it.unwrap() }
 
         val document = Document.createShell("")
         document.outputSettings()

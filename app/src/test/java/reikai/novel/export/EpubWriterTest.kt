@@ -185,6 +185,30 @@ class EpubWriterTest {
         listOf("javascript:", "<svg").filter { it in chapter } shouldBe emptyList()
     }
 
+    private val linked =
+        "<p><a href=\"#n\">to n</a></p><p><a href=\"#x\">to x</a></p><p><a href=\"#gone\">gone</a></p>" +
+            "<p><a href=\"next.html\">next</a></p><p id=\"n\">N</p><p xml:id=\"x\">X</p>"
+
+    private suspend fun firstChapter(html: String): String {
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(book.copy(chapters = listOf(ExportChapter("I") { html })), out)
+        return ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.first { it.name.endsWith("chapter-0001.xhtml") }
+            zip.readBytes().toString(Charsets.UTF_8)
+        }
+    }
+
+    @Test
+    fun `a jump to a place in the chapter stays a link and any other relative link keeps its text`() = runTest {
+        Regex("href=\"(#[^\"]*|next[^\"]*)\"").findAll(firstChapter(linked)).map { it.groupValues[1] }.toList() shouldBe
+            listOf("#n", "#x")
+    }
+
+    @Test
+    fun `a target named by xml id gets the id its link names`() = runTest {
+        firstChapter(linked) shouldContain "<p id=\"x\">X</p>"
+    }
+
     @Test
     fun `a picture typed image jpg is declared by its registered type`() {
         EpubWriter.decodeDataAddress("data:image/jpg;base64," + Base64.getEncoder().encodeToString(png))!!.mime shouldBe
