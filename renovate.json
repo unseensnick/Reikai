@@ -1,4 +1,32 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "enabled": false
+  "extends": ["config:recommended"],
+  "dependencyDashboard": false,
+  "enabledManagers": ["gradle"],
+  "schedule": ["on the first day of the month"],
+  "semanticCommits": "enabled",
+  "semanticCommitType": "chore",
+  "semanticCommitScope": "deps",
+  "packageRules": [
+    {
+      "description": "Off for everything by default: Mihon's versions follow the manual Mihon sync, and what IReader extensions link against follows upstream IReader (scripts/ireader-pin-check.sh).",
+      "matchPackageNames": ["*"],
+      "enabled": false
+    },
+    {
+      "description": "The libraries only Reikai uses and whose version only Reikai sets, in one monthly PR.",
+      "matchPackageNames": [
+        "androidx.media:media",
+        "androidx.palette:palette-ktx",
+        "com.jakewharton:disklrucache",
+        "org.robolectric:robolectric",
+        "/^io\\.github\\.takahirom\\.roborazzi/",
+        "com.patrykandpatrick.vico:compose-m3",
+        "io.github.dokar3:quickjs-kt"
+      ],
+      "enabled": true,
+      "groupName": "Reikai-only libraries",
+      "separateMajorMinor": false
+    }
+  ]
 }

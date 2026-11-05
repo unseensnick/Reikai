@@ -131,7 +131,7 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 
 ## IReader
 
-[IReader](https://github.com/IReaderorg/IReader), a novel reader with its own compiled-APK extension format and source API. The reference for running those extensions. Ref: `refs/IReader` (branch `master`); the API Reikai runs is the published `source-api` 1.5.1 (`548bd934f`), since `main` has since added copies of `eu.kanade.tachiyomi` classes.
+[IReader](https://github.com/IReaderorg/IReader), a novel reader with its own compiled-APK extension format and source API. The reference for running those extensions. Ref: `refs/IReader` (branch `master`); the API Reikai runs is the published `source-api` 1.5.1 (`548bd934f`). 1.5.3 is declined while it ships its own copies of `eu.kanade.tachiyomi`'s network, source and model classes (104 of its 714), which would shadow the ones manga extensions link against, and its `HttpClients` takes a cookie storage the host does not build; the decline lapses if a later release drops those copies. The host's Ktor follows upstream's pin (3.6.0). `scripts/ireader-pin-check.sh` compares both after a pull.
 
 ### Ported features
 

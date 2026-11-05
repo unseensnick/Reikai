@@ -66,6 +66,15 @@ Reference upstream PRs/issues as **`mihonapp/mihon#<n>`** (a cross-repo link). A
 - **Coupled bumps land together:** a major dependency bump and its deprecation-fix commit must ride one commit (e.g. xmlutil 1.0.0 with its `XML.v1` migration), or the first commit will not compile.
 - **Six upstream rules now live in Reikai kernels both content types call**, each reached from a `// RK` island: the release prediction in `FetchInterval` (the interval, the patterns, the next update) is `reikai.domain.library.ReleaseInterval`, with upstream's `ReleaseSchedule.kt` and `ReleasePattern.kt` moved whole into that package (reading `ChapterDates` instead of `Chapter`), the found-release check in `SyncChaptersWithSource` (not a first fetch, not a chapter re-listed under a removed number) is `reikai.domain.chapter.foundRelease`, the Smart update skip `when` in `LibraryUpdateWorker` (and the three restrictions `StatsViewModel` counts) is `reikai.domain.library.smartUpdateSkip`, the last-read and start-date backfill in `AddTracks.bind` is `reikai.domain.track.bindBackfill`, the added-chapter rules in `SyncChaptersWithSource` (fetch-date stagger, mark duplicate read, re-added chapter inheritance) are `reikai.domain.chapter.chapterArrivals`, and its list-wide number recognition (`ChapterRecognition.parseChapterNumbers`, run in `toSourceChapters`) goes through `reikai.domain.chapter.recognizeChapterNumbers`. An upstream change to any of those blocks lands in the kernel, not in the island, so the novel side gets it too.
 
+## Dependencies Mihon does not have
+
+A sync brings Mihon's dependency bumps, which covers every library the two catalogs share, including the ones Reikai's own libraries take a version from (the Compose BOM, lifecycle, JUnit, SQLDelight). Two groups fall outside it:
+
+- **What installed extensions link against follows that extension ecosystem, never "latest".** IReader's `source-api` and the IReader host's Ktor track upstream IReader's pins: run `bash scripts/ireader-pin-check.sh` after pulling `refs/IReader`. A drift is a review, since a newer `source-api` can change what the host builds (1.5.3 bundles copies of `eu.kanade.tachiyomi` classes and is declined, see [feature-ports.md](feature-ports.md)).
+- **Libraries only Reikai uses and versions itself go through Renovate**, scoped in `renovate.json` to exactly those, grouped into one monthly PR with no dependency dashboard. A library added to that group needs a line there, or nothing updates it.
+
+The weekly `dependency-availability` workflow separately catches an artifact that has stopped resolving.
+
 ## Deliberate divergences from upstream
 
 Cases where Reikai knowingly does not match `refs/mihon`, so a future syncer does not "fix" them back. Revisit each when upstream settles.
