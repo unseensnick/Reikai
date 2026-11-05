@@ -8,7 +8,7 @@ import java.net.URLDecoder
  * body spells a space `+`); null when it is not well-formed.
  */
 fun decodePercentKeepingPlus(value: String): String? =
-    runCatching { URLDecoder.decode(value.replace("+", "%2B"), Charsets.UTF_8) }.getOrNull()
+    runCatching { URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
 
 /**
  * The element under [root] a link's fragment [name] points at: its id, then an old-style `name`, then the

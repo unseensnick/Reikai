@@ -329,13 +329,13 @@ class LocalNovelSource(
                 else -> "t"
             }
             return listOf(series, volume, key.path, at).joinToString(PATH_SEPARATOR) {
-                URLEncoder.encode(it, Charsets.UTF_8)
+                URLEncoder.encode(it, "UTF-8")
             }
         }
 
         internal fun parseChapterPath(path: String): Triple<String, String, EpubChapterKey>? {
             val parts = path.split(PATH_SEPARATOR)
-                .map { runCatching { URLDecoder.decode(it, Charsets.UTF_8) }.getOrNull() ?: return null }
+                .map { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() ?: return null }
             if (parts.size != 4) return null
             val (series, volume, file, at) = parts
             val key = when {
