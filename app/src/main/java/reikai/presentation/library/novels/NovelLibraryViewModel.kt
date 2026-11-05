@@ -263,7 +263,7 @@ class NovelLibraryViewModel(
             trackers = scoringTrackers,
         )
         // The one shared library filter (tracker axis folded in), so a filter change reaches manga and
-        // novels at once. The per-type seams live in the accessors: novels have no local-source concept.
+        // novels at once. The per-type seams live in the accessors.
         val filterPrefs = filter.resolve()
         // Keyed by the representative's novel id (== the LibraryItem id). The dynamic grouping resolves
         // per-novel metadata (genre / author / source / status) the row cannot carry, and the search

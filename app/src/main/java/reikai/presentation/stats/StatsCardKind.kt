@@ -1,7 +1,7 @@
 package reikai.presentation.stats
 
 import dev.icerock.moko.resources.StringResource
-import reikai.util.inSavedOrder
+import reikai.util.inOrderOf
 import tachiyomi.i18n.MR
 
 /**
@@ -33,7 +33,7 @@ enum class StatsCardKind(
 
 /** Every card in the saved [order], each shelf's cards together and the shelves in the order their first card comes. */
 fun statsCardLayout(order: List<String>): List<StatsCardKind> =
-    StatsCardKind.entries.inSavedOrder(order) { it.key }.groupBy { it.shelf }.values.flatten()
+    StatsCardKind.entries.inOrderOf(order) { it.key }.groupBy { it.shelf }.values.flatten()
 
 /** The cards [keys] name; a key that names no card is ignored. */
 fun statsCardsByKey(keys: Collection<String>): Set<StatsCardKind> =

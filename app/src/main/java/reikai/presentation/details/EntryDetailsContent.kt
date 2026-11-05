@@ -73,8 +73,8 @@ data class EntryDetailsNavigation(
     val onEditInterval: (() -> Unit)? = null,
     /** Opens the novel page/volume selector sheet; novel-only. */
     val onOpenPageSelector: (() -> Unit)? = null,
-    /** Search and word count over the downloaded chapters' text; novel-only, since a manga chapter on
-     *  disk is images. Offered only while what the screen shows has downloads. */
+    /** Search and word count over the chapter text on the device; novel-only, since a manga chapter on
+     *  disk is images. Offered only while that text is there: downloads, or a local series' files. */
     val onSearchText: (() -> Unit)? = null,
     val onWordCount: (() -> Unit)? = null,
     /** Writes the chapters on the device as an EPUB; novel-only, since manga keeps CBZ for that. */

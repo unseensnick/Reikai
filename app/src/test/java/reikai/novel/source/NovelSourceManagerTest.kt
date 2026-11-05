@@ -62,6 +62,26 @@ class NovelSourceManagerTest {
         manager.sources.first { it.isEmpty() } shouldBe emptyList()
     }
 
+    /** The startup and restore load paths register whatever a stored plugin says it is, so the guard is here. */
+    @Test
+    fun `a plugin claiming a built-in source's id leaves the built-in in place`() = runTest {
+        val local = mockk<NovelSource> { every { id } returns "local" }
+        val withLocal = NovelSourceManager(
+            scope = testAppScope(),
+            installer = { mockk<LnPluginInstaller>(relaxed = true) },
+            extensionManager = mockk<ExtensionManager> {
+                every { loadedNovelExtensionsFlow } returns flowOf(emptyList())
+            },
+            prefs = mockk<NovelPreferences> { every { seenNovelSources() } returns seen },
+            builtIn = listOf(local),
+        )
+
+        runCatching { withLocal.register(mockk { every { id } returns "local" }) }
+        withLocal.unregister("local")
+
+        withLocal.sources.first().single() shouldBeSameInstanceAs local
+    }
+
     @Test
     fun `a plugin stays registered while the apps change`() = runTest {
         val plugin = mockk<NovelSource> { every { id } returns "plugin" }

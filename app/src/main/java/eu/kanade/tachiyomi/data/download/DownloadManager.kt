@@ -22,7 +22,7 @@ import reikai.domain.download.deletableDownloads // RK
 import reikai.domain.download.movesDownloadFolder // RK
 import reikai.domain.download.removableDownloads // RK
 import reikai.domain.source.SourceTitlesRepository // RK
-import reikai.presentation.download.inOrderOf // RK
+import reikai.util.inOrderOf // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.util.lang.withIOContext

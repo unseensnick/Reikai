@@ -54,36 +54,12 @@ class EntrySourcesFilterScreen(
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.currentOrThrow
-        // Held as a boolean rather than the enum: only two of the three chips exist here, and a
-        // boolean is saveable without asking whether the enum is.
-        // The chip as picked, read through Show on every composition, so hiding novels while the
-        // screen is open moves the list to manga rather than leaving it under a chip row now hidden.
-        var pickedNovels by rememberSaveable { mutableStateOf(initial == ContentType.NOVELS) }
-        val showNovels =
-            showsNovels(if (pickedNovels) ContentType.NOVELS else ContentType.MANGA, LocalShownContent.current)
-
-        Scaffold(
-            topBar = { scrollBehavior ->
-                Column {
-                    AppBar(
-                        title = stringResource(MR.strings.label_sources),
-                        navigateUp = navigator::pop,
-                        scrollBehavior = scrollBehavior,
-                    )
-                    ContentTypeFilterChips(
-                        selected = if (showNovels) ContentType.NOVELS else ContentType.MANGA,
-                        onSelect = { pickedNovels = it == ContentType.NOVELS },
-                        types = FILTER_TYPES,
-                    )
-                }
-            },
-        ) { contentPadding ->
-            if (showNovels) {
-                NovelSources(contentPadding)
-            } else {
-                MangaSources(contentPadding, navigator::pop)
-            }
-        }
+        SourcesFilterContent(
+            initial = initial,
+            navigateUp = navigator::pop,
+            mangaSources = { MangaSources(it, navigator::pop) },
+            novelSources = { NovelSources(it) },
+        )
     }
 
     @Composable
@@ -222,6 +198,42 @@ private fun <S> section(
 ) = SourceFilterSection(language, enabled, if (enabled) sources.map(entry) else emptyList())
 
 private val FILTER_TYPES = listOf(ContentType.MANGA, ContentType.NOVELS)
+
+/** The chip row over whichever half [initial] and Show pick, the half drawn by its slot. */
+@Composable
+internal fun SourcesFilterContent(
+    initial: ContentType,
+    navigateUp: () -> Unit,
+    mangaSources: @Composable (PaddingValues) -> Unit,
+    novelSources: @Composable (PaddingValues) -> Unit,
+) {
+    // Held as a boolean rather than the enum: only two of the three chips exist here, and a
+    // boolean is saveable without asking whether the enum is.
+    // The chip as picked, read through Show on every composition, so hiding novels while the
+    // screen is open moves the list to manga rather than leaving it under a chip row now hidden.
+    var pickedNovels by rememberSaveable { mutableStateOf(initial == ContentType.NOVELS) }
+    val showNovels =
+        showsNovels(if (pickedNovels) ContentType.NOVELS else ContentType.MANGA, LocalShownContent.current)
+
+    Scaffold(
+        topBar = { scrollBehavior ->
+            Column {
+                AppBar(
+                    title = stringResource(MR.strings.label_sources),
+                    navigateUp = navigateUp,
+                    scrollBehavior = scrollBehavior,
+                )
+                ContentTypeFilterChips(
+                    selected = if (showNovels) ContentType.NOVELS else ContentType.MANGA,
+                    onSelect = { pickedNovels = it == ContentType.NOVELS },
+                    types = FILTER_TYPES,
+                )
+            }
+        },
+    ) { contentPadding ->
+        if (showNovels) novelSources(contentPadding) else mangaSources(contentPadding)
+    }
+}
 
 /** Whether the novel list shows: the picked chip, unless Show hides that half. */
 internal fun showsNovels(chip: ContentType, shown: ContentType): Boolean =

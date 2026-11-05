@@ -423,7 +423,6 @@ class LibraryEngine(
         globalSort = globalSort,
         setSort = ::setSort,
         resetSort = ::resetSort,
-        showLocalBadge = view.showLocalBadge,
     )
 
     /**
@@ -548,14 +547,18 @@ class LibraryEngine(
         dispatchAndClear(contentType) { it.markReadSelection(selection.value, read) }
 
     fun performDownloadAction(contentType: ContentType, action: DownloadAction) {
-        // Skip providers whose part of the selection cannot download (all-local manga): forwarding
-        // anyway would queue downloads for entries the action button was hidden for.
+        // Skip providers whose part of the selection cannot download: forwarding anyway would queue
+        // downloads for entries the action button was hidden for.
         val selection = selection.value
         providersFor(contentType)
-            .filter { it.canDownload(selection) }
+            .downloading(selection)
             .forEach { it.performDownloadAction(selection, action) }
         clearSelection()
     }
+
+    /** The providers owning part of [entries] with no local entry in it, which has nothing to download. */
+    private fun List<LibraryProvider>.downloading(entries: Set<EntryId>): List<LibraryProvider> =
+        owning(entries).filterNot { it.containsLocal(entries) }
 
     fun mergeSelection(contentType: ContentType) =
         dispatchAndClear(contentType) { it.mergeSelection(selection.value) }
@@ -656,7 +659,7 @@ class LibraryEngine(
     /** The bulk Download action applies when ANY provider's part of the selection can download,
      *  so a mixed local-manga + novel selection keeps the action; dispatch skips the rest. */
     fun canDownloadSelection(contentType: ContentType): Boolean =
-        providersFor(contentType).any { it.canDownload(selection.value) }
+        providersFor(contentType).downloading(selection.value).isNotEmpty()
 
     private fun dispatchAndClear(contentType: ContentType, action: (LibraryProvider) -> Unit) {
         providersFor(contentType).forEach(action)

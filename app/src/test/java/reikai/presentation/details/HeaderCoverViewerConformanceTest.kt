@@ -124,6 +124,7 @@ class NovelHeaderCoverProbe : HeaderCoverProbe {
             updateNovel = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
             clearCustomCover = mockk(relaxed = true),
+            localNovelSource = mockk(),
             imageSaver = mockk(relaxed = true),
         )
         return HeaderCovers(shownNovel(anchor, sibling, anchorInfo, siblingInfo).thumbnailUrl, viewer)

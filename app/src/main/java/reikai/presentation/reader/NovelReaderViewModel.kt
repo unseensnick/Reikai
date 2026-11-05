@@ -69,6 +69,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelCover
@@ -954,8 +955,9 @@ class NovelReaderViewModel(
             novelId = novelId,
             sourceId = novel?.source,
             sourceStylesheet = novel?.source?.let { sourceManager.get(it) }?.chapterStylesheet,
-            // This copy's own, as manga's transition reads the chapter it will load rather than the group's.
-            downloaded = novel?.let { novelDownloadCache.isChapterDownloaded(it, this) } == true,
+            // This copy's own, as manga's transition reads the chapter it will load rather than the group's;
+            // a local novel's chapters count, as a local manga's do there.
+            downloaded = novel?.let { novelDownloadCache.isOnDevice(it, this) } == true,
             // Outside the order, chapterAfter has no index to step from and would call anything the last.
             isLast = id in orderedIds && chapterAfter(id) == null,
             gapPresent = gapPresent,

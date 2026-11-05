@@ -136,20 +136,6 @@ fun reconcileCardOrder(incomingKeys: List<String>, localKeys: List<String>, pend
 }
 
 /**
- * This list's own items in [keys]' order, then any item [keys] does not name, in its current order. A
- * key naming nothing here is skipped, so an order computed from an older copy of a list can be applied
- * to the live one without bringing back what left it or dropping what joined it.
- */
-fun <T, K> List<T>.inOrderOf(keys: List<K>, keyOf: (T) -> K): List<T> {
-    val byKey = associateBy(keyOf)
-    val seen = HashSet<K>()
-    return buildList {
-        keys.forEach { key -> byKey[key]?.let { if (seen.add(key)) add(it) } }
-        this@inOrderOf.forEach { if (seen.add(keyOf(it))) add(it) }
-    }
-}
-
-/**
  * The saved order with every series that has left the queue taken out, so one queued again later goes
  * last instead of taking back its old position and moving a card nobody dragged. A key of a type not in
  * [restored] keeps its slot: that downloader has not loaded its saved queue yet, so its card may still come.

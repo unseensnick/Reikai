@@ -6,10 +6,13 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.AlertDialog
@@ -174,25 +177,7 @@ internal fun EntryMigrationList(
         },
         bottomBar = {
             if (state.allSearched && state.committableCount > 0 && !state.isBusy) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(MaterialTheme.padding.medium),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
-                ) {
-                    OutlinedButton(
-                        onClick = { viewModel.showConfirm(replace = false) },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(text = "${stringResource(MR.strings.copy)} (${state.committableCount})")
-                    }
-                    Button(
-                        onClick = { viewModel.showConfirm(replace = true) },
-                        modifier = Modifier.weight(1f),
-                    ) {
-                        Text(text = "${stringResource(MR.strings.migrate)} (${state.committableCount})")
-                    }
-                }
+                MigrationCommitBar(state.committableCount, onCommit = { viewModel.showConfirm(replace = it) })
             }
         },
     ) { contentPadding ->
@@ -663,6 +648,32 @@ private fun ProgressDialog(
             }
         },
     )
+}
+
+/**
+ * Copy and Migrate for [count] entries. Padded clear of the navigation bar itself, as upstream's own
+ * action bars are: the app draws edge to edge and the host scaffold consumes only the side insets.
+ */
+@Composable
+internal fun MigrationCommitBar(
+    count: Int,
+    onCommit: (replace: Boolean) -> Unit,
+    windowInsets: WindowInsets = WindowInsets.navigationBars,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(windowInsets)
+            .padding(MaterialTheme.padding.medium),
+        horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small),
+    ) {
+        OutlinedButton(onClick = { onCommit(false) }, modifier = Modifier.weight(1f)) {
+            Text(text = "${stringResource(MR.strings.copy)} ($count)")
+        }
+        Button(onClick = { onCommit(true) }, modifier = Modifier.weight(1f)) {
+            Text(text = "${stringResource(MR.strings.migrate)} ($count)")
+        }
+    }
 }
 
 @Composable

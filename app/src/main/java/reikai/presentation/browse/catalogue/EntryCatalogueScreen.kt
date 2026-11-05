@@ -31,8 +31,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.compose.LifecycleEventEffect
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -145,7 +143,6 @@ class EntryCatalogueScreen(
     @Composable
     private fun MangaCatalogue(sourceId: Long) {
         val navigator = LocalNavigator.currentOrThrow
-        val uriHandler = LocalUriHandler.current
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<BrowseSourceViewModel, BrowseSourceViewModel.Factory> {
             create(sourceId = sourceId, listingQuery = mangaListingQuery(startLatest, initialQuery))
@@ -180,11 +177,7 @@ class EntryCatalogueScreen(
             behavior = adapter,
             bulk = bulk,
             onOpenSettings = { navigator.push(SourcePreferencesScreen(sourceId)) },
-            onHelpClick = {
-                uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
-            },
-            localSourceHelp = { uriHandler.openUri(LocalSource.HELP_URL) }.takeIf { isLocal },
-            onImportClick = { navigator.push(LocalImportScreen()) }.takeIf { isLocal },
+            isLocal = isLocal,
         ) { onDismiss ->
             SourceFilterDialog(
                 onDismissRequest = onDismiss,
@@ -206,7 +199,6 @@ class EntryCatalogueScreen(
     private fun NovelCatalogue(sourceId: String) {
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
-        val uriHandler = LocalUriHandler.current
         val viewModel = assistedMetroViewModel<NovelBrowseViewModel, NovelBrowseViewModel.Factory> {
             create(sourceId = sourceId, initialQuery = initialQuery.orEmpty(), startLatest = startLatest)
         }
@@ -233,8 +225,7 @@ class EntryCatalogueScreen(
                     else -> viewModel.openSettingsSheet()
                 }
             },
-            onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
-            onImportClick = { navigator.push(LocalImportScreen()) }.takeIf { LocalNovelSource.isLocal(sourceId) },
+            isLocal = LocalNovelSource.isLocal(sourceId),
             extraSheets = {
                 val settings = source?.settings as? NovelSettings.LnSchema
                 if (modelState.settingsSheetOpen && settings != null) {
@@ -274,9 +265,7 @@ class EntryCatalogueScreen(
         behavior: EntryBrowseBehavior,
         bulk: EntryBulkFavoriteViewModel<*>,
         onOpenSettings: () -> Unit,
-        onHelpClick: () -> Unit,
-        localSourceHelp: (() -> Unit)? = null,
-        onImportClick: (() -> Unit)? = null,
+        isLocal: Boolean,
         extraSheets: @Composable () -> Unit = {},
         filterSheet: @Composable (onDismiss: () -> Unit) -> Unit,
     ) {
@@ -329,19 +318,23 @@ class EntryCatalogueScreen(
         LaunchedEffect(loaded.webUrl) { assistUrl = loaded.webUrl }
 
         // Coming back from the WebView re-runs the listing, so clearing a Cloudflare challenge there
-        // does not leave the reader staring at the error they left. Survives the activity stop.
-        var pendingWebViewRetry by rememberSaveable { mutableStateOf(false) }
-        LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
-            if (pendingWebViewRetry) {
-                pendingWebViewRetry = false
-                rows.refresh()
-            }
-        }
+        // does not leave the reader staring at the error they left; coming back from the import does
+        // too, or the files just added stay out of the cached pages.
+        val refreshOnReturn = rememberRefreshOnReturn(rows::refresh)
         val onWebViewClick: (String?) -> Unit = f@{ challengeUrl ->
             val url = challengeUrl ?: loaded.webUrl ?: return@f
-            pendingWebViewRetry = true
+            refreshOnReturn()
             navigator.push(sourceKey.toWebViewScreen(url, loaded.sourceName))
         }
+        val uriHandler = LocalUriHandler.current
+        val onHelpClick = { uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP) }
+        val localSource = LocalSourceActions(
+            onImport = {
+                refreshOnReturn()
+                navigator.push(LocalImportScreen())
+            },
+            onGuide = { uriHandler.openUri(LocalSource.HELP_URL) },
+        ).takeIf { isLocal }
 
         BackHandler(enabled = loaded.selectionMode) { behavior.setSelectionMode(false) }
 
@@ -402,7 +395,7 @@ class EntryCatalogueScreen(
                             },
                             scrollBehavior = scrollBehavior,
                             onToggleSelectionMode = { behavior.setSelectionMode(true) },
-                            onImportClick = onImportClick,
+                            onImportClick = localSource?.onImport,
                             // Only offered when there is something to save: a committed search, or
                             // filters the reader has changed from the source's own defaults.
                             onSaveSearchClick = { savedSearchDialog = SavedSearchDialog.Create }
@@ -438,8 +431,7 @@ class EntryCatalogueScreen(
                 contentPadding = contentPadding,
                 onWebViewClick = onWebViewClick,
                 onHelpClick = onHelpClick,
-                onLocalSourceHelpClick = localSourceHelp,
-                onImportClick = onImportClick,
+                localSource = localSource,
                 gestures = gestures,
             )
         }

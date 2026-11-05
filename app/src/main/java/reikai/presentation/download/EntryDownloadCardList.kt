@@ -38,6 +38,7 @@ import reikai.presentation.components.CardKicker
 import reikai.presentation.components.ReikaiListCard
 import reikai.presentation.components.TypeBadge
 import reikai.presentation.components.rememberSettledReorder
+import reikai.util.inOrderOf
 import sh.calvin.reorderable.ReorderableCollectionItemScope
 import sh.calvin.reorderable.ReorderableItem
 import tachiyomi.i18n.MR

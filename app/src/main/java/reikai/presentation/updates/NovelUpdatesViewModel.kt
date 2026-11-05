@@ -33,6 +33,7 @@ import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.recentsFeedCutoff
@@ -122,7 +123,7 @@ class NovelUpdatesViewModel(
                 NovelUpdatesItem(
                     update = update,
                     downloadState = downloadStateOf(queueById[update.chapterId]) {
-                        novelDownloadCache.isChapterDownloaded(
+                        novelDownloadCache.isOnDevice(
                             update.source,
                             update.novelTitle,
                             update.chapterName,

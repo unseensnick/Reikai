@@ -59,7 +59,7 @@ fun EntryToolbar(
     onClickClearDownloads: (() -> Unit)? = null,
     // Open the download folder, gated the same way: there is nothing to open until something is there.
     onClickOpenFolder: (() -> Unit)? = null,
-    // Search and word count over the downloaded text, novel-only and gated the same way.
+    // Search and word count over the chapter text on the device (downloads, or a local series' files), novel-only.
     onClickSearchText: (() -> Unit)? = null,
     onClickWordCount: (() -> Unit)? = null,
     onClickExport: (() -> Unit)? = null,

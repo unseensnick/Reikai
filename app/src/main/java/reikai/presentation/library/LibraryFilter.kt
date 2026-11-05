@@ -170,7 +170,7 @@ data class LibraryFilterPrefs(
 /**
  * Per-entry accessors [libraryFilterMatches] reads, so the filter never depends on the concrete row type.
  * Both libraries bind them over the shared `LibraryItem` row, through [libraryItemFilterFields].
- * The per-type seams live here: [isDownloaded] folds in manga's local-source concept (novels have none),
+ * The per-type seams live here: [isDownloaded] counts a local series of either type as downloaded,
  * [isLewd] folds in each side's adult-source set and manga's source-name check, and [trackerIds] is each side's
  * merge-group union.
  */

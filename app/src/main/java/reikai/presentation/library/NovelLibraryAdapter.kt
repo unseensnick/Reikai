@@ -70,7 +70,6 @@ class NovelLibraryAdapter(
                     ),
                 ),
             categories = model.filterPickerCategories,
-            showLocalBadge = true,
         )
 
     // Shared while subscribed, not eagerly: an eager share here is a permanent subscriber on the model,
@@ -171,10 +170,6 @@ class NovelLibraryAdapter(
     override fun containsMerged(entries: Set<EntryId>) =
         model.state.value.containsMerged(entries.ownIds())
 
-    // Non-empty matters under All (the engine shows Download if ANY provider can act); a local novel
-    // has nothing to download, as a local manga has not.
-    override fun canDownload(entries: Set<EntryId>) =
-        entries.ownIds().let { it.isNotEmpty() && !model.state.value.containsLocal(it) }
     override fun containsLocal(entries: Set<EntryId>) = model.state.value.containsLocal(entries.ownIds())
 
     override fun groupedSourceCount(entries: Set<EntryId>): Int {

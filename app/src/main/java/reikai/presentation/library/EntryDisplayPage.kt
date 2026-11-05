@@ -31,14 +31,10 @@ private val displayModes = listOf(
 
 /**
  * The single library-settings Display tab for both manga and novels: display mode, columns, badges,
- * continue-reading, the tabs section, and the Reikai category/hopper settings. The one per-type
- * divergence is a parameter, so the tab can't drift: [showLocalBadge] gates the manga-only local badge.
+ * continue-reading, the tabs section, and the Reikai category/hopper settings.
  */
 @Composable
-fun ColumnScope.EntryDisplayPage(
-    viewModel: LibrarySettingsViewModel,
-    showLocalBadge: Boolean,
-) {
+fun ColumnScope.EntryDisplayPage(viewModel: LibrarySettingsViewModel) {
     val displayMode by viewModel.libraryPreferences.displayMode.collectAsState()
     SettingsChipRow(MR.strings.action_display_mode) {
         displayModes.map { (titleRes, mode) ->
@@ -84,12 +80,10 @@ fun ColumnScope.EntryDisplayPage(
         label = stringResource(MR.strings.action_display_unread_badge),
         pref = viewModel.libraryPreferences.unreadBadge,
     )
-    if (showLocalBadge) {
-        CheckboxItem(
-            label = stringResource(MR.strings.action_display_local_badge),
-            pref = viewModel.libraryPreferences.localBadge,
-        )
-    }
+    CheckboxItem(
+        label = stringResource(MR.strings.action_display_local_badge),
+        pref = viewModel.libraryPreferences.localBadge,
+    )
     CheckboxItem(
         label = stringResource(MR.strings.action_display_language_badge),
         pref = viewModel.libraryPreferences.languageBadge,

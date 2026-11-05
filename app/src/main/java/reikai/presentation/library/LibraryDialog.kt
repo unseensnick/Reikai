@@ -24,7 +24,7 @@ sealed interface LibraryDialog {
     /**
      * [groupedSourceCount] is the number of grouped sources behind the selection (0 = nothing merged, so
      * no extra option). [containsLocal] hides the delete-downloads option, which a local entry has no use
-     * for; novels have no local concept and never set it.
+     * for, of either type.
      */
     data class Delete(
         val entries: Set<EntryId>,

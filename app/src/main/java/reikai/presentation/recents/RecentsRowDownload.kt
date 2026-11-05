@@ -100,6 +100,20 @@ internal fun recentsCopiesDownloadUi(
 }
 
 /**
+ * A row's download control, or, for a local series' row ([isLocal]), none: its files are the chapter,
+ * so it reads as downloaded (the Downloaded filter keeps it) and a local source has nothing to fetch.
+ * Both types and every recents lane go through this, as details and the library already treat local.
+ */
+internal fun recentsDownloadUi(isLocal: Boolean, ui: () -> RecentsDownloadUi): RecentsDownloadUi =
+    if (isLocal) LOCAL_DOWNLOAD_UI else ui()
+
+private val LOCAL_DOWNLOAD_UI = RecentsDownloadUi(
+    state = { Download.State.DOWNLOADED },
+    progress = RecentsDownloadProgress.Unsupported,
+    offered = { false },
+)
+
+/**
  * A read lane's grouped rows' copies, loaded with the rows ([lane]) rather than per drawn row, because
  * the Downloaded filter asks every row's state synchronously, drawn or not. [changes] ticks when the
  * copies move, which the lane itself cannot say: the same rows re-emitted are dropped as unchanged.

@@ -15,11 +15,16 @@ fun PreferenceStore.getStringList(key: String): Preference<List<String>> = getOb
 )
 
 /**
- * This list in a saved [order] of keys: the items it names first, as saved, then the rest in their own
- * order, so an item added after the order was saved goes last. A key that names nothing is ignored.
+ * This list's own items in [keys]' order, then any item [keys] does not name, in its current order. A
+ * key naming nothing here is skipped, so an order computed from an older copy of a list (a queue, or a
+ * saved [getStringList] order) can be applied to the live one without bringing back what left it or
+ * dropping what joined it.
  */
-fun <T> List<T>.inSavedOrder(order: List<String>, keyOf: (T) -> String): List<T> {
+fun <T, K> List<T>.inOrderOf(keys: List<K>, keyOf: (T) -> K): List<T> {
     val byKey = associateBy(keyOf)
-    val placed = order.distinct().mapNotNull(byKey::get)
-    return placed + (this - placed.toSet())
+    val seen = HashSet<K>()
+    return buildList {
+        keys.forEach { key -> byKey[key]?.let { if (seen.add(key)) add(it) } }
+        this@inOrderOf.forEach { if (seen.add(keyOf(it))) add(it) }
+    }
 }

@@ -58,13 +58,13 @@ interface LibraryBehavior {
     /** Any of [entries] is a merge group; drives the bulk Unmerge action. */
     fun containsMerged(entries: Set<EntryId>): Boolean
 
-    /** The bulk Download action applies (manga hides it when every selected entry is local). */
-    fun canDownload(entries: Set<EntryId>): Boolean
-
     /** Grouped sources behind [entries] (0 = nothing merged), for the delete dialog's opt-in checkbox. */
     fun groupedSourceCount(entries: Set<EntryId>): Int
 
-    /** Any of [entries] comes from a local source, which has no downloads to delete. */
+    /**
+     * Any of [entries] comes from a local source, which has no downloads to delete and nothing to
+     * download, so the engine hides bulk Download for this provider's part of a selection holding one.
+     */
     fun containsLocal(entries: Set<EntryId>): Boolean
 
     /**

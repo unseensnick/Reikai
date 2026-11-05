@@ -101,11 +101,20 @@ class NovelSourceManager(
         appsRegistered.await()
     }
 
+    private val builtInIds = builtIn.mapTo(HashSet()) { it.id }
+
+    /** Throws for a built-in source's id, which a plugin registered under it would replace. */
+    fun requireRegistrable(id: String) {
+        check(id !in builtInIds) { "A source cannot use the id $id" }
+    }
+
     fun register(source: NovelSource) {
+        requireRegistrable(source.id)
         sourcesFlow.update { it + (source.id to source) }
     }
 
     fun unregister(id: String) {
+        if (id in builtInIds) return
         sourcesFlow.update { it - id }
     }
 

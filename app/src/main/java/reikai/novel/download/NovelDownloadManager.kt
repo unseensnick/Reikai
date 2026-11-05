@@ -53,7 +53,7 @@ import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
-import reikai.presentation.download.inOrderOf
+import reikai.util.inOrderOf
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext

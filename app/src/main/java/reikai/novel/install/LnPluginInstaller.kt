@@ -21,7 +21,6 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
-import reikai.novel.local.LocalNovelSource
 import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
@@ -123,8 +122,8 @@ class LnPluginInstaller(
     private suspend fun installLocked(canonical: String, metadata: LnInstalledPluginMetadata?): LnPluginSource {
         val src = loader.download(canonical)
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
-        // The local source's id is the app's own; a plugin claiming it would replace the local novels.
-        if (LocalNovelSource.isLocal(info.id)) throw IllegalStateException("A plugin cannot use the id ${info.id}")
+        // Before storing, so a plugin claiming a built-in's id is refused without leaving a script behind.
+        manager.requireRegistrable(info.id)
         // Stored only once it loads, so a broken new version leaves the installed one in place.
         loader.store(canonical, src)
         val source = LnPluginSource(host, info, refreshStylesheet(canonical, metadata?.customCssUrl))
@@ -199,6 +198,8 @@ class LnPluginInstaller(
             val stored = loader.installed(url)
             val src = stored ?: downloadMissingScript(url, metadata)
             val info = host.loadPlugin(scopeIdFromUrl(url), src, metadata?.iconUrl, metadata?.lang, metadata?.pluginId)
+            // Recorded as this plugin's load failure rather than thrown from the register below.
+            manager.requireRegistrable(info.id)
             if (stored == null) loader.store(url, src)
             // A missing script means the stylesheet went with it, so it is fetched again with it.
             val stylesheet = if (stored == null) {

@@ -1,7 +1,6 @@
 package reikai.presentation.library
 
 import android.content.Context
-import androidx.compose.ui.util.fastAll
 import androidx.lifecycle.viewModelScope
 import dev.zacsweers.metro.Assisted
 import dev.zacsweers.metro.AssistedFactory
@@ -69,7 +68,6 @@ class MangaLibraryAdapter(
             categories = getCategories.subscribe()
                 .sortedByCategoryPref(reikaiLibraryPreferences)
                 .stateIn(model.viewModelScope, SharingStarted.WhileSubscribed(), emptyList()),
-            showLocalBadge = true,
         )
     }
 
@@ -182,11 +180,6 @@ class MangaLibraryAdapter(
 
     override fun containsMerged(entries: Set<EntryId>) =
         model.state.value.containsMerged(entries.ownIds())
-
-    // Non-empty matters under All (the engine shows Download if ANY provider can act); the
-    // all-non-local rule is upstream's (Download hides when any selected manga is local).
-    override fun canDownload(entries: Set<EntryId>) =
-        model.state.value.mangaFor(entries.ownIds()).let { it.isNotEmpty() && it.fastAll { m -> !m.isLocal() } }
 
     override fun groupedSourceCount(entries: Set<EntryId>): Int {
         val state = model.state.value

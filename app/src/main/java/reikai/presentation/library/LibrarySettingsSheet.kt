@@ -62,8 +62,7 @@ fun LibrarySettingsSheet(
             when (tabs[page]) {
                 LibrarySettingsTab.FILTER -> FilterPage(settings, settingsViewModel, onManageCategories)
                 LibrarySettingsTab.SORT -> SortPage(settings, settingsViewModel, categoryId)
-                LibrarySettingsTab.DISPLAY ->
-                    EntryDisplayPage(viewModel = settingsViewModel, showLocalBadge = settings.showLocalBadge)
+                LibrarySettingsTab.DISPLAY -> EntryDisplayPage(viewModel = settingsViewModel)
                 LibrarySettingsTab.GROUP -> GroupPage(settings)
             }
         }

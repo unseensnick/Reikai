@@ -186,6 +186,18 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
 
+### Updates & History
+
+#### Changed
+
+- **Local manga chapters in Updates and History now count as downloaded, with no Download button that did nothing.**
+
+### Migration
+
+#### Fixed
+
+- **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
+
 ### Other
 
 - Updated jsoup and Metro (from Mihon).

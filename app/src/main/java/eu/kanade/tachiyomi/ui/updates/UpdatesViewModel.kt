@@ -37,6 +37,7 @@ import reikai.domain.category.RecentsSurface
 import reikai.domain.category.recentsCategoryFilterFlow
 import reikai.domain.entry.overlayCustomInfo
 import reikai.domain.entry.withCustomInfo
+import reikai.domain.manga.isOnDevice
 import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.core.common.util.lang.SubscriberGate
@@ -210,7 +211,8 @@ class UpdatesViewModel(
         return this
             .map { update ->
                 val activeDownload = queuedDownloads[update.chapterId]
-                val downloaded = downloadManager.isChapterDownloaded(
+                // RK: a local series' chapters count as on the device (recents.md Decisions).
+                val downloaded = downloadManager.isOnDevice(
                     update.chapterName,
                     update.scanlator,
                     update.chapterUrl,

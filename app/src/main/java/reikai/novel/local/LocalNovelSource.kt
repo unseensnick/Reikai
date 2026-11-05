@@ -37,6 +37,7 @@ import tachiyomi.core.metadata.tachiyomi.MangaDetails
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.i18n.MR
 import java.io.File
+import java.io.InputStream
 import java.net.URLDecoder
 import java.net.URLEncoder
 import kotlin.time.Instant
@@ -243,6 +244,21 @@ class LocalNovelSource(
         return target.absolutePath
     }
 
+    /**
+     * Writes [stream] as the `cover.*` picture of the series at [novelPath], which [coverAddress] reads
+     * before any book's own, and returns its address; null for a loose EPUB, which has no folder to hold
+     * one. Twin of `LocalCoverManager.update`, pinned by CoverEditCapabilityConformanceTest.
+     */
+    suspend fun writeCover(novelPath: String, stream: InputStream): String? = withIOContext {
+        val folder = storageManager.getLocalNovelsDirectory()?.findFile(novelPath)?.takeIf { it.isDirectory }
+            ?: return@withIOContext null
+        val target = folder.listFiles().orEmpty().asIterable().localCover()
+            ?: folder.createFile(DEFAULT_COVER_NAME)
+            ?: return@withIOContext null
+        target.openOutputStream().use { stream.copyTo(it) }
+        target.uri.toString()
+    }
+
     private data class Series(
         val path: String,
         val volumes: List<UniFile>,
@@ -260,6 +276,7 @@ class LocalNovelSource(
         private const val CHAPTER_CACHE_SIZE = 8
         private const val DETAILS_FILE = "details.json"
         private const val COVER_DIR = "local_novel_covers"
+        private const val DEFAULT_COVER_NAME = "cover.jpg"
         private const val EPUB_SUFFIX = ".epub"
         private const val PATH_SEPARATOR = "::"
 

@@ -47,6 +47,13 @@ class DownloadedChaptersTest {
         downloadManager.downloadedChapterIds(chapters) { local } shouldBe setOf(31L, 32L)
     }
 
+    @Test
+    fun `one copy of a local entry's chapter is on the device`() {
+        every { downloadManager.isChapterDownloaded(any(), any(), any(), any(), any()) } returns false
+
+        downloadManager.isOnDevice("Ch 31", null, "/31", local.title, local.source) shouldBe true
+    }
+
     private fun chapter(id: Long, mangaId: Long, name: String) = Chapter.create().copy(
         id = id,
         mangaId = mangaId,

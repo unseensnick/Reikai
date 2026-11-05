@@ -2,6 +2,7 @@ package reikai.presentation.library
 
 import android.content.Context
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
@@ -579,6 +580,39 @@ class LibraryEngineTest {
         io.mockk.verify { novel.markReadSelection(setOf(m1), true) }
         engine.selection.value.isEmpty() shouldBe true
     }
+
+    /** A local entry has nothing to download, whichever type it is, so its selection offers no Download. */
+    @ParameterizedTest
+    @EnumSource(value = ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a selection of one local entry hides bulk Download`(type: ContentType) {
+        val local = if (type == ContentType.MANGA) m1 else n1
+        every { providerOf(type).containsLocal(setOf(local)) } returns true
+        engine.toggleSelection(bucket, local)
+
+        engine.canDownloadSelection(ContentType.ALL) shouldBe false
+    }
+
+    @Test
+    fun `a local manga selected beside a novel keeps bulk Download`() {
+        every { manga.containsLocal(setOf(m1, n1)) } returns true
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
+
+        engine.canDownloadSelection(ContentType.ALL) shouldBe true
+    }
+
+    @Test
+    fun `bulk Download skips the provider whose part is local`() {
+        every { manga.containsLocal(setOf(m1, n1)) } returns true
+        engine.toggleSelection(bucket, m1)
+        engine.toggleSelection(bucket, n1)
+
+        engine.performDownloadAction(ContentType.ALL, DownloadAction.NEXT_1_CHAPTER)
+
+        verify(exactly = 0) { manga.performDownloadAction(any(), any()) }
+    }
+
+    private fun providerOf(type: ContentType) = if (type == ContentType.MANGA) manga else novel
 
     /** The search field stays on screen across a chip flip, so the view flipped to must filter by it. */
     private fun typeThenSwitch(from: ContentType, typedOn: LibraryProvider, to: ContentType) {

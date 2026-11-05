@@ -3,6 +3,8 @@ package reikai.presentation.details
 import android.content.Context
 import android.net.Uri
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.unmockkStatic
@@ -21,10 +23,10 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
-import reikai.domain.entry.signedKey
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.model.Novel
+import reikai.novel.local.LocalNovelSource
 import reikai.presentation.novel.details.NovelCoverViewModel
 import reikai.util.mockIoDispatcher
 import tachiyomi.domain.manga.interactor.GetCustomMangaInfo
@@ -37,7 +39,8 @@ import kotlin.time.Instant
 
 /**
  * A custom cover is kept only for an entry in the library (removal deletes it), so the cover viewer
- * offers Edit only there. Manga writes one for a local-source entry too, which novels have no kind of.
+ * offers Edit only there. A local entry of either type takes one anywhere: it is written into the
+ * series' own folder, which outlives the library.
  */
 class CoverEditCapabilityConformanceTest {
 
@@ -63,9 +66,28 @@ class CoverEditCapabilityConformanceTest {
         editable(probe.model(inLibrary = true)) shouldBe true
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a local entry outside the library can take a custom cover`(probe: CoverEditProbe) = runTest {
+        editable(probe.model(inLibrary = false, local = true)) shouldBe true
+    }
+
+    /** Manga's write is upstream's `Manga.editCover`; the novel twin writes through its local source. */
     @Test
-    fun `a local manga outside the library can take a custom cover`() = runTest {
-        editable(MangaCoverEditProbe(source = LocalSource.ID).model(inLibrary = false)) shouldBe true
+    fun `a local novel's new cover is written into its series folder`() = runTest {
+        mockIoDispatcher(UnconfinedTestDispatcher(testScheduler))
+        val probe = NovelCoverEditProbe()
+        val model = probe.model(inLibrary = false, local = true)
+        editable(model)
+        // Relaxed for the snackbar's string, which the write does not depend on.
+        val context = mockk<Context>(relaxed = true) {
+            every { contentResolver.openInputStream(any()) } returns ByteArrayInputStream(byteArrayOf(1))
+        }
+
+        model.editCover(context, mockk<Uri>())
+        runCurrent()
+
+        coVerify { probe.localSource.writeCover("/1", any()) }
     }
 
     companion object {
@@ -78,7 +100,7 @@ class CoverEditCapabilityConformanceTest {
 interface CoverEditProbe {
     val id: EntryId
 
-    fun model(inLibrary: Boolean): EntryCoverViewModel<*>
+    fun model(inLibrary: Boolean, local: Boolean = false): EntryCoverViewModel<*>
 }
 
 // Read while subscribed, since the answer is shared only while the dialog collects it.
@@ -88,15 +110,15 @@ private fun TestScope.editable(model: EntryCoverViewModel<*>): Boolean {
     return model.isCoverEditable.value
 }
 
-class MangaCoverEditProbe(private val source: Long = 1L) : CoverEditProbe {
+class MangaCoverEditProbe : CoverEditProbe {
     override val id = EntryId.Manga(1L)
 
     override fun toString() = "manga"
 
-    override fun model(inLibrary: Boolean): EntryCoverViewModel<*> {
+    override fun model(inLibrary: Boolean, local: Boolean): EntryCoverViewModel<*> {
         val manga = Manga.create().copy(
             id = 1L,
-            source = source,
+            source = if (local) LocalSource.ID else 1L,
             favoriteAt = Instant.fromEpochMilliseconds(100L).takeIf {
                 inLibrary
             },
@@ -117,12 +139,14 @@ class MangaCoverEditProbe(private val source: Long = 1L) : CoverEditProbe {
 class NovelCoverEditProbe : CoverEditProbe {
     override val id = EntryId.Novel(1L)
 
+    val localSource = mockk<LocalNovelSource> { coEvery { writeCover(any(), any()) } returns "content://cover" }
+
     override fun toString() = "novel"
 
-    override fun model(inLibrary: Boolean): EntryCoverViewModel<*> {
+    override fun model(inLibrary: Boolean, local: Boolean): EntryCoverViewModel<*> {
         val novel = Novel.create().copy(
             id = 1L,
-            source = "plugin",
+            source = if (local) LocalNovelSource.ID else "plugin",
             url = "/1",
             favoriteAt = Instant.fromEpochMilliseconds(100L).takeIf {
                 inLibrary
@@ -131,13 +155,14 @@ class NovelCoverEditProbe : CoverEditProbe {
         return NovelCoverViewModel(
             novelUrl = novel.url,
             novelSource = novel.source,
-            novelRepo = mockk<NovelRepository> {
+            novelRepo = mockk<NovelRepository>(relaxed = true) {
                 every { getByUrlAndSourceAsFlow(novel.url, novel.source) } returns flowOf(novel)
             },
             getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribe(novel.id) } returns flowOf(null) },
             updateNovel = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
             clearCustomCover = mockk(relaxed = true),
+            localNovelSource = localSource,
             imageSaver = mockk(relaxed = true),
         )
     }

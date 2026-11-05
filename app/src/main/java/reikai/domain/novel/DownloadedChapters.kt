@@ -16,3 +16,14 @@ fun NovelDownloadCache.downloadedChapterIds(chapters: List<NovelChapter>, owners
         val owner = owners[novelId] ?: return@flatMapTo emptyList()
         if (LocalNovelSource.isLocal(owner.source)) owned.map { it.id } else downloadedChapterIds(owner, owned)
     }
+
+/**
+ * Whether one copy of a chapter is on the device, by [downloadedChapterIds]' rule: a local novel's
+ * chapters are its own files, so they always are. For a caller holding only a copy's stored values.
+ */
+fun NovelDownloadCache.isOnDevice(source: String, novelTitle: String, chapterName: String, chapterUrl: String) =
+    LocalNovelSource.isLocal(source) || isChapterDownloaded(source, novelTitle, chapterName, chapterUrl)
+
+/** [isOnDevice] for [chapter] under its own [owner]. */
+fun NovelDownloadCache.isOnDevice(owner: Novel, chapter: NovelChapter): Boolean =
+    LocalNovelSource.isLocal(owner.source) || isChapterDownloaded(owner, chapter)

@@ -4,7 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import reikai.domain.novel.NovelPreferences
-import reikai.util.inSavedOrder
+import reikai.util.inOrderOf
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 
@@ -76,7 +76,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
 
         /** Every button [scope] offers, in the stored [order], so a button switched off keeps its place. */
         fun arranged(order: List<String>, scope: Scope): List<ReaderBottomButton> =
-            offeredIn(scope).inSavedOrder(order) { it.value }
+            offeredIn(scope).inOrderOf(order) { it.value }
 
         /** [ordered], kept current as either preference changes. Both readers draw their bar through it. */
         fun orderedChanges(preferences: BarPreferences): Flow<List<ReaderBottomButton>> =

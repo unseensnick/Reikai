@@ -31,6 +31,7 @@ import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.chapterSettingsOf
 import reikai.domain.manga.inReadingOrder
+import reikai.domain.manga.isOnDevice
 import reikai.domain.merge.ChapterCopyRow
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -55,6 +56,7 @@ import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.LocalSource
 import kotlin.time.Instant
 
 /**
@@ -330,12 +332,15 @@ class MangaRecentsAdapter(
      * the row, because combining the whole feed with the download queue would re-map every row of it
      * on each download tick. The Downloaded filter asks this same state.
      */
-    private fun historyDownloadUi(payload: HistoryWithRelations) =
+    private fun historyDownloadUi(
+        payload: HistoryWithRelations,
+    ) = recentsDownloadUi(payload.sourceId == LocalSource.ID) {
         copiesDownloadUi(payload.chapterId, copies = {
             with(payload) {
                 readCopies.copiesOf(chapterId, storedTitle, sourceId.toString(), chapterName, scanlator, chapterUrl)
             }
         }, isInstalled = readCopies::isInstalled)
+    }
 
     private fun copiesDownloadUi(
         chapterId: Long,
@@ -348,7 +353,7 @@ class MangaRecentsAdapter(
         progress = { id -> downloadManager.getQueuedDownloadOrNull(id)?.progress },
         isInstalled = isInstalled,
     ) { copy ->
-        downloadManager.isChapterDownloaded(
+        downloadManager.isOnDevice(
             copy.chapterName,
             copy.scanlator,
             copy.chapterUrl,
@@ -360,10 +365,12 @@ class MangaRecentsAdapter(
 
 /** The updates model already builds both providers per row, so this only hands them over. */
 internal fun mangaDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
-    is UpdatesItem -> RecentsDownloadUi(
-        state = payload.downloadStateProvider,
-        progress = RecentsDownloadProgress.Live(payload.downloadProgressProvider),
-    )
+    is UpdatesItem -> recentsDownloadUi(payload.update.sourceId == LocalSource.ID) {
+        RecentsDownloadUi(
+            state = payload.downloadStateProvider,
+            progress = RecentsDownloadProgress.Live(payload.downloadProgressProvider),
+        )
+    }
     else -> null
 }
 

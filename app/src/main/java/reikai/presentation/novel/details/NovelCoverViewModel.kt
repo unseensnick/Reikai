@@ -15,9 +15,11 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.novel.model.withCustomInfo
+import reikai.novel.local.LocalNovelSource
 import reikai.presentation.details.EntryCoverViewModel
 import java.io.InputStream
 
@@ -35,6 +37,7 @@ class NovelCoverViewModel(
     private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
     private val clearCustomCover: ClearCustomCover,
+    private val localNovelSource: LocalNovelSource,
     imageSaver: ImageSaver,
 ) : EntryCoverViewModel<Novel>(imageSaver) {
 
@@ -54,13 +57,20 @@ class NovelCoverViewModel(
 
     override fun coverName(entry: Novel): String = entry.title
 
-    // Novels have no local source, so only the library keeps a custom cover.
-    override fun canEditCover(entry: Novel): Boolean = entry.favorite
+    // As manga's: a local novel's cover goes into its own folder, so it needs no library entry to keep it.
+    override fun canEditCover(entry: Novel): Boolean = entry.favorite || LocalNovelSource.isLocal(entry.source)
 
     override fun hasCustomCover(): Boolean = entry.value?.hasCustomCover(coverCache) ?: false
 
     override suspend fun persistCustomCover(entry: Novel, stream: InputStream) {
-        coverCache.setCustomCoverToCache(EntryId.Novel(entry.id), stream)
+        val isLocal = LocalNovelSource.isLocal(entry.source)
+        val inFolder = if (isLocal) localNovelSource.writeCover(entry.url, stream) else null
+        // The stored address may be the book's own picture, copied out, which the folder's cover now replaces.
+        if (inFolder != null) {
+            novelRepo.update(NovelUpdate(entry.id) { thumbnailUrl = inFolder })
+        } else {
+            coverCache.setCustomCoverToCache(EntryId.Novel(entry.id), stream)
+        }
         updateNovel.awaitUpdateCoverLastModified(entry.id)
     }
 

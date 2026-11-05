@@ -64,8 +64,6 @@ data class LibraryCategoryFilter(
 data class LibraryProviderSettings(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
     val categories: StateFlow<List<Category>>,
-    /** Whether the Display tab offers the Local badge. Only manga has a local-source concept. */
-    val showLocalBadge: Boolean,
 )
 
 /**
@@ -82,5 +80,4 @@ data class LibrarySettingsBinding(
     val globalSort: StateFlow<LibrarySort>,
     val setSort: (categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) -> Unit,
     val resetSort: (categoryId: Long) -> Unit,
-    val showLocalBadge: Boolean,
 )

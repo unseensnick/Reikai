@@ -30,6 +30,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -45,6 +46,7 @@ import reikai.domain.source.isInstalled
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddDecision
 import reikai.presentation.browse.AddFavoriteResult
@@ -308,9 +310,11 @@ class NovelRecentsAdapter(
 
     /** Over the row's copies loaded with the lane ([readCopies]); the Downloaded filter asks this too. */
     private fun historyDownloadUi(payload: NovelHistoryWithRelations) =
-        copiesDownloadUi(payload.chapterId, copies = {
-            with(payload) { readCopies.copiesOf(chapterId, storedTitle, source, chapterName, null, chapterUrl) }
-        }, isInstalled = readCopies::isInstalled)
+        recentsDownloadUi(LocalNovelSource.isLocal(payload.source)) {
+            copiesDownloadUi(payload.chapterId, copies = {
+                with(payload) { readCopies.copiesOf(chapterId, storedTitle, source, chapterName, null, chapterUrl) }
+            }, isInstalled = readCopies::isInstalled)
+        }
 
     private fun copiesDownloadUi(
         chapterId: Long,
@@ -327,7 +331,7 @@ class NovelRecentsAdapter(
         progress = null,
         isInstalled = isInstalled,
     ) { copy ->
-        novelDownloadCacheProvider().isChapterDownloaded(
+        novelDownloadCacheProvider().isOnDevice(
             copy.ownerSource,
             copy.ownerTitle,
             copy.chapterName,
@@ -342,10 +346,12 @@ class NovelRecentsAdapter(
  * renderer could not tell from a download that has genuinely started.
  */
 internal fun novelDownloadUi(item: RecentsItem): RecentsDownloadUi? = when (val payload = item.payload) {
-    is NovelUpdatesItem -> RecentsDownloadUi(
-        state = { payload.downloadState },
-        progress = RecentsDownloadProgress.Unsupported,
-    )
+    is NovelUpdatesItem -> recentsDownloadUi(LocalNovelSource.isLocal(payload.update.source)) {
+        RecentsDownloadUi(
+            state = { payload.downloadState },
+            progress = RecentsDownloadProgress.Unsupported,
+        )
+    }
     else -> null
 }
 
