@@ -53,7 +53,6 @@ import reikai.domain.readinglog.PaceUnit
 import reikai.domain.readinglog.ReadingPace
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.learnPace
-import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Duration.Companion.seconds
@@ -328,7 +327,8 @@ class ReaderEngine(
     // Only a chapter whose length said it is recorded: one in incognito, or never measured, keeps nothing.
     private fun recordListened(listened: Pair<Long, Long>) {
         if (recordedChapters[listened.first] != true) return
-        appScope.launchIO { paceRepository.addListenedTime(listened.first, listened.second) }
+        // The app scope runs on IO already; launchIO would leave a test's dispatcher for a real thread.
+        appScope.launch { paceRepository.addListenedTime(listened.first, listened.second) }
     }
 
     override fun onCleared() {
