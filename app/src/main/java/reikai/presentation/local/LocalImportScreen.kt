@@ -4,17 +4,21 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -294,7 +298,7 @@ private fun ImportList(
 }
 
 @Composable
-private fun GroupCard(
+internal fun GroupCard(
     group: ImportGroup,
     enabled: Boolean,
     onRename: () -> Unit,
@@ -337,6 +341,7 @@ private fun GroupCard(
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
                     )
                 }
                 val count = pluralStringResource(MR.plurals.local_import_file_count, group.files.size, group.files.size)
@@ -347,7 +352,8 @@ private fun GroupCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 if (group.canBeEitherType) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+                    // Wraps, so a large font size moves a chip to the next line instead of crushing it.
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
                         listOf(ContentType.NOVELS, ContentType.MANGA).forEach { type ->
                             FilterChip(
                                 selected = group.type == type,
@@ -402,7 +408,11 @@ private fun ImportBar(
 ) {
     Surface(tonalElevation = 3.dp) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(end = MaterialTheme.padding.medium),
+            // Clear of the navigation bar, so a swipe home cannot land on the switch or Import.
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.navigationBars)
+                .padding(end = MaterialTheme.padding.medium),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             SwitchPreferenceWidget(
