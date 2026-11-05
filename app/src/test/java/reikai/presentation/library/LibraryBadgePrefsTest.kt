@@ -9,7 +9,7 @@ import org.junit.jupiter.params.provider.EnumSource
 /** Both library row builders and both merge collapses gate their badges through [LibraryBadgePrefs]. */
 class LibraryBadgePrefsTest {
 
-    // The language case reads a row from a real source: a local one never shows its placeholder language.
+    // The language case reads an online row; a local one shows what entryLanguage read from its files.
     enum class Toggle(
         val off: LibraryBadgePrefs,
         val read: (LibraryItem.Badges) -> Any?,
@@ -36,8 +36,8 @@ class LibraryBadgePrefsTest {
     }
 
     @Test
-    fun `a local series shows no language, since its source names none`() {
-        ALL_ON.copy(local = false).row(isLocal = true).sourceLanguage shouldBe ""
+    fun `a local series shows the language read from its files`() {
+        ALL_ON.row(isLocal = true).sourceLanguage shouldBe "ja"
     }
 
     @ParameterizedTest

@@ -84,7 +84,7 @@ data class LibraryQuerySource(
     val key: String,
     val name: String,
     val language: String?,
-    /** Backs `source:local`. Always false for novels, which have no local-source concept. */
+    /** Backs `source:local`, for the local sources of both types. */
     val isLocal: Boolean,
 )
 

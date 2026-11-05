@@ -1,6 +1,8 @@
 package reikai.presentation.library.novels
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import reikai.domain.library.entryLanguage
+import reikai.domain.library.localLanguage
 import reikai.domain.library.novelLibraryRanking
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
@@ -79,11 +81,14 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
     badgePrefs: LibraryBadgePrefs,
     showSourceIcons: Boolean,
     querySource: suspend (String) -> LibraryQuerySource,
+    localLanguages: Map<String, String> = emptyMap(),
     sourceBadge: suspend (String) -> SourceBadge,
 ): LibraryItem {
     val source = representative.novel.source
     val own = querySource(source)
-    val row = representative.toLibraryItem(badgePrefs, own.language.orEmpty(), sourceBadge(source), own.name)
+    val language =
+        entryLanguage(own.isLocal, localLanguage(localLanguages[representative.novel.url]), own.language.orEmpty())
+    val row = representative.toLibraryItem(badgePrefs, language, sourceBadge(source), own.name)
     if (members.size == 1) return row
     return row.stampMergedGroup(
         members = members.map {

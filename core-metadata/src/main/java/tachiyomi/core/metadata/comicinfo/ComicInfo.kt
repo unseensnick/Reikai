@@ -2,11 +2,29 @@ package tachiyomi.core.metadata.comicinfo
 
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.jsonPrimitive
 import nl.adaptivity.xmlutil.serialization.XmlElement
 import nl.adaptivity.xmlutil.serialization.XmlSerialName
 import nl.adaptivity.xmlutil.serialization.XmlValue
 
 const val COMIC_INFO_FILE = "ComicInfo.xml"
+
+// RK --> a local series' language rides in its memo, namespaced so it cannot meet a key an extension keeps there
+const val LOCAL_LANGUAGE_MEMO_KEY = "reikai:language"
+
+/** The language a local series' files name, as written there; see LOCAL_LANGUAGE_MEMO_KEY. */
+val SManga.localLanguage: String?
+    get() = memo[LOCAL_LANGUAGE_MEMO_KEY]?.jsonPrimitive?.contentOrNull
+
+/** Sets [localLanguage], or drops it when [language] is null. */
+fun SManga.setLocalLanguage(language: String?) {
+    val others = memo - LOCAL_LANGUAGE_MEMO_KEY
+    memo = JsonObject(if (language == null) others else others + (LOCAL_LANGUAGE_MEMO_KEY to JsonPrimitive(language)))
+}
+// RK <--
 
 fun SManga.getComicInfo() = ComicInfo(
     series = ComicInfo.Series(title),
@@ -31,6 +49,7 @@ fun SManga.getComicInfo() = ComicInfo(
     day = null,
     categories = null,
     source = null,
+    languageISO = localLanguage?.let { ComicInfo.LanguageISO(it) }, // RK
 )
 
 fun SManga.copyFromComicInfo(comicInfo: ComicInfo) {
@@ -62,6 +81,7 @@ fun SManga.copyFromComicInfo(comicInfo: ComicInfo) {
         ?.let { artist = it }
 
     status = ComicInfoPublishingStatus.toSMangaValue(comicInfo.publishingStatus?.value)
+    setLocalLanguage(comicInfo.languageISO?.value?.takeIf { it.isNotBlank() }) // RK
 }
 
 // https://anansi-project.github.io/docs/comicinfo/schemas/v2.0
@@ -89,6 +109,7 @@ data class ComicInfo(
     val publishingStatus: PublishingStatusTachiyomi?,
     val categories: CategoriesTachiyomi?,
     val source: SourceMihon?,
+    val languageISO: LanguageISO? = null, // RK
 ) {
     @XmlElement(false)
     @XmlSerialName("xmlns:xsd", "", "")
@@ -178,6 +199,12 @@ data class ComicInfo(
     @Serializable
     @XmlSerialName("SourceMihon", "http://www.w3.org/2001/XMLSchema", "mh")
     data class SourceMihon(@XmlValue(true) val value: String = "")
+
+    // RK -->
+    @Serializable
+    @XmlSerialName("LanguageISO", "", "")
+    data class LanguageISO(@XmlValue(true) val value: String = "")
+    // RK <--
 }
 
 enum class ComicInfoPublishingStatus(

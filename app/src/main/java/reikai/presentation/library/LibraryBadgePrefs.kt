@@ -33,8 +33,8 @@ data class LibraryBadgePrefs(
         downloadCount = downloadBadge(downloadCount),
         unreadCount = unreadBadge(unreadCount),
         isLocal = local && isLocal,
-        // A local source's language is the placeholder "other", which says nothing about the series.
-        sourceLanguage = if (language && !isLocal) sourceLanguage else "",
+        // The caller passes entryLanguage: a local series' own, or empty when its files name none.
+        sourceLanguage = if (language) sourceLanguage else "",
         source = sourceBadge.takeIf { source },
         coverSourceId = coverSourceId,
     )

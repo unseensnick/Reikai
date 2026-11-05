@@ -11,7 +11,10 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.entryLanguage
 import reikai.domain.library.includes
+import reikai.domain.library.localFilesLanguage
+import reikai.domain.library.localLanguage
 import reikai.domain.library.mangaLibraryRanking
 import reikai.domain.library.novelLibraryRanking
 import reikai.domain.manga.MangaMergeManager
@@ -19,6 +22,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetNovelTracks
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.track.toUiTrack
 import reikai.domain.readinglog.EntryReadDuration
@@ -29,6 +33,7 @@ import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPace
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.domain.readinglog.learnPace
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.badgeSource
@@ -41,6 +46,7 @@ import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracksPerManga
 import tachiyomi.domain.track.model.Track
+import tachiyomi.source.local.isLocal
 import kotlin.math.roundToLong
 
 /** Both content types' libraries as Statistics reads them, loaded once per screen. */
@@ -184,6 +190,7 @@ class StatsLibraryLoader(
     private val getCategories: GetCategories,
     private val getNovelCategories: GetNovelCategories,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+    private val localNovelLanguages: LocalNovelLanguageRepository,
 ) {
 
     suspend fun load(): StatsLibrary {
@@ -222,6 +229,7 @@ class StatsLibraryLoader(
             novelSourceManager.identityOf(id).let { StatsSource(id, it.name, it.lang.orEmpty()) }
         }
         val iconsBySite = installedIconsBySite(novelSourceManager.getAll())
+        val novelLanguages = localNovelLanguages.getAll()
         val sourceBadges = mangaSources.keys.associate { id ->
             id.toString() to SourceBadge.Manga(sourceManager.badgeSource(id))
         } + novelSources.keys.associateWith { id -> novelSourceBadge(novelSourceManager.get(id), iconsBySite) }
@@ -231,7 +239,12 @@ class StatsLibraryLoader(
                 entryId = { EntryId.Manga(it.manga.id) },
                 title = { customInfo[EntryId.Manga(it.manga.id)]?.title ?: it.manga.title },
                 status = { it.manga.status },
-                source = { mangaSources.getValue(it.manga.source) },
+                // A local series counts under its own language, as its library row reads it.
+                source = { m ->
+                    mangaSources.getValue(m.manga.source).let {
+                        it.copy(language = entryLanguage(m.manga.isLocal(), m.manga.localFilesLanguage, it.language))
+                    }
+                },
                 genres = { it.manga.genre },
                 customGenres = { customInfo[EntryId.Manga(it.manga.id)]?.genre },
                 categoryIds = { it.categories },
@@ -248,7 +261,12 @@ class StatsLibraryLoader(
                 entryId = { EntryId.Novel(it.novel.id) },
                 title = { customInfo[EntryId.Novel(it.novel.id)]?.title ?: it.novel.title },
                 status = { it.novel.status },
-                source = { novelSources.getValue(it.novel.source) },
+                source = { n ->
+                    novelSources.getValue(n.novel.source).let {
+                        val own = localLanguage(novelLanguages[n.novel.url])
+                        it.copy(language = entryLanguage(LocalNovelSource.isLocal(n.novel.source), own, it.language))
+                    }
+                },
                 genres = { it.novel.genre },
                 customGenres = { customInfo[EntryId.Novel(it.novel.id)]?.genre },
                 categoryIds = { it.categories },

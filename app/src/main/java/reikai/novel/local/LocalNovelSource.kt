@@ -12,6 +12,7 @@ import kotlinx.serialization.json.Json
 import mihon.core.archive.archiveReader
 import mihon.domain.extension.model.ContentWarning
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.source.CatalogueEnd
 import reikai.novel.download.inlinedImageAddress
 import reikai.novel.host.ChapterItem
@@ -47,6 +48,7 @@ class LocalNovelSource(
     private val context: Context,
     private val storageManager: StorageManager,
     private val json: Json,
+    private val languages: LocalNovelLanguageRepository,
 ) : NovelSource {
 
     override val id: String = ID
@@ -93,6 +95,8 @@ class LocalNovelSource(
                 ?: LocalNovelMissingException(novelPath)
         val details = series.details()
         val meta = first.book.metadata
+        // Kept beside the novel, since a novel row has nowhere to hold it; details.json wins, as for every field.
+        languages.set(series.path, (details?.language ?: meta.language)?.trim()?.takeIf { it.isNotEmpty() })
         var number = 0
         val chapters = volumes.flatMapIndexed { volumeIndex, (file, opened) ->
             opened.chapters.map { ref ->

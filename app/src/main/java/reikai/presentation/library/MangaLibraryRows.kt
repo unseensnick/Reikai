@@ -14,6 +14,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.withContext
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.entryLanguage
+import reikai.domain.library.localFilesLanguage
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.chapterSettingsOf
@@ -72,13 +74,14 @@ class MangaLibraryRows(
             val items = libraryManga.map { manga ->
                 val source = sources.getValue(manga.manga.source)
                 val downloadCount = downloadCounts.getValue(manga.id)
+                val language = entryLanguage(manga.manga.isLocal(), manga.manga.localFilesLanguage, source.lang)
                 LibraryItem(
                     libraryManga = manga,
                     downloadCount = downloadCount,
                     unreadCount = manga.unreadCount,
                     isLocal = manga.manga.isLocal(),
                     sourceName = source.name.lowercase(),
-                    sourceLanguage = source.lang,
+                    sourceLanguage = language,
                     // Non-null only for gallery/metadata sources, which selects the tag-search path.
                     metadataSourceName = source.getMainSource<MetadataSource<*, *>>()
                         ?.let { source.getNameForMangaInfo() },
@@ -87,7 +90,7 @@ class MangaLibraryRows(
                         downloadCount = downloadCount,
                         unreadCount = manga.unreadCount,
                         isLocal = manga.manga.isLocal(),
-                        sourceLanguage = source.lang,
+                        sourceLanguage = language,
                         sourceBadge = SourceBadge.Manga(sourceManager.badgeSource(manga.manga.source)),
                     ),
                 )

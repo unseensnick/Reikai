@@ -13,6 +13,7 @@ import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadCache
@@ -46,6 +47,7 @@ class NovelLibraryRows(
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val getNextNovelChapter: GetNextNovelChapter,
     private val basePreferences: BasePreferences,
+    private val localLanguages: LocalNovelLanguageRepository,
 ) {
 
     class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
@@ -58,6 +60,8 @@ class NovelLibraryRows(
         novelRepository.getLibraryNovelAsFlow()
             .combine(sourceManager.sources) { library, _ -> library }
             .combine(novelDownloadCache.changes.pausedWhileUnsubscribed()) { library, _ -> library }
+            // A local novel's language is read when its files are, so a refresh re-labels its row.
+            .combine(localLanguages.subscribeAll()) { library, _ -> library }
 
     fun mergeInputs(): Flow<MergeCollapseInputs<String>> = mergeCollapseInputsFlow(
         ContentType.NOVELS,
@@ -106,12 +110,14 @@ class NovelLibraryRows(
         val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Resolved once per source: a library holds far more novels than sources.
         val querySources = HashMap<String, LibraryQuerySource>()
+        val languages = localLanguages.getAll()
         val items = groups.map { group ->
             // An uninstalled source still gets a badge, as a manga group keeps its stub member.
             group.toLibraryRow(
                 badges,
                 merge.showSourceIcons,
                 { source -> querySources.getOrPut(source) { querySource(source) } },
+                languages,
             ) {
                 novelSourceBadge(sourceManager.get(it), iconsBySite)
             }

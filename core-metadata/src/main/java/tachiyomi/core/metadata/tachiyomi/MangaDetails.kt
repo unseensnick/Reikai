@@ -10,4 +10,5 @@ class MangaDetails(
     val description: String? = null,
     val genre: List<String>? = null,
     val status: Int? = null,
+    val language: String? = null, // RK: a local series' language, over its files'
 )

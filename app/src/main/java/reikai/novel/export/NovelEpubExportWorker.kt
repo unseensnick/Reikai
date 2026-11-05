@@ -24,7 +24,10 @@ import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.novel.NovelStatusCode
 import reikai.domain.entry.EntryId
+import reikai.domain.library.entryLanguage
+import reikai.domain.library.localLanguage
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.ownersOf
 import reikai.novel.content.NovelHtmlUtils
@@ -67,6 +70,8 @@ class NovelEpubExportWorker(
     @Inject private lateinit var coverCache: CoverCache
 
     @Inject private lateinit var sourceManager: NovelSourceManager
+
+    @Inject private lateinit var localNovelLanguages: LocalNovelLanguageRepository
 
     private val progress = context.notificationBuilder(Notifications.CHANNEL_COMMON) {
         setSmallIcon(MaterialSymbolsR.drawable.rounded_book)
@@ -129,8 +134,12 @@ class NovelEpubExportWorker(
             title = novel.title,
             author = novel.author,
             description = novel.description,
-            // The source's language, as a novel stores none of its own; a local source names none.
-            language = sourceManager.langOf(novel.source).takeUnless { it.isBlank() || it == "other" },
+            // A local novel's own language, else its source's; a local source's own is a placeholder.
+            language = entryLanguage(
+                LocalNovelSource.isLocal(novel.source),
+                localLanguage(localNovelLanguages.getAll()[novel.url]),
+                sourceManager.langOf(novel.source),
+            ).takeUnless { it.isBlank() || it == "other" },
             genres = novel.genre.orEmpty(),
             identifier = "urn:reikai:novel:${novel.source}:${novel.url}",
             cover = cover(novel),

@@ -39,6 +39,7 @@ import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.core.metadata.comicinfo.ComicInfo
 import tachiyomi.core.metadata.comicinfo.copyFromComicInfo
 import tachiyomi.core.metadata.comicinfo.getComicInfo
+import tachiyomi.core.metadata.comicinfo.setLocalLanguage
 import tachiyomi.core.metadata.tachiyomi.MangaDetails
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.model.Manga
@@ -195,6 +196,7 @@ class LocalSource(
                         description?.let { manga.description = it }
                         genre?.let { manga.genre = it.joinToString() }
                         status?.let { manga.status = it }
+                        language?.let { manga.setLocalLanguage(it) } // RK
                     }
                     // Replace with ComicInfo.xml file
                     val comicInfo = manga.getComicInfo()

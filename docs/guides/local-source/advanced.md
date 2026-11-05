@@ -12,6 +12,8 @@ Advanced local series metadata editing for enhanced library organization.
 It is possible to add details to local series.
 Like series from other sources, you add information about the series such as the `author`, `artist`, `description`, and `genre` tags.
 
+A local series' language badge comes from its own files: the `<LanguageISO>` element of a `ComicInfo.xml` (for example `<LanguageISO>en</LanguageISO>`), or for a novel the language its EPUB names. A `"language"` in the JSON below sets it too, and for a novel it wins over the book's. A series whose files name no language shows no language badge.
+
 Details are read from a **`ComicInfo.xml`** file in the **Series** folder. Write that file yourself: the app does not create one for a plain folder of images.
 
 It does look inside your chapter archives once. The first time it scans a series with no `ComicInfo.xml` of its own, it takes one out of a chapter archive if it finds it there and copies it up to the series folder. Most comic archives from other tools already carry one.
@@ -36,6 +38,7 @@ The old format, for reference:
   "description": "Example Description",
   "genre": ["genre 1", "genre 2", "etc"],
   "status": "0",
+  "language": "en",
   "_status values": ["0 = Unknown", "1 = Ongoing", "2 = Completed", "3 = Licensed", "4 = Publishing finished", "5 = Cancelled", "6 = On hiatus"]
 }
 ```
