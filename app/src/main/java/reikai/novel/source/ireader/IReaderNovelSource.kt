@@ -18,6 +18,7 @@ import reikai.novel.host.NovelItem
 import reikai.novel.host.NovelTextSanitizer
 import reikai.novel.host.SourceNovel
 import reikai.novel.host.withDecodedDetails
+import reikai.novel.host.withDecodedText
 import reikai.novel.source.AppNovelSource
 import reikai.novel.source.IREADER_NOVEL_SOURCE_PREFIX
 import reikai.novel.source.NovelExtensionFormat
@@ -120,7 +121,7 @@ class IReaderNovelSource(
 
             override suspend fun chapters(novelPath: String, url: String, html: String) = appSourceCall {
                 source.getChapterList(MangaInfo(key = novelPath, title = ""), listOf(Command.Chapter.Fetch(url, html)))
-                    .map { it.toChapterItem() }
+                    .map { it.toChapterItem().withDecodedText() }
             }
 
             override suspend fun chapterText(chapterPath: String, url: String, html: String) = appSourceCall {

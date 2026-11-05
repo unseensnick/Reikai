@@ -24,11 +24,13 @@ class ChapterItemScanlatorTest {
         novel.chapters!!.single().scanlator shouldBe expected
     }
 
-    // Every other text a plugin sends is HTML-decoded on the way in.
+    // Each scraping adapter decodes its own chapters (NovelSourceConformanceTest); the mapper stores what it is
+    // given, so a local book's chapter that spells an entity keeps it.
     @Test
-    fun `a stored group is decoded`() {
-        ChapterItem(name = "c", path = "/c", scanlator = "A &amp; B").toNovelChapter(novelId = 1L).scanlator shouldBe
-            "A & B"
+    fun `a stored name and group keep what they spell`() {
+        val chapter = ChapterItem(name = "A &amp; B", path = "/c", scanlator = "C &amp; D").toNovelChapter(novelId = 1L)
+
+        (chapter.name to chapter.scanlator) shouldBe ("A &amp; B" to "C &amp; D")
     }
 
     companion object {

@@ -17,8 +17,8 @@ class NovelSourceChaptersTest {
     }
 
     @Test
-    fun `an entity in a name is decoded before its number is read`() {
-        chapters(ChapterItem("Chapter&#160;12", "/a")).single().chapterNumber shouldBe 12.0
+    fun `a non-breaking space in a name still reads its number`() {
+        chapters(ChapterItem("Chapter 12", "/a")).single().chapterNumber shouldBe 12.0
     }
 
     @Test

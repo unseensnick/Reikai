@@ -44,7 +44,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 - **Only an encrypted chapter file means DRM.** Most books carrying `encryption.xml` only obfuscate fonts.
 - **The category dialog dismisses before it confirms.** Answers already given survive a dismiss; a new import resets them.
 - **A test chapter needs real length.** Under 100 characters it is read as a part title and joined to the next.
-- **The local source's text arrives decoded.** The EPUB reader decodes its XML and HTML already, so entity decoding happens in each scraping adapter (`withDecodedDetails`), never in the shared `toNovel`, or a description that spells `&amp;` loses it.
+- **The local source's text arrives decoded.** The EPUB reader decodes its XML and HTML already, so entity decoding happens in each scraping adapter (`withDecodedDetails`, `withDecodedText` for a chapter), never in the shared `toNovel` or `toNovelChapter`, or a description or chapter title that spells `&amp;` loses it.
 - **Local chapters are on the device but have no download file.** Anything that reads stored text for a local chapter goes through the source, never `getChapterText`.
 
 ## Decisions

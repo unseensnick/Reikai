@@ -106,7 +106,8 @@ fun NovelItem.toNovel(sourceId: String): Novel =
  * Translate a [ChapterItem] (lnreader plugin's chapter list entry) into an unsaved domain
  * [NovelChapter] (`id = -1L`). [syncChaptersWithNovelSource] matches it by URL against the novel's
  * stored rows, inserting it only when none matches. `read`/`bookmark`/`lastTextProgress` start
- * cleared; the reader updates them as the user reads.
+ * cleared; the reader updates them as the user reads. The name and group arrive decoded, as the details
+ * do ([reikai.novel.host.withDecodedText]).
  */
 fun ChapterItem.toNovelChapter(
     novelId: Long,
@@ -116,7 +117,7 @@ fun ChapterItem.toNovelChapter(
     id = -1L,
     novelId = novelId,
     url = path,
-    name = NovelTextSanitizer.decodeEntities(name),
+    name = NovelTextSanitizer.stripInvalidChars(name),
     read = false,
     bookmark = false,
     lastTextProgress = 0L,
@@ -127,5 +128,5 @@ fun ChapterItem.toNovelChapter(
     dateUpload = NovelDateParser.parse(releaseTime, now.toEpochMilliseconds()).toInstantOrNull(),
     page = page.orEmpty(),
     // Manga's rule (copyFromSChapter): trimmed, and blank means none.
-    scanlator = scanlator?.let(NovelTextSanitizer::decodeEntities)?.trim()?.ifEmpty { null },
+    scanlator = scanlator?.let(NovelTextSanitizer::stripInvalidChars)?.trim()?.ifEmpty { null },
 )

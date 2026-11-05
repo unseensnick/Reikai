@@ -150,12 +150,12 @@ class NovelMigrationFlowAdapterTest {
     }
 
     @Test
-    fun `the count peek counts a repeated, entity-encoded listing as a sync would`() = runTest {
+    fun `the count peek counts a repeated listing as a sync would`() = runTest {
         coEvery { source.parseNovel("/repeats") } returns SourceNovel(
             path = "/repeats",
             chapters = listOf(
-                ChapterItem(name = "Chapter&#160;12", path = "/c12"),
-                ChapterItem(name = "Chapter&#160;12", path = "/c12"),
+                ChapterItem(name = "Chapter 12", path = "/c12"),
+                ChapterItem(name = "Chapter 12", path = "/c12"),
                 ChapterItem(name = "Chapter 13", path = "/c13"),
             ),
         )

@@ -28,14 +28,21 @@ object NovelTextSanitizer {
 }
 
 /**
- * The parse with its plain-text details decoded, called by each adapter whose source hands them over
- * HTML-escaped, as scraped. The local source reads its books' text already decoded and must not decode a
- * second time, or a description that spells `&amp;` loses it.
+ * The parse with its plain-text details and chapters decoded, called by each adapter whose source hands
+ * them over HTML-escaped, as scraped. The local source reads its books' text already decoded and must not
+ * decode a second time, or a description or chapter title that spells `&amp;` loses it.
  */
 fun SourceNovel.withDecodedDetails(): SourceNovel = copy(
+    chapters = chapters?.map { it.withDecodedText() },
     name = name?.let(NovelTextSanitizer::decodeEntities),
     author = author?.let(NovelTextSanitizer::decodeEntities),
     artist = artist?.let(NovelTextSanitizer::decodeEntities),
     summary = summary?.let(NovelTextSanitizer::decodeEntities),
     genres = genres?.split(",")?.joinToString(",") { NovelTextSanitizer.decodeEntities(it) },
+)
+
+/** A scraped chapter with its name and group decoded, as [withDecodedDetails] decodes a novel's. */
+fun ChapterItem.withDecodedText(): ChapterItem = copy(
+    name = NovelTextSanitizer.decodeEntities(name),
+    scanlator = scanlator?.let(NovelTextSanitizer::decodeEntities),
 )

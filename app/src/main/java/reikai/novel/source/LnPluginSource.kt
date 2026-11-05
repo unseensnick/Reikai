@@ -66,7 +66,7 @@ class LnPluginSource(
         novelOrFailedFetch { host.parseNovel(info.id, novelPath) }.withDecodedDetails()
 
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? =
-        host.parsePage(info.id, novelPath, page)
+        host.parsePage(info.id, novelPath, page)?.withDecodedDetails()
 
     // Strip control chars only (never entities): the body is HTML the reader renders, so its markup
     // and escaped entities must survive intact.
