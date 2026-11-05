@@ -1544,7 +1544,10 @@
     for (var i = 0; i < names.length; i++) {
       if (!names[i]) continue;
       var name = CSS.escape(names[i]);
-      var target = chapter.querySelector('[id="' + name + '"], a[name="' + name + '"]');
+      // The same order as the native reader's elementNamed (HtmlAnchors.kt): id, then name, then xml:id.
+      var target = chapter.querySelector('[id="' + name + '"]') ||
+        chapter.querySelector('[name="' + name + '"]') ||
+        chapter.querySelector('[xml\\:id="' + name + '"]');
       if (target) return target;
     }
     return null;
