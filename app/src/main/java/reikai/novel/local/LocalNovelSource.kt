@@ -57,7 +57,7 @@ class LocalNovelSource(
 
     // The manga local source's own icon, so the two read as one kind of source in Browse.
     override val iconUrl: String get() = "android.resource://${context.packageName}/${R.mipmap.ic_local_source}"
-    override val format: NovelExtensionFormat = NovelExtensionFormat.LOCAL
+    override val format: NovelExtensionFormat? = null
     override val extensionName: String get() = name
     override val contentWarning: ContentWarning = ContentWarning.SAFE
     override val supportsLatest: Boolean = true

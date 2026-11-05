@@ -15,7 +15,6 @@ import eu.kanade.presentation.components.RadioMenuItem
 import eu.kanade.presentation.components.SearchToolbar
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredroundedfilled.ViewList
-import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.SelectAll
 import mihon.icons.materialsymbols.roundedfilled.ViewCompact
 import mihon.icons.materialsymbols.roundedfilled.ViewModule
@@ -80,9 +79,8 @@ fun EntryCatalogueToolbar(
                     }
                     if (onImportClick != null) {
                         add(
-                            AppBar.Action(
+                            AppBar.OverflowAction(
                                 title = stringResource(MR.strings.local_import_title),
-                                icon = MaterialSymbols.Rounded.Add,
                                 onClick = onImportClick,
                             ),
                         )

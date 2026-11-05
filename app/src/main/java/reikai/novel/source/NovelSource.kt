@@ -65,8 +65,11 @@ interface NovelSource {
      */
     val iconUrl: String?
 
-    /** How the source is packaged, which lists name once more than one kind is shown. */
-    val format: NovelExtensionFormat
+    /**
+     * How the source is packaged, which lists name once more than one kind is shown; null for the built-in
+     * local source, which is packaged as nothing, as manga's local source shows no format either.
+     */
+    val format: NovelExtensionFormat?
 
     /** What installed the source: an app's own name, or the plugin's, since a plugin is its own extension. */
     val extensionName: String

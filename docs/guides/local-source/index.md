@@ -18,7 +18,7 @@ There are two local sources: one for manga, which reads folders of pictures and 
 
 The quickest way in is to let Reikai copy the files for you:
 
-* In the <nav to="main_library">, open the ⋮ menu and pick **Import files**, or tap **+** at the top of a **Local source** list.
+* Pick **Import files** in the ⋮ menu of the <nav to="main_library"> or of a **Local source** list.
 * Or open an EPUB or comic archive from another app with **Open with** or **Share**, and pick Reikai.
 
 Reikai reads each file and shows it as the series it will become, with its cover and author. Books that belong to one series (by their series details, or a shared name for comics) are grouped together as its volumes. Tap the pencil to rename a series, or the cross to leave it out. An EPUB can go in as a novel or, for an image-only comic in EPUB form, as manga. With **Add to library** on, the series are added to your library, in your default category or the one you pick.

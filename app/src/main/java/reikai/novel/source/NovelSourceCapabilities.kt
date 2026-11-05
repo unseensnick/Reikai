@@ -14,7 +14,6 @@ enum class NovelExtensionFormat(val label: StringResource) {
     JS(MR.strings.extension_format_js),
     APK(MR.strings.extension_format_apk),
     IREADER(MR.strings.extension_format_ireader),
-    LOCAL(MR.strings.extension_format_local),
     ;
 
     companion object {

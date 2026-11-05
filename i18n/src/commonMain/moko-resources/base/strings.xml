@@ -284,7 +284,6 @@
     <string name="extension_format_apk">APK</string>
     <string name="extension_format_ireader">IReader</string>
     <!-- RK: the local novel source, its volumes, and importing books into it -->
-    <string name="extension_format_local">Local</string>
     <string name="local_novel_volume_chapter">Vol. %1$s - %2$s</string>
     <string name="local_import_title">Import files</string>
     <string name="local_import_choose">Choose files</string>
