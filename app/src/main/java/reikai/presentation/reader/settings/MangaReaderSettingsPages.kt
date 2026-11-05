@@ -161,6 +161,13 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                 ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleTypeWebGpuViewer)
                 ZoomStartRow(preferences)
                 CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)
+                val cropBorders by preferences.cropBorders.collectAsState()
+                if (cropBorders) {
+                    CheckboxItem(
+                        label = stringResource(MR.strings.pref_crop_instead_of_zoom),
+                        pref = preferences.cropInsteadOfZoom,
+                    )
+                }
                 CheckboxItem(label = stringResource(MR.strings.pref_landscape_zoom), pref = preferences.landscapeZoom)
             }
         }
