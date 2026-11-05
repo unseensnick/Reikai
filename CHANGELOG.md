@@ -129,6 +129,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Grayscale, Inverted and the long strip rows the high quality renderer ignores no longer show while it is on.**
 
+- **The reader sheet now offers Disable double tap gestures in every high quality renderer mode, and Crop borders in its long strip.**
+
+- **The high quality renderer's rows in the reader sheet now change as soon as you change Dual page view.**
+
 - **Failed manga pages now follow the cover colour theme in every reading mode.**
 
 - **The download badge on a chapter page in the high quality renderer now shows at once.**

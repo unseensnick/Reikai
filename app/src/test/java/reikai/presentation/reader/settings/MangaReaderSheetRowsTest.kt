@@ -1,14 +1,17 @@
 package reikai.presentation.reader.settings
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
+import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -60,8 +63,8 @@ class MangaReaderSheetRowsTest {
         }
     }
 
-    private fun webGpu(vertical: Boolean) = mockk<WebGpuViewer>(relaxed = true) {
-        every { isContinuous } returns false
+    private fun webGpu(vertical: Boolean = false, continuous: Boolean = false) = mockk<WebGpuViewer>(relaxed = true) {
+        every { isContinuous } returns continuous
         every { isVertical } returns vertical
     }
 
@@ -100,5 +103,50 @@ class MangaReaderSheetRowsTest {
         show(null)
 
         compose.onNodeWithText("For this series").assertExists()
+    }
+
+    @Test
+    fun `WebGPU single page offers disabling double tap`() {
+        show(webGpu())
+        openTab("Controls")
+
+        compose.onNodeWithText("Disable double tap gestures").assertExists()
+    }
+
+    @Test
+    fun `WebGPU dual page offers disabling double tap`() {
+        preferences.dualPageView.set(ReaderPreferences.DualPageView.ALWAYS)
+
+        show(webGpu())
+        openTab("Controls")
+
+        compose.onNodeWithText("Disable double tap gestures").assertExists()
+    }
+
+    @Test
+    fun `WebGPU long strip offers disabling double tap`() {
+        show(webGpu(continuous = true))
+        openTab("Controls")
+
+        compose.onNodeWithText("Disable double tap gestures").assertExists()
+    }
+
+    /** The long strip crops by its own preference; the paged one would change nothing there. */
+    @Test
+    fun `WebGPU long strip crop borders sets the long strip preference`() {
+        show(webGpu(continuous = true))
+
+        compose.onNodeWithText("Crop borders").performSemanticsAction(SemanticsActions.OnClick)
+
+        preferences.cropBordersWebtoon.get() shouldBe true
+    }
+
+    @Test
+    fun `WebGPU paged rows follow a dual page view change`() {
+        show(webGpu())
+
+        preferences.dualPageView.set(ReaderPreferences.DualPageView.ALWAYS)
+
+        compose.onNodeWithText("Crop borders").assertDoesNotExist()
     }
 }

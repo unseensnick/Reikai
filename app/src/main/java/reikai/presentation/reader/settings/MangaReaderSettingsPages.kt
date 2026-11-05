@@ -8,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.domain.manga.model.readingMode
@@ -51,6 +52,21 @@ private fun Viewer?.running(): RunningViewer = when (this) {
     is WebtoonViewer -> RunningViewer.Webtoon
     is WebGpuViewer -> RunningViewer.WebGpu(this)
     else -> RunningViewer.Pager
+}
+
+/**
+ * Upstream's sheet rule for dual pages (WebGpuViewerSettings), read from observed state so the rows
+ * follow the Dual page view chip and a rotation. The viewer's own isDualPageMode reads neither.
+ */
+@Composable
+private fun isWebGpuDualPage(webGpu: WebGpuViewer, preferences: ReaderPreferences): Boolean {
+    val dualPageView by preferences.dualPageView.collectAsState()
+    val configuration = LocalConfiguration.current
+    return !webGpu.isContinuous && when (dualPageView) {
+        ReaderPreferences.DualPageView.NEVER -> false
+        ReaderPreferences.DualPageView.ALWAYS -> true
+        ReaderPreferences.DualPageView.WIDE -> configuration.screenWidthDp > configuration.screenHeightDp
+    }
 }
 
 /** Whether the running viewer honours grayscale and inverted colours, which the WebGPU renderer cannot apply. */
@@ -144,6 +160,11 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                     onChange = { preferences.continuousMinWidth.set(it) },
                     pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                 )
+                // The long strip crops by cropBordersWebtoon; upstream's row binds cropBorders, which it ignores.
+                CheckboxItem(
+                    label = stringResource(MR.strings.pref_crop_borders),
+                    pref = preferences.cropBordersWebtoon,
+                )
                 // Upstream offers the gap on Continuous vertical only, and useGap is how the viewer carries
                 // that distinction, since one class serves it and long strip both.
                 if ((webGpu as? WebGpuViewerContinuous)?.useGap == true) {
@@ -157,7 +178,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     )
                 }
-            } else if (!webGpu.isDualPageMode()) {
+            } else if (!isWebGpuDualPage(webGpu, preferences)) {
                 ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleTypeWebGpuViewer)
                 ZoomStartRow(preferences)
                 CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)
@@ -206,7 +227,7 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel,
     CheckboxItem(label = stringResource(MR.strings.pref_page_transitions), pref = preferences.pageTransitions)
 
     val webGpu = (viewer.running() as? RunningViewer.WebGpu)?.viewer
-    if (webGpu != null && webGpu.isDualPageMode()) {
+    if (webGpu != null && isWebGpuDualPage(webGpu, preferences)) {
         TransitionAnimationRow(
             titleRes = MR.strings.pref_transition_animation_dual,
             pref = preferences.transitionAnimationDual,
@@ -255,13 +276,13 @@ internal fun ColumnScope.MangaControlsPage(viewModel: ReaderSettingsViewModel, v
                     label = stringResource(MR.strings.pref_webtoon_disable_zoom_out),
                     pref = preferences.webtoonDisableZoomOut,
                 )
-            } else if (!webGpu.isDualPageMode()) {
+            } else if (!isWebGpuDualPage(webGpu, preferences)) {
                 CheckboxItem(label = stringResource(MR.strings.pref_navigate_pan), pref = preferences.navigateToPan)
-                CheckboxItem(
-                    label = stringResource(MR.strings.pref_disable_double_tap_gestures),
-                    pref = preferences.disableDoubleTapGestures,
-                )
             }
+            CheckboxItem(
+                label = stringResource(MR.strings.pref_disable_double_tap_gestures),
+                pref = preferences.disableDoubleTapGestures,
+            )
         }
     }
 
