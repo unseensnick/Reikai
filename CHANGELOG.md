@@ -169,6 +169,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Clear cookies in WebView and on an extension's page no longer leaves some sites' Cloudflare pass behind.** Those sites store it in a way the old removal missed.
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page.** A source that fails through the server reports the server's reason too.
 - **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.
+- **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 
 ## [0.5.1]
 
