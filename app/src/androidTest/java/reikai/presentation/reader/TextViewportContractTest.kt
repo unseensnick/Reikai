@@ -1742,6 +1742,19 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(link.top, textBox(JUMP_LINK).top, textSizePx())
     }
 
+    /** Selectable text takes focus on a tap, and a list scrolls a focused child's top into view. */
+    @Test
+    fun aTapOnSelectableTextLeavesTheTextWhereItWas() {
+        useSelectableText()
+        open(chapter(FIRST, long("filler")))
+        scrollBy(SCROLL_DP)
+        val before = scrollOffset()
+        tap(view.width / 2f, view.height / 2f)
+        settle()
+        awaitScrollStill()
+        assertEquals(before, scrollOffset(), textSizePx())
+    }
+
     /** A touch that had a second finger is no tap, wherever its last finger lifts; a browser fires no click either. */
     @Test
     fun aTwoFingerTouchLiftedOnALinkDoesNotFollowIt() {

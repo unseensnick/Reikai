@@ -409,7 +409,7 @@ class NovelTextViewport(
     }
 
     private val recycler = RecyclerView(context).apply {
-        layoutManager = pagedLayoutManager ?: LinearLayoutManager(context)
+        layoutManager = pagedLayoutManager ?: ScrollLayoutManager(context)
         addItemDecoration(readAloudBox)
         if (paged) {
             addItemDecoration(pageMask)
@@ -1831,6 +1831,18 @@ class NovelTextViewport(
         } finally {
             paged?.scrollingItself = false
         }
+    }
+
+    /** Selectable text takes focus on a tap, and a list scrolls a newly focused child's top into view, which
+     *  moved the reader by however far that chunk's top was off screen. A selection drag still scrolls, as it
+     *  asks for its rectangle rather than for focus. */
+    private class ScrollLayoutManager(context: Context) : LinearLayoutManager(context) {
+        override fun onRequestChildFocus(
+            parent: RecyclerView,
+            state: RecyclerView.State,
+            child: View,
+            focused: View?,
+        ) = true
     }
 
     /** Refuses a finger's scroll, so paged reading moves only a page at a time. The viewport's own scrolls go

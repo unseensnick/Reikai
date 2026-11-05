@@ -101,6 +101,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Skip duplicate chapters no longer hides or reorders interludes, side stories and extras that share a number with a chapter.** Mark duplicate read follows the same rule, for manga and novels.
 - **Auto-scroll at its slowest speeds now moves at the speed set in novels shown with WebView.** It stood still on some fast screens and ran ahead on others.
+- **Tapping a novel's text in Native text mode with Select text by long press on no longer moves the page.**
 
 - **Read from here in the novel reader now skips a paragraph whose last line sits under the top bar.**
 - **Paged novels now stay on your page through a rotation or a text size or margin change.** Each change used to move you back a page.
