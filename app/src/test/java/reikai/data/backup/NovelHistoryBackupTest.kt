@@ -13,6 +13,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
@@ -89,5 +90,6 @@ class NovelHistoryBackupTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 }

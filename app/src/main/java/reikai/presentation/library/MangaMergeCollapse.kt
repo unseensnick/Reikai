@@ -80,6 +80,7 @@ object MangaMergeCollapse {
                 MergedRowMember(
                     it.id,
                     it.libraryManga.manga.source,
+                    it.querySource(it.libraryManga.manga.source.toString()),
                     it.libraryManga.lastRead,
                     it.downloadCount,
                     it.libraryManga.manga.genre,
@@ -92,10 +93,6 @@ object MangaMergeCollapse {
             mergedDownloads = mergedDownloads,
             badgePrefs = badgePrefs,
             showSourceIcons = showMergeSourceIcons,
-            // A manga row carries its source's search terms itself, so any member on that source answers.
-            querySource = { source ->
-                subGroup.first { it.libraryManga.manga.source == source }.querySource(source.toString())
-            },
             sourceBadge = { SourceBadge.Manga(resolveSource(it)) },
         )
     }

@@ -16,7 +16,6 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.entryLanguage
 import reikai.domain.library.includes
 import reikai.domain.library.localFilesLanguage
-import reikai.domain.library.localLanguage
 import reikai.domain.library.mangaLibraryRanking
 import reikai.domain.library.novelLibraryRanking
 import reikai.domain.manga.MangaMergeManager
@@ -271,7 +270,7 @@ class StatsLibraryLoader(
                 status = { it.novel.status },
                 source = { n ->
                     novelSources.getValue(n.novel.source).let {
-                        val own = localLanguage(novelLanguages[n.novel.url])
+                        val own = novelLanguages[n.novel.url]
                         it.copy(language = entryLanguage(LocalNovelSource.isLocal(n.novel.source), own, it.language))
                     }
                 },

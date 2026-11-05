@@ -42,11 +42,13 @@ import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.novel.local.LocalNovelSource
 import tachiyomi.domain.category.model.NewCategory
 import tachiyomi.domain.category.repository.CategoryRepository
 import kotlin.time.Clock
@@ -63,6 +65,7 @@ class NovelRestorer(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
+    private val localNovelLanguages: LocalNovelLanguageRepository,
 ) {
 
     private val timeZone = TimeZone.currentSystemDefault()
@@ -121,6 +124,10 @@ class NovelRestorer(
         // An entry without custom info leaves the device's own alone, as manga does, pinned by
         // BackupCustomInfoConformanceTest.
         backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
+        // A backup made before the language was carried leaves the one already read alone.
+        if (LocalNovelSource.isLocal(backupNovel.source)) {
+            backupNovel.language?.let { localNovelLanguages.set(backupNovel.url, it) }
+        }
     }
 
     /**

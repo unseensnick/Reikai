@@ -15,6 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
@@ -165,6 +166,7 @@ class BackupDatesConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
+                    localNovelLanguages = NoLocalNovelLanguages,
                 )
                 val batch = listOf(novel to creator.base(listOf(novel)).single())
                 creator.chapters(batch)

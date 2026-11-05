@@ -1,7 +1,8 @@
 -- The language a local novel's own files name (EPUB dc:language, or details.json over it), keyed by the
 -- series path the local novel source stores as its url. The source's own language is a placeholder, so the
--- library, search and Statistics read a local series' language here. Written each time the source reads
--- the series, so it is rebuilt by a refresh and needs no backup.
+-- library, search and Statistics read a local series' language here. Written as the sources' code each time the
+-- source reads the series, and carried by the novel's backup, since a restored novel is not read again until
+-- a refresh.
 CREATE TABLE local_novel_language(
     url TEXT NOT NULL PRIMARY KEY,
     language TEXT NOT NULL
@@ -17,3 +18,6 @@ DELETE FROM local_novel_language WHERE url = :url;
 
 findAll:
 SELECT url, language FROM local_novel_language;
+
+findLanguage:
+SELECT language FROM local_novel_language WHERE url = :url;

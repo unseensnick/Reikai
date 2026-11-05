@@ -29,8 +29,8 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.library.bookLanguage
 import reikai.domain.library.entryLanguage
-import reikai.domain.library.localLanguage
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.Novel
@@ -142,11 +142,13 @@ class NovelEpubExportWorker(
             author = novel.author,
             description = novel.description,
             // A local novel's own language, else its source's; a local source's own is a placeholder.
-            language = entryLanguage(
-                LocalNovelSource.isLocal(novel.source),
-                localLanguage(localNovelLanguages.getAll()[novel.url]),
-                sourceManager.langOf(novel.source),
-            ).takeUnless { it.isBlank() || it == "other" },
+            language = bookLanguage(
+                entryLanguage(
+                    LocalNovelSource.isLocal(novel.source),
+                    localNovelLanguages.get(novel.url),
+                    sourceManager.langOf(novel.source),
+                ),
+            ),
             genres = novel.genre.orEmpty(),
             identifier = "urn:reikai:novel:${novel.source}:${novel.url}",
             cover = cover(novel),

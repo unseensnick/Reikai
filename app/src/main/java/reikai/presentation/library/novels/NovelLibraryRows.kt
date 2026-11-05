@@ -52,16 +52,19 @@ class NovelLibraryRows(
 
     class Rows(val groups: List<NovelMergeCollapse.CollapsedNovel>, val items: List<LibraryItem>)
 
+    /** The library's novels, with each local series' own language by series path. */
+    class Library(val novels: List<LibraryNovel>, val localLanguages: Map<String, String>)
+
     /**
      * The library's novels, re-emitted when sources (un)register, so a source resolves once loaded, and when
      * a download or delete changes the disk index, which the download badge reads.
      */
-    fun library(): Flow<List<LibraryNovel>> =
+    fun library(): Flow<Library> =
         novelRepository.getLibraryNovelAsFlow()
             .combine(sourceManager.sources) { library, _ -> library }
             .combine(novelDownloadCache.changes.pausedWhileUnsubscribed()) { library, _ -> library }
             // A local novel's language is read when its files are, so a refresh re-labels its row.
-            .combine(localLanguages.subscribeAll()) { library, _ -> library }
+            .combine(localLanguages.subscribeAll(), ::Library)
 
     fun mergeInputs(): Flow<MergeCollapseInputs<String>> = mergeCollapseInputsFlow(
         ContentType.NOVELS,
@@ -81,13 +84,13 @@ class NovelLibraryRows(
         }
 
     suspend fun build(
-        library: List<LibraryNovel>,
+        library: Library,
         badges: LibraryBadgePrefs,
         merge: MergeCollapseInputs<String>,
     ): Rows {
         // Downloaded state is disk-derived (NovelDownloadCache), not a DB column, so fill each novel's
         // download count from the cache before it feeds the filter, sort, collapse, and badge.
-        val withCounts = library.map {
+        val withCounts = library.novels.map {
             it.copy(downloadCount = novelDownloadCache.getDownloadCount(it.novel).toLong())
         }
         // Collapse merged groups into one representative entry (the top-ranked source) BEFORE filtering,
@@ -110,14 +113,13 @@ class NovelLibraryRows(
         val iconsBySite = installedIconsBySite(sourceManager.getAll())
         // Resolved once per source: a library holds far more novels than sources.
         val querySources = HashMap<String, LibraryQuerySource>()
-        val languages = localLanguages.getAll()
         val items = groups.map { group ->
             // An uninstalled source still gets a badge, as a manga group keeps its stub member.
             group.toLibraryRow(
                 badges,
                 merge.showSourceIcons,
                 { source -> querySources.getOrPut(source) { querySource(source) } },
-                languages,
+                library.localLanguages,
             ) {
                 novelSourceBadge(sourceManager.get(it), iconsBySite)
             }
@@ -156,7 +158,7 @@ class NovelLibraryRows(
 
     // One novel source as the search terms read it, for the row's own source and every merged member's, so
     // the two cannot resolve a name or language differently. One identity read for both, by the rule
-    // NovelSourceManager.nameOf and langOf keep.
+    // NovelSourceManager.nameOf and langOf keep. toLibraryRow puts a local series' own language over it.
     private suspend fun querySource(source: String): LibraryQuerySource {
         val identity = sourceManager.identityOf(source)
         return LibraryQuerySource(

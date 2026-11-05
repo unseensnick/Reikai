@@ -31,12 +31,14 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.novel.repository.CustomNovelInfoRepository
 import reikai.domain.readinglog.ReadingLogRepository
 import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.category.repository.CategoryRepository
 
@@ -53,6 +55,7 @@ class NovelBackupCreator(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
+    private val localNovelLanguages: LocalNovelLanguageRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
@@ -77,7 +80,15 @@ class NovelBackupCreator(
             .mapNotNull { novelRepository.getById(it) }
             .filterNot { it.favorite }
 
-    override suspend fun base(entries: List<Novel>): List<BackupNovel> = entries.map { it.toBackupNovel() }
+    override suspend fun base(entries: List<Novel>): List<BackupNovel> {
+        // Keyed by series path alone, so only a local novel reads it.
+        val languages = localNovelLanguages.getAll()
+        return entries.map { novel ->
+            novel.toBackupNovel().apply {
+                if (LocalNovelSource.isLocal(novel.source)) language = languages[novel.url]
+            }
+        }
+    }
 
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }

@@ -224,6 +224,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
             badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
             showSourceIcons = false,
             querySource = { LibraryQuerySource(it, name = "", language = "", isLocal = false) },
+            localLanguages = emptyMap(),
             sourceBadge = { SourceBadge.Generic },
         )
     }

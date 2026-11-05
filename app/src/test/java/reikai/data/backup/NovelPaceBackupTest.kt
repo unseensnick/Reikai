@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.data.Database
@@ -111,6 +112,7 @@ class NovelPaceBackupTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = ReadingPaceRepositoryImpl(database),
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 
     private fun restorer() = NovelRestorer(
@@ -124,5 +126,6 @@ class NovelPaceBackupTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = ReadingPaceRepositoryImpl(database),
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 }

@@ -3,6 +3,7 @@ package reikai.presentation.library
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
+import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.MetadataSource
 import eu.kanade.tachiyomi.ui.library.LibraryItem
@@ -24,6 +25,7 @@ import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
 import tachiyomi.core.common.util.lang.pausedWhileUnsubscribed
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetLibraryManga
 import tachiyomi.domain.manga.model.Manga
@@ -72,27 +74,11 @@ class MangaLibraryRows(
                 .associateWith { sourceManager.getOrStub(it) }
             val downloadCounts = downloadManager.getDownloadCounts(libraryManga.map { it.manga })
             val items = libraryManga.map { manga ->
-                val source = sources.getValue(manga.manga.source)
-                val downloadCount = downloadCounts.getValue(manga.id)
-                val language = entryLanguage(manga.manga.isLocal(), manga.manga.localFilesLanguage, source.lang)
-                LibraryItem(
-                    libraryManga = manga,
-                    downloadCount = downloadCount,
-                    unreadCount = manga.unreadCount,
-                    isLocal = manga.manga.isLocal(),
-                    sourceName = source.name.lowercase(),
-                    sourceLanguage = language,
-                    // Non-null only for gallery/metadata sources, which selects the tag-search path.
-                    metadataSourceName = source.getMainSource<MetadataSource<*, *>>()
-                        ?.let { source.getNameForMangaInfo() },
-                    // The badge gates are libraryBadgePrefsFlow's, shared with the novel row builder
-                    badges = preferences.badges(
-                        downloadCount = downloadCount,
-                        unreadCount = manga.unreadCount,
-                        isLocal = manga.manga.isLocal(),
-                        sourceLanguage = language,
-                        sourceBadge = SourceBadge.Manga(sourceManager.badgeSource(manga.manga.source)),
-                    ),
+                manga.toLibraryItem(
+                    source = sources.getValue(manga.manga.source),
+                    downloadCount = downloadCounts.getValue(manga.id),
+                    badgePrefs = preferences,
+                    sourceBadge = SourceBadge.Manga(sourceManager.badgeSource(manga.manga.source)),
                 )
             }
             // Collapse persisted merge groups into one entry per group. Returns the RAW items: search,
@@ -160,4 +146,32 @@ class MangaLibraryRows(
             )
         }
     }
+}
+
+/** One manga's library row, read off its [source], before merge groups collapse. */
+internal fun LibraryManga.toLibraryItem(
+    source: Source,
+    downloadCount: Int,
+    badgePrefs: LibraryBadgePrefs,
+    sourceBadge: SourceBadge,
+): LibraryItem {
+    val language = entryLanguage(manga.isLocal(), manga.localFilesLanguage, source.lang)
+    return LibraryItem(
+        libraryManga = this,
+        downloadCount = downloadCount,
+        unreadCount = unreadCount,
+        isLocal = manga.isLocal(),
+        sourceName = source.name.lowercase(),
+        sourceLanguage = language,
+        // Non-null only for gallery/metadata sources, which selects the tag-search path.
+        metadataSourceName = source.getMainSource<MetadataSource<*, *>>()?.let { source.getNameForMangaInfo() },
+        // The badge gates are libraryBadgePrefsFlow's, shared with the novel row builder
+        badges = badgePrefs.badges(
+            downloadCount = downloadCount,
+            unreadCount = unreadCount,
+            isLocal = manga.isLocal(),
+            sourceLanguage = language,
+            sourceBadge = sourceBadge,
+        ),
+    )
 }

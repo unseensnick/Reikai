@@ -101,7 +101,7 @@ class LocalNovelSource(
         val details = series.details()
         val meta = first.book.metadata
         // Kept beside the novel, since a novel row has nowhere to hold it; details.json wins, as for every field.
-        languages.set(series.path, (details?.language ?: meta.language)?.trim()?.takeIf { it.isNotEmpty() })
+        languages.set(series.path, details?.language ?: meta.language)
         val listed =
             localChapters(series.path, volumes.map { (file, opened) -> file.name.orEmpty() to opened.chapters })
         val chapters = listed.map { chapter ->

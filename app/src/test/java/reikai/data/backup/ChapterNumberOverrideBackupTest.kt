@@ -29,6 +29,7 @@ import reikai.domain.chapter.ChapterNumberOverride
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
@@ -191,6 +192,7 @@ class ChapterNumberOverrideBackupTest {
                         chapterNumberOverrides = overrides,
                         readingLog = NoReadingLog,
                         readingPace = NoReadingPace,
+                        localNovelLanguages = NoLocalNovelLanguages,
                     ).chapters(listOf(Novel.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber to it.sourceChapterNumber }
 
@@ -206,6 +208,7 @@ class ChapterNumberOverrideBackupTest {
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
+                    localNovelLanguages = NoLocalNovelLanguages,
                 ).restore(
                     BackupNovel(
                         source = "src",

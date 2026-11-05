@@ -2,7 +2,6 @@ package reikai.presentation.library.novels
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.library.entryLanguage
-import reikai.domain.library.localLanguage
 import reikai.domain.library.novelLibraryRanking
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.merge.bucketByMergeGroup
@@ -74,27 +73,30 @@ object NovelMergeCollapse {
 
 /**
  * The library row for a collapsed group: the representative's own, stamped with the group when it has
- * more than one member. The representative's badge and search terms come from the same two resolvers
- * as its members', which take a novel source id.
+ * more than one member. The representative and every member search by the same rule, their source's terms
+ * from [querySource] (which takes a novel source id) with a local series' own language from
+ * [localLanguages], keyed by series path, since all local novels share one source.
  */
 suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
     badgePrefs: LibraryBadgePrefs,
     showSourceIcons: Boolean,
     querySource: suspend (String) -> LibraryQuerySource,
-    localLanguages: Map<String, String> = emptyMap(),
+    localLanguages: Map<String, String>,
     sourceBadge: suspend (String) -> SourceBadge,
 ): LibraryItem {
+    suspend fun LibraryNovel.query(): LibraryQuerySource = querySource(novel.source).let {
+        it.copy(language = entryLanguage(it.isLocal, localLanguages[novel.url], it.language.orEmpty()))
+    }
     val source = representative.novel.source
-    val own = querySource(source)
-    val language =
-        entryLanguage(own.isLocal, localLanguage(localLanguages[representative.novel.url]), own.language.orEmpty())
-    val row = representative.toLibraryItem(badgePrefs, language, sourceBadge(source), own.name)
+    val own = representative.query()
+    val row = representative.toLibraryItem(badgePrefs, own.language.orEmpty(), sourceBadge(source), own.name)
     if (members.size == 1) return row
     return row.stampMergedGroup(
         members = members.map {
             MergedRowMember(
                 it.novel.id,
                 it.novel.source,
+                it.query(),
                 it.lastRead,
                 it.downloadCount.toInt(),
                 it.novel.genre,
@@ -108,7 +110,6 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
         mergedDownloads = mergedDownloads,
         badgePrefs = badgePrefs,
         showSourceIcons = showSourceIcons,
-        querySource = querySource,
         sourceBadge = sourceBadge,
     )
 }

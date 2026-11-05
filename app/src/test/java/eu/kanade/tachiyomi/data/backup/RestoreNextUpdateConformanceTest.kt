@@ -18,6 +18,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.readinglog.NoReadingLog
@@ -96,6 +97,7 @@ class RestoreNextUpdateConformanceTest {
                         chapterNumberOverrides = NoChapterNumberOverrides,
                         readingLog = NoReadingLog,
                         readingPace = NoReadingPace,
+                        localNovelLanguages = NoLocalNovelLanguages,
                     ).restore(wire.overTheWire(BackupNovel.serializer()), emptyList())
                     novels.getByUrlAndSource(URL, "s")!!.nextUpdate
                 }

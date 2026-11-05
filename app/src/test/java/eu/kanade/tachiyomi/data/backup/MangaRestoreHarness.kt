@@ -10,6 +10,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import reikai.domain.readinglog.ReadingLogRepository
@@ -90,6 +91,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 
     /** Stores a bare device copy under a chosen [id], for a test that pins the id a restore writes under. */

@@ -20,6 +20,7 @@ import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
@@ -441,5 +442,6 @@ class NovelMergeRestorer : MergeRestorer {
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 }

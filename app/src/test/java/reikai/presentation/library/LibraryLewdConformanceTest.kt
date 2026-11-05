@@ -181,6 +181,7 @@ class LibraryLewdConformanceTest {
                     badgePrefs = NO_BADGES,
                     showSourceIcons = false,
                     querySource = { LibraryQuerySource(it, SOURCE_NAME.lowercase(), "en", isLocal = false) },
+                    localLanguages = emptyMap(),
                     sourceBadge = { SourceBadge.Generic },
                 )
                 val sourceById = novels.associate { it.id to it.source }

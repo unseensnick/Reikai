@@ -44,6 +44,9 @@ class BackupNovel(
     // @ProtoNumber(26) var version: Long, dropped with the manga edit count (mihon c67a33f3d)
     @ProtoNumber(27) var nextUpdate: Long = 0,
     @ProtoNumber(28) var readingSessions: List<BackupReadingSession> = emptyList(),
+    // A local novel's language as its files name it (local_novel_language), which a local manga keeps in
+    // its memo. Null for an online novel, and in a backup made before it was carried.
+    @ProtoNumber(29) var language: String? = null,
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

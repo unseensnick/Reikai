@@ -23,6 +23,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.domain.backup.model.RestoredManga
@@ -175,6 +176,7 @@ class RestoreCategoryMatchConformanceTest {
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
+            localNovelLanguages = NoLocalNovelLanguages,
         )
     }
 }

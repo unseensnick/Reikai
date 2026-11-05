@@ -15,7 +15,7 @@ import tachiyomi.core.metadata.comicinfo.localLanguage
 import tachiyomi.core.metadata.comicinfo.setLocalLanguage
 import tachiyomi.domain.manga.model.Manga
 
-/** A local manga's language: read from ComicInfo into its memo, kept through a rewrite, read by the rows. */
+/** A local manga's language: read from ComicInfo into its memo, kept through a rewrite, read as sources write it. */
 class LocalMangaLanguageTest {
 
     // The app's own reader, as LocalSource is given it.
@@ -60,7 +60,7 @@ class LocalMangaLanguageTest {
     }
 
     @Test
-    fun `a library row reads the language as sources write it`() {
+    fun `a manga's language from its files reads as sources write it`() {
         val manga = Manga.create().copy(memo = JsonObject(mapOf(LOCAL_LANGUAGE_MEMO_KEY to JsonPrimitive("en-US"))))
 
         manga.localFilesLanguage shouldBe "en"

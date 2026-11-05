@@ -36,6 +36,7 @@ import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.repository.CustomNovelInfoRepository
@@ -211,6 +212,7 @@ class BackupCustomInfoConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
+                    localNovelLanguages = NoLocalNovelLanguages,
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
@@ -359,6 +361,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
+            localNovelLanguages = NoLocalNovelLanguages,
         )
         restoreEncoded(backup, ENTRIES_ONLY, novelRestorer = restorer)
         return written

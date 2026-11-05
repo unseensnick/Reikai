@@ -15,9 +15,12 @@ const val COMIC_INFO_FILE = "ComicInfo.xml"
 // RK --> a local series' language rides in its memo, namespaced so it cannot meet a key an extension keeps there
 const val LOCAL_LANGUAGE_MEMO_KEY = "reikai:language"
 
-/** The language a local series' files name, as written there; see LOCAL_LANGUAGE_MEMO_KEY. */
+/** A local series' language as its files write it, read from its [memo]; see LOCAL_LANGUAGE_MEMO_KEY. */
+fun localLanguageIn(memo: JsonObject): String? = memo[LOCAL_LANGUAGE_MEMO_KEY]?.jsonPrimitive?.contentOrNull
+
+/** The language a local series' files name, as written there. */
 val SManga.localLanguage: String?
-    get() = memo[LOCAL_LANGUAGE_MEMO_KEY]?.jsonPrimitive?.contentOrNull
+    get() = localLanguageIn(memo)
 
 /** Sets [localLanguage], or drops it when [language] is null. */
 fun SManga.setLocalLanguage(language: String?) {

@@ -278,6 +278,7 @@ class NovelMergedRowCollapse : MergedRowCollapse {
                 badgePrefs = badgePrefs,
                 showSourceIcons = showSourceIcons,
                 querySource = { LibraryQuerySource(it, name = "source $it", language = "en", isLocal = false) },
+                localLanguages = emptyMap(),
                 sourceBadge = { SourceBadge.Generic },
             )
     }

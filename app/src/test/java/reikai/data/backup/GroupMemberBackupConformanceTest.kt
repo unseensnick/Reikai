@@ -18,6 +18,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.ContentType
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
@@ -132,6 +133,7 @@ class GroupMemberBackupConformanceTest {
                 chapterNumberOverrides = NoChapterNumberOverrides,
                 readingLog = NoReadingLog,
                 readingPace = NoReadingPace,
+                localNovelLanguages = NoLocalNovelLanguages,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
         }

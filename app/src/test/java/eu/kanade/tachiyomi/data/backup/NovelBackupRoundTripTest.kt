@@ -23,6 +23,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.NoReadingLog
@@ -51,6 +52,7 @@ class NovelBackupRoundTripTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
+        localNovelLanguages = NoLocalNovelLanguages,
     )
 
     @Test
@@ -77,6 +79,7 @@ class NovelBackupRoundTripTest {
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
+            localNovelLanguages = NoLocalNovelLanguages,
         )
         // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
         val options = BackupOptions(
@@ -188,6 +191,7 @@ class NovelBackupRoundTripTest {
             chapterNumberOverrides = NoChapterNumberOverrides,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
+            localNovelLanguages = NoLocalNovelLanguages,
         )
         val backup = BackupNovel(source = "s1", url = "u")
         creator.chapters(listOf(novel(1, "u", "s1") to backup))

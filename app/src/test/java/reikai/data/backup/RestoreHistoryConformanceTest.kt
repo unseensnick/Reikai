@@ -28,6 +28,7 @@ import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.RestoreMergeGroups
+import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -201,6 +202,7 @@ class RestoreHistoryConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = ReadingPaceRepositoryImpl(database),
+                    localNovelLanguages = NoLocalNovelLanguages,
                 ).restore(
                     BackupNovel(
                         source = "src",

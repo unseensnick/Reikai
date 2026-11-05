@@ -237,7 +237,7 @@ class NovelLibraryViewModel(
     }
 
     private suspend fun buildState(
-        library: List<LibraryNovel>,
+        library: NovelLibraryRows.Library,
         customInfo: List<CustomNovelInfo>,
         searchInputs: LibrarySearchInputs<Pair<String?, Map<String, Set<Long>>>, NovelTrack>,
         settings: LibrarySettings,

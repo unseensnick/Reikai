@@ -22,13 +22,30 @@ class EntryLanguageTest {
         "zh-Hant, zh-Hant",
         "zh-TW, zh-Hant",
         "zh, zh",
+        "jpn, ja",
+        "fre, fr",
+        "ger, de",
+        "zho-TW, zh-Hant",
+        "mul, all",
     )
     fun `a book's language tag reads as the code sources use`(tag: String, code: String) {
         localLanguage(tag) shouldBe code
     }
 
+    @ParameterizedTest(name = "{0} is written as {1}")
+    @CsvSource("ja, ja", "pt-BR, pt-BR", "all, mul")
+    fun `an entry's language is written as a book's tag`(code: String, tag: String) {
+        bookLanguage(code) shouldBe tag
+    }
+
+    @ParameterizedTest(name = "\"{0}\" writes no tag")
+    @CsvSource("''", "other")
+    fun `an entry with no language of its own writes no tag`(code: String) {
+        bookLanguage(code) shouldBe null
+    }
+
     @ParameterizedTest(name = "\"{0}\" names no language")
-    @CsvSource("''", "'  '", "und", "mul")
+    @CsvSource("''", "'  '", "und")
     fun `a blank or undetermined tag names no language`(tag: String) {
         localLanguage(tag) shouldBe null
     }
