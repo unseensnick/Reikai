@@ -24,6 +24,8 @@ If the first scan finds nothing, the app drops an empty **`.noxml`** marker in t
 It still works, but only once. Any file ending in `.json` in the series folder is read as one, so do not keep other JSON files there. The app reads it, converts it to `ComicInfo.xml`, and **deletes the JSON**, so do not be surprised when your file disappears. Write `ComicInfo.xml` directly for anything new.
 :::
 
+Local novels read the same JSON format as their details, from a `details.json` in the series folder, and keep the file as it is: a novel series has no `ComicInfo.xml`.
+
 The old format, for reference:
 
 ```json

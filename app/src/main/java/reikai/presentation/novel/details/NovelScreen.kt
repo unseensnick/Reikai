@@ -178,6 +178,7 @@ class NovelScreen(
                                 )
                             },
                             onWordCount = viewModel::showWordCountDialog,
+                            onExport = viewModel::showExportDialog,
                             onOpenFolder = {
                                 scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) }
                             },
@@ -251,6 +252,13 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
             null -> {}
         }
         is NovelDetailsDialog.WordCount -> NovelWordCountDialog(dialog, onDismissRequest = viewModel::dismissDialog)
+        is NovelDetailsDialog.ExportEpub -> NovelExportDialog(
+            dialog = dialog,
+            fileName = state.novel.title,
+            onDownloadMissing = { viewModel.downloadMissingForExport(dialog.missing) },
+            onExport = viewModel::exportEpub,
+            onDismissRequest = viewModel::dismissDialog,
+        )
         NovelDetailsDialog.PageSelector -> NovelPageSelectorSheet(
             pages = state.pages,
             selectedIndex = state.pageIndex,

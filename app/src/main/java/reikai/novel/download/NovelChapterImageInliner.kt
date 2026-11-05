@@ -46,17 +46,23 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
                 val source = body.source()
                 source.request(MAX_INLINE_BYTES + 1)
                 if (source.buffer.size > MAX_INLINE_BYTES) return@use
-                val bytes = source.readByteArray()
-                if (bytes.isEmpty()) return@use
                 val mime = response.header("Content-Type")?.substringBefore(';')?.takeIf { it.startsWith("image/") }
-                    ?: "image/jpeg"
-                val encoded = Base64.encodeToString(bytes, Base64.NO_WRAP)
-                img.attr("src", "data:$mime;base64,$encoded")
+                val address = inlinedImageAddress(source.readByteArray(), mime) ?: return@use
+                img.attr("src", address)
                 dropCandidates(img)
             }
         }
     }
     return document.body().html()
+}
+
+/**
+ * A picture as a `data:` address a chapter carries in itself, or null when it is empty or over the cap
+ * every stored or local chapter holds pictures to. [mime] defaults to JPEG, which the decoders sniff past.
+ */
+fun inlinedImageAddress(bytes: ByteArray, mime: String?): String? {
+    if (bytes.isEmpty() || bytes.size > MAX_INLINE_BYTES) return null
+    return "data:${mime ?: "image/jpeg"};base64," + Base64.encodeToString(bytes, Base64.NO_WRAP)
 }
 
 private fun dropCandidates(img: Element) {

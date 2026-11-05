@@ -1,8 +1,11 @@
 package eu.kanade.tachiyomi.ui.library
 
+import android.content.Intent
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.ReportDrawnWhen
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.graphics.res.rememberAnimatedVectorPainter
 import androidx.compose.foundation.background
@@ -26,6 +29,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -71,6 +75,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.singleContentType
 import reikai.domain.library.sortForCategory
 import reikai.domain.stats.StatsShortcut
+import reikai.novel.export.NovelEpubExportWorker
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
@@ -90,6 +95,7 @@ import reikai.presentation.library.reikaiIsCollapsed
 import reikai.presentation.library.sortLabelRes
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.library.visualLabel
+import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.core.common.i18n.stringResource
@@ -150,6 +156,18 @@ data object LibraryTab : Tab {
         // hand the tab a second pair while the engine kept dispatching through the first. All three models
         // share this tab host's ViewModelStore, so the pair the factory captures is cleared alongside them.
         val graph = remember { context.appGraph }
+        // The selected novels an EPUB export is waiting on a folder for
+        var exportIds by rememberSaveable { mutableStateOf(emptyList<Long>()) }
+        val exportFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { tree ->
+            if (tree != null && exportIds.isNotEmpty()) {
+                context.contentResolver.takePersistableUriPermission(
+                    tree,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
+                )
+                NovelEpubExportWorker.start(context, exportIds, tree, toFolder = true, includePictures = true)
+            }
+            exportIds = emptyList()
+        }
         // RK: Statistics in the overflow menu only when the user asked for it there
         val statsInMenus = remember { graph.uiPreferences.statsShortcut }.collectAsState().value == StatsShortcut.MENUS
         val engine = assistedMetroViewModel<LibraryEngine, LibraryEngine.Factory> {
@@ -477,6 +495,7 @@ data object LibraryTab : Tab {
                             }
                         },
                         onClickStats = { navigator.push(StatsScreen()) }.takeIf { statsInMenus }, // RK
+                        onClickImport = { navigator.push(LocalImportScreen()) }, // RK
                         searchQuery = activeSearchQuery,
                         onSearchQueryChange = onSearch,
                         // For scroll overlay when no tab
@@ -526,6 +545,12 @@ data object LibraryTab : Tab {
                         },
                     onUnmergeClicked = { engine.unmergeSelection(libraryContentType) }
                         .takeIf { engine.selectionContainsMerged(libraryContentType) },
+                    // RK: a folder for the selected novels' EPUB files, one file each
+                    onExportClicked = {
+                        exportIds = activeSelection.filterIsInstance<EntryId.Novel>().map { it.rawId }
+                        engine.clearSelection()
+                        exportFolder.launch(null)
+                    }.takeIf { singleContentType(activeSelection.map { it.contentType }) == ContentType.NOVELS },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },

@@ -22,12 +22,18 @@ import reikai.domain.recommendation.taste.KitsuLibraryFetcher
 import reikai.domain.recommendation.taste.MyAnimeListLibraryFetcher
 import reikai.domain.recommendation.taste.ShikimoriLibraryFetcher
 import reikai.domain.recommendation.taste.TrackerLibraryFetcher
+import reikai.novel.local.LocalNovelSource
+import reikai.novel.source.NovelSource
 
 /**
  * The Reikai-owned bindings that cannot be a plain annotation on the class.
  */
 @BindingContainer
 object ReikaiBindings {
+
+    /** The novel sources the app carries itself, there before any plugin or app loads. */
+    @Provides
+    fun providesBuiltInNovelSources(local: LocalNovelSource): List<NovelSource> = listOf(local)
 
     @Provides
     @SingleIn(AppScope::class)

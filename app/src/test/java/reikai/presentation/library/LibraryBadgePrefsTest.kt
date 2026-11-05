@@ -2,30 +2,42 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 
 /** Both library row builders and both merge collapses gate their badges through [LibraryBadgePrefs]. */
 class LibraryBadgePrefsTest {
 
-    enum class Toggle(val off: LibraryBadgePrefs, val read: (LibraryItem.Badges) -> Any?, val hidden: Any?) {
+    // The language case reads a row from a real source: a local one never shows its placeholder language.
+    enum class Toggle(
+        val off: LibraryBadgePrefs,
+        val read: (LibraryItem.Badges) -> Any?,
+        val hidden: Any?,
+        val isLocal: Boolean = true,
+    ) {
         DOWNLOAD(ALL_ON.copy(download = false), { it.downloadCount }, 0),
         UNREAD(ALL_ON.copy(unread = false), { it.unreadCount }, 0L),
         LOCAL(ALL_ON.copy(local = false), { it.isLocal }, false),
-        LANGUAGE(ALL_ON.copy(language = false), { it.sourceLanguage }, ""),
+        LANGUAGE(ALL_ON.copy(language = false), { it.sourceLanguage }, "", isLocal = false),
         SOURCE(ALL_ON.copy(source = false), { it.source }, null),
     }
 
     @ParameterizedTest
     @EnumSource(Toggle::class)
     fun `a badge turned off is blank on the row`(toggle: Toggle) {
-        toggle.read(toggle.off.row()) shouldBe toggle.hidden
+        toggle.read(toggle.off.row(toggle.isLocal)) shouldBe toggle.hidden
     }
 
     @ParameterizedTest
     @EnumSource(Toggle::class)
     fun `a badge left on shows the row's value`(toggle: Toggle) {
-        (toggle.read(ALL_ON.row()) == toggle.hidden) shouldBe false
+        (toggle.read(ALL_ON.row(toggle.isLocal)) == toggle.hidden) shouldBe false
+    }
+
+    @Test
+    fun `a local series shows no language, since its source names none`() {
+        ALL_ON.copy(local = false).row(isLocal = true).sourceLanguage shouldBe ""
     }
 
     @ParameterizedTest
@@ -34,10 +46,10 @@ class LibraryBadgePrefsTest {
         toggle.off.row().coverSourceId shouldBe "plugin"
     }
 
-    private fun LibraryBadgePrefs.row() = badges(
+    private fun LibraryBadgePrefs.row(isLocal: Boolean = true) = badges(
         downloadCount = 4,
         unreadCount = 7L,
-        isLocal = true,
+        isLocal = isLocal,
         sourceLanguage = "ja",
         sourceBadge = SourceBadge.Generic,
         coverSourceId = "plugin",

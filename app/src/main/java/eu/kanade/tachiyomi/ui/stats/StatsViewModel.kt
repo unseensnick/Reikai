@@ -31,6 +31,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.NovelDownloadManager
+import reikai.novel.local.LocalNovelSource
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
 import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsLibrary
@@ -149,8 +150,8 @@ class StatsViewModel(
             startedMangaCount =
             (if (mangaPart) manga.startedCount { it.smartUpdateFacts() } else 0) +
                 (if (novelPart) novels.startedCount { it.smartUpdateFacts() } else 0),
-            // Novels have no local source, so local titles stays a manga-only stat.
-            localMangaCount = if (mangaPart) manga.titles.count { it.manga.isLocal() } else 0,
+            localMangaCount = (if (mangaPart) manga.titles.count { it.manga.isLocal() } else 0) +
+                (if (novelPart) novels.titles.count { LocalNovelSource.isLocal(it.novel.source) } else 0),
         )
 
         val chapters = StatsData.Chapters(

@@ -36,6 +36,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadWorker
+import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
@@ -67,6 +68,7 @@ interface ReikaiGraph {
     fun inject(novelDownloadWorker: NovelDownloadWorker)
     fun inject(novelUpdateWorker: NovelUpdateWorker)
     fun inject(trackerRefreshWorker: TrackerRefreshWorker)
+    fun inject(novelEpubExportWorker: NovelEpubExportWorker)
     fun inject(eHentaiUpdateWorker: EHentaiUpdateWorker)
     fun inject(ehFavoritesBackupWorker: EhFavoritesBackupWorker)
     fun inject(mangaDexSyncWorker: MangaDexSyncWorker)

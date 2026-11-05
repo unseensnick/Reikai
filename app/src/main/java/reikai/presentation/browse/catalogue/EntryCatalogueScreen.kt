@@ -61,6 +61,7 @@ import mihon.presentation.core.util.collectAsLazyPagingItems
 import reikai.domain.entry.EntryId
 import reikai.domain.source.SourceKey
 import reikai.domain.source.model.SavedSearch
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelFilters
 import reikai.novel.source.NovelSettings
@@ -71,6 +72,7 @@ import reikai.presentation.browse.PendingBulkCategoryDialog
 import reikai.presentation.browse.components.BulkSelectionToolbar
 import reikai.presentation.browse.detailsScreen
 import reikai.presentation.browse.rememberEntryGestures
+import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.novel.browse.NovelBrowseViewModel
 import reikai.presentation.novel.browse.NovelBulkFavoriteViewModel
 import reikai.presentation.novel.browse.NovelSourceFilterSheet
@@ -182,6 +184,7 @@ class EntryCatalogueScreen(
                 uriHandler.openUri(if (isLocal) LocalSource.HELP_URL else Constants.URL_HELP)
             },
             localSourceHelp = { uriHandler.openUri(LocalSource.HELP_URL) }.takeIf { isLocal },
+            onImportClick = { navigator.push(LocalImportScreen()) }.takeIf { isLocal },
         ) { onDismiss ->
             SourceFilterDialog(
                 onDismissRequest = onDismiss,
@@ -231,6 +234,7 @@ class EntryCatalogueScreen(
                 }
             },
             onHelpClick = { uriHandler.openUri(Constants.URL_HELP) },
+            onImportClick = { navigator.push(LocalImportScreen()) }.takeIf { LocalNovelSource.isLocal(sourceId) },
             extraSheets = {
                 val settings = source?.settings as? NovelSettings.LnSchema
                 if (modelState.settingsSheetOpen && settings != null) {
@@ -272,6 +276,7 @@ class EntryCatalogueScreen(
         onOpenSettings: () -> Unit,
         onHelpClick: () -> Unit,
         localSourceHelp: (() -> Unit)? = null,
+        onImportClick: (() -> Unit)? = null,
         extraSheets: @Composable () -> Unit = {},
         filterSheet: @Composable (onDismiss: () -> Unit) -> Unit,
     ) {
@@ -397,6 +402,7 @@ class EntryCatalogueScreen(
                             },
                             scrollBehavior = scrollBehavior,
                             onToggleSelectionMode = { behavior.setSelectionMode(true) },
+                            onImportClick = onImportClick,
                             // Only offered when there is something to save: a committed search, or
                             // filters the reader has changed from the source's own defaults.
                             onSaveSearchClick = { savedSearchDialog = SavedSearchDialog.Create }
@@ -433,6 +439,7 @@ class EntryCatalogueScreen(
                 onWebViewClick = onWebViewClick,
                 onHelpClick = onHelpClick,
                 onLocalSourceHelpClick = localSourceHelp,
+                onImportClick = onImportClick,
                 gestures = gestures,
             )
         }

@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Browse is where a reader finds new series: the Sources, Extensions and Migrate lists, one source's catalogue, global search, the opt-in Feed tab and saved searches, and the long-press add-to-library flow every one of those shares. Manga and novels run through one Reikai-owned layer, so a Browse change is written once and reaches both types. Underneath, every novel feature reaches a source through one seam, `NovelSource`, over three source kinds: LNReader plugins, tachiyomi-format novel APKs and IReader APKs, the APKs arriving through Mihon's one extension pipeline. The plugin engine itself is [ln-plugin-host.md](ln-plugin-host.md).
+Browse is where a reader finds new series: the Sources, Extensions and Migrate lists, one source's catalogue, global search, the opt-in Feed tab and saved searches, and the long-press add-to-library flow every one of those shares. Manga and novels run through one Reikai-owned layer, so a Browse change is written once and reaches both types. Underneath, every novel feature reaches a source through one seam, `NovelSource`, over four source kinds: LNReader plugins, tachiyomi-format novel APKs, IReader APKs and the built-in local source, the APKs arriving through Mihon's one extension pipeline. The local source is [local-novels.md](local-novels.md). The plugin engine itself is [ln-plugin-host.md](ln-plugin-host.md).
 
 ## How it works
 
@@ -72,9 +72,9 @@ The Feed tab (`ReikaiFeedTab` over `FeedViewModel`) is opt-in (`showFeedTab`, `f
 
 Backups carry saved searches and feed rows (fields 715, 716) by value, not by id, with `feed_order` restored as a sort key (`FeedRestorer`); a restore honours the cap and is a no-op when repeated.
 
-### Novel sources: one seam, three kinds
+### Novel sources: one seam, four kinds
 
-`NovelSource` is the only door: browse, global search, details and chapter refresh, the reader's text load, downloads, the library update job and migration reach a source through it and `NovelSourceManager`. Each kind has one adapter: `LnPluginSource` (a plugin on the QuickJS host), `TachiyomiNovelSource` (one catalogue of a tachiyomi-format novel APK) and `IReaderNovelSource` (one IReader source). Nothing above the seam checks the kind; what differs is a typed capability the source answers:
+`NovelSource` is the only door: browse, global search, details and chapter refresh, the reader's text load, downloads, the library update job and migration reach a source through it and `NovelSourceManager`. Each kind has one adapter: `LnPluginSource` (a plugin on the QuickJS host), `TachiyomiNovelSource` (one catalogue of a tachiyomi-format novel APK), `IReaderNovelSource` (one IReader source) and `LocalNovelSource`, the built-in source over EPUBs in the `localnovels` folder, which `NovelSourceManager` holds from the start (`builtIn`). Nothing above the seam checks the kind; what differs is a typed capability the source answers:
 
 - **Filters** (`NovelFilters`): an LNReader schema, rendered by `NovelSourceFilterSheet`, or a Mihon `FilterList`, rendered by Mihon's `SourceFilterDialog`. IReader filters are translated both ways into a `FilterList` (its `Check` is both checkbox and tri-state, its `Group` mixes types, its query travels as a `Title` filter). `applyToSearch` says where filters apply: a plugin's search takes no options, so its filters narrow listings and drop the query; a `FilterList` travels with the search.
 - **Settings**: an LNReader schema (`NovelSourceSettingsSheet` over `NovelSourceSettingsModel`, reading the plugin's storage off the main thread and reloading on every open), a `ConfigurableSource` preference screen hosted by `SourcePreferencesScreen` through a resolver keyed on the novel source's text id, or none (IReader).

@@ -49,9 +49,11 @@ class NovelSourceManager(
     private val installer: () -> LnPluginInstaller,
     extensionManager: ExtensionManager,
     private val prefs: NovelPreferences,
+    // The graph hands the local source; a test building a manager by hand starts with none.
+    builtIn: List<NovelSource> = emptyList(),
 ) {
 
-    private val sourcesFlow = MutableStateFlow<Map<String, NovelSource>>(emptyMap())
+    private val sourcesFlow = MutableStateFlow(builtIn.associateBy { it.id })
 
     val sources: Flow<List<NovelSource>> = sourcesFlow.map { it.values.toList() }
 

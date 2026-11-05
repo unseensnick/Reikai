@@ -46,6 +46,7 @@ A doc is titled with the subsystem's name and has these second-level sections, i
 | Downloads | [downloads.md](downloads.md) |
 | Browse and sources (lists, catalogue, global search, feed, add flow, the `NovelSource` seam) | [browse-and-sources.md](browse-and-sources.md) |
 | LN plugin host | [ln-plugin-host.md](ln-plugin-host.md) |
+| Local files (local novels, importing files, EPUB export) | [local-novels.md](local-novels.md) |
 | Migrate | [migrate.md](migrate.md) |
 | Merged series | [merged-series.md](merged-series.md) |
 | Tracking | [tracking.md](tracking.md) |

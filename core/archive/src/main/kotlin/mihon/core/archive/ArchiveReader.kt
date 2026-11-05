@@ -15,6 +15,17 @@ class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
         block(generateSequence { it.getNextEntry() })
     }
 
+    // RK --> several entries in one pass, since getInputStream scans from the first entry each call
+    fun readEntries(names: Set<String>): Map<String, ByteArray> = ArchiveInputStream(address, size).use { archive ->
+        val found = HashMap<String, ByteArray>()
+        while (found.size < names.size) {
+            val entry = archive.getNextEntry() ?: break
+            if (entry.isFile && entry.name in names) found[entry.name] = archive.readBytes()
+        }
+        found
+    }
+    // RK <--
+
     fun getInputStream(entryName: String): InputStream? {
         val archive = ArchiveInputStream(address, size)
         try {

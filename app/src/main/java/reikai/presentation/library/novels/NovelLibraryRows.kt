@@ -16,6 +16,7 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadCache
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.LibraryQuerySource
@@ -156,7 +157,7 @@ class NovelLibraryRows(
             key = source,
             name = identity.name.lowercase(),
             language = identity.lang.orEmpty(),
-            isLocal = false,
+            isLocal = LocalNovelSource.isLocal(source),
         )
     }
 }

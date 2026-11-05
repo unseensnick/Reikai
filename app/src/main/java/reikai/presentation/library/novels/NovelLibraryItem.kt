@@ -3,6 +3,7 @@ package reikai.presentation.library.novels
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.model.LibraryNovel
+import reikai.novel.local.LocalNovelSource
 import reikai.presentation.library.LibraryBadgePrefs
 import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
@@ -62,7 +63,7 @@ fun LibraryNovel.toLibraryItem(
         entryId = EntryId.Novel(n.id),
         downloadCount = downloadCount.toInt(),
         unreadCount = unreadCount,
-        isLocal = false,
+        isLocal = LocalNovelSource.isLocal(n.source),
         // The shared query kernel reads these off the row, so they are populated here rather than
         // resolved again at filter time. Lowercased to match how the manga side supplies its own.
         sourceName = sourceName.lowercase(),
@@ -70,7 +71,7 @@ fun LibraryNovel.toLibraryItem(
         badges = badgePrefs.badges(
             downloadCount = downloadCount.toInt(),
             unreadCount = unreadCount,
-            isLocal = false,
+            isLocal = LocalNovelSource.isLocal(n.source),
             sourceLanguage = sourceLanguage,
             sourceBadge = sourceIcon,
             // Always carried: the cover is fetched with it, and it is not a visible badge.

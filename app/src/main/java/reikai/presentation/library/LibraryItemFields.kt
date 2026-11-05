@@ -27,7 +27,7 @@ fun libraryItemFilterFields(
     /** The two content types keep separate track tables, so each resolves its own, already unioned. */
     trackerIds: (LibraryItem) -> List<Long>,
 ) = LibraryFilterFields<LibraryItem>(
-    // A novel row is never local, so the isLocal disjunct is inert for novels rather than manga-only.
+    // A local series' files are on the device, so it counts as downloaded, for either type.
     isDownloaded = { it.isLocal || it.downloadCount > 0 },
     // LibraryItem.unreadCount is the deduplicated group count, not the LibraryManga's own.
     isUnread = { it.unreadCount > 0 },

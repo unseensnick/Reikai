@@ -1,6 +1,7 @@
 package reikai.presentation.novel.details
 
 import android.content.Context
+import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
@@ -144,7 +145,9 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
+import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.AddFavoriteResult
@@ -511,8 +514,13 @@ class NovelDetailsViewModel(
             sourceName = viewSource?.name ?: sourceManager.nameOf(displayNovel.source),
             webPage = servingSource?.let { webPages.of(Triple(serving.id, serving.url, it)) },
             sourceHasSettings = viewSource?.settings != null,
-            browsableSourceId = viewSource?.id,
-            sourceState = novelSourceState(servingSource, serving.id == novel.id, lookup == SourceLookup.Missing),
+            // A local series is its own files, as manga's: nothing to browse to and nothing to download.
+            browsableSourceId = viewSource?.id?.takeUnless(LocalNovelSource::isLocal),
+            sourceState = if (LocalNovelSource.isLocal(serving.source)) {
+                EntrySourceState.Local
+            } else {
+                novelSourceState(servingSource, serving.id == novel.id, lookup == SourceLookup.Missing)
+            },
             servedNovel = served,
         )
     }
@@ -1581,6 +1589,44 @@ class NovelDetailsViewModel(
 
     private var wordCountJob: Job? = null
 
+    /** The Export as EPUB dialog, told how many of the novel's chapters are on the device to put in a book. */
+    fun showExportDialog() {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        showDialog(NovelDetailsDialog.ExportEpub(onDevice = null, total = 0, missing = emptyList()))
+        viewModelScope.launchIO {
+            val scope = downloadedTexts.chaptersOf(loaded.novel.id, sourceScoped = false)
+            dialog.update {
+                (it as? NovelDetailsDialog.ExportEpub)?.copy(
+                    onDevice = scope.onDisk.size,
+                    total = scope.total,
+                    missing = scope.missing,
+                )
+                    ?: it
+            }
+        }
+    }
+
+    /** Queues the chapters an export would leave out, so a later export holds the whole novel. */
+    fun downloadMissingForExport(missing: List<NovelChapter>) {
+        dismissDialog()
+        appScope.launchIO { downloadManager.downloadChapters(missing) }
+    }
+
+    /** Writes the novel to [target]; [from] and [to] pick chapters on the device by position, 0 for all. */
+    fun exportEpub(target: Uri, includePictures: Boolean, from: Int, to: Int) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        dismissDialog()
+        NovelEpubExportWorker.start(
+            context,
+            listOf(loaded.novel.id),
+            target,
+            toFolder = false,
+            includePictures,
+            from,
+            to,
+        )
+    }
+
     /**
      * Counts the words of every downloaded chapter in the scope the reader opens (the chip's source, or
      * the whole group), off the main thread, showing progress and then the result in the dialog.
@@ -1780,6 +1826,9 @@ sealed interface NovelDetailsDialog {
         val chaptersToCount: Int?,
         val result: NovelWordDensity? = null,
     ) : NovelDetailsDialog
+
+    /** [onDevice] is null until the chapters on the device are counted. */
+    data class ExportEpub(val onDevice: Int?, val total: Int, val missing: List<NovelChapter>) : NovelDetailsDialog
 
     data class ClearDownloads(val target: ClearDownloadsTarget) : NovelDetailsDialog
     data class RemoveFromLibrary(val removal: DetailsRemoval) : NovelDetailsDialog

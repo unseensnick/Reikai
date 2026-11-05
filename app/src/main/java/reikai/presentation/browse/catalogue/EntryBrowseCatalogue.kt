@@ -27,6 +27,7 @@ import eu.kanade.presentation.library.components.CommonMangaItemDefaults
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
+import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Public
 import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.presentation.browse.EntryBrowseGridCell
@@ -61,6 +62,7 @@ fun EntryBrowseCatalogue(
     onHelpClick: () -> Unit,
     gestures: EntryGestures<EntryBrowseRow>,
     onLocalSourceHelpClick: (() -> Unit)? = null,
+    onImportClick: (() -> Unit)? = null,
 ) {
     val context = LocalContext.current
 
@@ -98,8 +100,16 @@ fun EntryBrowseCatalogue(
             message = (errorState as? LoadState.Error)
                 ?.let { with(context) { it.error.sourceFailureMessage } }
                 ?: stringResource(MR.strings.no_results_found),
-            actions = onLocalSourceHelpClick?.let {
-                listOf(EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it))
+            // A local source lists nothing until files are added, so adding them comes first.
+            actions = if (onImportClick != null) {
+                listOfNotNull(
+                    EmptyScreenAction(MR.strings.local_import_title, MaterialSymbols.Rounded.Add, onImportClick),
+                    onLocalSourceHelpClick?.let { EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it) },
+                )
+            } else {
+                onLocalSourceHelpClick?.let {
+                    listOf(EmptyScreenAction(MR.strings.local_source_help_guide, HelpIcon, it))
+                }
             } ?: listOf(
                 EmptyScreenAction(MR.strings.action_retry, MaterialSymbols.Rounded.Refresh, rows::refresh),
                 EmptyScreenAction(MR.strings.action_open_in_web_view, MaterialSymbols.Rounded.Public) {

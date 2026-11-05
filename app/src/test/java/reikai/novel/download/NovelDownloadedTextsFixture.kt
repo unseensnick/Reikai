@@ -74,6 +74,7 @@ object NovelDownloadedTextsFixture {
                     }
                 }
             },
+            mockk(),
         )
     }
 }

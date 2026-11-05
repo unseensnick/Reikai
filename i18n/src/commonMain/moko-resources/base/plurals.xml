@@ -1,5 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- RK: importing files into the local sources -->
+    <plurals name="local_import_file_count">
+        <item quantity="one">%d file</item>
+        <item quantity="other">%d files</item>
+    </plurals>
+    <plurals name="export_epub_done">
+        <item quantity="one">Exported %d novel</item>
+        <item quantity="other">Exported %d novels</item>
+    </plurals>
+    <plurals name="local_import_done">
+        <item quantity="one">Imported %d series</item>
+        <item quantity="other">Imported %d series</item>
+    </plurals>
     <!-- RK --><plurals name="repos_hidden_by_show">
         <item quantity="one">%d repo hidden by Content shown</item>
         <item quantity="other">%d repos hidden by Content shown</item>

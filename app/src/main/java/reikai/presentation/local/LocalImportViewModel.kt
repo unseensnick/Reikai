@@ -1,0 +1,176 @@
+package reikai.presentation.local
+
+import android.net.Uri
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Assisted
+import dev.zacsweers.metro.AssistedFactory
+import dev.zacsweers.metro.AssistedInject
+import dev.zacsweers.metro.ContributesIntoMap
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
+import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
+import mihon.core.metro.AppCoroutineScope
+import reikai.data.local.ImportGroup
+import reikai.data.local.ImportProblem
+import reikai.data.local.ImportResult
+import reikai.data.local.LocalImport
+import reikai.domain.library.ContentType
+import reikai.presentation.browse.BatchCategories
+import reikai.presentation.browse.MangaLibraryAdder
+import reikai.presentation.novel.browse.NovelLibraryAdder
+import tachiyomi.core.common.preference.CheckboxState
+import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.domain.category.model.Category
+
+/**
+ * The import screen's state: the files picked so far as series, what could not be read, and the import
+ * itself. The copy runs on the app scope, so leaving the screen mid-import does not cut a file in half.
+ */
+@AssistedInject
+class LocalImportViewModel(
+    @Assisted initialUris: List<String>,
+    private val localImport: LocalImport,
+    private val novelAdder: NovelLibraryAdder,
+    private val mangaAdder: MangaLibraryAdder,
+    @AppCoroutineScope private val appScope: CoroutineScope,
+) : ViewModel() {
+
+    val state: StateFlow<State>
+        field = MutableStateFlow(State())
+
+    init {
+        if (initialUris.isNotEmpty()) add(initialUris.map(Uri::parse))
+    }
+
+    fun add(uris: List<Uri>) {
+        if (uris.isEmpty()) return
+        state.update { it.copy(isReading = true) }
+        viewModelScope.launchIO {
+            val (groups, problems) = localImport.preview(uris)
+            state.update { current ->
+                val known = current.groups.flatMap { g -> g.files.map { it.uri } }.toSet()
+                val fresh = groups.map { g ->
+                    g.copy(files = g.files.filterNot { it.uri in known })
+                }.filter { it.files.isNotEmpty() }
+                current.copy(
+                    groups = merge(current.groups, fresh),
+                    problems = current.problems + problems,
+                    isReading = false,
+                )
+            }
+        }
+    }
+
+    fun rename(key: String, title: String) = updateGroup(key) { it.copy(title = title.trim().ifEmpty { it.title }) }
+
+    fun setType(key: String, type: ContentType) = updateGroup(key) {
+        if (it.canBeEitherType) it.copy(type = type) else it
+    }
+
+    fun remove(key: String) = state.update { s -> s.copy(groups = s.groups.filterNot { it.key == key }) }
+
+    fun setAddToLibrary(add: Boolean) = state.update { it.copy(addToLibrary = add) }
+
+    /** Ask for categories only where a type's batch rule says to, once per type, then copy and add. */
+    fun startImport() {
+        val groups = state.value.groups.takeIf { it.isNotEmpty() } ?: return
+        state.update { it.copy(pending = emptyMap()) }
+        viewModelScope.launchIO {
+            val categories = mutableMapOf<ContentType, List<Long>>()
+            if (state.value.addToLibrary) {
+                for (type in groups.map { it.type }.distinct()) {
+                    when (val batch = batchCategories(type)) {
+                        is BatchCategories.Default -> categories[type] = batch.categoryIds
+                        is BatchCategories.Ask -> {
+                            state.update {
+                                it.copy(
+                                    pickCategories = CategoryPick(type, batch.initialSelection),
+                                    pending = categories.toMap(),
+                                )
+                            }
+                            return@launchIO
+                        }
+                    }
+                }
+            }
+            runImport(groups, categories)
+        }
+    }
+
+    /** The picker's answer for [type]; the next type that asks is asked in turn. */
+    fun confirmCategories(type: ContentType, categoryIds: List<Long>) {
+        val chosen = state.value.pending + (type to categoryIds)
+        state.update { it.copy(pickCategories = null, pending = chosen) }
+        val groups = state.value.groups
+        viewModelScope.launchIO {
+            for (next in groups.map { it.type }.distinct().filter { it !in chosen }) {
+                val batch = batchCategories(next)
+                if (batch is BatchCategories.Ask) {
+                    state.update { it.copy(pickCategories = CategoryPick(next, batch.initialSelection)) }
+                    return@launchIO
+                }
+                state.update {
+                    it.copy(pending = it.pending + (next to (batch as BatchCategories.Default).categoryIds))
+                }
+            }
+            runImport(groups, state.value.pending)
+        }
+    }
+
+    // The dialog dismisses before it confirms, so this keeps the answers given; a new import resets them.
+    fun dismissCategories() = state.update { it.copy(pickCategories = null) }
+
+    private suspend fun batchCategories(type: ContentType): BatchCategories = when (type) {
+        ContentType.NOVELS -> novelAdder.resolveBatchCategories()
+        else -> mangaAdder.resolveBatchCategories()
+    }
+
+    private fun runImport(groups: List<ImportGroup>, categories: Map<ContentType, List<Long>>) {
+        state.update { it.copy(isImporting = true) }
+        val addToLibrary = state.value.addToLibrary
+        appScope.launchIO {
+            val results = groups.groupBy { it.type }.map { (type, ofType) ->
+                localImport.import(ofType, addToLibrary, categories[type].orEmpty())
+            }
+            val result = ImportResult(results.flatMap { it.series }, results.flatMap { it.problems })
+            state.update { it.copy(isImporting = false, result = result, groups = emptyList()) }
+        }
+    }
+
+    private fun updateGroup(key: String, change: (ImportGroup) -> ImportGroup) =
+        state.update { s -> s.copy(groups = s.groups.map { if (it.key == key) change(it) else it }) }
+
+    /** Files picked in a second round join the series the first round found. */
+    private fun merge(current: List<ImportGroup>, fresh: List<ImportGroup>): List<ImportGroup> {
+        val byKey = current.associateBy { it.key }.toMutableMap()
+        for (group in fresh) {
+            byKey[group.key] = byKey[group.key]?.let { it.copy(files = it.files + group.files) } ?: group
+        }
+        return byKey.values.toList()
+    }
+
+    data class CategoryPick(val type: ContentType, val initialSelection: List<CheckboxState.State<Category>>)
+
+    data class State(
+        val groups: List<ImportGroup> = emptyList(),
+        val problems: List<ImportProblem> = emptyList(),
+        val isReading: Boolean = false,
+        val isImporting: Boolean = false,
+        val addToLibrary: Boolean = true,
+        val pickCategories: CategoryPick? = null,
+        val pending: Map<ContentType, List<Long>> = emptyMap(),
+        val result: ImportResult? = null,
+    )
+
+    @AssistedFactory
+    @ManualViewModelAssistedFactoryKey
+    @ContributesIntoMap(AppScope::class)
+    interface Factory : ManualViewModelAssistedFactory {
+        fun create(initialUris: List<String>): LocalImportViewModel
+    }
+}

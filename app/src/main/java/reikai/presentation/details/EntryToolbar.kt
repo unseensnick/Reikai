@@ -62,6 +62,7 @@ fun EntryToolbar(
     // Search and word count over the downloaded text, novel-only and gated the same way.
     onClickSearchText: (() -> Unit)? = null,
     onClickWordCount: (() -> Unit)? = null,
+    onClickExport: (() -> Unit)? = null,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -249,6 +250,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_word_count),
                                 onClick = onClickWordCount,
+                            ),
+                        )
+                    }
+                    if (onClickExport != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_export_epub),
+                                onClick = onClickExport,
                             ),
                         )
                     }

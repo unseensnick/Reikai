@@ -14,11 +14,20 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Hide manga or novels across the app with Settings -> Appearance -> Content shown.** A hidden type skips library updates, and nothing is deleted.
 
+### Local files
+
+#### Added
+
+- **Light novels can be read from your own EPUB files, through a local source beside the manga one.** Chapters follow the book's table of contents, even when one file holds several.
+- **Books and comics can be imported from Library -> ⋮ -> Import files, or by opening or sharing a file with Reikai.** Reikai copies them into its local folders and adds them to your library.
+- **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters, or a local novel's own, go in, with its cover and pictures.
+
 ### Library
 
 #### Changed
 
 - **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**
+- **Local series no longer show a placeholder language badge in the library.**
 
 #### Fixed
 

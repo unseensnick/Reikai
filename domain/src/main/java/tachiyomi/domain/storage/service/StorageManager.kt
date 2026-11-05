@@ -52,12 +52,13 @@ class StorageManager(
                     parent.createDirectory(DOWNLOADS_PATH).also {
                         DiskUtil.createNoMediaFile(it, context)
                     }
-                    // RK --> light-novel chapter downloads, separate from manga downloads, and the
-                    // reader fonts the user imports or downloads
+                    // RK --> light-novel chapter downloads, separate from manga downloads, the
+                    // reader fonts the user imports or downloads, and the local novels
                     parent.createDirectory(NOVEL_DOWNLOADS_PATH).also {
                         DiskUtil.createNoMediaFile(it, context)
                     }
                     parent.createDirectory(FONTS_PATH)
+                    parent.createDirectory(LOCAL_NOVELS_PATH)
                     // RK <--
                 }
                 _changes.send(Unit)
@@ -100,6 +101,11 @@ class StorageManager(
     fun getFontsDirectory(): UniFile? {
         return getChildDirectory(FONTS_PATH)
     }
+
+    /** The local novel source's books, a folder per series, beside the manga local source's `local`. */
+    fun getLocalNovelsDirectory(): UniFile? {
+        return getChildDirectory(LOCAL_NOVELS_PATH)
+    }
     // RK <--
 }
 
@@ -107,6 +113,7 @@ private const val AUTOMATIC_BACKUPS_PATH = "autobackup"
 private const val DOWNLOADS_PATH = "downloads"
 private const val LOCAL_SOURCE_PATH = "local"
 
-// RK: light-novel chapter downloads and the reader fonts the user adds
+// RK: light-novel chapter downloads, the reader fonts the user adds and the local novels
 private const val NOVEL_DOWNLOADS_PATH = "novel_downloads"
 private const val FONTS_PATH = "fonts"
+private const val LOCAL_NOVELS_PATH = "localnovels"

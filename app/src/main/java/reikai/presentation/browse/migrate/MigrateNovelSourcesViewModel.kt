@@ -20,6 +20,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.identity
 import reikai.domain.novel.resolveSourceIdentity
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSourceManager
 import kotlin.time.Duration.Companion.seconds
@@ -82,7 +83,8 @@ internal fun buildNovelMigrateSources(
     installed: Map<String, LnSourceIdentity>,
     cached: Map<String, LnSourceIdentity>,
 ): List<NovelMigrateSource> {
-    return countsPerSource.map { (id, count) ->
+    // A local series is the user's own files, which upstream's manga list leaves out too.
+    return countsPerSource.filterNot { (id, _) -> LocalNovelSource.isLocal(id) }.map { (id, count) ->
         val identity = resolveSourceIdentity(id, installed[id], cached[id])
         NovelMigrateSource(
             id = id,

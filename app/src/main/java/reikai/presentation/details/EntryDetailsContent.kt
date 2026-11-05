@@ -77,6 +77,8 @@ data class EntryDetailsNavigation(
      *  disk is images. Offered only while what the screen shows has downloads. */
     val onSearchText: (() -> Unit)? = null,
     val onWordCount: (() -> Unit)? = null,
+    /** Writes the chapters on the device as an EPUB; novel-only, since manga keeps CBZ for that. */
+    val onExport: (() -> Unit)? = null,
     // Manga capability taps.
     val onRelatedClick: (RelatedMangaCandidate) -> Unit = {},
     val onRelatedSeeAll: () -> Unit = {},
@@ -283,8 +285,10 @@ private fun EntryDetailsToolbar(
             state.chaptersDownloadable && state.hasViewedDownloads
         },
         onClickOpenFolder = nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
-        onClickSearchText = nav.onSearchText?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
-        onClickWordCount = nav.onWordCount?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
+        // A local series' text is on the device without being a download, so it searches and counts too.
+        onClickSearchText = nav.onSearchText?.takeIf { state.textOnDevice },
+        onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },
+        onClickExport = nav.onExport,
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

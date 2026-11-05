@@ -64,6 +64,10 @@ object Notifications {
     const val ID_TRACKER_REFRESH_PROGRESS = -108
     const val ID_TRACKER_REFRESH_RESULT = -109
 
+    // RK: exporting novels as EPUB, on the common channel
+    const val ID_EPUB_EXPORT_PROGRESS = -112
+    const val ID_EPUB_EXPORT_RESULT = -113
+
     /**
      * Notification channel and ids used by the downloader.
      */

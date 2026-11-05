@@ -65,6 +65,10 @@ sealed interface EntryDetailsScreenState {
         /** Downloads go through the viewed member's own source, so only an installed one gates them on. */
         val chaptersDownloadable: Boolean get() = details.header.sourceState == EntrySourceState.Installed
 
+        /** Chapter text to search or count is on the device: downloads, or a local series' own files. */
+        val textOnDevice: Boolean
+            get() = details.header.sourceState == EntrySourceState.Local || (chaptersDownloadable && hasViewedDownloads)
+
         /**
          * Whether a chapter row in [downloadState] draws its download indicator and takes a download swipe.
          * A missing source can start nothing, and neither can a merged row no installed source holds, so a
@@ -98,7 +102,7 @@ sealed interface EntryDetailsScreenState {
 enum class EntrySourceState {
     Installed,
 
-    /** Manga's local source, whose files are the series itself. Novels have no local source. */
+    /** A local source, whose files are the series itself: nothing to download, and nothing to browse. */
     Local,
 
     /** Uninstalled: a manga stub source, or a novel whose plugin or extension is gone. */

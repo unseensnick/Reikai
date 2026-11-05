@@ -29,7 +29,7 @@ Each surface is at a different depth; the depth table in [.claude/rules/content-
 | Reader | `ReaderEngine` over two providers inside one `ReaderActivity` host | [reader.md](reader.md) |
 | History, Updates | `RecentsEngine` over four feed models, one shared screen | [recents.md](recents.md) |
 | Downloads | One queue engine (`EntryDownloadQueueViewModel`) over the two download managers | [downloads.md](downloads.md) |
-| Browse, sources | One engine for the four multi-source lists, one catalogue screen, `NovelSource` over three kinds | [browse-and-sources.md](browse-and-sources.md) |
+| Browse, sources | One engine for the four multi-source lists, one catalogue screen, `NovelSource` over four kinds | [browse-and-sources.md](browse-and-sources.md) |
 | Migrate | One flow (`EntryMigrationListViewModel` and the config screen) over two adapters | [migrate.md](migrate.md) |
 | Merged series | One group store and stitch over both types | [merged-series.md](merged-series.md) |
 

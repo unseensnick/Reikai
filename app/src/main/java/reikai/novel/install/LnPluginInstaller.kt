@@ -21,6 +21,7 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
@@ -122,6 +123,8 @@ class LnPluginInstaller(
     private suspend fun installLocked(canonical: String, metadata: LnInstalledPluginMetadata?): LnPluginSource {
         val src = loader.download(canonical)
         val info = host.loadPlugin(scopeIdFromUrl(canonical), src, metadata?.iconUrl, metadata?.lang)
+        // The local source's id is the app's own; a plugin claiming it would replace the local novels.
+        if (LocalNovelSource.isLocal(info.id)) throw IllegalStateException("A plugin cannot use the id ${info.id}")
         // Stored only once it loads, so a broken new version leaves the installed one in place.
         loader.store(canonical, src)
         val source = LnPluginSource(host, info, refreshStylesheet(canonical, metadata?.customCssUrl))

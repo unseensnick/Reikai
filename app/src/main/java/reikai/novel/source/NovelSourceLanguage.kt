@@ -1,5 +1,6 @@
 package reikai.novel.source
 
+import reikai.novel.local.LocalNovelSource
 /**
  * The language a plugin declares, as the ISO code the rest of the app speaks.
  *
@@ -24,9 +25,12 @@ fun String.isInDisabledNovelLanguage(disabled: Set<String>): Boolean =
 /** Whether a language the user switched off covers this source, see [isInDisabledNovelLanguage]. */
 fun NovelSource.isInDisabledLanguage(disabled: Set<String>): Boolean = lang.isInDisabledNovelLanguage(disabled)
 
-/** Whether the user switched this source off, by its own id or by its language. */
+/**
+ * Whether the user switched this source off, by its own id or by its language. The local source is never
+ * off, as manga's is not: its novels are the user's own files, in no language a switch names.
+ */
 fun NovelSource.isDisabled(disabledIds: Set<String>, disabledLangs: Set<String>): Boolean =
-    id in disabledIds || isInDisabledLanguage(disabledLangs)
+    !LocalNovelSource.isLocal(id) && (id in disabledIds || isInDisabledLanguage(disabledLangs))
 
 /** [sources] in one group per language code, so a plugin and an app source of one language share it. */
 fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List<Pair<String, List<NovelSource>>> =

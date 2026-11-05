@@ -245,6 +245,8 @@ fun LibraryBottomActionMenu(
     onMergeClicked: (() -> Unit)? = null,
     // RK: split the selected entries out of their merge groups (only when a merged one is selected)
     onUnmergeClicked: (() -> Unit)? = null,
+    // RK: write the selected novels as EPUB files (only when every selected entry is a novel)
+    onExportClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -271,7 +273,7 @@ fun LibraryBottomActionMenu(
                     if (isActive) confirm[toConfirmIndex] = false
                 }
             }
-            val itemOverflow = onDownloadClicked != null
+            val itemOverflow = onDownloadClicked != null || onExportClicked != null // RK: Export lives there
             Row(
                 modifier = Modifier
                     .windowInsetsPadding(
@@ -371,11 +373,20 @@ fun LibraryBottomActionMenu(
                             onDismissRequest = { overflowMenuOpen = false },
                             offset = BottomBarMenuDpOffset,
                         ) {
-                            // RK --> Migrate hides for a selection mixing manga and novels
+                            // RK --> Migrate hides for a selection mixing manga and novels; Export shows for novels
                             if (onMigrateClicked != null) {
                                 DropdownMenuItem(
                                     text = { Text(stringResource(MR.strings.migrate)) },
                                     onClick = onMigrateClicked,
+                                )
+                            }
+                            if (onExportClicked != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_export_epub)) },
+                                    onClick = {
+                                        overflowMenuOpen = false
+                                        onExportClicked()
+                                    },
                                 )
                             }
                             // RK <--

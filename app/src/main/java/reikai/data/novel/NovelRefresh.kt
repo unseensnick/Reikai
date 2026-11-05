@@ -16,6 +16,7 @@ import reikai.domain.source.refreshedCover
 import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.SourceNovel
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -84,11 +85,11 @@ suspend fun storeRefreshedNovel(
     val replaced = details == StoredDetails.SUSPECT && wearsAnothersDetails(existing, parsed)
     val updateTitles = replaced || libraryPreferences.updateMangaTitles.get()
     val merged = mergeRefreshedNovel(existing, parsed, updateTitles, kept = if (replaced) Novel.create() else existing)
-    // Novels have no local source, so a cover is never only stamped.
     val refreshedUrl = keptCover(null, parsed.thumbnailUrl)
-    val cover = refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, isLocal = false) {
-        existing.hasCustomCover(coverCache)
-    }
+    val cover =
+        refreshedCover(existing.thumbnailUrl, refreshedUrl, manualFetch, LocalNovelSource.isLocal(existing.source)) {
+            existing.hasCustomCover(coverCache)
+        }
     if (cover.deletesCachedFile) coverCache.getCoverFile(existing.thumbnailUrl)?.delete()
     val coverLastModified = Clock.System.now().takeIf { cover.stamps }
     if (merged == existing && coverLastModified == null) return existing

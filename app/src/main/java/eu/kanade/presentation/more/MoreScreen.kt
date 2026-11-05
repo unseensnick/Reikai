@@ -111,7 +111,7 @@ fun MoreScreen(
                     onPreferenceClick = onClickCategories,
                 )
             }
-            // RK: hidden while Statistics is a tab of its own
+            // RK --> hidden while Statistics is a tab of its own
             if (showStats) {
                 item {
                     TextPreferenceWidget(
@@ -121,6 +121,7 @@ fun MoreScreen(
                     )
                 }
             }
+            // RK <--
             item {
                 TextPreferenceWidget(
                     title = stringResource(MR.strings.label_data_storage),

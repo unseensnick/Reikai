@@ -41,6 +41,7 @@ fun LibraryToolbar(
     // RK: opt-in "Update errors" overflow entry (null = hidden)
     onClickUpdateErrors: (() -> Unit)? = null,
     onClickStats: (() -> Unit)?, // RK: a shortcut to Statistics (null = hidden)
+    onClickImport: () -> Unit, // RK: copy files into the local sources
     searchQuery: String?,
     onSearchQueryChange: (String?) -> Unit,
     scrollBehavior: TopAppBarScrollBehavior?,
@@ -64,6 +65,7 @@ fun LibraryToolbar(
         onClickRefreshTrackers = onClickRefreshTrackers,
         onClickUpdateErrors = onClickUpdateErrors,
         onClickStats = onClickStats, // RK
+        onClickImport = onClickImport, // RK
         scrollBehavior = scrollBehavior,
     )
 }
@@ -82,6 +84,7 @@ private fun LibraryRegularToolbar(
     onClickRefreshTrackers: () -> Unit,
     onClickUpdateErrors: (() -> Unit)? = null,
     onClickStats: (() -> Unit)?, // RK
+    onClickImport: () -> Unit, // RK
     scrollBehavior: TopAppBarScrollBehavior?,
 ) {
     val pillAlpha = if (isSystemInDarkTheme()) 0.12f else 0.08f
@@ -140,6 +143,11 @@ private fun LibraryRegularToolbar(
                             onClick = it,
                         )
                     },
+                    // RK: files picked or shared, copied into the local sources
+                    AppBar.OverflowAction(
+                        title = stringResource(MR.strings.local_import_title),
+                        onClick = onClickImport,
+                    ),
                     // RK: an opt-in shortcut to Statistics, which otherwise sits under More
                     onClickStats?.let {
                         AppBar.OverflowAction(title = stringResource(MR.strings.label_stats), onClick = it)

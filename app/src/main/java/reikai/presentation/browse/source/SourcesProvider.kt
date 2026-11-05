@@ -8,6 +8,7 @@ import kotlinx.coroutines.flow.map
 import mihon.domain.extension.model.ContentWarning
 import reikai.domain.library.ContentType
 import reikai.domain.source.SourceKey
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.source.model.Pin
 import tachiyomi.domain.source.model.Source
@@ -106,5 +107,5 @@ class NovelSourcesProvider(private val model: NovelSourcesViewModel) : SourcesPr
 
     override fun toggleDisable(row: BrowseSourceRow) = model.toggleDisable((row.source as NovelSource).id)
 
-    override fun canDisable(row: BrowseSourceRow) = true
+    override fun canDisable(row: BrowseSourceRow) = !LocalNovelSource.isLocal((row.source as NovelSource).id)
 }

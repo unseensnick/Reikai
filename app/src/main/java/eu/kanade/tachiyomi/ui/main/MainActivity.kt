@@ -116,6 +116,8 @@ import reikai.presentation.browse.repos.RepositoriesScreen
 import reikai.presentation.components.LocalShownContent
 import reikai.presentation.details.novelDetailsScreen
 import reikai.presentation.library.updateerror.UpdateErrorsScreen
+import reikai.presentation.local.LocalImportScreen
+import reikai.presentation.local.importedFiles
 import reikai.util.isLauncherIntent
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
@@ -503,6 +505,16 @@ class MainActivity : BaseActivity() {
                 intent.getStringExtra("notificationTag"), // RK: a novel's notices post under a tag
             )
         }
+
+        // RK --> a book or comic archive opened with or shared to the app goes to the import screen
+        val imported = importedFiles(intent)
+        if (imported.isNotEmpty()) {
+            navigator.popUntilRoot()
+            navigator.push(LocalImportScreen(imported.map { it.toString() }))
+            ready = true
+            return true
+        }
+        // RK <--
 
         val tabToOpen = when (intent.action) {
             Constants.SHORTCUT_LIBRARY -> HomeScreen.Tab.Library()

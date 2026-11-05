@@ -1,0 +1,65 @@
+# Local files: local novels, import and EPUB export
+
+## Purpose
+
+Lets a reader bring their own books and comics in and take novels out. EPUB books in the `localnovels` storage folder are a novel source of their own, beside manga's Local source; an import screen copies picked or shared files into either folder; and any novel's chapters on the device can be written out as an EPUB.
+
+## How it works
+
+**The EPUB kernel** (`reikai/novel/local/epub/`) is plain Kotlin over an `EpubArchive`, which reads several zip entries in one pass (`ArchiveReader.readEntries`, since libarchive finds an entry only by scanning from the first). `EpubBook.parse` reads the package: metadata (with Calibre's and EPUB 3's series and position), the spine, the cover (EPUB 3 property, EPUB 2 meta, then an image named or id'd as one), and the table of contents, the EPUB 3 nav before the EPUB 2 NCX, and of the NCX only its `navMap`. Tags are matched by local name, since packages spell `opf:item` and `item` alike.
+
+`EpubChapters.list` reads the book as one stream in spine order and cuts it where the contents point (`EpubCut`): a chapter runs from its cut to the next, across files, so a file the contents skip continues the chapter before it and a file holding several chapters is divided at their anchors. Whatever comes before the first entry opens the first chapter. With no contents, each file is a chapter, and a book that is a single file is cut at its top-level headings. A chapter with under 100 characters and no picture joins the next, named for both ("BOOK ONE - CHAPTER I"), and a Gutenberg caption in front of a chapter name is dropped (`cleanTitle`).
+
+`EpubChapters.render` cuts each file the chapter covers (`keepFrom`, `keepUntil`; an anchor that opens its element stands for the element, `lift`), turns an SVG that only frames a picture into an `<img>` (the renderers drop SVG), keeps links only within the chapter, strips scripts and event handlers, and inlines pictures as `data:` addresses through `inlinedImageAddress`, the cap downloads use. Linked and inline stylesheets come along without fonts, imports, colours or backgrounds, so the reader's theme wins while indents and alignment stay.
+
+**The source** is `LocalNovelSource`, id `local`, handed to `NovelSourceManager` as a built-in through `ReikaiBindings.providesBuiltInNovelSources`. Each folder under `localnovels` is a series and its EPUBs are volumes in natural name order; a loose EPUB is a series of one. A `details.json` (manga's `MangaDetails` schema) or a `cover.*` in the folder wins over the books; otherwise the first book's cover is copied once into app storage. A chapter's path names the series, the volume file and the cut (`chapterPath`), and a parsed book is cached per file version. Its web address is blank, which hides WebView, Share and Copy link.
+
+Local is a source state like manga's (`EntrySourceState.Local`): no download controls, no browse link, left out of the migration source list, never disabled, and its chapters count as on the device (the novel `downloadedChapterIds` kernel, as manga's), so the downloaded filter, Downloaded only, search and word count include them. `NovelDownloadedTexts` reads a local chapter's text from its book.
+
+**Import** (`LocalImport`, `LocalImportScreen`) serves both types. A picked, opened or shared file is read for a preview: an EPUB through the kernel (fixed-layout books suggest manga), a comic archive for its ComicInfo series and writer and its first page. The kind comes from the name, else the provider's MIME type, else the archive's contents, and a copy without an extension gets one. Files group by type and series key (`groupKey`). Import copies each group into `local` or `localnovels` (numbered when a new series gets several files, skipped when a file of that name and size is there), then stores and favorites it through each type's batch add: `insertOpenedNovel` and `NovelLibraryAdder.addToBatch` for novels, `NetworkToLocalManga`, `UpdateMangaFromRemote` and `MangaLibraryAdder.addToBatch` for manga. Categories are asked once per type when the batch rule says so. The copy runs on the app scope.
+
+**Export** (`EpubWriter`, `NovelEpubExportWorker`) writes EPUB 3 with an EPUB 2 NCX beside the nav. `mimetype` is stored first; each chapter is well-formed XHTML with its `data:` pictures written once each as files, web pictures and anything that runs dropped, and a heading added only when the chapter does not open with one. The worker exports the chapters on the device in reading order (`NovelDownloadedTexts.chaptersOf`), a run of them if asked, to one file or, for a library selection, one file per novel in a folder.
+
+## Key files
+
+- `app/src/main/java/reikai/novel/local/epub/EpubBook.kt`: `EpubBook.parse`, `EpubArchive`, `EpubException`.
+- `app/src/main/java/reikai/novel/local/epub/EpubChapters.kt`: `EpubChapters.list`, `render`, `cleanTitle`.
+- `app/src/main/java/reikai/novel/local/LocalNovelSource.kt`: `LocalNovelSource`, `chapterPath`.
+- `app/src/main/java/reikai/data/local/LocalImport.kt`: `LocalImport.preview`, `import`, `groupKey`.
+- `app/src/main/java/reikai/presentation/local/LocalImportScreen.kt`: `LocalImportScreen`.
+- `app/src/main/java/reikai/presentation/local/LocalImportViewModel.kt`: `LocalImportViewModel`, the category ask per type.
+- `app/src/main/java/reikai/presentation/local/ImportIntents.kt`: `importedFiles`, read by `MainActivity`.
+- `app/src/main/java/reikai/novel/export/EpubWriter.kt`: `EpubWriter`, `EpubExportBook`.
+- `app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt`: `NovelEpubExportWorker.start`.
+- `app/src/main/java/reikai/presentation/novel/details/NovelExportDialog.kt`: `NovelExportDialog`.
+
+## Invariants and traps
+
+- **A regex here must compile on Android's ICU engine, not only the JVM's.** A bare `}` that Java accepts made `EpubChapters` fail to initialise on a device while every JVM test passed; escape every brace.
+- **Only an encrypted chapter file means DRM.** Most books carrying `encryption.xml` only obfuscate fonts.
+- **The category dialog dismisses before it confirms.** Answers already given survive a dismiss; a new import resets them.
+- **A test chapter needs real length.** Under 100 characters it is read as a part title and joined to the next.
+- **Local chapters are on the device but have no download file.** Anything that reads stored text for a local chapter goes through the source, never `getChapterText`.
+
+## Decisions
+
+- **Files are copied in, not linked.** A picked document's permission does not outlive the app; void if a persisted tree grant is used instead.
+- **A book is read from its zip each time, not unpacked.** Deleting the file removes the series and nothing is stored twice; void if reading a chapter from a large book becomes slow.
+- **EPUB export is novels only.** Manga's offline copy is the CBZ Mihon already writes, and an image-only EPUB of a comic serves few readers; void if users ask for comic EPUBs.
+- **Export writes only what is on the device.** Fetching during an export would meet rate limits and challenges with nobody watching; the dialog offers the download instead.
+
+## Upstream divergences
+
+`// RK` patches: `ArchiveReader.readEntries`; `StorageManager.getLocalNovelsDirectory`; `MainActivity` (the import intent); `AndroidManifest.xml` (VIEW and SEND filters); `LibraryToolbar` and `LibraryTab` (Import files, batch export); `MangaBottomActionMenu` (Export as EPUB); `Notifications` (export ids); `NovelSourceManager` takes the built-ins (`builtIn`). See [upstream-sync.md](../upstream-sync.md).
+
+## Extending
+
+A new book format: give `LocalImport.kindOf` its name, type and contents test, and a source that reads it. A new metadata field: read it in `EpubBook.readMetadata` and map it in `LocalNovelSource.parseNovel`.
+
+## Tests
+
+`EpubBookTest` (contents, metadata, DRM, namespaces), `EpubChaptersTest` (cuts, joins, rendering), `EpubWriterTest` (structure, XML, round trip through the kernel), `LocalNovelChapterPathTest`, `LocalImportGroupKeyTest`. Run with `./gradlew :app:testDebugUnitTest --tests "reikai.novel.local.*" --tests "reikai.novel.export.*" --tests "reikai.data.local.*"`.
+
+## Related
+
+User doc: [local source](../../guides/local-source/index.md).

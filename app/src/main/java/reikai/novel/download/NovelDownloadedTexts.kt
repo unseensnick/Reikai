@@ -11,11 +11,19 @@ import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.ownersOf
 import reikai.novel.content.NovelHtmlUtils
+import reikai.novel.local.LocalNovelSource
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 
-/** [onDisk] is what a pass reads, [total] every chapter in the scope, for the share it covers. */
-data class NovelDownloadedChapters(val onDisk: List<NovelChapter>, val total: Int)
+/**
+ * [onDisk] is what a pass reads, [total] every chapter in the scope, for the share it covers, and [missing]
+ * the rest of the scope, which a download would bring onto the device.
+ */
+data class NovelDownloadedChapters(
+    val onDisk: List<NovelChapter>,
+    val total: Int,
+    val missing: List<NovelChapter> = emptyList(),
+)
 
 /**
  * The downloaded chapters a novel-wide pass over text reads, in the reader's scope and order, and their
@@ -27,6 +35,7 @@ class NovelDownloadedTexts(
     private val novelRepository: NovelRepository,
     private val downloadCache: NovelDownloadCache,
     private val downloadManager: () -> NovelDownloadManager,
+    private val localNovels: LocalNovelSource,
 ) {
     suspend fun chaptersOf(novelId: Long, sourceScoped: Boolean): NovelDownloadedChapters {
         // Only rows on disk are read, and which installed copy opens matters only to a row with none.
@@ -36,7 +45,13 @@ class NovelDownloadedTexts(
         val isHidden = getNextNovelChapter.hiddenAmong(rows)
         val shown = rows.filterNot(isHidden).sortedWith(getNextNovelChapter.readingOrder(novelId))
         val onDisk = downloadCache.downloadedChapterIds(shown, novelRepository.ownersOf(shown))
-        return NovelDownloadedChapters(shown.filter { it.id in onDisk }, shown.size)
+        return NovelDownloadedChapters(
+            shown.filter {
+                it.id in onDisk
+            },
+            shown.size,
+            shown.filterNot { it.id in onDisk },
+        )
     }
 
     /** Hands [onChapter] each of [chapters] with its visible text, or null for a file that cannot be read. */
@@ -45,7 +60,14 @@ class NovelDownloadedTexts(
         for (chapter in chapters) {
             currentCoroutineContext().ensureActive()
             val text = runCatchingCancellable {
-                owners[chapter.novelId]?.let { downloadManager().getChapterText(it, chapter) }?.let { stored ->
+                // A local chapter's text is its book, which counts as on disk with no download file.
+                owners[chapter.novelId]?.let { owner ->
+                    if (LocalNovelSource.isLocal(owner.source)) {
+                        localNovels.parseChapter(chapter.url)
+                    } else {
+                        downloadManager().getChapterText(owner, chapter)
+                    }
+                }?.let { stored ->
                     Jsoup.parse(NovelHtmlUtils.normalizeContentForHtml(stored, chapter.url)).body().text()
                 }
             }

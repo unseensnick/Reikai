@@ -12,11 +12,39 @@ If you like to download and organize your media, then you want to know how to ma
 This page explores some advanced features.
 :::
 
-::: info Manga only
-The local source reads folders of images and comic archives. Light novels have no equivalent: novel sources are [plugins and extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins) that fetch text, so there is nothing to point at a folder.
-:::
+There are two local sources: one for manga, which reads folders of pictures and comic archives, and one for light novels, which reads EPUB books. Both appear in <nav to="sources"> as **Local source**.
 
-## Creating local series
+## Importing files
+
+The quickest way in is to let Reikai copy the files for you:
+
+* In the <nav to="main_library">, open the ⋮ menu and pick **Import files**, or tap **+** at the top of a **Local source** list.
+* Or open an EPUB or comic archive from another app with **Open with** or **Share**, and pick Reikai.
+
+Reikai reads each file and shows it as the series it will become, with its cover and author. Books that belong to one series (by their series details, or a shared name for comics) are grouped together as its volumes. Tap the pencil to rename a series, or the cross to leave it out. An EPUB can go in as a novel or, for an image-only comic in EPUB form, as manga. With **Add to library** on, the series are added to your library, in your default category or the one you pick.
+
+The files are copied into the folders described below, so you can delete the originals afterwards. Importing a file that is already there skips it, and a new volume of a series you have already imported joins that series.
+
+Files protected with DRM cannot be read. Remove the protection with the tool you bought the book from, or buy it DRM-free.
+
+## Light novels
+
+Local novels live in a `localnovels` folder in your storage location, beside the `local` one. Each folder inside it is a series, and each EPUB in that folder is a volume, read in name order. An EPUB placed straight in `localnovels` is a series of its own.
+
+* Chapters come from the book's table of contents. A file that holds several chapters is divided at them, and a part title with no text of its own joins the chapter after it.
+* A book with no table of contents gets a chapter per file, or, for a book that is one long file, a chapter per heading.
+* Pictures, and the book's own layout such as indents and centred text, carry over. Its text colours give way to your reader theme.
+* To change a series' details, put a `details.json` in its folder (the format is in [Advanced editing](/docs/guides/local-source/advanced)). A `cover.jpg` or `cover.png` there replaces the book's own cover.
+
+Chapters you add later appear on the next library update, or when you pull to refresh the series.
+
+## Saving a novel as an EPUB
+
+Any novel, local or not, can be saved as an EPUB file to read in another app or keep as a copy. Open the novel, then **Export as EPUB** in the ⋮ menu. The dialog says how many chapters are on the device: downloaded ones, or every chapter of a local novel. **Download the rest** queues the others first. You can leave out pictures and export only a run of chapters.
+
+To save several at once, select them in the <nav to="main_library"> and pick **Export as EPUB** from the ⋮ menu at the bottom. Reikai asks for a folder and writes one file per novel.
+
+## Creating local manga
 
 1. In the location you specified as your storage location (e.g., `/Reikai/`), create a `local` folder if one is not there yet. Place correctly structured series inside that (e.g. `/Reikai/local/`).
 

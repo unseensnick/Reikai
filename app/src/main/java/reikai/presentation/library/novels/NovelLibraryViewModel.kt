@@ -486,6 +486,9 @@ class NovelLibraryViewModel(
         /** Any of [ids] is a merge group (drives the bulk Unmerge action). */
         fun containsMerged(ids: Collection<Long>): Boolean = favoritesById.anyMerged(ids)
 
+        /** Any of [ids] is a local novel, whose files are on the device already. */
+        fun containsLocal(ids: Collection<Long>): Boolean = ids.any { favoritesById[it]?.isLocal == true }
+
         /** Every grouped source-novel behind [ids]. */
         fun memberIdsFor(ids: Collection<Long>): List<Long> = favoritesById.memberIdsOf(ids)
 
