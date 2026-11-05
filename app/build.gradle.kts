@@ -294,8 +294,8 @@ dependencies {
     implementation(libs.ireader.sourceApi) {
         exclude(group = "io.insert-koin")
     }
-    // The host builds IReader's clients with the Ktor that API was built against, decoding JSON with
-    // Gson as IReader's own client does.
+    // The host builds IReader's clients with the Ktor upstream IReader pins, which extensions link
+    // against (browse-and-sources.md), decoding JSON with Gson as IReader's own client does.
     implementation(libs.ireader.ktor.okhttp)
     implementation(libs.ireader.ktor.contentNegotiation)
     implementation(libs.ireader.ktor.gson)

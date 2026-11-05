@@ -186,8 +186,7 @@ the wrong place costs most.
 - **The metadata guide documented the deprecated format.** Local series details are read from
   `ComicInfo.xml`. A `.json` file still works exactly once: the app converts it and **deletes it**,
   which to anyone following that page looks like the app ate their file.
-- **The local source is manga-only**, which no page said. `LibraryQueryMatch.kt` puts it plainly:
-  novels have no local-source concept.
+- **No page said which content the local source covers.** It now covers manga and EPUB novels, and [local-source/index.md](local-source/index.md) describes both.
 - Smaller: four archive formats missing (`7Z`/`CB7`, `TAR`/`CBT`), a cover that can be any image
   extension rather than `cover.jpg`, and `Clear Cache` again in the diagnosis checklist.
 

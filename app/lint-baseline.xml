@@ -474,16 +474,6 @@
             column="31"/>
     </issue>
 
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.compose:compose-bom-beta than 2026.10.00 is available: 2026.10.01"
-        errorLine1="androidx-compose-bom = &quot;2026.10.00&quot;"
-        errorLine2="                       ~~~~~~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="11"
-            column="24"/>
-    </issue>
 
     <issue
         id="GradleDependency"
@@ -507,38 +497,8 @@
             column="20"/>
     </issue>
 
-    <issue
-        id="GradleDependency"
-        message="A newer version of androidx.webkit:webkit than 1.17.1 is available: 1.18.0"
-        errorLine1="androidx-webkit = &quot;1.17.1&quot;"
-        errorLine2="                  ~~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="30"
-            column="19"/>
-    </issue>
 
-    <issue
-        id="GradleDependency"
-        message="A newer version of com.google.firebase:firebase-bom than 35.0.2 is available: 35.1.0"
-        errorLine1="firebase-bom = &quot;35.0.2&quot;"
-        errorLine2="               ~~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="43"
-            column="16"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of org.conscrypt:conscrypt-android than 2.7.0 is available: 2.8.0"
-        errorLine1="conscrypt = &quot;2.7.0&quot;"
-        errorLine2="            ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="40"
-            column="13"/>
-    </issue>
 
     <issue
         id="NewerVersionAvailable"
@@ -551,38 +511,8 @@
             column="21"/>
     </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-content-negotiation than 3.3.2 is available: 3.6.0"
-        errorLine1="ireader-ktor = &quot;3.3.2&quot;"
-        errorLine2="               ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="49"
-            column="16"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-client-okhttp than 3.3.2 is available: 3.6.0"
-        errorLine1="ireader-ktor = &quot;3.3.2&quot;"
-        errorLine2="               ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="49"
-            column="16"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of io.ktor:ktor-serialization-gson than 3.3.2 is available: 3.6.0"
-        errorLine1="ireader-ktor = &quot;3.3.2&quot;"
-        errorLine2="               ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="49"
-            column="16"/>
-    </issue>
 
     <issue
         id="NewerVersionAvailable"
@@ -606,60 +536,10 @@
             column="18"/>
     </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:logging-interceptor than 5.5.0 is available: 5.5.1"
-        errorLine1="okhttp = &quot;5.5.0&quot;"
-        errorLine2="         ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="66"
-            column="10"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:okhttp than 5.5.0 is available: 5.5.1"
-        errorLine1="okhttp = &quot;5.5.0&quot;"
-        errorLine2="         ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="66"
-            column="10"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:okhttp-brotli than 5.5.0 is available: 5.5.1"
-        errorLine1="okhttp = &quot;5.5.0&quot;"
-        errorLine2="         ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="66"
-            column="10"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:okhttp-dnsoverhttps than 5.5.0 is available: 5.5.1"
-        errorLine1="okhttp = &quot;5.5.0&quot;"
-        errorLine2="         ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="66"
-            column="10"/>
-    </issue>
 
-    <issue
-        id="NewerVersionAvailable"
-        message="A newer version of com.squareup.okhttp3:okhttp-zstd than 5.5.0 is available: 5.5.1"
-        errorLine1="okhttp = &quot;5.5.0&quot;"
-        errorLine2="         ~~~~~~~">
-        <location
-            file="../gradle/libs.versions.toml"
-            line="66"
-            column="10"/>
-    </issue>
 
     <issue
         id="NewerVersionAvailable"

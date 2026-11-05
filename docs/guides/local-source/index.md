@@ -57,7 +57,7 @@ If you add more chapters then you'll have to manually refresh the chapter list (
 Supported chapter formats are folders with pictures inside (such as `.jpg`, `.png`, etc), archive files (`ZIP`/`CBZ`, `RAR`/`CBR`, `7Z`/`CB7` and `TAR`/`CBT`), or an `EPUB`.
 But expect better performance with directories and `ZIP`/`CBZ`.
 
-Note that a single folder or archive file is treated as a single chapter. For example, Reikai will not automatically split an `EPUB` file containing multiple chapters into separate chapters within the app.
+Note that a single folder or archive file is treated as a single chapter, and so is an EPUB in the `local` folder. Only the light novel source, reading from `localnovels`, divides an EPUB into chapters.
 
 ### Folder structure
 

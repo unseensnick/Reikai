@@ -169,10 +169,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Novel reader now uses the same sections as Settings -> Manga reader, with its page readout and screen options under Display.**
 - **About twenty-five settings have clearer names, such as Merge series across sources and Load the next chapter after reading.**
 
-#### Fixed
-
-- **Changing Settings -> Appearance -> Content shown now updates Categories, Update errors, global search and the sources filter if one is still open.** Before, a hidden type could stay on screen with no way to switch away.
-
 ### Browse
 
 #### Changed
