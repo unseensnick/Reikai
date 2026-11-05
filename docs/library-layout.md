@@ -36,8 +36,8 @@ These add small badges to each cover:
 |---|---|---|
 | **Downloaded chapters** | how many chapters are downloaded | Off |
 | **Unread chapters** | how many chapters are unread | On |
-| **Local source** | that the entry comes from the local source (manga only) | On |
-| **Language** | the source's language | Off |
+| **Local source** | that the entry comes from a local source | On |
+| **Language** | the source's language, or for a local series the language its files name | Off |
 | **Source icon** | the source's icon | On |
 | **Show source icons on merged covers** | every source behind a [merged series](multi-source.md) | On |
 | **Continue reading button** | a button on the cover that opens the next chapter | Off |

@@ -21,41 +21,60 @@ Below it:
 * **Sources**, **Tags**, **Categories**, **Trackers**, **Languages**, **Series length** and **Started reading** list your top five in each.
 
 ::: tabs
-== Charts
+== Overview
 <img
   class="only-light"
-  src="/docs/statistics/charts.light.webp"
-  alt="Publishing status, tracking status and score charts"
+  src="/docs/statistics/overview.light.webp"
+  alt="The overview card, each figure with an icon"
   width="414"
-  height="644"
+  height="353"
   loading="lazy"
   decoding="async"
 />
 <img
   class="only-dark"
-  src="/docs/statistics/charts.dark.webp"
-  alt="Publishing status, tracking status and score charts"
+  src="/docs/statistics/overview.dark.webp"
+  alt="The overview card, each figure with an icon"
   width="414"
-  height="644"
+  height="353"
   loading="lazy"
   decoding="async"
 />
 == Reading
 <img
   class="only-light"
-  src="/docs/statistics/most-read.light.webp"
-  alt="Reading this week and the Most read card"
+  src="/docs/statistics/week.light.webp"
+  alt="The Reading this week card with streaks and reading speed"
   width="414"
-  height="638"
+  height="359"
   loading="lazy"
   decoding="async"
 />
 <img
   class="only-dark"
-  src="/docs/statistics/most-read.dark.webp"
-  alt="Reading this week and the Most read card"
+  src="/docs/statistics/week.dark.webp"
+  alt="The Reading this week card with streaks and reading speed"
   width="414"
-  height="638"
+  height="359"
+  loading="lazy"
+  decoding="async"
+/>
+== Charts
+<img
+  class="only-light"
+  src="/docs/statistics/charts.light.webp"
+  alt="Tracking status, Scores and the Most read card"
+  width="414"
+  height="712"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/charts.dark.webp"
+  alt="Tracking status, Scores and the Most read card"
+  width="414"
+  height="712"
   loading="lazy"
   decoding="async"
 />
@@ -74,6 +93,25 @@ Tap the pencil at the top of Statistics to arrange its cards. They sit in three 
 * Tap the arrow beside a group to fold it while you arrange the others.
 * **Reset** in the ⋮ menu puts every card back in its first place and shows them all.
 
+<img
+  class="only-light"
+  src="/docs/statistics/arrange.light.webp"
+  alt="Arrange cards, with the At a glance and Charts groups open"
+  width="414"
+  height="399"
+  loading="lazy"
+  decoding="async"
+/>
+<img
+  class="only-dark"
+  src="/docs/statistics/arrange.dark.webp"
+  alt="Arrange cards, with the At a glance and Charts groups open"
+  width="414"
+  height="399"
+  loading="lazy"
+  decoding="async"
+/>
+
 ## Opening a list
 
 **See all** on a card opens the whole list, one card per row on a phone and several side by side on a wider screen. Each shows how many of its series you have **Finished** (read every chapter), are **Reading** and have **Not started**, then its mean score and reading time. Where the list has no order of its own, the sort button in the top bar orders it by most series, chapters read, mean score or reading time.
@@ -85,7 +123,7 @@ Tap a row to list the series it counts, drawn as your library draws them: the sa
   src="/docs/statistics/series-list.light.webp"
   alt="A row's series list under its summary card"
   width="414"
-  height="432"
+  height="431"
   loading="lazy"
   decoding="async"
 />
@@ -94,7 +132,7 @@ Tap a row to list the series it counts, drawn as your library draws them: the sa
   src="/docs/statistics/series-list.dark.webp"
   alt="A row's series list under its summary card"
   width="414"
-  height="432"
+  height="431"
   loading="lazy"
   decoding="async"
 />
@@ -108,7 +146,7 @@ Tap a row to list the series it counts, drawn as your library draws them: the sa
   src="/docs/statistics/reading-time.light.webp"
   alt="Reading time for a month, a bar per day"
   width="414"
-  height="616"
+  height="468"
   loading="lazy"
   decoding="async"
 />
@@ -117,7 +155,7 @@ Tap a row to list the series it counts, drawn as your library draws them: the sa
   src="/docs/statistics/reading-time.dark.webp"
   alt="Reading time for a month, a bar per day"
   width="414"
-  height="616"
+  height="468"
   loading="lazy"
   decoding="async"
 />

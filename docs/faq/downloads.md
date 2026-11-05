@@ -14,15 +14,16 @@ Two settings in <nav to="downloads"> control this for manga, and both start cons
 
 Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
 
-Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Download delays · Novels**.
+Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Download speed**.
 
-## How do I slow novel downloads down?
-Novel sources do not limit their own request rate the way manga extensions do, so a fast queue can get you blocked. The **Download delays · Novels** group in <nav to="downloads"> sets the wait between novel chapter downloads. It has no effect on manga.
+## How do I slow downloads down?
+A fast queue can get you blocked by a site. The **Download speed** group in <nav to="downloads"> sets a wait between chapter downloads, separately for manga and novels.
 
-* **Delay between chapters** applies to every novel source. It defaults to 0.5 s, and goes up to 10 s.
-* **Delay per source** lists your novel sources so you can give one its own delay. A source that declares a minimum shows **Needs at least** that much, and its choices never go below it.
+* **Delay between manga chapters** applies to every manga source. It starts at **Off**, so manga download as before until you set it. With a delay set, a source fetches its chapters one after another, with the wait in between.
+* **Delay between novel chapters** applies to every novel source. It defaults to 0.5 s.
+* **Delay per source** lists your sources of both types so you can give one its own delay. Search it from the top bar, or narrow it to manga or novels with the chips. A source that declares a minimum shows **Needs at least** that much, and its delay never goes below it.
 
-The wait also adjusts by itself: after a failed chapter it doubles, up to 30 seconds, and after a successful one it drops back towards your setting.
+Each delay is set on a slider from Off to 30 s. The wait also adjusts by itself: after a failed chapter it doubles, up to 30 seconds, and after a successful one it drops back towards your setting. At Off it never waits.
 
 ## Why did my downloads stop midway?
 Downloads stopping midway may be related to network connection issues or source problems.
