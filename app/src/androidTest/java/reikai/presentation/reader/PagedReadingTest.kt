@@ -290,6 +290,25 @@ class PagedReadingTest(private val renderer: Renderer) {
         }
     }
 
+    /** As a rotation does: a new renderer, which holds no line of its own until the landing gives it one. */
+    @Test
+    fun aNewRendererAtAnotherSizeAndBackKeepsThePage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+        val start = checkNotNull(lastTopLine())
+        val wider = readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6)
+        repeat(3) {
+            val line = lastTopLine()
+            rebuild(NovelPageLayout.PAGED_LTR)
+            open(1L, long("first"), topLine = line, settings = wider)
+            val back = lastTopLine()
+            rebuild(NovelPageLayout.PAGED_LTR)
+            open(1L, long("first"), topLine = back)
+        }
+        assertEquals("[$renderer] the line moved", start, lastTopLine())
+    }
+
     private fun applyAndSettle(settings: NovelReaderSettings, settles: Int = 3) {
         openedWith = settings
         onMain { viewport.applySettings(settings) }

@@ -1761,6 +1761,9 @@ class NovelTextViewport(
                 }
                 val top = lineTopOf(view, offset) ?: return
                 slot.landing = null
+                // Held, or the next page shown takes its first line, which is above this one, and a rebuilt
+                // renderer holds no line of its own: each rotation walked the reader back a page.
+                if (paged) pageLine = PageLine(slot.chapter.chapterId, slot.block.chunkViews.indexOf(view), offset)
                 val before = scrolled
                 scrollColumnBy(top - readingTop())
                 if (lineTopOf(view, offset) != readingTop()) holdShort(slot, landing)
