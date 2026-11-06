@@ -11,6 +11,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.roundedfilled.Pause
@@ -75,3 +76,10 @@ fun ReadAloudControls(
         }
     }
 }
+
+/**
+ * How far above the screen's bottom edge the controls sit while the reader's bars are hidden: clear of the
+ * progress readout while it shows, whose height follows its size setting, else clear of the navigation bar.
+ */
+internal fun readAloudControlsLift(readoutHeight: Dp, navigationBar: Dp): Dp =
+    if (readoutHeight > 0.dp) readoutHeight + 8.dp else navigationBar + 24.dp

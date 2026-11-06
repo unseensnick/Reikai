@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -46,6 +47,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.getSystemService
@@ -232,6 +235,9 @@ class ReaderActivity : BaseActivity() {
     private var pageColorFilter by mutableStateOf<ColorFilter?>(null)
     private var navigationOverlayJob: Job? = null
     private var pageBackgroundColor by mutableStateOf<Int?>(null)
+
+    // How far the progress readout reaches up from the bottom edge, which the read-aloud controls clear
+    private var readoutHeight by mutableStateOf(0.dp)
     // RK <--
 
     val viewModel by viewModels<ReaderViewModel> { graph.viewModelFactory }
@@ -535,6 +541,8 @@ class ReaderActivity : BaseActivity() {
                 // readout never appeared in a novel session and its setting did nothing.
                 // RK: time left shows with the position or on its own, each behind its own setting.
                 if (!state.menuVisible && (showProgress || timeLeft != null)) {
+                    val density = LocalDensity.current // RK
+                    DisposableEffect(Unit) { onDispose { readoutHeight = 0.dp } } // RK
                     ReaderPageIndicator(
                         progress = navigatorState.progress.takeIf { showProgress },
                         timeLeft = timeLeft,
@@ -542,6 +550,7 @@ class ReaderActivity : BaseActivity() {
                         pageColor = pageBackgroundColor?.let { ComposeColor(it) }, // RK
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
+                            .onSizeChanged { readoutHeight = with(density) { it.height.toDp() } } // RK
                             .navigationBarsPadding(),
                     )
                 }
@@ -1095,6 +1104,7 @@ class ReaderActivity : BaseActivity() {
             },
             onNextParagraph = { readAloud?.nextParagraph() },
             onClickSleepTimer = { readAloud?.let { engine.openDialog(ReaderDialog.SleepTimerSelect(it)) } },
+            readoutHeight = readoutHeight, // RK
             onCoverChanged = ::coverText,
             // RK <--
         )

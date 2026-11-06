@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.boundsInWindow
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.reader.components.ChapterNavigator
@@ -50,6 +52,7 @@ import reikai.presentation.reader.ReaderActionRow
 import reikai.presentation.reader.ReaderBarsFadeSpec
 import reikai.presentation.reader.ReaderBarsSlideSpec
 import reikai.presentation.reader.ReaderChapterStep
+import reikai.presentation.reader.readAloudControlsLift
 import reikai.presentation.reader.readerBarEnter
 import reikai.presentation.reader.readerBarExit
 import reikai.presentation.reader.readerChromeColor
@@ -117,6 +120,8 @@ fun ReaderAppBars(
     onPlayPause: () -> Unit,
     onNextParagraph: () -> Unit,
     onClickSleepTimer: () -> Unit,
+    // How far the progress readout reaches up from the screen's bottom edge, 0 while it is hidden.
+    readoutHeight: Dp,
     // The chrome's inner edges in window pixels, null for an end with nothing showing: the top bar's
     // bottom, and the top of the bottom bar or the read-aloud controls, whichever is higher.
     onCoverChanged: (topBarBottom: Float?, bottomChromeTop: Float?) -> Unit,
@@ -236,14 +241,17 @@ fun ReaderAppBars(
                     modifier = Modifier
                         .wrapContentHeight(Alignment.Bottom, unbounded = true)
                         .then(
-                            // Without the bar, the system navigation bar and the progress readout along
-                            // the bottom edge are what it has to clear.
+                            // Without the bar, it clears the progress readout or the system navigation bar.
                             if (visible) {
                                 Modifier.padding(bottom = MaterialTheme.padding.small)
                             } else {
-                                Modifier
-                                    .windowInsetsPadding(WindowInsets.navigationBars)
-                                    .padding(bottom = MaterialTheme.padding.large)
+                                val navigationBar = WindowInsets.navigationBars.asPaddingValues()
+                                Modifier.padding(
+                                    bottom = readAloudControlsLift(
+                                        readoutHeight,
+                                        navigationBar.calculateBottomPadding(),
+                                    ),
+                                )
                             },
                         )
                         // Last, so the padding below the controls is not counted as covering the text.
