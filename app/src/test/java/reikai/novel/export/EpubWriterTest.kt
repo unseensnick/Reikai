@@ -4,6 +4,8 @@ import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.novel.toNovel
@@ -207,6 +209,22 @@ class EpubWriterTest {
     @Test
     fun `a target named by xml id gets the id its link names`() = runTest {
         firstChapter(linked) shouldContain "<p id=\"x\">X</p>"
+    }
+
+    @Test
+    fun `a cancelled export reads no chapter after the cancel`() = runTest {
+        var read = 0
+        val chapters = List(3) {
+            ExportChapter("C$it") {
+                read++
+                "<p>x</p>"
+            }
+        }
+        val job = Job()
+        launch(job) { EpubWriter().write(book.copy(chapters = chapters), ByteArrayOutputStream()) { job.cancel() } }
+        job.join()
+
+        read shouldBe 1
     }
 
     @Test

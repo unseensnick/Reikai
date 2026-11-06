@@ -1,5 +1,7 @@
 package reikai.novel.export
 
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import org.jsoup.Jsoup
 import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
@@ -50,6 +52,8 @@ class EpubWriter(private val includePictures: Boolean = true) {
             // Each picture is written when first met, so only its name and type are kept for the manifest.
             val pictures = LinkedHashMap<String, Pair<String, String>>()
             val files = book.chapters.mapIndexed { index, chapter ->
+                // A chapter read from the device never has to suspend, so a cancel would run to the book's end.
+                currentCoroutineContext().ensureActive()
                 val name = "text/chapter-%04d.xhtml".format(index + 1)
                 val xhtml = chapterXhtml(chapter, book.language, pictures) { path, picture ->
                     zip.bytes("OEBPS/$path", picture.bytes)

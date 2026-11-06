@@ -72,10 +72,19 @@ class NovelEpubExportWorker(
 
     @Inject private lateinit var localNovelLanguages: LocalNovelLanguageRepository
 
-    private val progress = context.notificationBuilder(Notifications.CHANNEL_COMMON) {
-        setSmallIcon(MaterialSymbolsR.drawable.rounded_book)
-        setOngoing(true)
-        setOnlyAlertOnce(true)
+    // WorkManager's own cancel intent for this run, so the notification action needs no receiver. A book
+    // cut short is deleted where it is written, so a cancel leaves no unreadable file behind.
+    private val progress by lazy {
+        context.notificationBuilder(Notifications.CHANNEL_COMMON) {
+            setSmallIcon(MaterialSymbolsR.drawable.rounded_book)
+            setOngoing(true)
+            setOnlyAlertOnce(true)
+            addAction(
+                MaterialSymbolsR.drawable.rounded_close,
+                context.stringResource(MR.strings.action_cancel),
+                context.workManager.createCancelPendingIntent(id),
+            )
+        }
     }
 
     override suspend fun getForegroundInfo(): ForegroundInfo = ForegroundInfo(
