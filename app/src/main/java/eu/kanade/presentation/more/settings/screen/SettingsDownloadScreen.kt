@@ -231,7 +231,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 selectedMs = delayMs,
                 options = DownloadPacing.DELAY_OPTIONS_MS,
                 defaultMs = delayMs,
-                onChange = { it?.let(preference::set) },
+                onChange = preference::set,
             )
         }
 

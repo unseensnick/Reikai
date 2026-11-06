@@ -15,29 +15,33 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * A download delay picked by a stepped slider over [options], drawn as the settings screen's own sliders are.
- * A null option is Default, following the global delay of [defaultMs]. A stored value between stops shows at
- * the next stop up and is only rewritten once the user drags.
+ * A null [selectedMs] follows the global delay: it sits on [defaultMs]'s stop and is labelled Default, so the
+ * same delay is never two stops. A stored value between stops shows at the next stop up and is only rewritten
+ * once the user drags.
  */
 @Composable
 fun DownloadDelaySlider(
     title: String,
     selectedMs: Long?,
-    options: List<Long?>,
+    options: List<Long>,
     defaultMs: Long,
-    onChange: (Long?) -> Unit,
+    onChange: (Long) -> Unit,
     subtitle: String? = rateLabel(selectedMs ?: defaultMs),
     modifier: Modifier = Modifier,
     onChangeFinished: (() -> Unit)? = null,
 ) {
-    val index = stopIndex(options, selectedMs)
+    val index = stopIndex(options, selectedMs, defaultMs)
     BaseSliderItem(
         value = index,
         valueRange = 0..options.lastIndex,
         steps = (options.size - 2).coerceAtLeast(0),
         title = title,
         subtitle = subtitle,
-        valueString = options[index]?.let { downloadDelayLabel(it) }
-            ?: stringResource(MR.strings.pref_source_delay_default, downloadDelayLabel(defaultMs)),
+        valueString = if (selectedMs == null) {
+            stringResource(MR.strings.pref_source_delay_default, downloadDelayLabel(defaultMs))
+        } else {
+            downloadDelayLabel(options[index])
+        },
         onChange = { if (it != index) onChange(options[it]) },
         titleStyle = MaterialTheme.typography.titleLarge.copy(fontSize = TitleFontSize),
         modifier = modifier.padding(horizontal = PrefsHorizontalPadding, vertical = PrefsVerticalPadding),
@@ -59,9 +63,12 @@ fun downloadDelayLabel(delayMs: Long): String {
     return stringResource(MR.strings.download_delay_seconds, seconds)
 }
 
-/** [selectedMs]'s stop, or the first stop above it for a value between stops, or the last. */
-internal fun stopIndex(options: List<Long?>, selectedMs: Long?): Int {
-    if (selectedMs == null) return options.indexOf(null).coerceAtLeast(0)
-    val index = options.indexOfFirst { it != null && it >= selectedMs }
+/**
+ * The stop a delay shows at: [selectedMs]'s own, or [defaultMs]'s for a source following the default, or the
+ * first stop above it for a value between stops, or the last.
+ */
+internal fun stopIndex(options: List<Long>, selectedMs: Long?, defaultMs: Long): Int {
+    val delayMs = selectedMs ?: defaultMs
+    val index = options.indexOfFirst { it >= delayMs }
     return if (index >= 0) index else options.lastIndex
 }

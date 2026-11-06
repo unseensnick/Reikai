@@ -68,7 +68,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**
 
-- **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list covers manga and novels, with a search and a type filter.
+- **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list covers manga and novels, with a search, a type filter and a reset back to the default.
 
 #### Fixed
 

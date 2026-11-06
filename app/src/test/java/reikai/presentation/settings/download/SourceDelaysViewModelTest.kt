@@ -18,6 +18,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.MainDispatcherExtension
@@ -49,9 +50,8 @@ class SourceDelaysViewModelTest {
     }
 
     private val sourceManager = mockk<SourceManager> { every { sources } returns MutableStateFlow(listOf(weebCentral)) }
-    private val novelSourceManager = mockk<NovelSourceManager> {
-        every { loadedSources() } returns MutableStateFlow(listOf(fenrir))
-    }
+    private val novelSources = MutableStateFlow(listOf(fenrir))
+    private val novelSourceManager = mockk<NovelSourceManager> { every { loadedSources() } returns novelSources }
 
     private fun TestScope.model(): SourceDelaysViewModel {
         val model = main.track(
@@ -193,6 +193,45 @@ class SourceDelaysViewModelTest {
         model.settle(row)
 
         model.sectionOf(kind, null) shouldBe kind.name
+    }
+
+    /** It reads files from the device, so it has nothing to pace, as manga's local source is not listed. */
+    @Test
+    fun `the local novel source is not listed`() = runTest {
+        novelSources.value = listOf(
+            fenrir,
+            mockk {
+                every { id } returns LocalNovelSource.ID
+                every { name } returns "Local source"
+                every { lang } returns "other"
+                every { minimumRequestDelayMs } returns 0L
+            },
+        )
+
+        model().names() shouldBe listOf("Weeb Central", "Fenrir Realm")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Kind::class)
+    fun `a reset source returns to its type at once`(kind: Kind) = runTest {
+        kind.delays().set(setOf("${kind.id}=3000"))
+        val model = model()
+
+        model.resetDelays(model.sections().own)
+
+        model.sectionOf(kind, null) shouldBe kind.name
+    }
+
+    @Test
+    fun `resetting all of the own delays hands both types back to their global delays`() = runTest {
+        mangaPreferences.downloadSourceDelays().set(setOf("7=3000"))
+        novelPreferences.downloadSourceDelays().set(setOf("fenrir=2000"))
+        val model = model()
+
+        model.resetDelays(model.sections().own)
+
+        mangaPreferences.downloadSourceDelays().get() + novelPreferences.downloadSourceDelays().get() shouldBe
+            emptySet()
     }
 
     /** The Download speed summary's count, which must match the list it opens. */

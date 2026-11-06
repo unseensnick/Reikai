@@ -25,6 +25,7 @@ import reikai.domain.library.includes
 import reikai.domain.library.within
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.domain.source.service.SourceManager
 import kotlin.time.Duration.Companion.seconds
@@ -96,15 +97,30 @@ class SourceDelaysViewModel(
 
     /** Gives [row]'s source its own delay, or hands it back to the global one when [delayMs] is null. */
     fun setDelay(row: SourceDelay, delayMs: Long?) {
-        val preference = if (row.type == ContentType.MANGA) {
-            mangaPreferences.downloadSourceDelays()
-        } else {
-            novelPreferences.downloadSourceDelays()
-        }
+        val preference = delaysOf(row.type)
         val delays = DownloadPacing.parse(preference.get())
         val updated = if (delayMs == null) delays - row.id else delays + (row.id to delayMs)
         preference.set(DownloadPacing.format(updated))
     }
+
+    /** Hands every one of [rows] back to its type's global delay, and lets each move out of Own delay. */
+    fun resetDelays(rows: List<SourceDelay>) {
+        rows.groupBy { it.type }.forEach { (type, ofType) ->
+            val preference = delaysOf(type)
+            preference.set(DownloadPacing.format(DownloadPacing.parse(preference.get()) - ofType.map { it.id }.toSet()))
+        }
+        rows.forEach { ownWhenListed.remove(it.key) }
+        settled.update { it + 1 }
+    }
+
+    private fun delaysOf(type: ContentType) =
+        if (type ==
+            ContentType.MANGA
+        ) {
+            mangaPreferences.downloadSourceDelays()
+        } else {
+            novelPreferences.downloadSourceDelays()
+        }
 
     /** [sections] is null until the sources have loaded. */
     @Immutable
@@ -144,8 +160,10 @@ fun sourceDelayRows(
         all.filterIsInstance<HttpSource>()
             .map { SourceDelay(ContentType.MANGA, it.id.toString(), it.name, it.lang, null, 0L) }
     },
+    // Only sources that download over the network: the local ones read files, as manga's HttpSource filter says.
     novelSourceManager.loadedSources().map { all ->
-        all.map { SourceDelay(ContentType.NOVELS, it.id, it.name, it.lang, null, it.minimumRequestDelayMs) }
+        all.filterNot { LocalNovelSource.isLocal(it.id) }
+            .map { SourceDelay(ContentType.NOVELS, it.id, it.name, it.lang, null, it.minimumRequestDelayMs) }
     },
     mangaPreferences.downloadSourceDelays().changes(),
     novelPreferences.downloadSourceDelays().changes(),
