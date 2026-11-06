@@ -32,11 +32,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Stopping a gallery update now really stops it, with no false failure notice.**
-- **Settings -> Advanced -> Refresh library covers now refreshes novels too.**
+- **Settings -> Advanced -> Refresh library covers now refreshes novels too, and Cancel on its notification stops it.**
 
 - **A novel keeps its real cover when its source page offers only a generic placeholder image.**
-
-- **Cancel on the library progress notification now also stops Settings -> Advanced -> Refresh library covers.**
 
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 
@@ -68,7 +66,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**
 
-- **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list covers manga and novels, with a search, a type filter and a reset back to the default.
+- **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list adds a search, a type filter and a reset back to the default.
 
 #### Fixed
 
@@ -127,13 +125,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel text in WebView mode now moves with the screen cutout when the phone turns upside down.**
 
-- **Dual page view can now be turned off in Paged (vertical) with the high quality renderer.**
-
-- **Grayscale, Inverted and the long strip rows the high quality renderer ignores no longer show while it is on.**
-
-- **The reader sheet now offers Disable double tap gestures in every high quality renderer mode, and Crop borders in its long strip.**
-
-- **The high quality renderer's rows in the reader sheet now change as soon as you change Dual page view.**
+- **The reader sheet now shows the right high quality renderer options in each mode, and updates them as soon as Dual page view changes.** It adds Dual page view in Paged (vertical), Disable double tap gestures and long strip Crop borders, and hides the Grayscale and Inverted rows it ignores.
 
 - **Failed manga pages now follow the cover colour theme in every reading mode.**
 
@@ -165,7 +157,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Statistics and its detail screens now show your latest reading when you come back to them, such as after reading a series from one.**
 - **Statistics' Reading time period chips now wrap instead of squeezing at the largest text size.**
-- **Statistics' Reading this week card now shows the date reading time was first logged.**
 
 ### Settings
 
