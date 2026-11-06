@@ -45,6 +45,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
 import java.io.IOException
+import java.io.OutputStream
 import mihon.icons.materialsymbols.R as MaterialSymbolsR
 
 /**
@@ -160,20 +161,20 @@ class NovelEpubExportWorker(
                 }
             },
         )
-        val file = if (toFolder) {
-            val folder = UniFile.fromUri(context, target) ?: throw IOException("No folder")
-            val name = DiskUtil.buildValidFilename("${novel.title}.epub")
-            folder.findFile(name) ?: folder.createFile(name)
-        } else {
-            UniFile.fromUri(context, target)
-        } ?: throw IOException("No file")
-        file.writeOrDelete(context) { out ->
+        val write: suspend (OutputStream) -> Unit = { out ->
             writer.write(book, out) { done ->
                 progress
                     .setContentTitle(context.stringResource(MR.strings.export_epub_progress, novel.title))
                     .setProgress(chosen.size, done, false)
                 context.notify(Notifications.ID_EPUB_EXPORT_PROGRESS, progress.build())
             }
+        }
+        if (toFolder) {
+            val folder = UniFile.fromUri(context, target) ?: throw IOException("No folder")
+            folder.writeBookNamed(context, DiskUtil.buildValidFilename("${novel.title}.epub"), write)
+        } else {
+            // A file the picker named, which the reader chose to create or to replace.
+            (UniFile.fromUri(context, target) ?: throw IOException("No file")).writeOrDelete(context, write)
         }
         return true
     }

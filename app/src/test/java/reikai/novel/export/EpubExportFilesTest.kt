@@ -62,6 +62,29 @@ class EpubExportFilesTest {
         book.exists() shouldBe false
     }
 
+    private val folder = File(context.cacheDir, "exports").apply {
+        deleteRecursively()
+        mkdirs()
+        resolve("Book.epub").writeText("the earlier book")
+    }
+
+    @Test
+    fun `a failed export again leaves the earlier book`() = runTest {
+        shouldThrow<IOException> {
+            UniFile.fromFile(folder)!!.writeBookNamed(context, "Book.epub") { throw IOException("Missing chapter") }
+        }
+
+        folder.list()!!.toList() to folder.resolve("Book.epub").readText() shouldBe
+            (listOf("Book.epub") to "the earlier book")
+    }
+
+    @Test
+    fun `a finished export again replaces the earlier book`() = runTest {
+        UniFile.fromFile(folder)!!.writeBookNamed(context, "Book.epub") { it.write("new".toByteArray()) }
+
+        folder.list()!!.toList() to folder.resolve("Book.epub").readText() shouldBe (listOf("Book.epub") to "new")
+    }
+
     @Test
     fun `an opaque cover goes in as a JPEG`() {
         val bitmap = Bitmap.createBitmap(4, 4, Bitmap.Config.RGB_565)
