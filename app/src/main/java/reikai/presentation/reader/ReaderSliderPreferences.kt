@@ -49,7 +49,7 @@ fun readerFlashGroup(flash: ReaderFlash): SettingsPreference.PreferenceGroup {
             SettingsPreference.PreferenceItem.SliderPreference(
                 preference = flash.durationMillis,
                 valueRange = ReaderRanges.flashDurationSteps.let { steps ->
-                    ReaderPreferences.MILLI_CONVERSION.let { steps.first * it..steps.last * it step it }
+                    ReaderRanges.FLASH_STEP_MILLIS.let { steps.first * it..steps.last * it step it }
                 },
                 title = stringResource(MR.strings.pref_flash_duration),
                 valueText = { stringResource(MR.strings.pref_flash_duration_summary, it) },

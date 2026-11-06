@@ -94,6 +94,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Grayscale and inverted colors in the reader now change only the page, not what is drawn over it (from Mihon).**
 
+- **Flash duration under E-Ink in both readers' settings now goes down to 20 ms, in 20 ms steps, for e-readers that refresh quickly.** The 100 ms default is unchanged.
+
 - **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
 
 #### Fixed

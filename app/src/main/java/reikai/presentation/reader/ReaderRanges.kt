@@ -18,8 +18,13 @@ object ReaderRanges {
     /** How long a paged auto-scroll shows each page, in seconds. */
     val autoScrollIntervalSeconds = 1..30
 
-    /** The e-ink flash's length, in steps of `ReaderPreferences.MILLI_CONVERSION`. */
-    val flashDurationSteps = 1..15
+    /**
+     * The e-ink flash's length in steps of [FLASH_STEP_MILLIS], 20 ms to 1.5 s. Fine enough for a fast panel to
+     * go below the 100 ms default, and every whole tenth of a second the older slider stored is still a stop.
+     */
+    val flashDurationSteps = 1..75
+
+    const val FLASH_STEP_MILLIS = 20
 
     /** How many page turns apart the e-ink flash runs. */
     val flashPageInterval = 1..10

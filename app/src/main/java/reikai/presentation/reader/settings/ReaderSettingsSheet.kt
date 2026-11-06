@@ -23,7 +23,6 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
-import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.util.system.hasDisplayCutout
@@ -286,11 +285,11 @@ internal fun ColumnScope.ReaderFlashRows(flash: ReaderFlash) {
     if (!flashPageState) return
     val flashMillis by flash.durationMillis.collectAsState()
     SliderItem(
-        value = flashMillis / ReaderPreferences.MILLI_CONVERSION,
+        value = flashMillis / ReaderRanges.FLASH_STEP_MILLIS,
         valueRange = ReaderRanges.flashDurationSteps,
         label = stringResource(MR.strings.pref_flash_duration),
         valueString = stringResource(MR.strings.pref_flash_duration_summary, flashMillis),
-        onChange = { flash.durationMillis.set(it * ReaderPreferences.MILLI_CONVERSION) },
+        onChange = { flash.durationMillis.set(it * ReaderRanges.FLASH_STEP_MILLIS) },
         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
     )
     val flashInterval by flash.pageInterval.collectAsState()
