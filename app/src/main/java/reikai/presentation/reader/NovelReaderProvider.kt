@@ -36,6 +36,7 @@ import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.text.NovelWords
 import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderProgressLook
 import reikai.novel.font.NovelFontManager
 import reikai.novel.network.NovelImageRequests
 import reikai.presentation.components.UndatedChapterDate
@@ -144,6 +145,12 @@ class NovelReaderProvider(
     override val showProgress: Flow<Boolean> = viewModel.settings.map { it.showProgressPercentage }
 
     override val showTimeLeft: Flow<Boolean> = novelPreferences.readerShowTimeLeft().changes()
+
+    override val progressLook: Flow<ReaderProgressLook> = combine(
+        novelPreferences.readerProgressSize().changes(),
+        novelPreferences.readerProgressBacked().changes(),
+        ::ReaderProgressLook,
+    )
 
     // Counted once a chapter, off the main thread: a chapter's text is parsed whole to count it.
     override val chapterLength: Flow<ChapterLength?> = viewModel.chapter

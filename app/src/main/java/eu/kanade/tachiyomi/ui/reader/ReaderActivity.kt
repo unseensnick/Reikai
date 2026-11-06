@@ -521,6 +521,7 @@ class ReaderActivity : BaseActivity() {
         val showProgress by engine.showProgress.collectAsState()
         val navigatorState by engine.navigator.collectAsState()
         val timeLeft by engine.timeLeft.collectAsState() // RK
+        val progressLook by engine.progressLook.collectAsState() // RK
 
         // RK -->
         // Both sessions answer through one kernel, so a novel's chrome tints as a manga's does. Null while
@@ -537,6 +538,8 @@ class ReaderActivity : BaseActivity() {
                     ReaderPageIndicator(
                         progress = navigatorState.progress.takeIf { showProgress },
                         timeLeft = timeLeft,
+                        look = progressLook, // RK
+                        pageColor = pageBackgroundColor?.let { ComposeColor(it) }, // RK
                         modifier = Modifier
                             .align(Alignment.BottomCenter)
                             .navigationBarsPadding(),

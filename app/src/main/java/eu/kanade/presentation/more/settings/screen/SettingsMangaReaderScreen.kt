@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.util.system.hasDisplayCutout
 import mihon.app.di.appGraph
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.ReaderProgressSize
 import reikai.presentation.reader.NovelTapZones
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.ReaderRanges
@@ -27,6 +28,7 @@ import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerOrientationChoices
+import reikai.presentation.reader.settings.progressSizeLabel
 import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -156,6 +158,15 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.showTimeLeft,
                     title = stringResource(MR.strings.pref_show_time_left),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = readerPreferences.progressSize,
+                    entries = ReaderProgressSize.entries.associateWith { progressSizeLabel(it) },
+                    title = stringResource(MR.strings.pref_progress_size),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.progressBacked,
+                    title = stringResource(MR.strings.pref_progress_backed),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.chapterTitleFormat,

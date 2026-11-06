@@ -41,6 +41,7 @@ import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ReadAloudProgress
+import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.readinglog.NovelChapterPace
 import reikai.domain.readinglog.PaceSample
@@ -1231,6 +1232,8 @@ private class FakeReaderProvider(
     override val showProgress = MutableStateFlow(false)
 
     override val showTimeLeft = MutableStateFlow(false)
+
+    override val progressLook = MutableStateFlow(ReaderProgressLook())
 
     override val chapterLength = MutableStateFlow<ChapterLength?>(null)
 

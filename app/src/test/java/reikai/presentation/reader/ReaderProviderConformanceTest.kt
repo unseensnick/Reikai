@@ -20,6 +20,8 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.reader.ReaderPosition
+import reikai.domain.reader.ReaderProgressLook
+import reikai.domain.reader.ReaderProgressSize
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -108,6 +110,14 @@ class ReaderProviderConformanceTest {
         provider.chrome.first().entry shouldBe probe.entry
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("lookProbes")
+    fun `the progress line looks as its own reader's setting says`(probe: ReaderProgressLookProbe) = runTest {
+        val look = ReaderProgressLook(ReaderProgressSize.HUGE, isBacked = true)
+
+        probe.provider(look).progressLook.first() shouldBe look
+    }
+
     /** A reader that opens scrolling on its own is a choice made in Settings, never the default. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("sessions")
@@ -151,6 +161,9 @@ class ReaderProviderConformanceTest {
         fun titleProbes() = listOf(MangaChapterTitleProbe(), NovelChapterTitleProbe())
 
         @JvmStatic
+        fun lookProbes() = listOf(MangaProgressLookProbe(), NovelProgressLookProbe())
+
+        @JvmStatic
         fun sessions() = listOf(
             Arguments.of(
                 "manga",
@@ -173,6 +186,42 @@ class ReaderProviderConformanceTest {
             ),
         )
     }
+}
+
+/** One content type's provider, with that reader's own progress look set. */
+interface ReaderProgressLookProbe {
+    fun provider(look: ReaderProgressLook): ReaderProvider
+}
+
+class MangaProgressLookProbe : ReaderProgressLookProbe {
+
+    override fun toString() = "manga"
+
+    override fun provider(look: ReaderProgressLook): ReaderProvider = MangaReaderProvider(
+        viewModel = mockk(relaxed = true),
+        readerPreferences = ReaderPreferences(EmittingPreferenceStore()).apply {
+            progressSize.set(look.size)
+            progressBacked.set(look.isBacked)
+        },
+        downloadManager = mockk(relaxed = true),
+        titleWords = EnglishChapterTitleWords,
+    )
+}
+
+class NovelProgressLookProbe : ReaderProgressLookProbe {
+
+    override fun toString() = "novel"
+
+    override fun provider(look: ReaderProgressLook): ReaderProvider = NovelReaderProvider(
+        viewModel = mockk(relaxed = true),
+        novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
+            readerProgressSize().set(look.size)
+            readerProgressBacked().set(look.isBacked)
+        },
+        fontManager = mockk(),
+        imageRequests = mockk(),
+        titleWords = EnglishChapterTitleWords,
+    )
 }
 
 /** One content type's provider, built so that its stored flag and its default are told apart. */

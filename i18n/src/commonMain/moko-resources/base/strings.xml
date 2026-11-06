@@ -695,6 +695,9 @@
     <!-- RK: novel reader always-on reading percentage (twin of the manga page number) --><string name="pref_show_reading_progress">Show reading progress</string>
     <!-- RK: the open chapter's time left at the reader's learned pace, for both readers -->
     <string name="pref_show_time_left">Show time left in chapter</string>
+    <string name="pref_progress_size">Progress size</string>
+    <string name="pref_progress_size_scale">%1$s×</string>
+    <string name="pref_progress_backed">Background behind progress</string>
     <string name="reader_time_left">%1$s left</string>
     <string name="reader_time_left_under_minute">Under a minute left</string>
     <string name="reader_time_left_learning">Learning reading speed</string>

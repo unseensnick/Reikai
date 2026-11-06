@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
@@ -47,6 +48,13 @@ class ReaderPreferences(
 
     // RK: the open chapter's time left at the reader's learned pace, beside the page number
     val showTimeLeft: Preference<Boolean> = preferenceStore.getBoolean("pref_show_time_left", false)
+
+    // RK -->
+    val progressSize: Preference<ReaderProgressSize> =
+        preferenceStore.getEnum("pref_progress_size", ReaderProgressSize.DEFAULT)
+
+    val progressBacked: Preference<Boolean> = preferenceStore.getBoolean("pref_progress_backed", false)
+    // RK <--
 
     // RK: off hides the progress navigator in every reading mode, moving the chapter buttons into the bar
     val showNavigator: Preference<Boolean> = preferenceStore.getBoolean("reader_show_navigator", true)

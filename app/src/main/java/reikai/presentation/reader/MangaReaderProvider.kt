@@ -38,6 +38,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.reader.ChapterLength
 import reikai.domain.reader.ChapterProgress
+import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.pageIndex
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
@@ -147,6 +148,13 @@ class MangaReaderProvider(
     override val showProgress: Flow<Boolean> = readerPreferences.showPageNumber.changes()
 
     override val showTimeLeft: Flow<Boolean> = readerPreferences.showTimeLeft.changes()
+
+    override val progressLook: Flow<ReaderProgressLook> =
+        combine(
+            readerPreferences.progressSize.changes(),
+            readerPreferences.progressBacked.changes(),
+            ::ReaderProgressLook,
+        )
 
     // The chapter the position is on, as the readout counts it, rather than the active one.
     override val chapterLength: Flow<ChapterLength?> = viewModel.state.map { state ->

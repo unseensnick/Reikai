@@ -27,6 +27,7 @@ import reikai.domain.novel.tts.TtsColorPreset
 import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.ReaderProgressSize
 import reikai.novel.content.NovelSnippetKind
 import reikai.presentation.components.ColorPickerDialog
 import reikai.presentation.components.toHexRgb
@@ -45,6 +46,7 @@ import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.rememberTtsOptions
+import reikai.presentation.reader.settings.progressSizeLabel
 import reikai.presentation.reader.tenthsLabel
 import reikai.presentation.reader.volumeKeyScrollPreference
 import reikai.util.scaled
@@ -603,6 +605,15 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerShowTimeLeft(),
                     title = stringResource(MR.strings.pref_show_time_left),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = novelPreferences.readerProgressSize(),
+                    entries = ReaderProgressSize.entries.associateWith { progressSizeLabel(it) },
+                    title = stringResource(MR.strings.pref_progress_size),
+                ),
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerProgressBacked(),
+                    title = stringResource(MR.strings.pref_progress_backed),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerChapterTitleFormat(),

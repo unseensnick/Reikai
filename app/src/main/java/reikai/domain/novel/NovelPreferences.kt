@@ -17,6 +17,7 @@ import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
 import reikai.domain.source.NovelIconHints
 import reikai.novel.content.NovelSnippetKind
@@ -345,6 +346,10 @@ class NovelPreferences(
     fun readerShowProgressPercentage() = preferenceStore.getBoolean("ln_reader_show_progress_percentage", true)
 
     fun readerShowTimeLeft() = preferenceStore.getBoolean("ln_reader_show_time_left", false)
+
+    fun readerProgressSize() = preferenceStore.getEnum("ln_reader_progress_size", ReaderProgressSize.DEFAULT)
+
+    fun readerProgressBacked() = preferenceStore.getBoolean("ln_reader_progress_backed", false)
 
     /** How far into a chapter, as a whole percent, a novel counts it as read. */
     fun readerMarkReadPercent() = preferenceStore.getInt("ln_reader_mark_read_percent", CONTINUOUS_COMPLETE_PERCENT)

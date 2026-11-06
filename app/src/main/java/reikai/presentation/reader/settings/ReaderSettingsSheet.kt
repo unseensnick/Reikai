@@ -34,6 +34,7 @@ import mihon.icons.materialsymbols.rounded.LocalLibrary
 import mihon.icons.materialsymbols.rounded.Palette
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.reader.ChapterTitleFormat
+import reikai.domain.reader.ReaderProgressSize
 import reikai.novel.font.NovelFont
 import reikai.presentation.icons.Contrast
 import reikai.presentation.icons.RecordVoiceOver
@@ -236,6 +237,8 @@ internal fun ColumnScope.ReaderPageRows(
     progressLabel: StringResource,
     showProgress: Preference<Boolean>,
     showTimeLeft: Preference<Boolean>,
+    progressSize: Preference<ReaderProgressSize>,
+    progressBacked: Preference<Boolean>,
     fullscreen: Preference<Boolean>,
     drawUnderCutout: Preference<Boolean>,
     keepScreenOn: Preference<Boolean>,
@@ -252,6 +255,21 @@ internal fun ColumnScope.ReaderPageRows(
     }
     CheckboxItem(label = stringResource(progressLabel), pref = showProgress)
     CheckboxItem(label = stringResource(MR.strings.pref_show_time_left), pref = showTimeLeft)
+    val isProgressShown by showProgress.collectAsState()
+    val isTimeLeftShown by showTimeLeft.collectAsState()
+    if (isProgressShown || isTimeLeftShown) {
+        val selectedSize by progressSize.collectAsState()
+        SettingsChipRow(MR.strings.pref_progress_size) {
+            ReaderProgressSize.entries.forEach {
+                FilterChip(
+                    selected = selectedSize == it,
+                    onClick = { progressSize.set(it) },
+                    label = { Text(progressSizeLabel(it)) },
+                )
+            }
+        }
+        CheckboxItem(label = stringResource(MR.strings.pref_progress_backed), pref = progressBacked)
+    }
     CheckboxItem(label = stringResource(MR.strings.pref_fullscreen), pref = fullscreen)
     val isFullscreen by fullscreen.collectAsState()
     if (LocalActivity.current?.hasDisplayCutout() == true && isFullscreen) {
@@ -309,4 +327,11 @@ internal fun ColumnScope.ReaderRailRows(onLeft: Preference<Boolean>, height: Pre
         onChange = height::set,
         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
     )
+}
+
+/** A size by its multiple of the default, which says exactly how much larger each step draws. */
+@Composable
+internal fun progressSizeLabel(size: ReaderProgressSize): String = when (size) {
+    ReaderProgressSize.DEFAULT -> stringResource(MR.strings.label_default)
+    else -> stringResource(MR.strings.pref_progress_size_scale, size.scale.toString().removeSuffix(".0"))
 }

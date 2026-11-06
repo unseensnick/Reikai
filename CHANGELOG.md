@@ -85,6 +85,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Added
 
 - **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
+- **Either reader's Appearance settings can draw the progress and time left under the page up to 2.5× larger, on a strip that hides what is behind them.**
 - **A mouse wheel now turns pages in paged novels.**
 - **The WebGPU manga reader can crop a page's borders instead of zooming into them, and lets you tune a shader's own settings (from Mihon).** Upstream: mihonapp/mihon#4226.
 - **The WebGPU manga reader can turn tiles off and use your own upscaler and downscaler shaders (from Mihon).** Upstream: mihonapp/mihon#4242.

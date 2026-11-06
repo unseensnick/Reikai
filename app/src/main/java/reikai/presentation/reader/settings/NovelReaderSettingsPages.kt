@@ -240,6 +240,8 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         progressLabel = MR.strings.pref_show_reading_progress,
         showProgress = preferences.readerShowProgressPercentage(),
         showTimeLeft = preferences.readerShowTimeLeft(),
+        progressSize = preferences.readerProgressSize(),
+        progressBacked = preferences.readerProgressBacked(),
         fullscreen = preferences.readerFullscreen(),
         drawUnderCutout = preferences.readerDrawUnderCutout(),
         keepScreenOn = preferences.readerKeepScreenOn(),

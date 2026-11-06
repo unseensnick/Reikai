@@ -44,6 +44,7 @@ import reikai.domain.novel.tts.TtsPlayback
 import reikai.domain.reader.ChapterPace
 import reikai.domain.reader.ChapterProgress
 import reikai.domain.reader.Listening
+import reikai.domain.reader.ReaderProgressLook
 import reikai.domain.reader.ReaderTimeLeft
 import reikai.domain.reader.chapterTimeLeft
 import reikai.domain.reader.listeningTimeLeft
@@ -107,6 +108,9 @@ class ReaderEngine(
     /** Whether this session wants a progress readout while the chrome is hidden. */
     val showProgress: StateFlow<Boolean> =
         provider.showProgress.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
+    val progressLook: StateFlow<ReaderProgressLook> =
+        provider.progressLook.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderProgressLook())
 
     // Each chapter this session measured, to whether its reading is recorded.
     private val recordedChapters = ConcurrentHashMap<Long, Boolean>()

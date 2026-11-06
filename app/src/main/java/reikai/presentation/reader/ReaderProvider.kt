@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import kotlinx.coroutines.flow.Flow
 import reikai.domain.reader.ChapterLength
+import reikai.domain.reader.ReaderProgressLook
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -111,6 +112,9 @@ interface ReaderProvider {
 
     /** Whether to show the open chapter's time left beside that readout, likewise each type's own setting. */
     val showTimeLeft: Flow<Boolean>
+
+    /** How that readout looks, likewise each type's own setting. */
+    val progressLook: Flow<ReaderProgressLook>
 
     /**
      * The open chapter's length in this type's pace unit, null until it has one. The engine learns the
