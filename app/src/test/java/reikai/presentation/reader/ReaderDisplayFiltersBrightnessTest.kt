@@ -21,6 +21,7 @@ class ReaderDisplayFiltersBrightnessTest {
         colorFilterMode = preferences.colorFilterMode,
         grayscale = preferences.grayscale,
         invertedColors = preferences.invertedColors,
+        contrastPercent = preferences.contrast,
     )
     private val applied = mutableListOf<Int>()
 

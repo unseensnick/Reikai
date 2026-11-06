@@ -32,6 +32,7 @@ import mihon.icons.custommaterialsymbols.rounded.CropOff
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Crop
 import mihon.icons.materialsymbols.rounded.Explore
+import mihon.icons.materialsymbols.rounded.FilterBAndW
 import mihon.icons.materialsymbols.rounded.FormatBold
 import mihon.icons.materialsymbols.rounded.FormatListNumbered
 import mihon.icons.materialsymbols.rounded.Palette
@@ -82,6 +83,8 @@ fun ReaderActionRow(
     onClickCropBorder: () -> Unit,
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,
+    grayscale: Boolean,
+    onClickGrayscale: () -> Unit,
     onClickScrollToTop: () -> Unit,
     // Toggles. The active flag tints the icon.
     autoScrollActive: Boolean,
@@ -137,6 +140,8 @@ fun ReaderActionRow(
                             onClickCropBorder = onClickCropBorder,
                             keepScreenOn = keepScreenOn,
                             onClickKeepScreenOn = onClickKeepScreenOn,
+                            grayscale = grayscale,
+                            onClickGrayscale = onClickGrayscale,
                             onClickScrollToTop = onClickScrollToTop,
                             autoScrollActive = autoScrollActive,
                             onClickAutoScroll = onClickAutoScroll,
@@ -173,6 +178,8 @@ private fun ActionButtons(
     onClickCropBorder: () -> Unit,
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,
+    grayscale: Boolean,
+    onClickGrayscale: () -> Unit,
     onClickScrollToTop: () -> Unit,
     autoScrollActive: Boolean,
     onClickAutoScroll: () -> Unit,
@@ -258,6 +265,13 @@ private fun ActionButtons(
                 icon = ReikaiIcons.Lightbulb,
                 description = stringResource(MR.strings.pref_keep_screen_on),
                 active = keepScreenOn,
+            )
+
+            ReaderBottomButton.Grayscale -> ToggleActionButton(
+                onClick = onClickGrayscale,
+                icon = MaterialSymbols.Rounded.FilterBAndW,
+                description = stringResource(MR.strings.pref_grayscale),
+                active = grayscale,
             )
 
             ReaderBottomButton.BionicReading -> if (onClickBionic != null) {

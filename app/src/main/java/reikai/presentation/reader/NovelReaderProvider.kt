@@ -94,6 +94,7 @@ class NovelReaderProvider(
         colorFilterMode = novelPreferences.readerColorFilterMode(),
         grayscale = novelPreferences.readerGrayscale(),
         invertedColors = novelPreferences.readerInvertedColors(),
+        contrastPercent = novelPreferences.readerContrast(),
     )
 
     override val flash = ReaderFlash.novel(novelPreferences)

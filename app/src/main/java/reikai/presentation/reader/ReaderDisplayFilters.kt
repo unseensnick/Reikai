@@ -25,6 +25,8 @@ class ReaderDisplayFilters(
     val colorFilterMode: Preference<Int>,
     val grayscale: Preference<Boolean>,
     val invertedColors: Preference<Boolean>,
+    /** In percent, [PageColorAdjust.CONTRAST_RANGE]; 100 is none. */
+    val contrastPercent: Preference<Int>,
 )
 
 /**

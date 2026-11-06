@@ -4,6 +4,8 @@ import android.content.Context
 import android.graphics.Rect
 import android.os.SystemClock
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import ca.mpreg.imagedecoder.ImageDecoder
 import ca.mpreg.webgpuviewer.closeTo
@@ -66,6 +68,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
 import reikai.presentation.reader.holdsForRetry
@@ -1201,6 +1204,11 @@ open class WebGpuViewer(
 
     @Composable
     override fun Content(modifier: Modifier) {
+        // RK --> grayscale, invert and contrast, as the page table the library applies to page images only
+        val adjust = LocalPageColorAdjust.current
+        val lut = remember(adjust) { adjust.lut() }
+        SideEffect { viewerState.imageLut = lut }
+        // RK <--
         ImageViewer(modifier = modifier.mouseWheelPaging(this), state = viewerState)
     }
 

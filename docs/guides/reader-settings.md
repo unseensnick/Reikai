@@ -127,13 +127,26 @@ What the reader's bar calls the open chapter: its **Name**, its **Number**, or *
 Flashes the screen on page change to reduce ghosting on E-ink displays. The three settings below only appear once this is on.
 
 ### Flash duration <Badge type="info" text="100 ms" />
-How long each flash lasts.
+How long each flash lasts, from 20 ms to 1.5 s.
 
 ### Flash every <Badge type="info" text="1 page" />
 How many pages pass between flashes. Higher is less distracting and lets more ghosting build up.
 
 ### Flash with <Badge type="info" text="Black" />
 Whether the flash is **Black**, **White**, or **White and Black**.
+
+## Filters
+
+On the **Filters** tab of the reader's settings sheet only. They change the page, never the menus drawn over it, and work with the high quality renderer too. Novels have their own.
+
+### Grayscale <Badge type="info" text="Off" />
+Draws pages in shades of gray. It can also sit in the bottom bar, through **Bottom bar buttons**.
+
+### Inverted <Badge type="info" text="Off" />
+Swaps light and dark.
+
+### Contrast <Badge type="info" text="100%" />
+From 50% to 200%. Higher turns light grays white and dark grays black, which can make pages crisper on e-ink and other black-and-white screens.
 
 ## Reading
 

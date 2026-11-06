@@ -40,6 +40,7 @@ class ReaderDisplayFiltersTest {
         COLOR_FILTER_MODE({ it.colorFilterMode }, 2),
         GRAYSCALE({ it.grayscale }, true),
         INVERTED_COLORS({ it.invertedColors }, true),
+        CONTRAST({ it.contrastPercent }, 150),
     }
 
     @Suppress("UNCHECKED_CAST")

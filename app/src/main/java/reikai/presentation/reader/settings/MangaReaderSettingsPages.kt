@@ -69,10 +69,6 @@ private fun isWebGpuDualPage(webGpu: WebGpuViewer, preferences: ReaderPreference
     }
 }
 
-/** Whether the running viewer honours grayscale and inverted colours, which the WebGPU renderer cannot apply. */
-@Composable
-internal fun takesPageColorFilter(viewer: StateFlow<Viewer?>): Boolean = viewer.collectAsState().value !is WebGpuViewer
-
 private val readerThemes = listOf(
     MR.strings.black_background to ReaderPreferences.ReaderTheme.BLACK.value,
     MR.strings.gray_background to ReaderPreferences.ReaderTheme.GRAY.value,

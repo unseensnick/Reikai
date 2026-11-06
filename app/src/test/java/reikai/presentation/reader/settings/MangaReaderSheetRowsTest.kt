@@ -47,6 +47,7 @@ class MangaReaderSheetRowsTest {
             colorFilterMode = preferences.colorFilterMode,
             grayscale = preferences.grayscale,
             invertedColors = preferences.invertedColors,
+            contrastPercent = preferences.contrast,
         )
         compose.setContent {
             ComposeTestHost {
@@ -78,13 +79,21 @@ class MangaReaderSheetRowsTest {
         compose.onNodeWithText("Grayscale").assertExists()
     }
 
+    /** The high quality renderer applies them as its page table, so they show there as everywhere. */
     @Test
-    fun `the WebGPU renderer offers no grayscale or inverted colours`() {
+    fun `the WebGPU renderer offers grayscale`() {
         show(webGpu(vertical = false))
         openTab("Filters")
 
-        compose.onNodeWithText("Grayscale").assertDoesNotExist()
-        compose.onNodeWithText("Inverted").assertDoesNotExist()
+        compose.onNodeWithText("Grayscale").assertExists()
+    }
+
+    @Test
+    fun `the WebGPU renderer offers inverted colours`() {
+        show(webGpu(vertical = false))
+        openTab("Filters")
+
+        compose.onNodeWithText("Inverted").assertExists()
     }
 
     /** Dual pages stay on in this mode, and with no row here nothing could turn them off. */

@@ -11,6 +11,7 @@ import androidx.core.graphics.blue
 import androidx.core.graphics.green
 import androidx.core.graphics.red
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.Companion.ColorFilterMode
+import reikai.presentation.reader.PageColorAdjust
 import reikai.presentation.reader.ReaderDisplayFilters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.i18n.MR
@@ -22,7 +23,7 @@ import tachiyomi.presentation.core.util.collectAsState
 
 /** Brightness and the colour treatment, Mihon's colour filter page over the open reader's own values. */
 @Composable
-internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters, pageColorFilter: Boolean) {
+internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters) {
     val customBrightness by filters.customBrightness.collectAsState()
     CheckboxItem(
         label = stringResource(MR.strings.pref_custom_brightness),
@@ -95,7 +96,6 @@ internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters, pageCo
         }
     }
 
-    if (!pageColorFilter) return
     CheckboxItem(
         label = stringResource(MR.strings.pref_grayscale),
         pref = filters.grayscale,
@@ -103,6 +103,17 @@ internal fun ColumnScope.ReaderFiltersPage(filters: ReaderDisplayFilters, pageCo
     CheckboxItem(
         label = stringResource(MR.strings.pref_inverted_colors),
         pref = filters.invertedColors,
+    )
+    val contrast by filters.contrastPercent.collectAsState()
+    SliderItem(
+        value = contrast / PageColorAdjust.CONTRAST_STEP,
+        valueRange = PageColorAdjust.CONTRAST_RANGE.let {
+            it.first / PageColorAdjust.CONTRAST_STEP..it.last / PageColorAdjust.CONTRAST_STEP
+        },
+        label = stringResource(MR.strings.pref_contrast),
+        valueString = stringResource(MR.strings.pref_contrast_value, contrast),
+        onChange = { filters.contrastPercent.set(it * PageColorAdjust.CONTRAST_STEP) },
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
     )
 }
 

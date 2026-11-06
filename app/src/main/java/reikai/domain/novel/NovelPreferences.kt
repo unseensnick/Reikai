@@ -16,6 +16,7 @@ import reikai.domain.novel.tts.TtsHighlightColors
 import reikai.domain.novel.tts.TtsHighlightStyle
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
 import reikai.domain.reader.CONTINUOUS_COMPLETE_PERCENT
+import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
@@ -229,6 +230,7 @@ class NovelPreferences(
     fun readerColorFilterMode() = preferenceStore.getInt("ln_reader_color_filter_mode", 0)
     fun readerGrayscale() = preferenceStore.getBoolean("ln_reader_grayscale", false)
     fun readerInvertedColors() = preferenceStore.getBoolean("ln_reader_inverted_colors", false)
+    fun readerContrast() = preferenceStore.getInt("ln_reader_contrast", CONTRAST_DEFAULT_PERCENT)
 
     /** When on, the reader's next/previous skip a chapter whose number matches the one just read (the
      *  same-number duplicates a cross-source merge produces). Reading-navigation only, non-destructive. */

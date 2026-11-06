@@ -89,6 +89,15 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
         compose.onNodeWithText("Custom brightness").assertExists()
     }
 
+    /** Shown in every viewer, the high quality renderer included, which applies it as its page table. */
+    @Test
+    fun `the filters tab offers contrast`() {
+        showSheet()
+        openTab("Filters")
+
+        compose.onNodeWithText("Contrast").assertExists()
+    }
+
     companion object {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
@@ -122,6 +131,7 @@ class MangaSheetProbe : SheetProbe {
             colorFilterMode = preferences.colorFilterMode,
             grayscale = preferences.grayscale,
             invertedColors = preferences.invertedColors,
+            contrastPercent = preferences.contrast,
         )
         return ReaderSettingsPages.Manga(viewModel, filters, MutableStateFlow(null))
     }
@@ -141,6 +151,7 @@ class NovelSheetProbe : SheetProbe {
             colorFilterMode = preferences.readerColorFilterMode(),
             grayscale = preferences.readerGrayscale(),
             invertedColors = preferences.readerInvertedColors(),
+            contrastPercent = preferences.readerContrast(),
         )
         return ReaderSettingsPages.Novel(
             preferences = preferences,

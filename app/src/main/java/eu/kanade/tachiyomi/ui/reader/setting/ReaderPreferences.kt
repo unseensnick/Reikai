@@ -9,6 +9,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShader
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuShaders
 import reikai.domain.reader.BOTTOM_ZONE_DEFAULT_PERCENT
+import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
@@ -214,6 +215,9 @@ class ReaderPreferences(
     val grayscale: Preference<Boolean> = preferenceStore.getBoolean("pref_grayscale", false)
 
     val invertedColors: Preference<Boolean> = preferenceStore.getBoolean("pref_inverted_colors", false)
+
+    // RK: the page's contrast in percent, applied with grayscale and invert by PageColorAdjust
+    val contrast: Preference<Int> = preferenceStore.getInt("pref_reader_contrast", CONTRAST_DEFAULT_PERCENT)
 
     // endregion
 

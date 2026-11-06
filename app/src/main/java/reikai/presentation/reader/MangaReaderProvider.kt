@@ -95,6 +95,7 @@ class MangaReaderProvider(
         colorFilterMode = readerPreferences.colorFilterMode,
         grayscale = readerPreferences.grayscale,
         invertedColors = readerPreferences.invertedColors,
+        contrastPercent = readerPreferences.contrast,
     )
 
     override val flash = ReaderFlash.manga(readerPreferences)

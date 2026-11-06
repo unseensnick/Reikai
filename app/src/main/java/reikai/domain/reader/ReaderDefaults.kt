@@ -8,3 +8,6 @@ const val BOTTOM_ZONE_DEFAULT_PERCENT = 12
 
 /** How far one volume-key press scrolls by default, as a fraction of the screen, in both readers' own setting. */
 const val VOLUME_KEY_SCROLL_DEFAULT_FRACTION = 0.75f
+
+/** The page contrast a reader opens with, in percent: 100 leaves the page as it is. */
+const val CONTRAST_DEFAULT_PERCENT = 100

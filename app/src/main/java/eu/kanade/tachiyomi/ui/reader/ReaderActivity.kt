@@ -45,7 +45,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
@@ -121,11 +120,13 @@ import reikai.data.novel.tts.SleepTimer
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.presentation.reader.LocalPageColorAdjust
 import reikai.presentation.reader.MangaReaderProvider
 import reikai.presentation.reader.MangaViewport
 import reikai.presentation.reader.NO_ID
 import reikai.presentation.reader.NovelReaderProvider
 import reikai.presentation.reader.NovelReaderViewModel
+import reikai.presentation.reader.PageColorAdjust
 import reikai.presentation.reader.ReaderBottomButtonsDialog
 import reikai.presentation.reader.ReaderChapterListDialog
 import reikai.presentation.reader.ReaderDialog
@@ -147,6 +148,7 @@ import reikai.presentation.reader.settings.ReaderSettingsPages
 import reikai.presentation.reader.settings.ReaderSettingsSheet
 import reikai.presentation.reader.text.hasTravelled
 import tachiyomi.core.common.i18n.stringResource
+import tachiyomi.core.common.preference.toggle
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -233,6 +235,7 @@ class ReaderActivity : BaseActivity() {
     private var coverEdges: Pair<Float?, Float?>? = null
     private var obscured: Triple<ReaderViewport, Int, Int>? = null
     private var pageColorFilter by mutableStateOf<ColorFilter?>(null)
+    private var pageColorAdjust by mutableStateOf(PageColorAdjust())
     private var navigationOverlayJob: Job? = null
     private var pageBackgroundColor by mutableStateOf<Int?>(null)
 
@@ -502,7 +505,10 @@ class ReaderActivity : BaseActivity() {
                 ViewerInsets.CUTOUT -> WindowInsets.displayCutout
                 ViewerInsets.NONE -> WindowInsets(0)
             }
-            CompositionLocalProvider(LocalPageColorFilter provides pageColorFilter) {
+            CompositionLocalProvider(
+                LocalPageColorFilter provides pageColorFilter,
+                LocalPageColorAdjust provides pageColorAdjust,
+            ) {
                 key(viewport) {
                     viewport?.Content(
                         Modifier.fillMaxSize().windowInsetsPadding(insets).onGloballyPositioned {
@@ -1081,6 +1087,8 @@ class ReaderActivity : BaseActivity() {
             onClickChapterList = { engine.openDialog(ReaderDialog.ChapterList) },
             keepScreenOn = keepScreenOn,
             onClickKeepScreenOn = { engine.setKeepScreenOn(!keepScreenOn) },
+            grayscale = pageColorAdjust.grayscale,
+            onClickGrayscale = { engine.provider.displayFilters.grayscale.toggle() },
             // Null where the session renders images, which is what leaves the two typography buttons
             // off the bar for manga rather than opening a picker over nothing.
             onClickTextSize = engine.textSettings?.let { { engine.openDialog(ReaderDialog.TextSize(it)) } },
@@ -1399,10 +1407,10 @@ class ReaderActivity : BaseActivity() {
             combine(
                 engine.provider.displayFilters.grayscale.changes(),
                 engine.provider.displayFilters.invertedColors.changes(),
-            ) { grayscale, invertedColors -> grayscale to invertedColors }
-                .onEach { (grayscale, invertedColors) ->
-                    setLayerPaint(grayscale, invertedColors)
-                }
+                engine.provider.displayFilters.contrastPercent.changes(),
+                ::PageColorAdjust,
+            )
+                .onEach(::setLayerPaint)
                 .launchIn(lifecycleScope)
 
             // RK: the session's own fullscreen and cutout pair.
@@ -1448,8 +1456,9 @@ class ReaderActivity : BaseActivity() {
 
             viewModel.setBrightnessOverlayValue(value)
         }
-        private fun setLayerPaint(grayscale: Boolean, invertedColors: Boolean) {
-            pageColorFilter = viewerColorFilter(grayscale, invertedColors)
+        private fun setLayerPaint(adjust: PageColorAdjust) {
+            pageColorAdjust = adjust
+            pageColorFilter = adjust.colorFilter()
         }
     }
     // RK <--
@@ -1458,21 +1467,4 @@ class ReaderActivity : BaseActivity() {
 // RK: which window insets pad the viewport
 private enum class ViewerInsets { SYSTEM_BARS, CUTOUT, NONE }
 
-private fun viewerColorFilter(grayscale: Boolean, invertedColors: Boolean): ColorFilter? {
-    if (!grayscale && !invertedColors) return null
-    val matrix = ColorMatrix()
-    if (invertedColors) {
-        matrix *= ColorMatrix(
-            floatArrayOf(
-                -1f, 0f, 0f, 0f, 255f,
-                0f, -1f, 0f, 0f, 255f,
-                0f, 0f, -1f, 0f, 255f,
-                0f, 0f, 0f, 1f, 0f,
-            ),
-        )
-    }
-    if (grayscale) {
-        matrix *= ColorMatrix().apply { setToSaturation(0f) }
-    }
-    return ColorFilter.colorMatrix(matrix)
-}
+// RK: viewerColorFilter is PageColorAdjust.colorFilter, which adds contrast and the high quality renderer's table

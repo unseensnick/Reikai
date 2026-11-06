@@ -87,6 +87,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A mouse wheel now turns pages in paged novels.**
 - **The WebGPU manga reader can crop a page's borders instead of zooming into them, and lets you tune a shader's own settings (from Mihon).** Upstream: mihonapp/mihon#4226.
 - **The WebGPU manga reader can turn tiles off and use your own upscaler and downscaler shaders (from Mihon).** Upstream: mihonapp/mihon#4242.
+- **Both readers' Filters settings now have Contrast, from 50% to 200%, for crisper pages on e-ink and other black-and-white screens.**
+- **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
+- **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 
 #### Changed
 

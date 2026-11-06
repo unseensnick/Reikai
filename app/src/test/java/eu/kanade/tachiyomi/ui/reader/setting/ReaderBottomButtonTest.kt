@@ -102,4 +102,10 @@ class ReaderBottomButtonTest {
         ReaderBottomButton.BarPreferences.of(scope, ReaderPreferences(store), NovelPreferences(store)).scope shouldBe
             scope
     }
+
+    @Test
+    fun `both readers offer the grayscale button`() {
+        listOf(ReaderBottomButton.Scope.Manga, ReaderBottomButton.Scope.Novel)
+            .filterNot { ReaderBottomButton.Grayscale in ReaderBottomButton.offeredIn(it) } shouldBe emptyList()
+    }
 }

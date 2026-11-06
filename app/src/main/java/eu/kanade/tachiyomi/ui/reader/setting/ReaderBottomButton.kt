@@ -30,6 +30,7 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
     TextSize("ts", MR.strings.pref_reader_text_size, Scope.Novel),
     ReadAloud("ra", MR.strings.pref_category_read_aloud, Scope.Novel),
     ScrollToTop("top", MR.strings.action_scroll_to_top, Scope.Both),
+    Grayscale("gs", MR.strings.pref_grayscale, Scope.Both),
 
     /**
      * The sheet's gear, which is placed like any button but never hidden, since it is the way into the
