@@ -6,8 +6,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconToggleButton
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalMinimumInteractiveComponentSize
 import androidx.compose.material3.MaterialTheme
@@ -70,6 +73,7 @@ data class ReaderChapterStep(
 @Composable
 fun ReaderActionRow(
     enabledButtons: List<ReaderBottomButton>,
+    filled: Boolean,
     onClickChapterList: () -> Unit,
     onClickWebView: (() -> Unit)?,
     onClickBrowser: (() -> Unit)?,
@@ -86,7 +90,7 @@ fun ReaderActionRow(
     grayscale: Boolean,
     onClickGrayscale: () -> Unit,
     onClickScrollToTop: () -> Unit,
-    // Toggles. The active flag tints the icon.
+    // Toggles. The active flag marks the button, filled too when [filled] is on.
     autoScrollActive: Boolean,
     onClickAutoScroll: () -> Unit,
     bionicActive: Boolean,
@@ -127,6 +131,7 @@ fun ReaderActionRow(
                     ) {
                         ActionButtons(
                             enabledButtons = enabledButtons,
+                            filled = filled,
                             onClickChapterList = onClickChapterList,
                             onClickWebView = onClickWebView,
                             onClickBrowser = onClickBrowser,
@@ -165,6 +170,7 @@ fun ReaderActionRow(
 @Composable
 private fun ActionButtons(
     enabledButtons: List<ReaderBottomButton>,
+    filled: Boolean,
     onClickChapterList: () -> Unit,
     onClickWebView: (() -> Unit)?,
     onClickBrowser: (() -> Unit)?,
@@ -258,6 +264,7 @@ private fun ActionButtons(
                 icon = ReikaiIcons.SwipeVertical,
                 description = stringResource(MR.strings.pref_auto_scroll),
                 active = autoScrollActive,
+                filled = filled,
             )
 
             ReaderBottomButton.KeepScreenOn -> ToggleActionButton(
@@ -265,6 +272,7 @@ private fun ActionButtons(
                 icon = ReikaiIcons.Lightbulb,
                 description = stringResource(MR.strings.pref_keep_screen_on),
                 active = keepScreenOn,
+                filled = filled,
             )
 
             ReaderBottomButton.Grayscale -> ToggleActionButton(
@@ -272,6 +280,7 @@ private fun ActionButtons(
                 icon = MaterialSymbols.Rounded.FilterBAndW,
                 description = stringResource(MR.strings.pref_grayscale),
                 active = grayscale,
+                filled = filled,
             )
 
             ReaderBottomButton.BionicReading -> if (onClickBionic != null) {
@@ -280,6 +289,7 @@ private fun ActionButtons(
                     icon = MaterialSymbols.Rounded.FormatBold,
                     description = stringResource(MR.strings.pref_bionic_reading),
                     active = bionicActive,
+                    filled = filled,
                 )
             }
 
@@ -375,19 +385,31 @@ private fun ReadAloudActionButton(
     }
 }
 
-/** A bottom-bar button for a boolean reader setting; tints its icon while the setting is on. */
+/**
+ * A bottom-bar button for a boolean reader setting; tints its icon while the setting is on. [filled] also
+ * fills it then, as the read-aloud button is, since a tint alone reads as off on a black-and-white screen.
+ */
 @Composable
 private fun ToggleActionButton(
     onClick: () -> Unit,
     icon: ImageVector,
     description: String,
     active: Boolean,
+    filled: Boolean,
 ) {
-    IconButton(onClick = onClick) {
-        Icon(
-            imageVector = icon,
-            contentDescription = description,
-            tint = if (active) MaterialTheme.colorScheme.primary else LocalContentColor.current,
-        )
+    IconToggleButton(
+        checked = active,
+        onCheckedChange = { onClick() },
+        colors = IconButtonDefaults.iconToggleButtonColors(
+            checkedContainerColor = if (filled) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            checkedContentColor = if (filled) {
+                MaterialTheme.colorScheme.onPrimaryContainer
+            } else {
+                MaterialTheme.colorScheme.primary
+            },
+        ),
+        shape = if (filled) MaterialTheme.shapes.small else CircleShape,
+    ) {
+        Icon(imageVector = icon, contentDescription = description)
     }
 }

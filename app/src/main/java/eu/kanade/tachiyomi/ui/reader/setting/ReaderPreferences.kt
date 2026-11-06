@@ -145,6 +145,10 @@ class ReaderPreferences(
     /** The order of [readerBottomButtons], as codes; empty draws them in declaration order. */
     val readerBottomButtonOrder: Preference<List<String>> = preferenceStore.getStringList("reader_bottom_button_order")
 
+    /** Off marks a bar toggle that is on by its tint alone; on also fills it, for black-and-white screens. */
+    val readerBottomButtonsFilled: Preference<Boolean> =
+        preferenceStore.getBoolean("reader_bottom_buttons_filled", false)
+
     val preserveReadingPosition: Preference<Boolean> = preferenceStore.getBoolean("preserve_reading_position", false)
 
     val preloadSize: Preference<Int> = preferenceStore.getInt("reader_preload_size", 4)

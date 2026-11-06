@@ -31,6 +31,9 @@ interface ReaderProvider {
      */
     val bottomButtons: Flow<List<ReaderBottomButton>>
 
+    /** Whether the bar fills its on/off buttons while they are on, this type's own choice. */
+    val bottomButtonsFilled: Flow<Boolean>
+
     /** Whose buttons those are, which is the pair of preferences the in-reader editor changes. */
     val bottomButtonScope: ReaderBottomButton.Scope
 

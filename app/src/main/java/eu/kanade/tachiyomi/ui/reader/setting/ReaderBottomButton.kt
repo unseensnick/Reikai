@@ -41,18 +41,29 @@ enum class ReaderBottomButton(val value: String, val stringRes: StringResource, 
 
     enum class Scope { Manga, Novel, Both }
 
-    /** One reader's selection and order, held with the scope they belong to so no caller can mix readers. */
+    /** One reader's bar settings, held with the scope they belong to so no caller can mix readers. */
     class BarPreferences private constructor(
         val scope: Scope,
         val selection: Preference<Set<String>>,
         val order: Preference<List<String>>,
+        val filled: Preference<Boolean>,
     ) {
         companion object {
             fun manga(preferences: ReaderPreferences) =
-                BarPreferences(Scope.Manga, preferences.readerBottomButtons, preferences.readerBottomButtonOrder)
+                BarPreferences(
+                    Scope.Manga,
+                    preferences.readerBottomButtons,
+                    preferences.readerBottomButtonOrder,
+                    preferences.readerBottomButtonsFilled,
+                )
 
             fun novel(preferences: NovelPreferences) =
-                BarPreferences(Scope.Novel, preferences.readerBottomButtons(), preferences.readerBottomButtonOrder())
+                BarPreferences(
+                    Scope.Novel,
+                    preferences.readerBottomButtons(),
+                    preferences.readerBottomButtonOrder(),
+                    preferences.readerBottomButtonsFilled(),
+                )
 
             fun of(scope: Scope, reader: ReaderPreferences, novel: NovelPreferences) = when (scope) {
                 Scope.Manga -> manga(reader)

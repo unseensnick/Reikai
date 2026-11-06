@@ -1164,6 +1164,7 @@ private class FakeReaderProvider(
     override val chrome = MutableStateFlow(ReaderChromeState())
 
     override val bottomButtons = MutableStateFlow(emptyList<ReaderBottomButton>())
+    override val bottomButtonsFilled = MutableStateFlow(false)
 
     override val displayFilters = MangaReaderProvider(
         mockk(relaxed = true),

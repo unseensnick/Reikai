@@ -26,6 +26,7 @@ import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.more.settings.widget.SwitchPreferenceWidget
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import mihon.icons.materialsymbols.MaterialSymbols
@@ -95,6 +96,7 @@ private fun ReaderBottomButtonsList(
         create(scope)
     }
     val rows by viewModel.state.collectAsStateWithLifecycle()
+    val filled by viewModel.filled.collectAsStateWithLifecycle()
     val listState = rememberLazyListState()
     // Held here while a drag runs, so the list moves under the finger without a write per step.
     val items = remember(rows) { rows.toMutableStateList() }
@@ -103,6 +105,14 @@ private fun ReaderBottomButtonsList(
     }
 
     LazyColumn(state = listState, contentPadding = contentPadding, modifier = modifier) {
+        item(key = FILLED_KEY) {
+            SwitchPreferenceWidget(
+                title = stringResource(MR.strings.pref_reader_bottom_buttons_filled),
+                subtitle = stringResource(MR.strings.pref_reader_bottom_buttons_filled_summary),
+                checked = filled,
+                onCheckedChanged = viewModel::setFilled,
+            )
+        }
         items(items.size, key = { items[it].button }) { index ->
             val row = items[index]
             ReorderableItem(reorderState, row.button) {
@@ -160,3 +170,6 @@ private fun ReorderableCollectionItemScope.ButtonRow(
         )
     }
 }
+
+/** The switch's list key, apart from every button's so a drag can never land on it. */
+private const val FILLED_KEY = "filled"

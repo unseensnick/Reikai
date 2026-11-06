@@ -97,6 +97,7 @@ fun ReaderAppBars(
     onClickSettings: () -> Unit,
     // RK -->
     bottomButtons: List<ReaderBottomButton>,
+    bottomButtonsFilled: Boolean,
     onClickChapterList: () -> Unit,
     keepScreenOn: Boolean,
     onClickKeepScreenOn: () -> Unit,
@@ -297,6 +298,7 @@ fun ReaderAppBars(
                         .windowInsetsPadding(WindowInsets.navigationBars),
                     // RK -->
                     enabledButtons = bottomButtons,
+                    filled = bottomButtonsFilled,
                     chapterStep = ReaderChapterStep(
                         isRtl = readingRtl,
                         hasPrevious = enabledPrevious,

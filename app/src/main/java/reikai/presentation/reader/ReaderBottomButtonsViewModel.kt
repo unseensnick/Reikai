@@ -55,6 +55,14 @@ class ReaderBottomButtonsViewModel(
         selection.set(if (button.value in selected) selected - button.value else selected + button.value)
     }
 
+    /** Whether this reader fills its on/off buttons while they are on. */
+    val filled: StateFlow<Boolean> = preferences.filled.changes()
+        .stateIn(viewModelScope, SharingStarted.Eagerly, preferences.filled.get())
+
+    fun setFilled(on: Boolean) {
+        preferences.filled.set(on)
+    }
+
     /** Stores the whole arrangement, switched-off buttons included, so each keeps its place. */
     fun move(buttons: List<ReaderBottomButton>) {
         order.set(buttons.map { it.value })

@@ -90,6 +90,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Both readers' Filters settings now have Contrast, from 50% to 200%, for crisper pages on e-ink and other black-and-white screens.**
 - **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
+- **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
 
 #### Changed
 

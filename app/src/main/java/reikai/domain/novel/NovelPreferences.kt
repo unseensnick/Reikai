@@ -461,6 +461,9 @@ class NovelPreferences(
     /** The order of [readerBottomButtons], as codes; empty draws them in declaration order. */
     fun readerBottomButtonOrder() = preferenceStore.getStringList("ln_reader_bottom_button_order")
 
+    /** The novel reader's own [ReaderPreferences.readerBottomButtonsFilled]. */
+    fun readerBottomButtonsFilled() = preferenceStore.getBoolean("ln_reader_bottom_buttons_filled", false)
+
     /**
      * Puts the read-aloud button on a customised bar, for someone whose retired read-aloud switch was on:
      * a stored bar never sees a new default. Shared, because a backup restore owes the same carry as

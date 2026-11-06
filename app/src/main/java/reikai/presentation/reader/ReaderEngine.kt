@@ -101,6 +101,9 @@ class ReaderEngine(
     val bottomButtons: StateFlow<List<ReaderBottomButton>> =
         provider.bottomButtons.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
+    val bottomButtonsFilled: StateFlow<Boolean> =
+        provider.bottomButtonsFilled.stateIn(viewModelScope, SharingStarted.Eagerly, false)
+
     /** Where the reader is in the chapter, and which navigator shows it. */
     val navigator: StateFlow<ReaderNavigatorState> =
         provider.navigator.stateIn(viewModelScope, SharingStarted.Eagerly, ReaderNavigatorState())

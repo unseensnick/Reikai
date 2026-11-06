@@ -118,6 +118,19 @@ class ReaderProviderConformanceTest {
         probe.provider(look).progressLook.first() shouldBe look
     }
 
+    /** Filling is for screens that cannot show the tint, so every other reader keeps the tint. */
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fillProbes")
+    fun `the bar does not fill its buttons by default`(probe: ReaderBarFillProbe) = runTest {
+        probe.provider(filled = null).bottomButtonsFilled.first() shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fillProbes")
+    fun `the bar fills its buttons when its own reader's setting says`(probe: ReaderBarFillProbe) = runTest {
+        probe.provider(filled = true).bottomButtonsFilled.first() shouldBe true
+    }
+
     /** A reader that opens scrolling on its own is a choice made in Settings, never the default. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("sessions")
@@ -162,6 +175,9 @@ class ReaderProviderConformanceTest {
 
         @JvmStatic
         fun lookProbes() = listOf(MangaProgressLookProbe(), NovelProgressLookProbe())
+
+        @JvmStatic
+        fun fillProbes() = listOf(MangaBarFillProbe(), NovelBarFillProbe())
 
         @JvmStatic
         fun sessions() = listOf(
@@ -389,4 +405,38 @@ class NovelChapterLengthProbe : ReaderChapterLengthProbe {
             titleWords = EnglishChapterTitleWords,
         )
     }
+}
+
+/** One content type's provider, with that reader's own bar fill set, or left alone when null. */
+interface ReaderBarFillProbe {
+    fun provider(filled: Boolean?): ReaderProvider
+}
+
+class MangaBarFillProbe : ReaderBarFillProbe {
+
+    override fun toString() = "manga"
+
+    override fun provider(filled: Boolean?): ReaderProvider = MangaReaderProvider(
+        viewModel = mockk(relaxed = true),
+        readerPreferences = ReaderPreferences(EmittingPreferenceStore()).apply {
+            filled?.let(readerBottomButtonsFilled::set)
+        },
+        downloadManager = mockk(relaxed = true),
+        titleWords = EnglishChapterTitleWords,
+    )
+}
+
+class NovelBarFillProbe : ReaderBarFillProbe {
+
+    override fun toString() = "novel"
+
+    override fun provider(filled: Boolean?): ReaderProvider = NovelReaderProvider(
+        viewModel = mockk(relaxed = true),
+        novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
+            filled?.let(readerBottomButtonsFilled()::set)
+        },
+        fontManager = mockk(),
+        imageRequests = mockk(),
+        titleWords = EnglishChapterTitleWords,
+    )
 }

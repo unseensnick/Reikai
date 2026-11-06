@@ -77,6 +77,8 @@ class NovelReaderProvider(
     override val bottomButtons: Flow<List<ReaderBottomButton>> =
         ReaderBottomButton.orderedChanges(ReaderBottomButton.BarPreferences.novel(novelPreferences))
 
+    override val bottomButtonsFilled: Flow<Boolean> = novelPreferences.readerBottomButtonsFilled().changes()
+
     override val bottomButtonScope = ReaderBottomButton.Scope.Novel
 
     override fun seedColor(context: Context): Flow<Int?> = viewModel.cover

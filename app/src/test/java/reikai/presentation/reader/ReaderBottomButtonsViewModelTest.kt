@@ -97,4 +97,23 @@ class ReaderBottomButtonsViewModelTest {
     fun `the editor shows the gear as on though nothing selects it`(scope: Scope) = runTest {
         viewModel(scope).rows().single { it.button == ReaderBottomButton.Settings }.enabled shouldBe true
     }
+
+    private fun filled(scope: Scope) =
+        ReaderBottomButton.BarPreferences.of(scope, readerPreferences, novelPreferences).filled.get()
+
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `the fill switch turns its reader's fill on`(scope: Scope) = runTest {
+        viewModel(scope).setFilled(true)
+
+        filled(scope) shouldBe true
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `the fill switch leaves the other reader's fill alone`(scope: Scope) = runTest {
+        viewModel(scope).setFilled(true)
+
+        filled(if (scope == Scope.Manga) Scope.Novel else Scope.Manga) shouldBe false
+    }
 }

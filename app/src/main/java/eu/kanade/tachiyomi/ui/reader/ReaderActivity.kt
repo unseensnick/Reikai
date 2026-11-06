@@ -1011,6 +1011,7 @@ class ReaderActivity : BaseActivity() {
 
         // RK: from the engine, so a novel session offers its own actions rather than manga's.
         val bottomButtons by engine.bottomButtons.collectAsState()
+        val bottomButtonsFilled by engine.bottomButtonsFilled.collectAsState()
         val bookmarked by engine.bookmarked.collectAsState()
         val webUrl by engine.webUrl.collectAsState()
         val navigator by engine.navigator.collectAsState()
@@ -1084,6 +1085,7 @@ class ReaderActivity : BaseActivity() {
             },
             onClickSettings = { engine.openDialog(ReaderDialog.Settings) },
             bottomButtons = bottomButtons,
+            bottomButtonsFilled = bottomButtonsFilled,
             onClickChapterList = { engine.openDialog(ReaderDialog.ChapterList) },
             keepScreenOn = keepScreenOn,
             onClickKeepScreenOn = { engine.setKeepScreenOn(!keepScreenOn) },

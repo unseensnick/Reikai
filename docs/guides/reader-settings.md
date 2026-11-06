@@ -177,7 +177,7 @@ Opens manhwa, manhua and webtoons in **Long strip** without you setting it per s
 It goes by what the source says, not by the pictures: a "Manhwa", "Manhua", "Webtoon" or "Long strip" genre tag, or a source name that gives it away. A "Manga" genre tag rules it out, and a "Comic" tag or comic source rules out a Manhwa or Manhua guess. Genres you changed with **Edit info** count instead of the source's, and in a merged series one source saying it is enough. A mode you picked for a series always wins.
 
 ### Bottom bar buttons
-Which buttons sit in the reader's bottom bar, and in what order. Rotation, reading mode, view chapters and crop borders are on by default. The settings gear can be moved like the others but not switched off.
+Which buttons sit in the reader's bottom bar, and in what order. Rotation, reading mode, view chapters and crop borders are on by default. The settings gear can be moved like the others but not switched off. **Fill buttons that are on**, at the top of the list, draws a filled square behind Grayscale, Keep screen on and the other on/off buttons while they are on, which shows on black-and-white screens where the tint does not.
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.

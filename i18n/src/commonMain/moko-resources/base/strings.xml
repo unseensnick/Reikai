@@ -733,6 +733,8 @@
     <string name="pref_auto_webtoon_mode_summary">Read manhwa, manhua and webtoons in webtoon mode, unless you change the reading mode</string>
     <string name="auto_webtoon_snack">Reading webtoon style</string>
     <string name="pref_reader_bottom_buttons">Bottom bar buttons</string>
+    <string name="pref_reader_bottom_buttons_filled">Fill buttons that are on</string>
+    <string name="pref_reader_bottom_buttons_filled_summary">Easier to see on black-and-white screens</string>
     <string name="pref_auto_scroll">Auto-scroll</string>
     <string name="pref_auto_scroll_speed">Auto-scroll speed</string>
     <string name="pref_auto_scroll_on_open">Start auto-scroll when opening a chapter</string>
