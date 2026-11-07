@@ -957,7 +957,8 @@ class NovelTextViewport(
     }
 
     /** The line at the top of the screen ([readingTop]), or the last one above it when that falls below the
-     *  text. Null when the chapter's text starts below it, where the item's own anchor already holds it. */
+     *  text. Null when the chapter's text starts below it, where the item's own anchor already holds it, and
+     *  when paged and the page starts inside a picture: the line above is an earlier page's. */
     private fun lineAtTop(): LineAnchor? {
         val slot = visibleSlot() ?: return null
         val probe = readingTop()
@@ -966,6 +967,7 @@ class NovelTextViewport(
         val top = (topInRecycler(view) ?: return null) + view.totalPaddingTop
         val offset = layout.getLineStart(layout.getLineForVertical(probe - top))
         val y = lineTopOf(view, offset) ?: return null
+        if (paged && y < probe - 1) return null
         return LineAnchor(view, offset, y)
     }
 

@@ -713,7 +713,13 @@
       shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction, seam: seam === true };
       // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
       place.sync();
-      if (!keepLine || pageLineTop() === null) pageLine = place.line();
+      if (!keepLine || pageLineTop() === null) {
+        pageLine = place.line();
+        // A page that starts inside a picture has no line of its own, and the nearest one is on an earlier
+        // page: held, every turn from here would land back on that page. Then the reading top decides.
+        var heldTop = pageLineTop();
+        if (heldTop !== null && (heldTop < m.top - 1 || heldTop >= m.top + height)) pageLine = null;
+      }
       onScroll();
       // A page is where the reader stops, and a jump the page cannot scroll itself may end in no scrollend.
       persist();

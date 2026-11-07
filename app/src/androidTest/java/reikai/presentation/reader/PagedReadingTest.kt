@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import android.os.SystemClock
+import android.util.Base64
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
@@ -27,6 +28,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.pngOf
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
@@ -923,6 +925,63 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] the picture's top never showed on a page", topShown)
     }
 
+    /** A page that starts inside a picture has no line of its own; holding the one above it stalls the turns. */
+    @Test
+    fun turningForwardThroughATallPictureShowsEveryPageOnce() {
+        build(NovelPageLayout.PAGED_LTR)
+        openTallPicture()
+
+        val pages = pagesTurning { forwardTap() }
+
+        assertEquals("[$renderer] pages shown", (0 until shownPage.get()!!.second).toList(), pages)
+    }
+
+    @Test
+    fun turningBackThroughATallPictureShowsEveryPageOnce() {
+        build(NovelPageLayout.PAGED_LTR)
+        openTallPicture()
+        pagesTurning { forwardTap() }
+
+        val pages = pagesTurning(stopAt = 0) { backTap() }
+
+        assertEquals("[$renderer] pages shown", (shownPage.get()!!.second - 1 downTo 0).toList(), pages)
+    }
+
+    /** A page inside a picture saves no line of its own, so a new renderer lands by the share, on that page. */
+    @Test
+    fun aNewRendererOnAPageInsideATallPictureLandsOnThatPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        openTallPicture()
+        repeat(6) { forwardTap() }
+        val page = shownPage.get()!!.first
+        val line = lastTopLine()
+        val share = checkNotNull(lastShare.get())
+
+        rebuild(NovelPageLayout.PAGED_LTR)
+        openTallPicture(topLine = line, share = share)
+
+        assertEquals("[$renderer] page after the rebuild", page, shownPage.get()!!.first)
+    }
+
+    private fun openTallPicture(
+        topLine: Int? = null,
+        share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(0),
+    ) {
+        val picture = "data:image/png;base64," + Base64.encodeToString(pngOf(300, 9_000), Base64.NO_WRAP)
+        open(1L, short("before") + "<p><img src=\"$picture\"></p>" + short("after"), topLine = topLine, share = share)
+    }
+
+    /** The shown page indexes, turning with [turn] until index [stopAt] or the chapter's last page. */
+    private fun pagesTurning(stopAt: Int? = null, turn: () -> Unit): List<Int> {
+        val pages = mutableListOf(shownPage.get()!!.first)
+        fun done() = pages.last() == (stopAt ?: (shownPage.get()!!.second - 1))
+        while (!done() && pages.size < PICTURE_TURNS) {
+            turn()
+            pages += shownPage.get()!!.first
+        }
+        return pages
+    }
+
     /** The chapter before joins after the first page shows and moves it, which the reader must not watch. */
     @Test
     fun theOpeningVeilStaysUpWhileTheChapterBeforeIsJoining() {
@@ -1105,11 +1164,16 @@ class PagedReadingTest(private val renderer: Renderer) {
         ).toFloat()
     }
 
-    /** No line on screen is cut by either edge of the page: the margin above it or the mask below it. */
+    /**
+     * No line on screen is cut by either edge of the page: the margin above it or the mask below it. A box taller
+     * than the page, a picture's line, can never fit one and continues across pages, so it is left out.
+     */
     private fun assertWholeLines() {
         val bottom = checkNotNull(maskBottom()) { "[$renderer] no page shown" }
         val top = readingTop()
-        lineBoxesOnScreen().forEach { (lineTop, lineBottom) ->
+        lineBoxesOnScreen().filter { (lineTop, lineBottom) ->
+            lineBottom - lineTop <= bottom - top
+        }.forEach { (lineTop, lineBottom) ->
             assertTrue(
                 "[$renderer] line $lineTop..$lineBottom cut by the page bottom at $bottom",
                 !(lineTop < bottom - SLACK && lineBottom > bottom + SLACK),
@@ -1286,6 +1350,9 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** A chapter of [long] is fewer pages than this on any screen the tests run on. */
         const val MAX_PAGES = 120
+
+        /** Far more than a tall picture's chapter has pages, so a stalled turn ends the walk. */
+        const val PICTURE_TURNS = 40
 
         /** A saved line a little way into its page, so landing on the page's start would not pass by luck. */
         const val SAVED_LINE_INTO_PAGE = 40
