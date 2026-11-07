@@ -1229,24 +1229,49 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] the place fell back to the spread's start", checkNotNull(lastTopLine()) > spreadStart)
     }
 
-    /** The chapter above leaving shortens the page, which pulls a column at its end back up; that is not the reader. */
+    /**
+     * The chapter above leaving shortens the page, and the browser pulls a column at its end back up. That pull is
+     * not the reader's: counted as theirs, the page's place holder scrolled the column a second time and the snap
+     * after it showed the right spread again, so the wrong place only shows on the way, as a scroll position.
+     */
     @Test
-    fun droppingTheChapterAboveAtTheEndKeepsTheSpread() {
+    fun droppingTheChapterAboveAtTheEndNeverShowsAnotherPlace() {
+        assumeTrue("only the page's scroll is pulled back by the browser", renderer == Renderer.WEB)
         build(NovelPageLayout.PAGED_LTR, spread = true)
         open(1L, long("first"))
         append(2L, short("second"))
         readToTheEnd(1L)
         repeat(2) { forwardTap() }
         readToTheEnd(2L)
-        val place = lastPercentOf(2L)
-        val reportsBefore = progress.size
+        evalString(
+            "window.rkScrolls = []; addEventListener('scroll', function () { rkScrolls.push(Math.round(scrollY)); }); ''",
+        )
 
         onMain { viewport.window.evict(1L) }
         repeat(3) { settle() }
 
-        // Every report, since a move the snap undoes leaves the place right at the end and only shows on the way.
-        val reported = progress.drop(reportsBefore).map { it.second }.distinct()
-        assertEquals("[$renderer] places reported through the drop", listOf(place), reported.ifEmpty { listOf(place) })
+        val seen = JSONArray(evalString("JSON.stringify(rkScrolls)")).let { json ->
+            List(json.length()) { json.getInt(it) }
+        }
+        val final = evalString("String(Math.round(scrollY))").toInt()
+        // A pixel either way is a fractional scroll rounding apart; the column moved elsewhere is a page off.
+        assertEquals("[$renderer] other places through the drop", emptyList<Int>(), seen.filter { abs(it - final) > 1 })
+    }
+
+    /**
+     * A spread draws its column twice, and a WebView draws through a render-thread functor that a Vulkan driver
+     * crashed in once with it drawn twice a frame. On a layer it draws once and the layer twice; the crash is too
+     * rare to reproduce on demand, so the layer itself is what is pinned.
+     */
+    @Test
+    fun aSpreadDrawsThePageOnceAFrame() {
+        assumeTrue("only the page draws through a functor", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+
+        var layer = View.LAYER_TYPE_NONE
+        instrumentation.runOnMainSync { layer = column.layerType }
+
+        assertEquals("[$renderer] the column's layer", View.LAYER_TYPE_HARDWARE, layer)
     }
 
     /** A chapter's lone last page is a spread's first half, the left reading left to right. */
@@ -1275,7 +1300,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     /** Opens [id] as a chapter of an odd page count past its first spread, whose last page stands alone. */
     private fun openOddChapter(id: Long, settings: NovelReaderSettings = readerTestSettings) {
         (4..60).forEach { paragraphs ->
-            open(id, paragraphs(paragraphs), settings = settings)
+            reopen(id, paragraphs(paragraphs), settings)
             if (shownPage.get()!!.second.let { it >= 3 && it % 2 == 1 }) return
         }
         error("[$renderer] no chapter of an odd page count")
@@ -1311,10 +1336,17 @@ class PagedReadingTest(private val renderer: Renderer) {
     /** Opens [id] as a chapter of an even page count past its first spread, whose last page is a spread's second. */
     private fun openEvenChapter(id: Long) {
         (4..60).forEach { paragraphs ->
-            open(id, paragraphs(paragraphs))
+            reopen(id, paragraphs(paragraphs))
             if (shownPage.get()!!.second.let { it >= 4 && it % 2 == 0 }) return
         }
         error("[$renderer] no chapter of an even page count")
+    }
+
+    /** Opens [id] again with its earlier reports dropped, so none read before the new open's own is a stale one. */
+    private fun reopen(id: Long, html: String, settings: NovelReaderSettings = readerTestSettings) {
+        synchronized(progress) { progress.removeAll { it.first == id } }
+        open(id, html, settings = settings)
+        lastPercentOf(id)
     }
 
     private fun paragraphs(count: Int) =

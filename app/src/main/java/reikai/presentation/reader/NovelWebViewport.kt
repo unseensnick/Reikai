@@ -337,6 +337,9 @@ class NovelWebViewport(
 
     /** The two-page host the frame is drawn in, null for one page at a time. The frame is two pages tall. */
     private val spreadHost: NovelSpreadHost? = if (paged && spread) {
+        // The spread draws the frame twice. A WebView draws through a render-thread functor, which a Vulkan
+        // driver crashed in once with it drawn twice a frame; on a layer it draws once and the layer twice.
+        frame.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         NovelSpreadHost(context, frame, heightFactor = 2, rtl = pageLayout.isRtl) {
             documentSettings?.let { readerBackgroundColorInt(it.backgroundColor) } ?: 0
         }
