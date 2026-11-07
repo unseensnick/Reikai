@@ -131,6 +131,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                     onChapterFits = { _, _ -> rendered.countDown() },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onReaderTurned = {},
                     onPageTurned = {},
                     onPageShown = { _, _ -> },
                 ),

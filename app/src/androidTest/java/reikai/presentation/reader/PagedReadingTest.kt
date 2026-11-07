@@ -59,6 +59,9 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val topLines = Collections.synchronizedList(mutableListOf<Pair<Long, Int?>>())
     private val visible = Collections.synchronizedList(mutableListOf<Long>())
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
+
+    /** The reader's turns and the progress reports, in the order the viewport sent them. */
+    private val events = Collections.synchronizedList(mutableListOf<String>())
     private val turned = AtomicInteger()
     private val shownPage = AtomicReference<Pair<Int, Int>?>(null)
     private val lastShare = AtomicReference<ChapterProgress.Percent?>(null)
@@ -72,6 +75,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val callbacks = NovelViewportCallbacks(
         volumeKeysActive = { volumeKeys },
         onProgressChanged = { id, percent ->
+            events += "progress $id"
             progress += id to percent.wholePercent.toInt()
             lastShare.set(percent)
         },
@@ -85,6 +89,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = {},
         onReaderScrolled = {},
+        onReaderTurned = { events += "turn" },
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { page, count -> shownPage.set(page to count) },
     )
@@ -329,11 +334,272 @@ class PagedReadingTest(private val renderer: Renderer) {
         open(1L, short("first"))
         append(2L, long("second"))
         readToTheEnd(1L)
+        val lastLine = topLines.last()
         forwardTap()
-        assertEquals("[$renderer] the seam belongs to the chapter it opens", 2L, visible.last())
-        assertEquals("[$renderer] no text at the top of the seam's page", 2L to null, topLines.last())
+        assertEquals("[$renderer] the seam keeps the chapter just read", 1L, visible.lastOrNull() ?: 1L)
+        assertEquals("[$renderer] at its end", 1L to 100, progress.last())
+        assertEquals("[$renderer] on its last page's line", lastLine, topLines.last())
         forwardTap()
         assertEquals("[$renderer] the page after the seam is the chapter's first", 2L to 0, topLines.last())
+        assertEquals("[$renderer] and the chapter it opens is read", 2L, visible.last())
+    }
+
+    /** As Mihon's transition page: the seam turns like a page, but the slider counts the text's pages alone. */
+    @Test
+    fun theSeamIsNoPageOfTheCount() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastOfFirst = checkNotNull(shownPage.get())
+        forwardTap()
+        assertEquals("[$renderer] the seam shows the closed chapter's last page", lastOfFirst, shownPage.get())
+        forwardTap()
+        val firstOfSecond = checkNotNull(shownPage.get())
+        open(2L, long("second"))
+        val alone = checkNotNull(shownPage.get()).second
+        assertEquals("[$renderer] the text's first page is the first of its own count", 0 to alone, firstOfSecond)
+    }
+
+    @Test
+    fun theSliderPastTheSeamLandsOnTheTextPageItNames() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        repeat(2) { forwardTap() }
+        val count = checkNotNull(shownPage.get()).second
+        seekPages(2, count)
+        assertEquals("[$renderer] the slider's page is on screen", 2 to count, shownPage.get())
+        seekPages(0, count)
+        assertEquals("[$renderer] its first page is the text's first", 2L to 0, topLines.last())
+    }
+
+    /** The slider on the seam is the chapter the reader is still in, which the counter shows. */
+    @Test
+    fun theSliderOnTheSeamSeeksTheChapterItCloses() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        forwardTap()
+        val count = checkNotNull(shownPage.get()).second
+        seekPages(0, count)
+        assertEquals("[$renderer] the closed chapter's first page is on screen", 1L to 0, topLines.last())
+    }
+
+    /** Back onto the seam the reader is still on the chapter they came from, so the slider is that chapter's. */
+    @Test
+    fun theSliderOnTheSeamFromBelowSeeksTheChapterComeFrom() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        repeat(2) { forwardTap() }
+        backTap()
+        val count = checkNotNull(shownPage.get()).second
+        seekPages(2, count)
+        assertEquals("[$renderer] the slider's page of the chapter come from", 2L, topLines.last().first)
+    }
+
+    @Test
+    fun turnsBackAndForthCrossTheSeam() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastLineOfFirst = topLines.last()
+        repeat(2) { forwardTap() }
+        val firstOfSecond = shownPage.get()
+        backTap()
+        assertEquals("[$renderer] back onto the seam stays on the chapter come from", 2L to 0, progress.last())
+        assertEquals("[$renderer] and its line", 2L to 0, topLines.last())
+        assertEquals("[$renderer] and its number", firstOfSecond, shownPage.get())
+        assertEquals("[$renderer] and names it", 2L, visible.last())
+        backTap()
+        assertEquals("[$renderer] then its last page", lastLineOfFirst, topLines.last())
+        repeat(2) { forwardTap() }
+        assertEquals("[$renderer] and forward again reaches the text", 2L to 0, topLines.last())
+    }
+
+    /** The opened chapter holds an earlier one's report until the reader moves, so a tap turn has to say so first. */
+    @Test
+    fun aTapTurnSaysTheReaderTurnedBeforeItReportsThePageItShows() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(2L, long("second"))
+        joinAbove()
+        // Onto the seam, which reports nothing, then onto the chapter before's last page.
+        backTap()
+        events.clear()
+        backTap()
+        val turnAt = events.indexOf("turn")
+        val reportAt = events.indexOf("progress 1")
+        assertTrue("[$renderer] the turn was not said before the seam's report: $events", turnAt in 0..<reportAt)
+    }
+
+    @Test
+    fun anAutoScrollTurnIsNotTheReaders() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        val stepped = (viewport as ReaderViewport).autoScroll as ViewportAutoScroll.Stepped
+        events.clear()
+        val turns = turned.get()
+        instrumentation.runOnMainSync { stepped.advance() }
+        awaitWhile { turned.get() == turns }
+        settle()
+        assertTrue("[$renderer] auto-scroll said the reader turned: $events", "turn" !in events)
+    }
+
+    /** A page shorter than the seam cuts it into several pages, none of which moves the reader. */
+    @Test
+    fun aSeamTallerThanAPageIsEveryPageTheClosedChaptersLast() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"), settings = shortPages())
+        append(2L, short("second"))
+        readToTheEnd(1L)
+        val lastLine = topLines.last()
+        val lastOfFirst = shownPage.get()
+        var seamPages = 0
+        while (topLines.last().first == 1L && seamPages < MAX_PAGES) {
+            forwardTap()
+            if (topLines.last().first != 1L) break
+            seamPages++
+            assertEquals("[$renderer] seam page $seamPages keeps the last page's line", lastLine, topLines.last())
+            assertEquals("[$renderer] at its end", 1L to 100, progress.last())
+            assertEquals("[$renderer] on its last number", lastOfFirst, shownPage.get())
+        }
+        assertTrue("[$renderer] the seam fit on one page, $seamPages", seamPages >= 2)
+        assertEquals("[$renderer] past the seam is the text's first page", 2L to 0, topLines.last())
+        val firstOfSecond = shownPage.get()
+        assertEquals("[$renderer] the first of its own count", 0, firstOfSecond?.first)
+        repeat(seamPages) {
+            backTap()
+            assertEquals("[$renderer] back across the seam stays where it came from", 2L to 0, progress.last())
+            assertEquals("[$renderer] on that page's number", firstOfSecond, shownPage.get())
+        }
+        backTap()
+        assertEquals("[$renderer] then its last page", lastLine, topLines.last())
+    }
+
+    /** Back from an opened chapter onto a seam cut into several pages, and a rebuild there. */
+    @Test
+    fun aTallSeamAboveAnOpenedChapterKeepsTheOpenedChapter() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(2L, short("second"), settings = shortPages())
+        joinAbove()
+        val opened = shownPage.get()
+        backTap()
+        assertTrue("[$renderer] the seam reported the chapter before: $progress", progress.none { it.first == 1L })
+        assertEquals("[$renderer] and kept the opened chapter's number", opened, shownPage.get())
+        val (id, line) = topLines.last()
+        rebuild(NovelPageLayout.PAGED_LTR)
+        topLines.clear()
+        open(id, short("second"), lastPercentOf(id), topLine = line, settings = shortPages())
+        joinAbove()
+        assertEquals(
+            "[$renderer] a rebuild on the seam lands on the opened chapter's first page",
+            2L to 0,
+            topLines.last(),
+        )
+    }
+
+    @Test
+    fun theSliderOnATallSeamSeeksTheChapterItCloses() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"), settings = shortPages())
+        append(2L, short("second"))
+        readToTheEnd(1L)
+        val lastLine = topLines.last()
+        repeat(2) { forwardTap() }
+        assertEquals("[$renderer] the second seam page keeps the closed chapter", lastLine, topLines.last())
+        val count = checkNotNull(shownPage.get()).second
+        seekPages(0, count)
+        assertEquals("[$renderer] the closed chapter's first page is on screen", 1L to 0, topLines.last())
+    }
+
+    /** Settings whose margins leave a page shorter than the seam's own padding. */
+    private fun shortPages(): NovelReaderSettings {
+        val metrics = instrumentation.targetContext.resources.displayMetrics
+        val margin = ((metrics.heightPixels / metrics.density - SHORT_PAGE_DP) / 2).toInt()
+        return readerTestSettings.copy(margins = readerTestSettings.margins.copy(top = margin, bottom = margin))
+    }
+
+    /** Opening a chapter is for reading it, so the seam the chapter before brings when it joins stays above. */
+    @Test
+    fun aChapterOpenedAtItsStartShowsItsTextOnceTheOneBeforeJoins() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(2L, long("second"))
+        joinAbove()
+        assertEquals("[$renderer] the open did not stay on the text", 2L to 0, topLines.last())
+    }
+
+    /** As a rotation does: the provider reopens the chapter the seam reported, at its share and with no line. */
+    @Test
+    fun aNewRendererOnTheSeamsPageLandsOnTheClosedChaptersLastPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastLine = topLines.last()
+        val lastPage = shownPage.get()
+        forwardTap()
+        val (id, line) = topLines.last()
+        rebuild(NovelPageLayout.PAGED_LTR)
+        topLines.clear()
+        open(id, short("first"), lastPercentOf(id), topLine = line)
+        append(2L, long("second"))
+        assertEquals("[$renderer] the rebuilt page is not the closed chapter's last", lastLine, topLines.last())
+        assertEquals("[$renderer] nor its number", lastPage, shownPage.get())
+    }
+
+    /** As Mihon's pager: back onto the seam and rebuilt there, the reader is on the page they came from. */
+    @Test
+    fun aNewRendererOnTheSeamFromBelowLandsOnTheChapterComeFrom() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        repeat(2) { forwardTap() }
+        val firstOfSecond = shownPage.get()
+        backTap()
+        val (id, line) = topLines.last()
+        rebuild(NovelPageLayout.PAGED_LTR)
+        topLines.clear()
+        open(id, long("second"), lastPercentOf(id), topLine = line)
+        joinAbove()
+        assertEquals("[$renderer] the rebuilt page is not the first of the chapter come from", 2L to 0, topLines.last())
+        assertEquals("[$renderer] nor its number", firstOfSecond, shownPage.get())
+    }
+
+    private fun joinAbove() {
+        fits.remove(1L)
+        onMain { viewport.window.prepend(chapter(1L, short("first"), 100, null)) }
+        awaitWhile { !fits.containsKey(1L) }
+        repeat(3) { settle() }
+    }
+
+    private fun seekPages(page: Int, count: Int) {
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).seekTo(ChapterProgress.Pages(lastPageRead = page, pageCount = count))
+        }
+        awaitWhile { shownPage.get()?.first != page }
+        settle()
+        assertWholeLines()
+    }
+
+    /** Opened, then back onto the seam: still the opened chapter, until the turn onto the chapter before. */
+    @Test
+    fun theSeamAboveAnOpenedChapterKeepsTheOpenedChapter() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(2L, long("second"))
+        joinAbove()
+        val opened = shownPage.get()
+        backTap()
+        assertTrue("[$renderer] the seam named the chapter before: $visible", 1L !in visible)
+        assertEquals("[$renderer] the seam kept the opened chapter's number", opened, shownPage.get())
+        backTap()
+        assertEquals("[$renderer] the chapter before's last page names it", 1L, visible.last())
+        assertEquals("[$renderer] at its end", 1L to 100, progress.last())
     }
 
     @Test
@@ -1026,5 +1292,8 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** Far enough down a chapter of [long] to sit some pages in, and no multiple of a page. */
         const val SCROLLED_DP = 4_321
+
+        /** A page height under the seam's padding alone (NovelChapterSeamView.PADDING_VERTICAL_DP above and below). */
+        const val SHORT_PAGE_DP = 200
     }
 }

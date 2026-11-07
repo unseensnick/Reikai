@@ -319,6 +319,8 @@ class NovelReaderProvider(
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
             onReaderScrolled = { dy -> if (scrollHidesMenu(dy.toFloat(), hideThreshold)) host.hideMenu() },
+            // A turn is the reader moving, as a drag or a key is, which lets an earlier chapter be read.
+            onReaderTurned = viewModel::readerMoved,
             onPageTurned = host::pageTurned,
             onPageShown = { page, count -> shownPage.value = ChapterProgress.Pages(page, count) },
         )

@@ -15,8 +15,9 @@ object NovelPaging {
      *  marker between two chapters, takes a page of its own. */
     data class Band(val top: Float, val bottom: Float, val alone: Boolean = false)
 
-    /** One page: the column from [top], the first band on it, to [bottom], the last whole band's end. */
-    data class Page(val top: Float, val bottom: Float) {
+    /** One page: the column from [top], the first band on it, to [bottom], the last whole band's end. A [seam]
+     *  page holds an [Band.alone] band: it turns like a page but is not counted as one, as in Mihon's pager. */
+    data class Page(val top: Float, val bottom: Float, val seam: Boolean = false) {
         val height: Float get() = bottom - top
     }
 
@@ -33,18 +34,21 @@ object NovelPaging {
         val pages = mutableListOf<Page>()
         var top = Float.NaN
         var bottom = Float.NaN
+        var seam = false
         fun close() {
-            if (!top.isNaN()) pages += Page(top, bottom)
+            if (!top.isNaN()) pages += Page(top, bottom, seam)
             top = Float.NaN
+            seam = false
         }
         merge(bands.filter { it.top.isFinite() && it.bottom.isFinite() }).forEach { band ->
             if (pages.size >= MAX_PAGES) return pages
             if (band.alone) close()
             if (!top.isNaN() && band.bottom - top > height) close()
             if (top.isNaN()) top = band.top
+            seam = band.alone
             while (band.bottom - top > height) {
                 if (pages.size >= MAX_PAGES) return pages
-                pages += Page(top, top + height)
+                pages += Page(top, top + height, seam)
                 top += height
             }
             bottom = band.bottom
@@ -104,7 +108,7 @@ object NovelPaging {
      */
     fun progressOf(pages: List<Page>, index: Int, textTop: Float, scrollable: Float): ChapterProgress.Percent {
         val full = ChapterProgress.Percent.FULL
-        if (pages.size <= 1 || index <= 0) return ChapterProgress.Percent(0)
+        if (textCount(pages) <= 1 || index <= firstText(pages)) return ChapterProgress.Percent(0)
         if (index >= pages.lastIndex) return ChapterProgress.Percent.END
         if (scrollable <= 0f) return ChapterProgress.Percent(0)
         val share = (pages[index].top - textTop).toDouble() / scrollable
@@ -119,12 +123,31 @@ object NovelPaging {
     fun landingIndex(pages: List<Page>, progress: ChapterProgress.Percent, textTop: Float, scrollable: Float): Int {
         if (progress.hundredths >= ChapterProgress.Percent.FULL) return pages.lastIndex.coerceAtLeast(0)
         val within = scrollable.coerceAtLeast(0f) * progress.hundredths.toDouble() / ChapterProgress.Percent.FULL
-        return pageAt(pages, (textTop + within).toFloat())
+        // The text can start below its item's top, which would leave a share of none on the seam above it.
+        return pageAt(pages, (textTop + within).toFloat()).coerceAtLeast(firstText(pages))
     }
 
-    /** The page the paged slider's [fraction] names, the inverse of [ChapterProgress.Pages]' own. */
-    fun indexFor(fraction: Float, count: Int): Int =
-        (ChapterProgress.Pages(0, count).seekTo(fraction.coerceIn(0f, 1f)) as ChapterProgress.Pages).lastPageRead
+    /** The page the paged slider's [fraction] names among the text pages, as an index into all of [pages]: the
+     *  inverse of [ChapterProgress.Pages]' own. */
+    fun indexFor(fraction: Float, pages: List<Page>): Int {
+        val text = pages.indices.filter { !pages[it].seam }
+        val named = ChapterProgress.Pages(0, text.size).seekTo(fraction.coerceIn(0f, 1f)) as ChapterProgress.Pages
+        return text.getOrElse(named.lastPageRead) { 0 }
+    }
+
+    /** What the page slider shows for page [index]: its place among the text pages, and their count. Null on a
+     *  seam's page, which shows the chapter before's last page instead, as Mihon's transition page does. */
+    fun countOf(pages: List<Page>, index: Int): Pair<Int, Int>? {
+        if (pages.getOrNull(index)?.seam != false) return null
+        return pages.take(index).count { !it.seam } to textCount(pages)
+    }
+
+    /** Whether page [index] is a seam's, where the reader is still in the chapter before, at its end. */
+    fun isSeam(pages: List<Page>, index: Int): Boolean = pages.getOrNull(index)?.seam == true
+
+    private fun textCount(pages: List<Page>) = pages.count { !it.seam }
+
+    private fun firstText(pages: List<Page>) = pages.indexOfFirst { !it.seam }.coerceAtLeast(0)
 
     /** Fragments of one line can overlap the next by a sub-pixel; that much never joins two lines. */
     private const val OVERLAP_SLACK = 1f

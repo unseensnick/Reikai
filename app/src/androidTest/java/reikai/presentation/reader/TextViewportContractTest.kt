@@ -138,6 +138,7 @@ class TextViewportContractTest(private val renderer: Renderer) {
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = { endsSeen += it },
         onReaderScrolled = { scrolls += it },
+        onReaderTurned = {},
         onPageTurned = {},
         onPageShown = { _, _ -> },
     )

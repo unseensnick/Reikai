@@ -103,6 +103,7 @@ class NovelTextViewportWindowTest {
                     onChapterFits = { id, fit -> fits[id] = fit },
                     onChapterEndSeen = {},
                     onReaderScrolled = {},
+                    onReaderTurned = {},
                     onPageTurned = {},
                     onPageShown = { _, _ -> },
                 ),

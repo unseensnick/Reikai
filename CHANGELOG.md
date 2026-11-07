@@ -96,6 +96,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
+- **Paged novels now count a chapter's pages from its first page of text, and the transition between chapters keeps you on your page, as in manga.** Opening a chapter lands on its text rather than on the transition.
 - **Failed pages and chapter transitions now look the same in every manga reading mode (from Mihon).**
 
 - **Grayscale and inverted colors in the reader now change only the page, not what is drawn over it (from Mihon).**
@@ -106,6 +107,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **The novel reader's title now follows when you tap back into the chapter before one you just opened.**
 - **Skip duplicate chapters no longer hides or reorders interludes, side stories and extras that share a number with a chapter.** Mark duplicate read follows the same rule, for manga and novels.
 - **Auto-scroll at its slowest speeds now moves at the speed set in novels shown with WebView.** It stood still on some fast screens and ran ahead on others.
 - **Tapping a novel's text in Native text mode with Select text by long press on no longer moves the page.**

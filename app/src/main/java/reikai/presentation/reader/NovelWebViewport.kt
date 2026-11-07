@@ -454,7 +454,9 @@ class NovelWebViewport(
                 // Carried into the document rather than scrolled to afterwards, because the page has
                 // to exist before it has anywhere to scroll and the load is asynchronous.
                 initialFraction = initialFraction,
-                initialLine = chapter.topLine,
+                // Paged, a chapter not started opens on its first line: held there, it stays on the text when
+                // the chapter before joins and brings the seam above, where the column's top would read the seam.
+                initialLine = chapter.topLine ?: 0.takeIf { paged && !chapter.progress.hasStarted },
                 settings = settings,
                 statusBarHeightPx = inset,
                 fontSource = fontSource,
@@ -555,7 +557,7 @@ class NovelWebViewport(
      * destroyed WebView.
      */
     override val autoScroll: ViewportAutoScroll = if (paged) {
-        ViewportAutoScroll.Stepped(autoScrollInterval, shownPage) { turnPage(forward = true) }
+        ViewportAutoScroll.Stepped(autoScrollInterval, shownPage) { turnPage(forward = true, byReader = false) }
     } else {
         ViewportAutoScroll.Continuous(autoScrollSpeed) { pixelsPerFrame ->
             autoScrollPixelsPerFrame = pixelsPerFrame
@@ -646,8 +648,9 @@ class NovelWebViewport(
 
     /** Turns a page by [NovelPaging.turn], into the chapter beside this one at either end, and past the window by
      *  stepping chapters, as a scroll's swipe does. */
-    private fun turnPage(forward: Boolean) {
+    private fun turnPage(forward: Boolean, byReader: Boolean = true) {
         if (resumeVeil.isUp) return
+        if (byReader) callbacks.onReaderTurned()
         scope.launch {
             paging.withLock {
                 val at = where() ?: return@withLock
@@ -681,15 +684,19 @@ class NovelWebViewport(
 
     private suspend fun seekPage(progress: ChapterProgress) {
         val at = where() ?: return
-        val pages = pagesOf(at.chapterId, at) ?: return
+        val shownPages = pagesOf(at.chapterId, at) ?: return
+        // On a seam's page the slider is the chapter last reported, which the reader has not left.
+        val onSeam = NovelPaging.isSeam(shownPages, NovelPaging.pageAt(shownPages, at.y))
+        val chapterId = visibleChapterId?.takeIf { onSeam && it in at.heights } ?: at.chapterId
+        val pages = pagesOf(chapterId, at) ?: return
         val index = when (progress) {
-            is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages.size)
+            is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages)
             is ChapterProgress.Percent -> {
-                val measured = measuredPages[at.chapterId] ?: return
+                val measured = measuredPages[chapterId] ?: return
                 NovelPaging.landingIndex(pages, progress, measured.textTop, measured.scrollable)
             }
         }
-        showPage(at.chapterId, pages, index)
+        showPage(chapterId, pages, index)
     }
 
     /** Puts the page holding the reading line back on screen whole, after anything but a page being shown moved
@@ -732,6 +739,8 @@ class NovelWebViewport(
         // Gone only once a new document cleared them, which leaves nothing of this chapter to show.
         val measured = measuredPages[chapterId] ?: return
         val progress = NovelPaging.progressOf(pages, index, measured.textTop, measured.scrollable)
+        // Null on a seam's page, which reports nothing, so the number shown stays the page turned from.
+        val count = NovelPaging.countOf(pages, index)
         val page = pages[index.coerceIn(pages.indices)]
         shownHeight = page.height
         val key = chapterId to index
@@ -741,11 +750,12 @@ class NovelWebViewport(
         // counts a page's time from then, as the native renderer does.
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
-                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL}, $keepLine);",
+                "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL}, $keepLine, " +
+                "${NovelPaging.isSeam(pages, index)});",
         ) { answer ->
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
-            callbacks.onPageShown(index.coerceIn(pages.indices), pages.size)
+            count?.let { (shownIndex, of) -> callbacks.onPageShown(shownIndex, of) }
             // The view's own scroll follows the page's a moment later, and until it does the old place shows.
             if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
             // The copy stays over the old page until the new one is painted, or the old one would slide in.

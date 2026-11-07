@@ -266,6 +266,8 @@
       if (top >= boundaries[i].claimFrom - EDGE_TOLERANCE) index = i; else break;
     }
     var chapter = boundaries[index];
+    // A seam's page never moves the reader, as Mihon's transition page: it names no place at all.
+    if (paged.seamShown(chapter.id)) return { id: null, progress: 0, seam: true };
     var paging = paged.shownIn(chapter.id);
     if (paging !== null) return { id: chapter.id, progress: paging };
     var progress = 0;
@@ -696,8 +698,9 @@
       return el;
     }
 
-    /* keepLine: a page put back after the column moved, which leaves the reader's line as it was. */
-    function show(id, top, height, fraction, keepLine) {
+    /* keepLine: a page put back after the column moved, which leaves the reader's line as it was. seam: a seam's
+       page, which reports no place. */
+    function show(id, top, height, fraction, keepLine, seam) {
       var el = chapterEl(id);
       if (!el) return;
       var m = margins();
@@ -707,7 +710,7 @@
       if (!maskBottom) maskBottom = mask('rk-page-mask-bottom');
       maskTop.style.height = m.top + 'px';
       maskBottom.style.top = (m.top + height) + 'px';
-      shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction };
+      shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction, seam: seam === true };
       // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
       place.sync();
       if (!keepLine || pageLineTop() === null) pageLine = place.line();
@@ -755,6 +758,10 @@
       shownIn: function (id) {
         return PAGED && shown && shown.id === id ? shown.fraction : null;
       },
+      /* Whether the page shown is a seam's, at the top of chapter id. */
+      seamShown: function (id) {
+        return PAGED && !!shown && shown.id === id && shown.seam;
+      },
       /* The page's own extent on screen, which read aloud keeps to. */
       visible: function () {
         if (!PAGED || !shown) return null;
@@ -777,7 +784,11 @@
       rebuildBoundaries();
     }
     var s = state();
-    if (s.id === null) return;
+    // A seam's page reports nothing, but a column it moved still asks for its page back.
+    if (s.id === null) {
+      if (s.seam) paged.check();
+      return;
+    }
 
     if (s.id !== lastChapterSeen) {
       lastChapterSeen = s.id;

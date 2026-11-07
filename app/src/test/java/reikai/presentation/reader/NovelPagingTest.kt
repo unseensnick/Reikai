@@ -59,7 +59,55 @@ class NovelPagingTest {
     @Test
     fun `a band marked alone is a page of its own`() {
         val seamThenText = listOf(Band(0f, 40f, alone = true), Band(40f, 60f), Band(60f, 80f))
-        NovelPaging.cut(seamThenText, height = 100f) shouldBe listOf(Page(0f, 40f), Page(40f, 80f))
+        NovelPaging.cut(seamThenText, height = 100f) shouldBe listOf(Page(0f, 40f, seam = true), Page(40f, 80f))
+    }
+
+    @Test
+    fun `a seam taller than a page is a seam on every page it takes`() {
+        val tallSeam = listOf(Band(0f, 150f, alone = true), Band(150f, 180f))
+        NovelPaging.cut(tallSeam, height = 100f) shouldBe
+            listOf(Page(0f, 100f, seam = true), Page(100f, 150f, seam = true), Page(150f, 180f))
+    }
+
+    @Test
+    fun `a seam's page is not counted`() {
+        NovelPaging.countOf(seamThen(3), index = 0) shouldBe null
+    }
+
+    @Test
+    fun `the first page after a seam is the first of the text's count`() {
+        NovelPaging.countOf(seamThen(3), index = 1) shouldBe (0 to 3)
+    }
+
+    @Test
+    fun `the slider names a text page past the seam`() {
+        NovelPaging.indexFor(ChapterProgress.Pages(lastPageRead = 2, pageCount = 3).fraction, seamThen(3)) shouldBe 3
+    }
+
+    @Test
+    fun `the slider's first page is the text's first`() {
+        NovelPaging.indexFor(0f, seamThen(3)) shouldBe 1
+    }
+
+    /** The text's top sits below its item's top by the chapter's own padding, which a share of none starts at. */
+    @Test
+    fun `a share of none lands below the seam`() {
+        val pages = seamThen(3)
+        NovelPaging.landingIndex(pages, ChapterProgress.Percent(0), textTop = PAGE - 10f, scrollableOf(pages)) shouldBe
+            1
+    }
+
+    @Test
+    fun `the first page after a seam is the chapter's start`() {
+        val pages = seamThen(3)
+        NovelPaging.progressOf(pages, index = 1, textTop = PAGE - 10f, scrollable = scrollableOf(pages)) shouldBe
+            ChapterProgress.Percent(0)
+    }
+
+    @Test
+    fun `one page of text after a seam is the chapter's start`() {
+        NovelPaging.progressOf(seamThen(1), index = 1, textTop = PAGE, scrollable = 0f) shouldBe
+            ChapterProgress.Percent(0)
     }
 
     @Test
@@ -135,7 +183,7 @@ class NovelPagingTest {
 
     @Test
     fun `the paged slider's page names that page`() {
-        NovelPaging.indexFor(ChapterProgress.Pages(lastPageRead = 7, pageCount = 19).fraction, count = 19) shouldBe 7
+        NovelPaging.indexFor(ChapterProgress.Pages(lastPageRead = 7, pageCount = 19).fraction, uniform(19)) shouldBe 7
     }
 
     @Test
@@ -189,6 +237,11 @@ class NovelPagingTest {
 
     /** Pages of [PAGE] from the text's top, which a screen of [PAGE] plus margins shows one at a time. */
     private fun uniform(count: Int) = List(count) { Page(it * PAGE, (it + 1) * PAGE) }
+
+    /** A seam's page, then [count] text pages of [PAGE]. */
+    private fun seamThen(count: Int) = listOf(Page(0f, PAGE, seam = true)) + uniform(count).map {
+        it.copy(top = it.top + PAGE, bottom = it.bottom + PAGE)
+    }
 
     private fun scrollableOf(pages: List<Page>) = pages.last().bottom - (PAGE + MARGINS)
 

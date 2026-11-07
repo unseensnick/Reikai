@@ -1129,7 +1129,9 @@ class NovelTextViewport(
         if (progress is ChapterProgress.Pages && !paged) return
         // A seek names a place of its own, which a short line landing again would take the reader from.
         slots.forEach { it.shortLanding = null }
-        val slot = visibleSlot() ?: slots.firstOrNull() ?: return
+        // On a seam's page the slider is the chapter last reported, which the reader has not left.
+        val slot =
+            reportedVisibleId?.takeIf { onSeam() }?.let(::slotOf) ?: visibleSlot() ?: slots.firstOrNull() ?: return
         // Held for the chapter's own landing to apply when it has one still to come, which is also where
         // one waits that has not rendered yet. Nothing reads it on a chapter already settled.
         if (slot.rendered &&
@@ -1145,7 +1147,7 @@ class NovelTextViewport(
     override fun onChapterStepped() = Unit
 
     override val autoScroll: ViewportAutoScroll = if (paged) {
-        ViewportAutoScroll.Stepped(autoScrollInterval, shownPage) { turnPage(forward = true) }
+        ViewportAutoScroll.Stepped(autoScrollInterval, shownPage) { turnPage(forward = true, byReader = false) }
     } else {
         ViewportAutoScroll.Continuous(autoScrollSpeed, autoScroller::run)
     }
@@ -1283,7 +1285,7 @@ class NovelTextViewport(
      */
     private fun report(sink: (Long, ChapterProgress.Percent) -> Unit) {
         val slot = visibleSlot() ?: return
-        if (slot.landing == null) {
+        if (slot.landing == null && !onSeam()) {
             sink(slot.chapter.chapterId, progressOf(slot))
             reportTopLine(slot)
         }
@@ -1412,6 +1414,7 @@ class NovelTextViewport(
 
     /** Only a change is announced, because the scroll listener runs on every frame. */
     private fun reportVisibleChapter() {
+        if (onSeam()) return
         val id = visibleSlot()?.chapter?.chapterId ?: return
         if (id == reportedVisibleId) return
         reportedVisibleId = id
@@ -1431,6 +1434,18 @@ class NovelTextViewport(
         }
         val position = manager.findFirstVisibleItemPosition()
         return adapter.slotAt(position)
+    }
+
+    /**
+     * Whether a seam's page is on screen. As Mihon's transition page, it never moves the reader: nothing is
+     * reported there, so the chapter, page, line and number stay those of the page the reader turned from, and a
+     * rebuild returns there. Turning stays on [visibleSlot], which the seam's page belongs to.
+     */
+    private fun onSeam(): Boolean {
+        if (!paged) return false
+        val slot = visibleSlot() ?: return false
+        val (pages, itemTop) = pagesOf(slot) ?: return false
+        return NovelPaging.isSeam(pages, NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat()))
     }
 
     /**
@@ -1457,7 +1472,7 @@ class NovelTextViewport(
         if (paged) {
             showPage(slot) { pages ->
                 when (progress) {
-                    is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages.size)
+                    is ChapterProgress.Pages -> NovelPaging.indexFor(progress.fraction, pages)
                     is ChapterProgress.Percent ->
                         NovelPaging.landingIndex(
                             pages,
@@ -1539,8 +1554,9 @@ class NovelTextViewport(
 
     /** Turns a page by [NovelPaging.turn], into the chapter beside this one at either end, and past the window by
      *  stepping chapters, as a scroll's swipe does. */
-    private fun turnPage(forward: Boolean) {
+    private fun turnPage(forward: Boolean, byReader: Boolean = true) {
         if (resumeVeil.isUp || redraw != null) return
+        if (byReader) callbacks.onReaderTurned()
         if (settings?.pageTransitions == true) {
             slide.turn(leftward = forward != pageLayout.isRtl) { turnPageNow(forward) }
         } else {
@@ -1615,6 +1631,8 @@ class NovelTextViewport(
     /** Says where the reader now is: a jump to a position lays the list out without the scroll that reports. */
     private fun pageShown(slot: ChapterSlot, turned: Boolean) {
         pageJumpPending = false
+        // Before the reports, which name the held line: the one from before a jump is still laid out.
+        holdPageLine()
         reportVisibleChapter()
         report(callbacks.onProgressChanged)
         report(callbacks.onProgressSettled)
@@ -1632,7 +1650,8 @@ class NovelTextViewport(
         holdPageLine()
         val at = pageAt() ?: return
         shownPage.value = ShownPage(at.slot.chapter.chapterId to at.index, ready = !at.slot.block.imagesLoading)
-        callbacks.onPageShown(at.index, at.pages.size)
+        // A seam's page has no number, so the one shown stays the page turned from (onSeam).
+        NovelPaging.countOf(at.pages, at.index)?.let { (page, of) -> callbacks.onPageShown(page, of) }
     }
 
     /** Takes the page's first line, unless the line already held is still on this page. */
