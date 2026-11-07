@@ -38,6 +38,17 @@ data class NovelSeam(
 
         private fun LoadedChapter.gapNeighbour() = ChapterGap.Neighbour(chapterNumber, title, novelId)
 
+        /**
+         * How much a marker [natural] tall shrinks to fit a [page] in paged reading, as Mihon's transition page
+         * fits its screen: not at all if it fits, else to just under the page. Scaled whole at a fixed width it
+         * rewraps onto no more lines, so one scale always fits. reader.js `fitSeams` follows this and
+         * [fitPadding]; PagedReadingTest holds both renderers to one page.
+         */
+        fun fitScale(natural: Float, page: Float): Float = if (natural <= page) 1f else (page - 1f) / natural
+
+        /** The padding above and below a marker [shown] tall on a [page]: [max] while it fits, then what is left. */
+        fun fitPadding(shown: Float, page: Float, max: Float): Float = ((page - shown) / 2f).coerceIn(0f, max)
+
         /** The marker below [chapter] when nothing follows it, "There's no next chapter" under its
          *  name, or null while a chapter does. */
         fun end(chapter: LoadedChapter): NovelSeam? {

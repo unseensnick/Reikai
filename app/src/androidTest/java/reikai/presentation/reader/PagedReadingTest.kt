@@ -452,38 +452,32 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertTrue("[$renderer] auto-scroll said the reader turned: $events", "turn" !in events)
     }
 
-    /** A page shorter than the seam cuts it into several pages, none of which moves the reader. */
+    /**
+     * As Mihon's transition page fits its screen: a seam with long titles and a missing-chapters warning, on a
+     * page shorter than its padding alone, is one page, which keeps the closed chapter, and the next turn is the
+     * text's first page. Back across it is one page too.
+     */
     @Test
-    fun aSeamTallerThanAPageIsEveryPageTheClosedChaptersLast() {
+    fun aSeamFitsOnePageHoweverShortThePage() {
         build(NovelPageLayout.PAGED_LTR)
-        open(1L, short("first"), settings = shortPages())
-        append(2L, short("second"))
+        open(1L, short("first"), settings = shortPages(), title = LONG_TITLE)
+        append(GAP_ID, short("second"), title = LONG_TITLE)
         readToTheEnd(1L)
         val lastLine = topLines.last()
         val lastOfFirst = shownPage.get()
-        var seamPages = 0
-        while (topLines.last().first == 1L && seamPages < MAX_PAGES) {
-            forwardTap()
-            if (topLines.last().first != 1L) break
-            seamPages++
-            assertEquals("[$renderer] seam page $seamPages keeps the last page's line", lastLine, topLines.last())
-            assertEquals("[$renderer] at its end", 1L to 100, progress.last())
-            assertEquals("[$renderer] on its last number", lastOfFirst, shownPage.get())
-        }
-        assertTrue("[$renderer] the seam fit on one page, $seamPages", seamPages >= 2)
-        assertEquals("[$renderer] past the seam is the text's first page", 2L to 0, topLines.last())
-        val firstOfSecond = shownPage.get()
-        assertEquals("[$renderer] the first of its own count", 0, firstOfSecond?.first)
-        repeat(seamPages) {
-            backTap()
-            assertEquals("[$renderer] back across the seam stays where it came from", 2L to 0, progress.last())
-            assertEquals("[$renderer] on that page's number", firstOfSecond, shownPage.get())
-        }
+        forwardTap()
+        assertEquals("[$renderer] the seam keeps the last page's line", lastLine, topLines.last())
+        assertEquals("[$renderer] and its number", lastOfFirst, shownPage.get())
+        forwardTap()
+        assertEquals("[$renderer] one page past the seam is the text's first", GAP_ID to 0, topLines.last())
+        assertEquals("[$renderer] the first of its own count", 0, shownPage.get()?.first)
         backTap()
-        assertEquals("[$renderer] then its last page", lastLine, topLines.last())
+        assertEquals("[$renderer] back onto the seam stays where it came from", GAP_ID to 0, progress.last())
+        backTap()
+        assertEquals("[$renderer] one page back past the seam is the last page", lastLine, topLines.last())
     }
 
-    /** Back from an opened chapter onto a seam cut into several pages, and a rebuild there. */
+    /** Back from an opened chapter onto a seam on a short page, and a rebuild there. */
     @Test
     fun aTallSeamAboveAnOpenedChapterKeepsTheOpenedChapter() {
         build(NovelPageLayout.PAGED_LTR)
@@ -512,8 +506,8 @@ class PagedReadingTest(private val renderer: Renderer) {
         append(2L, short("second"))
         readToTheEnd(1L)
         val lastLine = topLines.last()
-        repeat(2) { forwardTap() }
-        assertEquals("[$renderer] the second seam page keeps the closed chapter", lastLine, topLines.last())
+        forwardTap()
+        assertEquals("[$renderer] the seam keeps the closed chapter", lastLine, topLines.last())
         val count = checkNotNull(shownPage.get()).second
         seekPages(0, count)
         assertEquals("[$renderer] the closed chapter's first page is on screen", 1L to 0, topLines.last())
@@ -1050,10 +1044,11 @@ class PagedReadingTest(private val renderer: Renderer) {
         topLine: Int? = null,
         settings: NovelReaderSettings = readerTestSettings,
         share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(percent),
+        title: String = "Chapter $id",
     ) {
         fits.remove(id)
         openedWith = settings
-        onMain { viewport.load(chapter(id, html, percent, topLine, share), settings) }
+        onMain { viewport.load(chapter(id, html, percent, topLine, share, title), settings) }
         awaitWhile { !fits.containsKey(id) }
         assertTrue("[$renderer] chapter $id never rendered", fits.containsKey(id))
         awaitWhile { !pageShown() }
@@ -1090,8 +1085,8 @@ class PagedReadingTest(private val renderer: Renderer) {
         build(layout)
     }
 
-    private fun append(id: Long, html: String) {
-        onMain { viewport.window.append(chapter(id, html, 0, null)) }
+    private fun append(id: Long, html: String, title: String = "Chapter $id") {
+        onMain { viewport.window.append(chapter(id, html, 0, null, title = title)) }
         awaitWhile { !fits.containsKey(id) }
         settle()
     }
@@ -1217,7 +1212,8 @@ class PagedReadingTest(private val renderer: Renderer) {
                       while ((n = w.nextNode())) {
                         if (!n.nodeValue.trim() || n.parentElement.closest('script, style')) continue;
                         r.selectNodeContents(n);
-                        var lh = parseFloat(getComputedStyle(n.parentElement).lineHeight);
+                        // A paged seam's card is zoomed to fit, which its computed line height leaves out.
+                        var lh = parseFloat(getComputedStyle(n.parentElement).lineHeight) * (n.parentElement.currentCSSZoom || 1);
                         var rs = r.getClientRects();
                         for (var i = 0; i < rs.length; i++) {
                           if (rs[i].bottom <= 0 || rs[i].top >= window.innerHeight || rs[i].height <= 0) continue;
@@ -1249,9 +1245,10 @@ class PagedReadingTest(private val renderer: Renderer) {
         percent: Int,
         topLine: Int?,
         share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(percent),
+        title: String = "Chapter $id",
     ) = NovelReaderViewModel.LoadedChapter(
         chapterId = id,
-        title = "Chapter $id",
+        title = title,
         url = "/chapter/$id",
         html = html,
         baseUrl = null,
@@ -1362,5 +1359,12 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** A page height under the seam's padding alone (NovelChapterSeamView.PADDING_VERTICAL_DP above and below). */
         const val SHORT_PAGE_DP = 200
+
+        /** Numbered past the chapters between it and chapter 1, so its seam warns of them. */
+        const val GAP_ID = 5L
+
+        /** Several lines on any test screen, so the seam is at its tallest. */
+        const val LONG_TITLE = "Volume 3 Chapter 128: The night the lanterns of the old capital went dark and " +
+            "nobody in the eastern ward could remember why (part two of three)"
     }
 }

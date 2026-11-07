@@ -251,6 +251,9 @@ class NovelTextViewport(
      *  has any and reads zero. */
     private var topInsetPx = 0
 
+    /** The page height the seam markers were last fitted to, in paged reading. */
+    private var markedPageHeight = 0
+
     /** What the chrome covers from each edge ([setObscured]), which only read-aloud's choices read. */
     private var obscuredTopPx = 0
     private var obscuredBottomPx = 0
@@ -426,6 +429,14 @@ class NovelTextViewport(
                 if (paddingBottom != bottom - top || paddingTop != readingTop()) {
                     setPadding(paddingLeft, readingTop(), paddingRight, bottom - top)
                     requestSnap()
+                }
+                // A seam fits the page it is on, so a page of another height refits every marker.
+                val page = pageContentHeight().toInt()
+                if (page != markedPageHeight) {
+                    markedPageHeight = page
+                    // Only with a marker drawn: the refresh holds the reader still, which a reflow is settling.
+                    val adapter = this@NovelTextViewport.adapter
+                    if (adapter.drawsMarkers()) post { adapter.refreshMarkers() }
                 }
             }
         }
@@ -2041,8 +2052,9 @@ class NovelTextViewport(
             val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
                 ?.drawn(settings?.alwaysShowChapterTransition)
             val color = readerTextColor()
-            if (seam == holder.seam.seam && color == holder.seam.textColor) return
-            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam, color))
+            val page = seamPageHeight()
+            if (seam == holder.seam.seam && color == holder.seam.textColor && holder.seam.fits(page)) return
+            holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam, color, page))
         }
 
         /** The marker below the novel's last chapter, which depends on that chapter and the text colour
@@ -2050,9 +2062,13 @@ class NovelTextViewport(
         private fun bindEnd(holder: Holder, position: Int) {
             val end = NovelSeam.end(shown[position].chapter)?.drawn(settings?.alwaysShowChapterTransition)
             val color = readerTextColor()
-            if (end == holder.end.seam && color == holder.end.textColor) return
-            holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end, color))
+            val page = seamPageHeight()
+            if (end == holder.end.seam && color == holder.end.textColor && holder.end.fits(page)) return
+            holder.end = holder.root.replace(holder.end, NovelChapterSeamView(holder.root.context, end, color, page))
         }
+
+        /** The page a marker fits whole on, null while scrolling and before the list has a height. */
+        private fun seamPageHeight(): Int? = pageContentHeight().toInt().takeIf { paged && it > 0 }
 
         /**
          * Only the two ends of the window can have run out of text, so only they draw a failure.
@@ -2096,6 +2112,9 @@ class NovelTextViewport(
          *  screen would come back with its old one. One above the text the reader is in moves that text, so
          *  that is taken back. */
         fun refreshMarkers() = keepingReaderStill { notifyItemRangeChanged(0, shown.size, MARKERS_CHANGED) }
+
+        /** Whether any chapter held draws a seam or the end marker, the two views fitted to a page. */
+        fun drawsMarkers(): Boolean = shown.size > 1 || shown.any { it.chapter.isLast }
 
         override fun getItemCount(): Int = shown.size
     }

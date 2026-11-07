@@ -108,6 +108,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**
+- **The transition between novel chapters now always fits on one page in paged reading.** A long title or the missing-chapters warning used to split it across pages on a short screen.
 - **The novel reader's title now follows when you tap back into the chapter before one you just opened.**
 - **Skip duplicate chapters no longer hides or reorders interludes, side stories and extras that share a number with a chapter.** Mark duplicate read follows the same rule, for manga and novels.
 - **Auto-scroll at its slowest speeds now moves at the speed set in novels shown with WebView.** It stood still on some fast screens and ran ahead on others.

@@ -142,7 +142,8 @@
    */
   function rebuildBoundaries() {
     // First, so the ends and fits below are measured where the reader is rather than where the change
-    // left the page for a moment.
+    // left the page for a moment. A seam refitted to the page is such a change.
+    paged.fitSeams();
     place.sync();
     var chapters = document.querySelectorAll(CHAPTER_SELECTOR);
     var top = scrollTop();
@@ -603,9 +604,33 @@
       return lineHeights.get(element);
     }
 
+    /*
+     * Every seam and the end marker fit one page whole, as Mihon's transition page fits its screen and the text
+     * renderer's marker does (NovelSeam.fitScale, fitPadding): the padding gives way first, then the card zooms
+     * down whole, rewrapping as it shrinks. Natural size is read at no zoom each time, so this settles in one go.
+     */
+    function fitSeams() {
+      if (!PAGED) return;
+      var m = margins();
+      var page = viewportHeight() - m.top - m.bottom;
+      if (!(page > 0)) return;
+      var max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
+      document.querySelectorAll('.rk-seam').forEach(function (seam) {
+        var card = seam.firstElementChild;
+        card.style.zoom = '';
+        var natural = card.getBoundingClientRect().height;
+        var scale = natural <= page ? 1 : (page - 1) / natural;
+        if (scale < 1) card.style.zoom = String(scale);
+        var padding = Math.floor(Math.max(0, Math.min(max, (page - card.getBoundingClientRect().height) / 2)));
+        seam.style.paddingTop = padding + 'px';
+        seam.style.paddingBottom = padding + 'px';
+      });
+    }
+
     function measure(id) {
       var el = chapterEl(id);
       if (!el) return null;
+      fitSeams();
       var item = itemOf(el);
       var y = scrollTop();
       var bands = [];
@@ -747,6 +772,7 @@
     return {
       margins: margins,
       measure: function (id) { return measure(String(id)); },
+      fitSeams: fitSeams,
       where: where,
       show: show,
       moved: moved,
@@ -1595,19 +1621,22 @@
   function buildSeam(seam) {
     var el = document.createElement('div');
     el.className = 'rk-seam';
-    el.appendChild(seamPart(labels.finished, seam.finished));
+    // The card inside the padding, which paged reading zooms whole to fit a page (fitSeams).
+    var card = document.createElement('div');
+    el.appendChild(card);
+    card.appendChild(seamPart(labels.finished, seam.finished));
     if (!seam.next) {
       var notice = textBlock('rk-seam-notice', labels.noNext);
       notice.insertBefore(icon('rk-icon-info'), notice.firstChild);
-      el.appendChild(notice);
+      card.appendChild(notice);
       return el;
     }
     if (seam.missing) {
       var warning = textBlock('rk-seam-warning', seam.missing);
       warning.insertBefore(icon('rk-icon-warning'), warning.firstChild);
-      el.appendChild(warning);
+      card.appendChild(warning);
     }
-    el.appendChild(seamPart(labels.next, seam.next));
+    card.appendChild(seamPart(labels.next, seam.next));
     return el;
   }
 
