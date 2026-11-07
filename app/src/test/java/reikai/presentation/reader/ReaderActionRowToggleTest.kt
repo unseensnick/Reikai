@@ -2,6 +2,8 @@ package reikai.presentation.reader
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.captureToImage
@@ -10,11 +12,13 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
+import io.kotest.matchers.doubles.shouldBeGreaterThanOrEqual
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 import reikai.presentation.ComposeTestHost
 
@@ -27,11 +31,13 @@ class ReaderActionRowToggleTest {
     val compose = createComposeRule()
 
     private var fillColor = Color.Unspecified
+    private var barColor = Color.Unspecified
 
     private fun show(filled: Boolean) {
         compose.setContent {
             ComposeTestHost {
-                fillColor = MaterialTheme.colorScheme.primaryContainer
+                fillColor = MaterialTheme.colorScheme.inverseSurface
+                barColor = readerChromeColor().compositeOver(MaterialTheme.colorScheme.background)
                 ReaderActionRow(
                     enabledButtons = listOf(ReaderBottomButton.Grayscale, ReaderBottomButton.Settings),
                     filled = filled,
@@ -79,11 +85,26 @@ class ReaderActionRowToggleTest {
         compose.onNodeWithContentDescription("Grayscale").assertIsOn()
     }
 
+    // A black-and-white screen keeps only lightness, so the fill has to differ from the bar in that alone.
     @Test
-    fun `an on button is filled when the reader asks for it`() {
+    fun `an on button's fill stands out from the bar in lightness alone`() {
         show(filled = true)
 
-        besideIcon() shouldBe fillColor
+        contrast(besideIcon(), barColor) shouldBeGreaterThanOrEqual 3.0
+    }
+
+    @Test
+    @Config(qualifiers = "night")
+    fun `an on button's fill stands out from a dark bar in lightness alone`() {
+        show(filled = true)
+
+        contrast(besideIcon(), barColor) shouldBeGreaterThanOrEqual 3.0
+    }
+
+    /** The WCAG contrast ratio, from relative luminance only. */
+    private fun contrast(a: Color, b: Color): Double {
+        val (light, dark) = listOf(a.luminance(), b.luminance()).sortedDescending()
+        return ((light + 0.05f) / (dark + 0.05f)).toDouble()
     }
 
     @Test

@@ -386,8 +386,8 @@ private fun ReadAloudActionButton(
 }
 
 /**
- * A bottom-bar button for a boolean reader setting; tints its icon while the setting is on. [filled] also
- * fills it then, as the read-aloud button is, since a tint alone reads as off on a black-and-white screen.
+ * A bottom-bar button for a boolean reader setting; tints its icon while the setting is on. [filled] inverts
+ * it instead, since a black-and-white screen keeps only lightness and the accent tints all read alike there.
  */
 @Composable
 private fun ToggleActionButton(
@@ -401,9 +401,9 @@ private fun ToggleActionButton(
         checked = active,
         onCheckedChange = { onClick() },
         colors = IconButtonDefaults.iconToggleButtonColors(
-            checkedContainerColor = if (filled) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+            checkedContainerColor = if (filled) MaterialTheme.colorScheme.inverseSurface else Color.Transparent,
             checkedContentColor = if (filled) {
-                MaterialTheme.colorScheme.onPrimaryContainer
+                MaterialTheme.colorScheme.inverseOnSurface
             } else {
                 MaterialTheme.colorScheme.primary
             },

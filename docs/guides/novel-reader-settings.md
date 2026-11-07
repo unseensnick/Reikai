@@ -57,7 +57,7 @@ Starts scrolling the text on its own each time you open the reader. The **Auto-s
 How fast auto-scroll moves the text. While reading a page at a time, **Auto-scroll page interval** <Badge type="info" text="5 s" /> takes its place: how long each page stays before auto-scroll turns it.
 
 ### Bottom bar buttons
-Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off. **Fill buttons that are on**, at the top of the list, draws a filled square behind Keep screen on, Bionic reading and the other on/off buttons while they are on, which shows on black-and-white screens where the tint does not.
+Which buttons sit in the novel reader's bottom bar, and in what order. View chapters, rotation, text size, theme and read aloud are on by default. The settings gear can be moved like the others but not switched off. **Fill buttons that are on**, at the top of the list, draws Keep screen on, Bionic reading and the other on/off buttons as a dark square with a light icon while they are on (light on dark in a dark theme), which shows on black-and-white screens where the tint does not.
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
