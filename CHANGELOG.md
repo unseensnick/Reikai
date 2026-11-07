@@ -47,6 +47,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Tapping a cover in its full view now closes it with the high quality renderer on.**
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 

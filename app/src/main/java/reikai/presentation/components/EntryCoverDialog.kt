@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -180,7 +181,9 @@ fun EntryCoverDialog(
                 // is fitted to that box whenever it changes, so a fold or a rotation re-fits instead
                 // of keeping a scale measured for the old window. The library has no fit of its own,
                 // so the scale is ours to set, the way the reader's viewer sets its fit modes.
-                val state = remember { ImageViewerState() }
+                val dismiss by rememberUpdatedState(onDismissRequest)
+                // The viewer takes every touch, so a tap on the cover or around it closes here, as the old view's does.
+                val state = remember { ImageViewerState().apply { onTap = { dismiss() } } }
                 var page by remember { mutableStateOf<ImagePage?>(null) }
                 var boxSize by remember { mutableStateOf(IntSize.Zero) }
 
