@@ -206,6 +206,10 @@ class NovelPreferences(
     /** Whether a chapter scrolls or turns a page at a time, and which way its pages turn. */
     fun readerPageLayout() = preferenceStore.getEnum("ln_reader_page_layout", NovelPageLayout.SCROLL)
 
+    /** Two pages side by side while paged, by manga's dual page view rule, kept apart from manga's setting. */
+    fun readerDualPageView() =
+        preferenceStore.getEnum("ln_reader_dual_page_view", ReaderPreferences.DualPageView.NEVER)
+
     /** The e-ink flash after a page turn, kept apart from the manga reader's so each type has its own. */
     fun readerFlashOnPageChange() = preferenceStore.getBoolean("ln_reader_flash", false)
 

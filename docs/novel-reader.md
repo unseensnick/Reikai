@@ -62,6 +62,8 @@ Switching from the reader's settings sheet rebuilds the reader at the same place
 
 A page never cuts a line in half, and both rendering modes break pages in the same places. The marker between two chapters is a page of its own. Your place is the first line on the page, so after rotating or changing the text size you land on the page that holds it.
 
+**Dual page view**, on the same tab while reading a page at a time, shows two pages side by side like an open book: **Always**, or **When wide** while the screen is wider than it is tall, as in the manga reader. A turn moves both pages, the slider shows the right one, and the marker between two chapters takes the whole width on its own. Reading right to left, the first page of the two is on the right.
+
 Paged reading has its own tap zones, under **Paged** in <nav to="novel-reader">, and the volume keys turn pages too once **Volume keys** is on. It suits e-ink screens: turn off **Animate page transitions** for instant turns, and **Flash on page change**, which only appears while reading a page at a time, flashes the screen after each turn to clear ghosting. Auto-scroll turns a page every few seconds instead of scrolling.
 
 ## Read straight on to the next chapter

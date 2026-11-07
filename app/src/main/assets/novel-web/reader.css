@@ -50,6 +50,12 @@ html.rk-paged body {
   top: 0;
 }
 
+/* A book's side margins are sized for one page, and in a spread they would come off each half of it. */
+html.rk-spread body {
+  margin-left: 0 !important;
+  margin-right: 0 !important;
+}
+
 #rk-page-mask-bottom {
   bottom: 0;
 }

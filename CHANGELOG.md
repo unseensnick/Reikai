@@ -85,6 +85,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Paged novels can show two pages side by side, from Dual page view on the reader settings' Reading tab.** Never, Always or When wide, as in the manga reader.
 - **Show time left in chapter, in either reader's settings, estimates how long the rest of a chapter takes at your own reading speed.** While a novel is read aloud, it counts down at the voice's speed instead.
 - **Either reader's Appearance settings can draw the progress and time left under the page up to 2.5× larger, on a strip that hides what is behind them.**
 - **A mouse wheel now turns pages in paged novels.**

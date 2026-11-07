@@ -81,6 +81,8 @@
 
   // Paged reading, which this page measures and moves for while the host decides the pages. See paged.
   var PAGED = __PAGED__;
+  // Two pages side by side: the window is two pages tall, the second drawn beside the first by the host.
+  var SPREAD = __SPREAD__;
 
   var settings = {
     swipe: __SWIPE__,
@@ -116,7 +118,12 @@
 
   // region geometry
 
+  /* One page's screen: in a spread the window is two of them stacked, which the host shows side by side. */
   function viewportHeight() {
+    return windowHeight() / (SPREAD ? 2 : 1);
+  }
+
+  function windowHeight() {
     return window.innerHeight || document.documentElement.clientHeight;
   }
 
@@ -203,7 +210,7 @@
    */
   function reportEnds() {
     if (!ready) return;
-    var bottom = scrollTop() + viewportHeight() + EDGE_TOLERANCE;
+    var bottom = scrollTop() + windowHeight() + EDGE_TOLERANCE;
     boundaries.forEach(function (b) {
       if (endsSeen[b.id] || b.start + b.height > bottom || !imagesLanded(b.el)) return;
       endsSeen[b.id] = true;
@@ -345,7 +352,7 @@
       // Height leaving can end the document above where the screen did, and the browser pulls the page
       // back to its bottom. That is not the reader, who cannot scroll up onto the bottom edge; counted
       // as theirs, it moved them up a second time.
-      var maxTop = document.documentElement.scrollHeight - viewportHeight();
+      var maxTop = document.documentElement.scrollHeight - windowHeight();
       if (scrolled < 0 && scrollTop() >= maxTop - 1) scrolled = 0;
       var shift = top - (held.y - scrolled);
       if (Math.abs(shift) <= 0.5) return false;
@@ -542,6 +549,7 @@
     var notifyPending = false;
     var maskTop = null;
     var maskBottom = null;
+    var maskBetween = null;
     // Where measure() reads a text node's line height from, per element, which costs a style lookup each.
     var lineHeights = null;
 
@@ -724,8 +732,8 @@
     }
 
     /* keepLine: a page put back after the column moved, which leaves the reader's line as it was. seam: a seam's
-       page, which reports no place. */
-    function show(id, top, height, fraction, keepLine, seam) {
+       page, which reports no place. second: a spread's second page, its top below this one's and its height. */
+    function show(id, top, height, fraction, keepLine, seam, second) {
       var el = chapterEl(id);
       if (!el) return;
       var m = margins();
@@ -734,8 +742,17 @@
       if (!maskTop) maskTop = mask('rk-page-mask-top');
       if (!maskBottom) maskBottom = mask('rk-page-mask-bottom');
       maskTop.style.height = m.top + 'px';
-      maskBottom.style.top = (m.top + height) + 'px';
-      shown = { id: String(id), scrollY: scrollTop(), height: height, fraction: fraction, seam: seam === true };
+      // A spread's second page sits below the first in the window, so the gap between the two is masked too.
+      var bottom = second ? second.shift + second.height : height;
+      maskBottom.style.top = (m.top + bottom) + 'px';
+      if (SPREAD) {
+        if (!maskBetween) maskBetween = mask('rk-page-mask-between');
+        maskBetween.style.top = (m.top + height) + 'px';
+        maskBetween.style.height = Math.max(0, second ? second.shift - height : 0) + 'px';
+      }
+      shown = {
+        id: String(id), scrollY: scrollTop(), height: height, bottom: bottom, fraction: fraction, seam: seam === true,
+      };
       // Holds the line landed on at once, as a seek does, so a change before the next frame keeps it.
       place.sync();
       if (!keepLine || pageLineTop() === null) {
@@ -755,8 +772,9 @@
           if (shown && shown.id === String(id)) bridge().onPagedPicturesLanded(DOCUMENT_TOKEN, String(id));
         });
       }
-      // Whether the column moved, which the host's view only follows a moment later.
-      return { landed: landed, moved: scrollTop() !== before };
+      // Whether the column moved, which the host's view only follows a moment later, and the page's top margin,
+      // which a spread's host masks above both pages.
+      return { landed: landed, moved: scrollTop() !== before, marginTop: m.top };
     }
 
     /* Asks the host to put a whole page back, once a frame at most. */
@@ -798,7 +816,7 @@
       visible: function () {
         if (!PAGED || !shown) return null;
         var top = margins().top;
-        return { top: top, bottom: top + shown.height };
+        return { top: top, bottom: top + shown.bottom };
       },
     };
   })();
@@ -1163,7 +1181,7 @@
       var page = paged.visible() || { top: 0, bottom: viewportHeight() };
       return {
         top: Math.max(insetTop(), obscured.top, page.top),
-        bottom: Math.min(viewportHeight() - obscured.bottom, page.bottom),
+        bottom: Math.min(windowHeight() - obscured.bottom, page.bottom),
       };
     }
 
@@ -1835,6 +1853,7 @@
   /* What needs the chapter parsed, which this script, running in the head, is ahead of. */
   function start() {
     if (PAGED) document.documentElement.classList.add('rk-paged');
+    if (SPREAD) document.documentElement.classList.add('rk-spread');
     if (typeof ResizeObserver === 'function') {
       new ResizeObserver(function () {
         lastResizeAt = Date.now();

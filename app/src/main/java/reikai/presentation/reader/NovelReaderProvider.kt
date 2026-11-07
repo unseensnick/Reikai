@@ -6,6 +6,7 @@ import androidx.lifecycle.lifecycleScope
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.webview.WebViewActivity
 import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.Dispatchers
@@ -328,6 +329,10 @@ class NovelReaderProvider(
         shownPage.value = null
         val autoScrollSpeed = novelPreferences.readerAutoScrollSpeed()
         val autoScrollInterval = novelPreferences.readerAutoScrollInterval()
+        // Read once, since a rotation, where When wide changes its answer, builds the viewport again.
+        val spread = host.resources.configuration.let {
+            built.pageLayout.isPaged && built.dualPageView.showsTwoPages(it.screenWidthDp, it.screenHeightDp)
+        }
         if (built.renderingMode == NovelRenderingMode.NATIVE) {
             return NovelTextViewport(
                 context = host,
@@ -337,6 +342,7 @@ class NovelReaderProvider(
                 callbacks = callbacks,
                 autoScrollSpeed = autoScrollSpeed,
                 autoScrollInterval = autoScrollInterval,
+                spread = spread,
             )
         }
         return NovelWebViewport(
@@ -351,6 +357,7 @@ class NovelReaderProvider(
             devTools = novelPreferences.readerWebViewDevTools().get(),
             autoScrollSpeed = autoScrollSpeed,
             autoScrollInterval = autoScrollInterval,
+            spread = spread,
         )
     }
 
@@ -454,6 +461,7 @@ class NovelReaderProvider(
 internal data class NovelViewportSettings(
     val renderingMode: NovelRenderingMode,
     val pageLayout: NovelPageLayout,
+    val dualPageView: ReaderPreferences.DualPageView,
     val textSelectable: Boolean,
     val useOriginalFonts: Boolean,
     val sourceCssPriority: Boolean,
@@ -462,6 +470,7 @@ internal data class NovelViewportSettings(
         fun read(preferences: NovelPreferences) = NovelViewportSettings(
             renderingMode = preferences.readerRenderingMode().get(),
             pageLayout = preferences.readerPageLayout().get(),
+            dualPageView = preferences.readerDualPageView().get(),
             textSelectable = preferences.readerTextSelectable().get(),
             useOriginalFonts = preferences.readerUseOriginalFonts().get(),
             sourceCssPriority = preferences.readerSourceCssPriority().get(),
@@ -471,6 +480,7 @@ internal data class NovelViewportSettings(
         fun watched(preferences: NovelPreferences): List<Flow<*>> = listOf(
             preferences.readerRenderingMode().changes(),
             preferences.readerPageLayout().changes(),
+            preferences.readerDualPageView().changes(),
             preferences.readerTextSelectable().changes(),
             preferences.readerUseOriginalFonts().changes(),
             preferences.readerSourceCssPriority().changes(),

@@ -96,6 +96,8 @@ class NovelTextViewport(
     autoScrollSpeed: Preference<Float>,
     /** Seconds per page while auto-scroll turns pages instead. */
     autoScrollInterval: Preference<Int>,
+    /** Two pages side by side when paged ([NovelSpreads]). A change rebuilds the viewport. */
+    spread: Boolean = false,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val paged = pageLayout.isPaged
@@ -402,6 +404,7 @@ class NovelTextViewport(
     private val pageMask = object : RecyclerView.ItemDecoration() {
         override fun onDrawOver(c: Canvas, parent: RecyclerView, state: RecyclerView.State) {
             val height = shownPageHeight ?: return
+            if (spreadHost != null) return
             val current = settings ?: return
             maskPaint.color = readerBackgroundColorInt(current.backgroundColor)
             val top = readingTop().toFloat()
@@ -416,6 +419,8 @@ class NovelTextViewport(
         addItemDecoration(readAloudBox)
         if (paged) {
             addItemDecoration(pageMask)
+            // The spread's second page is drawn from below the list's bottom, which the list must not clip off.
+            if (spread) clipChildren = false
             // The finger never scrolls a page, so the lift that ends a tap must not fling one either.
             onFlingListener = object : RecyclerView.OnFlingListener() {
                 override fun onFling(velocityX: Int, velocityY: Int) = true
@@ -480,13 +485,25 @@ class NovelTextViewport(
         }
     }
 
-    override val view: View get() = recycler
+    /** The two-page host the column is drawn in, null for one page at a time. */
+    private val spreadHost: NovelSpreadHost? = if (paged && spread) {
+        NovelSpreadHost(context, recycler, heightFactor = 1, rtl = pageLayout.isRtl) {
+            settings?.let { readerBackgroundColorInt(it.backgroundColor) } ?: 0
+        }
+    } else {
+        null
+    }
 
-    private val slide = PageSlide(recycler)
+    override val view: View get() = spreadHost ?: recycler
+
+    private val slide = PageSlide(view)
 
     override val isRtl: Boolean get() = pageLayout.isRtl
 
     override suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
+        // The column's own settings in a spread, under the same name so no use below can take the reader's.
+        @Suppress("NAME_SHADOWING")
+        val settings = spreadHost?.columnSettings(settings) ?: settings
         // Before the suspension below, so a change that lands during it is not overwritten with this.
         this.settings = settings
         warmFont()
@@ -537,6 +554,7 @@ class NovelTextViewport(
 
     /** Whether [y] is in the margin above the page shown or below its last whole line, where [pageMask] draws. */
     private fun underPageMask(y: Float): Boolean {
+        spreadHost?.let { return it.landedUnderMask() }
         val height = shownPageHeight ?: return false
         val top = readingTop()
         return y < top || y > top + height
@@ -547,6 +565,8 @@ class NovelTextViewport(
     private fun uncoveredTop() = maxOf(topInsetPx, obscuredTopPx, readingTop())
 
     private fun uncoveredBottom(): Int {
+        // Both pages of a spread are on screen, the second below the list's bottom in the column.
+        spreadHost?.let { return it.shownBottom.toInt() }
         val bottom = recycler.height - obscuredBottomPx
         val page = shownPageHeight ?: return bottom
         return minOf(bottom, readingTop() + page.toInt())
@@ -792,6 +812,8 @@ class NovelTextViewport(
     private fun readerTextColor() = readerTextColorInt(checkNotNull(settings).textColor)
 
     override fun applySettings(settings: NovelReaderSettings) {
+        @Suppress("NAME_SHADOWING")
+        val settings = spreadHost?.columnSettings(settings) ?: settings
         val previous = this.settings
         this.settings = settings
         // The markers are views of their own, so showing, hiding or recolouring them re-measures no text.
@@ -1217,7 +1239,9 @@ class NovelTextViewport(
             return
         }
         val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
-        when (zones.actionAt(x / width, y / height, pageLayout.isRtl)) {
+        // A spread's zones are across both pages, where the column only knows the half it was touched on.
+        val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x / width to y / height)
+        when (zones.actionAt(zoneX, zoneY, pageLayout.isRtl)) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             ViewerNavigation.Action.BACKWARD -> {
                 readerMoved()
@@ -1400,7 +1424,8 @@ class NovelTextViewport(
             val id = slot.chapter.chapterId
             if (!slot.rendered || slot.block.imagesLoading || id in reportedEnds) return@forEach
             val (top, height) = boundsOf(slot) ?: return@forEach
-            if (top + height > recycler.height) return@forEach
+            // A spread shows the page below the screen's too.
+            if (top + height > recycler.height + (spreadHost?.shift ?: 0f)) return@forEach
             reportedEnds += id
             callbacks.onChapterEndSeen(id)
         }
@@ -1415,7 +1440,7 @@ class NovelTextViewport(
         if (!slot.rendered) return none
         if (paged) {
             val (pages, itemTop) = pagesOf(slot) ?: return none
-            val index = NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat())
+            val index = readTo(pages, NovelPaging.pageAt(pages, (readingTop() - itemTop).toFloat()))
             return NovelPaging.progressOf(pages, index, slot.block.container.top.toFloat(), scrollableOf(slot))
         }
         val (top, height) = boundsOf(slot) ?: return none
@@ -1581,7 +1606,13 @@ class NovelTextViewport(
         readerMoved()
         val at = pageAt() ?: return slide.finish()
         val window = joined().map { it.chapter.chapterId }
-        when (val turn = NovelPaging.turn(window, at.slot.chapter.chapterId, at.index, at.pages.size, forward)) {
+        val id = at.slot.chapter.chapterId
+        val turn = if (spreadHost != null) {
+            NovelSpreads.turn(window, id, at.pages, at.index, forward)
+        } else {
+            NovelPaging.turn(window, id, at.index, at.pages.size, forward)
+        }
+        when (turn) {
             is NovelPaging.Turn.Within -> showPage(at.slot, turned = true) { turn.index }
             is NovelPaging.Turn.FirstOf -> slotOf(turn.chapterId)?.let { showPage(it, turned = true) { 0 } }
             is NovelPaging.Turn.LastOf -> slotOf(turn.chapterId)?.let { slot ->
@@ -1595,6 +1626,30 @@ class NovelTextViewport(
     }
 
     private fun slotOf(chapterId: Long) = joined().firstOrNull { it.chapter.chapterId == chapterId }
+
+    /** The first page of the spread page [index] is on, which is the page shown: [index] itself without one. */
+    private fun leftOf(pages: List<NovelPaging.Page>, index: Int) =
+        if (spreadHost != null) NovelSpreads.leftOf(pages, index) else index
+
+    /** The page the reader has read to at page [index]: a spread's second page when it has one. */
+    private fun readTo(pages: List<NovelPaging.Page>, index: Int) =
+        if (spreadHost != null) NovelSpreads.readTo(pages, index) else index
+
+    /** Sets the spread whose first page is [left] on the host, with the card drawn across it on a seam's page. */
+    private fun placeSpread(slot: ChapterSlot, pages: List<NovelPaging.Page>, left: Int) {
+        val host = spreadHost ?: return
+        val page = pages[left]
+        val second = NovelSpreads.partnerOf(pages, left)?.let(pages::get)
+        host.place(
+            readingTop().toFloat(),
+            page.height,
+            second?.let { it.top - page.top },
+            second?.height ?: 0f,
+            card = if (page.seam) adapter.seamAbove(slot) else null,
+            cardColor = readerTextColor(),
+            cardPage = pageContentHeight().toInt(),
+        )
+    }
 
     /**
      * Shows the page [pick] chooses from [slot]'s pages, its first line at [readingTop]. A chapter the list has
@@ -1630,7 +1685,9 @@ class NovelTextViewport(
         pick: (List<NovelPaging.Page>) -> Int,
     ) {
         if (pages.isEmpty()) return
-        val page = pages[pick(pages).coerceIn(pages.indices)]
+        val index = leftOf(pages, pick(pages).coerceIn(pages.indices))
+        val page = pages[index]
+        placeSpread(slot, pages, index)
         recycler.stopScroll()
         pageJumpPending = true
         shownPageHeight = page.height
@@ -1662,9 +1719,11 @@ class NovelTextViewport(
     private fun markShownPage() {
         holdPageLine()
         val at = pageAt() ?: return
-        shownPage.value = ShownPage(at.slot.chapter.chapterId to at.index, ready = !at.slot.block.imagesLoading)
-        // A seam's page has no number, so the one shown stays the page turned from (onSeam).
-        NovelPaging.countOf(at.pages, at.index)?.let { (page, of) -> callbacks.onPageShown(page, of) }
+        val index = leftOf(at.pages, at.index)
+        shownPage.value = ShownPage(at.slot.chapter.chapterId to index, ready = !at.slot.block.imagesLoading)
+        // A seam's page has no number, so the one shown stays the page turned from (onSeam). A spread's is its
+        // second page's, as manga's is.
+        NovelPaging.countOf(at.pages, readTo(at.pages, at.index))?.let { (page, of) -> callbacks.onPageShown(page, of) }
     }
 
     /** Takes the page's first line, unless the line already held is still on this page. */
@@ -1672,7 +1731,9 @@ class NovelTextViewport(
         // A redraw takes the views down and builds them again, so a line it cannot measure yet has not gone.
         if (redraw != null) return
         val top = pageLineTop()
-        val onPage = top != null && top >= readingTop() - 1 && top < readingTop() + (shownPageHeight ?: 0f)
+        // A spread's second page is on screen too, so a line held there has not gone.
+        val bottom = spreadHost?.shownBottom ?: (readingTop() + (shownPageHeight ?: 0f))
+        val onPage = top != null && top >= readingTop() - 1 && top < bottom
         if (onPage) return
         val slot = visibleSlot()
         pageLine = lineAtTop()?.let { line ->
@@ -1704,16 +1765,19 @@ class NovelTextViewport(
             return
         }
         val at = pageAt() ?: return
-        val page = at.pages[at.index]
+        val index = leftOf(at.pages, at.index)
+        val page = at.pages[index]
         if (abs(at.itemTop + page.top - readingTop()) >= 1f) {
             // The same jump from the same place did not land last time, and would not this time either.
-            val attempt = Triple(at.slot.chapter.chapterId, at.index, at.itemTop)
+            val attempt = Triple(at.slot.chapter.chapterId, index, at.itemTop)
             if (attempt == failedSnap) return
             failedSnap = attempt
-            showPage(at.slot) { at.index }
+            showPage(at.slot) { index }
             return
         }
         failedSnap = null
+        // A landing settles here without a page being shown, so the spread is set here too.
+        placeSpread(at.slot, at.pages, index)
         if (shownPageHeight != page.height) {
             shownPageHeight = page.height
             recycler.invalidate()
@@ -2048,13 +2112,19 @@ class NovelTextViewport(
          * chapter opened on its own has nothing above it, and a later prepend gives it one.
          */
         private fun bindSeam(holder: Holder, position: Int) {
-            val finished = shown.getOrNull(position - 1)?.chapter
-            val seam = finished?.let { NovelSeam.between(it, shown[position].chapter) }
-                ?.drawn(settings?.alwaysShowChapterTransition)
+            val seam = seamAt(position)
             val color = readerTextColor()
             val page = seamPageHeight()
             if (seam == holder.seam.seam && color == holder.seam.textColor && holder.seam.fits(page)) return
             holder.seam = holder.root.replace(holder.seam, NovelChapterSeamView(holder.root.context, seam, color, page))
+        }
+
+        /** The seam drawn above [slot]'s text, which a spread also draws across both its pages. */
+        fun seamAbove(slot: ChapterSlot): NovelSeam? = seamAt(shown.indexOf(slot))
+
+        private fun seamAt(position: Int): NovelSeam? {
+            val finished = shown.getOrNull(position - 1)?.chapter ?: return null
+            return NovelSeam.between(finished, shown[position].chapter).drawn(settings?.alwaysShowChapterTransition)
         }
 
         /** The marker below the novel's last chapter, which depends on that chapter and the text colour

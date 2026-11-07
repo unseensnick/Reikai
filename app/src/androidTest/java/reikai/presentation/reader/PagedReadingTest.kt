@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.graphics.Color
 import android.os.SystemClock
 import android.util.Base64
 import android.view.KeyEvent
@@ -11,6 +12,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.view.ViewCompat
 import androidx.core.view.children
+import androidx.core.view.isVisible
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ActivityScenario
 import androidx.test.platform.app.InstrumentationRegistry
@@ -28,6 +30,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.pngOf
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.Collections
@@ -36,6 +39,7 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicLong
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.math.abs
 
 /**
  * Paged reading in both renderers, driven the way a reader drives it: taps, keys, a drag, the rail, a font
@@ -61,6 +65,8 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val topLines = Collections.synchronizedList(mutableListOf<Pair<Long, Int?>>())
     private val visible = Collections.synchronizedList(mutableListOf<Long>())
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
+    private val endsSeen = Collections.synchronizedList(mutableListOf<Long>())
+    private val menuToggles = AtomicInteger()
 
     /** The reader's turns and the progress reports, in the order the viewport sent them. */
     private val events = Collections.synchronizedList(mutableListOf<String>())
@@ -83,20 +89,27 @@ class PagedReadingTest(private val renderer: Renderer) {
         },
         onProgressSettled = { id, percent -> settled += id to percent.wholePercent.toInt() },
         onTopLine = { id, line -> topLines += id to line },
-        onToggleMenu = {},
+        onToggleMenu = { menuToggles.incrementAndGet() },
         onStepChapter = { steps += it },
         onVisibleChapter = { visible += it },
         onRetryBoundary = {},
         cutoutTopDp = { cutoutDp },
         onChapterFits = { id, fit -> fits[id] = fit },
-        onChapterEndSeen = {},
+        onChapterEndSeen = { endsSeen += it },
         onReaderScrolled = {},
         onReaderTurned = { events += "turn" },
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { page, count -> shownPage.set(page to count) },
     )
 
-    private fun build(layout: NovelPageLayout) {
+    /** Whether the viewport built last shows two pages side by side, which a [rebuild] keeps. */
+    private var spreadBuilt = false
+
+    /** The view the renderer draws its column in, inside a spread's host when there is one. */
+    private val column: View get() = (view as? NovelSpreadHost)?.getChildAt(0) ?: view
+
+    private fun build(layout: NovelPageLayout, spread: Boolean = false) {
+        spreadBuilt = spread
         scenario = ActivityScenario.launch(WebViewHostActivity::class.java)
         scenario.onActivity { activity ->
             viewport = when (renderer) {
@@ -108,6 +121,7 @@ class PagedReadingTest(private val renderer: Renderer) {
                     callbacks = callbacks,
                     autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
                     autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
+                    spread = spread,
                 )
                 Renderer.WEB -> NovelWebViewport(
                     context = activity,
@@ -120,6 +134,7 @@ class PagedReadingTest(private val renderer: Renderer) {
                     sourceCssPriority = false,
                     autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
                     autoScrollInterval = InMemoryPreferenceStore().getInt("interval", 5),
+                    spread = spread,
                 )
             }
             activity.setContentView(view)
@@ -990,6 +1005,335 @@ class PagedReadingTest(private val renderer: Renderer) {
         return pages
     }
 
+    // region spreads
+
+    /** As manga's dual page view: each turn moves two pages, and the number shown is the spread's second. */
+    @Test
+    fun aSpreadTurnsTwoPagesAndShowsItsSecondsNumber() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+
+        val pages = pagesTurning { forwardTap() }
+
+        assertEquals("[$renderer] pages shown", spreadNumbers(shownPage.get()!!.second), pages)
+    }
+
+    /** Its second page is read too, so the opening spread is past the chapter's start. */
+    @Test
+    fun aSpreadReportsHowFarItsSecondPageReads() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+
+        assertTrue("[$renderer] the first spread reported its start", lastPercentOf(1L) > 0)
+    }
+
+    /** A chapter whose last page is a spread's second: read whole there, or it is never marked read. */
+    @Test
+    fun theLastSpreadReadsTheChapterWhole() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openEvenChapter(1L)
+
+        readToTheEnd(1L)
+
+        assertEquals("[$renderer] the last spread's share", 100, lastPercentOf(1L))
+    }
+
+    @Test
+    fun theLastSpreadSeesTheChaptersEnd() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openEvenChapter(1L)
+        val seenAtOpen = 1L in endsSeen
+
+        readToTheEnd(1L)
+        settle()
+
+        assertEquals(
+            "[$renderer] the end seen at the open, then on the last spread",
+            false to true,
+            seenAtOpen to (1L in endsSeen),
+        )
+    }
+
+    /** As Mihon's transition page, which a spread never pairs: the card is drawn across both pages. */
+    @Test
+    fun theSeamIsOneCardAcrossTheSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+
+        forwardTap()
+
+        assertEquals("[$renderer] the card's width", view.width, shownCardWidth())
+    }
+
+    /** Mihon's card rule in a spread: the card is no page, so the number and place stay the page turned from. */
+    @Test
+    fun theSeamsSpreadKeepsTheClosedChapter() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastSpread = shownPage.get()
+        val lastLine = topLines.last()
+
+        forwardTap()
+
+        assertEquals(
+            "[$renderer] the card's number and line",
+            lastSpread to lastLine,
+            shownPage.get() to topLines.last(),
+        )
+    }
+
+    @Test
+    fun theSpreadAfterTheSeamIsTheChaptersFirstText() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+
+        repeat(2) { forwardTap() }
+
+        assertEquals("[$renderer] the line and the card", (2L to 0) to null, topLines.last() to shownCardWidth())
+    }
+
+    @Test
+    fun backAcrossTheSeamReturnsToTheClosedChaptersLastSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastSpread = shownPage.get()
+        repeat(2) { forwardTap() }
+        val firstSpread = shownPage.get()
+
+        backTap()
+        val onCard = shownPage.get()
+        backTap()
+
+        assertEquals("[$renderer] on the card, then before it", firstSpread to lastSpread, onCard to shownPage.get())
+    }
+
+    /** As a rotation rebuilds it on the card: back to the page the reader turned from. */
+    @Test
+    fun aNewRendererOnTheSeamsSpreadLandsOnTheClosedChaptersLastSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, long("second"))
+        readToTheEnd(1L)
+        val lastSpread = shownPage.get()
+        forwardTap()
+        val (id, line) = topLines.last()
+
+        rebuild(NovelPageLayout.PAGED_LTR)
+        open(id, short("first"), lastPercentOf(id), topLine = line)
+        append(2L, long("second"))
+
+        assertEquals("[$renderer] the rebuilt spread", lastSpread, shownPage.get())
+    }
+
+    /** As a rotation does: a new renderer lands on the spread the reader was on. */
+    @Test
+    fun aNewRendererKeepsTheSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+        repeat(3) { forwardTap() }
+        val spread = shownPage.get()
+        val line = lastTopLine()
+
+        rebuild(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"), lastPercentOf(1L), topLine = line)
+
+        assertEquals("[$renderer] the rebuilt spread", spread, shownPage.get())
+    }
+
+    /** When wide across a rotation: one page at a time and back keeps the spread the reader was on. */
+    @Test
+    fun onePageAndBackKeepsTheSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+        repeat(3) { forwardTap() }
+        val spread = shownPage.get()
+
+        rebuild(NovelPageLayout.PAGED_LTR, spread = false)
+        open(1L, long("first"), lastPercentOf(1L), topLine = lastTopLine())
+        rebuild(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"), lastPercentOf(1L), topLine = lastTopLine())
+
+        assertEquals("[$renderer] the spread after one page and back", spread, shownPage.get())
+    }
+
+    /** The zones are the spread's: beside the gutter is the middle of the screen, not the edge of a page. */
+    @Test
+    fun aSpreadsTapZonesSpanBothPages() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        val zones = NovelTapZones(NovelTapLayout.RIGHT_AND_LEFT, TappingInvertMode.NONE, 12)
+        open(1L, long("first"), settings = readerTestSettings.copy(tapZones = zones))
+        val turns = turned.get()
+
+        tap(view.width * 0.45f, view.height * 0.5f)
+        settle()
+
+        assertEquals("[$renderer] menu toggles and turns", 1 to turns, menuToggles.get() to turned.get())
+    }
+
+    /** Right to left the spread's first page is on the right, and the left edge reads on, as manga's does. */
+    @Test
+    fun rightToLeftSpreadsReadOnFromTheLeft() {
+        build(NovelPageLayout.PAGED_RTL, spread = true)
+        val zones = NovelTapZones(NovelTapLayout.RIGHT_AND_LEFT, TappingInvertMode.NONE, 12)
+        open(1L, long("first"), settings = readerTestSettings.copy(tapZones = zones))
+        val before = lastPercent()
+
+        tapAndAwaitTurn(view.width * 0.1f, view.height * 0.5f)
+
+        assertTrue("[$renderer] the left edge read on", lastPercent() > before)
+    }
+
+    /** A picture taller than a page continues across a spread, and no turn through it stalls or skips. */
+    @Test
+    fun turningThroughATallPictureShowsEverySpreadOnce() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openTallPicture()
+
+        val pages = pagesTurning { forwardTap() }
+
+        assertEquals("[$renderer] pages shown", spreadNumbers(shownPage.get()!!.second), pages)
+    }
+
+    @Test
+    fun turningBackThroughATallPictureShowsEverySpreadOnce() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openTallPicture()
+        pagesTurning { forwardTap() }
+
+        val pages = pagesTurning(stopAt = 1) { backTap() }
+
+        assertEquals("[$renderer] pages shown", spreadNumbers(shownPage.get()!!.second).reversed(), pages)
+    }
+
+    /** A line saved on a spread's second page is the reader's place there, not the spread's first line. */
+    @Test
+    fun aLineOnASpreadsSecondPageStaysTheReadersPlace() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+        forwardTap()
+        val spreadStart = checkNotNull(lastTopLine())
+        forwardTap()
+        val onItsSecondPage = checkNotNull(lastTopLine()) - SAVED_LINE_INTO_PAGE
+
+        rebuild(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"), lastPercentOf(1L), topLine = onItsSecondPage)
+
+        assertTrue("[$renderer] the place fell back to the spread's start", checkNotNull(lastTopLine()) > spreadStart)
+    }
+
+    /** The chapter above leaving shortens the page, which pulls a column at its end back up; that is not the reader. */
+    @Test
+    fun droppingTheChapterAboveAtTheEndKeepsTheSpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, long("first"))
+        append(2L, short("second"))
+        readToTheEnd(1L)
+        repeat(2) { forwardTap() }
+        readToTheEnd(2L)
+        val place = lastPercentOf(2L)
+        val reportsBefore = progress.size
+
+        onMain { viewport.window.evict(1L) }
+        repeat(3) { settle() }
+
+        // Every report, since a move the snap undoes leaves the place right at the end and only shows on the way.
+        val reported = progress.drop(reportsBefore).map { it.second }.distinct()
+        assertEquals("[$renderer] places reported through the drop", listOf(place), reported.ifEmpty { listOf(place) })
+    }
+
+    /** A chapter's lone last page is a spread's first half, the left reading left to right. */
+    @Test
+    fun aLoneLastPageTakesTheLeftHalf() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openOddChapter(1L)
+
+        readToTheEnd(1L)
+
+        assertEquals("[$renderer] text on the left half, then the right", true to false, inkOnHalves())
+    }
+
+    /** Right to left the first half is the right one, as manga's dual page view lays a spread. */
+    @Test
+    fun aLoneLastPageTakesTheRightHalfRightToLeft() {
+        build(NovelPageLayout.PAGED_RTL, spread = true)
+        val zones = NovelTapZones(NovelTapLayout.RIGHT_AND_LEFT, TappingInvertMode.NONE, 12)
+        openOddChapter(1L, readerTestSettings.copy(tapZones = zones))
+
+        readToTheEnd(1L, forward = { tapAndAwaitTurn(view.width * 0.1f, view.height * 0.5f) })
+
+        assertEquals("[$renderer] text on the left half, then the right", false to true, inkOnHalves())
+    }
+
+    /** Opens [id] as a chapter of an odd page count past its first spread, whose last page stands alone. */
+    private fun openOddChapter(id: Long, settings: NovelReaderSettings = readerTestSettings) {
+        (4..60).forEach { paragraphs ->
+            open(id, paragraphs(paragraphs), settings = settings)
+            if (shownPage.get()!!.second.let { it >= 3 && it % 2 == 1 }) return
+        }
+        error("[$renderer] no chapter of an odd page count")
+    }
+
+    /** Whether each half of the spread on screen draws anything but the page colour, by a screenshot. */
+    private fun inkOnHalves(): Pair<Boolean, Boolean> {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val background = shot.getPixel(at[0] + 1, at[1] + view.height / 2)
+        fun inked(from: Int, to: Int): Boolean {
+            val row = IntArray(to - from)
+            // Clear of the status bar's icons and the gesture handle, which an edge-to-edge reader draws under.
+            val rows = (at[1] + view.height * INK_TOP).toInt() until (at[1] + view.height * INK_BOTTOM).toInt()
+            return (rows step 4).any { y ->
+                shot.getPixels(row, 0, row.size, from, y, row.size, 1)
+                row.any { colourDistance(it, background) > INK_DISTANCE }
+            }
+        }
+        val mid = at[0] + view.width / 2
+        val halves = inked(at[0], mid) to inked(mid, at[0] + view.width)
+        shot.recycle()
+        return halves
+    }
+
+    private fun colourDistance(a: Int, b: Int): Int =
+        abs(Color.red(a) - Color.red(b)) + abs(Color.green(a) - Color.green(b)) + abs(Color.blue(a) - Color.blue(b))
+
+    /** The number each spread of a chapter [count] pages long shows: its second page's, or a lone last page's. */
+    private fun spreadNumbers(count: Int): List<Int> = (0 until count step 2).map { minOf(it + 1, count - 1) }
+
+    /** Opens [id] as a chapter of an even page count past its first spread, whose last page is a spread's second. */
+    private fun openEvenChapter(id: Long) {
+        (4..60).forEach { paragraphs ->
+            open(id, paragraphs(paragraphs))
+            if (shownPage.get()!!.second.let { it >= 4 && it % 2 == 0 }) return
+        }
+        error("[$renderer] no chapter of an even page count")
+    }
+
+    private fun paragraphs(count: Int) =
+        (1..count).joinToString("") { "<p>even $it. " + "lorem <b>ipsum</b> dolor sit amet ".repeat(8) + "</p>" }
+
+    /** The width of the card drawn across the spread, null while none is. */
+    private fun shownCardWidth(): Int? {
+        var width: Int? = null
+        instrumentation.runOnMainSync {
+            width =
+                (view as ViewGroup).children.filterIsInstance<NovelChapterSeamView>().firstOrNull {
+                    it.isVisible
+                }?.width
+        }
+        return width
+    }
+
+    // endregion
+
     /** The chapter before joins after the first page shows and moves it, which the reader must not watch. */
     @Test
     fun theOpeningVeilStaysUpWhileTheChapterBeforeIsJoining() {
@@ -1061,6 +1405,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         title: String = "Chapter $id",
     ) {
         fits.remove(id)
+        endsSeen.remove(id)
         openedWith = settings
         onMain { viewport.load(chapter(id, html, percent, topLine, share, title), settings) }
         awaitWhile { !fits.containsKey(id) }
@@ -1093,10 +1438,10 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     /** A new viewport in [layout], as reopening the reader in another mode builds one. */
-    private fun rebuild(layout: NovelPageLayout) {
+    private fun rebuild(layout: NovelPageLayout, spread: Boolean = spreadBuilt) {
         instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
         scenario.close()
-        build(layout)
+        build(layout, spread)
     }
 
     private fun append(id: Long, html: String, title: String = "Chapter $id") {
@@ -1106,10 +1451,10 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     /** Turns forward until chapter [id] reads 100, checking every page on the way, and returns its percents. */
-    private fun readToTheEnd(id: Long): List<Int> {
+    private fun readToTheEnd(id: Long, forward: () -> Unit = { forwardTap() }): List<Int> {
         val percents = mutableListOf(lastPercentOf(id))
         while (percents.last() < 100 && percents.size < MAX_PAGES) {
-            forwardTap()
+            forward()
             percents += lastPercentOf(id)
         }
         return percents
@@ -1199,7 +1544,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         Renderer.NATIVE -> {
             val boxes = mutableListOf<Pair<Float, Float>>()
             instrumentation.runOnMainSync {
-                val recycler = view as RecyclerView
+                val recycler = column as RecyclerView
                 recycler.children.forEach { item ->
                     (item as ViewGroup).children.filterIsInstance<ViewGroup>().forEach { container ->
                         container.children.filterIsInstance<TextView>().forEach { chunk ->
@@ -1373,6 +1718,13 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** A page height under the seam's padding alone (NovelChapterSeamView.PADDING_VERTICAL_DP above and below). */
         const val SHORT_PAGE_DP = 200
+
+        /** Past antialiasing on a dark page, short of any glyph's ink. */
+        const val INK_DISTANCE = 60
+
+        /** The band of the screen a page's ink is looked for in, as shares of its height. */
+        const val INK_TOP = 0.05f
+        const val INK_BOTTOM = 0.92f
 
         /** Numbered past the chapters between it and chapter 1, so its seam warns of them. */
         const val GAP_ID = 5L

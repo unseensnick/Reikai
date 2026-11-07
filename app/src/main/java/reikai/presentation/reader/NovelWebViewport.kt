@@ -96,6 +96,8 @@ class NovelWebViewport(
     autoScrollSpeed: Preference<Float>,
     /** Seconds per page while auto-scroll turns pages instead. */
     autoScrollInterval: Preference<Int>,
+    /** Two pages side by side when paged ([NovelSpreads]). A change rebuilds the viewport. */
+    spread: Boolean = false,
 ) : ReaderViewport, TextViewport, ChapterWindow {
 
     private val paged = pageLayout.isPaged
@@ -311,8 +313,8 @@ class NovelWebViewport(
     /** Whether the veil is over the page. */
     internal val isVeiled: Boolean get() = veilView.visibility == View.VISIBLE
 
-    /** The WebView with the veil stacked over it, which is what the reader holds. */
-    override val view: View = FrameLayout(context).apply {
+    /** The WebView with the veil stacked over it, which is what the reader holds on one page at a time. */
+    private val frame: View = FrameLayout(context).apply {
         addView(
             webView,
             ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT),
@@ -332,6 +334,17 @@ class NovelWebViewport(
             ViewCompat.onApplyWindowInsets(view, insets)
         }
     }
+
+    /** The two-page host the frame is drawn in, null for one page at a time. The frame is two pages tall. */
+    private val spreadHost: NovelSpreadHost? = if (paged && spread) {
+        NovelSpreadHost(context, frame, heightFactor = 2, rtl = pageLayout.isRtl) {
+            documentSettings?.let { readerBackgroundColorInt(it.backgroundColor) } ?: 0
+        }
+    } else {
+        null
+    }
+
+    override val view: View = spreadHost ?: frame
 
     // Below [view], which it slides: a property declared above another is built before it.
     private val slide = PageSlide(view)
@@ -414,6 +427,9 @@ class NovelWebViewport(
      * megabytes.
      */
     override suspend fun load(chapter: NovelReaderViewModel.LoadedChapter, settings: NovelReaderSettings) {
+        // The column's own settings in a spread, under the same name so no use below can take the reader's.
+        @Suppress("NAME_SHADOWING")
+        val settings = spreadHost?.columnSettings(settings) ?: settings
         visibleChapterId = chapter.chapterId
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.
@@ -464,6 +480,7 @@ class NovelWebViewport(
                 sourceCssPriority = sourceCssPriority,
                 textSelectable = textSelectable,
                 paged = paged,
+                spread = spreadHost != null,
                 sourceStylesheet = chapter.sourceStylesheet?.css,
                 baseUrl = safeBaseUrl,
             )
@@ -489,6 +506,8 @@ class NovelWebViewport(
     }
 
     override fun applySettings(settings: NovelReaderSettings) {
+        @Suppress("NAME_SHADOWING")
+        val settings = spreadHost?.columnSettings(settings) ?: settings
         val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
@@ -576,7 +595,9 @@ class NovelWebViewport(
 
     /** A tap the page passed up, read through the session's tap zones as the native renderer reads one. */
     private fun onPageTap(x: Float, y: Float) {
-        when (documentSettings?.tapZones?.actionAt(x, y, pageLayout.isRtl) ?: ViewerNavigation.Action.MENU) {
+        // A spread's zones are across both pages, where the page only knows the half it was touched on.
+        val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x to y)
+        when (documentSettings?.tapZones?.actionAt(zoneX, zoneY, pageLayout.isRtl) ?: ViewerNavigation.Action.MENU) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             ViewerNavigation.Action.BACKWARD -> if (paged) {
                 turnPage(
@@ -657,12 +678,20 @@ class NovelWebViewport(
                 val pages = pagesOf(at.chapterId, at) ?: return@withLock
                 val index = NovelPaging.pageAt(pages, at.y)
                 val window = held.map { it.chapterId }
-                val turn = NovelPaging.turn(window, at.chapterId, index, pages.size, forward)
+                val turn = if (spreadHost != null) {
+                    NovelSpreads.turn(window, at.chapterId, pages, index, forward)
+                } else {
+                    NovelPaging.turn(window, at.chapterId, index, pages.size, forward)
+                }
                 if (turn is NovelPaging.Turn.Beyond) {
                     callbacks.onStepChapter(turn.forward)
                     return@withLock
                 }
                 val sliding = documentSettings?.pageTransitions == true
+                // The slide holds its own copy over the move; without one the spread's copy hides it.
+                if (!sliding && spreadHost != null) {
+                    suspendCancellableCoroutine { done -> spreadHost.hold { done.resume(Unit) } }
+                }
                 if (sliding) {
                     suspendCancellableCoroutine { done ->
                         slide.turn(leftward = forward != pageLayout.isRtl) { done.resume(Unit) }
@@ -715,9 +744,16 @@ class NovelWebViewport(
                 }
                 val at = where() ?: return@withLock
                 val pages = pagesOf(at.chapterId, at) ?: return@withLock
-                val index = NovelPaging.pageAt(pages, at.y)
+                val index = leftOf(pages, NovelPaging.pageAt(pages, at.y))
                 val shown = shownPage.value.key == (at.chapterId to index)
-                if (shown && abs(at.columnY - pages[index].top) < 1f && pages[index].height == shownHeight) {
+                // A chapter joining above a seam's page draws it a card the spread was placed without.
+                val cardStale = spreadHost != null &&
+                    spreadHost.showsCard != (pages[index].seam && seamAbove(at.chapterId) != null)
+                if (!cardStale && shown && abs(at.columnY - pages[index].top) < 1f &&
+                    pages[index].height == shownHeight
+                ) {
+                    // A copy held over a move that left the page where it was (an eviction below it) comes down here.
+                    spreadHost?.release()
                     pageSettled(joinsSeen)
                     return@withLock
                 }
@@ -729,19 +765,65 @@ class NovelWebViewport(
     /** The height of the page last shown, which the page's mask was drawn for. */
     private var shownHeight = 0f
 
+    /** The first page of the spread page [index] is on, which is the page shown: [index] itself without one. */
+    private fun leftOf(pages: List<NovelPaging.Page>, index: Int) =
+        if (spreadHost != null) NovelSpreads.leftOf(pages, index) else index
+
+    /** The page the reader has read to at page [index]: a spread's second page when it has one. */
+    private fun readTo(pages: List<NovelPaging.Page>, index: Int) =
+        if (spreadHost != null) NovelSpreads.readTo(pages, index) else index
+
+    /** The seam above [chapterId], as [insert] built the page's own, which a spread draws across both its pages. */
+    private fun seamAbove(chapterId: Long): NovelSeam? {
+        val at = held.indexOfFirst { it.chapterId == chapterId }
+        val finished = held.getOrNull(at - 1) ?: return null
+        return NovelSeam.between(finished, held[at]).drawn(documentSettings?.alwaysShowChapterTransition)
+    }
+
+    /**
+     * Sets the spread on [host] once the page has painted the move: the view follows the page's scroll a frame or
+     * more later, and halves set before that showed the old place beside the new one.
+     */
+    private fun placeSpread(
+        host: NovelSpreadHost,
+        chapterId: Long,
+        page: NovelPaging.Page,
+        second: NovelPaging.Page?,
+        measured: MeasuredPages,
+        marginTop: Double,
+    ) {
+        val density = context.resources.displayMetrics.density
+        oncePainted {
+            host.place(
+                (marginTop * density).toFloat(),
+                page.height * density,
+                second?.let { (it.top - page.top) * density },
+                (second?.height ?: 0f) * density,
+                card = if (page.seam) seamAbove(chapterId) else null,
+                cardColor = documentSettings?.let { readerTextColorInt(it.textColor) } ?: 0,
+                cardPage = (measured.contentHeight * density).toInt(),
+            )
+        }
+    }
+
     private fun showPage(
         chapterId: Long,
         pages: List<NovelPaging.Page>,
-        index: Int,
+        picked: Int,
         sliding: Boolean = false,
         keepLine: Boolean = false,
     ) {
         // Gone only once a new document cleared them, which leaves nothing of this chapter to show.
         val measured = measuredPages[chapterId] ?: return
-        val progress = NovelPaging.progressOf(pages, index, measured.textTop, measured.scrollable)
+        val index = leftOf(pages, picked.coerceIn(pages.indices))
+        // A spread is read to its second page, whose number it shows, as manga's does.
+        val readTo = readTo(pages, index)
+        val progress = NovelPaging.progressOf(pages, readTo, measured.textTop, measured.scrollable)
         // Null on a seam's page, which reports nothing, so the number shown stays the page turned from.
-        val count = NovelPaging.countOf(pages, index)
-        val page = pages[index.coerceIn(pages.indices)]
+        val count = NovelPaging.countOf(pages, readTo)
+        val page = pages[index]
+        val second = spreadHost?.let { NovelSpreads.partnerOf(pages, index) }?.let(pages::get)
+        val secondJs = second?.let { "{shift: ${it.top - page.top}, height: ${it.height}}" } ?: "null"
         shownHeight = page.height
         val key = chapterId to index
         val joinsSeen = opening?.joins
@@ -751,15 +833,23 @@ class NovelWebViewport(
         runOrQueue(
             "rkReader.paged.show(${JSONObject.quote(chapterId.toString())}, ${page.top}, ${page.height}, " +
                 "${progress.hundredths.toDouble() / ChapterProgress.Percent.FULL}, $keepLine, " +
-                "${NovelPaging.isSeam(pages, index)});",
+                "${NovelPaging.isSeam(pages, index)}, $secondJs);",
         ) { answer ->
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
             count?.let { (shownIndex, of) -> callbacks.onPageShown(shownIndex, of) }
             // The view's own scroll follows the page's a moment later, and until it does the old place shows.
             if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
-            // The copy stays over the old page until the new one is painted, or the old one would slide in.
-            if (sliding) oncePainted(slide::pageDrawn)
+            // The copy stays over the old page until the new one is painted, or the old one would slide in. A spread
+            // is placed once painted too, and its tiles take a few frames more.
+            spreadHost?.let { host ->
+                placeSpread(host, chapterId, page, second, measured, shown?.optDouble("marginTop") ?: 0.0)
+            }
+            when {
+                spreadHost == null -> if (sliding) oncePainted(slide::pageDrawn)
+                sliding -> oncePainted { spreadHost.afterTiles(slide::pageDrawn) }
+                else -> oncePainted(spreadHost::release)
+            }
             pageSettled(joinsSeen)
         }
     }
@@ -886,8 +976,12 @@ class NovelWebViewport(
     override fun evict(chapterId: Long) {
         held.removeAll { it.chapterId == chapterId }
         measuredPages.remove(chapterId)
-        runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
-        syncEnd()
+        val evict = {
+            runOrQueue("rkReader.evictChapter(${JSONObject.quote(chapterId.toString())});")
+            syncEnd()
+        }
+        // Dropping a chapter above moves the column, which a spread's copy hides until the snap after it paints.
+        spreadHost?.hold(evict) ?: evict()
     }
 
     /** Runs [js] against the page, or holds it in order until the page says it has an engine. */

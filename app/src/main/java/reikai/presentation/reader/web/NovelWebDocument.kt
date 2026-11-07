@@ -45,6 +45,8 @@ object NovelWebDocument {
         textSelectable: Boolean,
         /** Paged reading, which the page's engine measures and moves the column for. */
         paged: Boolean,
+        /** Two pages side by side, which halves the page the engine measures (NovelSpreadHost). */
+        spread: Boolean = false,
         /** The chapter source's own stylesheet, which the page sets ahead of the user's snippets. */
         sourceStylesheet: String? = null,
         /** The trusted base the document loads under, whose address plus a fragment is a jump in the chapter. */
@@ -57,6 +59,7 @@ object NovelWebDocument {
             mapOf(
                 "__SWIPE__" to settings.swipeGestures.toString(),
                 "__PAGED__" to paged.toString(),
+                "__SPREAD__" to spread.toString(),
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
                 "__SWIPE_SIDEWAYS__" to CHAPTER_SWIPE_SIDEWAYS.toString(),
                 "__PAGE_SWIPE_MIN_PX__" to PAGE_SWIPE_MIN_DP.toString(),

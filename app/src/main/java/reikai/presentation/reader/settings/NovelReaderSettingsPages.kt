@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
@@ -126,6 +127,20 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
                 onClick = { pageLayoutPref.set(it) },
                 label = { Text(stringResource(it.titleRes)) },
             )
+        }
+    }
+    // Where manga's sheet has it, beside the paged reading it applies to.
+    if (pageLayout.isPaged) {
+        val dualPageViewPref = preferences.readerDualPageView()
+        val dualPageView by dualPageViewPref.collectAsState()
+        SettingsChipRow(MR.strings.pref_dual_page_view) {
+            ReaderPreferences.DualPageView.entries.forEach {
+                FilterChip(
+                    selected = dualPageView == it,
+                    onClick = { dualPageViewPref.set(it) },
+                    label = { Text(stringResource(it.titleRes)) },
+                )
+            }
         }
     }
     FontRow(preferences.readerFontFamily(), pages.installedFonts)
