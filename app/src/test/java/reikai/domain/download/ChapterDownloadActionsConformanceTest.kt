@@ -62,6 +62,7 @@ import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -297,6 +298,7 @@ class MangaDownloadActionsHalf : DownloadActionsHalf {
                 every { onComplete() } answers { stopped.complete(Unit) }
             },
             mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
+            sourceContacts = realTimeSourceContacts(),
         )
     }
     private val downloadManager by lazy {
@@ -425,6 +427,7 @@ class NovelDownloadActionsHalf : DownloadActionsHalf {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = realTimeSourceContacts(),
         ),
     ).also { spy ->
         every { spy.deleteChapters(any()) } answers { deleted += firstArg<List<NovelChapter>>().map { it.id } }

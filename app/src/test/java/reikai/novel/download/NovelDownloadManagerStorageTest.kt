@@ -27,6 +27,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -81,6 +82,7 @@ class NovelDownloadManagerStorageTest {
         adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
         sourceTitles = mockk(),
         getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+        sourceContacts = realTimeSourceContacts(),
     )
 
     @BeforeEach

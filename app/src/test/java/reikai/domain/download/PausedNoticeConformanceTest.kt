@@ -48,6 +48,7 @@ import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -371,6 +372,7 @@ class NovelPausedNoticeHalf : PausedNoticeHalf {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = test.testScheduler.sourceContacts(),
         )
         manager.downloadChapters(listOf(chapter))
     }

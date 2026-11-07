@@ -47,6 +47,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -130,6 +131,7 @@ class ParallelSourceLimitConformanceTest {
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } returns emptyList() },
             notifier = mockk(relaxed = true),
             mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
+            sourceContacts = testScheduler.sourceContacts(),
         )
         mangas.forEach { manga ->
             val chapter = Chapter.create().copy(
@@ -194,6 +196,7 @@ class ParallelSourceLimitConformanceTest {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = testScheduler.sourceContacts(),
         )
         manager.downloadChapters(chapters)
         val drain = launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }

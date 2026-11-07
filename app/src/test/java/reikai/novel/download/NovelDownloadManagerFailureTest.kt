@@ -30,6 +30,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -101,6 +102,7 @@ class NovelDownloadManagerFailureTest {
         getEntryCustomInfo = mockk {
             coEvery { await(EntryId.Novel(1L)) } returns CustomNovelInfo(novelId = 1L, title = "Mine")
         },
+        sourceContacts = realTimeSourceContacts(),
     )
 
     @BeforeEach

@@ -38,6 +38,7 @@ import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadWorker
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -266,6 +267,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                 adultChecker = mockk(),
                 sourceTitles = mockk { coEvery { otherNovelTitles(any(), any()) } returns emptyList() },
                 getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+                sourceContacts = test.testScheduler.sourceContacts(),
             )
             manager.downloadChapters(chapters)
             val drain = if (pause == EmptiedPausedQueueConformanceTest.Pause.USER) {

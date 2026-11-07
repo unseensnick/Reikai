@@ -43,6 +43,7 @@ import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.ReleaseInterval
@@ -117,6 +118,8 @@ class NovelUpdateWorker(
 
     @Inject private lateinit var libraryUpdateRun: LibraryUpdateRun
 
+    @Inject private lateinit var sourceContacts: SourceContacts
+
     @Inject private lateinit var notifier: NovelUpdateNotifier
 
     override suspend fun getForegroundInfo(): ForegroundInfo {
@@ -184,7 +187,7 @@ class NovelUpdateWorker(
 
         val failed = CopyOnWriteArrayList<UpdateErrorEntry>()
         val updates = UpdateProgressList(favorites.size, notifier::showProgress)
-        updateBySource(favorites, sourceOf = Novel::source) { novel ->
+        updateBySource(favorites, sourceOf = Novel::source, sourceContacts) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },
                 progress = { check -> updates.around(novel, check) },

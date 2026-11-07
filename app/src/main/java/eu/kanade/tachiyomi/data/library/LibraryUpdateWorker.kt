@@ -49,6 +49,7 @@ import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.smartUpdateFacts
@@ -114,6 +115,8 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
 
     // RK: reconciles the merged stitch after the run and collapses its arrivals, shared with novels
     @Inject private lateinit var libraryUpdateRun: LibraryUpdateRun
+
+    @Inject private lateinit var sourceContacts: SourceContacts // RK
 
     @Inject private lateinit var notifier: LibraryUpdateNotifier
 
@@ -261,7 +264,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
 
         // The sources at once and the one-at-a-time within each are one rule, and the skip, the progress
         // and the error bookkeeping are one step, both shared with the novel update job
-        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }) { libraryManga ->
+        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }, sourceContacts) { libraryManga ->
             val manga = libraryManga.manga
             val outcome = checkUpdateEntry(
                 stillInLibrary = { getManga.await(manga.id)?.favorite == true },

@@ -35,6 +35,7 @@ import reikai.novel.download.NovelDownloadNotifier
 import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -174,6 +175,7 @@ class NovelNoticeTitleHalf : NoticeTitleHalf {
                     coEvery { await(EntryId.Novel(id)) } returns
                         CustomNovelInfo(novelId = id, title = DownloadNoticeTitleConformanceTest.MINE)
                 },
+                sourceContacts = realTimeSourceContacts(),
             )
             val notifier = NovelDownloadNotifier(context, securityPreferences)
             manager.downloadChapters(listOf(chapter))

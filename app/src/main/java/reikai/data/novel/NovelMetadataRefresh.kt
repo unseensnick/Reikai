@@ -6,6 +6,7 @@ import logcat.LogPriority
 import reikai.data.library.UpdateProgressList
 import reikai.data.library.updateBySource
 import reikai.data.novel.update.NovelUpdateNotifier
+import reikai.domain.download.SourceContacts
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadManager
@@ -29,6 +30,7 @@ class NovelMetadataRefresh(
     private val coverCache: CoverCache,
     private val notifier: NovelUpdateNotifier,
     private val novelDownloadManager: () -> NovelDownloadManager,
+    private val sourceContacts: SourceContacts,
 ) {
 
     /** [onProgress] gets the titles as a lookup, so a tick the notice throttles away reads nothing. */
@@ -39,7 +41,7 @@ class NovelMetadataRefresh(
         val updates = UpdateProgressList<Novel>(novels.size) { updating, done, total ->
             onProgress({ notifier.visibleTitles(updating) }, done, total)
         }
-        updateBySource(novels, sourceOf = Novel::source) { novel ->
+        updateBySource(novels, sourceOf = Novel::source, sourceContacts) { novel ->
             updates.around(novel) {
                 runCatchingCancellable { refresh(novel) }.onFailure { logcat(LogPriority.ERROR, it) }
             }

@@ -70,6 +70,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **The first chapter downloaded after a library update now waits out its site's download delay.** So does one queued just after other downloads from the same site finish.
+
 - **Manga cards in the download queue now read Queued while the queue waits for a network, as novel cards do.**
 
 - **A downloaded novel chapter stays readable offline when an update is cancelled just as its source renames it.**

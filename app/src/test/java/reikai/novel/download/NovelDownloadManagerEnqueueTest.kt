@@ -26,6 +26,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import kotlin.time.Instant
@@ -170,6 +171,7 @@ class NovelDownloadManagerEnqueueTest {
             adultChecker = mockk(),
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = io.scheduler.sourceContacts(),
         )
     }
 

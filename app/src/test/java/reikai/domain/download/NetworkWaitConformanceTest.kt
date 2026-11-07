@@ -40,6 +40,7 @@ import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -246,6 +247,7 @@ class NovelNetworkWaitHalf : NetworkWaitHalf {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = test.testScheduler.sourceContacts(),
         )
         manager.downloadChapters(listOf(chapter))
         // The worker's part, which WorkManager would run.

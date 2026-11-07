@@ -1,5 +1,6 @@
 package reikai.data.library
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -13,6 +14,7 @@ import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.MergedChapterUnitRepository
@@ -20,6 +22,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.merge.TestMergeManagers
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
+import java.io.IOException
 
 /**
  * One update run's bookkeeping, for both content types: the jobs differ only in what fills the ledger
@@ -46,12 +49,15 @@ class LibraryUpdateRunTest {
     private var badge = 0
     private val queued = mutableListOf<Long>()
 
+    private var now = 0L
+    private val contacts = SourceContacts { now }
+
     @Test
     fun `an update checks several sources at once, up to five`() = runTest {
         var running = 0
         var most = 0
 
-        updateBySource((1..8).toList(), sourceOf = { it }) {
+        updateBySource((1..8).toList(), sourceOf = { it }, contacts) {
             most = maxOf(most, ++running)
             delay(1)
             running--
@@ -66,7 +72,7 @@ class LibraryUpdateRunTest {
         var running = 0
         var most = 0
 
-        updateBySource(listOf(1, 2, 3), sourceOf = { "only" }) {
+        updateBySource(listOf(1, 2, 3), sourceOf = { "only" }, contacts) {
             most = maxOf(most, ++running)
             delay(1)
             checked += it
@@ -80,9 +86,26 @@ class LibraryUpdateRunTest {
     fun `an update starts on the source with the most entries`() = runTest {
         val checked = mutableListOf<Int>()
 
-        updateBySource(listOf(1, 2, 3), sourceOf = { if (it == 1) "small" else "big" }) { checked += it }
+        updateBySource(listOf(1, 2, 3), sourceOf = { if (it == 1) "small" else "big" }, contacts) { checked += it }
 
         checked.first() shouldBe 2
+    }
+
+    /** A manga source's id is a Long, and the downloaders key a source by its id as a string. */
+    @Test
+    fun `an entry's check marks its source reached as the check ends`() = runTest {
+        updateBySource(listOf(1), sourceOf = { 7L }, contacts) { now = 4_000L }
+
+        contacts.waitBefore("7", floorMs = 10_000L) shouldBe 10_000L
+    }
+
+    @Test
+    fun `a check that fails still marks its source reached`() = runTest {
+        shouldThrow<IOException> {
+            updateBySource(listOf(1), sourceOf = { "s" }, contacts) { throw IOException("down") }
+        }
+
+        contacts.waitBefore("s", floorMs = 10_000L) shouldBe 10_000L
     }
 
     private suspend fun update(

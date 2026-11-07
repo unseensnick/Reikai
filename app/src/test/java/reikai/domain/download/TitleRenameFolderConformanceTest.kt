@@ -27,6 +27,7 @@ import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -158,6 +159,7 @@ class NovelTitleRenameHalf : TitleRenameHalf {
             adultChecker = mockk(),
             sourceTitles = mockk { coEvery { otherNovelTitles("src", 1L) } returns otherTitles },
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = realTimeSourceContacts(),
         )
 
         manager.renameNovel(novel, newTitle) { true }

@@ -29,6 +29,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.manga.MangaPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -171,6 +172,7 @@ class DownloaderSourceJobTest {
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } returns emptyList() },
             notifier = mockk(relaxed = true),
             mangaPreferences = mangaPreferences,
+            sourceContacts = testScheduler.sourceContacts(),
         )
     }
 

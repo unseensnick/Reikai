@@ -9,6 +9,7 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.merge.ChapterUnit
@@ -82,9 +83,15 @@ class UpdateRunLedger<E, C> {
 
 /**
  * Runs [check] over [entries] for an update, either content type: up to five sources at once, the biggest
- * first, and one entry at a time within a source, so no site takes two of the run's requests together.
+ * first, and one entry at a time within a source, so no site takes two of the run's requests together. Each
+ * check marks its source reached in [contacts] as it ends, so a chapter queued after waits out the delay.
  */
-suspend fun <E, S> updateBySource(entries: List<E>, sourceOf: (E) -> S, check: suspend (E) -> Unit) {
+suspend fun <E, S> updateBySource(
+    entries: List<E>,
+    sourceOf: (E) -> S,
+    contacts: SourceContacts,
+    check: suspend (E) -> Unit,
+) {
     val semaphore = Semaphore(UPDATE_SOURCE_LIMIT)
     coroutineScope {
         entries.groupBy(sourceOf).values
@@ -94,7 +101,12 @@ suspend fun <E, S> updateBySource(entries: List<E>, sourceOf: (E) -> S, check: s
                     semaphore.withPermit {
                         inSource.forEach {
                             ensureActive()
-                            check(it)
+                            try {
+                                check(it)
+                            } finally {
+                                // As a string, the key both downloaders pace a source by.
+                                contacts.record(sourceOf(it).toString())
+                            }
                         }
                     }
                 }

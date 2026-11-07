@@ -55,6 +55,7 @@ import okhttp3.Response
 import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.SourceContacts
 import reikai.domain.download.SourcePace
 import reikai.domain.download.hasRoomToDownload // RK
 import reikai.domain.download.parallelSourcesFor // RK
@@ -98,6 +99,7 @@ class Downloader(
     private val store: DownloadStore,
     private val notifier: DownloadNotifier,
     private val mangaPreferences: MangaPreferences, // RK
+    private val sourceContacts: SourceContacts, // RK
 ) {
 
     /**
@@ -336,6 +338,8 @@ class Downloader(
         val slots = Semaphore(downloadPreferences.parallelPageLimit.get())
         val pace = SourcePace() // RK
         while (true) {
+            // RK: a source an update or an earlier run reached moments ago waits out its delay first; Off never waits
+            delay(sourceContacts.waitBefore(source.id.toString(), paceFloor(source)))
             // A canceled job can mark a chapter as downloading after it's been reset, so that counts as waiting too
             val download = queueState
                 .map { queue ->
@@ -350,6 +354,8 @@ class Downloader(
             val pagesStarted = CompletableDeferred<Unit>()
             val job = launchDownloadJob(download, slots, pagesStarted, owner)
             downloadJobs[download] = job
+            // RK: as the chapter ends, even when its own end stops the downloader and cancels this loop
+            job.invokeOnCompletion { sourceContacts.record(source.id.toString()) }
             job.invokeOnCompletion {
                 downloadJobs.remove(download, job)
                 // A job canceled before it starts never reaches its finally block

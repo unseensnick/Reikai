@@ -22,6 +22,7 @@ import mihon.core.metro.metroGraph
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.library.updateBySource
 import reikai.data.novel.NovelMetadataRefresh
+import reikai.domain.download.SourceContacts
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.model.LibraryManga
@@ -53,6 +54,8 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
     @Inject private lateinit var notifier: LibraryUpdateNotifier
 
     @Inject private lateinit var novelMetadataRefresh: NovelMetadataRefresh // RK
+
+    @Inject private lateinit var sourceContacts: SourceContacts // RK
 
     private var mangaToUpdate: List<LibraryManga> = mutableListOf()
 
@@ -106,7 +109,7 @@ class MetadataUpdateWorker(context: Context, workerParams: WorkerParameters) :
         val currentlyUpdatingManga = CopyOnWriteArrayList<Manga>()
 
         // RK: the kernel the novel pass and both update jobs run on
-        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }) { libraryManga ->
+        updateBySource(mangaToUpdate, sourceOf = { it.manga.source }, sourceContacts) { libraryManga ->
             val manga = libraryManga.manga
 
             withUpdateNotification(

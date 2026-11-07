@@ -31,6 +31,7 @@ import reikai.domain.download.DownloadPacing
 import reikai.domain.download.DownloadRetry
 import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.download.SeriesCompletions
+import reikai.domain.download.SourceContacts
 import reikai.domain.download.SourcePace
 import reikai.domain.download.deletableDownloads
 import reikai.domain.download.downloadNetworkIssue
@@ -90,6 +91,7 @@ class NovelDownloadManager(
     private val adultChecker: AdultContentChecker,
     private val sourceTitles: SourceTitlesRepository,
     private val getEntryCustomInfo: GetEntryCustomInfo,
+    private val sourceContacts: SourceContacts,
 ) {
 
     private val store = NovelDownloadStore(context, chapterRepo)
@@ -471,7 +473,6 @@ class NovelDownloadManager(
                     ?: return@withLock null
                 val source = sourceOf(next.novelId)
                 lanes.update { it + (source to next.novelId) }
-                setState(next.chapterId, NovelDownload.State.DOWNLOADING)
                 Claimed(next, source)
             }
             if (claimed != null) return claimed
@@ -492,6 +493,11 @@ class NovelDownloadManager(
     ) {
         val next = claimed.download
         val novel = novelRepo.getById(next.novelId)
+        // The least delay the source declares binds its retries as well as its pacing.
+        val minimumMs = novel?.let { sourceManager.get(it.source) }?.minimumRequestDelayMs ?: 0L
+        // A source an update or an earlier run reached moments ago waits out its delay before this chapter too.
+        delay(sourceContacts.waitBefore(claimed.source, paceFloor(claimed.source, minimumMs)))
+        if (!startDownloading(next.chapterId)) return
         // What the notices name it by; the chapter is still saved under the source title.
         val shown = novel?.withCustomInfo(getEntryCustomInfo.await(EntryId.Novel(novel.id)))
         val chapter = chapterRepo.getById(next.chapterId)
@@ -519,45 +525,49 @@ class NovelDownloadManager(
         var lastError: Throwable? = null
         var connectionLost = false
         var dropped = false
-        // The least delay the source declares binds its retries as well as its pacing.
-        val minimumMs = novel?.let { sourceManager.get(it.source) }?.minimumRequestDelayMs ?: 0L
-        while (true) {
-            // A pause cancels the worker mid-attempt, and the last attempt has no delay to rethrow it.
-            ok = runCatchingCancellable {
-                val source = novel?.let { sourceManager.get(it.source) }
-                    ?: return@runCatchingCancellable false
-                if (chapter == null) return@runCatchingCancellable false
-                val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
-                val selfContained = saver.prepare(source, html)
-                saveLock.withLock {
-                    // Cancelled, or its novel deleted or renamed, while the fetch ran: nothing to write
-                    dropped = _queueState.value.none { it.chapterId == next.chapterId }
-                    // Read again, since a sync may have renamed either during the fetch and the file takes their names.
-                    // A name another chapter's download holds counts as downloaded, as manga's downloader counts it
-                    dropped || saver.write(
-                        novelRepo.getById(novel.id) ?: novel,
-                        chapterRepo.getById(chapter.id) ?: chapter,
-                        selfContained,
-                    ) != NovelChapterSaver.SaveResult.FAILED
+        try {
+            while (true) {
+                // A pause cancels the worker mid-attempt, and the last attempt has no delay to rethrow it.
+                ok = runCatchingCancellable {
+                    val source = novel?.let { sourceManager.get(it.source) }
+                        ?: return@runCatchingCancellable false
+                    if (chapter == null) return@runCatchingCancellable false
+                    val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
+                    val selfContained = saver.prepare(source, html)
+                    saveLock.withLock {
+                        // Cancelled, or its novel deleted or renamed, while the fetch ran: nothing to write
+                        dropped = _queueState.value.none { it.chapterId == next.chapterId }
+                        // Read again, since a sync may have renamed either during the fetch and the file takes
+                        // their names. A name another chapter's download holds counts as downloaded, as manga's
+                        // downloader counts it
+                        dropped || saver.write(
+                            novelRepo.getById(novel.id) ?: novel,
+                            chapterRepo.getById(chapter.id) ?: chapter,
+                            selfContained,
+                        ) != NovelChapterSaver.SaveResult.FAILED
+                    }
+                }.getOrElse {
+                    lastError = it
+                    logcat(LogPriority.ERROR, it) {
+                        "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
+                    }
+                    false
                 }
-            }.getOrElse {
-                lastError = it
-                logcat(LogPriority.ERROR, it) {
-                    "Novel chapter download attempt ${attempt + 1} failed: chapter=${next.chapterId}"
+                if (ok) break
+                // A drop mid-download is a pause, not a failure: stop retrying and let claimNext's
+                // network check wait it out, instead of spending retries (off Wi-Fi too) and erroring it.
+                if (networkIssue() != null) {
+                    connectionLost = true
+                    break
                 }
-                false
+                // An empty answer is the source's, not a blip, so trying again gets the same.
+                if (attempt >= DownloadRetry.MAX_RETRIES || lastError is EmptyChapterException) break
+                delay(maxOf(DownloadRetry.delayBefore(attempt).inWholeMilliseconds, minimumMs))
+                attempt++
             }
-            if (ok) break
-            // A drop mid-download is a pause, not a failure: stop retrying and let claimNext's
-            // network check wait it out, instead of spending retries (off Wi-Fi too) and erroring it.
-            if (networkIssue() != null) {
-                connectionLost = true
-                break
-            }
-            // An empty answer is the source's, not a blip, so trying again gets the same.
-            if (attempt >= DownloadRetry.MAX_RETRIES || lastError is EmptyChapterException) break
-            delay(maxOf(DownloadRetry.delayBefore(attempt).inWholeMilliseconds, minimumMs))
-            attempt++
+        } finally {
+            // Also when a pause cancels a fetch, which may have reached the site.
+            sourceContacts.record(claimed.source)
         }
         if (connectionLost) {
             // Requeue so it's re-picked when the connection returns (not left DOWNLOADING or ERROR).
@@ -584,14 +594,33 @@ class NovelDownloadManager(
         }
         // Per-source pacing, by the user's delay and DownloadPacing's back-off, so a
         // rate-limited or blocked site slows down on its own without dragging healthy sources.
-        val floorMs = DownloadPacing.floorFor(
-            claimed.source,
-            novelPreferences.downloadChapterDelayMs().get(),
-            DownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
-            minimumMs = minimumMs,
-        )
+        val floorMs = paceFloor(claimed.source, minimumMs)
         // Only with more of this source to come, so a finished source frees its slot for one still waiting.
         delay(pace.waitAfter(claimed.source, ok, floorMs, hasQueuedFrom(claimed.source), Random.nextDouble()))
+    }
+
+    private fun paceFloor(source: String, minimumMs: Long) = DownloadPacing.floorFor(
+        source,
+        novelPreferences.downloadChapterDelayMs().get(),
+        DownloadPacing.parse(novelPreferences.downloadSourceDelays().get()),
+        minimumMs = minimumMs,
+    )
+
+    /** Marks a claimed chapter as downloading, or false when it left the queue while its source waited. */
+    private fun startDownloading(chapterId: Long): Boolean {
+        var started = false
+        _queueState.update { q ->
+            started = false
+            q.map {
+                if (it.chapterId == chapterId && it.state == NovelDownload.State.QUEUE) {
+                    started = true
+                    it.copy(state = NovelDownload.State.DOWNLOADING)
+                } else {
+                    it
+                }
+            }
+        }
+        return started
     }
 
     private fun networkIssue() =

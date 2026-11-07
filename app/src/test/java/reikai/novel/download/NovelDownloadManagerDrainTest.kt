@@ -43,6 +43,7 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
@@ -82,6 +83,7 @@ class NovelDownloadManagerDrainTest {
     private val firstFetch = CompletableDeferred<Unit>()
 
     private val io = StandardTestDispatcher()
+    private val contacts = io.scheduler.sourceContacts()
 
     private val prefs = FakeSharedPreferences()
     private val context = mockk<Context>(relaxed = true) {
@@ -159,6 +161,7 @@ class NovelDownloadManagerDrainTest {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = contacts,
         )
     }
 
@@ -216,6 +219,21 @@ class NovelDownloadManagerDrainTest {
         runCurrent()
 
         manager.queueState.value.map { it.chapterId } shouldBe listOf(11L)
+    }
+
+    @Test
+    fun `a pause while a source waits out its delay leaves its chapter queued and unfetched`() = runTest(io) {
+        firstFetch.complete(Unit)
+        contacts.record("src")
+        manager.downloadChapters(chapters.take(1))
+
+        val drain = launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
+        runCurrent()
+        drain.cancel()
+        advanceUntilIdle()
+
+        (written to manager.queueState.value.map { it.state }) shouldBe
+            (emptyList<Long>() to listOf(NovelDownload.State.QUEUE))
     }
 
     @Test

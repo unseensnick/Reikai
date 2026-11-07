@@ -10,6 +10,7 @@ import io.mockk.runs
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.novel.update.NovelUpdateNotifier
+import reikai.domain.download.SourceContacts
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
@@ -58,6 +59,7 @@ class NovelMetadataRefreshTest {
             coverCache = mockk(relaxed = true),
             notifier = notifier,
             novelDownloadManager = { mockk(relaxed = true) },
+            sourceContacts = SourceContacts { 0L },
         ).run { _, done, total -> progress += done to total }
     }
 

@@ -32,6 +32,7 @@ import mihon.core.metro.GraphProvider
 import reikai.domain.manga.MangaPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -122,6 +123,7 @@ class DownloadWorkerFixture(
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } coAnswers { restored.await() } },
             notifier = notifier,
             mangaPreferences = MangaPreferences(InMemoryPreferenceStore()),
+            sourceContacts = test.testScheduler.sourceContacts(),
         )
     }
 

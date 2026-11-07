@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.DownloadStore
 import eu.kanade.tachiyomi.data.download.Downloader
+import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.util.system.NetworkState
@@ -40,6 +41,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.library.updateBySource
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaPreferences
@@ -49,6 +51,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
+import reikai.novel.download.NovelDownload
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.source.NovelSource
@@ -56,6 +59,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.presentation.settings.download.SourceDelaysViewModel
 import reikai.util.mockIoDispatcher
+import reikai.util.sourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
@@ -71,6 +75,7 @@ import kotlin.time.Instant
  * Both downloaders pace a source by [SourcePace], over the real Downloader and the real novel drain: a back-off
  * lasts only while the source has more queued in the run, Off never waits, and a source's own delay, saved the
  * way the settings screen saves it, holds its next chapter. Every chapter fails, which is what backs a source off.
+ * Both also wait out the delay from the last contact by [SourceContacts], an update's check or an earlier run.
  */
 class SourcePaceConformanceTest {
 
@@ -136,10 +141,89 @@ class SourcePaceConformanceTest {
         gapBefore(2L, after = 1L) shouldBeGreaterThanOrEqual 3_000L
     }
 
+    @ParameterizedTest
+    @EnumSource(Half::class)
+    fun `the first chapter after an update's check waits out its source's delay`(half: Half) = runTest {
+        globalDelay(half).set(3_000L)
+        val engine = engine(half)
+        engine.checkForUpdates()
+        engine.queue(1L)
+        engine.run()
+        advanceUntilIdle()
+
+        fetches.first().second shouldBe 3_000L
+    }
+
+    @ParameterizedTest
+    @EnumSource(Half::class)
+    fun `a run started after another waits from that run's last fetch`(half: Half) = runTest {
+        globalDelay(half).set(3_000L)
+        val engine = engine(half)
+        engine.queue(1L)
+        engine.run()
+        advanceUntilIdle()
+
+        engine.queue(2L)
+        engine.run()
+        advanceUntilIdle()
+
+        fetches[1].second - fetches[0].second shouldBeGreaterThanOrEqual 3_000L
+    }
+
+    /** Manga's removal restarts the downloader, whose new source job waits only what is left. */
+    @ParameterizedTest
+    @EnumSource(Half::class)
+    fun `a chapter removed while its source waits is never fetched`(half: Half) = runTest {
+        globalDelay(half).set(3_000L)
+        val engine = engine(half)
+        engine.checkForUpdates()
+        engine.queue(1L, 2L)
+        engine.run()
+        advanceTimeBy(1L)
+
+        engine.remove(1L)
+        advanceUntilIdle()
+
+        fetches shouldBe listOf(2L to 3_000L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Half::class)
+    fun `a chapter waiting out its source's delay reads as queued`(half: Half) = runTest {
+        globalDelay(half).set(3_000L)
+        val engine = engine(half)
+        engine.checkForUpdates()
+        engine.queue(1L)
+        engine.run()
+        advanceTimeBy(1L)
+
+        engine.isQueued(1L) shouldBe true
+    }
+
+    @ParameterizedTest
+    @EnumSource(Half::class)
+    fun `at Off the first chapter after an update's check starts at once`(half: Half) = runTest {
+        globalDelay(half).set(0L)
+        val engine = engine(half)
+        engine.checkForUpdates()
+        engine.queue(1L)
+        engine.run()
+        advanceUntilIdle()
+
+        fetches.first().second shouldBe 0L
+    }
+
     private interface Engine {
         suspend fun queue(vararg chapterIds: Long)
         suspend fun run()
+
+        /** One entry's update check, through the update jobs' own kernel. */
+        suspend fun checkForUpdates()
+        suspend fun remove(chapterId: Long)
+        fun isQueued(chapterId: Long): Boolean
     }
+
+    private lateinit var contacts: SourceContacts
 
     private fun globalDelay(half: Half) = when (half) {
         Half.MANGA -> mangaPreferences.downloadChapterDelayMs()
@@ -170,9 +254,12 @@ class SourcePaceConformanceTest {
         model.viewModelScope.cancel()
     }
 
-    private fun TestScope.engine(half: Half): Engine = when (half) {
-        Half.MANGA -> mangaEngine()
-        Half.NOVELS -> novelEngine()
+    private fun TestScope.engine(half: Half): Engine {
+        contacts = testScheduler.sourceContacts()
+        return when (half) {
+            Half.MANGA -> mangaEngine()
+            Half.NOVELS -> novelEngine()
+        }
     }
 
     private val manga = Manga.create().copy(id = 1L, source = 1L, title = "Manga")
@@ -213,22 +300,27 @@ class SourcePaceConformanceTest {
             store = mockk<DownloadStore>(relaxed = true) { coEvery { restore() } returns emptyList() },
             notifier = mockk(relaxed = true),
             mangaPreferences = mangaPreferences,
+            sourceContacts = contacts,
         )
+        fun chapter(id: Long) = Chapter.create().copy(id = id, mangaId = manga.id, url = "u$id", sourceOrder = -id)
         return object : Engine {
             // Mihon queues the highest source order first.
             override suspend fun queue(vararg chapterIds: Long) {
-                downloader.queueChapters(
-                    manga,
-                    chapterIds.map {
-                        Chapter.create().copy(id = it, mangaId = manga.id, url = "u$it", sourceOrder = -it)
-                    },
-                    autoStart = false,
-                )
+                downloader.queueChapters(manga, chapterIds.map(::chapter), autoStart = false)
             }
 
             override suspend fun run() {
                 downloader.start()
             }
+
+            override suspend fun checkForUpdates() = updateBySource(listOf(manga), sourceOf = {
+                it.source
+            }, contacts) {}
+
+            override suspend fun remove(chapterId: Long) = downloader.dequeue(listOf(chapter(chapterId)))
+
+            override fun isQueued(chapterId: Long) =
+                downloader.queueState.value.single { it.chapter.id == chapterId }.status == Download.State.QUEUE
         }
     }
 
@@ -279,6 +371,7 @@ class SourcePaceConformanceTest {
             adultChecker = mockk { coEvery { adultNovelIdsAmong(any()) } returns emptySet() },
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = contacts,
         )
         val scope = this
         return object : Engine {
@@ -288,6 +381,14 @@ class SourcePaceConformanceTest {
             override suspend fun run() {
                 scope.launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
             }
+
+            override suspend fun checkForUpdates() = updateBySource(listOf(novel), sourceOf = Novel::source, contacts) {
+            }
+
+            override suspend fun remove(chapterId: Long) = manager.cancelDownloads(listOf(chapterId))
+
+            override fun isQueued(chapterId: Long) =
+                manager.queueState.value.single { it.chapterId == chapterId }.state == NovelDownload.State.QUEUE
         }
     }
 }

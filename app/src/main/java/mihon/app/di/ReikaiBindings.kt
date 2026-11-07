@@ -1,10 +1,12 @@
 package mihon.app.di
 
+import android.os.SystemClock
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaGroupCategories
@@ -30,6 +32,11 @@ import reikai.novel.source.NovelSource
  */
 @BindingContainer
 object ReikaiBindings {
+
+    /** One for the app, since the update jobs and both downloaders must read the same contacts. */
+    @Provides
+    @SingleIn(AppScope::class)
+    fun providesSourceContacts(): SourceContacts = SourceContacts(SystemClock::elapsedRealtime)
 
     /** The novel sources the app carries itself, there before any plugin or app loads. */
     @Provides

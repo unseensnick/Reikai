@@ -28,6 +28,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.category.model.Category
@@ -174,6 +175,7 @@ class NovelManualDeleteHalf : ManualDeleteHalf {
             adultChecker = mockk(),
             sourceTitles = mockk(),
             getEntryCustomInfo = mockk { coEvery { await(any()) } returns null },
+            sourceContacts = realTimeSourceContacts(),
         )
 
         manager.deleteChapters(targets.map { chapter(it, novel.id) })
