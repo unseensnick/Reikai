@@ -477,6 +477,20 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertEquals("[$renderer] one page back past the seam is the last page", lastLine, topLines.last())
     }
 
+    /** TransitionText caps its whole column at 460dp, the warning card with it, as the native seam draws it. */
+    @Test
+    fun theMissingChaptersWarningKeepsTheSeamsWidthCap() {
+        assumeTrue("only the page styles its own seam", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"), title = LONG_TITLE)
+        append(GAP_ID, short("second"), title = LONG_TITLE)
+        assumeTrue("needs a column wider than the cap", evalString("String(window.innerWidth)").toFloat() > 600f)
+
+        val width = evalString("String(document.querySelector('.rk-seam-warning').getBoundingClientRect().width)")
+
+        assertTrue("[$renderer] the warning is ${width}px wide", width.toFloat() <= 460f)
+    }
+
     /** Back from an opened chapter onto a seam on a short page, and a rebuild there. */
     @Test
     fun aTallSeamAboveAnOpenedChapterKeepsTheOpenedChapter() {

@@ -178,6 +178,8 @@ html.rk-readings-hidden .rk-failure {
   align-items: center;
   gap: 16px;
   width: fit-content;
+  max-width: 460px;
+  box-sizing: border-box;
   margin: 0 auto;
   padding: 12px 16px;
   border: 1px solid currentColor;

@@ -26,7 +26,7 @@ A rebuilt renderer lands on the line the reader had at the top, reported by both
 
 ### The seam and the end marker
 
-The boundary between chapters is the webtoon viewer's: Mihon's `TransitionText` taking two chapter names, 128dp above and below, a centred column capped at 460dp. `NovelSeam.between` gives the downloaded mark and the missing-chapter warning through `ChapterGap.atSeam`, the rule `MissingChapters.calculateChapterGap` also uses. Whether a seam between two consecutive chapters shows is the novel "Always show chapter transition" setting (`NovelSeam.drawn`), and the last reachable chapter always ends with "Finished" over "There's no next chapter" (`NovelSeam.end`). A reader inside a seam is in the chapter below it, in both renderers.
+The boundary between chapters is the webtoon viewer's: Mihon's `TransitionText` taking two chapter names, 128dp above and below, a centred column capped at 460dp, the warning card included (the page caps `.rk-seam-warning` at the same 460px), drawn in the reader's text colour: `NovelSeamCard` gives the card's `onSurface` the reader's colour, since the app theme's does not match the reader's background. `NovelSeam.between` gives the downloaded mark and the missing-chapter warning through `ChapterGap.atSeam`, the rule `MissingChapters.calculateChapterGap` also uses. Whether a seam between two consecutive chapters shows is the novel "Always show chapter transition" setting (`NovelSeam.drawn`), and the last reachable chapter always ends with "Finished" over "There's no next chapter" (`NovelSeam.end`). A reader inside a seam is in the chapter below it, in both renderers.
 
 ### The content pipeline
 

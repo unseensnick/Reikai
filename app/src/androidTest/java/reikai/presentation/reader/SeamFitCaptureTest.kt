@@ -114,7 +114,9 @@ class SeamFitCaptureTest(private val renderer: PagedReadingTest.Renderer) {
 
     private fun isLandscape(): Boolean {
         var landscape = false
-        scenario.onActivity { landscape = it.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE }
+        scenario.onActivity {
+            landscape = it.resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        }
         return landscape
     }
 
@@ -122,7 +124,10 @@ class SeamFitCaptureTest(private val renderer: PagedReadingTest.Renderer) {
         chapterId = id,
         title = TITLE,
         url = "/chapter/$id",
-        html = (1..12).joinToString("") { "<p>Chapter $id, paragraph $it. " + "lorem ipsum dolor sit amet ".repeat(8) + "</p>" },
+        html = (1..12).joinToString("") {
+            "<p>Chapter $id, paragraph $it. " + "lorem ipsum dolor sit amet ".repeat(8) +
+                "</p>"
+        },
         baseUrl = null,
         progress = progress,
         chapterNumber = id.toDouble(),

@@ -57,32 +57,13 @@ class NovelChapterSeamView(
     override fun Content() {
         val shown = seam ?: return
         TachiyomiTheme {
-            CompositionLocalProvider(
-                // ChapterTransition's own style, which the manga viewers draw this with.
-                LocalTextStyle provides MaterialTheme.typography.bodyMedium,
-                LocalContentColor provides Color(textColor),
-            ) {
-                val page = pageHeightPx
-                if (page == null) Card(shown) else FitOnPage(page, maxPaddingPx) { Card(shown) }
+            val page = pageHeightPx
+            val color = Color(textColor)
+            if (page == null) {
+                NovelSeamCard(shown, color)
+            } else {
+                FitOnPage(page, maxPaddingPx) { NovelSeamCard(shown, color) }
             }
-        }
-    }
-
-    @Composable
-    private fun Card(shown: NovelSeam) {
-        // Centred the way the webtoon holder's gravity centres it, on a screen wider than the column's cap.
-        Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-            TransitionText(
-                topLabel = stringResource(MR.strings.transition_finished),
-                topChapter = TransitionChapter(shown.finishedTitle, subtitle = null),
-                topChapterDownloaded = shown.finishedDownloaded,
-                bottomLabel = stringResource(MR.strings.transition_next),
-                bottomChapter = shown.nextTitle?.let { TransitionChapter(it, subtitle = null) },
-                bottomChapterDownloaded = shown.nextDownloaded,
-                // Drawn in place of the next chapter by the end marker, which has none.
-                fallbackLabel = stringResource(MR.strings.transition_no_next),
-                chapterGap = shown.missingChapters,
-            )
         }
     }
 
@@ -91,6 +72,36 @@ class NovelChapterSeamView(
          *  WebView page takes the same two numbers from here (NovelWebDocument). */
         const val PADDING_VERTICAL_DP = 128
         const val PADDING_HORIZONTAL_DP = 32
+    }
+}
+
+/**
+ * The card in the reader's [textColor]. TransitionText's warning card draws in the theme's onSurface, the app's
+ * colour rather than the reader page's, so the scheme takes the reader's colour for it as the WebView's does.
+ */
+@Composable
+internal fun NovelSeamCard(shown: NovelSeam, textColor: Color) {
+    MaterialTheme(colorScheme = MaterialTheme.colorScheme.copy(onSurface = textColor)) {
+        CompositionLocalProvider(
+            // ChapterTransition's own style, which the manga viewers draw this with.
+            LocalTextStyle provides MaterialTheme.typography.bodyMedium,
+            LocalContentColor provides textColor,
+        ) {
+            // Centred the way the webtoon holder's gravity centres it, on a screen wider than the column's cap.
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                TransitionText(
+                    topLabel = stringResource(MR.strings.transition_finished),
+                    topChapter = TransitionChapter(shown.finishedTitle, subtitle = null),
+                    topChapterDownloaded = shown.finishedDownloaded,
+                    bottomLabel = stringResource(MR.strings.transition_next),
+                    bottomChapter = shown.nextTitle?.let { TransitionChapter(it, subtitle = null) },
+                    bottomChapterDownloaded = shown.nextDownloaded,
+                    // Drawn in place of the next chapter by the end marker, which has none.
+                    fallbackLabel = stringResource(MR.strings.transition_no_next),
+                    chapterGap = shown.missingChapters,
+                )
+            }
+        }
     }
 }
 
