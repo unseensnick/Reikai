@@ -201,7 +201,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Other
 
-- Updated jsoup, Metro and the WebGPU manga viewer (from Mihon).
+- Updated Compose, Conscrypt, jsoup, Metro and the WebGPU manga viewer (from Mihon).
 
 ## [0.5.1]
 
