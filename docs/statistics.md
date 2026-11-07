@@ -90,6 +90,7 @@ Tap the pencil at the top of Statistics to arrange its cards. They sit in three 
 
 * Drag a group by its handle to move it with all its cards, or drag a card to move it within its group.
 * Untick a card to hide it, or untick a group to hide all of its cards. A hidden card stays in the list, so you can tick it again.
+* Under **At a glance**, drag a number to move it, or untick it to hide it, such as the tracker ones if you don't use trackers.
 * Tap the arrow beside a group to fold it while you arrange the others.
 * **Reset** in the ⋮ menu puts every card back in its first place and shows them all.
 

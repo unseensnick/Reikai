@@ -42,6 +42,8 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
     val contentType by viewModel.contentType.collectAsState()
     val cardLayout by viewModel.cardLayout.collectAsState()
     val hiddenCards by viewModel.hiddenCards.collectAsState()
+    val figureLayout by viewModel.figureLayout.collectAsState()
+    val hiddenFigures by viewModel.hiddenFigures.collectAsState()
     var isArranging by rememberSaveable { mutableStateOf(false) }
     BackHandler(enabled = isArranging) { isArranging = false }
 
@@ -87,9 +89,13 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
             StatsArrangeList(
                 layout = cardLayout,
                 hidden = hiddenCards,
+                figureLayout = figureLayout,
+                hiddenFigures = hiddenFigures,
                 contentPadding = paddingValues,
                 onArrange = viewModel::setCardLayout,
                 onHide = viewModel::setHiddenCards,
+                onArrangeFigures = viewModel::setFigureLayout,
+                onHideFigures = viewModel::setHiddenFigures,
             )
             return@Scaffold
         }
@@ -109,7 +115,8 @@ fun StatsContent(navigateUp: (() -> Unit)?) {
             onOpenEntry = { scope.launch { viewModel.detailsScreen(it)?.let(navigator::push) } },
             onOpenReading = { navigator.push(StatsReadingScreen()) },
             onOpenMostRead = { navigator.push(StatsMostReadScreen()) },
-            cardLayout = cardLayout - hiddenCards,
+            cardLayout = statsShownCards(cardLayout, hiddenCards, hiddenFigures),
+            figures = figureLayout - hiddenFigures,
         )
     }
 }

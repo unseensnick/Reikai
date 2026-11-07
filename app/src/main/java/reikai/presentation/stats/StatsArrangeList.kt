@@ -40,6 +40,7 @@ import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.StringResource
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
@@ -54,15 +55,21 @@ import tachiyomi.presentation.core.i18n.stringResource
 /**
  * Every Statistics card under its shelf. A shelf drags as a block and folds with its arrow; a card drags
  * only within its shelf. A card's row shows or hides it, a shelf's row all of its cards. Each change hands
- * the whole new [layout] to [onArrange], or the whole new [hidden] set to [onHide].
+ * the whole new [layout] to [onArrange], or the whole new [hidden] set to [onHide]. The At a glance shelf lists its
+ * card's figures instead of its one card, which drag and hide the same way through [onArrangeFigures] and
+ * [onHideFigures].
  */
 @Composable
 fun StatsArrangeList(
     layout: List<StatsCardKind>,
     hidden: Set<StatsCardKind>,
+    figureLayout: List<StatsFigureKind>,
+    hiddenFigures: Set<StatsFigureKind>,
     contentPadding: PaddingValues,
     onArrange: (List<StatsCardKind>) -> Unit,
     onHide: (Set<StatsCardKind>) -> Unit,
+    onArrangeFigures: (List<StatsFigureKind>) -> Unit,
+    onHideFigures: (Set<StatsFigureKind>) -> Unit,
 ) {
     val listState = rememberLazyListState()
     // Held here while a drag runs, so the list moves under the finger without a write per step.
@@ -112,6 +119,10 @@ fun StatsArrangeList(
                     onCollapse = { collapsed = if (shelf in collapsed) collapsed - shelf else collapsed + shelf },
                     onArrange = { arrange(layout.withShelfCards(shelf, it)) },
                     onHide = onHide,
+                    figureLayout = figureLayout,
+                    hiddenFigures = hiddenFigures,
+                    onArrangeFigures = onArrangeFigures,
+                    onHideFigures = onHideFigures,
                     handle = Modifier.draggableHandle(),
                 )
             }
@@ -129,16 +140,42 @@ private fun ShelfCard(
     onCollapse: () -> Unit,
     onArrange: (List<StatsCardKind>) -> Unit,
     onHide: (Set<StatsCardKind>) -> Unit,
+    figureLayout: List<StatsFigureKind>,
+    hiddenFigures: Set<StatsFigureKind>,
+    onArrangeFigures: (List<StatsFigureKind>) -> Unit,
+    onHideFigures: (Set<StatsFigureKind>) -> Unit,
     handle: Modifier,
 ) {
     val elevation by animateDpAsState(if (isDragging) 8.dp else 1.dp, label = "shelfLift")
     val chevron by animateFloatAsState(if (isCollapsed) 0f else 180f, label = "shelfChevron")
-    val shownCount = cards.count { it !in hidden }
-    val toggleShelf = { onHide(if (shownCount < cards.size) hidden - cards.toSet() else hidden + cards) }
-    // The reorder state keeps its first onSettle while this shelf's cards are unchanged, and onArrange
-    // closes over the whole layout, so a drop must reach the latest one or it undoes other shelves.
-    val currentOnArrange by rememberUpdatedState(onArrange)
-
+    // At a glance holds the one overview card, so its rows are the card's figures.
+    val listsFigures = shelf == StatsShelf.GLANCE
+    val isOverviewShown = StatsCardKind.OVERVIEW !in hidden
+    fun isFigureShown(figure: StatsFigureKind) = isOverviewShown && figure !in hiddenFigures
+    val rowCount = if (listsFigures) StatsFigureKind.entries.size else cards.size
+    val shownCount = if (listsFigures) {
+        StatsFigureKind.entries.count(::isFigureShown)
+    } else {
+        cards.count { it !in hidden }
+    }
+    val toggleShelf = {
+        when {
+            !listsFigures -> onHide(if (shownCount < cards.size) hidden - cards.toSet() else hidden + cards)
+            shownCount < rowCount -> {
+                onHide(hidden - StatsCardKind.OVERVIEW)
+                onHideFigures(emptySet())
+            }
+            else -> onHide(hidden + StatsCardKind.OVERVIEW)
+        }
+    }
+    fun toggleFigure(figure: StatsFigureKind) {
+        if (isFigureShown(figure)) {
+            onHideFigures(hiddenFigures + figure)
+        } else {
+            if (!isOverviewShown) onHide(hidden - StatsCardKind.OVERVIEW)
+            onHideFigures(hiddenFigures - figure)
+        }
+    }
     ElevatedCard(
         modifier = Modifier
             .readableColumn()
@@ -155,7 +192,7 @@ private fun ShelfCard(
         ) {
             TriStateCheckbox(
                 state = when (shownCount) {
-                    cards.size -> ToggleableState.On
+                    rowCount -> ToggleableState.On
                     0 -> ToggleableState.Off
                     else -> ToggleableState.Indeterminate
                 },
@@ -168,7 +205,7 @@ private fun ShelfCard(
             ) {
                 Text(text = stringResource(shelf.title), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    text = stringResource(MR.strings.stats_cards_shown, shownCount, cards.size),
+                    text = stringResource(MR.strings.stats_cards_shown, shownCount, rowCount),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -188,25 +225,56 @@ private fun ShelfCard(
                     modifier = Modifier.padding(horizontal = MaterialTheme.padding.medium),
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
-                ReorderableColumn(
-                    list = cards,
-                    onSettle = { from, to ->
-                        currentOnArrange(cards.toMutableList().apply { add(to, removeAt(from)) })
-                    },
-                    modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
-                ) { _, card, isCardDragging ->
-                    key(card) {
-                        ReorderableItem {
-                            CardRow(
-                                card = card,
-                                isShown = card !in hidden,
-                                isDragging = isCardDragging,
-                                onToggle = { onHide(if (card in hidden) hidden - card else hidden + card) },
-                                handle = Modifier.draggableHandle(),
-                            )
-                        }
-                    }
+                if (listsFigures) {
+                    ReorderableRows(
+                        items = figureLayout,
+                        title = { it.title },
+                        isShown = ::isFigureShown,
+                        onArrange = onArrangeFigures,
+                        onToggle = ::toggleFigure,
+                    )
+                } else {
+                    ReorderableRows(
+                        items = cards,
+                        title = { it.title },
+                        isShown = { it !in hidden },
+                        onArrange = onArrange,
+                        onToggle = { onHide(if (it in hidden) hidden - it else hidden + it) },
+                    )
                 }
+            }
+        }
+    }
+}
+
+/** [items] as rows that each drag within the list and show or hide with their checkbox. */
+@Composable
+private fun <T : Any> ReorderableRows(
+    items: List<T>,
+    title: (T) -> StringResource,
+    isShown: (T) -> Boolean,
+    onArrange: (List<T>) -> Unit,
+    onToggle: (T) -> Unit,
+) {
+    // The reorder state keeps its first onSettle while these items are unchanged, and onArrange closes
+    // over the whole layout, so a drop must reach the latest one or it undoes other shelves.
+    val currentOnArrange by rememberUpdatedState(onArrange)
+    ReorderableColumn(
+        list = items,
+        onSettle = { from, to ->
+            currentOnArrange(items.toMutableList().apply { add(to, removeAt(from)) })
+        },
+        modifier = Modifier.padding(top = MaterialTheme.padding.extraSmall),
+    ) { _, item, isDragging ->
+        key(item) {
+            ReorderableItem {
+                CardRow(
+                    title = stringResource(title(item)),
+                    isShown = isShown(item),
+                    isDragging = isDragging,
+                    onToggle = { onToggle(item) },
+                    handle = Modifier.draggableHandle(),
+                )
             }
         }
     }
@@ -214,7 +282,7 @@ private fun ShelfCard(
 
 @Composable
 private fun CardRow(
-    card: StatsCardKind,
+    title: String,
     isShown: Boolean,
     isDragging: Boolean,
     onToggle: () -> Unit,
@@ -237,7 +305,7 @@ private fun CardRow(
         ) {
             Checkbox(checked = isShown, onCheckedChange = { onToggle() })
             Text(
-                text = stringResource(card.title),
+                text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 color = MaterialTheme.colorScheme.run { if (isShown) onSurface else onSurfaceVariant },
                 modifier = Modifier

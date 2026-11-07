@@ -168,6 +168,12 @@ class ReikaiSourcePreferences(
     /** The Statistics overview cards the user hid, by `StatsCardKind.key`. */
     val statsHiddenCards: Preference<Set<String>> = preferenceStore.getStringSet("stats_hidden_cards")
 
+    /** The At a glance figures' order, by `StatsFigureKind.key`; unset is the default order. */
+    val statsFigureOrder: Preference<List<String>> = preferenceStore.getStringList("stats_figure_order")
+
+    /** The At a glance figures the user hid, by `StatsFigureKind.key`. */
+    val statsHiddenFigures: Preference<Set<String>> = preferenceStore.getStringSet("stats_hidden_figures")
+
     /**
      * Display mode (comfortable / compact / list) for the per-source novel browse grid. Its own key,
      * separate from Mihon's manga catalogue mode (`pref_display_mode_catalogue`), so the two surfaces

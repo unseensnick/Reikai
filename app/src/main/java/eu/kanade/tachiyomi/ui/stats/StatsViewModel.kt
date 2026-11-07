@@ -36,6 +36,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.stats.OVERVIEW_GROUPINGS
 import reikai.presentation.stats.StatsCardKind
+import reikai.presentation.stats.StatsFigureKind
 import reikai.presentation.stats.StatsLibrary
 import reikai.presentation.stats.StatsLibrarySource
 import reikai.presentation.stats.StatsReload
@@ -46,6 +47,8 @@ import reikai.presentation.stats.statsCardLayout
 import reikai.presentation.stats.statsCardsByKey
 import reikai.presentation.stats.statsCharts
 import reikai.presentation.stats.statsDetailsScreen
+import reikai.presentation.stats.statsFigureLayout
+import reikai.presentation.stats.statsFiguresByKey
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.history.interactor.GetTotalReadDuration
 import tachiyomi.domain.library.model.LibraryManga
@@ -95,10 +98,26 @@ class StatsViewModel(
     fun setHiddenCards(cards: Set<StatsCardKind>) =
         sourcePreferences.statsHiddenCards.set(cards.mapTo(mutableSetOf()) { it.key })
 
-    /** Back to the default layout with every card shown. */
+    val figureLayout: StateFlow<List<StatsFigureKind>> = sourcePreferences.statsFigureOrder.changes()
+        .map(::statsFigureLayout)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, statsFigureLayout(sourcePreferences.statsFigureOrder.get()))
+
+    fun setFigureLayout(figures: List<StatsFigureKind>) =
+        sourcePreferences.statsFigureOrder.set(figures.map { it.key })
+
+    val hiddenFigures: StateFlow<Set<StatsFigureKind>> = sourcePreferences.statsHiddenFigures.changes()
+        .map(::statsFiguresByKey)
+        .stateIn(viewModelScope, SharingStarted.Eagerly, statsFiguresByKey(sourcePreferences.statsHiddenFigures.get()))
+
+    fun setHiddenFigures(figures: Set<StatsFigureKind>) =
+        sourcePreferences.statsHiddenFigures.set(figures.mapTo(mutableSetOf()) { it.key })
+
+    /** Back to the default layout with every card and figure shown. */
     fun resetCardLayout() {
         sourcePreferences.statsCardOrder.delete()
         sourcePreferences.statsHiddenCards.delete()
+        sourcePreferences.statsFigureOrder.delete()
+        sourcePreferences.statsHiddenFigures.delete()
     }
 
     suspend fun detailsScreen(entryId: EntryId): Screen? = statsDetailsScreen(entryId, novelRepository)

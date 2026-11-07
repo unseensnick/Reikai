@@ -11,6 +11,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.dp
+import io.kotest.matchers.ints.shouldBeLessThan
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
@@ -28,16 +29,25 @@ class StatsArrangeListTest {
     val compose = createComposeRule()
 
     private var hidden: Set<StatsCardKind>? = null
+    private var hiddenFigures: Set<StatsFigureKind>? = null
+    private var arrangedFigures: List<StatsFigureKind>? = null
 
-    private fun show(alreadyHidden: Set<StatsCardKind> = emptySet()) {
+    private fun show(
+        alreadyHidden: Set<StatsCardKind> = emptySet(),
+        figuresHidden: Set<StatsFigureKind> = emptySet(),
+    ) {
         compose.setContent {
             ComposeTestHost {
                 StatsArrangeList(
                     layout = StatsCardKind.entries,
                     hidden = alreadyHidden,
+                    figureLayout = StatsFigureKind.entries,
+                    hiddenFigures = figuresHidden,
                     contentPadding = PaddingValues(),
                     onArrange = {},
                     onHide = { hidden = it },
+                    onArrangeFigures = { arrangedFigures = it },
+                    onHideFigures = { hiddenFigures = it },
                 )
             }
         }
@@ -70,6 +80,42 @@ class StatsArrangeListTest {
         hidden shouldBe setOf(StatsCardKind.MOST_READ)
     }
 
+    @Test
+    fun `tapping an at a glance figure hides it`() {
+        show()
+
+        compose.onNodeWithText("Mean score").performClick()
+
+        hiddenFigures shouldBe setOf(StatsFigureKind.MEAN_SCORE)
+    }
+
+    @Test
+    fun `tapping the at a glance shelf when some figures are hidden shows them all`() {
+        show(figuresHidden = setOf(StatsFigureKind.MEAN_SCORE))
+
+        compose.onNodeWithText("At a glance").performClick()
+
+        hiddenFigures shouldBe emptySet()
+    }
+
+    @Test
+    fun `ticking a figure of a hidden overview shows the card again`() {
+        show(alreadyHidden = setOf(StatsCardKind.OVERVIEW))
+
+        compose.onNodeWithText("Mean score").performClick()
+
+        hidden shouldBe emptySet()
+    }
+
+    @Test
+    fun `dragging an at a glance figure moves it`() {
+        show()
+
+        drag("Mean score", rows = -1.5f)
+
+        arrangedFigures!!.indexOf(StatsFigureKind.MEAN_SCORE) shouldBeLessThan StatsFigureKind.MEAN_SCORE.ordinal
+    }
+
     /** The second shelf's cards did not change, so a stale drop there would put the first shelf back. */
     @Test
     fun `a card drag in one shelf keeps an earlier drag in another`() {
@@ -79,9 +125,13 @@ class StatsArrangeListTest {
                 StatsArrangeList(
                     layout = layout,
                     hidden = emptySet(),
+                    figureLayout = StatsFigureKind.entries,
+                    hiddenFigures = emptySet(),
                     contentPadding = PaddingValues(),
                     onArrange = { layout = it },
                     onHide = {},
+                    onArrangeFigures = {},
+                    onHideFigures = {},
                 )
             }
         }

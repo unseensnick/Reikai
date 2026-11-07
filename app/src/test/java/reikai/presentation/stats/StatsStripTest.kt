@@ -3,6 +3,7 @@ package reikai.presentation.stats
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
+import eu.kanade.presentation.more.stats.data.StatsData
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Book
 import org.junit.Rule
@@ -33,6 +34,25 @@ class StatsStripTest {
         }
 
         compose.onNodeWithText("Read chapters").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a hidden figure is left out of the strip`() {
+        compose.setContent {
+            ComposeTestHost {
+                StatsStrip(
+                    statsOverviewFigures(
+                        StatsData.Overview(libraryMangaCount = 3, completedMangaCount = 1, totalReadDuration = 0L),
+                        StatsData.Titles(globalUpdateItemCount = 3, startedMangaCount = 2, localMangaCount = 0),
+                        StatsData.Chapters(totalChapterCount = 40, readChapterCount = 12, downloadCount = 5),
+                        StatsData.Trackers(trackedTitleCount = 2, meanScore = 7.5, trackerCount = 2),
+                        figures = StatsFigureKind.entries - StatsFigureKind.TRACKERS_USED,
+                    ),
+                )
+            }
+        }
+
+        compose.onNodeWithText("Used").assertDoesNotExist()
     }
 
     // One card across at any width, so the title follows the width, not the column count.

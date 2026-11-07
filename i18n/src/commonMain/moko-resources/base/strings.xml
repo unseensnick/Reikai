@@ -2025,4 +2025,7 @@
     <string name="stats_arrange_cards">Arrange cards</string>
     <string name="stats_arrange_hint">Drag to reorder, untick to hide</string>
     <string name="stats_cards_shown">%1$d of %2$d shown</string>
+    <string name="stats_figure_trackers_used">Trackers used</string>
+    <string name="stats_figure_total_chapters">Total chapters</string>
+    <string name="stats_figure_read_chapters">Read chapters</string>
 </resources>

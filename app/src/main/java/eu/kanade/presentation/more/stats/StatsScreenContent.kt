@@ -11,6 +11,7 @@ import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.stats.StatsCard
 import reikai.presentation.stats.StatsCardKind
 import reikai.presentation.stats.StatsDimension
+import reikai.presentation.stats.StatsFigureKind
 import reikai.presentation.stats.StatsGroupKey
 import reikai.presentation.stats.StatsRow
 import reikai.presentation.stats.StatsShelfContent
@@ -36,6 +37,7 @@ fun StatsScreenContent(
     onOpenReading: () -> Unit,
     onOpenMostRead: () -> Unit,
     cardLayout: List<StatsCardKind>,
+    figures: List<StatsFigureKind>,
     // RK <--
 ) {
     LazyColumn(
@@ -52,8 +54,14 @@ fun StatsScreenContent(
         // Shelves of cards in the user's order, side by side on a wide screen and one column on a phone
         val cards: Map<StatsCardKind, StatsCard> = buildMap {
             put(StatsCardKind.OVERVIEW) { fill ->
-                val figures = statsOverviewFigures(state.overview, state.titles, state.chapters, state.trackers)
-                SectionCard(modifier = fill) { StatsStrip(figures) }
+                val tiles = statsOverviewFigures(
+                    state.overview,
+                    state.titles,
+                    state.chapters,
+                    state.trackers,
+                    figures,
+                )
+                SectionCard(modifier = fill) { StatsStrip(tiles) }
             }
             put(StatsCardKind.READING, statsReadingCard(state.charts, onOpenReading))
             putAll(statsChartCards(state.charts, onSeeAll, onOpenKey))

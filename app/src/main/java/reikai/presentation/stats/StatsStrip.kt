@@ -21,19 +21,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.more.stats.data.StatsData
 import eu.kanade.presentation.util.toDurationString
-import mihon.icons.materialsymbols.MaterialSymbols
-import mihon.icons.materialsymbols.rounded.Book
-import mihon.icons.materialsymbols.rounded.Bookmark
-import mihon.icons.materialsymbols.rounded.CollectionsBookmark
-import mihon.icons.materialsymbols.rounded.DoneAll
-import mihon.icons.materialsymbols.rounded.Download
-import mihon.icons.materialsymbols.rounded.Favorite
-import mihon.icons.materialsymbols.rounded.Folder
-import mihon.icons.materialsymbols.rounded.LocalLibrary
-import mihon.icons.materialsymbols.rounded.Public
-import mihon.icons.materialsymbols.rounded.Schedule
-import mihon.icons.materialsymbols.rounded.Sync
-import mihon.icons.materialsymbols.rounded.Verified
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -44,13 +31,14 @@ import kotlin.time.toDuration
 /** One figure of the overview strip: a number, what it counts, and an icon to find it by. */
 data class StatsFigure(val icon: ImageVector, val value: String, val label: String)
 
-/** The overview's figures, the four number cards' twelve, in their order. */
+/** The overview's tiles for [figures], in that order. */
 @Composable
 fun statsOverviewFigures(
     overview: StatsData.Overview,
     titles: StatsData.Titles,
     chapters: StatsData.Chapters,
     trackers: StatsData.Trackers,
+    figures: List<StatsFigureKind>,
 ): List<StatsFigure> {
     val none = stringResource(MR.strings.none)
     val readTime = overview.totalReadDuration.toDuration(DurationUnit.MILLISECONDS)
@@ -60,37 +48,22 @@ fun statsOverviewFigures(
     } else {
         stringResource(MR.strings.not_applicable)
     }
-    return with(MaterialSymbols.Rounded) {
-        listOf(
-            StatsFigure(
-                CollectionsBookmark,
-                overview.libraryMangaCount.toString(),
-                stringResource(MR.strings.in_library),
-            ),
-            StatsFigure(Schedule, readTime, stringResource(MR.strings.label_read_duration)),
-            StatsFigure(
-                LocalLibrary,
-                overview.completedMangaCount.toString(),
-                stringResource(MR.strings.label_completed_titles),
-            ),
-            StatsFigure(
-                Sync,
-                titles.globalUpdateItemCount.toString(),
-                stringResource(MR.strings.label_titles_in_global_update),
-            ),
-            StatsFigure(Bookmark, titles.startedMangaCount.toString(), stringResource(MR.strings.label_started)),
-            StatsFigure(Folder, titles.localMangaCount.toString(), stringResource(MR.strings.label_local)),
-            StatsFigure(Book, chapters.totalChapterCount.toString(), stringResource(MR.strings.label_total_chapters)),
-            StatsFigure(DoneAll, chapters.readChapterCount.toString(), stringResource(MR.strings.label_read_chapters)),
-            StatsFigure(Download, chapters.downloadCount.toString(), stringResource(MR.strings.label_downloaded)),
-            StatsFigure(
-                Verified,
-                trackers.trackedTitleCount.toString(),
-                stringResource(MR.strings.label_tracked_titles),
-            ),
-            StatsFigure(Favorite, meanScore, stringResource(MR.strings.label_mean_score)),
-            StatsFigure(Public, trackers.trackerCount.toString(), stringResource(MR.strings.label_used)),
-        )
+    return figures.map { kind ->
+        val value = when (kind) {
+            StatsFigureKind.IN_LIBRARY -> overview.libraryMangaCount.toString()
+            StatsFigureKind.READ_DURATION -> readTime
+            StatsFigureKind.COMPLETED -> overview.completedMangaCount.toString()
+            StatsFigureKind.GLOBAL_UPDATE -> titles.globalUpdateItemCount.toString()
+            StatsFigureKind.STARTED -> titles.startedMangaCount.toString()
+            StatsFigureKind.LOCAL -> titles.localMangaCount.toString()
+            StatsFigureKind.TOTAL_CHAPTERS -> chapters.totalChapterCount.toString()
+            StatsFigureKind.READ_CHAPTERS -> chapters.readChapterCount.toString()
+            StatsFigureKind.DOWNLOADED -> chapters.downloadCount.toString()
+            StatsFigureKind.TRACKED_TITLES -> trackers.trackedTitleCount.toString()
+            StatsFigureKind.MEAN_SCORE -> meanScore
+            StatsFigureKind.TRACKERS_USED -> trackers.trackerCount.toString()
+        }
+        StatsFigure(kind.icon, value, stringResource(kind.label))
     }
 }
 
