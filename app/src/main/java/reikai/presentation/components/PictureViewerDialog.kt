@@ -46,6 +46,7 @@ import ca.mpreg.webgpuviewer.viewer.ImageViewerState
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.CachePolicy
+import coil3.request.Disposable
 import coil3.request.ImageRequest
 import coil3.request.SuccessResult
 import coil3.request.allowHardware
@@ -230,6 +231,9 @@ fun PictureViewerDialog(
 
             val statusBarPaddingPx = with(LocalDensity.current) { contentPadding.calculateTopPadding().roundToPx() }
             val bottomPaddingPx = with(LocalDensity.current) { contentPadding.calculateBottomPadding().roundToPx() }
+            // Each update loads again, and a lambda target is not cancelled by the next load as a view's is,
+            // so a slower turned load finishing last would draw the picture the wrong way up.
+            val load = remember { arrayOfNulls<Disposable>(1) }
 
             Box(
                 modifier = Modifier
@@ -265,7 +269,8 @@ fun PictureViewerDialog(
                                 view.setImage(copy, ReaderPageImageView.Config(zoomDuration = 500))
                             }
                             .build()
-                        view.context.imageLoader.enqueue(request)
+                        load[0]?.dispose()
+                        load[0] = view.context.imageLoader.enqueue(request)
 
                         view.updatePadding(top = statusBarPaddingPx, bottom = bottomPaddingPx)
                     },

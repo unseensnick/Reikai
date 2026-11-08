@@ -325,7 +325,7 @@ class NovelReaderProvider(
             onPageTurned = host::pageTurned,
             onPageShown = { page, count -> shownPage.value = ChapterProgress.Pages(page, count) },
             onPictureOpened = { model ->
-                val name = listOfNotNull(viewModel.entryTitle.value, viewModel.chapter.value?.title).joinToString(" - ")
+                val name = chapterPictureName(viewModel.entryTitle.value, viewModel.chapter.value?.title, model)
                 host.engine.openDialog(ReaderDialog.Picture(model, name))
             },
         )

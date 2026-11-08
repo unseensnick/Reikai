@@ -37,7 +37,10 @@ internal suspend fun UniFile.writeBookNamed(context: Context, name: String, writ
     }
 }
 
-/** The cover as a book carries it: a JPEG, or a PNG when it has transparency, both EPUB core types. */
+/**
+ * The cover as a book carries it, and a picture as the viewer's Save writes it: a JPEG, or a PNG when it has
+ * transparency, both EPUB core types.
+ */
 internal fun coverPicture(bitmap: Bitmap): ExportPicture {
     val png = bitmap.hasAlpha()
     val bytes = ByteArrayOutputStream().also {
