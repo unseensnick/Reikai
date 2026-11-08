@@ -172,7 +172,9 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
     private fun tapAt(x: Float, y: Float) {
         val down = SystemClock.uptimeMillis()
         listOf(MotionEvent.ACTION_DOWN to down, MotionEvent.ACTION_UP to down + 50).forEach { (action, time) ->
-            val event = MotionEvent.obtain(down, time, action, x, y, 0).apply { source = InputDevice.SOURCE_TOUCHSCREEN }
+            val event = MotionEvent.obtain(down, time, action, x, y, 0).apply {
+                source = InputDevice.SOURCE_TOUCHSCREEN
+            }
             instrumentation.uiAutomation.injectInputEvent(event, true)
             event.recycle()
         }

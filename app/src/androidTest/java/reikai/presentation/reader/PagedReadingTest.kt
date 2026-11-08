@@ -1034,7 +1034,13 @@ class PagedReadingTest(private val renderer: Renderer) {
             seen += picturesOnPages().filterNotNull()
         }
 
-        val expected = if (spread) spreadNumbers(shownPage.get()!!.second) else (0 until shownPage.get()!!.second).toList()
+        val expected = if (spread) {
+            spreadNumbers(
+                shownPage.get()!!.second,
+            )
+        } else {
+            (0 until shownPage.get()!!.second).toList()
+        }
         assertEquals("[$renderer] pages shown, and the picture on them", expected to listOf(true), pages to seen)
     }
 
@@ -1048,7 +1054,11 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         longPress(shownPictureCentre())
 
-        assertEquals("[$renderer] pictures opened, and pages turned", listOf<Any>(picture) to turns, opened.toList() to turned.get())
+        assertEquals(
+            "[$renderer] pictures opened, and pages turned",
+            listOf<Any>(picture) to turns,
+            opened.toList() to turned.get(),
+        )
     }
 
     @Test
@@ -1089,7 +1099,11 @@ class PagedReadingTest(private val renderer: Renderer) {
         longPress(shownPictureCentre())
         settle()
 
-        assertEquals("[$renderer] opened, and text selected", listOf<Any>(picture) to "", opened.toList() to selectedText())
+        assertEquals(
+            "[$renderer] opened, and text selected",
+            listOf<Any>(picture) to "",
+            opened.toList() to selectedText(),
+        )
     }
 
     private fun longPress(at: Pair<Float, Float>) {
@@ -1107,7 +1121,9 @@ class PagedReadingTest(private val renderer: Renderer) {
             var selected = ""
             instrumentation.runOnMainSync {
                 val chunks = (column as RecyclerView).children.flatMap { item ->
-                    (item as ViewGroup).children.filterIsInstance<ViewGroup>().flatMap { it.children.filterIsInstance<TextView>() }
+                    (item as ViewGroup).children.filterIsInstance<ViewGroup>().flatMap {
+                        it.children.filterIsInstance<TextView>()
+                    }
                 }
                 selected = chunks.filter { it.hasSelection() }
                     .joinToString("") { it.text.subSequence(it.selectionStart, it.selectionEnd) }
