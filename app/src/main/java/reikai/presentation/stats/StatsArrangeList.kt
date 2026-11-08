@@ -171,9 +171,12 @@ private fun ShelfCard(
     fun toggleFigure(figure: StatsFigureKind) {
         if (isFigureShown(figure)) {
             onHideFigures(hiddenFigures + figure)
-        } else {
-            if (!isOverviewShown) onHide(hidden - StatsCardKind.OVERVIEW)
+        } else if (isOverviewShown) {
             onHideFigures(hiddenFigures - figure)
+        } else {
+            // Every row reads unticked while the card is hidden, so the tick shows the one figure ticked.
+            onHide(hidden - StatsCardKind.OVERVIEW)
+            onHideFigures(StatsFigureKind.entries.toSet() - figure)
         }
     }
     ElevatedCard(

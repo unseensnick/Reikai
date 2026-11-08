@@ -108,6 +108,15 @@ class StatsArrangeListTest {
     }
 
     @Test
+    fun `ticking a figure of a hidden overview shows only that figure`() {
+        show(alreadyHidden = setOf(StatsCardKind.OVERVIEW))
+
+        compose.onNodeWithText("Mean score").performClick()
+
+        hiddenFigures shouldBe StatsFigureKind.entries.toSet() - StatsFigureKind.MEAN_SCORE
+    }
+
+    @Test
     fun `dragging an at a glance figure moves it`() {
         show()
 
