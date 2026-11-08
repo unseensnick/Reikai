@@ -112,6 +112,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Turning back onto the second half of a split wide page now shows that page's number.**
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
 - **With Animate page transitions off, the high quality renderer's long strip no longer slides or scrolls smoothly.**
 - **The high quality renderer's long strip now follows Sensitivity for hiding menu on scroll.**

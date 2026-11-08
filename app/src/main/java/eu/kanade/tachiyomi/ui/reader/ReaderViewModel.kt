@@ -881,9 +881,9 @@ class ReaderViewModel(
      * [page]'s chapter is different from the currently active.
      */
     fun onPageSelected(page: ReaderPage) {
-        // InsertPage doesn't change page progress
+        // RK: a split page's second half stands for its own page, as a back step reaches it first
         if (page is InsertPage) {
-            return
+            return onPageSelected(page.parent) // RK
         }
 
         val selectedChapter = page.chapter

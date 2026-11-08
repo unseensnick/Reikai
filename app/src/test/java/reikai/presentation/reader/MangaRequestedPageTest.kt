@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
+import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -41,6 +42,18 @@ class MangaRequestedPageTest {
             becameCurrent(model, finished)
             finished.requestedPage
         } shouldBe 5
+    }
+
+    /** Reached going back, a split page's second half is the first page the reader sees of it. */
+    @Test
+    fun `a split page's second half reports its own page`() = runTest {
+        onFinishedChapter { model, _ ->
+            val current = model.state.value.viewerChapters!!.currChapter
+            val pages = loadedPages(current, 10)
+            model.onPageSelected(pages[2])
+            model.onPageSelected(InsertPage(pages[1]))
+            current.requestedPage
+        } shouldBe 1
     }
 
     @Test
