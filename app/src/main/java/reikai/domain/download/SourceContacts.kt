@@ -15,6 +15,14 @@ class SourceContacts(private val clock: () -> Long) {
         last[sourceId] = clock()
     }
 
+    /** Runs [check], a request to [sourceId], and records the contact as it ends, failed or not. */
+    inline fun <T> reaching(sourceId: String, check: () -> T): T =
+        try {
+            check()
+        } finally {
+            record(sourceId)
+        }
+
     /**
      * What is left of [floorMs] since [sourceId] was last reached, so Off (0) never waits. Not jittered: it only
      * ends a gap already begun, and after a paced chapter [SourcePace] has already waited it out.

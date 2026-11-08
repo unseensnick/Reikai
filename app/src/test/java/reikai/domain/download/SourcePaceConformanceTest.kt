@@ -26,6 +26,7 @@ import io.mockk.runs
 import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
@@ -202,6 +203,22 @@ class SourcePaceConformanceTest {
 
     @ParameterizedTest
     @EnumSource(Half::class)
+    fun `a pause while a source waits out its delay leaves its chapter queued and unfetched`(half: Half) = runTest {
+        globalDelay(half).set(3_000L)
+        val engine = engine(half)
+        engine.checkForUpdates()
+        engine.queue(1L)
+        engine.run()
+        advanceTimeBy(1L)
+
+        engine.pause()
+        advanceUntilIdle()
+
+        (fetches to engine.isQueued(1L)) shouldBe (emptyList<Pair<Long, Long>>() to true)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Half::class)
     fun `at Off the first chapter after an update's check starts at once`(half: Half) = runTest {
         globalDelay(half).set(0L)
         val engine = engine(half)
@@ -220,6 +237,9 @@ class SourcePaceConformanceTest {
         /** One entry's update check, through the update jobs' own kernel. */
         suspend fun checkForUpdates()
         suspend fun remove(chapterId: Long)
+
+        /** The user's pause, through each engine's own verb. */
+        suspend fun pause()
         fun isQueued(chapterId: Long): Boolean
     }
 
@@ -319,6 +339,8 @@ class SourcePaceConformanceTest {
 
             override suspend fun remove(chapterId: Long) = downloader.dequeue(listOf(chapter(chapterId)))
 
+            override suspend fun pause() = downloader.pause()
+
             override fun isQueued(chapterId: Long) =
                 downloader.queueState.value.single { it.chapter.id == chapterId }.status == Download.State.QUEUE
         }
@@ -374,13 +396,18 @@ class SourcePaceConformanceTest {
             sourceContacts = contacts,
         )
         val scope = this
+        // A pause stops the worker, and stopping the worker cancels the drain it runs.
+        var drain: Job? = null
+        every { NovelDownloadWorker.stop(any()) } answers { drain?.cancel() }
         return object : Engine {
             override suspend fun queue(vararg chapterIds: Long) =
                 manager.downloadChapters(chapterIds.map { chapters.getValue(it) })
 
             override suspend fun run() {
-                scope.launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
+                drain = scope.launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
             }
+
+            override suspend fun pause() = manager.pauseDownloads()
 
             override suspend fun checkForUpdates() = updateBySource(listOf(novel), sourceOf = Novel::source, contacts) {
             }

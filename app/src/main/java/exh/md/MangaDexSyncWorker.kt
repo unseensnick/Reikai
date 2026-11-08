@@ -37,6 +37,7 @@ import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.notification.hiddenEntryIds
 import reikai.data.notification.mainActivityPendingIntent
+import reikai.domain.download.SourceContacts
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.ReconcileMergedChapters
@@ -83,6 +84,8 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
     @Inject private lateinit var getTracksInGroup: GetTracksInGroup
 
     @Inject private lateinit var upsertTrack: UpsertTrack
+
+    @Inject private lateinit var sourceContacts: SourceContacts
 
     @Inject private lateinit var trackerManager: TrackerManager
 
@@ -244,8 +247,10 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
                     // UpdateMangaFromRemote runs the enhanced metadata round-trip, so it persists the rich
                     // flat metadata (rating, tags). Do NOT insert the follows-list metadata afterwards: it
                     // only carries followStatus and would blank the rating until a manual refresh.
-                    local = updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
-                        .getOrThrow().manga
+                    // Recorded so a download queued after the sync waits out the source's delay.
+                    local = sourceContacts.reaching(mangaDex.id.toString()) {
+                        updateMangaFromRemote(local, fetchDetails = true, fetchChapters = true)
+                    }.getOrThrow().manga
                     // A refused favorite write leaves the follow out of the library, so it reports as failed.
                     if (libraryAdder.addWithoutAsking(local.id) != null) imported++ else failed += name
                 } catch (e: CancellationException) {

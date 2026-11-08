@@ -35,6 +35,7 @@ import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
+import reikai.domain.download.SourceContacts
 import reikai.domain.merge.ReconcileMergedChapters
 import tachiyomi.core.common.preference.getAndSet
 import tachiyomi.core.common.util.system.logcat
@@ -80,6 +81,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var libraryUpdateNotifier: LibraryUpdateNotifier
 
     @Inject private lateinit var reconcileMergedChapters: ReconcileMergedChapters
+
+    @Inject private lateinit var sourceContacts: SourceContacts
 
     private val updateErrorLog = UpdateErrorLog(context)
 
@@ -162,7 +165,8 @@ class EHentaiUpdateWorker(private val context: Context, workerParams: WorkerPara
                             updatedThisIteration + failuresThisIteration,
                             mangaMetaToUpdateThisIter.size,
                         )
-                        updateEntryAndGetChapters(manga)
+                        // Keyed as updateBySource keys it, so a download queued after waits out the delay.
+                        sourceContacts.reaching(manga.source.toString()) { updateEntryAndGetChapters(manga) }
                     } catch (e: GalleryNotUpdatedException) {
                         if (e.network) {
                             failuresThisIteration++

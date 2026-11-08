@@ -222,21 +222,6 @@ class NovelDownloadManagerDrainTest {
     }
 
     @Test
-    fun `a pause while a source waits out its delay leaves its chapter queued and unfetched`() = runTest(io) {
-        firstFetch.complete(Unit)
-        contacts.record("src")
-        manager.downloadChapters(chapters.take(1))
-
-        val drain = launch { manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> }) }
-        runCurrent()
-        drain.cancel()
-        advanceUntilIdle()
-
-        (written to manager.queueState.value.map { it.state }) shouldBe
-            (emptyList<Long>() to listOf(NovelDownload.State.QUEUE))
-    }
-
-    @Test
     fun `a drain ends once every source is done`() = runTest(io) {
         firstFetch.complete(Unit)
         manager.downloadChapters(chapters + otherChapter)

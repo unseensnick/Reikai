@@ -2,6 +2,7 @@ package reikai.domain.download
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import java.io.IOException
 
 class SourceContactsTest {
 
@@ -41,6 +42,20 @@ class SourceContactsTest {
         contacts.record("a")
         now = 8_000L
         contacts.record("a")
+
+        contacts.waitBefore("a", floorMs = 10_000L) shouldBe 10_000L
+    }
+
+    @Test
+    fun `a request made through reaching is recorded as it ends`() {
+        contacts.reaching("a") { now = 4_000L }
+
+        contacts.waitBefore("a", floorMs = 10_000L) shouldBe 10_000L
+    }
+
+    @Test
+    fun `a failed request made through reaching is still recorded`() {
+        runCatching { contacts.reaching("a") { throw IOException("down") } }
 
         contacts.waitBefore("a", floorMs = 10_000L) shouldBe 10_000L
     }

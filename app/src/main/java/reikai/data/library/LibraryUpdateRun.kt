@@ -101,12 +101,8 @@ suspend fun <E, S> updateBySource(
                     semaphore.withPermit {
                         inSource.forEach {
                             ensureActive()
-                            try {
-                                check(it)
-                            } finally {
-                                // As a string, the key both downloaders pace a source by.
-                                contacts.record(sourceOf(it).toString())
-                            }
+                            // As a string, the key both downloaders pace a source by.
+                            contacts.reaching(sourceOf(it).toString()) { check(it) }
                         }
                     }
                 }
