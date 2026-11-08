@@ -26,6 +26,7 @@ import reikai.presentation.reader.WebViewHostActivity
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.math.abs
 
 /**
  * The full-screen picture viewer a cover and a chapter's picture open in, with both of its renderers: the
@@ -74,6 +75,39 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
         assertEquals("[$name] left then right of the middle row", Color.RED to Color.BLUE, colourAcross(0.5f))
     }
 
+    /** Fitted, the picture reaches both sides of the screen: a smaller one leaves a margin. */
+    @Test
+    fun aWidePictureOpensAcrossTheWholeWidth() {
+        val (width, _) = screen()
+
+        assertTrue("[$name] spans ${pictureWidth()} of $width", pictureWidth() >= width * 0.97f)
+    }
+
+    /** Fitted across, the picture is a third as tall as the screen is wide: a zoomed or cropped one is taller. */
+    @Test
+    fun aWidePictureOpensAThirdAsTallAsTheScreenIsWide() {
+        val (width, _) = screen()
+        val height = pictureHeight()
+
+        assertTrue("[$name] is $height tall on a $width wide screen", abs(height - width / 3f) <= width * 0.03f)
+    }
+
+    /**
+     * Two quick turns leave the picture as it was. The turned load is the slower one, so a superseded load
+     * finishing last would leave it turned; this shows that only on a device where the two loads overlap.
+     */
+    @Test
+    fun twoQuickRotatesLeaveThePictureUpright() {
+        val rotate = rotateButton()
+        rotate.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        // A frame apart, so each turn reaches its own load, and well inside the time a load takes.
+        Thread.sleep(40)
+        rotate.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+        Thread.sleep(2_000)
+
+        assertEquals("[$name] left then right of the middle row", Color.RED to Color.BLUE, colourAcross(0.5f))
+    }
+
     @Test
     fun aTapOnThePictureClosesIt() {
         val (width, height) = screen()
@@ -105,7 +139,7 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
         Thread.sleep(1_200)
         capture("zoomed")
 
-        assertTrue("[$name] a double tap is not a close", dismissed.get() <= 1)
+        assertEquals("[$name] a double tap is not a close", 0, dismissed.get())
     }
 
     private val name get() = if (highQuality) "high quality" else "standard"
@@ -120,7 +154,11 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
     }
 
     private fun clickRotate() {
-        var clicked = false
+        assertTrue("[$name] Rotate did not click", rotateButton().performAction(AccessibilityNodeInfo.ACTION_CLICK))
+    }
+
+    private fun rotateButton(): AccessibilityNodeInfo {
+        var button: AccessibilityNodeInfo? = null
         var seen = emptyList<String>()
         awaitWhile {
             val automation = instrumentation.uiAutomation
@@ -129,14 +167,11 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
             }
             val nodes = automation.windows.mapNotNull { it.root }.flatMap { descendants(it) }
             seen = nodes.mapNotNull { it.contentDescription?.toString() ?: it.text?.toString() }
-            val button = nodes.firstOrNull { it.contentDescription?.toString() == ROTATE }
-            clicked = button?.let { node ->
-                generateSequence(node) { it.parent }.firstOrNull { it.isClickable }
-                    ?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-            } == true
-            !clicked
+            button = nodes.firstOrNull { it.contentDescription?.toString() == ROTATE }
+                ?.let { node -> generateSequence(node) { it.parent }.firstOrNull { it.isClickable } }
+            button == null
         }
-        assertTrue("[$name] Rotate was not found among $seen", clicked)
+        return checkNotNull(button) { "[$name] Rotate was not found among $seen" }
     }
 
     private fun descendants(node: AccessibilityNodeInfo): List<AccessibilityNodeInfo> =
@@ -150,6 +185,28 @@ class PictureViewerDialogTest(private val highQuality: Boolean) {
     /** The colours above and below the screen's middle, a sixth of its height away, down its middle at [column]. */
     private fun colourDown(column: Float): Pair<Int, Int>? = sample { width, height ->
         listOf((width * column).toInt() to height / 2 - height / 6, (width * column).toInt() to height / 2 + height / 6)
+    }
+
+    /** How many pixels the picture's red half covers down the screen's column a quarter of the way in. */
+    private fun pictureHeight(): Int = screenshot { shot ->
+        (0 until shot.height).count { named(shot.getPixel(shot.width / 4, it)) == Color.RED }
+    }
+
+    /** From the first to the last of the picture's pixels across the middle of its red half's run down the screen. */
+    private fun pictureWidth(): Int = screenshot { shot ->
+        val column = (0 until shot.height).filter { named(shot.getPixel(shot.width / 4, it)) == Color.RED }
+        val row = column[column.size / 2]
+        val drawn = (0 until shot.width).filter { named(shot.getPixel(it, row)) != null }
+        drawn.last() - drawn.first() + 1
+    }
+
+    private fun <T> screenshot(read: (Bitmap) -> T): T {
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        return try {
+            read(shot)
+        } finally {
+            shot.recycle()
+        }
     }
 
     private fun sample(points: (Int, Int) -> List<Pair<Int, Int>>): Pair<Int, Int>? {
