@@ -41,6 +41,21 @@ class WebGpuFitScaleTest {
     }
 
     @Test
+    fun `landscape zoom zooms a wide page under fit screen`() {
+        landscapeZoomApplies(landscapeZoom = true, ScaleType.FIT_SCREEN) shouldBe true
+    }
+
+    @Test
+    fun `landscape zoom leaves smart fit's own zoom`() {
+        landscapeZoomApplies(landscapeZoom = true, ScaleType.SMART_FIT) shouldBe false
+    }
+
+    @Test
+    fun `landscape zoom off zooms nothing`() {
+        landscapeZoomApplies(landscapeZoom = false, ScaleType.FIT_SCREEN) shouldBe false
+    }
+
+    @Test
     fun `fit screen leaves the library's own fit`() {
         scale(ScaleType.FIT_SCREEN, 500f, 4000f) shouldBe null
     }

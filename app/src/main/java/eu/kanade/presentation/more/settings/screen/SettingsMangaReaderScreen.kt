@@ -256,6 +256,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
         val imageScaleType by imageScaleTypePref.collectAsState()
         val dualPageSplit by dualPageSplitPref.collectAsState()
         val rotateToFit by rotateToFitPref.collectAsState()
+        val cropBorders by readerPreferences.cropBorders.collectAsState() // RK
 
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pager_viewer),
@@ -297,6 +298,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         .mapIndexed { index, it -> index + 1 to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_image_scale_type),
+                    visible = rows.singlePageRows, // RK
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = readerPreferences.zoomStart,
@@ -311,6 +313,13 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_crop_borders),
                     visible = rows.singlePageRows, // RK
                 ),
+                // RK --> beside the switch it needs, as the reader sheet has it
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = readerPreferences.cropInsteadOfZoom,
+                    title = stringResource(MR.strings.pref_crop_instead_of_zoom),
+                    visible = rows.cropInsteadOfZoom(cropBorders),
+                ),
+                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.landscapeZoom,
                     title = stringResource(MR.strings.pref_landscape_zoom),

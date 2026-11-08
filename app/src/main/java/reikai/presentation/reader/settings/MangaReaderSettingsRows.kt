@@ -28,6 +28,9 @@ internal class MangaReaderSettingsRows(
 
     /** The dual-page variants of transition animation and cutout mode. */
     val dualPageRows = highQualityRenderer && dualPageView != ReaderPreferences.DualPageView.NEVER
+
+    /** That renderer's alternative to zooming into the borders the paged Crop borders measures. */
+    fun cropInsteadOfZoom(cropBorders: Boolean) = rendererRows && cropBorders && singlePageRows
 }
 
 /** The transitions upstream's sheet offers for a two-page spread: all but Flip left and Flip right. */
@@ -45,9 +48,8 @@ internal fun webGpuViewerGroup(
     preferences: ReaderPreferences,
     rows: MangaReaderSettingsRows,
 ): Preference.PreferenceGroup {
-    val cropBorders by preferences.cropBorders.collectAsState()
     return Preference.PreferenceGroup(
-        title = stringResource(MR.strings.webgpu_viewer),
+        title = stringResource(MR.strings.pref_category_high_quality_renderer),
         visible = rows.rendererRows,
         preferenceItems = listOf(
             Preference.PreferenceItem.ListPreference(
@@ -78,11 +80,6 @@ internal fun webGpuViewerGroup(
                 entries = ReaderPreferences.CutoutMode.entries.associateWith { stringResource(it.titleRes) },
                 title = stringResource(MR.strings.pref_cutout_mode_dual),
                 visible = rows.dualPageRows,
-            ),
-            Preference.PreferenceItem.SwitchPreference(
-                preference = preferences.cropInsteadOfZoom,
-                title = stringResource(MR.strings.pref_crop_instead_of_zoom),
-                visible = cropBorders && rows.singlePageRows,
             ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = preferences.disableDoubleTapGestures,

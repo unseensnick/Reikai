@@ -81,6 +81,7 @@ import reikai.presentation.reader.holdsForRetry
 import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
 import reikai.presentation.reader.landsOnSecondHalf
+import reikai.presentation.reader.landscapeZoomApplies
 import reikai.presentation.reader.pressIsLeftOfSeam
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
@@ -1896,7 +1897,7 @@ open class WebGpuViewer(
     }
 
     private fun applyWideZoomIfNeeded(page: ImagePage.ImageSingle): Boolean {
-        if (!paged.page.landscapeZoom) return false
+        if (!landscapeZoomApplies(paged.page.landscapeZoom, paged.page.imageScaleType)) return false // RK
 
         val screenW = viewerState.width
         val screenH = viewerState.viewportHeight

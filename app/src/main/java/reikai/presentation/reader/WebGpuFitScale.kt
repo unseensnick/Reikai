@@ -18,3 +18,10 @@ fun fitHomeScale(scaleType: ScaleType, screenWidth: Float, screenHeight: Float, 
         ScaleType.STRETCH -> max(screenWidth / width, screenHeight / height)
         ScaleType.FIT_SCREEN -> null
     }
+
+/**
+ * Whether Automatically zoom into wide images applies: under Fit screen only, as in the classic viewer
+ * (`ReaderPageImageView.landscapeZoom`), so every other scale type keeps its own zoom of a wide page.
+ */
+fun landscapeZoomApplies(landscapeZoom: Boolean, scaleType: ScaleType): Boolean =
+    landscapeZoom && scaleType == ScaleType.FIT_SCREEN

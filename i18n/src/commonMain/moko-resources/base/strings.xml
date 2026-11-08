@@ -708,6 +708,7 @@
     <string name="pref_show_reading_mode">Show reading mode</string>
     <string name="pref_show_reading_mode_summary">Briefly show current mode when reader is opened</string>
     <string name="pref_high_quality_renderer">Use high quality renderer</string>
+    <string name="pref_category_high_quality_renderer">High quality renderer</string>
     <string name="pref_crop_borders">Crop borders</string>
     <string name="pref_crop_instead_of_zoom">Crop instead of zoom</string>
     <string name="pref_fast_rendering_only">Disable tiles</string>

@@ -42,6 +42,26 @@ class MangaReaderSettingsRowsTest {
     }
 
     @Test
+    fun `crop instead of zoom shows with the renderer and crop borders on`() {
+        rows(true).cropInsteadOfZoom(cropBorders = true) shouldBe true
+    }
+
+    @Test
+    fun `crop instead of zoom needs crop borders`() {
+        rows(true).cropInsteadOfZoom(cropBorders = false) shouldBe false
+    }
+
+    @Test
+    fun `crop instead of zoom hides with the renderer off`() {
+        rows(false).cropInsteadOfZoom(cropBorders = true) shouldBe false
+    }
+
+    @Test
+    fun `crop instead of zoom hides while the renderer always shows two pages`() {
+        rows(true, DualPageView.ALWAYS).cropInsteadOfZoom(cropBorders = true) shouldBe false
+    }
+
+    @Test
     fun `the renderer offers smart fit`() {
         ReaderPreferences.ImageScaleTypeWebGpuViewer shouldContain MR.strings.scale_type_smart_fit
     }
