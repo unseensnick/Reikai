@@ -250,20 +250,31 @@ class ReadAloudController(
 
     /**
      * One paragraph, or one sentence while sentences are spoken, crossing into the neighbouring paragraph
-     * past either end: forward to its first sentence, back to its last.
+     * past either end: forward to its first sentence, back to its last. With nothing to speak before it,
+     * a step back starts the paragraph again.
      */
     private fun step(delta: Int) {
         val at = position ?: return readFromHere()
         val target = sentenceIndex + delta
         command {
+            val back = if (delta < 0) speakableBefore(at.paragraph) else null
             when {
-                sentences.isEmpty() -> playAt((at.paragraph + delta).coerceAtLeast(0))
                 target in sentences.indices -> playAt(at.paragraph, fromSentence = target)
                 delta > 0 -> playAt(at.paragraph + 1)
-                at.paragraph > 0 -> playAt(at.paragraph - 1, fromSentence = LAST_SENTENCE)
-                else -> playAt(0)
+                back == null -> playAt(at.paragraph)
+                sentences.isEmpty() -> playAt(back)
+                else -> playAt(back, fromSentence = LAST_SENTENCE)
             }
         }
+    }
+
+    /**
+     * The nearest paragraph before [index] with something to speak. One with nothing, such as a scene
+     * break, finishes at once and speech would carry on forward to where the step left.
+     */
+    private fun speakableBefore(index: Int): Int? = (index - 1 downTo 0).firstOrNull { i ->
+        val text = paragraphs.getOrNull(i) ?: return@firstOrNull false
+        engine?.pieces(text, bySentence = false)?.isEmpty() != true
     }
 
     /** Replaces whatever was in progress, including the paragraph being spoken, with [block]. */
@@ -343,13 +354,9 @@ class ReadAloudController(
         val spoken = ++token
         val pieces = speaker.pieces(paragraphs[at.paragraph], bySentence)
         sentences = if (bySentence) pieces else emptyList()
-        val first = if (sentenceIndex ==
-            LAST_SENTENCE
-        ) {
-            pieces.lastIndex
-        } else {
-            sentenceIndex.coerceIn(0, maxOf(0, pieces.lastIndex))
-        }
+        // Clamped for LAST_SENTENCE too, since a paragraph with nothing to speak has no last piece.
+        val first = (if (sentenceIndex == LAST_SENTENCE) pieces.lastIndex else sentenceIndex)
+            .coerceIn(0, maxOf(0, pieces.lastIndex))
         sentenceIndex = first
         speaker.speak(
             pieces = pieces.drop(first),

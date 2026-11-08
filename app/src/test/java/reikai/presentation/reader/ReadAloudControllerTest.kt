@@ -528,6 +528,40 @@ class ReadAloudControllerTest {
         engine.spoken shouldBe listOf("a", "a")
     }
 
+    /** A scene break has nothing to speak, so it would finish at once and speech would come straight back. */
+    @Test
+    fun `previous steps back past a scene break to the paragraph before it`() = runTest {
+        surface.chapters[1L] = listOf("a", "***", "b")
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+
+        act { controller.previousParagraph() }
+
+        engine.spoken shouldBe listOf("b", "a")
+    }
+
+    @Test
+    fun `previous by sentence steps back past a scene break to the last sentence before it`() = runTest {
+        sentenceChapter()
+        surface.chapters[1L] = listOf("One. Two.", "***", "Three. Four.")
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        val controller = playing()
+
+        act { controller.previousParagraph() }
+
+        engine.spoken.last() shouldBe "Two."
+    }
+
+    @Test
+    fun `previous with only a scene break before it starts the paragraph again`() = runTest {
+        surface.chapters[1L] = listOf("***", "b")
+        val controller = playing()
+
+        act { controller.previousParagraph() }
+
+        engine.spoken shouldBe listOf("b", "b")
+    }
+
     @Test
     fun `next at the last paragraph ends the chapter`() = runTest {
         surface.firstVisible = ReadAloudPosition(1L, 2)

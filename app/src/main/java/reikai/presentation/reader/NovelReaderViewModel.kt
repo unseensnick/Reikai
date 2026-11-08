@@ -516,6 +516,10 @@ class NovelReaderViewModel(
     @Volatile
     private var lastSaved: Pair<Long, ChapterProgress.Percent>? = null
 
+    /** Read aloud's place is the last one saved, with no report of the reader's own since. */
+    @Volatile
+    private var spokenPlaceHeld = false
+
     /**
      * Every scroll persists, debounced. Keying the write on a settle instead lost an auto-scrolled or
      * scrubbed read entirely, because those move the viewport without a touch to end.
@@ -544,9 +548,13 @@ class NovelReaderViewModel(
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
             if (before < threshold && clamped.wholePercent >= threshold) viewModelScope.launchIO { rebuildWindow() }
         }
+        // A landing reports the screen it was rebuilt on, which with Keep in view off is not where
+        // speech left the reader's place; the reader moving settles the landing and saves again.
+        if (spokenPlaceHeld && !landing.settled) return
         // A repeat is dropped, which a held position for another chapter cannot be: it would have
         // been the last report, so this one would differ from it.
         if (!settled && lastSaved == id to clamped) return
+        spokenPlaceHeld = false
         lastSaved = id to clamped
         // A settle is where the scroll stopped, and finishing carries mark-as-read, the sibling marking
         // and the tracker push, so neither waits.
@@ -684,6 +692,7 @@ class NovelReaderViewModel(
     internal fun saveSpokenPosition(chapterId: Long, share: Double) {
         val at = ChapterProgress.Percent.of(share)
         lastSaved = chapterId to at
+        spokenPlaceHeld = true
         progressSave.report(chapterId, at, now = completesChapter(at))
     }
 

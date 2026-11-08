@@ -292,6 +292,46 @@ class NovelReaderViewModelTest {
         harness.progressOf(opened) shouldBe 4_000L
     }
 
+    /** The screen sits at 20% while speech, with Keep in view off, has saved 40%. */
+    private suspend fun TestScope.spokenAwayFromScreen(
+        harness: NovelReaderViewModelHarness,
+    ): Pair<NovelReaderViewModel, SeededChapter> {
+        harness.novelPreferences.readerTtsKeepInView().set(false)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(10))
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(20))
+        model.saveSpokenPosition(opened.id, 0.4)
+        advanceUntilIdle()
+        return model to opened
+    }
+
+    @Test
+    fun `a renderer rebuilt on the screen's place keeps the spoken paragraph saved`() = readerTest { harness ->
+        val (model, chapter) = spokenAwayFromScreen(harness)
+
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
+        advanceUntilIdle()
+
+        harness.progressOf(chapter) shouldBe 4_000L
+    }
+
+    @Test
+    fun `the reader moving after a rebuild saves their place over the spoken paragraph`() = readerTest { harness ->
+        val (model, chapter) = spokenAwayFromScreen(harness)
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(20))
+
+        model.saveProgress(chapter.id, ChapterProgress.Percent.ofWhole(30))
+        advanceUntilIdle()
+
+        harness.progressOf(chapter) shouldBe 3_000L
+    }
+
     @Test
     fun `reopening lands on the spoken paragraph`() = readerTest { harness ->
         val novel = harness.novel(harness.source("src"))
