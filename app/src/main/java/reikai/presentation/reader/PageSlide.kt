@@ -1,11 +1,8 @@
 package reikai.presentation.reader
 
-import android.app.Activity
 import android.graphics.Bitmap
-import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
-import android.view.PixelCopy
 import android.view.View
 import android.view.ViewGroup
 import android.view.animation.DecelerateInterpolator
@@ -33,34 +30,23 @@ class PageSlide(private val content: View) {
      */
     fun turn(leftward: Boolean, turn: () -> Unit) {
         finish()
-        val window = (content.context as? Activity)?.window
         val parent = content.parent as? ViewGroup
-        if (capturing || window == null || parent == null || content.width == 0 || content.height == 0) {
+        if (capturing || parent == null || content.width == 0 || content.height == 0) {
             turn()
             return
         }
         val copy = bitmap?.takeIf { it.width == content.width && it.height == content.height }
             ?: Bitmap.createBitmap(content.width, content.height, Bitmap.Config.ARGB_8888).also { bitmap = it }
-        val at = IntArray(2).also(content::getLocationInWindow)
         capturing = true
-        // PixelCopy reads what the screen shows, which a WebView's own draw into a bitmap does not reliably give.
-        try {
-            PixelCopy.request(
-                window,
-                Rect(at[0], at[1], at[0] + content.width, at[1] + content.height),
-                copy,
-                { result ->
-                    capturing = false
-                    // Uploads the copy while the turn lands, rather than on the slide's first frame.
-                    copy.prepareToDraw()
-                    if (result == PixelCopy.SUCCESS && content.isAttachedToWindow) lay(parent, copy, leftward)
-                    turn()
-                },
-                handler,
-            )
-        } catch (_: IllegalArgumentException) {
-            // Thrown once the window has no surface, which a web turn waiting on its page can reach after the
-            // reader left the screen. The turn lands without its slide.
+        val asked = copyScreen(content, copy, handler) { copied ->
+            capturing = false
+            // Uploads the copy while the turn lands, rather than on the slide's first frame.
+            copy.prepareToDraw()
+            if (copied && content.isAttachedToWindow) lay(parent, copy, leftward)
+            turn()
+        }
+        if (!asked) {
+            // The turn lands without its slide.
             capturing = false
             turn()
         }

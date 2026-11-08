@@ -1,16 +1,12 @@
 package reikai.presentation.reader
 
-import android.app.Activity
 import android.content.Context
-import android.content.ContextWrapper
 import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Paint
-import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
-import android.view.PixelCopy
 import android.view.View
 import android.widget.FrameLayout
 import androidx.annotation.ColorInt
@@ -230,28 +226,20 @@ class NovelSpreadHost(
      * reader would see a page from either side of it.
      */
     fun hold(then: () -> Unit) {
-        val window = generateSequence(context) { (it as? ContextWrapper)?.baseContext }
-            .filterIsInstance<Activity>().firstOrNull()?.window
         // Already covered, the copy shows the last settled spread, which is what the reader should keep seeing.
-        if (window == null || width == 0 || height == 0 || cover != null) return then()
+        if (width == 0 || height == 0 || cover != null) return then()
         val copy = spare?.takeIf { it.width == width && it.height == height }
             ?: Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).also { spare = it }
-        val at = IntArray(2).also(::getLocationInWindow)
-        PixelCopy.request(
-            window,
-            Rect(at[0], at[1], at[0] + width, at[1] + height),
-            copy,
-            { result ->
-                if (result == PixelCopy.SUCCESS) {
-                    cover = copy
-                    invalidate()
-                    removeCallbacks(dropCover)
-                    postDelayed(dropCover, HOLD_CAP_MS)
-                }
-                then()
-            },
-            handler ?: Handler(Looper.getMainLooper()),
-        )
+        val asked = copyScreen(this, copy, handler ?: Handler(Looper.getMainLooper())) { copied ->
+            if (copied) {
+                cover = copy
+                invalidate()
+                removeCallbacks(dropCover)
+                postDelayed(dropCover, HOLD_CAP_MS)
+            }
+            then()
+        }
+        if (!asked) then()
     }
 
     /** Drops the copy [hold] put up, once the spread's tiles have had time to raster ([afterTiles]). */

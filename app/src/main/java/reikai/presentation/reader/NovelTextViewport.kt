@@ -841,16 +841,25 @@ class NovelTextViewport(
     private fun readerTextColor() = readerTextColorInt(checkNotNull(settings).textColor)
 
     override fun applySettings(settings: NovelReaderSettings) {
+        val columnBefore = spreadColumnWidth()
+
         @Suppress("NAME_SHADOWING")
         val settings = spreadHost?.columnSettings(settings) ?: settings
         val previous = this.settings
         this.settings = settings
+        // A spread pins the column's own margins, so its pictures, bound to the column's width, see the
+        // reader's margins move only through that width.
+        val columnMoved = spreadColumnWidth() != columnBefore
         // The markers are views of their own, so showing, hiding or recolouring them re-measures no text.
         val recoloured = previous != null && previous.textColor != settings.textColor
         val seamsToggled =
             previous != null && previous.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         if (recoloured || seamsToggled) adapter.refreshMarkers()
         if (previous?.markShape() != settings.markShape()) drawSpokenParagraph()
+        if (previous != null && columnMoved) {
+            startRedraw()
+            return
+        }
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         // A chapter still rendering built its pictures at the old size and joins with a restyle.
         val holdsPictures = slots.any { !it.rendered || it.block.holdsPictures() }
@@ -1105,11 +1114,15 @@ class NovelTextViewport(
     private fun columnWidthPx(settings: NovelReaderSettings): Int {
         val density = context.resources.displayMetrics.density
         val sides = ((settings.margins.left + settings.margins.right) * density).toInt()
-        val display = context.resources.displayMetrics.widthPixels
-        val available = spreadHost?.let { it.columnWidth(it.width.takeIf { width -> width > 0 } ?: display) }
+        val available = spreadColumnWidth()
             ?: recycler.width.takeIf { it > 0 }
-            ?: display
+            ?: context.resources.displayMetrics.widthPixels
         return (available - sides).coerceAtLeast(1)
+    }
+
+    /** The column's width in a spread, which the reader's side margins set there; null outside one. */
+    private fun spreadColumnWidth(): Int? = spreadHost?.let {
+        it.columnWidth(it.width.takeIf { width -> width > 0 } ?: context.resources.displayMetrics.widthPixels)
     }
 
     /** A page's height for [settings], as [pageContentHeight] measures it, from the screen while the list has none. */
