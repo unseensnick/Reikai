@@ -2,6 +2,7 @@
 # Used in [/gradle/build-config/src/main/kotlin/PluginKotlinMultiplatform.kt]
 android-sdk-min = "26"
 android-sdk-compile = "37.2"
+# RK: at 37, home-network servers (Cloudflare solver, Komga, Kavita) need ACCESS_LOCAL_NETWORK, see docs/dev/parked.md
 android-sdk-target = "36"
 android-ndk = "29.0.14206865"
 java = "17"
