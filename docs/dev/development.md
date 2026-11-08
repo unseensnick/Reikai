@@ -64,7 +64,7 @@ Reikai's own pre-rebase features are read from the `design/library-compose` bran
 
 ## Porting
 
-Two inbound flows, each with its own doc (this section is a pointer, not the record):
+Three inbound flows; the first two have their own doc (this section is a pointer, not the record):
 
 - **Mihon upstream** (the base): ported by hand from `refs/mihon`, edits to Mihon's files fenced with `// RK`. Process, ledger and frontier: [upstream-sync.md](upstream-sync.md).
 - **Borrowed features** (Komikku / Tsundoku / IReader / LNReader): per-feature, no frontier. Record: [feature-ports.md](feature-ports.md).

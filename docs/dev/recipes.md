@@ -14,8 +14,8 @@ or above the migration's gate.
    and take what it needs as constructor parameters. `ChapterNameSuffixMigration` is the model.
 2. Give it its own gate above the shipped `versionCode` (grep `override val version` under
    `mihon/core/migration/migrations/` for the current top); never reuse a gate another migration holds.
-3. Raise `versionCode` in `app/build.gradle.kts` to that gate and add the migration to the comment above
-   it that lists each gate. This is the one mid-cycle `versionCode` bump allowed; `versionName` waits for
+3. Raise `versionCode` in `app/build.gradle.kts` to that gate and update the shipped and next-gate numbers
+   in the comment above it. This is the one mid-cycle `versionCode` bump allowed; `versionName` waits for
    the release cut.
 4. Write a test under `app/src/test/java/mihon/core/migration/migrations/` that runs it through
    `Migrator.initialize(old, BuildConfig.VERSION_CODE, listOf(migration))` from an older version, as
@@ -72,8 +72,8 @@ regenerate or delete `43.db`. Full rules: [.claude/rules/database.md](../../.cla
    `Tracker.supportsContent(isNovel)`, so a tracker that declares `supportsNovels` needs no wiring there.
 5. Add it to the hand-kept `cases()` in `app/src/test/java/reikai/data/track/TrackerMetadataAccessTest.kt`.
 
-Checks: nothing iterates `TrackerManager.trackers` in a test, so the case list and a duplicate id are
-caught only by review.
+Checks: no test checks `TrackerManager.trackers` against the case list or for a duplicate id, so both
+are caught only by review.
 
 ## Add a backup field
 

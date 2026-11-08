@@ -8,7 +8,7 @@ This is the add-time duplicate check. For how same-series-different-source entri
 
 Adding a manga runs `MangaLibraryAdder.findDuplicates`, which calls the `GetDuplicateLibraryManga` interactor and runs the `getDuplicateLibraryManga` query in `manga.sq`. The query flags an existing favorite as a duplicate of the manga being added when either of two conditions holds:
 
-- **Title match:** the existing favorite's title contains the new manga's title (case-insensitive substring), across any source. A blank title matches nothing, since every title contains the empty string. The novel query, `getDuplicateLibraryNovel`, applies both conditions the same way, and `DuplicateTrackMatchConformanceTest` runs each case over the two.
+- **Title match:** the existing favorite's title contains the new manga's title (case-insensitive substring), across any source. A blank title matches nothing, since every title contains the empty string. The novel query, `getDuplicateLibraryNovel`, applies both conditions the same way, and `DuplicateTitleMatchConformanceTest` (the title match) and `DuplicateTrackMatchConformanceTest` (the tracker match, a `remote_id` of 0, the blank title) run each case over the two.
 - **Tracker identity:** the two manga share a `(tracker_id, remote_id)` row in `manga_track`, meaning they are the same entry on the same tracker regardless of how each source titles them locally. A `track_dupes` CTE self-joins `manga_track` on `(tracker_id, remote_id)` (excluding the manga's own id) to find every other library manga bound to the same tracker entry. A `remote_id` of 0 is a tracker that gave no entry id, so it never matches.
 
 The tracker half is what catches a different-romanization duplicate (for example "Boku no Hero Academia" against "My Hero Academia"): the titles never match as substrings, but if both carry the same AniList / MAL / MangaUpdates entry, they collapse to the same `(tracker_id, remote_id)` and the query returns the existing card.
@@ -21,7 +21,7 @@ The tracker half is what catches a different-romanization duplicate (for example
 
 The tracker half only fires when the manga being added already has `manga_track` rows. A freshly browsed manga usually has none until a tracker is bound, so:
 
-- **`EnhancedTrackService` sources** (for example MangaDex, Komga, Suwayomi) auto-bind a tracker entry on the details visit, before the favorite tap, so the tracker half works on the add path.
+- **Enhanced trackers** (`EnhancedTracker`: Komga, Kavita, Suwayomi) bind right after the add, through `AutoBindOnAdd` once the row is favorited, which is after `findDuplicates` ran. So the tracker half catches them only on a later add or in migration, not on the add that binds them.
 - **Migration** has both the source and target manga with their tracker rows already, so it works there too.
 - For a plain source with no prior tracker binding, only the title-substring half applies at add time.
 

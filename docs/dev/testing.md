@@ -8,11 +8,11 @@ test over both content types, mutation checking) are in
 
 ## Unit tests
 
-Five modules carry JVM tests: `:app`, `:core:common`, `:data`, `:domain` and `:source-api` (each under
+Six modules carry JVM tests: `:app`, `:core:common`, `:data`, `:domain`, `:presentation-core` and `:source-api` (each under
 `src/test`). Every one is an Android module, so the tasks are AGP's: `test` runs every variant,
 `testDebugUnitTest` runs only debug. The build logic puts every `Test` task on the JUnit Platform
 (`configureTest` in `gradle/build-logic/src/main/kotlin/mihon/gradle/extensions/Project.kt`). The
-test stack is JUnit 5 (Jupiter), Kotest assertions only (no Kotest specs) and MockK, from the `test`
+test stack is JUnit 6 (Jupiter), Kotest assertions only (no Kotest specs) and MockK, from the `test`
 bundle in `gradle/libs.versions.toml`.
 
 ```powershell
@@ -139,13 +139,30 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 | Library category tabs | `TabTextTest` (`presentation-core`) | a label keeps its width and count in a scrollable row, and a long label gives way to its count in a narrow tab |
 | Library pull-to-refresh | `LibraryUpdatePullRefreshTest` | a pull starts an update and holds the spinner until it runs |
 | Reader settings sheet | `ReaderSettingsSheetTest` | every tab's rows, for manga and novels |
+| Reader sheet, manga rows | `MangaReaderSheetRowsTest` | each viewer offers only rows that change something |
+| Reader sheet, tap zones | `TapZonesRowsTest` | which rows each tap layout shows, for both readers |
 | Reader error page, failed-chapter Retry | `ReaderErrorPagesTest` | Retry runs and follows the chapter's state |
+| Reader chrome pages | `ReaderChromePagesTest` | capture sizes, Open in WebView's source, a transition keeps its height, the download badge on the first frame |
+| Reader page indicator | `ReaderPageIndicatorTest` | the largest size draws taller, a backed line spans the screen |
+| Reader bar toggles | `ReaderActionRowToggleTest` | an on button says so, and its fill stands out in lightness only when asked |
+| Reader mouse wheel | `MouseWheelConformanceTest` | a notch turns the same way in both readers |
+| Novel renderer host | `ViewportHostTest` | the page filter sits on the view, not on a page turn's copy |
+| Novel chapter seam | `NovelSeamCardTest` | the missing-chapters warning uses the reader's text colour |
+| Settings > Novel reader | `SettingsNovelReaderScreenTest` | Dual page view shows for paged reading only |
+| Edit info dialog | `EntryEditInfoDialogTest` | save, reset tags, case-insensitive tag dedupe, collate, tag drag, for manga and novels |
+| Show setting and type chips | `ShownContentUiTest` | the choices, and the chips, badges and Recents categories a hidden type takes away |
 | Migration list | `EntryMigrationListTest`, `MigrationListDialogsTest` | back and up ask before stopping; each dialog renders |
+| Migration commit bar | `MigrationCommitBarTest` | the Migrate button clears the navigation bar |
 | Browse long-press dialogs | `EntryAddDialogsTest` | remove, categories, add anyway and group add reach the flow, for manga and novels |
+| Browse sources filter | `SourcesFilterContentTest` | hiding novels on the Novels chip shows the manga half |
+| Local catalogue | `CatalogueLocalSourceTest` | an empty listing offers Import and the guide, no retry; a refresh runs on resume |
 | Saved search chips | `SavedSearchChipTest` | a tap applies, a long press offers deletion |
 | Recents selection bar | `RecentsToolbarTest` | select all, inverse and cancel reach their handlers |
+| Local import | `ImportListTest`, `ImportGroupCardTest` | rows that look alike are all listed; type chips keep one line at the largest font |
+| Restore repo card | `RestoreInstallItemsTest` | a store's signing key shows, or none for a keyless store |
+| Statistics | `StatsStripTest`, `StatsArrangeListTest`, `StatsDonutWidthTest`, `StatsReadingCardTest`, `StatsScoresCardTest`, `StatsPeriodChipsTest` | the strip in its shelf, hiding and dragging while arranging, the pie by shelf width, the reading card's lines, a score row's series, period chips at the largest font |
 
-Not covered yet, among the larger surfaces: details, the library grid and lists, the recents rows, the downloads queue, the browse grids, Statistics, settings, and tracking. The reader's page rendering is View-based and stays on a device.
+Not covered yet, among the larger surfaces: the details screen itself (its edit-info dialog is), the library grid and lists, the recents rows, the downloads queue, the browse grids, settings beyond the Novel reader screen, and tracking. The reader's page rendering is View-based and stays on a device.
 
 ### Screenshot tests
 
