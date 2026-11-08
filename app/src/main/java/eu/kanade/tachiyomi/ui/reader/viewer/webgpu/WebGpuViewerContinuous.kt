@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
+import reikai.presentation.reader.StripMenuHide
 import reikai.presentation.reader.holdsStripAutoScroll
 import reikai.presentation.reader.stripPageAt
 import kotlin.math.max
@@ -62,13 +64,29 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
             val first = wasAtEdge == null
             val edgeChanged = edge != wasAtEdge
             wasAtEdge = edge
+            val scrolledPast = scrolledPastHideThreshold() // RK
             if (edge) {
                 if (edgeChanged) scope.launch { activity.showMenu() }
-            } else if (!first && (edgeChanged || pageChanged) && !activity.isScrollingThroughPages) {
+            } else if (!first && (edgeChanged || scrolledPast) && !activity.isScrollingThroughPages) { // RK
                 scope.launch { activity.hideMenu() }
             }
         }
     }
+
+    // RK --> the long strip's hide threshold, as the other long strips read it, measured in screen pixels
+    private val menuHide = StripMenuHide(activity.appGraph.readerPreferences.readerHideThreshold.get().threshold)
+
+    /** Where the last report saw the strip; null after a jump, which is no scroll. Renderer thread. */
+    @Volatile
+    private var lastDocumentY: Float? = null
+
+    private fun scrolledPastHideThreshold(): Boolean {
+        val documentY = state.documentY
+        val dy = lastDocumentY?.let { (documentY - it) * state.scale } ?: 0f
+        lastDocumentY = documentY
+        return menuHide.onScroll(dy, activity.viewModel.state.value.menuVisible)
+    }
+    // RK <--
 
     // RK --> auto-scroll's smooth step, held while a page on screen or the next below it is loading. It
     // reads the pages' own load state rather than the draw state, because a refused step draws no frame
@@ -141,6 +159,13 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     }
 
     private fun scrollByHalfPage(direction: Int) {
+        // RK --> Page transitions off scrolls at once, as the other long strip does
+        if (!general.usePageTransitions) {
+            state.scrollBy(direction * state.height / 2f)
+            state.invalidate()
+            return
+        }
+        // RK <--
         state.animateScroll(direction * state.height / 2f)
     }
 
@@ -152,11 +177,13 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         super.moveToPage(page)
         wasAtEdge = null
         lastReadThrough = null
+        lastDocumentY = null // RK
         // Also for a jump to the page already showing, which turns nothing to slide in.
         state.resetScroll()
     }
 
     override fun animateTurn(direction: Int, fromSpread: ImagePage) {
-        state.animateSlideIn(direction)
+        // RK: Page transitions off lands the page without sliding it in
+        if (general.usePageTransitions) state.animateSlideIn(direction) else state.invalidate()
     }
 }
