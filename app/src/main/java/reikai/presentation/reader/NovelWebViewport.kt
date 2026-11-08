@@ -284,6 +284,7 @@ class NovelWebViewport(
                 onPagedMoved = ::requestSnap,
                 onPagedPicturesLanded = { id ->
                     shownPage.update { if ((it.key as? Pair<*, *>)?.first == id) it.copy(ready = true) else it }
+                    if (endWaitingOnPictures == id) reportEnd(id)
                 },
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { token -> mainHandler.post { onPageReady(token) } },
@@ -434,6 +435,9 @@ class NovelWebViewport(
         @Suppress("NAME_SHADOWING")
         val settings = spreadHost?.columnSettings(settings) ?: settings
         visibleChapterId = chapter.chapterId
+        // A new document reports afresh, as the page's own endsSeen does.
+        reportedEnds.clear()
+        endWaitingOnPictures = null
         // A new document has no engine until it says so, and whatever the old one had queued belongs
         // to a window that is being replaced.
         dropPendingCalls()
@@ -768,6 +772,17 @@ class NovelWebViewport(
     /** The height of the page last shown, which the page's mask was drawn for. */
     private var shownHeight = 0f
 
+    /** Chapters whose end has been reported, each once per document. */
+    private val reportedEnds = mutableSetOf<Long>()
+
+    /** A chapter whose last page is shown while its pictures still land, which measure it short until they do. */
+    private var endWaitingOnPictures: Long? = null
+
+    private fun reportEnd(chapterId: Long) {
+        endWaitingOnPictures = null
+        if (reportedEnds.add(chapterId)) callbacks.onChapterEndSeen(chapterId)
+    }
+
     /** The first page of the spread page [index] is on, which is the page shown: [index] itself without one. */
     private fun leftOf(pages: List<NovelPaging.Page>, index: Int) =
         if (spreadHost != null) NovelSpreads.leftOf(pages, index) else index
@@ -841,6 +856,17 @@ class NovelWebViewport(
             val shown = answer?.let { runCatching { JSONObject(it) }.getOrNull() }
             shownPage.value = ShownPage(key, ready = shown?.optBoolean("landed", true) ?: true)
             count?.let { (shownIndex, of) -> callbacks.onPageShown(shownIndex, of) }
+            // Paged, by the page shown (NovelPaging.showsEnd), and once the chapter's pictures have landed.
+            endWaitingOnPictures = null
+            if (NovelPaging.showsEnd(pages, readTo)) {
+                if (shown?.optBoolean("landed", true) !=
+                    false
+                ) {
+                    reportEnd(chapterId)
+                } else {
+                    endWaitingOnPictures = chapterId
+                }
+            }
             // The view's own scroll follows the page's a moment later, and until it does the old place shows.
             if (shown?.optBoolean("moved") == true && webView.scrollY == viewYBefore) viewScrollBehind = true
             // The copy stays over the old page until the new one is painted, or the old one would slide in. A spread

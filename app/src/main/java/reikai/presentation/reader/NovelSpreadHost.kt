@@ -139,7 +139,8 @@ class NovelSpreadHost(
         requestLayout()
     }
 
-    private fun columnWidth(w: Int) = ((w - outerLeft - outerRight - gutter) / 2 + gutter).coerceAtLeast(1)
+    /** How wide the column is laid out in a spread [w] wide, which is what the column measures before it is. */
+    fun columnWidth(w: Int) = ((w - outerLeft - outerRight - gutter) / 2 + gutter).coerceAtLeast(1)
 
     /** Where the column is drawn for the left and the right half of the spread. */
     private val leftX: Int get() = outerLeft - gutter / 2

@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import android.graphics.Bitmap
 import android.graphics.Color
 import android.os.SystemClock
 import android.util.Base64
@@ -1274,6 +1275,158 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertEquals("[$renderer] the column's layer", View.LAYER_TYPE_HARDWARE, layer)
     }
 
+    /**
+     * A spread with no second page hides the half below its page, which still holds the column on: the card and a
+     * chapter short enough to fit one page. That chapter's end is not on screen, so it is not seen.
+     */
+    @Test
+    fun aLoneLastPageDoesNotSeeTheNextChaptersEnd() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        openOddChapter(1L)
+        append(2L, paragraphs(2))
+
+        readToTheEnd(1L)
+        settle()
+
+        assertTrue("[$renderer] the next chapter's end was seen from a lone page", 2L !in endsSeen)
+    }
+
+    /** One page at a time the card is a page of its own too, with the next chapter under the mask below it. */
+    @Test
+    fun theCardDoesNotSeeTheNextChaptersEndOnOnePage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, short("first"))
+        append(2L, paragraphs(2))
+        readToTheEnd(1L)
+
+        forwardTap()
+        settle()
+
+        assertTrue("[$renderer] the next chapter's end was seen from the card", 2L !in endsSeen)
+    }
+
+    /** The card stands alone too, and the chapter below it is not on screen until the reader turns onto it. */
+    @Test
+    fun theCardDoesNotSeeTheNextChaptersEnd() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(1L, short("first"))
+        append(2L, paragraphs(2))
+        readToTheEnd(1L)
+
+        forwardTap()
+        settle()
+
+        assertTrue("[$renderer] the next chapter's end was seen from the card", 2L !in endsSeen)
+    }
+
+    /**
+     * A picture taller than a page keeps sharp slices only near the rows on screen, drawing the rest from a small
+     * stand-in, and a spread's second page shows rows below the screen's height in the column. Told only of the
+     * screen, the second page drew from the stand-in, which blurs fine stripes to grey.
+     */
+    @Test
+    fun aTallPictureFillsTheSecondPage() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        val picture = "data:image/png;base64," + Base64.encodeToString(stripedPng(300, 20_000), Base64.NO_WRAP)
+
+        // One paragraph ahead of it, since the WebView opens a chapter not started on its first text.
+        open(1L, paragraphs(1) + "<p><img src=\"$picture\"></p>" + short("after"))
+        forwardTap()
+
+        val blurred = spreadsEndingBlurred(PICTURE_SPREADS)
+
+        assertEquals("[$renderer] spreads whose second page ends blurred", emptyList<Int>(), blurred)
+    }
+
+    /**
+     * A picture is sized to the page's width when the chapter renders, which for the chapter opened is before the
+     * list has a width of its own. Sized to the screen's instead, a spread's picture was twice its page and cut.
+     */
+    @Test
+    fun aPictureFitsItsPageInASpread() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        val picture = "data:image/png;base64," + Base64.encodeToString(borderedPng(1_600, 1_200), Base64.NO_WRAP)
+
+        open(1L, "<p><img src=\"$picture\"></p>" + short("after"))
+        awaitTurnCopyGone()
+
+        assertEquals("[$renderer] the picture's left and right edges on its page", 2, yellowEdgesOnFirstPage())
+    }
+
+    /** A dark picture inside a yellow border, whose two side edges show only if the whole width is drawn. */
+    private fun borderedPng(width: Int, height: Int): ByteArray = java.io.ByteArrayOutputStream().also { out ->
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        canvas.drawColor(Color.rgb(40, 90, 160))
+        val border = android.graphics.Paint().apply {
+            color = Color.YELLOW
+            style = android.graphics.Paint.Style.STROKE
+            strokeWidth = BORDER_PX.toFloat()
+        }
+        canvas.drawRect(BORDER_PX / 2f, BORDER_PX / 2f, width - BORDER_PX / 2f, height - BORDER_PX / 2f, border)
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bitmap.recycle()
+    }.toByteArray()
+
+    /** How many separate runs of yellow cross the first page's half, a third of the way down the picture's top. */
+    private fun yellowEdgesOnFirstPage(): Int {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        val y = (at[1] + openedWith.margins.top * density + view.height * PICTURE_ROW).toInt()
+        val row = IntArray(view.width / 2)
+        shot.getPixels(row, 0, row.size, at[0], y, row.size, 1)
+        shot.recycle()
+        val yellow = row.map { Color.red(it) > 200 && Color.green(it) > 200 && Color.blue(it) < 90 }
+        return yellow.indices.count { yellow[it] && (it == 0 || !yellow[it - 1]) }
+    }
+
+    /** Of the next [count] spreads, the ones whose second page ends blurred. Each spread falls on a picture's
+     *  slices differently, so a blurred band shows within a few of them. */
+    private fun spreadsEndingBlurred(count: Int): List<Int> = (1..count).filter { spread ->
+        awaitTurnCopyGone()
+        val blurred = !sharpNearTheBottom()
+        if (spread < count) forwardTap()
+        blurred
+    }
+
+    /** Black and white rows [STRIPE_PX] tall, which only a slice decoded at the drawn size keeps apart. */
+    private fun stripedPng(width: Int, height: Int): ByteArray = java.io.ByteArrayOutputStream().also { out ->
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
+        val canvas = android.graphics.Canvas(bitmap)
+        val paint = android.graphics.Paint().apply { color = Color.BLACK }
+        canvas.drawColor(Color.WHITE)
+        (0 until height step STRIPE_PX * 2).forEach { y ->
+            canvas.drawRect(
+                0f,
+                y.toFloat(),
+                width.toFloat(),
+                (
+                    y +
+                        STRIPE_PX
+                    ).toFloat(),
+                paint,
+            )
+        }
+        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+        bitmap.recycle()
+    }.toByteArray()
+
+    /** Whether the band just above the second page's bottom margin, down the middle of its half, shows both near
+     *  black and near white, which the stand-in's grey does not. */
+    private fun sharpNearTheBottom(): Boolean {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val bottomMargin = openedWith.margins.bottom * instrumentation.targetContext.resources.displayMetrics.density
+        val bandBottom = (at[1] + view.height - bottomMargin - INK_BAND_PX).toInt()
+        val x = at[0] + view.width * 3 / 4
+        val column = (bandBottom - INK_BAND_PX until bandBottom).map { y -> Color.luminance(shot.getPixel(x, y)) }
+        shot.recycle()
+        return column.any { it < DARK_LUMINANCE } && column.any { it > LIGHT_LUMINANCE }
+    }
+
     /** A chapter's lone last page is a spread's first half, the left reading left to right. */
     @Test
     fun aLoneLastPageTakesTheLeftHalf() {
@@ -1308,6 +1461,7 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     /** Whether each half of the spread on screen draws anything but the page colour, by a screenshot. */
     private fun inkOnHalves(): Pair<Boolean, Boolean> {
+        awaitTurnCopyGone()
         val at = IntArray(2)
         instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
         val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
@@ -1326,6 +1480,10 @@ class PagedReadingTest(private val renderer: Renderer) {
         shot.recycle()
         return halves
     }
+
+    /** A WebView turn shows a copy of the spread turned from until a few frames after the new one paints, a second at
+     *  most (NovelSpreadHost.hold), which a slow screen can still be showing when the turn is reported. */
+    private fun awaitTurnCopyGone() = repeat(4) { settle() }
 
     private fun colourDistance(a: Int, b: Int): Int =
         abs(Color.red(a) - Color.red(b)) + abs(Color.green(a) - Color.green(b)) + abs(Color.blue(a) - Color.blue(b))
@@ -1756,6 +1914,23 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** The band of the screen a page's ink is looked for in, as shares of its height. */
         const val INK_TOP = 0.05f
+
+        /** A band of rows clear of the page's bottom edge, where a picture filling the page draws. */
+        const val INK_BAND_PX = 40
+
+        /** A picture border thick enough to survive being drawn at a third of its size. */
+        const val BORDER_PX = 24
+
+        /** Down the screen from the reading top, as a share of its height: inside a wide picture at a page's top. */
+        const val PICTURE_ROW = 0.08f
+
+        /** Thin enough that a small stand-in blurs the stripes together, thick enough to survive scaling. */
+        const val STRIPE_PX = 4
+        const val DARK_LUMINANCE = 0.15f
+        const val LIGHT_LUMINANCE = 0.85f
+
+        /** Spreads checked inside the tall picture, all of them its own and a few slice alignments between them. */
+        const val PICTURE_SPREADS = 5
         const val INK_BOTTOM = 0.92f
 
         /** Numbered past the chapters between it and chapter 1, so its seam warns of them. */

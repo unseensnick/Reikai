@@ -142,6 +142,13 @@ object NovelPaging {
         return pages.take(index).count { !it.seam } to textCount(pages)
     }
 
+    /**
+     * Whether a chapter's end is on screen with the reader read to page [readTo]: its last page shown. The column
+     * holds more on screen under the page masks (a seam's page, a spread with no second page), which the reader
+     * cannot see, so how far the screen reaches says nothing.
+     */
+    fun showsEnd(pages: List<Page>, readTo: Int): Boolean = pages.isNotEmpty() && readTo >= pages.lastIndex
+
     /** Whether page [index] is a seam's, where the reader is still in the chapter before, at its end. */
     fun isSeam(pages: List<Page>, index: Int): Boolean = pages.getOrNull(index)?.seam == true
 

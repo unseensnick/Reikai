@@ -110,6 +110,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**
+- **A paged novel's short last chapter is no longer marked read while the transition before it is still showing.**
 - **The transition between novel chapters now always fits on one page in paged reading.** A long title or the missing-chapters warning used to split it across pages on a short screen.
 - **The missing-chapters warning between novel chapters is now readable on dark reader backgrounds in Native text mode.** Both modes now draw it the same width.
 - **The novel reader's title now follows when you tap back into the chapter before one you just opened.**

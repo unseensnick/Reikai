@@ -337,7 +337,7 @@ class NovelReaderProvider(
             return NovelTextViewport(
                 context = host,
                 fontManager = fontManager,
-                textSelectable = built.textSelectable,
+                textSelectable = built.selectsText(spread),
                 pageLayout = built.pageLayout,
                 callbacks = callbacks,
                 autoScrollSpeed = autoScrollSpeed,
@@ -349,7 +349,7 @@ class NovelReaderProvider(
             context = host,
             fontManager = fontManager,
             imageRequests = imageRequests,
-            textSelectable = built.textSelectable,
+            textSelectable = built.selectsText(spread),
             pageLayout = built.pageLayout,
             callbacks = callbacks,
             useOriginalFonts = built.useOriginalFonts,
@@ -466,6 +466,10 @@ internal data class NovelViewportSettings(
     val useOriginalFonts: Boolean,
     val sourceCssPriority: Boolean,
 ) {
+    /** Never in a [spread], which draws its column where the column is not: selection's handles and toolbar are
+     *  placed where it is, a page away from the text they belong to. */
+    fun selectsText(spread: Boolean): Boolean = textSelectable && !spread
+
     companion object {
         fun read(preferences: NovelPreferences) = NovelViewportSettings(
             renderingMode = preferences.readerRenderingMode().get(),

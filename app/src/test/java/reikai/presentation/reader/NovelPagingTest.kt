@@ -249,4 +249,14 @@ class NovelPagingTest {
         const val PAGE = 1000f
         const val MARGINS = 120f
     }
+
+    @Test
+    fun `a chapter's end shows on its last page`() {
+        NovelPaging.showsEnd(NovelPaging.cut(lines, height = 100f), 3) shouldBe true
+    }
+
+    @Test
+    fun `a chapter's end does not show before its last page`() {
+        NovelPaging.showsEnd(NovelPaging.cut(lines, height = 100f), 2) shouldBe false
+    }
 }

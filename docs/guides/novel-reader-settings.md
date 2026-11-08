@@ -21,7 +21,7 @@ How a chapter is drawn. **Native text** lays the text out in the app. **WebView*
 **Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. Changing it from the reader's settings sheet rebuilds the reader at the same place.
 
 ### Select text by long press <Badge type="info" text="Off" />
-Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once.
+Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once. Text cannot be selected while **Dual page view** shows two pages side by side.
 
 ### Continuous chapters <Badge type="info" text="On" />
 Scrolls straight on into the next chapter. Off makes each chapter its own page.

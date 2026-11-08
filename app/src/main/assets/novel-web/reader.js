@@ -209,8 +209,10 @@
    * they land it measures short and would be read the moment it opened.
    */
   function reportEnds() {
-    if (!ready) return;
-    var bottom = scrollTop() + windowHeight() + EDGE_TOLERANCE;
+    // Paged, the host reports a chapter's end by the page it shows (NovelPaging.showsEnd): the column holds more on
+    // screen under the page masks, which the reader cannot see.
+    if (!ready || PAGED) return;
+    var bottom = scrollTop() + viewportHeight() + EDGE_TOLERANCE;
     boundaries.forEach(function (b) {
       if (endsSeen[b.id] || b.start + b.height > bottom || !imagesLanded(b.el)) return;
       endsSeen[b.id] = true;

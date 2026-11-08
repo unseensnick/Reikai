@@ -1040,7 +1040,9 @@ class NovelTextViewport(
                 ) {
                     anchor.picture.onVisible(0, 0)
                 } else {
-                    anchor.picture.onVisible(-top, recycler.height - top)
+                    // A spread's second page shows the column below the list's bottom too.
+                    val bottom = spreadHost?.let { maxOf(recycler.height, it.shownBottom.toInt()) } ?: recycler.height
+                    anchor.picture.onVisible(-top, bottom - top)
                 }
             }
         }
@@ -1069,11 +1071,15 @@ class NovelTextViewport(
     }
 
     /** The text column: what is left of the reader once the page's side margins are taken off. The
-     *  recycler answers for its own width once laid out, and the display stands in before that. */
+     *  recycler answers for its own width once laid out, and the display stands in before that. A spread answers
+     *  itself, since it has just moved the reader's margins and the recycler still has the width from before. */
     private fun columnWidthPx(settings: NovelReaderSettings): Int {
         val density = context.resources.displayMetrics.density
         val sides = ((settings.margins.left + settings.margins.right) * density).toInt()
-        val available = recycler.width.takeIf { it > 0 } ?: context.resources.displayMetrics.widthPixels
+        val display = context.resources.displayMetrics.widthPixels
+        val available = spreadHost?.let { it.columnWidth(it.width.takeIf { width -> width > 0 } ?: display) }
+            ?: recycler.width.takeIf { it > 0 }
+            ?: display
         return (available - sides).coerceAtLeast(1)
     }
 
@@ -1420,15 +1426,25 @@ class NovelTextViewport(
     /** The WebView page's `reportEnds`: held while a chapter's images load, since until they land it
      *  measures short and would be read the moment it opened. */
     private fun reportEnds() {
+        if (paged) return reportPagedEnd()
         slots.forEach { slot ->
             val id = slot.chapter.chapterId
             if (!slot.rendered || slot.block.imagesLoading || id in reportedEnds) return@forEach
             val (top, height) = boundsOf(slot) ?: return@forEach
-            // A spread shows the page below the screen's too.
-            if (top + height > recycler.height + (spreadHost?.shift ?: 0f)) return@forEach
+            if (top + height > recycler.height) return@forEach
             reportedEnds += id
             callbacks.onChapterEndSeen(id)
         }
+    }
+
+    /** Paged, by the page shown rather than the screen (NovelPaging.showsEnd). */
+    private fun reportPagedEnd() {
+        val at = pageAt() ?: return
+        val id = at.slot.chapter.chapterId
+        if (!at.slot.rendered || at.slot.block.imagesLoading || id in reportedEnds) return
+        if (!NovelPaging.showsEnd(at.pages, readTo(at.pages, at.index))) return
+        reportedEnds += id
+        callbacks.onChapterEndSeen(id)
     }
 
     /**
