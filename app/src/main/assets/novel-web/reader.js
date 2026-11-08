@@ -41,6 +41,13 @@
   // How a picture opens full screen (NovelPictureGesture.kt): a long press always, a tap only while scrolling.
   var LONG_PRESS_MS = __LONG_PRESS_MS__;
   var PICTURE_OPENS_ON_TAP = __PICTURE_OPENS_ON_TAP__;
+  // How far a picture may shrink to fit one page, MIN_PAGE_FIT_SCALE in PictureBox.kt.
+  var MIN_PAGE_FIT_SCALE = __MIN_PAGE_FIT_SCALE__;
+
+  /* shrinksToPage (PictureBox.kt): drawn a page tall only when that shrinks it to no less than MIN_PAGE_FIT_SCALE. */
+  function shrinksToPage(height, pageHeight) {
+    return height > pageHeight && pageHeight >= height * MIN_PAGE_FIT_SCALE;
+  }
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -627,9 +634,15 @@
       var m = margins();
       var page = viewportHeight() - m.top - m.bottom;
       if (!(page > 0)) return;
-      // No picture is drawn taller than a page (reader.css), so each shows whole on one, as pictureBox caps it.
+      // A picture taller than a page is drawn a page tall (reader.css) unless that shrinks it past
+      // MIN_PAGE_FIT_SCALE; then it keeps its width and runs across pages, as pictureBox draws it.
       document.documentElement.style.setProperty('--rk-page-height', page + 'px');
-      var max =parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
+      document.querySelectorAll(CHAPTER_SELECTOR + ' img.rk-loaded').forEach(function (img) {
+        img.classList.add('rk-runs-on');
+        var height = img.getBoundingClientRect().height;
+        img.classList.toggle('rk-runs-on', height > page && !shrinksToPage(height, page));
+      });
+      var max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
       document.querySelectorAll('.rk-seam').forEach(function (seam) {
         var card = seam.firstElementChild;
         card.style.zoom = '';

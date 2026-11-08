@@ -64,14 +64,25 @@ class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) 
         assumeTrue(device != null)
         val stage = arguments.getString("pictureStage") ?: "after"
         val modes = arguments.getString("pictureModes")?.split(',') ?: listOf("single", "two")
+        val suffix = arguments.getString("pictureSuffix").orEmpty()
+        val tallOnly = arguments.getString("pictureCases") == "tall"
         modes.forEach { mode ->
             val spread = mode == "two"
-            fun name(case: String) = "${device}_${renderer.name.lowercase()}_${mode}_${case}_$stage"
+            fun name(case: String) = "${device}_${renderer.name.lowercase()}_${mode}_${case}_$stage$suffix"
 
             open(spread, intro() + picture("TALL", 600, 2_400) + paragraphs("after", 6))
             shoot(name("tall1"))
             turn()
             shoot(name("tall2"))
+
+            // Long vertical art, past the shrink limit wherever it is drawn.
+            open(spread, intro() + picture("LONG", 600, 9_000) + paragraphs("after", 6))
+            shoot(name("long1"))
+            turn()
+            shoot(name("long2"))
+            turn()
+            shoot(name("long3"))
+            if (tallOnly) return@forEach
 
             val pageTall = picture("PAGE", 600, pageTallSourceHeight(spread))
             open(spread, intro() + pageTall + paragraphs("after", 6))

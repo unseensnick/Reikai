@@ -22,10 +22,17 @@ class PictureBoxTest {
     }
 
     @Test
-    @DisplayName("paged, a picture taller than a page shrinks to the page's height, keeping its shape")
+    @DisplayName("paged, a picture up to twice a page tall shrinks to the page's height, keeping its shape")
     fun tallShrinksToThePage() {
+        pictureBox(sourceWidth = 414, sourceHeight = 1000, columnPx = 1242, density = 3f, maxHeightPx = 2000) shouldBe
+            PictureBox(828, 2000)
+    }
+
+    @Test
+    @DisplayName("paged, a picture more than twice a page tall keeps its width and runs across pages")
+    fun longKeepsItsWidth() {
         pictureBox(sourceWidth = 800, sourceHeight = 12711, columnPx = 1242, density = 3f, maxHeightPx = 2000) shouldBe
-            PictureBox(125, 2000)
+            PictureBox(1242, 19733)
     }
 
     @Test

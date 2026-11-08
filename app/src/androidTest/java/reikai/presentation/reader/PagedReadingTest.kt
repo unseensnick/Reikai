@@ -1024,24 +1024,88 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     private fun tallPictureShowsWholeOnce(spread: Boolean) {
-        build(NovelPageLayout.PAGED_LTR, spread = spread)
-        open(1L, short("before") + "<p><img src=\"${borderedPicture(300, 9_000)}\"></p>" + short("after"))
-        val seen = picturesOnPages().filterNotNull().toMutableList()
+        val (pages, seen) = walkPicture(spread, PAGES_SHRUNK_TO_ONE)
 
+        assertEquals(
+            "[$renderer] pages shown, and the picture on them",
+            allPages(spread) to listOf(true),
+            pages to seen,
+        )
+    }
+
+    /** Shrunk to one page it would be too small to read, so it keeps its width and runs across pages. */
+    @Test
+    fun aPictureTooTallToShrinkRunsAcrossPagesAtItsWidth() = longPictureRunsOn(spread = false)
+
+    @Test
+    fun aPictureTooTallToShrinkRunsAcrossASpreadsPagesAtItsWidth() = longPictureRunsOn(spread = true)
+
+    private fun longPictureRunsOn(spread: Boolean) {
+        val (pages, seen, width) = walkPicture(spread, PAGES_TOO_TALL_TO_SHRINK)
+
+        assertEquals(
+            "[$renderer] pages shown, the picture never whole on one, and drawn at its width",
+            Triple(allPages(spread), false, true),
+            Triple(pages, seen.isEmpty() || seen.any { it }, abs(width - blueWidth(spread)) <= WIDTH_SLACK_PX),
+        )
+    }
+
+    /**
+     * Opens a picture [pagesTall] pages tall at its own width between text, turns through the chapter, and gives
+     * the pages shown, whether the picture showed whole on each page it was on, and its widest drawn width.
+     */
+    private fun walkPicture(spread: Boolean, pagesTall: Float): Triple<List<Int>, List<Boolean>, Float> {
+        build(NovelPageLayout.PAGED_LTR, spread = spread)
+        open(1L, paragraphs(1))
+        val height = pictureSourceHeightFor(pagesTall, spread)
+        reopen(1L, short("before") + "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        awaitTurnCopyGone()
+        val seen = picturesOnPages().filterNotNull().toMutableList()
+        var width = pictureWidth()
         val pages = pagesTurning {
             forwardTap()
             awaitTurnCopyGone()
             seen += picturesOnPages().filterNotNull()
+            width = maxOf(width, pictureWidth())
         }
+        return Triple(pages, seen, width)
+    }
 
-        val expected = if (spread) {
-            spreadNumbers(
-                shownPage.get()!!.second,
-            )
+    private fun allPages(spread: Boolean): List<Int> = shownPage.get()!!.second.let { count ->
+        if (spread) spreadNumbers(count) else (0 until count).toList()
+    }
+
+    /** How wide [borderedPng]'s blue runs inside its border, drawn unshrunk. */
+    private fun blueWidth(spread: Boolean): Float = pictureDrawnWidth(spread) * (600 - 2 * BORDER_PX) / 600
+
+    /** The width a 600-wide picture is drawn at in the column it gets, unshrunk. */
+    private fun pictureDrawnWidth(spread: Boolean): Float {
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        val margins = openedWith.margins
+        val column = if (spread) {
+            view.width / 2f - (margins.left + NovelSpreadHost.INNER_MARGIN_DP) * density
         } else {
-            (0 until shownPage.get()!!.second).toList()
+            view.width - (margins.left + margins.right) * density
         }
-        assertEquals("[$renderer] pages shown, and the picture on them", expected to listOf(true), pages to seen)
+        return minOf(column, 600 * density)
+    }
+
+    /** The widest run of [borderedPng]'s picture across the screen, 0 when none shows. */
+    private fun pictureWidth(): Float {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val height = minOf(view.height, shot.height - at[1])
+        val pixels = IntArray(view.width * height)
+        shot.getPixels(pixels, 0, view.width, at[0], at[1], view.width, height)
+        shot.recycle()
+        val pages = if (spreadBuilt) 2 else 1
+        val half = view.width / pages
+        return (0 until pages).maxOf { page ->
+            val columns = pixels.indices.filter { isPictureBlue(pixels[it]) }.map { it % view.width }
+                .filter { it / half == page }
+            if (columns.size < MIN_PICTURE_PIXELS) 0f else (columns.max() - columns.min() + 1).toFloat()
+        }
     }
 
     /** Paged, a tap turns the page wherever it lands, so a picture opens on a long press, and that turns nothing. */
@@ -1106,6 +1170,25 @@ class PagedReadingTest(private val renderer: Renderer) {
         )
     }
 
+    /**
+     * The page's long press on a picture is the viewer's, so the browser's own menu for it is called off. Recorded
+     * by a listener added after the page's, which sees whether the page cancelled the menu.
+     */
+    @Test
+    fun aLongPressOnAPictureCallsOffTheBrowsersMenu() {
+        assumeTrue("only the page has a browser menu", renderer == Renderer.WEB)
+        build(NovelPageLayout.PAGED_LTR, selectable = true)
+        open(1L, "<p><img src=\"${borderedPicture(600, 400)}\"></p>" + short("after"))
+        evalString(
+            "window.rkMenu = 'none'; document.addEventListener('contextmenu', function (e) {" +
+                " window.rkMenu = e.defaultPrevented ? 'cancelled' : 'shown'; }); ''",
+        )
+
+        longPress(shownPictureCentre())
+
+        assertEquals("[$renderer] the browser's menu", "cancelled", evalString("String(window.rkMenu)"))
+    }
+
     private fun longPress(at: Pair<Float, Float>) {
         val (x, y) = at
         val down = SystemClock.uptimeMillis()
@@ -1167,13 +1250,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         val density = instrumentation.targetContext.resources.displayMetrics.density
         val margins = openedWith.margins
         val pageHeight = view.height - (margins.top + margins.bottom) * density
-        val column = if (spread) {
-            view.width / 2f - (margins.left + NovelSpreadHost.INNER_MARGIN_DP) * density
-        } else {
-            view.width - (margins.left + margins.right) * density
-        }
-        val drawnWidth = minOf(column, 600 * density)
-        return (share * pageHeight * 600 / drawnWidth).toInt()
+        return (share * pageHeight * 600 / pictureDrawnWidth(spread)).toInt()
     }
 
     /**
@@ -2071,6 +2148,13 @@ class PagedReadingTest(private val renderer: Renderer) {
 
         /** Of a page's height: reaching past where [forwardTap] lands. */
         const val PAGE_SHARE_TALL_PICTURE = 0.95f
+
+        /** In pages at the picture's own width: under the shrink limit (PictureBox.kt MIN_PAGE_FIT_SCALE), and over it. */
+        const val PAGES_SHRUNK_TO_ONE = 1.6f
+        const val PAGES_TOO_TALL_TO_SHRINK = 3f
+
+        /** Antialiasing at the border, and a pixel of rounding each side. */
+        const val WIDTH_SLACK_PX = 8f
 
         /** Fewer than a picture drawn at its smallest has, more than antialiasing leaves. */
         const val MIN_PICTURE_PIXELS = 400

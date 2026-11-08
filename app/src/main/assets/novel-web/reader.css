@@ -230,16 +230,9 @@ img {
   margin: 1em auto;
 }
 
-/* A long press on a picture opens it (reader.js), so it never selects or calls up the browser's menu. */
-img {
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-/* Paged, a picture taller than a page shrinks to it keeping its shape, so it shows whole on one page; contain
-   keeps the shape when the chapter fixes the picture's width. */
-.rk-paged img {
+/* Paged, a picture taller than a page shrinks to it keeping its shape, so it shows whole on one page, unless that
+   would shrink it too far (rk-runs-on, reader.js); contain keeps the shape when the chapter fixes its width. */
+.rk-paged img:not(.rk-runs-on) {
   max-height: var(--rk-page-height, none);
   object-fit: contain;
 }
