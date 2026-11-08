@@ -1,9 +1,10 @@
 package reikai.domain.novel.tts
 
 /**
- * A paragraph as the voice is given it: brackets, quote marks, tildes and decorative symbols,
- * which some voices read out by name, replaced while the words between them stay. One character for one,
- * so an offset into the paragraph as shown is the same offset here, which the sentence mark depends on.
+ * A paragraph as the voice is given it: brackets, quote marks, tildes, decorative symbols and emoji,
+ * which some voices read out by name, replaced while the words between them stay. One character for one
+ * (an emoji's two halves are two spaces), so an offset into the paragraph as shown is the same offset here,
+ * which the sentence mark depends on.
  */
 object TtsSpeechText {
 
@@ -12,7 +13,11 @@ object TtsSpeechText {
     private const val TILDES = "~～〜"
 
     // Never a dash: voices pause on one by themselves, and a hyphen or ー is part of a word.
-    private const val SYMBOLS = "♪♫♬♩♡♥❤☆★◇◆○●□■※＊*・･•"
+    private const val SYMBOLS = "◇◆○●□■※＊*・･•"
+
+    // Misc symbols and dingbats (♪ ♡ ★ ❤ ✔), symbols and arrows (⭐ ⬛), and the emoji planes. Not the
+    // invisible joiner or variation selectors, which voices skip and Indic scripts need.
+    private val PICTOGRAPHS = listOf(0x2600..0x27BF, 0x2B00..0x2BFF, 0x1F000..0x1FAFF)
 
     fun of(text: String): String {
         val out = CharArray(text.length)
@@ -49,7 +54,13 @@ object TtsSpeechText {
         in BRACKETS, in SYMBOLS -> true
         in QUOTES -> !text.isBetween(i, Char::isLetter)
         in TILDES -> !text.isBetween(i, Char::isDigit)
-        else -> false
+        else -> PICTOGRAPHS.any { text.codePointHolding(i) in it }
+    }
+
+    /** The code point [i] is part of, so the second half of an emoji is dropped with its first. */
+    private fun String.codePointHolding(i: Int): Int {
+        val isSecondHalf = this[i].isLowSurrogate() && i > 0 && this[i - 1].isHighSurrogate()
+        return if (isSecondHalf) codePointBefore(i + 1) else codePointAt(i)
     }
 
     private fun String.isBetween(i: Int, kind: (Char) -> Boolean) =

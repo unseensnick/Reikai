@@ -115,7 +115,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **A novel chapter read aloud is now marked read and keeps your place, with Keep in view off too.** Reopening the chapter takes you to the paragraph being read.
-- **Read aloud no longer speaks brackets, quote marks, tildes or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.
+- **Read aloud no longer speaks brackets, quote marks, tildes, emoji or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.
 - **Turning back onto the second half of a split wide page now shows that page's number.**
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
 - **The high quality renderer's long strip now follows Animate page transitions: a tap or volume key scrolls smoothly when on, at once when off.**

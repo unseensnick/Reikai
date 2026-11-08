@@ -68,10 +68,27 @@ class TtsSpeechTextTest {
     @ValueSource(
         strings = [
             "♪", "♫", "♬", "♩", "♡", "♥", "❤", "☆", "★", "◇", "◆", "○", "●", "□", "■", "※", "＊", "*", "・", "･", "•",
+            "✔", "✨", "⭐",
         ],
     )
     fun `a decorative symbol is a space`(symbol: String) {
         TtsSpeechText.of("Thanks$symbol See you") shouldBe "Thanks  See you"
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["😂", "👍", "🔥", "🀄", "🫠"])
+    fun `an emoji is a space for each half`(emoji: String) {
+        TtsSpeechText.of("Lol$emoji ok") shouldBe "Lol   ok"
+    }
+
+    @Test
+    fun `an emoji's skin tone is dropped with it`() {
+        TtsSpeechText.of("Nice👍🏽 job") shouldBe "Nice     job"
+    }
+
+    @Test
+    fun `a letter outside the basic plane is kept`() {
+        TtsSpeechText.of("𠀀𠀁") shouldBe "𠀀𠀁"
     }
 
     @Test
@@ -83,7 +100,7 @@ class TtsSpeechTextTest {
     @ValueSource(
         strings = [
             "well-known", "pages 5–10", "-5 HP", "ラーメン", "HP 100/100", "+5 STR", "#1",
-            "I—I know", "Wait——no", "a ―bar―",
+            "I—I know", "Wait——no", "a ―bar―", "25°C", "go → back",
         ],
     )
     fun `marks the voice handles itself are kept`(text: String) {

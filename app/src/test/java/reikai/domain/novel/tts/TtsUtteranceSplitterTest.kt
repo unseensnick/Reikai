@@ -37,7 +37,7 @@ class TtsUtteranceSplitterTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = ["***", "* * *", "◇◆◇", "☆☆☆", "───", "……", "「……」", "!?", "#"])
+    @ValueSource(strings = ["***", "* * *", "◇◆◇", "☆☆☆", "───", "……", "「……」", "!?", "#", "😂😂", "✨"])
     fun `a paragraph with no words is nothing to speak`(line: String) {
         split(line, maxLength = 100).shouldBeEmpty()
     }

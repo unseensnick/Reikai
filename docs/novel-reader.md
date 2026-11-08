@@ -96,7 +96,7 @@ The voice, speed, pitch and highlighting are set in <nav to="novel-reader"> unde
 To keep going into the next chapter when one ends, turn on **Continue to the next chapter**.
 
 Your place moves with the voice, so reopening a chapter takes you to the paragraph being read, and a chapter read aloud to its end is marked read.
-Brackets, quote marks, tildes and decorative symbols such as ♪ and ☆ are not read out; the words around them are. A line with no words in it, such as a scene break, is skipped.
+Brackets, quote marks, tildes, emoji and decorative symbols such as ♪ and ☆ are not read out; the words around them are. A line with no words in it, such as a scene break, is skipped.
 
 ## Fonts
 
