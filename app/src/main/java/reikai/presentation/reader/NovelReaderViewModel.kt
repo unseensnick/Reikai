@@ -666,11 +666,31 @@ class NovelReaderViewModel(
         // Off the caller's thread, which for the native renderer is the main one, since this parses.
         progressWrites.launch {
             withContext(io) {
-                if (!NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) return@withContext
-                if (chapterRepo.getById(chapterId)?.read != false) return@withContext
-                writeProgress(chapterId, ChapterProgress.Percent.END)
+                if (NovelLeaveRule.readsOnReachingEnd(hasNext, chapter.html)) finishUnlessRead(chapterId)
             }
         }
+    }
+
+    /** One already read has had its finish, and writing the end again would move its place there. */
+    private suspend fun finishUnlessRead(chapterId: Long) {
+        if (chapterRepo.getById(chapterId)?.read != false) return
+        writeProgress(chapterId, ChapterProgress.Percent.END)
+    }
+
+    /**
+     * Read aloud's place, through the held write the renderers' reports take but leaving [progress] to
+     * the screen: with Keep in view on, the scroll that follows reports where the screen is, after this.
+     */
+    internal fun saveSpokenPosition(chapterId: Long, share: Double) {
+        val at = ChapterProgress.Percent.of(share)
+        lastSaved = chapterId to at
+        progressSave.report(chapterId, at, now = completesChapter(at))
+    }
+
+    /** A held paragraph written after the end would put a chapter just heard back on that paragraph. */
+    internal fun finishSpokenChapter(chapterId: Long) {
+        progressSave.discardIf { it == chapterId }
+        progressWrites.launch { withContext(io) { finishUnlessRead(chapterId) } }
     }
 
     /** Above the init block, whose first load can fail and report it here. */
@@ -680,6 +700,10 @@ class NovelReaderViewModel(
         createEngine = { enginePackage, onInit -> SystemTtsEngine(context, enginePackage, onInit) },
         navigation = object : ReadAloudNavigation {
             override fun chapterAfter(chapterId: Long) = this@NovelReaderViewModel.chapterAfter(chapterId)
+
+            override fun savePosition(chapterId: Long, share: Double) = saveSpokenPosition(chapterId, share)
+
+            override fun finishChapter(chapterId: Long) = finishSpokenChapter(chapterId)
 
             // Forward, so it finishes the chapter it leaves the way the next-chapter button does.
             override fun openForReadAloud(chapterId: Long) = goTo(chapterId, markDepartedRead = true)

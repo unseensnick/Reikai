@@ -95,6 +95,9 @@ While it runs, the notification shows how long is left.
 The voice, speed, pitch and highlighting are set in <nav to="novel-reader"> under **Read aloud**.
 To keep going into the next chapter when one ends, turn on **Continue to the next chapter**.
 
+Your place moves with the voice, so reopening a chapter takes you to the paragraph being read, and a chapter read aloud to its end is marked read.
+Brackets and quote marks are not read out; the words inside them are.
+
 ## Fonts
 
 Tap **Font** in <nav to="novel-reader"> to open the font list.

@@ -599,6 +599,70 @@ class ReadAloudControllerTest {
     }
 
     @Test
+    fun `a chapter spoken to its end is finished`() = runTest {
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        playing()
+
+        act { engine.finishLast() }
+
+        navigation.finished shouldBe listOf(1L)
+    }
+
+    /** Carrying on below the chapter moves no screen with Keep in view off, so nothing else would finish it. */
+    @Test
+    fun `a chapter spoken to its end is finished when the next one is already below`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.chapters[2L] = listOf("x", "y")
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        playing()
+
+        act { engine.finishLast() }
+
+        navigation.finished shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `a chapter spoken to its end is finished before the next one opens`() = runTest {
+        preferences.readerTtsAutoPageAdvance().set(true)
+        navigation.after[1L] = 2L
+        surface.firstVisible = ReadAloudPosition(1L, 2)
+        playing()
+
+        act { engine.finishLast() }
+
+        navigation.finishedBeforeOpen shouldBe listOf(1L)
+    }
+
+    @Test
+    fun `the spoken paragraph is saved with keep in view off`() = runTest {
+        preferences.readerTtsKeepInView().set(false)
+        playing()
+
+        navigation.saved shouldBe listOf(1L to 1.0 / 3)
+    }
+
+    @Test
+    fun `each paragraph is saved as speech reaches it`() = runTest {
+        playing()
+
+        act { engine.finishLast() }
+
+        navigation.saved shouldBe listOf(1L to 1.0 / 3, 1L to 2.0 / 3)
+    }
+
+    @Test
+    fun `a sentence step within a paragraph saves nothing more`() = runTest {
+        preferences.readerTtsHighlightSentence().set(true)
+        surface.chapters[1L] = listOf("a", "First one. Second one.", "c")
+        val controller = playing()
+
+        act { controller.nextParagraph() }
+
+        navigation.saved.size shouldBe 1
+    }
+
+    @Test
     fun `the chapter ending clears the highlight`() = runTest {
         surface.firstVisible = ReadAloudPosition(1L, 2)
         playing()
@@ -1140,10 +1204,24 @@ class ReadAloudControllerTest {
     private class FakeNavigation : ReadAloudNavigation {
         val after = mutableMapOf<Long, Long>()
         val opened = mutableListOf<Long>()
+        val saved = mutableListOf<Pair<Long, Double>>()
+        val finished = mutableListOf<Long>()
 
         override fun chapterAfter(chapterId: Long) = after[chapterId]
 
+        override fun savePosition(chapterId: Long, share: Double) {
+            saved += chapterId to share
+        }
+
+        override fun finishChapter(chapterId: Long) {
+            finished += chapterId
+        }
+
+        /** What [finished] held when each chapter was opened. */
+        val finishedBeforeOpen = mutableListOf<Long>()
+
         override fun openForReadAloud(chapterId: Long) {
+            finishedBeforeOpen += finished
             opened += chapterId
         }
 

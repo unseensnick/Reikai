@@ -3,7 +3,8 @@ package reikai.domain.novel.tts
 import reikai.domain.novel.text.TextSegments
 import java.util.Locale
 
-/** A piece of a paragraph to speak, and where it sits in that paragraph: [start] until [end]. */
+/** A piece of a paragraph to speak, as [TtsSpeechText] gives it, and where it sits in the paragraph as shown:
+ *  [start] until [end]. */
 data class TtsPiece(val text: String, val start: Int, val end: Int)
 
 /**
@@ -23,7 +24,13 @@ object TtsUtteranceSplitter {
         val lead = text.indexOfFirst { it > ' ' }
         if (maxLength <= 0 || lead < 0) return emptyList()
         val trail = text.indexOfLast { it > ' ' } + 1
-        if (!bySentence && trail - lead <= maxLength) return listOf(TtsPiece(text.substring(lead, trail), lead, trail))
+        // Cut from the speech text at offsets found in the text as shown, where sentences end.
+        val speech = TtsSpeechText.of(text)
+        if (!bySentence &&
+            trail - lead <= maxLength
+        ) {
+            return listOf(TtsPiece(speech.substring(lead, trail), lead, trail))
+        }
 
         val chunks = mutableListOf<TtsPiece>()
         // The chunk being packed, as a span of text: segments are contiguous, so a start and an end hold it.
@@ -31,7 +38,7 @@ object TtsUtteranceSplitter {
         var packedEnd = -1
 
         fun flush() {
-            if (packedStart >= 0) trimmed(text, packedStart, packedEnd)?.let(chunks::add)
+            if (packedStart >= 0) trimmed(text, speech, packedStart, packedEnd)?.let(chunks::add)
             packedStart = -1
         }
 
@@ -44,7 +51,7 @@ object TtsUtteranceSplitter {
                 packedEnd = end
             } else {
                 flush()
-                chunks.addAll(cut(text, start, end, maxLength))
+                chunks.addAll(cut(text, speech, start, end, maxLength))
             }
         }
 
@@ -62,23 +69,23 @@ object TtsUtteranceSplitter {
         return chunks
     }
 
-    private fun trimmed(text: String, start: Int, end: Int): TtsPiece? {
+    private fun trimmed(text: String, speech: String, start: Int, end: Int): TtsPiece? {
         var s = start
         var e = end
         while (s < e && text[s] <= ' ') s++
         while (e > s && text[e - 1] <= ' ') e--
-        return if (s < e) TtsPiece(text.substring(s, e), s, e) else null
+        return if (s < e) TtsPiece(speech.substring(s, e), s, e) else null
     }
 
     /** The last resort, for a run with no break opportunity in it at all. Steps back off a leading
      *  surrogate so a cut cannot land inside a character and speak as a replacement glyph. */
-    private fun cut(text: String, from: Int, to: Int, maxLength: Int): List<TtsPiece> {
+    private fun cut(text: String, speech: String, from: Int, to: Int, maxLength: Int): List<TtsPiece> {
         val out = mutableListOf<TtsPiece>()
         var start = from
         while (start < to) {
             var end = minOf(start + maxLength, to)
             if (end < to && Character.isHighSurrogate(text[end - 1])) end--
-            out.add(TtsPiece(text.substring(start, end), start, end))
+            out.add(TtsPiece(speech.substring(start, end), start, end))
             start = end
         }
         return out

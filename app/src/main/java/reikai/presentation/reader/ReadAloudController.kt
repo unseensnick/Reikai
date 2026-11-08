@@ -21,11 +21,17 @@ data class ReadAloudState(
     val progress: ReadAloudProgress? = null,
 )
 
-/** The chapters read-aloud can move through, answered by the reader model. */
+/** The chapters read-aloud can move through and where it has got to, answered by the reader model. */
 interface ReadAloudNavigation {
 
     /** The chapter a forward step from [chapterId] lands on, null when there is none. */
     fun chapterAfter(chapterId: Long): Long?
+
+    /** Speech has reached [share] of [chapterId]'s words, saved as the reader's place in it. */
+    fun savePosition(chapterId: Long, share: Double)
+
+    /** Speech has reached [chapterId]'s end, which finishes it as reading to the end does. */
+    fun finishChapter(chapterId: Long)
 
     /** Opens [chapterId] as a forward step that is not the reader navigating away from read-aloud. */
     fun openForReadAloud(chapterId: Long)
@@ -91,6 +97,9 @@ class ReadAloudController(
     /** Words before each paragraph of [paragraphs], then the chapter's total, for [ReadAloudState.progress]. */
     private var wordsBefore: LongArray = LongArray(1)
     private var position: ReadAloudPosition? = null
+
+    /** The paragraph last saved as the reader's place, so a sentence step or a resume does not write it again. */
+    private var saved: ReadAloudPosition? = null
 
     /** The sentence of [position] being spoken, while sentences are marked; null marks the paragraph. */
     private var sentence: IntRange? = null
@@ -188,6 +197,7 @@ class ReadAloudController(
         chapterId = null
         paragraphs = emptyList()
         position = null
+        saved = null
         sentence = null
         sentences = emptyList()
         unplaced = false
@@ -283,6 +293,7 @@ class ReadAloudController(
         val id = chapterId ?: return stop()
         if (index > paragraphs.lastIndex) return endChapter()
         moveTo(id, index, fromSentence)
+        savePosition()
         setPlayback(TtsPlayback.Playing)
         speakCurrent()
     }
@@ -297,6 +308,8 @@ class ReadAloudController(
 
     private suspend fun endChapter() {
         val ended = chapterId ?: return stop()
+        // First, since neither stopping nor carrying on below moves a screen that would finish it.
+        navigation.finishChapter(ended)
         if (transport.takeStopAtChapterEnd()) return stop()
         if (!preferences.readerTtsAutoPageAdvance().get()) return stop()
         val next = navigation.chapterAfter(ended) ?: return stop()
@@ -443,6 +456,17 @@ class ReadAloudController(
         paragraphs = chapter
         wordsBefore = LongArray(chapter.size + 1)
         chapter.forEachIndexed { i, text -> wordsBefore[i + 1] = wordsBefore[i] + NovelWords.count(text) }
+    }
+
+    /**
+     * The spoken paragraph as the reader's place, whether or not the screen follows it: as the share of the
+     * chapter's words before it, which a reopen by percent lands on screen while text height follows words.
+     */
+    private fun savePosition() {
+        val at = position?.takeIf { it != saved } ?: return
+        saved = at
+        val words = wordsBefore.last()
+        navigation.savePosition(at.chapterId, if (words > 0) wordsBefore[at.paragraph].toDouble() / words else 0.0)
     }
 
     private fun publish() {

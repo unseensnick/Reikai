@@ -249,6 +249,64 @@ class NovelReaderViewModelTest {
         harness.progressOf(previous) shouldBe 0L
     }
 
+    /** Mark read on skip is off by default, so the step on to the next chapter marks nothing. */
+    @Test
+    fun `a chapter spoken to its end is finished`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        harness.chapter(novel, 2.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.finishSpokenChapter(opened.id)
+        advanceUntilIdle()
+
+        harness.isRead(opened) shouldBe true
+    }
+
+    @Test
+    fun `a paragraph saved just before the end does not take the chapter back from it`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.saveSpokenPosition(opened.id, 0.4)
+        model.finishSpokenChapter(opened.id)
+        advanceUntilIdle()
+
+        harness.progressOf(opened) shouldBe ChapterProgress.Percent.FULL
+    }
+
+    @Test
+    fun `the spoken paragraph is saved with keep in view off`() = readerTest { harness ->
+        harness.novelPreferences.readerTtsKeepInView().set(false)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        model.saveSpokenPosition(opened.id, 0.4)
+        advanceUntilIdle()
+
+        harness.progressOf(opened) shouldBe 4_000L
+    }
+
+    @Test
+    fun `reopening lands on the spoken paragraph`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.saveSpokenPosition(opened.id, 0.4)
+        advanceUntilIdle()
+
+        val reopened = harness.open(novel, opened.id)
+        advanceUntilIdle()
+
+        reopened.window.value.chapters.first().progress shouldBe ChapterProgress.Percent(4_000L)
+    }
+
     /** Both members carry the same chapters, so the stitch draws every one from the member that leads. */
     @Test
     fun `a merged novel whose chapters all come from one source still names it`() = readerTest { harness ->
