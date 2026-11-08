@@ -1046,7 +1046,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         open(1L, "<p><img src=\"$picture\"></p>" + short("after"))
         val turns = turned.get()
 
-        longPress(checkNotNull(pictureCentre()))
+        longPress(shownPictureCentre())
 
         assertEquals("[$renderer] pictures opened, and pages turned", listOf<Any>(picture) to turns, opened.toList() to turned.get())
     }
@@ -1055,10 +1055,11 @@ class PagedReadingTest(private val renderer: Renderer) {
     fun aTapOnAPictureTurnsThePageWhenPaged() {
         build(NovelPageLayout.PAGED_LTR)
         open(1L, paragraphs(1))
-        // Most of a page tall, so the forward tap below lands on it.
+        // Most of a page tall, so the forward tap below lands on it, on the page after the opening paragraph.
         val height = pictureSourceHeightFor(PAGE_SHARE_TALL_PICTURE, spread = false)
-        reopen(1L, "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
-        checkNotNull(pictureCentre())
+        reopen(1L, paragraphs(1) + "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        forwardTap()
+        shownPictureCentre()
 
         forwardTap()
 
@@ -1071,7 +1072,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         val picture = borderedPicture(600, 400)
         openScrolled(1L, "<p><img src=\"$picture\"></p>" + short("after"))
 
-        val (x, y) = checkNotNull(pictureCentre())
+        val (x, y) = shownPictureCentre()
         tap(x, y)
         awaitWhile { opened.isEmpty() }
 
@@ -1085,7 +1086,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         val picture = borderedPicture(600, 400)
         open(1L, "<p><img src=\"$picture\"></p>" + short("after"))
 
-        longPress(checkNotNull(pictureCentre()))
+        longPress(shownPictureCentre())
         settle()
 
         assertEquals("[$renderer] opened, and text selected", listOf<Any>(picture) to "", opened.toList() to selectedText())
@@ -1114,6 +1115,16 @@ class PagedReadingTest(private val renderer: Renderer) {
             selected
         }
         Renderer.WEB -> evalString("String(window.getSelection())")
+    }
+
+    /** [pictureCentre] once the picture has landed and drawn. */
+    private fun shownPictureCentre(): Pair<Float, Float> {
+        var centre: Pair<Float, Float>? = null
+        awaitWhile {
+            centre = pictureCentre()
+            centre == null
+        }
+        return checkNotNull(centre) { "[$renderer] no picture on screen" }
     }
 
     /** The middle of [borderedPng]'s picture on screen, in the viewport's own coordinates; null when none shows. */
