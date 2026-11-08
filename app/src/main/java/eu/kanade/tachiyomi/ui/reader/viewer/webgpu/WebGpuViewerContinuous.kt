@@ -3,7 +3,6 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webgpu
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.platform.AndroidUiDispatcher
 import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuous
@@ -15,7 +14,6 @@ import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.presentation.reader.holdsStripAutoScroll
 import reikai.presentation.reader.scrollHidesMenu
-import reikai.presentation.reader.springScroll
 import reikai.presentation.reader.stripPageAt
 import kotlin.math.max
 
@@ -162,27 +160,14 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     }
 
     private fun scrollByHalfPage(direction: Int) {
-        // RK --> Page transitions off scrolls at once, as the other long strip does; on, the library's spring
-        // runs at normal speed (springScroll), and a touch still cancels it through animationJob
+        // RK --> Page transitions off scrolls at once, as the other long strip does
         if (!general.usePageTransitions) {
             state.scrollBy(direction * state.height / 2f)
             state.invalidate()
             return
         }
-        state.animationJob?.cancel()
-        state.animationJob = scope.launch(AndroidUiDispatcher.Main) {
-            state.isFlinging = true
-            try {
-                springScroll(direction * state.height / 2f) {
-                    state.scrollBy(it)
-                    state.invalidate()
-                }
-            } finally {
-                state.isFlinging = false
-                state.invalidate()
-            }
-        }
         // RK <--
+        state.animateScroll(direction * state.height / 2f)
     }
 
     override fun moveRight() = scrollByHalfPage(1)
