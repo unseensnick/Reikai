@@ -31,8 +31,10 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.PngServer
 import reikai.presentation.reader.text.pngOf
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import java.util.Collections
@@ -69,6 +71,9 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
     private val endsSeen = Collections.synchronizedList(mutableListOf<Long>())
     private val opened = Collections.synchronizedList(mutableListOf<Any>())
+
+    /** The slow host a late picture comes from, closed after each case. */
+    private var pictureServer: PngServer? = null
     private val menuToggles = AtomicInteger()
 
     /** The reader's turns and the progress reports, in the order the viewport sent them. */
@@ -147,6 +152,7 @@ class PagedReadingTest(private val renderer: Renderer) {
 
     @After
     fun tearDown() {
+        pictureServer?.close()
         if (::viewport.isInitialized) instrumentation.runOnMainSync { (viewport as ReaderViewport).destroy() }
         if (::scenario.isInitialized) scenario.close()
     }
@@ -1033,6 +1039,25 @@ class PagedReadingTest(private val renderer: Renderer) {
         )
     }
 
+    /** A picture landing after the chapter was paged without it is fitted or run on by the same rule. */
+    @Test
+    fun aLatePictureUnderTheLimitShowsWholeOnOnePage() {
+        val (pages, seen) = walkPicture(spread = false, PAGES_SHRUNK_TO_ONE, late = true)
+
+        assertEquals("[$renderer] pages shown, and the picture on them", allPages(false) to listOf(true), pages to seen)
+    }
+
+    @Test
+    fun aLatePictureTooTallToShrinkRunsAcrossPagesAtItsWidth() {
+        val (pages, seen, width) = walkPicture(spread = false, PAGES_TOO_TALL_TO_SHRINK, late = true)
+
+        assertEquals(
+            "[$renderer] pages shown, the picture never whole on one, and drawn at its width",
+            Triple(allPages(false), false, true),
+            Triple(pages, seen.isEmpty() || seen.any { it }, abs(width - blueWidth(false)) <= WIDTH_SLACK_PX),
+        )
+    }
+
     /** Shrunk to one page it would be too small to read, so it keeps its width and runs across pages. */
     @Test
     fun aPictureTooTallToShrinkRunsAcrossPagesAtItsWidth() = longPictureRunsOn(spread = false)
@@ -1054,11 +1079,34 @@ class PagedReadingTest(private val renderer: Renderer) {
      * Opens a picture [pagesTall] pages tall at its own width between text, turns through the chapter, and gives
      * the pages shown, whether the picture showed whole on each page it was on, and its widest drawn width.
      */
-    private fun walkPicture(spread: Boolean, pagesTall: Float): Triple<List<Int>, List<Boolean>, Float> {
+    private fun walkPicture(
+        spread: Boolean,
+        pagesTall: Float,
+        late: Boolean = false,
+    ): Triple<List<Int>, List<Boolean>, Float> {
         build(NovelPageLayout.PAGED_LTR, spread = spread)
         open(1L, paragraphs(1))
         val height = pictureSourceHeightFor(pagesTall, spread)
-        reopen(1L, short("before") + "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        val source = if (late) {
+            PngServer(borderedPng(600, height), held = true).also { pictureServer = it }.url
+        } else {
+            borderedPicture(600, height)
+        }
+        val html = short("before") + "<p><img src=\"$source\"></p>" + short("after")
+        val server = pictureServer
+        if (server == null) {
+            reopen(1L, html)
+        } else {
+            // Laid out and measured without the picture first, past the wait a landing gives pictures, as a
+            // chapter whose picture comes from a slow host is.
+            fits.remove(1L)
+            onMain { viewport.load(chapter(1L, html, 0, null), readerTestSettings) }
+            Thread.sleep(CHAPTER_IMAGE_WAIT_MS + LATE_PICTURE_MARGIN_MS)
+            assertEquals("[$renderer] pictures served before release", 0, server.served.get())
+            server.release()
+            awaitWhile { server.served.get() == 0 || !fits.containsKey(1L) }
+            repeat(4) { settle() }
+        }
         awaitTurnCopyGone()
         val seen = picturesOnPages().filterNotNull().toMutableList()
         var width = pictureWidth()
@@ -2152,6 +2200,9 @@ class PagedReadingTest(private val renderer: Renderer) {
         /** In pages at the picture's own width: under the shrink limit (PictureBox.kt MIN_PAGE_FIT_SCALE), and over it. */
         const val PAGES_SHRUNK_TO_ONE = 1.6f
         const val PAGES_TOO_TALL_TO_SHRINK = 3f
+
+        /** How long past the landing's picture wait a late picture is held. */
+        const val LATE_PICTURE_MARGIN_MS = 1_000L
 
         /** Antialiasing at the border, and a pixel of rounding each side. */
         const val WIDTH_SLACK_PX = 8f
