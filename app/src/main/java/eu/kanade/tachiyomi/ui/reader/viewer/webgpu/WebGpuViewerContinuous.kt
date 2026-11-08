@@ -95,18 +95,23 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     @Volatile
     private var autoScrollAhead: List<ReaderPage> = emptyList()
 
-    // The library reports onViewport only for a fling or a pan, and a step is neither, so the hold list
-    // and reading progress would never move. This asks for the report of the frame this step draws.
+    // The library reports onViewport only for a fling or a pan, and a step is neither, so the hold list,
+    // reading progress and the hide threshold would never move. stepWithReport asks for the report of the
+    // frame its step draws; auto-scroll and an unanimated tap or key step both go through it.
     @Volatile
     private var autoScrollReporting = false
 
     fun autoScrollBy(px: Int): Boolean {
         if (holdsStripAutoScroll(autoScrollAhead.map { it.status })) return false
-        state.scrollBy(px.toFloat())
+        stepWithReport(px.toFloat())
+        return true
+    }
+
+    private fun stepWithReport(px: Float) {
+        state.scrollBy(px)
         autoScrollReporting = true
         state.isPanning = true
         state.invalidate()
-        return true
     }
     // RK <--
 
@@ -162,8 +167,7 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     private fun scrollByHalfPage(direction: Int) {
         // RK --> Page transitions off scrolls at once, as the other long strip does
         if (!general.usePageTransitions) {
-            state.scrollBy(direction * state.height / 2f)
-            state.invalidate()
+            stepWithReport(direction * state.height / 2f)
             return
         }
         // RK <--

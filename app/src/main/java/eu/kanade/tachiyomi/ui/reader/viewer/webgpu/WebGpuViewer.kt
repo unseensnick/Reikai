@@ -1188,6 +1188,7 @@ open class WebGpuViewer(
             }
             pageCache.clear()
             secondHalves.clear() // RK: a page split under the old settings is decoded again
+            arrivedBackward = null // RK: the page remade here stays where it was, not on a half reached backward
 
             // RK: a second half stood for its first, which decodes again
             currentPage = (currentPage as? ViewerReaderPage)?.page?.let { getPage((it as? InsertPage)?.parent ?: it) }
