@@ -114,7 +114,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Turning back onto the second half of a split wide page now shows that page's number.**
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
-- **With Animate page transitions off, the high quality renderer's long strip no longer slides or scrolls smoothly.**
+- **The high quality renderer's long strip now follows Animate page transitions: a tap or volume key scrolls smoothly when on, at once when off.**
 - **The high quality renderer's long strip now follows Sensitivity for hiding menu on scroll.**
 - **Settings > Manga reader no longer shows options the high quality renderer ignores while it is on.** Double tap animation speed goes, and so do the single-page options while Dual page view is Always.
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**

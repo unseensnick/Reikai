@@ -194,6 +194,14 @@ class MangaReaderSheetRowsTest {
         compose.onNodeWithText("Split wide pages").assertDoesNotExist()
     }
 
+    /** The name Settings and the renderer's own switch give it. */
+    @Test
+    fun `the WebGPU rows sit under the renderer's own name`() {
+        show(webGpu())
+
+        compose.onNodeWithText("High quality renderer").assertExists()
+    }
+
     @Test
     fun `WebGPU paged offers smart fit`() {
         show(webGpu())

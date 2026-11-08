@@ -128,7 +128,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
             )
         }
         is RunningViewer.WebGpu -> {
-            HeadingItem(MR.strings.webgpu_viewer)
+            HeadingItem(MR.strings.pref_category_high_quality_renderer)
             val webGpu = running.viewer
             if (!webGpu.isContinuous) {
                 val dualPageView by preferences.dualPageView.collectAsState()
