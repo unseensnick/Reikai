@@ -96,6 +96,7 @@ class RenderedLinesParityTest(private val fixture: Fixture) {
                 selectable = false,
                 bionic = false,
                 contentWidth = COLUMN_PX,
+                maxPictureHeight = null,
                 baseUrl = null,
                 sourceId = null,
                 holdAcross = { it() },

@@ -258,6 +258,7 @@
     <string name="action_install">Install</string>
     <string name="action_share">Share</string>
     <string name="action_save">Save</string>
+    <string name="action_rotate">Rotate</string>
     <string name="action_reset">Reset</string>
     <string name="action_revert_to_default">Revert to default</string>
     <!-- RK: edit-info editor "Fill from tracker" autofill -->

@@ -31,6 +31,7 @@ import org.junit.runners.Parameterized
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
+import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.pngOf
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -67,6 +68,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     private val visible = Collections.synchronizedList(mutableListOf<Long>())
     private val steps = Collections.synchronizedList(mutableListOf<Boolean>())
     private val endsSeen = Collections.synchronizedList(mutableListOf<Long>())
+    private val opened = Collections.synchronizedList(mutableListOf<Any>())
     private val menuToggles = AtomicInteger()
 
     /** The reader's turns and the progress reports, in the order the viewport sent them. */
@@ -101,6 +103,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         onReaderTurned = { events += "turn" },
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { page, count -> shownPage.set(page to count) },
+        onPictureOpened = { opened += it },
     )
 
     /** Whether the viewport built last shows two pages side by side, which a [rebuild] keeps. */
@@ -109,7 +112,7 @@ class PagedReadingTest(private val renderer: Renderer) {
     /** The view the renderer draws its column in, inside a spread's host when there is one. */
     private val column: View get() = (view as? NovelSpreadHost)?.getChildAt(0) ?: view
 
-    private fun build(layout: NovelPageLayout, spread: Boolean = false) {
+    private fun build(layout: NovelPageLayout, spread: Boolean = false, selectable: Boolean = false) {
         spreadBuilt = spread
         scenario = ActivityScenario.launch(WebViewHostActivity::class.java)
         scenario.onActivity { activity ->
@@ -117,7 +120,7 @@ class PagedReadingTest(private val renderer: Renderer) {
                 Renderer.NATIVE -> NovelTextViewport(
                     context = activity,
                     fontManager = activity.appGraph.novelFontManager,
-                    textSelectable = false,
+                    textSelectable = selectable,
                     pageLayout = layout,
                     callbacks = callbacks,
                     autoScrollSpeed = InMemoryPreferenceStore().getFloat("speed", 1f),
@@ -128,7 +131,7 @@ class PagedReadingTest(private val renderer: Renderer) {
                     context = activity,
                     fontManager = activity.appGraph.novelFontManager,
                     imageRequests = activity.appGraph.novelImageRequests,
-                    textSelectable = false,
+                    textSelectable = selectable,
                     pageLayout = layout,
                     callbacks = callbacks,
                     useOriginalFonts = false,
@@ -971,28 +974,9 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertEquals("[$renderer] pages shown", (shownPage.get()!!.second - 1 downTo 0).toList(), pages)
     }
 
-    /** A page inside a picture saves no line of its own, so a new renderer lands by the share, on that page. */
-    @Test
-    fun aNewRendererOnAPageInsideATallPictureLandsOnThatPage() {
-        build(NovelPageLayout.PAGED_LTR)
-        openTallPicture()
-        repeat(6) { forwardTap() }
-        val page = shownPage.get()!!.first
-        val line = lastTopLine()
-        val share = checkNotNull(lastShare.get())
-
-        rebuild(NovelPageLayout.PAGED_LTR)
-        openTallPicture(topLine = line, share = share)
-
-        assertEquals("[$renderer] page after the rebuild", page, shownPage.get()!!.first)
-    }
-
-    private fun openTallPicture(
-        topLine: Int? = null,
-        share: ChapterProgress.Percent = ChapterProgress.Percent.ofWhole(0),
-    ) {
+    private fun openTallPicture() {
         val picture = "data:image/png;base64," + Base64.encodeToString(pngOf(300, 9_000), Base64.NO_WRAP)
-        open(1L, short("before") + "<p><img src=\"$picture\"></p>" + short("after"), topLine = topLine, share = share)
+        open(1L, short("before") + "<p><img src=\"$picture\"></p>" + short("after"))
     }
 
     /** The shown page indexes, turning with [turn] until index [stopAt] or the chapter's last page. */
@@ -1005,6 +989,195 @@ class PagedReadingTest(private val renderer: Renderer) {
         }
         return pages
     }
+
+    // region whole pictures
+
+    /** As in a printed book: a picture that fits a page but not what is left of this one starts the next page. */
+    @Test
+    fun aPictureThatDoesNotFitTheRestOfThePageStartsTheNextWhole() = firstPictureShowsWhole(spread = false)
+
+    @Test
+    fun aPictureThatDoesNotFitTheRestOfASpreadsPageStartsTheNextWhole() = firstPictureShowsWhole(spread = true)
+
+    /** A picture taller than a page is drawn smaller, whole on one page, and every page still turns once. */
+    @Test
+    fun aPictureTallerThanAPageShowsWholeOnOnePage() = tallPictureShowsWholeOnce(spread = false)
+
+    @Test
+    fun aPictureTallerThanAPageShowsWholeOnOneOfASpreadsPages() = tallPictureShowsWholeOnce(spread = true)
+
+    private fun firstPictureShowsWhole(spread: Boolean) {
+        build(NovelPageLayout.PAGED_LTR, spread = spread)
+        open(1L, paragraphs(3))
+        val height = pictureSourceHeightFor(PAGE_SHARE_PICTURE, spread)
+        reopen(1L, paragraphs(3) + "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+
+        awaitTurnCopyGone()
+        var shown = picturesOnPages().filterNotNull()
+        while (shown.isEmpty() && lastPercentOf(1L) < 100) {
+            forwardTap()
+            awaitTurnCopyGone()
+            shown = picturesOnPages().filterNotNull()
+        }
+
+        assertEquals("[$renderer] the picture's first page (${shownPage.get()}) shows it whole", listOf(true), shown)
+    }
+
+    private fun tallPictureShowsWholeOnce(spread: Boolean) {
+        build(NovelPageLayout.PAGED_LTR, spread = spread)
+        open(1L, short("before") + "<p><img src=\"${borderedPicture(300, 9_000)}\"></p>" + short("after"))
+        val seen = picturesOnPages().filterNotNull().toMutableList()
+
+        val pages = pagesTurning {
+            forwardTap()
+            awaitTurnCopyGone()
+            seen += picturesOnPages().filterNotNull()
+        }
+
+        val expected = if (spread) spreadNumbers(shownPage.get()!!.second) else (0 until shownPage.get()!!.second).toList()
+        assertEquals("[$renderer] pages shown, and the picture on them", expected to listOf(true), pages to seen)
+    }
+
+    /** Paged, a tap turns the page wherever it lands, so a picture opens on a long press, and that turns nothing. */
+    @Test
+    fun aLongPressOnAPictureOpensItAndTurnsNoPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        val picture = borderedPicture(600, 400)
+        open(1L, "<p><img src=\"$picture\"></p>" + short("after"))
+        val turns = turned.get()
+
+        longPress(checkNotNull(pictureCentre()))
+
+        assertEquals("[$renderer] pictures opened, and pages turned", listOf<Any>(picture) to turns, opened.toList() to turned.get())
+    }
+
+    @Test
+    fun aTapOnAPictureTurnsThePageWhenPaged() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, paragraphs(1))
+        // Most of a page tall, so the forward tap below lands on it.
+        val height = pictureSourceHeightFor(PAGE_SHARE_TALL_PICTURE, spread = false)
+        reopen(1L, "<p><img src=\"${borderedPicture(600, height)}\"></p>" + short("after"))
+        checkNotNull(pictureCentre())
+
+        forwardTap()
+
+        assertEquals("[$renderer] pictures opened", emptyList<Any>(), opened.toList())
+    }
+
+    @Test
+    fun aTapOnAPictureOpensItWhileScrolling() {
+        build(NovelPageLayout.SCROLL)
+        val picture = borderedPicture(600, 400)
+        openScrolled(1L, "<p><img src=\"$picture\"></p>" + short("after"))
+
+        val (x, y) = checkNotNull(pictureCentre())
+        tap(x, y)
+        awaitWhile { opened.isEmpty() }
+
+        assertEquals("[$renderer] pictures opened", listOf<Any>(picture), opened.toList())
+    }
+
+    /** A picture has no text to select, so with selection on its long press still opens it and selects nothing. */
+    @Test
+    fun aLongPressOnAPictureSelectsNothingWithSelectionOn() {
+        build(NovelPageLayout.PAGED_LTR, selectable = true)
+        val picture = borderedPicture(600, 400)
+        open(1L, "<p><img src=\"$picture\"></p>" + short("after"))
+
+        longPress(checkNotNull(pictureCentre()))
+        settle()
+
+        assertEquals("[$renderer] opened, and text selected", listOf<Any>(picture) to "", opened.toList() to selectedText())
+    }
+
+    private fun longPress(at: Pair<Float, Float>) {
+        val (x, y) = at
+        val down = SystemClock.uptimeMillis()
+        instrumentation.runOnMainSync { touch(MotionEvent.ACTION_DOWN, x, y, down, down) }
+        Thread.sleep(android.view.ViewConfiguration.getLongPressTimeout() * 2L)
+        instrumentation.runOnMainSync { touch(MotionEvent.ACTION_UP, x, y, down, SystemClock.uptimeMillis()) }
+        awaitWhile { opened.isEmpty() }
+        settle()
+    }
+
+    private fun selectedText(): String = when (renderer) {
+        Renderer.NATIVE -> {
+            var selected = ""
+            instrumentation.runOnMainSync {
+                val chunks = (column as RecyclerView).children.flatMap { item ->
+                    (item as ViewGroup).children.filterIsInstance<ViewGroup>().flatMap { it.children.filterIsInstance<TextView>() }
+                }
+                selected = chunks.filter { it.hasSelection() }
+                    .joinToString("") { it.text.subSequence(it.selectionStart, it.selectionEnd) }
+            }
+            selected
+        }
+        Renderer.WEB -> evalString("String(window.getSelection())")
+    }
+
+    /** The middle of [borderedPng]'s picture on screen, in the viewport's own coordinates; null when none shows. */
+    private fun pictureCentre(): Pair<Float, Float>? {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val height = minOf(view.height, shot.height - at[1])
+        val pixels = IntArray(view.width * height)
+        shot.getPixels(pixels, 0, view.width, at[0], at[1], view.width, height)
+        shot.recycle()
+        val blue = pixels.indices.filter { isPictureBlue(pixels[it]) }
+        if (blue.size < MIN_PICTURE_PIXELS) return null
+        val xs = blue.map { it % view.width }
+        val ys = blue.map { it / view.width }
+        return (xs.min() + xs.max()) / 2f to (ys.min() + ys.max()) / 2f
+    }
+
+    private fun borderedPicture(width: Int, height: Int) =
+        "data:image/png;base64," + Base64.encodeToString(borderedPng(width, height), Base64.NO_WRAP)
+
+    /** A source height that draws a 600-wide picture at [share] of a page's height in the column it gets. */
+    private fun pictureSourceHeightFor(share: Float, spread: Boolean): Int {
+        val density = instrumentation.targetContext.resources.displayMetrics.density
+        val margins = openedWith.margins
+        val pageHeight = view.height - (margins.top + margins.bottom) * density
+        val column = if (spread) {
+            view.width / 2f - (margins.left + NovelSpreadHost.INNER_MARGIN_DP) * density
+        } else {
+            view.width - (margins.left + margins.right) * density
+        }
+        val drawnWidth = minOf(column, 600 * density)
+        return (share * pageHeight * 600 / drawnWidth).toInt()
+    }
+
+    /**
+     * For each page on screen (one, or a spread's two), whether [borderedPng]'s picture shows on it: null for not at
+     * all, true when both its top and its bottom border do, read down the middle of the picture.
+     */
+    private fun picturesOnPages(): List<Boolean?> {
+        val at = IntArray(2)
+        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
+        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
+        val pages = if (spreadBuilt) 2 else 1
+        val width = view.width / pages
+        val height = minOf(view.height, shot.height - at[1])
+        val result = (0 until pages).map { page ->
+            val pixels = IntArray(width * height)
+            shot.getPixels(pixels, 0, width, at[0] + page * width, at[1], width, height)
+            val xs = pixels.indices.filter { isPictureBlue(pixels[it]) }.map { it % width }
+            if (xs.size < MIN_PICTURE_PIXELS) return@map null
+            val middle = (xs.min() + xs.max()) / 2
+            val yellow = (0 until height).map { y -> isYellow(pixels[y * width + middle]) }
+            yellow.indices.count { yellow[it] && (it == 0 || !yellow[it - 1]) } >= 2
+        }
+        shot.recycle()
+        return result
+    }
+
+    private fun isPictureBlue(pixel: Int) = colourDistance(pixel, Color.rgb(40, 90, 160)) < INK_DISTANCE
+
+    private fun isYellow(pixel: Int) = Color.red(pixel) > 200 && Color.green(pixel) > 200 && Color.blue(pixel) < 90
+
+    // endregion
 
     // region spreads
 
@@ -1320,25 +1493,6 @@ class PagedReadingTest(private val renderer: Renderer) {
     }
 
     /**
-     * A picture taller than a page keeps sharp slices only near the rows on screen, drawing the rest from a small
-     * stand-in, and a spread's second page shows rows below the screen's height in the column. Told only of the
-     * screen, the second page drew from the stand-in, which blurs fine stripes to grey.
-     */
-    @Test
-    fun aTallPictureFillsTheSecondPage() {
-        build(NovelPageLayout.PAGED_LTR, spread = true)
-        val picture = "data:image/png;base64," + Base64.encodeToString(stripedPng(300, 20_000), Base64.NO_WRAP)
-
-        // One paragraph ahead of it, since the WebView opens a chapter not started on its first text.
-        open(1L, paragraphs(1) + "<p><img src=\"$picture\"></p>" + short("after"))
-        forwardTap()
-
-        val blurred = spreadsEndingBlurred(PICTURE_SPREADS)
-
-        assertEquals("[$renderer] spreads whose second page ends blurred", emptyList<Int>(), blurred)
-    }
-
-    /**
      * A picture is sized to the page's width when the chapter renders, which for the chapter opened is before the
      * list has a width of its own. Sized to the screen's instead, a spread's picture was twice its page and cut.
      */
@@ -1380,51 +1534,6 @@ class PagedReadingTest(private val renderer: Renderer) {
         shot.recycle()
         val yellow = row.map { Color.red(it) > 200 && Color.green(it) > 200 && Color.blue(it) < 90 }
         return yellow.indices.count { yellow[it] && (it == 0 || !yellow[it - 1]) }
-    }
-
-    /** Of the next [count] spreads, the ones whose second page ends blurred. Each spread falls on a picture's
-     *  slices differently, so a blurred band shows within a few of them. */
-    private fun spreadsEndingBlurred(count: Int): List<Int> = (1..count).filter { spread ->
-        awaitTurnCopyGone()
-        val blurred = !sharpNearTheBottom()
-        if (spread < count) forwardTap()
-        blurred
-    }
-
-    /** Black and white rows [STRIPE_PX] tall, which only a slice decoded at the drawn size keeps apart. */
-    private fun stripedPng(width: Int, height: Int): ByteArray = java.io.ByteArrayOutputStream().also { out ->
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888)
-        val canvas = android.graphics.Canvas(bitmap)
-        val paint = android.graphics.Paint().apply { color = Color.BLACK }
-        canvas.drawColor(Color.WHITE)
-        (0 until height step STRIPE_PX * 2).forEach { y ->
-            canvas.drawRect(
-                0f,
-                y.toFloat(),
-                width.toFloat(),
-                (
-                    y +
-                        STRIPE_PX
-                    ).toFloat(),
-                paint,
-            )
-        }
-        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
-        bitmap.recycle()
-    }.toByteArray()
-
-    /** Whether the band just above the second page's bottom margin, down the middle of its half, shows both near
-     *  black and near white, which the stand-in's grey does not. */
-    private fun sharpNearTheBottom(): Boolean {
-        val at = IntArray(2)
-        instrumentation.runOnMainSync { view.getLocationOnScreen(at) }
-        val shot = checkNotNull(instrumentation.uiAutomation.takeScreenshot())
-        val bottomMargin = openedWith.margins.bottom * instrumentation.targetContext.resources.displayMetrics.density
-        val bandBottom = (at[1] + view.height - bottomMargin - INK_BAND_PX).toInt()
-        val x = at[0] + view.width * 3 / 4
-        val column = (bandBottom - INK_BAND_PX until bandBottom).map { y -> Color.luminance(shot.getPixel(x, y)) }
-        shot.recycle()
-        return column.any { it < DARK_LUMINANCE } && column.any { it > LIGHT_LUMINANCE }
     }
 
     /** A chapter's lone last page is a spread's first half, the left reading left to right. */
@@ -1740,9 +1849,16 @@ class PagedReadingTest(private val renderer: Renderer) {
                         container.children.filterIsInstance<TextView>().forEach { chunk ->
                             val layout = chunk.layout ?: return@forEach
                             val base = item.top + container.top + chunk.top + chunk.totalPaddingTop
+                            // A picture's box is the picture, without the margins its line keeps, as the page's is.
+                            val pictures = (chunk.text as? android.text.Spanned)?.let { text ->
+                                text.getSpans(0, text.length, ChapterImageSpan::class.java)
+                                    .associateBy { layout.getLineForOffset(text.getSpanStart(it)) }
+                            }.orEmpty()
                             for (line in 0..<layout.lineCount) {
-                                val lineTop = (base + layout.getLineTop(line)).toFloat()
-                                val lineBottom = (base + layout.getLineBottom(line)).toFloat()
+                                val picture = pictures[line]
+                                val lineTop = (base + layout.getLineTop(line) + (picture?.topPx ?: 0)).toFloat()
+                                val lineBottom = picture?.let { lineTop + it.drawable.bounds.height() }
+                                    ?: (base + layout.getLineBottom(line)).toFloat()
                                 if (lineBottom > 0 && lineTop < recycler.height) boxes += lineTop to lineBottom
                             }
                         }
@@ -1915,23 +2031,22 @@ class PagedReadingTest(private val renderer: Renderer) {
         /** The band of the screen a page's ink is looked for in, as shares of its height. */
         const val INK_TOP = 0.05f
 
-        /** A band of rows clear of the page's bottom edge, where a picture filling the page draws. */
-        const val INK_BAND_PX = 40
-
         /** A picture border thick enough to survive being drawn at a third of its size. */
         const val BORDER_PX = 24
 
         /** Down the screen from the reading top, as a share of its height: inside a wide picture at a page's top. */
         const val PICTURE_ROW = 0.08f
 
-        /** Thin enough that a small stand-in blurs the stripes together, thick enough to survive scaling. */
-        const val STRIPE_PX = 4
-        const val DARK_LUMINANCE = 0.15f
-        const val LIGHT_LUMINANCE = 0.85f
-
-        /** Spreads checked inside the tall picture, all of them its own and a few slice alignments between them. */
-        const val PICTURE_SPREADS = 5
         const val INK_BOTTOM = 0.92f
+
+        /** Of a page's height: more than the text above it leaves, less than a whole page. */
+        const val PAGE_SHARE_PICTURE = 0.8f
+
+        /** Of a page's height: reaching past where [forwardTap] lands. */
+        const val PAGE_SHARE_TALL_PICTURE = 0.95f
+
+        /** Fewer than a picture drawn at its smallest has, more than antialiasing leaves. */
+        const val MIN_PICTURE_PIXELS = 400
 
         /** Numbered past the chapters between it and chapter 1, so its seam warns of them. */
         const val GAP_ID = 5L

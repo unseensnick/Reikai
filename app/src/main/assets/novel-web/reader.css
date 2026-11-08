@@ -230,6 +230,20 @@ img {
   margin: 1em auto;
 }
 
+/* A long press on a picture opens it (reader.js), so it never selects or calls up the browser's menu. */
+img {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Paged, a picture taller than a page shrinks to it keeping its shape, so it shows whole on one page; contain
+   keeps the shape when the chapter fixes the picture's width. */
+.rk-paged img {
+  max-height: var(--rk-page-height, none);
+  object-fit: contain;
+}
+
 /* A picture's place while it loads, as the text renderer draws it (ImageLoadingDrawable): its strength
    and period are LoadingPulse's times that drawable's BOX_ALPHA, held there by ImageLoadingPulseTest,
    and reader.js drops the box when the picture lands. */

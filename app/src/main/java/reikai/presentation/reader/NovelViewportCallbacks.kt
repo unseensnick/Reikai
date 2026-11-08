@@ -46,4 +46,6 @@ class NovelViewportCallbacks(
     val onPageTurned: () -> Unit,
     /** The page on screen and how many the chapter has, whenever either changes in paged reading. */
     val onPageShown: (page: Int, count: Int) -> Unit,
+    /** The reader asked to see a chapter's picture full screen ([NovelPictureGesture]); [model] is what coil loads. */
+    val onPictureOpened: (model: Any) -> Unit = {},
 )

@@ -79,6 +79,8 @@ class NovelImageGetter(
     private val context: Context,
     private val scope: CoroutineScope,
     private val contentWidth: Int,
+    /** Paged, a page's height, which no picture is drawn taller than ([pictureBox]); null while scrolling. */
+    private val maxPictureHeight: Int?,
     private val sourceId: String?,
     /** The text size in pixels and colour, which a failed picture's box is drawn in. */
     private val textSizePx: Float,
@@ -252,7 +254,7 @@ class NovelImageGetter(
             logcat(LogPriority.DEBUG, e) { "Failed to decode an inline chapter image" }
             null
         }
-        val box = picture?.let { pictureBox(it.sourceWidth, it.sourceHeight, contentWidth, density) }
+        val box = picture?.let { pictureBox(it.sourceWidth, it.sourceHeight, contentWidth, density, maxPictureHeight) }
         val drawn = picture?.let { fitted(it.bitmap.toDrawable(context.resources), box) }
         if (picture == null || drawn == null) {
             showFailure(wrapper, retryable = false)
@@ -313,7 +315,7 @@ class NovelImageGetter(
      */
     private suspend fun prepare(imageUrl: String, drawable: Drawable): Landed? = withIOContext {
         val bounds = sourceBoundsOf(imageUrl)
-        val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density) }
+        val box = bounds?.let { (width, height) -> pictureBox(width, height, contentWidth, density, maxPictureHeight) }
         val picture = fitted(drawable, box) ?: return@withIOContext null
         val slice = box != null && bounds != null && worthSlicing(bounds.first, picture.intrinsicWidth, box.width)
         val reader = if (slice) readerFor(imageUrl) else null
@@ -496,7 +498,7 @@ class NovelImageGetter(
      */
     private fun fitted(drawable: Drawable, source: PictureBox?): Drawable? {
         val box = source
-            ?: pictureBox(drawable.intrinsicWidth, drawable.intrinsicHeight, contentWidth, density)
+            ?: pictureBox(drawable.intrinsicWidth, drawable.intrinsicHeight, contentWidth, density, maxPictureHeight)
             ?: return null
         drawable.setBounds(0, 0, box.width, box.height)
         return drawable

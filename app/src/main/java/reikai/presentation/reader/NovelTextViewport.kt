@@ -46,14 +46,19 @@ import reikai.novel.font.NovelFontManager
 import reikai.presentation.reader.text.AnchorSpan
 import reikai.presentation.reader.text.CHAPTER_IMAGE_WAIT_MS
 import reikai.presentation.reader.text.CHAPTER_SWIPE_MIN_DP
+import reikai.presentation.reader.text.ChapterImageSpan
 import reikai.presentation.reader.text.ChapterScrollProgress
 import reikai.presentation.reader.text.ChapterTextBlock
 import reikai.presentation.reader.text.ChunkParagraph
+import reikai.presentation.reader.text.DrawableWrapper
+import reikai.presentation.reader.text.ImageFailureDrawable
+import reikai.presentation.reader.text.ImageLoadingDrawable
 import reikai.presentation.reader.text.LinkOnlyMovementMethod
 import reikai.presentation.reader.text.MarkForegroundSpan
 import reikai.presentation.reader.text.MarkUnderlineSpan
 import reikai.presentation.reader.text.NovelBoundaryFailureView
 import reikai.presentation.reader.text.NovelChapterSeamView
+import reikai.presentation.reader.text.NovelPictureGesture
 import reikai.presentation.reader.text.NovelSeam
 import reikai.presentation.reader.text.NovelTextRenderer
 import reikai.presentation.reader.text.NovelTextStyle
@@ -271,8 +276,12 @@ class NovelTextViewport(
     /** Whether the touch on screen has had a second finger down ([chapterSwipeStep]). */
     private var multiTouch = false
 
-    /** Whether the touch on screen went down under the page mask, which keeps it from the text there. */
-    private var maskedTouch = false
+    /** Whether the touch on screen is kept from the text: it went down under the page mask, or paged on a picture,
+     *  whose long press must not select ([NovelPictureGesture]). */
+    private var takenTouch = false
+
+    /** Whether the touch on screen opened a picture, which leaves it no tap. */
+    private var pictureOpened = false
 
     private val touchSlop = ViewConfiguration.get(context).scaledTouchSlop
 
@@ -294,6 +303,22 @@ class NovelTextViewport(
         cancel.recycle()
         true
     }
+
+    /** A long press on a picture opens it ([NovelPictureGesture]), and the rest of the touch is kept from the text. */
+    private val pictureLongPress: GestureDetector = GestureDetector(
+        context,
+        object : GestureDetector.SimpleOnGestureListener() {
+            override fun onLongPress(e: MotionEvent) {
+                val picture = pictureAt(e.x, e.y) ?: return
+                pictureOpened = true
+                takenTouch = true
+                recycler.findChildViewUnder(e.x, e.y)?.cancelLongPress()
+                // The Editor's own long press can land first and select the picture's character.
+                if (textSelectable) recycler.findFocus()?.clearFocus()
+                callbacks.onPictureOpened(picture)
+            }
+        },
+    )
 
     /** Only consulted for selectable text, where the Editor takes the touch and no click follows. */
     private val selectableTaps = GestureDetector(
@@ -321,6 +346,9 @@ class NovelTextViewport(
                 pagedLayoutManager?.fingerDown = false
                 return true
             }
+            if (e.actionMasked == MotionEvent.ACTION_DOWN) pictureOpened = false
+            pictureLongPress.onTouchEvent(e)
+            if (pictureOpened) return true
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
                     touchDownX = e.x
@@ -330,8 +358,8 @@ class NovelTextViewport(
                     pagedLayoutManager?.fingerDown = true
                     // Under the mask the column holds the pages either side, and a link there must not take a
                     // tap meant for the page: the gesture is kept here and read as the page's ([onTouchEvent]).
-                    maskedTouch = underPageMask(e.y)
-                    if (maskedTouch) return true
+                    takenTouch = underPageMask(e.y) || (paged && pictureAt(e.x, e.y) != null)
+                    if (takenTouch) return true
                 }
                 MotionEvent.ACTION_CANCEL -> pagedLayoutManager?.fingerDown = false
                 // Before the child under the finger is handed the same move, so its press ends on it.
@@ -358,19 +386,20 @@ class NovelTextViewport(
         }
 
         override fun onTouchEvent(rv: RecyclerView, e: MotionEvent) {
-            if (!maskedTouch) return
+            if (!takenTouch) return
+            pictureLongPress.onTouchEvent(e)
             when (e.actionMasked) {
                 MotionEvent.ACTION_MOVE ->
                     if (hasTravelled(e.x - touchDownX, e.y - touchDownY, touchSlop)) dragging = true
                 MotionEvent.ACTION_POINTER_DOWN -> multiTouch = true
                 MotionEvent.ACTION_UP -> {
-                    maskedTouch = false
+                    takenTouch = false
                     pagedLayoutManager?.fingerDown = false
                     onPointerUp(e.x, e.y)
-                    if (!dragging && !multiTouch) onTap(e.x, e.y)
+                    if (!dragging && !multiTouch && !pictureOpened) onTap(e.x, e.y)
                 }
                 MotionEvent.ACTION_CANCEL -> {
-                    maskedTouch = false
+                    takenTouch = false
                     pagedLayoutManager?.fingerDown = false
                 }
             }
@@ -1083,6 +1112,13 @@ class NovelTextViewport(
         return (available - sides).coerceAtLeast(1)
     }
 
+    /** A page's height for [settings], as [pageContentHeight] measures it, from the screen while the list has none. */
+    private fun pageHeightPx(settings: NovelReaderSettings): Int {
+        val (top, bottom) = NovelTextStyle.verticalMarginsPx(settings, context, topInsetPx)
+        val available = recycler.height.takeIf { it > 0 } ?: context.resources.displayMetrics.heightPixels
+        return (available - top - bottom).coerceAtLeast(1)
+    }
+
     /**
      * Adds [chapter] to the window and renders it, putting the reader at [landing] once the text has a
      * height. Indent and spacing are spans measured in pixels when the text is built, so a change to
@@ -1129,6 +1165,7 @@ class NovelTextViewport(
             selectable = textSelectable,
             bionic = settings.bionicReading,
             contentWidth = columnWidthPx(settings),
+            maxPictureHeight = if (paged) pageHeightPx(settings) else null,
             baseUrl = chapter.baseUrl,
             sourceId = chapter.sourceId,
             // A landing still waiting on the pictures is re-applied once they land, and a correction for the
@@ -1237,6 +1274,12 @@ class NovelTextViewport(
      * three-quarter-screen step. Read from the live settings, so a layout change takes effect at once.
      */
     private fun onTap(x: Float, y: Float) {
+        if (NovelPictureGesture.opensOnTap(paged)) {
+            pictureAt(x, y)?.let {
+                callbacks.onPictureOpened(it)
+                return
+            }
+        }
         val width = recycler.width
         val height = recycler.height
         val zones = settings?.tapZones
@@ -1282,21 +1325,41 @@ class NovelTextViewport(
      * with selection on, as its setting's summary says. Returns whether one took the tap.
      */
     private fun tapReaderControl(x: Float, y: Float): Boolean {
-        val (chunk, bounds) = slots.asSequence()
-            .flatMap { it.block.chunkViews }
-            .filter { topInRecycler(it) != null }
-            .map { view ->
-                val bounds = Rect(0, 0, view.width, view.height)
-                recycler.offsetDescendantRectToMyCoords(view, bounds)
-                view to bounds
-            }
-            .firstOrNull { (_, bounds) -> bounds.contains(x.toInt(), y.toInt()) }
-            ?: return false
+        val (_, chunk, bounds) = chunkAt(x, y) ?: return false
         val text = chunk.text as? Spanned ?: return false
         val control = chunk.linksAt(text, x - bounds.left, y - bounds.top).firstOrNull { it is ReaderControlSpan }
             ?: return false
         control.onClick(chunk)
         return true
+    }
+
+    private data class ChunkAt(val slot: ChapterSlot, val view: TextView, val bounds: Rect)
+
+    /** The chunk under [x], [y] in the recycler, with its chapter and its bounds there. */
+    private fun chunkAt(x: Float, y: Float): ChunkAt? = slots.asSequence()
+        .flatMap { slot -> slot.block.chunkViews.map { slot to it } }
+        .filter { (_, view) -> topInRecycler(view) != null }
+        .map { (slot, view) ->
+            val bounds = Rect(0, 0, view.width, view.height)
+            recycler.offsetDescendantRectToMyCoords(view, bounds)
+            ChunkAt(slot, view, bounds)
+        }
+        .firstOrNull { it.bounds.contains(x.toInt(), y.toInt()) }
+
+    /** What coil loads for the loaded block picture drawn under [x], [y], null for anything else there. */
+    private fun pictureAt(x: Float, y: Float): Any? {
+        val (slot, chunk, bounds) = chunkAt(x, y) ?: return null
+        val text = chunk.text as? Spanned ?: return null
+        val layout = chunk.layout ?: return null
+        val inChunk = y - bounds.top - chunk.totalPaddingTop
+        val line = layout.getLineForVertical(inChunk.toInt())
+        val picture = text.getSpans(layout.getLineStart(line), layout.getLineEnd(line), ChapterImageSpan::class.java)
+            .firstOrNull() ?: return null
+        val drawn = (picture.drawable as? DrawableWrapper)?.innerDrawable
+        if (drawn == null || drawn is ImageLoadingDrawable || drawn is ImageFailureDrawable) return null
+        val top = layout.getLineTop(line) + picture.topPx
+        if (inChunk < top || inChunk > top + picture.drawable.bounds.height()) return null
+        return NovelPictureGesture.modelOf(picture.source, slot.chapter.sourceId)
     }
 
     /** A swipe: paged it turns a page, else it steps chapters, by the rules both renderers take from `ChapterSwipe.kt`. */
@@ -1584,11 +1647,21 @@ class NovelTextViewport(
         slot.block.chunkViews.forEach { chunk ->
             val layout = chunk.layout ?: return@forEach
             val base = container.top + chunk.top + chunk.totalPaddingTop
+            // A picture's band is the picture alone, as the page measures an img without its margins, so one
+            // drawn a page tall fits a page.
+            val pictures = (chunk.text as? Spanned)?.let { text ->
+                text.getSpans(0, text.length, ChapterImageSpan::class.java)
+                    .associateBy { layout.getLineForOffset(text.getSpanStart(it)) }
+            }.orEmpty()
             for (line in 0..<layout.lineCount) {
-                bands += NovelPaging.Band(
-                    (base + layout.getLineTop(line)).toFloat(),
-                    (base + layout.getLineBottom(line)).toFloat(),
-                )
+                val top = base + layout.getLineTop(line)
+                val picture = pictures[line]
+                bands += if (picture == null) {
+                    NovelPaging.Band(top.toFloat(), (base + layout.getLineBottom(line)).toFloat())
+                } else {
+                    val pictureTop = top + picture.topPx
+                    NovelPaging.Band(pictureTop.toFloat(), (pictureTop + picture.drawable.bounds.height()).toFloat())
+                }
             }
         }
         val pages = NovelPaging.cut(bands, height).also { slot.cut = geometry to it }

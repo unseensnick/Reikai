@@ -24,10 +24,10 @@ import java.util.Collections
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
- * Not a check: screenshots of pictures in two-page reading, for looking at by eye. A picture taller than a page
- * across two spreads (and on single pages to compare), one about a page tall, a small one inline with text and a
- * wide one. Runs only when the `pictureCapture` argument names the device, and saves
- * `<device>_<renderer>_<case>.png` in the app's files.
+ * Not a check: screenshots of pictures in paged reading, for looking at by eye: a picture taller than a page, one
+ * about a page tall after some text, and a wide one, on single pages and in spreads (`pictureModes`, `single,two`).
+ * Runs only when the `pictureCapture` argument names the device, and saves
+ * `<device>_<renderer>_<mode>_<case>_<pictureStage>.png` in the app's files.
  */
 @RunWith(Parameterized::class)
 class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) {
@@ -59,38 +59,29 @@ class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) 
 
     @Test
     fun captureSpreadPictures() {
-        val device = InstrumentationRegistry.getArguments().getString("pictureCapture")
+        val arguments = InstrumentationRegistry.getArguments()
+        val device = arguments.getString("pictureCapture")
         assumeTrue(device != null)
-        val name = "${device}_${renderer.name.lowercase()}"
+        val stage = arguments.getString("pictureStage") ?: "after"
+        val modes = arguments.getString("pictureModes")?.split(',') ?: listOf("single", "two")
+        modes.forEach { mode ->
+            val spread = mode == "two"
+            fun name(case: String) = "${device}_${renderer.name.lowercase()}_${mode}_${case}_$stage"
 
-        open(spread = true, html = intro() + picture("TALL", 600, 2_400) + paragraphs("after", 6))
-        shoot("${name}_a1_tall_starts")
-        turn()
-        shoot("${name}_a2_tall_continues")
+            open(spread, intro() + picture("TALL", 600, 2_400) + paragraphs("after", 6))
+            shoot(name("tall1"))
+            turn()
+            shoot(name("tall2"))
 
-        open(spread = true, html = intro() + picture("PAGE", 600, pageTallSourceHeight()) + paragraphs("after", 6))
-        shoot("${name}_b1_page_tall")
-        turn()
-        shoot("${name}_b2_page_tall_next")
+            val pageTall = picture("PAGE", 600, pageTallSourceHeight(spread))
+            open(spread, intro() + pageTall + paragraphs("after", 6))
+            shoot(name("pagetall1"))
+            turn()
+            shoot(name("pagetall2"))
 
-        val small = "<img src=\"${dataUri(drawn("SMALL", 160, 110))}\" style=\"vertical-align:middle\">"
-        open(
-            spread = true,
-            html = intro() + "<p>Inline $small a small picture sits in this line of text, " +
-                "and the text runs on after it. " + "The quick brown fox jumps over the lazy dog. ".repeat(6) + "</p>" +
-                paragraphs("after", 6),
-        )
-        shoot("${name}_c_small_inline")
-
-        open(spread = true, html = intro() + picture("WIDE", 1_600, 600) + paragraphs("after", 6))
-        shoot("${name}_d_wide")
-
-        open(spread = false, html = intro() + picture("TALL", 600, 2_400) + paragraphs("after", 6))
-        shoot("${name}_single_a1_tall_starts")
-        turn()
-        shoot("${name}_single_a2_tall_continues")
-        turn()
-        shoot("${name}_single_a3_tall_ends")
+            open(spread, intro() + picture("WIDE", 1_600, 600) + paragraphs("after", 6))
+            shoot(name("wide"))
+        }
     }
 
     @After
@@ -100,11 +91,15 @@ class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) 
     }
 
     /** Close to the page's own shape, so the picture is about one page tall at the column's width. */
-    private fun pageTallSourceHeight(): Int {
+    private fun pageTallSourceHeight(spread: Boolean): Int {
         val density = instrumentation.targetContext.resources.displayMetrics.density
         val margins = readerTestSettings.margins
         val pageHeight = view.height - (margins.top + margins.bottom) * density
-        val columnWidth = view.width / 2f - (margins.left + NovelSpreadHost.INNER_MARGIN_DP) * density
+        val columnWidth = if (spread) {
+            view.width / 2f - (margins.left + NovelSpreadHost.INNER_MARGIN_DP) * density
+        } else {
+            view.width - (margins.left + margins.right) * density
+        }
         return (600 * pageHeight / columnWidth * 0.95f).toInt()
     }
 

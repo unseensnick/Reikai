@@ -5,14 +5,7 @@ import android.net.Uri
 import androidx.compose.material3.SnackbarHostState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import coil3.asDrawable
-import coil3.imageLoader
-import coil3.request.ImageRequest
-import coil3.size.Size
-import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
-import eu.kanade.tachiyomi.data.saver.Location
-import eu.kanade.tachiyomi.util.system.getBitmapOrNull
 import eu.kanade.tachiyomi.util.system.toShareIntent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,9 +17,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import logcat.LogPriority
+import reikai.presentation.components.savePicture
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
-import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -118,22 +111,7 @@ abstract class EntryCoverViewModel<T : Any>(
 
     private suspend fun saveCoverInternal(context: Context, cover: Any, temp: Boolean): Uri? {
         val entry = entry.value ?: return null
-        val request = ImageRequest.Builder(context)
-            .data(cover)
-            .size(Size.ORIGINAL)
-            .build()
-
-        return withIOContext {
-            val result = context.imageLoader.execute(request).image?.asDrawable(context.resources)
-            val bitmap = result?.getBitmapOrNull() ?: return@withIOContext null
-            imageSaver.save(
-                Image.Cover(
-                    bitmap = bitmap,
-                    name = coverName(entry),
-                    location = if (temp) Location.Cache else Location.Pictures.create(),
-                ),
-            )
-        }
+        return savePicture(context, imageSaver, cover, coverName(entry), forSharing = temp)
     }
 
     fun editCover(context: Context, data: Uri) {

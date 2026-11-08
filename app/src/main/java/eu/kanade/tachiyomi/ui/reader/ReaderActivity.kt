@@ -133,6 +133,7 @@ import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
 import reikai.presentation.reader.ReaderNavigatorShape
 import reikai.presentation.reader.ReaderOrientationDialog
+import reikai.presentation.reader.ReaderPictureDialog
 import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
@@ -683,6 +684,7 @@ class ReaderActivity : BaseActivity() {
                     )
                 }
                 // RK -->
+                is ReaderDialog.Picture -> ReaderPictureDialog(dialog, onDismissRequest)
                 is ReaderDialog.TextSize -> {
                     val text by dialog.settings.state.collectAsState(null)
                     text?.let {

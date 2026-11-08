@@ -3,6 +3,7 @@ package reikai.di
 import eu.kanade.domain.source.interactor.ToggleIncognito
 import eu.kanade.tachiyomi.data.cache.PagePreviewCache
 import eu.kanade.tachiyomi.data.coil.MangaCoverMetadata
+import eu.kanade.tachiyomi.data.saver.ImageSaver
 import exh.GalleryAdder
 import exh.eh.EHentaiUpdateHelper
 import exh.eh.EHentaiUpdateWorker
@@ -100,6 +101,7 @@ interface ReikaiGraph {
     val novelSourceManager: NovelSourceManager
     val iReaderHostServices: IReaderHostServices // the extension loader builds IReader sources with it
     val novelImageRequests: NovelImageRequests // novel covers and pictures take their source's headers
+    val imageSaver: ImageSaver // the reader's picture viewer saves and shares from the host
     val extensionUpdateCounts: ExtensionUpdateCounts // the Browse badge counts plugin updates too
     val reikaiRecommendationPreferences: ReikaiRecommendationPreferences
     val lnPluginUpdateChecker: LnPluginUpdateChecker

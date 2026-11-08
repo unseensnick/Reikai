@@ -38,6 +38,9 @@
   var PAGE_SWIPE_MIN_PX = __PAGE_SWIPE_MIN_PX__;
   // How far a touch travels before it is a drag, the system touch slop the native renderer reads, in dp.
   var TOUCH_SLOP_PX = __TOUCH_SLOP_PX__;
+  // How a picture opens full screen (NovelPictureGesture.kt): a long press always, a tap only while scrolling.
+  var LONG_PRESS_MS = __LONG_PRESS_MS__;
+  var PICTURE_OPENS_ON_TAP = __PICTURE_OPENS_ON_TAP__;
   // The live report's interval: fine enough for the rail, far coarser than a scroll frame.
   var REPORT_INTERVAL_MS = 50;
   // A late reflow (images, fonts) fires scrollend against a still-settling height, so a persist
@@ -624,7 +627,9 @@
       var m = margins();
       var page = viewportHeight() - m.top - m.bottom;
       if (!(page > 0)) return;
-      var max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
+      // No picture is drawn taller than a page (reader.css), so each shows whole on one, as pictureBox caps it.
+      document.documentElement.style.setProperty('--rk-page-height', page + 'px');
+      var max =parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
       document.querySelectorAll('.rk-seam').forEach(function (seam) {
         var card = seam.firstElementChild;
         card.style.zoom = '';
@@ -985,15 +990,36 @@
     return dx < 0;
   }
 
+  /* The loaded picture in a chapter a touch on [target] lands on, else null. */
+  function pictureAt(target) {
+    var img = target && target.closest ? target.closest('img.rk-loaded') : null;
+    return img && img.closest(CHAPTER_SELECTOR) ? img : null;
+  }
+
+  function openPicture(img) {
+    bridge().onPictureOpened(DOCUMENT_TOKEN, img.currentSrc || img.getAttribute('src') || '');
+  }
+
   function installGestures() {
     // `multi`: the touch has had a second finger down, so it is neither a tap nor a swipe (ChapterSwipe.kt).
     var startX = 0, startY = 0, startAt = 0, moved = false, multi = false;
+    // A long press on a picture opens it, and leaves the touch no tap or swipe.
+    var press = null, opened = false;
+    function endPress() {
+      if (press !== null) clearTimeout(press);
+      press = null;
+    }
+    // A picture's long press is the viewer's, never the browser's selection or menu.
+    document.addEventListener('contextmenu', function (e) {
+      if (pictureAt(e.target)) e.preventDefault();
+    });
     // Only a finger counts. A chapter's own script can build touch events, and the token it cannot
     // read would not stop it: these listeners would send the call for it, stepping the chapter.
     document.addEventListener('touchstart', function (e) {
       if (!e.isTrusted) return;
       // A finger on the page takes the scroll over, as it stops a fling.
       glide.stop();
+      endPress();
       if (e.touches.length !== 1) {
         multi = true;
         return;
@@ -1003,6 +1029,16 @@
       startAt = Date.now();
       moved = false;
       multi = false;
+      opened = false;
+      var picture = pictureAt(e.target);
+      if (picture) {
+        press = setTimeout(function () {
+          press = null;
+          if (moved || multi) return;
+          opened = true;
+          openPicture(picture);
+        }, LONG_PRESS_MS);
+      }
     }, { passive: true });
 
     document.addEventListener('touchmove', function (e) {
@@ -1011,6 +1047,7 @@
       // hasTravelled (ChapterSwipe.kt) gives the native renderer.
       if (Math.abs(e.touches[0].clientX - startX) > TOUCH_SLOP_PX ||
         Math.abs(e.touches[0].clientY - startY) > TOUCH_SLOP_PX) moved = true;
+      if (moved) endPress();
       if (moved) onReaderMove();
     }, { passive: true });
 
@@ -1040,7 +1077,9 @@
 
     document.addEventListener('touchend', function (e) {
       // Only the last finger's lift ends the touch.
-      if (!e.isTrusted || e.touches.length !== 0 || multi) return;
+      if (!e.isTrusted) return;
+      endPress();
+      if (e.touches.length !== 0 || multi || opened) return;
       var touch = e.changedTouches && e.changedTouches[0];
       if (!touch) return;
       var dx = touch.clientX - startX;
@@ -1070,6 +1109,11 @@
       // A tap on a link, or anywhere on the failure box, is that control's, not the reader's. The
       // whole box rather than just its Retry, as the native renderer draws the same line.
       if (e.target && e.target.closest && e.target.closest('a, button, .rk-failure')) return;
+      var picture = PICTURE_OPENS_ON_TAP ? pictureAt(e.target) : null;
+      if (picture) {
+        openPicture(picture);
+        return;
+      }
 
       // The host reads the tap zones, the same rule the native renderer asks, and scrolls back through
       // scrollSmoothlyBy when a zone says to.

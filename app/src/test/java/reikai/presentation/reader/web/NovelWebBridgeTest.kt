@@ -30,6 +30,7 @@ class NovelWebBridgeTest {
         onChapterEndSeen = { calls += "end" },
         onPagedMoved = { calls += "paged" },
         onPagedPicturesLanded = { calls += "pictures" },
+        onPictureOpened = { calls += "picture" },
         onReady = {},
     )
 
@@ -50,6 +51,7 @@ class NovelWebBridgeTest {
         TAP({ onTap("token", 0.5, 0.5) }, "tap"),
         STEP_CHAPTER({ onStepChapter("token", true) }, "step"),
         RETRY_BOUNDARY({ onRetryBoundary("token", true) }, "retry"),
+        PICTURE_OPENED({ onPictureOpened("token", "data:image/png;base64,AA") }, "picture"),
     }
 
     @ParameterizedTest

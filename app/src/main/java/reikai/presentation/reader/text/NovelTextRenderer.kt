@@ -66,6 +66,8 @@ class NovelTextRenderer(
          * side margins.
          */
         contentWidth: Int,
+        /** Paged, the height of a page, which no picture is drawn taller than; null while scrolling. */
+        maxPictureHeight: Int?,
         /**
          * The chapter's own URL. Relative image sources and links are resolved against it, since
          * `Html.fromHtml` has no base of its own and the link policy blocks anything not http(s).
@@ -96,6 +98,7 @@ class NovelTextRenderer(
                 context = context,
                 scope = pictureScope,
                 contentWidth = contentWidth,
+                maxPictureHeight = maxPictureHeight,
                 sourceId = sourceId,
                 textSizePx = textSizePx,
                 textColor = { block.chunkViews.firstOrNull()?.currentTextColor ?: Color.GRAY },
@@ -126,7 +129,7 @@ class NovelTextRenderer(
                 SpannableStringBuilder(spanned)
                     .also { collapseBlankLines(it) }
                     .also { resizeSizedText(it) }
-                    .also { placeImages(it, textSizePx.toInt(), spacingPx) }
+                    .also { placeImages(it, textSizePx.toInt(), spacingPx, contentWidth) }
                     .also { NovelChapterTags.placeRules(it) }
                     .also { shrinkScripts(it) }
                     .also { NovelChapterLinks.apply(it, context, baseUrl, onAnchor) }
@@ -398,7 +401,7 @@ class NovelTextRenderer(
          * (ChapterImageSpan). Above, the margin collapses with what the paragraph before already leaves, as
          * CSS margins do: its spacing, or a picture's own 1em. One sharing a line with text keeps its span.
          */
-        internal fun placeImages(text: SpannableStringBuilder, emPx: Int, spacingPx: Int) {
+        internal fun placeImages(text: SpannableStringBuilder, emPx: Int, spacingPx: Int, columnPx: Int) {
             text.getSpans(0, text.length, ImageSpan::class.java).sortedBy(text::getSpanStart).forEach { image ->
                 val start = text.getSpanStart(image)
                 val end = text.getSpanEnd(image)
@@ -418,7 +421,7 @@ class NovelTextRenderer(
                 val flags = text.getSpanFlags(image)
                 text.removeSpan(image)
                 val top = (emPx - above).coerceAtLeast(0)
-                text.setSpan(ChapterImageSpan(image.drawable, image.source, top, emPx), start, end, flags)
+                text.setSpan(ChapterImageSpan(image.drawable, image.source, top, emPx, columnPx), start, end, flags)
             }
         }
 

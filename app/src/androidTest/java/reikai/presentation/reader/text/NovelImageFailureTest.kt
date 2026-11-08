@@ -67,6 +67,7 @@ class NovelImageFailureTest {
             context = context,
             scope = scope,
             contentWidth = 600,
+            maxPictureHeight = null,
             sourceId = null,
             textSizePx = 18f,
             textColor = { 0xFF000000.toInt() },
@@ -156,6 +157,7 @@ class NovelImageFailureTest {
             context = context,
             scope = scope,
             contentWidth = 600,
+            maxPictureHeight = null,
             sourceId = null,
             textSizePx = 18f,
             textColor = { 0xFF000000.toInt() },
@@ -191,6 +193,7 @@ class NovelImageFailureTest {
         context = context,
         scope = scope,
         contentWidth = 600,
+        maxPictureHeight = null,
         sourceId = null,
         textSizePx = 18f,
         textColor = { 0xFF000000.toInt() },
@@ -214,7 +217,7 @@ class NovelImageFailureTest {
     /** The render and a restyle hold a picture off the line spacing by the one rule. */
     @Test
     fun aPictureTakesBackItsViewsLineSpacing() {
-        val span = ChapterImageSpan(ColorDrawable(), "x", topPx = 0, bottomPx = 0)
+        val span = ChapterImageSpan(ColorDrawable(), "x", topPx = 0, bottomPx = 0, columnPx = 0)
         val text = SpannableStringBuilder("￼").apply { setSpan(span, 0, 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE) }
 
         NovelTextStyle.holdImagesOffLineSpacing(text, 12.6f)
@@ -261,6 +264,7 @@ class NovelImageFailureTest {
                 selectable = false,
                 bionic = false,
                 contentWidth = 600,
+                maxPictureHeight = null,
                 baseUrl = null,
                 sourceId = null,
                 holdAcross = { it() },

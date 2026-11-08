@@ -286,6 +286,10 @@ class NovelWebViewport(
                     shownPage.update { if ((it.key as? Pair<*, *>)?.first == id) it.copy(ready = true) else it }
                     if (endWaitingOnPictures == id) reportEnd(id)
                 },
+                // Only an address this viewport routed, or inline data, so the page names nothing else to load.
+                onPictureOpened = { src ->
+                    (webImages.imageFor(src) ?: src.takeIf { it.startsWith("data:") })?.let(callbacks.onPictureOpened)
+                },
                 // Auto-scroll is a call into the document, so one that was not up yet dropped it.
                 onReady = { token -> mainHandler.post { onPageReady(token) } },
             ),
