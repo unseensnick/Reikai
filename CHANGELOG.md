@@ -109,6 +109,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**
 - **A paged novel's short last chapter is no longer marked read while the transition before it is still showing.**
 - **The transition between novel chapters now always fits on one page in paged reading.** A long title or the missing-chapters warning used to split it across pages on a short screen.

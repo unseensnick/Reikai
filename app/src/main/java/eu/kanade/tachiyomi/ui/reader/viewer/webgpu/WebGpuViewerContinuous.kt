@@ -2,6 +2,8 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webgpu
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuous
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
@@ -10,6 +12,7 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import kotlinx.coroutines.launch
 import reikai.presentation.reader.holdsStripAutoScroll
+import reikai.presentation.reader.stripPageAt
 import kotlin.math.max
 
 class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = false) :
@@ -114,6 +117,21 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         // means scrolled well clear of, so there is no progress left to report.
         return (viewerPageFor(imagePage) as? ViewerReaderPage)?.page
     }
+
+    // RK --> the page under a press, since a strip shows several; offset by the renderer as the strip draws
+    override fun pageAt(offset: Offset): ViewerPage? {
+        val height = state.height.toFloat()
+        val index = stripPageAt(
+            pressY = offset.y,
+            viewerHeight = height,
+            scale = state.scale,
+            scrollY = state.scrollY - WebGpuRenderer.offsetY * height,
+            gap = state.pageGap * height,
+            maxPages = ImageViewerContinuousState.MAX_VISIBLE_PAGES,
+        ) { i -> state.getPage(i)?.let(state::getPageHeight) } ?: return null
+        return state.getPage(index)?.let(::viewerPageFor)
+    }
+    // RK <--
 
     override fun destroy() {
         state.onViewport = null

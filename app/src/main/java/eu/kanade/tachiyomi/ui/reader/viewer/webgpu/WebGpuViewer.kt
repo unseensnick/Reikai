@@ -7,12 +7,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import ca.mpreg.imagedecoder.ImageDecoder
 import ca.mpreg.webgpuviewer.closeTo
 import ca.mpreg.webgpuviewer.renderer.GainmapInput
 import ca.mpreg.webgpuviewer.renderer.Image
 import ca.mpreg.webgpuviewer.renderer.ImageFilterWgsl
 import ca.mpreg.webgpuviewer.renderer.Sampler
+import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
 import ca.mpreg.webgpuviewer.transition.TransitionBasic
 import ca.mpreg.webgpuviewer.transition.TransitionCube
 import ca.mpreg.webgpuviewer.transition.TransitionCubeOuter
@@ -74,6 +76,7 @@ import reikai.presentation.reader.chapterToRetry
 import reikai.presentation.reader.holdsForRetry
 import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
+import reikai.presentation.reader.pressIsLeftOfSeam
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
 import reikai.presentation.reader.shouldAutoPreload
@@ -204,6 +207,14 @@ open class WebGpuViewer(
     protected fun viewerPageFor(imagePage: ImagePage): ViewerPage? = synchronized(lock) {
         pageCache.values.firstOrNull { it.imagePage === imagePage }
     }
+
+    // RK --> the page under a press, since a spread shows two; a lone side's empty half is no page
+    protected open fun pageAt(offset: Offset): ViewerPage? {
+        val spread = viewerState.getPage(0) as? ImagePage.ImageSpread ?: return currentPage
+        val left = pressIsLeftOfSeam(offset.x, spread.x, spread.scale, WebGpuRenderer.offsetX)
+        return (if (left) spread.left else spread.right)?.let(::viewerPageFor)
+    }
+    // RK <--
 
     /** Check if a page is in the cache by identity. O(1) via key lookup. */
     private fun pageInCache(page: ViewerPage): Boolean = pageCache[pageKey(page)] === page
@@ -966,9 +977,10 @@ open class WebGpuViewer(
                 // RK <--
             }
 
-            onLongTap = { _ ->
+            // RK: the press's position picks the page, see pageAt
+            onLongTap = { offset ->
                 if (activity.viewModel.state.value.menuVisible || general.longTapEnabled) {
-                    (currentPage as? ViewerReaderPage)?.let { activity.onPageLongTap(it.page) }
+                    (pageAt(offset) as? ViewerReaderPage)?.let { activity.onPageLongTap(it.page) } // RK
                 }
             }
         }
