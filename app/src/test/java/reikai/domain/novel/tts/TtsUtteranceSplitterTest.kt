@@ -6,6 +6,8 @@ import io.kotest.matchers.ints.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import java.util.Locale
 
 /**
@@ -32,6 +34,18 @@ class TtsUtteranceSplitterTest {
     @Test
     fun `blank text is nothing to speak`() {
         split("   \n  ", maxLength = 100).shouldBeEmpty()
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["***", "* * *", "◇◆◇", "☆☆☆", "───", "……", "「……」", "!?", "#"])
+    fun `a paragraph with no words is nothing to speak`(line: String) {
+        split(line, maxLength = 100).shouldBeEmpty()
+    }
+
+    @Test
+    fun `a sentence with no words is nothing to speak, by sentence`() {
+        TtsUtteranceSplitter.pieces("「!?」 Second one.", maxLength = 100, Locale.ENGLISH, bySentence = true)
+            .map { it.text } shouldBe listOf("Second one.")
     }
 
     /**
@@ -105,10 +119,10 @@ class TtsUtteranceSplitterTest {
     /** A cut that lands between the halves of a character speaks as a replacement glyph. */
     @Test
     fun `a cut never lands inside a character`() {
-        val chunks = split("𝄞".repeat(60), maxLength = 25)
+        val chunks = split("𠀀".repeat(60), maxLength = 25)
 
         chunks.forEach { Character.isHighSurrogate(it.last()) shouldBe false }
-        chunks.joinToString("") shouldBe "𝄞".repeat(60)
+        chunks.joinToString("") shouldBe "𠀀".repeat(60)
     }
 
     @Test

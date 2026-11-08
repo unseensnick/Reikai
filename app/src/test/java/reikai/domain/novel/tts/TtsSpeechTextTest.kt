@@ -52,6 +52,44 @@ class TtsSpeechTextTest {
         TtsSpeechText.of(word) shouldBe word
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = ["~", "～", "〜"])
+    fun `a tilde after a word is a space`(tilde: String) {
+        TtsSpeechText.of("Hello$tilde there") shouldBe "Hello  there"
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = ["5~10", "5～10", "5〜10"])
+    fun `a tilde between digits is kept`(range: String) {
+        TtsSpeechText.of(range) shouldBe range
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "♪", "♫", "♬", "♩", "♡", "♥", "❤", "☆", "★", "◇", "◆", "○", "●", "□", "■", "※", "＊", "*", "・", "･", "•",
+        ],
+    )
+    fun `a decorative symbol is a space`(symbol: String) {
+        TtsSpeechText.of("Thanks$symbol See you") shouldBe "Thanks  See you"
+    }
+
+    @Test
+    fun `a middle dot between names is a space`() {
+        TtsSpeechText.of("Hana・Smith") shouldBe "Hana Smith"
+    }
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            "well-known", "pages 5–10", "-5 HP", "ラーメン", "HP 100/100", "+5 STR", "#1",
+            "I—I know", "Wait——no", "a ―bar―",
+        ],
+    )
+    fun `marks the voice handles itself are kept`(text: String) {
+        TtsSpeechText.of(text) shouldBe text
+    }
+
     @Test
     fun `the words inside are kept`() {
         TtsSpeechText.of("「Hello there,」 she said.") shouldBe " Hello there,  she said."

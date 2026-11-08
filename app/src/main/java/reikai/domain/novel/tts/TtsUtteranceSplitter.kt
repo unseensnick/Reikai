@@ -29,7 +29,7 @@ object TtsUtteranceSplitter {
         if (!bySentence &&
             trail - lead <= maxLength
         ) {
-            return listOf(TtsPiece(speech.substring(lead, trail), lead, trail))
+            return listOf(TtsPiece(speech.substring(lead, trail), lead, trail)).spoken()
         }
 
         val chunks = mutableListOf<TtsPiece>()
@@ -66,8 +66,16 @@ object TtsUtteranceSplitter {
             if (bySentence) flush()
         }
         flush()
-        return chunks
+        return chunks.spoken()
     }
+
+    /**
+     * Without a piece that has no letter or digit left, such as a scene break (`***`, `◇◆◇`) or a lone
+     * `……`: a voice reads it out by name, or for blank text may never report it done. A paragraph left
+     * with none is skipped, since the engine finishes an empty list at once.
+     */
+    private fun List<TtsPiece>.spoken() =
+        filter { piece -> piece.text.codePoints().anyMatch(Character::isLetterOrDigit) }
 
     private fun trimmed(text: String, speech: String, start: Int, end: Int): TtsPiece? {
         var s = start
