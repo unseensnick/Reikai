@@ -7,14 +7,14 @@ description: Frequently Asked Question about Downloads.
 Frequently Asked Question about Downloads.
 
 ## How do I download multiple chapters or series at the same time?
-Two settings in <nav to="downloads"> control this for manga, and both start conservative on purpose: hammering a source is how you get your IP banned from it.
+Two settings in <nav to="downloads"> control this, and both start conservative on purpose: hammering a source is how you get your IP banned from it.
 
 * **Concurrent source downloads** is how many sources are worked at once, five by default.
-* **Concurrent page downloads** is how many pages are pulled at once from each of them.
+* **Concurrent page downloads** is how many pages are pulled at once from each of them. Manga only.
 
 Raise the second one only for a source you know tolerates it. A source that starts returning errors or blank pages under load is telling you to put it back.
 
-Light novels ignore both settings: their queue downloads one chapter at a time, with a pause between chapters that you set under **Download speed**.
+Light novels follow **Concurrent source downloads** too, one chapter at a time from each source, with a pause between chapters that you set under **Download speed**.
 
 ## How do I slow downloads down?
 A fast queue can get you blocked by a site. The **Download speed** group in <nav to="downloads"> sets a wait between chapter downloads, separately for manga and novels.

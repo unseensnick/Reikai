@@ -17,7 +17,7 @@ Always make sure to have a backup in case anything unexpected occurs.
 ::: danger
 Downloaded chapter(s) do not transfer with migrations.
 
-**Delete downloaded**, ticked on a fresh install and remembered from your last migration, removes the old entry's downloads when you confirm; untick it to keep them. For manga, it only works while the old source is still installed.
+**Delete downloaded**, ticked on a fresh install and remembered from your last migration, removes the old entry's downloads when you confirm; untick it to keep them. This works even after the old source has been uninstalled.
 Anything left behind stays on your device until you delete it: from the old entry's own page (open <nav to="overflow"> and tap **Clear downloads**) while its source is still installed, or otherwise with a file manager.
 :::
 

@@ -46,7 +46,7 @@ You can also remove multiple series from a category by selecting them when you s
 
 ## Categories that span manga and novels
 
-**Reikai** keeps one category list covering both libraries, and every category says which of them it applies to, on a line under its name. When you create one from <nav to="categories">, **Show in** offers:
+**Reikai** keeps one category list covering both libraries. While **Content shown** in <nav to="appearance"> is set to **All**, every category says which of them it applies to, on a line under its name, and when you create one from <nav to="categories">, **Show in** offers the choices below. Set to **Manga** or **Novels**, a new category is made for that type without asking.
 
 | Option | Where it appears |
 |---|---|
@@ -73,7 +73,7 @@ By default, categories appear in the order you arranged them in the category man
 | **Z to A** | Descending alphabetical. |
 
 ::: tip Arranging the manual order
-Drag a category by its handle, or open its <nav to="overflow"> menu and pick **Move to top** or **Move to bottom**, which is quicker on a long list. Dragging only works under the **All** chip, while the menu works under any of them. With a sort set, or while selecting, neither is offered.
+Drag a category by its handle, or open its <nav to="overflow"> menu and pick **Move to top** or **Move to bottom**, which is quicker on a long list. Dragging only works under the **All** chip, while the menu works under any of them. The chips only appear while **Content shown** is **All**, so with it on **Manga** or **Novels** use the menu. With a sort set, or while selecting, neither is offered.
 :::
 
 Switching to A to Z or Z to A doesn't destroy your manual order; flipping back to **Off** restores it. The sort applies everywhere categories are listed: the library tab strip, the **Set categories** sheet, and the categories screen.

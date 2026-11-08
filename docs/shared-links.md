@@ -6,6 +6,8 @@ description: Share a series or chapter link to Reikai from your browser and it o
 
 # Opening shared links
 
+_Dev records: [browse-and-sources.md](dev/subsystems/browse-and-sources.md), [adult-sources.md](dev/subsystems/adult-sources.md). Doc map: [README.md](README.md)._
+
 Found a series in your browser? Share the link to **Reikai** and it opens that series' page, manga or novel, so you can read it or add it to your library.
 
 1. In your browser or any other app, open its share menu on the link.

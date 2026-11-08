@@ -13,7 +13,7 @@ Link supported tracking services in <nav to="tracking">.
 
 ## Services
 
-**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), [MangaBaka](https://mangabaka.org/), [Hikka](https://hikka.io/), [Bangumi](https://bangumi.tv/) and the Comick tracker, plus three services built for light novels: [RanobeDB](https://ranobedb.org/), [NovelList](https://www.novellist.co/) and [NovelUpdates](https://www.novelupdates.com/). Signing in to MangaDex adds its own **MDList** tracker.
+**Reikai** currently supports tracking with [MyAnimeList](https://myanimelist.net/), [AniList](https://anilist.co/), [Kitsu](https://kitsu.app/), [MangaUpdates](https://www.mangaupdates.com/), [Shikimori](https://shikimori.one/), [MangaBaka](https://mangabaka.org/), [Hikka](https://hikka.io/), [Bangumi](https://bangumi.tv/) and the Comick tracker, plus three services built for light novels: [RanobeDB](https://ranobedb.org/), [NovelList](https://www.novellist.co/) and [NovelUpdates](https://www.novelupdates.com/). **MDList**, MangaDex's own list, is a tracker too: tap its row in <nav to="tracking"> and sign in with your MangaDex account.
 
 * You must add the desired tracker to each series to begin tracking.
 * Track entries privately with supported tracking services (AniList, Kitsu, MangaBaka, Bangumi).
@@ -60,7 +60,7 @@ Three of the services are built for novels rather than manga. They work like eve
 * **Never move progress back** is on by default: reading an earlier chapter leaves NovelUpdates where it is, as it does every tracker. Turn it off to let NovelUpdates follow rereads.
 * **Move back on unread** is off by default. Turn it on and marking chapters unread moves NovelUpdates back to the highest chapter you still have read.
 
-These three NovelUpdates rows show in <nav to="tracking"> only while you are signed in to it.
+These NovelUpdates rows show in <nav to="tracking"> only while you are signed in to it.
 ::::
 
 **Fill from tracker** works with all three, so a novel bound to any of them can pull its cover, description, author and genres from the service.

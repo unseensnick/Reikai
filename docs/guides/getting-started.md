@@ -22,7 +22,7 @@ It checks for its own updates when you open it, and you can check yourself in <n
 
 ## Add sources
 
-Reikai comes with no sources to browse.
+Reikai comes with no online sources to browse.
 You add them from a repo, which is an address someone publishes listing sources you can install.
 Reikai does not run or recommend any repo.
 

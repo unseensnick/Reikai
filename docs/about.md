@@ -59,9 +59,8 @@ Making a backup before any update is a good habit either way (<nav to="data-and-
 
 Reikai doesn't maintain or fix third-party extensions; problems with a specific
 extension are out of scope and belong upstream. A few sources are built into Reikai,
-and bugs in those are fair to report. When you do, keep the issue title generalized
-(for example "Error opening a built-in gallery source") and name the source by its
-shorthand in the body. Shorthand list: [built-in sources](built-in-sources.md#reporting-a-bug-in-one).
+and bugs in those are fair to report: see
+[how to report one](built-in-sources.md#reporting-a-bug-in-one).
 
 ## Can I use novel sources from Tsundoku (NovelSourcery) or IReader?
 

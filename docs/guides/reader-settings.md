@@ -78,17 +78,17 @@ This allows you to control how the screen is going to be oriented.
 
 ::: tabs
 == Free
-TBA
+Follows your device's own rotation setting.
 == Portrait
-TBA
+Stays upright, turning either way up as you turn the device.
 == Landscape
-TBA
+Stays sideways, turning to either side as you turn the device.
 == Locked portrait
-TBA
+Stays upright, the normal way up, however you hold the device.
 == Locked landscape
-TBA
+Stays sideways, to one side only, however you hold the device.
 == Reverse portrait
-TBA
+Stays upright, but upside down.
 :::
 
 ### Background color <Badge type="info" text="Black" />
@@ -162,15 +162,6 @@ Skips over chapters detected as duplicates. With **Downloaded only** on, the cop
 ### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.
 
-### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
-Starts auto-scroll each time you open the reader. **Auto-scroll** in the reader's Controls tab starts or stops it until you leave the reader, without changing this setting, and so does its bottom bar button once you add it under **Bottom bar buttons**. It pauses while the menu is open and while your finger is on the screen.
-
-### Auto-scroll page interval <Badge type="info" text="5 s" />
-Paged modes only. How long a page stays on screen before auto-scroll turns it, counted from when the page has loaded, so it never turns past a page that is still loading.
-
-### Auto-scroll speed <Badge type="info" text="1.0x" />
-Long strip modes only. How fast auto-scroll moves the strip. It waits at a page that is still loading and scrolls on past one that failed, so its Retry button comes into view.
-
 ### Auto webtoon mode <Badge type="info" text="On" />
 Opens manhwa, manhua and webtoons in **Long strip** without you setting it per series.
 
@@ -181,6 +172,15 @@ Which buttons sit in the reader's bottom bar, and in what order. Rotation, readi
 
 ### Resume reading position <Badge type="info" text="Off" />
 Reopens a chapter where you left it, even one already marked read.
+
+### Start auto-scroll when opening a chapter <Badge type="info" text="Off" />
+Starts auto-scroll each time you open the reader. **Auto-scroll** in the reader's Controls tab starts or stops it until you leave the reader, without changing this setting, and so does its bottom bar button once you add it under **Bottom bar buttons**. It pauses while the menu is open and while your finger is on the screen.
+
+### Auto-scroll page interval <Badge type="info" text="5 s" />
+Paged modes only. How long a page stays on screen before auto-scroll turns it, counted from when the page has loaded, so it never turns past a page that is still loading.
+
+### Auto-scroll speed <Badge type="info" text="1.0x" />
+Long strip modes only. How fast auto-scroll moves the strip. It waits at a page that is still loading and scrolls on past one that failed, so its Retry button comes into view.
 
 ### Always show chapter transition <Badge type="info" text="On" />
 Shows chapter transitions regardless of whether the next chapter is loaded or not.
@@ -239,18 +239,6 @@ How tall the menu zone is. Only shown for the **Bottom** layout. One height serv
 <img src="/docs/guides/reader-settings/crop-borders_on.webp" alt="Cropping borders" width="512" height="788" loading="lazy" decoding="async" />
 :::
 
-### Split wide pages <Badge type="info" text="Off" /> {#split-wide-pages}
-TBA
-
-### Invert split page placement <Badge type="info" text="Off" /> {#invert-split-page-placement}
-Swaps which half of a split double-page spread comes first. Only useful once **Split wide pages** is on.
-
-### Rotate wide pages to fit <Badge type="info" text="Off" /> {#rotate-wide-pages}
-TBA
-
-### Flip orientation of rotated wide pages <Badge type="info" text="Off" /> {#flip-rotated-wide-pages}
-Rotates those pages the other way round. Only useful once **Rotate wide pages to fit** is on.
-
 ### Scale type <Badge type="info" text="Fit screen" />
 
 ::: tabs
@@ -282,14 +270,26 @@ Starts at the left of the page in **Paged (left to right)**, at the right in **P
 :::
 
 ### Automatically zoom into wide images <Badge type="info" text="On" />
-TBA
+Shown while **Scale type** is **Fit screen**. A page wider than it is tall zooms in to the height of the screen once it opens, starting where **Zoom start position** says.
 
 ### Pan wide images <Badge type="info" text="On" />
-TBA
+When a page is wider than the screen, tapping a tap zone first moves across it and only turns the page once you reach its edge.
+
+### Split wide pages <Badge type="info" text="Off" /> {#split-wide-pages}
+Shows a wide page, such as a double-page spread, as two pages, one after the other. Turning it on turns off **Rotate wide pages to fit**.
+
+### Invert split page placement <Badge type="info" text="Off" /> {#invert-split-page-placement}
+Swaps which half of a split double-page spread comes first. Only useful once **Split wide pages** is on.
+
+### Rotate wide pages to fit <Badge type="info" text="Off" /> {#rotate-wide-pages}
+Turns a wide page sideways so it fills more of an upright screen. Turning it on turns off **Split wide pages**.
+
+### Flip orientation of rotated wide pages <Badge type="info" text="Off" /> {#flip-rotated-wide-pages}
+Rotates those pages the other way round. Only useful once **Rotate wide pages to fit** is on.
 
 ## Long strip
 
-**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, every mode uses the **Paged** answers for all of these apart from **Crop borders**, so they are hidden here.
+**Tap zones**, **Invert tap zones**, **Crop borders**, **Split wide pages**, **Invert split page placement**, **Rotate wide pages to fit** and **Flip orientation of rotated wide pages** appear here as well as under **Paged**, and each mode keeps its own answer. They work as described above. While **Use high quality renderer** in <nav to="advanced"> is on, the long strip uses the **Paged** tap zones, so **Tap zones**, **Invert tap zones** and **Bottom zone height** are hidden here.
 
 ### Side padding <Badge type="info" text="0%" />
 Adds the specified padding to the left and right of the screen. Shown while **Use high quality renderer** in <nav to="advanced"> is off.
@@ -298,7 +298,7 @@ Adds the specified padding to the left and right of the screen. Shown while **Us
 How wide the strip is drawn, as a share of the screen. Shown in place of **Side padding** while **Use high quality renderer** is on.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens. It has no effect while **Use high quality renderer** in <nav to="advanced"> is on.
+How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Double tap to zoom <Badge type="info" text="On" />
 Zooms into the image on double tap. Hidden while **Use high quality renderer** in <nav to="advanced"> is on.
@@ -308,7 +308,7 @@ Stops a pinch from zooming a long strip out smaller than its normal width.
 
 ## High quality renderer
 
-**Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own, which are not on the settings screen.
+**Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own. All but **Gap** and the filters also appear in <nav to="manga-reader"> under **High quality renderer**.
 
 ### Dual page view <Badge type="info" text="Never" />
 On the **Reading** tab, for the three **Paged** modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
@@ -323,7 +323,7 @@ On the **Appearance** tab, paged modes only. How the page turns: **Basic**, **Pa
 On the **Appearance** tab, paged modes only. How the page sits around the camera cutout: **Ignore** draws under it, while **Avoid** and **Shift** keep the page clear of it. While two pages are shown, **Display cutout mode (dual)** <Badge type="info" text="Ignore" /> takes over.
 
 ### Disable double tap gestures <Badge type="info" text="Off" />
-On the **Controls** tab, paged modes only, and not while two pages are shown. Turns off double tap zoom.
+On the **Controls** tab, in every reading mode. Turns off double tap zoom.
 
 ### Image filters and Tile filters
 On the **Filters** tab. **Add shader** loads a WGSL shader file from your device. Image filters run on the whole page and tile filters on each tile, in list order, and you can drag or delete them.

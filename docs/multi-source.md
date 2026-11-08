@@ -51,7 +51,7 @@ A merged card is filed under the categories its group shares, and shows once in 
 Changing a merged series' categories, from the library or its details screen, changes them for every source in the group.
 A source that joins a group takes the group's categories.
 
-Under **Group by tag**, **Group by source** and **Group by language**, a merged card is listed under every tag, source and language its sources have, so it can appear in several groups.
+When the library is grouped **By tag**, **By source** or **By language** (the **Group** tab of the display sheet), a merged card is listed under every tag, source and language its sources have, so it can appear in several groups.
 
 ### Joining a group as you add a series
 

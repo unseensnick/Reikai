@@ -33,7 +33,7 @@ To change or understand a feature, this is every doc that covers it: the user do
 | Migration | [guides/source-migration.md](guides/source-migration.md) | [migrate.md](dev/subsystems/migrate.md) |
 | Statistics | [statistics.md](statistics.md) | [statistics.md](dev/subsystems/statistics.md) |
 | Feed and saved searches | [feed.md](feed.md) | [browse-and-sources.md](dev/subsystems/browse-and-sources.md) |
-| Opening shared links | [shared-links.md](shared-links.md) | none |
+| Opening shared links | [shared-links.md](shared-links.md) | [browse-and-sources.md](dev/subsystems/browse-and-sources.md), [adult-sources.md](dev/subsystems/adult-sources.md) |
 | Library shell | [library-layout.md](library-layout.md) | [library.md](dev/subsystems/library.md) |
 | Unified manga + novel UI | (none yet) | [content-layer.md](dev/subsystems/content-layer.md) |
 

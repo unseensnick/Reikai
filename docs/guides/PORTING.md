@@ -6,15 +6,15 @@ core reading experience Reikai inherits, which Reikai has never documented: gett
 reader settings, backups, storage, downloads, source migration, local source and troubleshooting.
 About 10,700 words.
 
-**Checked through mihon `1de5e8d` (2026-08-24).** Nothing that feeds these pages has moved since the
-copy: `git diff --stat 455bd7c..origin/main` in `refs/mihon-website` touches only `website/package.json`
-and its two lockfiles, and `website/src/docs/` has no commit at all in that range. Advance this line
-after the next check rather than re-deriving it. What to diff: `website/src/docs/` for the pages, plus
-`.vitepress/config/shortcodes.ts` and `theme/styles/tree.styl` for the pieces the website repo borrowed.
+How far upstream has been checked is recorded in one place, the site's ledger at
+[../Reikai-website/UPSTREAM-SYNC.md](../../../Reikai-website/UPSTREAM-SYNC.md), not here. What to diff:
+`website/src/docs/` for the pages, plus `.vitepress/config/shortcodes.ts` and `theme/styles/tree.styl`
+for the pieces the website repo borrowed.
 
 **They are live on the site.** `sync-docs.mjs` walks the whole `docs/` tree, carrying the markdown
 into `src/docs/` and everything else into `src/public/docs/`, and the sidebar groups pages by task:
-site pages, then Start here, Library, Sources, Reading, the single-page topics, Troubleshooting, Reference and the FAQ. The text has been debranded and then read
+Start here, Library, Sources, Reading, Tracking, Data and help (with Troubleshooting inside it) and the
+FAQ. Site pages sit in the top nav, not the sidebar. The text has been debranded and then read
 page by page against how Reikai behaves (see "What still has to happen"). The two statements that were
 flatly false about Reikai (light novels, and Yōkai backup compatibility) were fixed, and are recorded under
 "Where Reikai already differs" below.
@@ -46,7 +46,7 @@ change that invalidates a screenshot happens here. The tree icons are shared, so
 There were 28 asset files, 5.6 MB, in Mihon's `public/`. What happened to each:
 
 - **The 21 reader demos are reused as-is.** They show a page being rendered, not app chrome, and
-  Reikai's reader is upstream's unchanged, so they are accurate. The three double-tap animations were
+  the scale types, tap zones and crop borders they show still behave as upstream's, so they are accurate. The three double-tap animations were
   re-encoded from animated WebP to VP9 WebM (3.9 MB to 858 KB) and their `<img>` tags became
   `<video autoplay loop muted playsinline>`.
 - **The five app-UI crops were re-shot**, as six, on a clean emulator. All five were stale: the
@@ -67,9 +67,9 @@ Five things in the website repo, most of which the build would not have told you
 
 - **`sync-docs.mjs` walks the whole tree** and splits by extension: markdown through the existing
   transform into `src/docs/`, everything else copied verbatim into `src/public/docs/`, which is where
-  an absolute `/docs/...` asset URL resolves. Its skip list is `README.md`, `dev/` and this file: all
-  three are contributor material sitting in the same tree as the user docs.
-- **`vitepress-plugin-tabs`.** Seven of these pages are built on `::: tabs`, and without the plugin
+  an absolute `/docs/...` asset URL resolves. Its skip list (`SKIP`) is `README.md`, `dev/`, this file
+  and `navigation.json`: contributor material and data sitting in the same tree as the user docs.
+- **`vitepress-plugin-tabs`.** Without it, on a page built on `::: tabs`,
   every one of those blocks renders as the literal `:::` text. **The build stays green while it
   happens**, so read the built HTML rather than trusting the exit code.
 - **The `.tree` styles**, ported from their `theme/styles/tree.styl` into `style.css` as plain CSS,
@@ -100,12 +100,12 @@ guide that already covered the topic, and their files are gone:
 Three answers moved out of what is now `about.md` into the FAQ page that owns their topic: a failing download into
 `faq/downloads.md`, edited titles versus sorting into `faq/library.md`, auto webtoon mode into
 `faq/reader.md`. What is left of it is about the project rather than the app, which is why it is `about.md`, so it stays whole
-and leads the FAQ group.
+and sits in Start here.
 
 The rest of Reikai's docs are guides in their own right with no Mihon counterpart, so they keep their
 files and sit in the group for what they help with: merged series and library search under Library,
-adult sources under Sources, the novel reader under Reading, the bypass proxy under Troubleshooting.
-`built-in-sources.md` and the two reader settings pages sit under Reference.
+adult sources under Sources, the novel reader under Reading, the bypass proxy under Data and help.
+`built-in-sources.md` sits under Sources and the two reader settings pages under Reading.
 
 ## The content pass: what it found
 
