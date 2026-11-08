@@ -171,6 +171,12 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                         pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                     )
                 }
+                DualPageRows(
+                    split = preferences.dualPageSplitWebtoon,
+                    invert = preferences.dualPageInvertWebtoon,
+                    rotate = preferences.dualPageRotateToFitWebtoon,
+                    rotateInvert = preferences.dualPageRotateToFitInvertWebtoon,
+                )
             } else if (!isWebGpuDualPage(webGpu, preferences)) {
                 ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleTypeWebGpuViewer)
                 ZoomStartRow(preferences)
@@ -183,6 +189,13 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                     )
                 }
                 CheckboxItem(label = stringResource(MR.strings.pref_landscape_zoom), pref = preferences.landscapeZoom)
+                // A spread shows a wide page whole, so these apply only to single pages.
+                DualPageRows(
+                    split = preferences.dualPageSplitPaged,
+                    invert = preferences.dualPageInvertPaged,
+                    rotate = preferences.dualPageRotateToFit,
+                    rotateInvert = preferences.dualPageRotateToFitInvert,
+                )
             }
         }
     }
@@ -219,16 +232,16 @@ internal fun ColumnScope.MangaAppearancePage(viewModel: ReaderSettingsViewModel,
         label = stringResource(MR.strings.pref_always_show_chapter_transition),
         pref = preferences.alwaysShowChapterTransition,
     )
-    CheckboxItem(label = stringResource(MR.strings.pref_page_transitions), pref = preferences.pageTransitions)
-
     val webGpu = (viewer.running() as? RunningViewer.WebGpu)?.viewer
+    // The high quality renderer turns a page by Transition animation, which has None.
+    if (webGpu == null || webGpu.isContinuous) {
+        CheckboxItem(label = stringResource(MR.strings.pref_page_transitions), pref = preferences.pageTransitions)
+    }
     if (webGpu != null && isWebGpuDualPage(webGpu, preferences)) {
         TransitionAnimationRow(
             titleRes = MR.strings.pref_transition_animation_dual,
             pref = preferences.transitionAnimationDual,
-            entries = ReaderPreferences.TransitionAnimation.entries -
-                ReaderPreferences.TransitionAnimation.FLIP_LEFT -
-                ReaderPreferences.TransitionAnimation.FLIP_RIGHT,
+            entries = dualPageTransitionAnimations,
         )
         CutoutModeRow(MR.strings.pref_cutout_mode_dual, preferences.cutoutModeDual)
     } else if (webGpu != null && !webGpu.isContinuous) {
@@ -311,11 +324,11 @@ private fun ColumnScope.ImageScaleTypeRow(
 ) {
     val imageScaleType by preferences.imageScaleType.collectAsState()
     SettingsChipRow(MR.strings.pref_image_scale_type) {
-        offered.forEach {
+        scaleTypeValues(offered).forEach { (value, label) ->
             FilterChip(
-                selected = imageScaleType == ReaderPreferences.ImageScaleType.indexOf(it) + 1,
-                onClick = { preferences.imageScaleType.set(ReaderPreferences.ImageScaleType.indexOf(it) + 1) },
-                label = { Text(stringResource(it)) },
+                selected = imageScaleType == value,
+                onClick = { preferences.imageScaleType.set(value) },
+                label = { Text(stringResource(label)) },
             )
         }
     }

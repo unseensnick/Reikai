@@ -150,6 +150,64 @@ class MangaReaderSheetRowsTest {
         preferences.cropBordersWebtoon.get() shouldBe true
     }
 
+    /** Its own Transition animation, which has None, turns the page. */
+    @Test
+    fun `WebGPU paged leaves page transitions to its transition animation`() {
+        show(webGpu())
+        openTab("Appearance")
+
+        compose.onNodeWithText("Animate page transitions").assertDoesNotExist()
+    }
+
+    @Test
+    fun `WebGPU long strip offers page transitions`() {
+        show(webGpu(continuous = true))
+        openTab("Appearance")
+
+        compose.onNodeWithText("Animate page transitions").assertExists()
+    }
+
+    @Test
+    fun `WebGPU long strip split sets the long strip preference`() {
+        show(webGpu(continuous = true))
+
+        compose.onNodeWithText("Split wide pages").performSemanticsAction(SemanticsActions.OnClick)
+
+        preferences.dualPageSplitWebtoon.get() shouldBe true
+    }
+
+    @Test
+    fun `WebGPU paged rotate sets the paged preference`() {
+        show(webGpu())
+
+        compose.onNodeWithText("Rotate wide pages to fit").performSemanticsAction(SemanticsActions.OnClick)
+
+        preferences.dualPageRotateToFit.get() shouldBe true
+    }
+
+    @Test
+    fun `WebGPU dual page leaves wide pages whole`() {
+        preferences.dualPageView.set(ReaderPreferences.DualPageView.ALWAYS)
+
+        show(webGpu())
+
+        compose.onNodeWithText("Split wide pages").assertDoesNotExist()
+    }
+
+    @Test
+    fun `WebGPU paged offers smart fit`() {
+        show(webGpu())
+
+        compose.onNodeWithText("Smart fit").assertExists()
+    }
+
+    @Test
+    fun `WebGPU paged offers no stretch`() {
+        show(webGpu())
+
+        compose.onNodeWithText("Stretch").assertDoesNotExist()
+    }
+
     @Test
     fun `WebGPU paged rows follow a dual page view change`() {
         show(webGpu())

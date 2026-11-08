@@ -28,7 +28,10 @@ import reikai.presentation.reader.railOnLeftPreference
 import reikai.presentation.reader.readerBottomButtonsPreference
 import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerOrientationChoices
+import reikai.presentation.reader.settings.MangaReaderSettingsRows
 import reikai.presentation.reader.settings.progressSizeLabel
+import reikai.presentation.reader.settings.scaleTypeValues
+import reikai.presentation.reader.settings.webGpuViewerGroup
 import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.pluralStringResource
@@ -57,10 +60,14 @@ object SettingsMangaReaderScreen : SearchableSettings {
 
         // RK: the two renderers read different width controls, so the group offers whichever one is
         // live. Side padding is inert under the high quality renderer and Min width under the old one, and
-        // so is the volume-key scroll amount, since that renderer's long strip turns whole pages.
+        // so is the volume-key scroll amount, since that renderer's long strip scrolls half a screen.
         val highQualityRenderer by remember { context.appGraph.basePreferences.highQualityRenderer }
             .collectAsState()
         val loadAheadOnlyOverWifi by readerPref.loadAheadOnlyOverWifi.collectAsState()
+        // RK --> the rows the running renderer honours
+        val dualPageView by readerPref.dualPageView.collectAsState()
+        val rows = MangaReaderSettingsRows(highQualityRenderer, dualPageView)
+        // RK <--
 
         return listOf(
             Preference.PreferenceItem.ListPreference(
@@ -77,6 +84,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     250 to stringResource(MR.strings.double_tap_anim_speed_fast),
                 ),
                 title = stringResource(MR.strings.pref_double_tap_anim_speed),
+                visible = rows.doubleTapAnimSpeed, // RK
             ),
             Preference.PreferenceItem.SwitchPreference(
                 preference = readerPref.showReadingMode,
@@ -108,8 +116,9 @@ object SettingsMangaReaderScreen : SearchableSettings {
             getDisplayGroup(readerPreferences = readerPref),
             getEInkGroup(readerPreferences = readerPref),
             getReadingGroup(readerPreferences = readerPref),
-            getPagedGroup(readerPreferences = readerPref),
+            getPagedGroup(readerPreferences = readerPref, rows = rows), // RK
             getWebtoonGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer), // RK
+            webGpuViewerGroup(readerPref, rows), // RK
             getNavigationGroup(readerPreferences = readerPref, highQualityRenderer = highQualityRenderer), // RK
             getActionsGroup(readerPreferences = readerPref),
         )
@@ -235,7 +244,10 @@ object SettingsMangaReaderScreen : SearchableSettings {
     }
 
     @Composable
-    private fun getPagedGroup(readerPreferences: ReaderPreferences): Preference.PreferenceGroup {
+    private fun getPagedGroup(
+        readerPreferences: ReaderPreferences,
+        rows: MangaReaderSettingsRows, // RK
+    ): Preference.PreferenceGroup {
         val navModePref = readerPreferences.navigationModePager
         val imageScaleTypePref = readerPreferences.imageScaleType
         val dualPageSplitPref = readerPreferences.dualPageSplitPaged
@@ -282,9 +294,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = imageScaleTypePref,
-                    entries = ReaderPreferences.ImageScaleType
-                        .mapIndexed { index, it -> index + 1 to stringResource(it) }
-                        .toMap(),
+                    entries = scaleTypeValues(rows.scaleTypes).mapValues { stringResource(it.value) }, // RK
                     title = stringResource(MR.strings.pref_image_scale_type),
                 ),
                 Preference.PreferenceItem.ListPreference(
@@ -293,15 +303,17 @@ object SettingsMangaReaderScreen : SearchableSettings {
                         .mapIndexed { index, it -> index + 1 to stringResource(it) }
                         .toMap(),
                     title = stringResource(MR.strings.pref_zoom_start),
+                    visible = rows.singlePageRows, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.cropBorders,
                     title = stringResource(MR.strings.pref_crop_borders),
+                    visible = rows.singlePageRows, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.landscapeZoom,
                     title = stringResource(MR.strings.pref_landscape_zoom),
-                    visible = imageScaleType == 1,
+                    visible = imageScaleType == 1 && rows.singlePageRows, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.navigateToPan,
@@ -311,6 +323,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = dualPageSplitPref,
                     title = stringResource(MR.strings.pref_dual_page_split),
+                    visible = rows.singlePageRows, // RK
                     onValueChanged = {
                         rotateToFitPref.set(false)
                         true
@@ -320,11 +333,12 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.dualPageInvertPaged,
                     title = stringResource(MR.strings.pref_dual_page_invert),
                     subtitle = stringResource(MR.strings.pref_dual_page_invert_summary),
-                    visible = dualPageSplit,
+                    visible = dualPageSplit && rows.singlePageRows, // RK
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = rotateToFitPref,
                     title = stringResource(MR.strings.pref_page_rotate),
+                    visible = rows.singlePageRows, // RK
                     onValueChanged = {
                         dualPageSplitPref.set(false)
                         true
@@ -333,7 +347,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.dualPageRotateToFitInvert,
                     title = stringResource(MR.strings.pref_page_rotate_invert),
-                    visible = rotateToFit,
+                    visible = rotateToFit && rows.singlePageRows, // RK
                 ),
             ),
         )
@@ -417,7 +431,6 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = dualPageSplitPref,
                     title = stringResource(MR.strings.pref_dual_page_split),
-                    visible = !highQualityRenderer, // RK: that renderer's strip does not split pages
                     onValueChanged = {
                         rotateToFitPref.set(false)
                         true
@@ -427,12 +440,11 @@ object SettingsMangaReaderScreen : SearchableSettings {
                     preference = readerPreferences.dualPageInvertWebtoon,
                     title = stringResource(MR.strings.pref_dual_page_invert),
                     subtitle = stringResource(MR.strings.pref_dual_page_invert_summary),
-                    visible = dualPageSplit && !highQualityRenderer, // RK
+                    visible = dualPageSplit,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = rotateToFitPref,
                     title = stringResource(MR.strings.pref_page_rotate),
-                    visible = !highQualityRenderer, // RK
                     onValueChanged = {
                         dualPageSplitPref.set(false)
                         true
@@ -441,7 +453,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.dualPageRotateToFitInvertWebtoon,
                     title = stringResource(MR.strings.pref_page_rotate_invert),
-                    visible = rotateToFit && !highQualityRenderer, // RK
+                    visible = rotateToFit,
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = readerPreferences.webtoonDoubleTapZoomEnabled,

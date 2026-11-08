@@ -477,6 +477,7 @@ class ReaderPreferences(
             MR.strings.scale_type_fit_width,
             MR.strings.scale_type_fit_height,
             MR.strings.scale_type_original_size,
+            MR.strings.scale_type_smart_fit, // RK: fitHomeScale sets it
         )
 
         val ZoomStart = listOf(

@@ -3,6 +3,9 @@ package eu.kanade.tachiyomi.ui.reader.viewer
 import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import okio.BufferedSource
+import reikai.presentation.reader.rotationDegrees
+import reikai.presentation.reader.splitHalfSide
+import reikai.presentation.reader.stripUpperSide
 import tachiyomi.core.common.util.system.ImageUtil
 
 /**
@@ -48,7 +51,7 @@ fun DualPageSettings.processStripImage(imageSource: BufferedSource): BufferedSou
     if (dualPageSplit) {
         val isDoublePage = ImageUtil.isWideImage(imageSource)
         if (isDoublePage) {
-            val upperSide = if (dualPageInvert) ImageUtil.Side.LEFT else ImageUtil.Side.RIGHT
+            val upperSide = stripUpperSide(dualPageInvert) // RK: the rule the high quality renderer shares
             return ImageUtil.splitAndMerge(imageSource, upperSide)
         }
     }
@@ -59,7 +62,7 @@ fun DualPageSettings.processStripImage(imageSource: BufferedSource): BufferedSou
 private fun DualPageSettings.rotateDualPage(imageSource: BufferedSource): BufferedSource {
     val isDoublePage = ImageUtil.isWideImage(imageSource)
     return if (isDoublePage) {
-        val rotation = if (dualPageRotateToFitInvert) -90f else 90f
+        val rotation = rotationDegrees(dualPageRotateToFitInvert) // RK
         ImageUtil.rotateImage(imageSource, rotation)
     } else {
         imageSource
@@ -71,19 +74,6 @@ private fun DualPageSettings.splitInHalf(
     page: ReaderPage,
     isLeftToRight: Boolean,
 ): BufferedSource {
-    var side = when {
-        isLeftToRight && page is InsertPage -> ImageUtil.Side.RIGHT
-        !isLeftToRight && page is InsertPage -> ImageUtil.Side.LEFT
-        isLeftToRight && page !is InsertPage -> ImageUtil.Side.LEFT
-        else -> ImageUtil.Side.RIGHT
-    }
-
-    if (dualPageInvert) {
-        side = when (side) {
-            ImageUtil.Side.RIGHT -> ImageUtil.Side.LEFT
-            ImageUtil.Side.LEFT -> ImageUtil.Side.RIGHT
-        }
-    }
-
+    val side = splitHalfSide(isLeftToRight, second = page is InsertPage, invert = dualPageInvert) // RK
     return ImageUtil.splitInHalf(imageSource, side)
 }

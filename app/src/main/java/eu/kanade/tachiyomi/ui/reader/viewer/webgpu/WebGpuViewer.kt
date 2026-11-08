@@ -38,12 +38,14 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.loader.HttpPageLoader
 import eu.kanade.tachiyomi.ui.reader.model.DownloadStream
+import eu.kanade.tachiyomi.ui.reader.model.InsertPage
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.setting.GeneralSettings
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.TransitionAnimation
+import eu.kanade.tachiyomi.ui.reader.viewer.DualPageSettings
 import eu.kanade.tachiyomi.ui.reader.viewer.LongStripSettings
 import eu.kanade.tachiyomi.ui.reader.viewer.PagedSettings
 import eu.kanade.tachiyomi.ui.reader.viewer.ReaderPageImageView.ZoomStartPosition
@@ -71,16 +73,20 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import reikai.presentation.reader.LocalPageColorAdjust
+import reikai.presentation.reader.WidePageShape
 import reikai.presentation.reader.cancelPageJobs
 import reikai.presentation.reader.chapterToRetry
+import reikai.presentation.reader.fitHomeScale
 import reikai.presentation.reader.holdsForRetry
 import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
 import reikai.presentation.reader.pressIsLeftOfSeam
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
+import reikai.presentation.reader.reshapePixels
 import reikai.presentation.reader.shouldAutoPreload
 import reikai.presentation.reader.showsTransition
+import reikai.presentation.reader.widePageShape
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -192,12 +198,12 @@ open class WebGpuViewer(
     private val pairAspectTolerance = 0.1f
 
     private sealed class PageKey {
-        data class Reader(val chapterId: Long?, val index: Int) : PageKey()
+        data class Reader(val chapterId: Long?, val index: Int, val secondHalf: Boolean = false) : PageKey() // RK
         data class Transition(val prevId: Long?, val nextId: Long?) : PageKey()
     }
 
     private fun pageKey(page: ViewerPage): PageKey = when (page) {
-        is ViewerReaderPage -> PageKey.Reader(page.page.chapter.chapter.id, page.page.index)
+        is ViewerReaderPage -> readerKey(page.page) // RK
         is ViewerTransitionPage -> PageKey.Transition(page.prevChapter?.chapter?.id, page.nextChapter?.chapter?.id)
         else -> PageKey.Transition(null, null)
     }
@@ -207,6 +213,40 @@ open class WebGpuViewer(
     protected fun viewerPageFor(imagePage: ImagePage): ViewerPage? = synchronized(lock) {
         pageCache.values.firstOrNull { it.imagePage === imagePage }
     }
+
+    // RK --> Split wide pages in a paged viewer: a wide page's second half is an InsertPage, as in the classic
+    // pager, keyed apart from its first and reached only from it. Under [lock].
+    private val secondHalves = HashMap<PageKey.Reader, InsertPage>()
+
+    private fun readerKey(page: ReaderPage) = PageKey.Reader(page.chapter.chapter.id, page.index, page is InsertPage)
+
+    private val wideSettings: DualPageSettings
+        get() = if (isContinuous) settingsViewModel.simpleLongStrip.value.page else settingsViewModel.simplePaged.value
+
+    /** As the classic pager has it: only its left-to-right viewer shows a split page's left half first. */
+    private val leftToRight get() = !isReversed && !isVertical
+
+    private fun wideShape(page: ReaderPage, dec: ImageDecoder): WidePageShape =
+        if (isDualPageMode()) {
+            WidePageShape.Whole
+        } else {
+            wideSettings.widePageShape(dec.width, dec.height, isContinuous, leftToRight, page is InsertPage)
+        }
+
+    /** [page]'s second half, once its decode found it wide; null for a page shown whole. */
+    private fun secondHalfOf(page: ReaderPage): InsertPage? =
+        if (page is InsertPage || isDualPageMode()) {
+            null
+        } else {
+            synchronized(lock) { secondHalves[readerKey(page)]?.takeIf { it.parent === page } }
+        }
+
+    /** The page reading backward lands on: a split page's second half. */
+    private fun lastHalfOf(page: ReaderPage): ReaderPage = secondHalfOf(page) ?: page
+
+    /** Reading order, in which a second half follows its first. */
+    private fun readingOrder(page: ReaderPage) = page.index * 2 + if (page is InsertPage) 1 else 0
+    // RK <--
 
     // RK --> the page under a press, since a spread shows two; a lone side's empty half is no page
     protected open fun pageAt(offset: Offset): ViewerPage? {
@@ -424,8 +464,13 @@ open class WebGpuViewer(
             is ViewerReaderPage -> {
                 val chapterId = page.page.chapter.chapter.id
                 val nextIndex = page.page.index + 1
-                candidates.find {
-                    it is ViewerReaderPage && it.page.chapter.chapter.id == chapterId && it.page.index == nextIndex
+                // RK --> a split page's second half comes first
+                val half = candidates.find { it is ViewerReaderPage && (it.page as? InsertPage)?.parent === page.page }
+                // RK <--
+                // RK
+                half ?: candidates.find {
+                    it is ViewerReaderPage && it.page.chapter.chapter.id == chapterId && it.page.index == nextIndex &&
+                        it.page !is InsertPage // RK
                 } ?: candidates.find { it is ViewerTransitionPage && it.prevChapter?.chapter?.id == chapterId }
                     ?: page.nextChapter?.chapter?.id?.let { nextChapterId ->
                         candidates.find {
@@ -448,7 +493,16 @@ open class WebGpuViewer(
             is ViewerReaderPage -> {
                 val chapterId = page.page.chapter.chapter.id
                 val prevIndex = page.page.index - 1
-                candidates.find {
+                // RK --> a second half goes back to its first, and a page back to the second half before it
+                val parent = (page.page as? InsertPage)?.parent
+                val half = parent?.let { first -> candidates.find { (it as? ViewerReaderPage)?.page === first } }
+                    ?: candidates.find {
+                        val second = (it as? ViewerReaderPage)?.page as? InsertPage
+                        second != null && second.chapter.chapter.id == chapterId && second.index == prevIndex
+                    }
+                // RK <--
+                // RK
+                half ?: candidates.find {
                     it is ViewerReaderPage && it.page.chapter.chapter.id == chapterId && it.page.index == prevIndex
                 } ?: candidates.find { it is ViewerTransitionPage && it.nextChapter?.chapter?.id == chapterId }
                     ?: page.prevChapter?.let { prevChapter ->
@@ -503,7 +557,7 @@ open class WebGpuViewer(
      * @param referencePage The page to use as reference for eviction (defaults to currentPage)
      */
     fun getPage(page: ReaderPage, referencePage: ViewerPage? = null): ViewerPage {
-        val key = PageKey.Reader(page.chapter.chapter.id, page.index)
+        val key = readerKey(page) // RK
         return synchronized(lock) {
             // RK --> a chapter loaded again keeps its id and indices but has new pages, so the wrapper
             // of a page it replaced goes, cleaned up as an eviction is, rather than drawing the old image.
@@ -694,7 +748,7 @@ open class WebGpuViewer(
         override var imagePage: ImagePage = TransitionPage(this@WebGpuViewer, prevChapter, nextChapter)
 
         override val prev: ViewerPage?
-            get() = prevChapter?.pages?.lastOrNull()?.let { getPage(it, currentPage) }
+            get() = prevChapter?.pages?.lastOrNull()?.let { getPage(lastHalfOf(it), currentPage) } // RK
 
         override val next: ViewerPage?
             get() = nextChapter?.pages?.firstOrNull()?.let { getPage(it, currentPage) }
@@ -768,8 +822,10 @@ open class WebGpuViewer(
             }
 
         override val prev: ViewerPage?
-            get() = page.chapter.pages?.let { pages ->
-                pages.getOrNull(page.index - 1)?.let { getPage(it, currentPage) } ?: run {
+            // RK: a second half goes back to its first half, and a page back to the second half before it
+            get() = (page as? InsertPage)?.let { getPage(it.parent, currentPage) } ?: page.chapter.pages?.let { pages ->
+                // RK
+                pages.getOrNull(page.index - 1)?.let { getPage(lastHalfOf(it), currentPage) } ?: run {
                     val prevChapter = prevChapter ?: return@run getPage(null, page.chapter, currentPage)
 
                     // RK -->
@@ -782,13 +838,14 @@ open class WebGpuViewer(
                         // RK <--
                         getPage(prevChapter, page.chapter, currentPage)
                     } else {
-                        prevChapter.pages?.lastOrNull()?.let { getPage(it, currentPage) }
+                        prevChapter.pages?.lastOrNull()?.let { getPage(lastHalfOf(it), currentPage) } // RK
                     }
                 }
             }
 
         override val next: ViewerPage?
-            get() = page.chapter.pages?.let { pages ->
+            // RK: a split page goes on to its second half
+            get() = secondHalfOf(page)?.let { getPage(it, currentPage) } ?: page.chapter.pages?.let { pages ->
                 pages.getOrNull(page.index + 1)?.let { getPage(it, currentPage) } ?: run {
                     val nextChapter = nextChapter ?: return@run getPage(page.chapter, null, currentPage)
 
@@ -1031,6 +1088,14 @@ open class WebGpuViewer(
                 onPageSettingsChanged()
             }
         }
+        // RK --> Split wide pages and Rotate to fit remake the pages, as the classic viewers' settings do
+        val wide = if (isContinuous) {
+            settingsViewModel.simpleLongStrip.map { it.page }
+        } else {
+            settingsViewModel.simplePaged
+        }
+        wide.distinctUntilChanged().collectChanges(scope) { old, _ -> if (old != null) onPageSettingsChanged() }
+        // RK <--
     }
 
     /**
@@ -1101,8 +1166,10 @@ open class WebGpuViewer(
                 cleanupImage(it.imagePage)
             }
             pageCache.clear()
+            secondHalves.clear() // RK: a page split under the old settings is decoded again
 
-            currentPage = (currentPage as? ViewerReaderPage)?.page?.let { getPage(it) }
+            // RK: a second half stood for its first, which decodes again
+            currentPage = (currentPage as? ViewerReaderPage)?.page?.let { getPage((it as? InsertPage)?.parent ?: it) }
                 ?: (currentPage as? ViewerTransitionPage)?.let {
                     getPage(it.prevChapter, it.nextChapter)
                 }
@@ -1537,6 +1604,12 @@ open class WebGpuViewer(
         // SDR only: HDR skips Image's tone mapping; a gain map may need float textures.
         var previewing = streaming && !dec.isHdr && dec.hdrKind != ImageDecoder.HdrKind.GAINMAP
 
+        // RK --> a wide page split or rotated to fit is reshaped from its whole first frame, so it has no
+        // preview: the whole-file decode after the download makes it. An animated one stays whole.
+        val shape = wideShape(page.page, dec)
+        if (shape != WidePageShape.Whole) previewing = false
+        // RK <--
+
         // Null once the page is unwanted.
         suspend fun nextWhole(onPartial: (suspend (ImageDecoder.Frame) -> Unit)? = null): ImageDecoder.Frame? {
             while (true) {
@@ -1629,8 +1702,22 @@ open class WebGpuViewer(
             // Image filters draw only base levels. Pages already made keep what they have.
             val mipMaps = !animated && viewerState.imageFilters.isEmpty()
 
+            // RK --> reshaped from the decoded pixels; the gain map is a second image at its own size, so a
+            // reshaped page draws without it, at SDR
+            val reshaped = if (!animated && shape != WidePageShape.Whole) {
+                reshapePixels(firstFrame.image, firstFrame.width, firstFrame.height, if (dec.isHdr) 8 else 4, shape)
+            } else {
+                null
+            }
+            if (shape is WidePageShape.Half && reshaped != null && page.page !is InsertPage) {
+                synchronized(lock) { secondHalves[readerKey(page.page)] = InsertPage(page.page) }
+                // So the second half loads behind its first, as the next page does.
+                scope.launch { currentPage?.let { preloadPages(it) } }
+            }
+            // RK <--
+
             // A gain map belongs to a still; its headroom is the map's, not the decoder's.
-            val gainmap = if (!animated && dec.hdrKind == ImageDecoder.HdrKind.GAINMAP) {
+            val gainmap = if (!animated && reshaped == null && dec.hdrKind == ImageDecoder.HdrKind.GAINMAP) { // RK
                 dec.getGainmap()
             } else {
                 null
@@ -1659,9 +1746,9 @@ open class WebGpuViewer(
                 it.measure(firstFrame.image, trimColors, trimThreshold = 0.15f, backgroundColor = backgroundColor)
                 it.crop = crop
             } ?: Image(
-                firstFrame.image,
-                firstFrame.width,
-                firstFrame.height,
+                reshaped?.pixels ?: firstFrame.image, // RK
+                reshaped?.width ?: firstFrame.width, // RK
+                reshaped?.height ?: firstFrame.height, // RK
                 createMipMaps = mipMaps,
                 trimColors = trimColors,
                 trimThreshold = 0.15f,
@@ -1832,13 +1919,7 @@ open class WebGpuViewer(
 
     private fun applyFitModeAnchor(page: ImagePage.ImageSingle) {
         val scaleType = paged.page.imageScaleType
-        if (
-            scaleType != ReaderPreferences.ScaleType.FIT_WIDTH &&
-            scaleType != ReaderPreferences.ScaleType.FIT_HEIGHT &&
-            scaleType != ReaderPreferences.ScaleType.ORIGINAL_SIZE
-        ) {
-            return
-        }
+        // RK: the guard on which scale types this sets moved into fitHomeScale, below
 
         val screenW = viewerState.width
         val screenH = viewerState.viewportHeight
@@ -1848,13 +1929,12 @@ open class WebGpuViewer(
         val h = page.trimHeight.toFloat()
         if (w <= 0f || h <= 0f) return
 
+        // RK: the scale types it sets, Smart fit among them; the library fits the others to the screen
+        val homeScale = fitHomeScale(scaleType, screenW.toFloat(), screenH.toFloat(), w, h) ?: return
+
         page.parent = viewerState
 
-        page.homeScale = when (scaleType) {
-            ReaderPreferences.ScaleType.FIT_WIDTH -> screenW / w
-            ReaderPreferences.ScaleType.FIT_HEIGHT -> screenH / h
-            else -> 1f
-        }.coerceAtLeast(0.01f)
+        page.homeScale = homeScale.coerceAtLeast(0.01f) // RK
 
         page.scale = page.homeScale
 
@@ -1992,7 +2072,9 @@ open class WebGpuViewer(
         val shown = when (val current = currentPage) {
             null -> null
             is ViewerReaderPage -> current.takeIf {
-                keepsShownPage(it.page, chapters, readerAt = activity.viewModel.state.value.position?.chapterId)
+                // A split page's second half is kept as its first is
+                val shownPage = (it.page as? InsertPage)?.parent ?: it.page
+                keepsShownPage(shownPage, chapters, readerAt = activity.viewModel.state.value.position?.chapterId)
             }
             else -> current.takeIf {
                 it.prevChapter?.chapter?.id == chapters.currChapter.chapter.id ||
@@ -2089,7 +2171,7 @@ open class WebGpuViewer(
             is ViewerReaderPage if newPage is ViewerReaderPage -> if (previousPage.page.chapter ==
                 newPage.page.chapter
             ) {
-                (newPage.page.index - previousPage.page.index).coerceIn(-1, 1)
+                readingOrder(newPage.page).compareTo(readingOrder(previousPage.page)) // RK: halves of one page too
             } else if (previousPage.page.chapter == newPage.prevChapter) {
                 1
             } else {
