@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
  * Which rows Settings > Reader offers, so none is a control the renderer the reader runs ignores. With no
@@ -42,6 +43,15 @@ internal val dualPageTransitionAnimations = ReaderPreferences.TransitionAnimatio
 internal fun scaleTypeValues(offered: List<StringResource>): Map<Int, StringResource> =
     offered.associateBy { ReaderPreferences.ImageScaleType.indexOf(it) + 1 }
 
+/** Dual page view's row in Settings > Manga reader and Settings > Novel reader, over each type's own setting. */
+@Composable
+internal fun dualPageViewRow(preference: PreferenceData<ReaderPreferences.DualPageView>) =
+    Preference.PreferenceItem.ListPreference(
+        preference = preference,
+        entries = ReaderPreferences.DualPageView.entries.associateWith { stringResource(it.titleRes) },
+        title = stringResource(MR.strings.pref_dual_page_view),
+    )
+
 /** The high quality renderer's own settings, which otherwise live only in the reader sheet. */
 @Composable
 internal fun webGpuViewerGroup(
@@ -52,11 +62,7 @@ internal fun webGpuViewerGroup(
         title = stringResource(MR.strings.pref_category_high_quality_renderer),
         visible = rows.rendererRows,
         preferenceItems = listOf(
-            Preference.PreferenceItem.ListPreference(
-                preference = preferences.dualPageView,
-                entries = ReaderPreferences.DualPageView.entries.associateWith { stringResource(it.titleRes) },
-                title = stringResource(MR.strings.pref_dual_page_view),
-            ),
+            dualPageViewRow(preferences.dualPageView),
             Preference.PreferenceItem.ListPreference(
                 preference = preferences.transitionAnimation,
                 entries = ReaderPreferences.TransitionAnimation.entries.associateWith { stringResource(it.titleRes) },
