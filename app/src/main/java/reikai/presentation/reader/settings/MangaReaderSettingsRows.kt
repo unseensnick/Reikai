@@ -28,10 +28,6 @@ internal class MangaReaderSettingsRows(
 
     /** The dual-page variants of transition animation and cutout mode. */
     val dualPageRows = highQualityRenderer && dualPageView != ReaderPreferences.DualPageView.NEVER
-
-    /** Stretch is the one that renderer cannot draw. */
-    val scaleTypes: List<StringResource> =
-        if (highQualityRenderer) ReaderPreferences.ImageScaleTypeWebGpuViewer else ReaderPreferences.ImageScaleType
 }
 
 /** The transitions upstream's sheet offers for a two-page spread: all but Flip left and Flip right. */

@@ -1,8 +1,8 @@
 package reikai.presentation.reader.settings
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences.DualPageView
 import io.kotest.matchers.collections.shouldContain
-import io.kotest.matchers.collections.shouldNotContain
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import tachiyomi.i18n.MR
@@ -43,17 +43,16 @@ class MangaReaderSettingsRowsTest {
 
     @Test
     fun `the renderer offers smart fit`() {
-        scaleTypeValues(rows(true).scaleTypes).values shouldContain MR.strings.scale_type_smart_fit
+        ReaderPreferences.ImageScaleTypeWebGpuViewer shouldContain MR.strings.scale_type_smart_fit
     }
 
     @Test
-    fun `the renderer offers no stretch`() {
-        scaleTypeValues(rows(true).scaleTypes).values shouldNotContain MR.strings.scale_type_stretch
+    fun `the renderer offers stretch`() {
+        ReaderPreferences.ImageScaleTypeWebGpuViewer shouldContain MR.strings.scale_type_stretch
     }
 
     @Test
     fun `a scale type keeps its stored value whichever list offers it`() {
-        scaleTypeValues(rows(true).scaleTypes).filterValues { it == MR.strings.scale_type_smart_fit }.keys shouldBe
-            setOf(6)
+        scaleTypeValues(ReaderPreferences.ImageScaleTypeWebGpuViewer).keys shouldBe setOf(1, 2, 3, 4, 5, 6)
     }
 }

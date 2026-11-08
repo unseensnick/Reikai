@@ -80,6 +80,7 @@ import reikai.presentation.reader.fitHomeScale
 import reikai.presentation.reader.holdsForRetry
 import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
+import reikai.presentation.reader.landsOnSecondHalf
 import reikai.presentation.reader.pressIsLeftOfSeam
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
@@ -243,6 +244,25 @@ open class WebGpuViewer(
 
     /** The page reading backward lands on: a split page's second half. */
     private fun lastHalfOf(page: ReaderPage): ReaderPage = secondHalfOf(page) ?: page
+
+    /** The page last reached reading backward, which its decode may yet find split. */
+    @Volatile
+    private var arrivedBackward: PageKey? = null
+
+    private fun noteArrival(page: ViewerPage, direction: Int) {
+        arrivedBackward = (page as? ViewerReaderPage)?.takeIf { direction < 0 }?.let(::pageKey)
+    }
+
+    /** Moves the reader from [first] to [second] when [landsOnSecondHalf] says so. Main thread. */
+    private fun landOnSecondHalf(first: ReaderPage, second: InsertPage) {
+        val key = readerKey(first)
+        if (!landsOnSecondHalf(arrivedBackward, currentPage?.let(::pageKey), key)) return
+        val target = getPage(second)
+        arrivedBackward = null
+        currentPage = target
+        preloadPages(target)
+        viewerState.invalidate()
+    }
 
     /** Reading order, in which a second half follows its first. */
     private fun readingOrder(page: ReaderPage) = page.index * 2 + if (page is InsertPage) 1 else 0
@@ -1576,11 +1596,14 @@ open class WebGpuViewer(
     ) {
         // The decoder hands the map over unapplied - see ImageDecoder.Gainmap - because how
         // much of it to use depends on the display, so the viewer applies it.
-        fun ImageDecoder.Gainmap.toInput() = let {
+        fun ImageDecoder.Gainmap.toInput(shape: WidePageShape) = let {
+            // RK
+            // RK: split or turned as its page is, the map being that page's gains at its own resolution
+            val map = reshapePixels(it.pixels, it.width, it.height, it.channels, shape)
             GainmapInput(
-                pixels = it.pixels,
-                width = it.width,
-                height = it.height,
+                pixels = map.pixels, // RK
+                width = map.width, // RK
+                height = map.height, // RK
                 channels = it.channels,
                 gamma = it.gamma,
                 minContentBoost = it.minContentBoost,
@@ -1702,22 +1725,25 @@ open class WebGpuViewer(
             // Image filters draw only base levels. Pages already made keep what they have.
             val mipMaps = !animated && viewerState.imageFilters.isEmpty()
 
-            // RK --> reshaped from the decoded pixels; the gain map is a second image at its own size, so a
-            // reshaped page draws without it, at SDR
+            // RK --> reshaped from the decoded pixels, and its gain map with it in toInput
             val reshaped = if (!animated && shape != WidePageShape.Whole) {
                 reshapePixels(firstFrame.image, firstFrame.width, firstFrame.height, if (dec.isHdr) 8 else 4, shape)
             } else {
                 null
             }
             if (shape is WidePageShape.Half && reshaped != null && page.page !is InsertPage) {
-                synchronized(lock) { secondHalves[readerKey(page.page)] = InsertPage(page.page) }
-                // So the second half loads behind its first, as the next page does.
-                scope.launch { currentPage?.let { preloadPages(it) } }
+                val second = InsertPage(page.page)
+                synchronized(lock) { secondHalves[readerKey(page.page)] = second }
+                // So the second half loads behind its first, as the next page does, or is shown in its place.
+                scope.launch {
+                    landOnSecondHalf(page.page, second)
+                    currentPage?.let { preloadPages(it) }
+                }
             }
             // RK <--
 
             // A gain map belongs to a still; its headroom is the map's, not the decoder's.
-            val gainmap = if (!animated && reshaped == null && dec.hdrKind == ImageDecoder.HdrKind.GAINMAP) { // RK
+            val gainmap = if (!animated && dec.hdrKind == ImageDecoder.HdrKind.GAINMAP) {
                 dec.getGainmap()
             } else {
                 null
@@ -1755,7 +1781,7 @@ open class WebGpuViewer(
                 backgroundColor = backgroundColor,
                 hdr = dec.isHdr,
                 hdrHeadroom = hdrHeadroom,
-                gainmap = gainmap?.toInput(),
+                gainmap = gainmap?.toInput(shape), // RK
             ).also {
                 it.crop = crop
                 orphan = it
@@ -2106,6 +2132,7 @@ open class WebGpuViewer(
                 // Synchronous, since the viewer walks getPage() from here - stale, and the next
                 // scroll step crosses the same boundary again.
                 currentPage = page
+                noteArrival(page, step) // RK
 
                 // The rest ran here too, on the animation thread under the viewer's scroll lock.
                 // Posted in order, so nothing is skipped or reordered - and on this viewer's own
@@ -2154,6 +2181,7 @@ open class WebGpuViewer(
         synchronized(lock) { flushDeferredCleanup() }
 
         currentPage = newPage
+        arrivedBackward = null // RK: a jump lands where it was aimed; navigateSpread notes a step
         // RK
         releaseFailedChapterPreloads()
         progressPage(newPage)?.let { activity.onPageSelected(it.page) }
@@ -2276,5 +2304,6 @@ open class WebGpuViewer(
     private fun navigateSpread(direction: Int) {
         val target = currentPage?.let { nextPage(it, direction) } ?: return
         moveToPage(target)
+        noteArrival(target, direction) // RK
     }
 }

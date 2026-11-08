@@ -22,6 +22,13 @@ fun stripUpperSide(invert: Boolean): ImageUtil.Side = if (invert) ImageUtil.Side
 /** Rotate to fit's turn: clockwise unless inverted. */
 fun rotationDegrees(invert: Boolean): Float = if (invert) -90f else 90f
 
+/**
+ * Whether the page just found [split] moves the reader to its second half: only while it is [shown] and was reached
+ * reading backward ([arrivedBackward]), where its second half is the page that comes before the one left.
+ */
+fun <K> landsOnSecondHalf(arrivedBackward: K?, shown: K?, split: K): Boolean =
+    arrivedBackward == split && shown == split
+
 sealed interface WidePageShape {
     data object Whole : WidePageShape
     data class Half(val side: ImageUtil.Side) : WidePageShape

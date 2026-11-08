@@ -93,8 +93,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The WebGPU manga reader can turn tiles off and use your own upscaler and downscaler shaders (from Mihon).** Upstream: mihonapp/mihon#4242.
 - **Both readers' Filters settings now have Contrast, from 50% to 200%, for crisper pages on e-ink and other black-and-white screens.**
 - **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
-- **Split wide pages and Rotate wide pages to fit now work with the manga reader's high quality renderer, paged and long strip.** A page they change shows once it has downloaded, and some HDR pages show without their highlights.
-- **Smart fit now works as a scale type with the manga reader's high quality renderer.**
+- **Split wide pages and Rotate wide pages to fit now work with the manga reader's high quality renderer, paged and long strip.** A page they change shows once it has downloaded.
+- **Smart fit and Stretch now work as scale types with the manga reader's high quality renderer.**
 - **Settings > Manga reader now has the high quality renderer's own options while it is on.** Dual page view, Transition animation, Cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
@@ -115,7 +115,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
 - **With Animate page transitions off, the high quality renderer's long strip no longer slides or scrolls smoothly.**
 - **The high quality renderer's long strip now follows Sensitivity for hiding menu on scroll.**
-- **Settings > Manga reader no longer shows options the high quality renderer ignores while it is on.** Double tap animation speed and Stretch go, and so do the single-page options while Dual page view is Always.
+- **Settings > Manga reader no longer shows options the high quality renderer ignores while it is on.** Double tap animation speed goes, and so do the single-page options while Dual page view is Always.
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**
 - **A paged novel's short last chapter is no longer marked read while the transition before it is still showing.**
 - **The transition between novel chapters now always fits on one page in paged reading.** A long title or the missing-chapters warning used to split it across pages on a short screen.

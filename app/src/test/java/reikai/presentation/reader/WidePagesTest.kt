@@ -38,6 +38,26 @@ class WidePagesTest {
     }
 
     @Test
+    fun `a page reached going back moves on to its second half once found split`() {
+        landsOnSecondHalf(arrivedBackward = "p3", shown = "p3", split = "p3") shouldBe true
+    }
+
+    @Test
+    fun `a page reached going forward stays on its first half`() {
+        landsOnSecondHalf(arrivedBackward = null, shown = "p3", split = "p3") shouldBe false
+    }
+
+    @Test
+    fun `a page the reader has since left is not moved to`() {
+        landsOnSecondHalf(arrivedBackward = "p3", shown = "p2", split = "p3") shouldBe false
+    }
+
+    @Test
+    fun `a page found split behind the one reached going back moves nothing`() {
+        landsOnSecondHalf(arrivedBackward = "p3", shown = "p3", split = "p2") shouldBe false
+    }
+
+    @Test
     fun `a page that is not wide is left whole`() {
         settings(
             split = true,
@@ -108,6 +128,29 @@ class WidePagesTest {
     @Test
     fun `a counterclockwise turn puts the top right corner at the top left`() {
         WidePageShape.Rotated(-90f).pixels() shouldBe Triple(2, 4, listOf(3, 7, 2, 6, 1, 5, 0, 4))
+    }
+
+    // A gain map is one or three bytes a pixel, so it reshapes byte by byte with its page.
+    private val gainMap: ByteBuffer = ByteBuffer.allocateDirect(4 * 2).apply { repeat(8) { put(it, it.toByte()) } }
+
+    @Test
+    fun `a one-channel gain map turns with its page`() {
+        val out = reshapePixels(gainMap, 4, 2, 1, WidePageShape.Rotated(90f))
+        List(8) { out.pixels.get(it).toInt() } shouldBe listOf(4, 0, 5, 1, 6, 2, 7, 3)
+    }
+
+    @Test
+    fun `a three-channel gain map turns whole pixels`() {
+        // The same 2 x 1 map turned counterclockwise: (3,4,5) above (0,1,2).
+        val out = reshapePixels(gainMap, 2, 1, 3, WidePageShape.Rotated(-90f))
+        List(6) { out.pixels.get(it).toInt() } shouldBe listOf(3, 4, 5, 0, 1, 2)
+    }
+
+    @Test
+    fun `a three-channel gain map splits with its page`() {
+        // Read as three-byte pixels, the first six bytes are a 2 x 1 map: (0,1,2) (3,4,5).
+        val out = reshapePixels(gainMap, 2, 1, 3, WidePageShape.Half(ImageUtil.Side.RIGHT))
+        Triple(out.width, out.height, List(3) { out.pixels.get(it).toInt() }) shouldBe Triple(1, 1, listOf(3, 4, 5))
     }
 
     @Test

@@ -30,7 +30,6 @@ import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.settings.MangaReaderSettingsRows
 import reikai.presentation.reader.settings.progressSizeLabel
-import reikai.presentation.reader.settings.scaleTypeValues
 import reikai.presentation.reader.settings.webGpuViewerGroup
 import reikai.presentation.reader.volumeKeyScrollPreference
 import tachiyomi.i18n.MR
@@ -294,7 +293,9 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 // RK <--
                 Preference.PreferenceItem.ListPreference(
                     preference = imageScaleTypePref,
-                    entries = scaleTypeValues(rows.scaleTypes).mapValues { stringResource(it.value) }, // RK
+                    entries = ReaderPreferences.ImageScaleType
+                        .mapIndexed { index, it -> index + 1 to stringResource(it) }
+                        .toMap(),
                     title = stringResource(MR.strings.pref_image_scale_type),
                 ),
                 Preference.PreferenceItem.ListPreference(

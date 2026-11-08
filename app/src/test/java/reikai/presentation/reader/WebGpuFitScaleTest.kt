@@ -41,8 +41,17 @@ class WebGpuFitScaleTest {
     }
 
     @Test
-    fun `fit screen and stretch leave the library's own fit`() {
-        listOf(scale(ScaleType.FIT_SCREEN, 500f, 4000f), scale(ScaleType.STRETCH, 500f, 4000f)) shouldBe
-            listOf(null, null)
+    fun `fit screen leaves the library's own fit`() {
+        scale(ScaleType.FIT_SCREEN, 500f, 4000f) shouldBe null
+    }
+
+    @Test
+    fun `stretch fills the screen with a tall page, cropping its height`() {
+        scale(ScaleType.STRETCH, 500f, 4000f) shouldBe 2f
+    }
+
+    @Test
+    fun `stretch fills the screen with a wide page, cropping its width`() {
+        scale(ScaleType.STRETCH, 4000f, 500f) shouldBe 4f
     }
 }

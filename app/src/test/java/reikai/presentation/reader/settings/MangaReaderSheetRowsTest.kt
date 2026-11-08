@@ -202,10 +202,10 @@ class MangaReaderSheetRowsTest {
     }
 
     @Test
-    fun `WebGPU paged offers no stretch`() {
+    fun `WebGPU paged offers stretch`() {
         show(webGpu())
 
-        compose.onNodeWithText("Stretch").assertDoesNotExist()
+        compose.onNodeWithText("Stretch").assertExists()
     }
 
     @Test

@@ -474,6 +474,7 @@ class ReaderPreferences(
 
         val ImageScaleTypeWebGpuViewer = listOf(
             MR.strings.scale_type_fit_screen,
+            MR.strings.scale_type_stretch, // RK: fitHomeScale sets it
             MR.strings.scale_type_fit_width,
             MR.strings.scale_type_fit_height,
             MR.strings.scale_type_original_size,
