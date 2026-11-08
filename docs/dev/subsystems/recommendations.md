@@ -60,7 +60,7 @@ The carousel and See all both also subscribe to the favorites of the pool's sour
 
 ### Adult content
 
-Recommendations apply no adult-content filter. MyAnimeList search and the MyAnimeList library pull both send `nsfw=true`; AniList's recommendations and library queries do not request `isAdult`. Adult titles therefore shape the taste profile and appear as candidates like any other. Two limits come from the services: Kitsu returns its NSFW categories only to an account whose own SFW filter is off, so on a default account Kitsu tags (and Kitsu's Fill from tracker genres) are shorter; and which sources exist at all follows the extension content-warning setting, which also bounds source-native and tag-search candidates.
+Recommendations apply no adult-content filter. The MyAnimeList library pull sends `nsfw=true`, and the Jikan search and recommendation calls pass no `sfw` filter; AniList's recommendations and library queries do not request `isAdult`. Adult titles therefore shape the taste profile and appear as candidates like any other. Two limits come from the services: Kitsu returns its NSFW categories only to an account whose own SFW filter is off, so on a default account Kitsu tags (and Kitsu's Fill from tracker genres) are shorter; and which sources exist at all follows the extension content-warning setting, which also bounds source-native and tag-search candidates.
 
 ### What each tracker's API can answer
 

@@ -73,7 +73,8 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 ## Key files
 
 - `app/src/main/java/reikai/presentation/download/EntryDownloadQueueViewModel.kt`: the one queue model, `reorder`, the saved order and sheet state.
-- `app/src/main/java/reikai/presentation/download/DownloadQueueKernel.kt`: `downloadQueueState`, `toCards`, `arrangeCards`, `reconcileCardOrder`, `inOrderOf`, `prunedOrder`.
+- `app/src/main/java/reikai/presentation/download/DownloadQueueKernel.kt`: `downloadQueueState`, `toCards`, `arrangeCards`, `reconcileCardOrder`, `prunedOrder`.
+- `app/src/main/java/reikai/util/StringListPreference.kt`: `inOrderOf`, the saved-order rule both reorder paths and the cards apply.
 - `app/src/main/java/reikai/presentation/download/DownloadQueueProvider.kt`: the seam; adapters in `app/src/main/java/reikai/presentation/download/MangaDownloadQueueProvider.kt` and `app/src/main/java/reikai/presentation/download/NovelDownloadQueueProvider.kt`.
 - `app/src/main/java/reikai/presentation/download/EntryDownloadCardList.kt`, `app/src/main/java/reikai/presentation/download/EntryDownloadSeriesSheet.kt`, `app/src/main/java/reikai/presentation/download/DownloadQueueSortSheet.kt`: the cards, the per-series sheet and sort.
 - `app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueScreen.kt`: the host screen.

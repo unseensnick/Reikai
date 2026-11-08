@@ -120,7 +120,7 @@ The per-host lock, the isolated-world bridge, the `fail` abort and the failed so
 
 ## Extending
 
-- **A new bypass mechanism**: add a step to `CloudflareInterceptor.intercept`'s order inside the `// RK` island, behind `isActive` or its own predicate, and end a failure in `CloudflareBypassException` so Open in WebView still appears.
+- **A new bypass mechanism**: add a step to `CloudflareInterceptor.solve`'s order inside the `// RK` island, behind `isActive` or its own predicate, and end a failure in `CloudflareBypassException` so Open in WebView still appears.
 - **A new solver timing rule**: change `SolveMachine` and add a case to `SolveMachineTest`; keep the Android wiring in `TurnstileSolver.attach`.
 - **A new request shape for the WebView fetch**: extend `webViewFetchMessage` and the fixed script together, as data, and pin it in `WebViewFetchTest`.
 - **A new server failure case**: add it to `FlareSolverrTestFailure`, its string in `bypassPreferenceItems`, and `FlareSolverrTestFailureTest`.

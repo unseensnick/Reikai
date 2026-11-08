@@ -39,7 +39,7 @@ Failures are worded in one place, `trackerErrorMessage` in `TrackerErrorMessage.
 
 ### Fill from tracker
 
-The shared edit-info dialog fills title, cover, description, authors and genres from a bound tracker's `getMangaMetadata` (`// RK` on `Tracker`, ported from Komikku with a genres field). `EntryTrackerAutofill` picks the eligible trackers (`buildTrackerAutofillCandidates`, self-hosted enhanced ones dropped); the genres join the existing tags through `appendTags`, described in [details.md](details.md). `metadataAccess` says whether the fetch needs a login: `SignedIn` by default, `Public` for the three novel services. A signed-out fill on a `SignedIn` tracker is refused before it fetches.
+The shared edit-info dialog fills title, cover, description, authors and genres from a bound tracker's `getMangaMetadata` (`// RK` on `Tracker`, ported from Komikku with a genres field). `EntryTrackerAutofill` picks the eligible trackers (`buildTrackerAutofillCandidates`, self-hosted enhanced ones dropped); the genres join the existing tags through `appendTags`, described in [details.md](details.md). `metadataAccess` says whether the fetch needs a login: `SignedIn` by default, `Public` for MangaUpdates, MDList and the three novel services. A signed-out fill on a `SignedIn` tracker is refused before it fetches.
 
 ### The novel services
 

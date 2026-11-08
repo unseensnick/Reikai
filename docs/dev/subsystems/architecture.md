@@ -11,7 +11,7 @@ The wiring every screen and background job sits on: how objects are built and sh
 Metro resolves dependencies in the compiler, so a missing binding is a build error and nothing is looked up by reflection at runtime. `App` implements `GraphProvider<AppGraph>` (`:core:metro`), builds the graph once per process and calls `graph.inject(this)`; anything with a `Context` reaches it as `context.appGraph`.
 
 - `AppGraph` is Mihon's graph in Mihon's order. It extends `ViewModelGraph` and `ReikaiGraph`, which holds Reikai's own `inject()` members and accessors, so a Reikai addition never edits Mihon's member list.
-- Providers that cannot be an annotated class live in binding containers: `AppBindings` (Mihon's `Json`, `XML`, `ProtoBuf` and the `@AppCoroutineScope` scope), `ReikaiBindings` (the two merge managers and the tracker-library fetcher list), and `DatabaseBindings` in `:data` (`SqlDriver`, `Database`).
+- Providers that cannot be an annotated class live in binding containers: `AppBindings` (Mihon's `Json`, `XML`, `ProtoBuf` and the `@AppCoroutineScope` scope), `ReikaiBindings` (`SourceContacts`, the built-in novel sources, the two merge managers and the tracker-library fetcher list), and `DatabaseBindings` in `:data` (`SqlDriver`, `Database`).
 - Every other class joins by carrying `@Inject`, with `@SingleIn(AppScope::class)` for a singleton and `@ContributesBinding(AppScope::class)` for an implementation of an interface. Migrations join a set with `@ContributesIntoSet`, ViewModels a map with `@ContributesIntoMap`.
 
 Short work an app singleton runs past the screen that asked for it (a download index save, a queue restore, a page action) goes on the one `@AppCoroutineScope` `CoroutineScope`, a `SupervisorJob` on `Dispatchers.IO` taken as a constructor parameter. Its exception handler re-throws a failure to the thread's crash handler in a debug build and logs and reports it to Crashlytics in every other, since by the time it fails the screen that started it may be gone. Manga and novel singletons share it, and a ViewModel takes it as `appScope` for a write its screen closing must not cut off, keeping only the UI follow-up on `viewModelScope`. Only owners with a real cancellation point (the reader's views, `HttpPageLoader`, the two extension installers) build their own.
@@ -28,8 +28,8 @@ A screen model extends `androidx.lifecycle.ViewModel` directly and declares its 
 
 - A model whose dependencies all come from the graph carries `@ViewModelKey` and is resolved with `metroViewModel<T>()`.
 - A model that needs a call-site value (an entry id, a source id) is `@AssistedInject` with an `@AssistedFactory` keyed by `@ManualViewModelAssistedFactoryKey`, resolved with `assistedMetroViewModel<T, F> { create(...) }`.
-- The reader's models live outside any Voyager `Navigator`, so `ReaderActivity` scopes them to itself with `by viewModels { graph.viewModelFactory }`.
-- Two models are still built by hand through `viewModelFactory`: the cover model in `EntryDetailsDialog` (star-projected, built from the behavior object and keyed by `coverKey`, the source chip's entry) and `NovelSourceSettingsModel`.
+- The reader's models live outside any Voyager `Navigator`, so `ReaderActivity` scopes them to itself: `ReaderViewModel` with `by viewModels { graph.viewModelFactory }`, and the assisted `NovelReaderViewModel` and `ReaderEngine` through a `viewModelFactory { initializer { } }` that calls the graph's `createManuallyAssistedFactory`.
+- Three models are still built by hand through `viewModelFactory`, without the graph: upstream's `ReaderSettingsViewModel` in `ReaderActivity`, the cover model in `EntryDetailsDialog` (star-projected, built from the behavior object and keyed by `coverKey`, the source chip's entry) and `NovelSourceSettingsModel`.
 
 Under a `Navigator`, `viewModel()` resolves against that Screen's own store, cleared on pop; tabs each get their own store that survives tab switches. The full scoping rule is in screen-conventions.md.
 
@@ -62,7 +62,7 @@ The layout, by subject:
 - `app/src/main/java/mihon/app/di/injekt/MetroInjektRegistrar.kt`: the fifteen Injekt bindings.
 - `app/src/main/java/mihon/app/di/ReikaiViewModelFactory.kt`: the ViewModel factory over both maps.
 - `app/src/main/java/eu/kanade/tachiyomi/util/view/ViewExtensions.kt`: `setComposeContent`, which provides `LocalMetroViewModelFactory`.
-- `core/metro/src/main/kotlin/mihon/core/metro/GraphProvider.kt`: `GraphProvider`, `metroGraph`.
+- `core/metro/src/main/kotlin/mihon/core/metro/GraphProvider.kt`: `GraphProvider`; `Utils.kt` beside it: `metroGraph`.
 - `core/metro/src/main/kotlin/mihon/core/metro/AppCoroutineScope.kt`: the app scope's qualifier; `providesAppCoroutineScope` in `AppBindings` builds it.
 - `app/src/main/java/eu/kanade/tachiyomi/App.kt`: graph construction, `initializeMigrator`, the `:error_handler` gate.
 - `app/src/main/java/mihon/core/migration/Migrator.kt` and `MigrationStrategy.kt`: `initialize`, `await`, the version-range strategies.
@@ -113,7 +113,7 @@ The layout, by subject:
 
 ## Tests
 
-`MetroInjektRegistrarTest` (all fifteen bindings resolve through `fullType`), `ReikaiViewModelFactoryTest` (a model resolves only once contributed), `MigratorTest` (strategy selection and ordering), `AppCoroutineScopeTest` (a failed app-scope child crashes only a debug build), plus one test per migration under `app/src/test/java/mihon/core/migration/migrations/`. `pwsh scripts/di-interop-check.ps1` runs the graph checks. Run a class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`.
+`MetroInjektRegistrarTest` (all fifteen bindings resolve through `fullType`), `ReikaiViewModelFactoryTest` (a model resolves only once contributed), `MigratorTest` (strategy selection and ordering), `AppCoroutineScopeTest` (a failed app-scope child crashes only a debug build), plus per-migration tests under `app/src/test/java/mihon/core/migration/migrations/`. `pwsh scripts/di-interop-check.ps1` runs the graph checks. Run a class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`.
 
 ## Related
 

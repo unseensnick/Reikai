@@ -8,7 +8,7 @@ Reikai serves manga and light novels from one Reikai-owned layer over a neutral 
 
 ### Three layers
 
-- **Engines, separate and unequal.** Mihon's manga engine (the `Manga` model, its repositories, sources, library and download machinery) stays upstream-tracked and minimally patched. Reikai's novel engine (`Novel` and `NovelChapter`, the `novel*` tables, `NovelSource` over LN plugins and the two APK kinds) is fully Reikai-owned. Interactors and repositories stay with their engine.
+- **Engines, separate and unequal.** Mihon's manga engine (the `Manga` model, its repositories, sources, library and download machinery) stays upstream-tracked and minimally patched. Reikai's novel engine (`Novel` and `NovelChapter`, the `novel*` tables, `NovelSource` over LN plugins, the two APK kinds and the built-in local source) is fully Reikai-owned. Interactors and repositories stay with their engine.
 - **Adapters (or providers), the only seam.** The shared layer talks to each engine through one adapter per content type. On most surfaces the manga adapter wraps a live Mihon model (`MangaViewModel`, `LibraryViewModel`, `ReaderViewModel`, the two feed models), which stays on the render path and keeps syncing; a renamed upstream field breaks the adapter at compile time rather than in a pixel hunt. The novel adapter wraps the novel model, which is reshaped behind it rather than deleted.
 - **The shared layer**, under `reikai.presentation.*` and `reikai.domain.*`: a neutral state, a behaviour contract or an engine that owns assembly, selection and the action verbs, and the `Entry*` composables that render both types.
 
@@ -16,7 +16,7 @@ Reikai serves manga and light novels from one Reikai-owned layer over a neutral 
 
 Every entry in shared code is a sealed `EntryId` (`EntryId.Manga(rawId)` or `EntryId.Novel(rawId)`), never a raw `Long`. The two id spaces overlap (manga 12 and novel 12 both exist), so any map, set or key over a mixed list keys on `EntryId`, or it cross-wires silently. `EntryId` is code-only: novel rows carry real positive ids, and backups and the merge tables key on those, so it needed no schema or backup change. Two projections exist for caches that are not `EntryId`-typed: `customCoverKey` names the custom-cover file (manga `"12"`, novels `"novel:12"`), and `signedKey` negates a novel id for Mihon's `Long`-keyed `MangaCover.vibrantCoverColorMap`, a cache that rebuilds itself.
 
-`ContentType` (`ALL`, `MANGA`, `NOVEL`) is the chip value and the category discriminator; `ContentType.labelRes` is the one place a content type is named in the UI.
+`ContentType` (`ALL`, `MANGA`, `NOVELS`) is the chip value, and `CategoryContentType` (`UNIVERSAL`, `MANGA`, `NOVEL`) the category discriminator; `ContentType.labelRes` is the one place a content type is named in the UI.
 
 ### Surfaces
 

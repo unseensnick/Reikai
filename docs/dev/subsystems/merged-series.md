@@ -102,7 +102,7 @@ Groups are written as lists of stable `{url, source}` refs (field 711 manga, 702
 - `app/src/main/java/reikai/data/coil/GroupCover.kt`: `GroupCover`, `withCoverFallbacks`, `GroupCoverInterceptor`, `FailedCovers`.
 - `domain/src/main/java/reikai/domain/merge/MergedChapterOrder.kt`: `MergedChapterOrder`, `stampedReadingOrder`.
 - `domain/src/main/java/reikai/domain/manga/ChapterAggregation.kt` and `app/src/main/java/reikai/domain/novel/NovelChapterAggregation.kt`: `merge`, `matchKey`.
-- `app/src/main/java/reikai/domain/merge/ReconcileMergedChapters.kt`: `await`, `afterPass`, `currentStitch`; stitchers `MangaGroupStitcher.kt`, `NovelGroupStitcher.kt`.
+- `app/src/main/java/reikai/domain/merge/ReconcileMergedChapters.kt`: `await`, `afterPass`, `currentStitch`; the stitchers' interface `MergedGroupStitcher.kt` beside it, and the stitchers `app/src/main/java/reikai/domain/manga/MangaGroupStitcher.kt` and `app/src/main/java/reikai/domain/novel/NovelGroupStitcher.kt`.
 - `app/src/main/java/reikai/domain/merge/StoredStitch.kt`: `renderStoredStitch`, `flaggedOnAnotherSource`, `MergeScope`, `CopyToOpen`, `DownloadTargets`, `collapseNewChapters`, `expandToUnits`.
 - `app/src/main/java/reikai/domain/merge/GroupChapterFlags.kt`, `GroupChapterSettings.kt`, `GroupCategories.kt`, `AlignGroupCategories.kt`, `OpenedChapter.kt` (`withOpenedChapter`), `DetailsRemoval.kt`.
 - `app/src/main/java/reikai/domain/manga/MergedChapterProvider.kt` and `app/src/main/java/reikai/domain/novel/NovelMergedChapterProvider.kt`: `stitchOf`, `merged`.
@@ -130,7 +130,8 @@ Groups are written as lists of stable `{url, source}` refs (field 711 manga, 702
 - **Manga's number pairing drops what it cannot place.** A sibling's unrecognized chapter, and one of two chapters recognizing to the same `Float`, are absent from the All view while present under their own chip. That is the design, not a bug, unless a concrete series shows otherwise.
 - **The widget refreshes on new chapters, not on merges**, so a series just merged keeps one cover per source until its next chapter arrives.
 - **A cover that failed stays behind the members' covers until the app restarts or that cover changes.** `FailedCovers` keys on the cover model, whose address and `lastModified` are part of it, so a refresh or a new custom cover is tried in its own place again; a lead whose site comes back does not reclaim the card in the same process. The memo is in memory only and bounded.
-- **`GroupCover` has no fetcher.** Every image loader that draws one must carry `GroupCoverInterceptor`; the app has one loader, built in `App.newImageLoader`.- **A merged chapter shows the winning copy's page progress.** Partial progress on another copy is not merged.
+- **`GroupCover` has no fetcher.** Every image loader that draws one must carry `GroupCoverInterceptor`; the app has one loader, built in `App.newImageLoader`.
+- **A merged chapter shows the winning copy's page progress.** Partial progress on another copy is not merged.
 - **A chapter whose file sits on a copy the stitch does not show still streams when opened.** Reading the hidden copy would open a different chapter row, with its own history and position.
 - **A recents row's download indicator answers for its own copy only.** It is evaluated as the row draws, so asking every copy would multiply a disk probe by the group size on each recomposition.
 - **Some novel titles stay unmatched on purpose.** Normalization handles apostrophes, curly quotes and zero-width characters; a missing space (`theCold`), a hyphen against a space, and titles the sites really spell differently are left, since closing them needs fuzzy matching.
