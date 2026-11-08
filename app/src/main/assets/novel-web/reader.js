@@ -637,10 +637,13 @@
       // A picture taller than a page is drawn a page tall (reader.css) unless that shrinks it past
       // MIN_PAGE_FIT_SCALE; then it keeps its width and runs across pages, as pictureBox draws it.
       document.documentElement.style.setProperty('--rk-page-height', page + 'px');
-      document.querySelectorAll(CHAPTER_SELECTOR + ' img.rk-loaded').forEach(function (img) {
-        img.classList.add('rk-runs-on');
-        var height = img.getBoundingClientRect().height;
-        img.classList.toggle('rk-runs-on', height > page && !shrinksToPage(height, page));
+      // Every class first, then every height, then every toggle: a read after a write lays the page out
+      // again, so interleaving them would cost one layout per picture.
+      var pictures = Array.prototype.slice.call(document.querySelectorAll(CHAPTER_SELECTOR + ' img.rk-loaded'));
+      pictures.forEach(function (img) { img.classList.add('rk-runs-on'); });
+      var heights = pictures.map(function (img) { return img.getBoundingClientRect().height; });
+      pictures.forEach(function (img, i) {
+        img.classList.toggle('rk-runs-on', heights[i] > page && !shrinksToPage(heights[i], page));
       });
       var max = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--rk-seam-padding-vertical')) || 0;
       document.querySelectorAll('.rk-seam').forEach(function (seam) {
@@ -1118,7 +1121,8 @@
           return;
         }
       }
-      if (moved || elapsed > 400) return;
+      // The long-press delay, so a hold too short to open a picture is still a tap.
+      if (moved || elapsed > LONG_PRESS_MS) return;
       // A tap on a link, or anywhere on the failure box, is that control's, not the reader's. The
       // whole box rather than just its Retry, as the native renderer draws the same line.
       if (e.target && e.target.closest && e.target.closest('a, button, .rk-failure')) return;
