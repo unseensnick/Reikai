@@ -104,13 +104,13 @@ class MergedChapterSettingsConformanceTest {
     }
 
     private class MangaPage(private val model: MangaViewModel) : Page {
-        override val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking())
+        override val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setDisplayMode(Manga.CHAPTER_DISPLAY_NUMBER)
     }
 
     private class NovelPage(private val model: NovelDetailsViewModel) : Page {
-        override val behavior = NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking())
+        override val behavior = NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setHideChapterTitles(true)
     }

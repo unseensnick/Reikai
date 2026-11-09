@@ -114,6 +114,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.mergeSourceLabels
 import reikai.presentation.components.percentProgressLabel
+import reikai.presentation.details.novelChapterVolume
 import reikai.presentation.reader.text.InFlightLoads
 import reikai.presentation.reader.text.NovelChapterFinish
 import reikai.presentation.reader.text.NovelLeaveRule
@@ -1570,6 +1571,7 @@ internal fun NovelChapter.toReaderChapterRow(
         // A novel chapter is one request, so there is no percentage to report while it runs.
         downloadProgress = 0,
         offersDownload = targets.offersDownload(id, downloadState, canFetch),
+        volume = novelChapterVolume(url, name),
     )
 }
 

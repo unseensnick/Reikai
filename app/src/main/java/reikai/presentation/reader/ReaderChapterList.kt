@@ -6,6 +6,7 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.flow.Flow
 import reikai.presentation.components.UndatedChapterDate
+import reikai.presentation.details.ChapterVolume
 import kotlin.time.Instant
 
 /**
@@ -30,6 +31,8 @@ data class ReaderChapterRow(
     val downloadProgress: Int,
     /** Whether the row draws its download control and takes a download swipe (offersDownload). */
     val offersDownload: Boolean,
+    /** The volume of a local series split into volumes, which the sheet heads the row with; null elsewhere. */
+    val volume: ChapterVolume? = null,
 )
 
 /**

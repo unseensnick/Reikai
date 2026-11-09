@@ -57,6 +57,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.MangaEntryAdapter
+import reikai.presentation.details.VolumePicking // RK
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
@@ -128,7 +129,8 @@ class MangaScreen(
                 viewModel.viewModelScope,
                 graph.appCoroutineScope,
             )
-            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates)
+            val volumes = VolumePicking(graph.volumePicks, graph.appCoroutineScope)
+            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, volumes)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 

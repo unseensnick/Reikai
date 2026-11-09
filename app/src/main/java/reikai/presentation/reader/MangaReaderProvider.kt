@@ -43,6 +43,7 @@ import reikai.domain.reader.pageIndex
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterSubtitle
 import reikai.presentation.components.pageProgressLabel
+import reikai.presentation.details.mangaChapterVolume
 import reikai.presentation.details.mangaDetailsIntent
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -268,6 +269,13 @@ class MangaReaderProvider(
                 val build = {
                     chapters.map {
                         it.toReaderChapterRow(queued, flags, numberOnly, titleWords, targets) { id -> id in fetchable }
+                            .copy(
+                                volume = mangaChapterVolume(
+                                    viewModel.sourceIdOf(it.chapter.mangaId),
+                                    it.chapter.url,
+                                    it.chapter.name,
+                                ),
+                            )
                     }
                 }
                 if (queued.isEmpty()) {

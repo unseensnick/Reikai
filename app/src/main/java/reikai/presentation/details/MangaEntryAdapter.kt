@@ -41,6 +41,7 @@ class MangaEntryAdapter(
     private val model: MangaViewModel,
     private val coverViewModelFactory: MangaEntryCoverViewModel.Factory,
     override val duplicateMarking: DuplicateMarking,
+    override val volumePicking: VolumePicking,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -86,7 +87,8 @@ class MangaEntryAdapter(
             ),
             chapters = EntryChapterListUiState(
                 items = chapterSourceNames().let { names ->
-                    chapterListItems.map { it.toNeutralItem(names, numberHints) }
+                    val sourceIds = mergedMangaById.mapValues { it.value.source } + (manga.id to manga.source)
+                    chapterListItems.map { it.toNeutralItem(names, sourceIds, numberHints) }
                 },
                 missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
@@ -148,9 +150,12 @@ class MangaEntryAdapter(
 
     private fun ChapterList.toNeutralItem(
         sourceNames: Map<Long, String>,
+        sourceIds: Map<Long, Long>,
         numberHints: Map<Long, ChapterNumberHint.Hint>,
     ): EntryChapterListItem = when (this) {
-        is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId], numberHinted = id in numberHints)
+        is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId], numberHinted = id in numberHints).copy(
+            volume = mangaChapterVolume(sourceIds[chapter.mangaId] ?: -1L, chapter.url, chapter.name),
+        )
         is ChapterList.MissingCount -> EntryChapterListItem.Missing(id = id, count = count)
     }
 
@@ -177,6 +182,16 @@ class MangaEntryAdapter(
     private fun selectedChapters(): List<Chapter> = selectedItems().map { it.chapter }
 
     override fun selectedMarkable() = selectedChapters().map { MarkableChapter(it.mangaId, it.url) }
+
+    override fun toggleChapterBlock(chapterIds: List<Long>) {
+        val items = chapterIds.mapNotNull(::itemById)
+        val select = !items.all { it.selected }
+        items.filter { it.selected != select }.forEach { model.toggleSelection(it) }
+    }
+
+    override fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
+        model.markChaptersRead(chapterIds.mapNotNull(::chapterById), read)
+    }
 
     // --- EntryDetailsBehavior: forward to the model (reconciling neutral ids -> the model's shapes). ---
 

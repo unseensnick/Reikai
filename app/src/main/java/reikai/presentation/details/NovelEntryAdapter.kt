@@ -59,6 +59,7 @@ class NovelEntryAdapter(
     private val model: NovelDetailsViewModel,
     private val coverViewModelFactory: NovelCoverViewModel.Factory,
     override val duplicateMarking: DuplicateMarking,
+    override val volumePicking: VolumePicking,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
@@ -153,7 +154,7 @@ class NovelEntryAdapter(
                     loaded.marks,
                     loaded.downloadStateOf(chapter.id),
                     numberHinted = chapter.id in loaded.numberHints,
-                )
+                ).copy(volume = novelChapterVolume(chapter.url, chapter.name))
             is NovelChapterListEntry.Missing -> EntryChapterListItem.Missing(id = id, count = count)
         }
 
@@ -250,6 +251,10 @@ class NovelEntryAdapter(
     }
 
     private fun loadedState(): NovelDetailsState.Loaded? = model.state.value as? NovelDetailsState.Loaded
+
+    override fun toggleChapterBlock(chapterIds: List<Long>) = model.toggleBlock(chapterIds)
+
+    override fun markChaptersRead(chapterIds: List<Long>, read: Boolean) = model.markChaptersRead(chapterIds, read)
 
     override fun selectedMarkable(): List<MarkableChapter> {
         val loaded = loadedState() ?: return emptyList()

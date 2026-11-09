@@ -146,7 +146,12 @@ class UnifiedViewMemberConformanceTest {
             sourceManager = sources,
         ).also { store.put("manga", it) }
         try {
-            return MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking()).settled().shown(ids)
+            return MangaEntryAdapter(
+                model,
+                mockk(relaxed = true),
+                noDuplicateMarking(),
+                noVolumePicking(),
+            ).settled().shown(ids)
         } finally {
             // The model reads on the real IO dispatcher, so it stops before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -170,6 +175,7 @@ class UnifiedViewMemberConformanceTest {
                 harness.openDetails(ids[opened]),
                 mockk(relaxed = true),
                 noDuplicateMarking(),
+                noVolumePicking(),
             ).settled().shown(ids)
         }
 

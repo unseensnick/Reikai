@@ -160,10 +160,17 @@ sealed interface EntryChapterListItem {
         val downloadState: Download.State,
         /** The number is out of line with its source's list ([reikai.domain.chapter.ChapterNumberHint]). */
         val numberHinted: Boolean,
+        /** The volume of a local series split into volumes; null elsewhere. */
+        val volume: ChapterVolume? = null,
     ) : EntryChapterListItem, ChapterMarks
 
     @Immutable
     data class Missing(val id: String, val count: Int) : EntryChapterListItem
+
+    /** The header over one volume of a local series split into volumes ([inVolumes]). */
+    @Immutable
+    data class Volume(val key: String, val label: VolumeLabel, val chapterIds: List<Long>, val readCount: Int) :
+        EntryChapterListItem
 }
 
 /**

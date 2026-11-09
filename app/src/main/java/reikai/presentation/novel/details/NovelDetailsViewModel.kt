@@ -1308,6 +1308,15 @@ class NovelDetailsViewModel(
 
     fun selectAll() = updateSelection { selection, shown -> EntrySelection.selectAll(selection, shown) }
 
+    fun toggleBlock(chapterIds: List<Long>) = updateSelection { selection, _ ->
+        EntrySelection.toggleBlock(selection, chapterIds)
+    }
+
+    fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
+        val loaded = state.value as? NovelDetailsState.Loaded ?: return
+        setRead(loaded.chapters.filter { it.id in chapterIds }, read)
+    }
+
     fun invertSelection() = updateSelection { selection, shown -> EntrySelection.invert(selection, shown) }
 
     fun clearSelection() {

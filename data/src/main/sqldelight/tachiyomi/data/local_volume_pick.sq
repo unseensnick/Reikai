@@ -1,0 +1,20 @@
+-- The volume chip a local series split into volumes was left on, per content type and entry. A series
+-- with no row shows all its volumes.
+CREATE TABLE local_volume_pick(
+    content_type INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL,
+    volume_key TEXT NOT NULL,
+    PRIMARY KEY(content_type, entry_id)
+);
+
+getAll:
+SELECT content_type, entry_id, volume_key
+FROM local_volume_pick;
+
+set:
+INSERT OR REPLACE INTO local_volume_pick(content_type, entry_id, volume_key)
+VALUES (:contentType, :entryId, :volumeKey);
+
+clear:
+DELETE FROM local_volume_pick
+WHERE content_type = :contentType AND entry_id = :entryId;

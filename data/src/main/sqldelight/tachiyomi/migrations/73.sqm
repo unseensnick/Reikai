@@ -1,0 +1,7 @@
+-- The volume chip each local series was left on (local_volume_pick.sq). Empty on upgrade.
+CREATE TABLE local_volume_pick(
+    content_type INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL,
+    volume_key TEXT NOT NULL,
+    PRIMARY KEY(content_type, entry_id)
+);

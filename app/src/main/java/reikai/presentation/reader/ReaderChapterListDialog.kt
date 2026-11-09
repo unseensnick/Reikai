@@ -19,11 +19,14 @@ import eu.kanade.presentation.components.AdaptiveSheet
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.chapter.volumeRuns
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.download.whereDownloadOffered
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.progressWhileUnread
+import reikai.presentation.details.EntryChapterListItem
+import reikai.presentation.details.VolumeHeader
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -53,7 +56,11 @@ fun ReaderChapterListDialog(
             }
             return@AdaptiveSheet
         }
-        val listState = rememberLazyListState(rows.indexOfFirst { it.id == currentChapterId }.coerceAtLeast(0))
+        // A local series split into volumes reads under a header per volume, as its details list does.
+        val listed = remember(rows) { rows.underVolumeHeaders() }
+        val listState = rememberLazyListState(
+            listed.indexOfFirst { it is ReaderChapterRow && it.id == currentChapterId }.coerceAtLeast(0),
+        )
         // Optimistic per-row overrides so a swipe lands immediately: every one of these writes is async,
         // and a deletion in particular is only visible once the cache catches up.
         val stateOverrides = remember { mutableStateMapOf<Long, Download.State>() }
@@ -72,7 +79,25 @@ fun ReaderChapterListDialog(
             modifier = Modifier.heightIn(min = 200.dp, max = 500.dp),
             contentPadding = PaddingValues(vertical = 16.dp),
         ) {
-            items(items = rows, key = { "reader-chapter-${it.id}" }) { row ->
+            items(
+                items = listed,
+                key = {
+                    when (it) {
+                        is ReaderChapterRow -> "reader-chapter-${it.id}"
+                        else -> "reader-volume-${(it as EntryChapterListItem.Volume).key}"
+                    }
+                },
+            ) { item ->
+                if (item is EntryChapterListItem.Volume) {
+                    VolumeHeader(volume = item, onSelect = null) { read ->
+                        item.chapterIds.forEach {
+                            readOverrides[it] = read
+                            onMarkRead(it, read)
+                        }
+                    }
+                    return@items
+                }
+                val row = item as ReaderChapterRow
                 // A row the queue is actually working on outranks an override, so a download started
                 // elsewhere while the sheet is open is not masked by an earlier delete-swipe.
                 val downloadState = if (row.downloadState.isQueued) {
@@ -83,7 +108,7 @@ fun ReaderChapterListDialog(
                 val read = readOverrides[row.id] ?: row.read
                 val bookmark = bookmarkOverrides[row.id] ?: row.bookmark
                 MangaChapterListItem(
-                    title = row.title,
+                    title = row.volume?.takeIf { listed.size > rows.size }?.titleOf(row.title) ?: row.title,
                     date = chapterRowDate(row.dateUpload, undatedChapterDate),
                     readProgress = progressWhileUnread(row.readProgress, read),
                     scanlator = row.subtitle,
@@ -123,3 +148,12 @@ fun ReaderChapterListDialog(
 /** Whether the queue is holding this chapter, which is the state a row must not let an override mask. */
 private val Download.State.isQueued: Boolean
     get() = this == Download.State.QUEUE || this == Download.State.DOWNLOADING || this == Download.State.ERROR
+
+/** [this] with a header before each volume, or as it is where volumes cannot head it ([volumeRuns]). */
+private fun List<ReaderChapterRow>.underVolumeHeaders(): List<Any> {
+    val runs = volumeRuns { it.volume?.key } ?: return this
+    return runs.flatMap { (key, run) ->
+        listOf(EntryChapterListItem.Volume(key, run.first().volume!!.label, run.map { it.id }, run.count { it.read })) +
+            run
+    }
+}

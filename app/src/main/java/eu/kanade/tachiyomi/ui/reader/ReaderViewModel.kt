@@ -329,6 +329,9 @@ class ReaderViewModel(
     private fun mangaForChapterId(chapterMangaId: Long): Manga =
         mergedGroup?.mangaById?.get(chapterMangaId) ?: manga!!
 
+    // RK: the source a chapter's own manga is from, which tells the chapter sheet a local volume
+    fun sourceIdOf(chapterMangaId: Long): Long = mangaForChapterId(chapterMangaId).source
+
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
     // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping
     // a copy on disk under Downloaded only, then one [isForwardEligible] lets a forward step land on.

@@ -113,6 +113,14 @@ interface EntryDetailsBehavior {
     /** The selected chapters as a copy mark keys them. */
     fun selectedMarkable(): List<MarkableChapter>
 
+    // A local series split into volumes: the chip it is left on, and a volume header's actions.
+    val volumePicking: VolumePicking
+
+    /** Selects all of [chapterIds], or clears them when every one already is. */
+    fun toggleChapterBlock(chapterIds: List<Long>)
+
+    fun markChaptersRead(chapterIds: List<Long>, read: Boolean)
+
     // Chapter number.
 
     /** Open the number dialog for the one selected chapter. */

@@ -20,6 +20,7 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.entry.ResetEntryViewerFlags
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -116,6 +117,7 @@ interface ReikaiGraph {
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
     val chapterCopyMarks: ChapterCopyMarkRepository
+    val volumePicks: VolumePickRepository
 
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata

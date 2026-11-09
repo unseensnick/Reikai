@@ -17,6 +17,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -129,7 +130,13 @@ fun EntryDetailsContent(
     val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
         onlyCopies = !onlyCopies
     }
-    val shown = if (copies.on) state.withOnlyCopies() else state
+    val filtered = if (copies.on) state.withOnlyCopies() else state
+    val picks by behavior.volumePicking.picks(state.entryId.contentType).collectAsState()
+    val volumes = remember(filtered.chapters.items, picks) {
+        filtered.chapters.items.inVolumes(picks[state.entryId.rawId])
+    }
+    val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
+    val extras = ChapterListExtras(copies, volumes) { behavior.volumePicking.pick(state.entryId, it) }
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -139,7 +146,7 @@ fun EntryDetailsContent(
             chapterSwipeEndAction,
             libraryNav,
             web,
-            copies,
+            extras,
         )
     } else {
         EntryDetailsSmallContent(
@@ -150,7 +157,7 @@ fun EntryDetailsContent(
             chapterSwipeEndAction,
             libraryNav,
             web,
-            copies,
+            extras,
         )
     }
 }
@@ -158,6 +165,14 @@ fun EntryDetailsContent(
 /** Whether the list shows only chapters with copies, from the duplicate count under the chapter header. */
 @Immutable
 private data class CopiesFilter(val on: Boolean, val toggle: () -> Unit)
+
+/** What the chapter list is narrowed to above its rows: the copies filter, and a local series' volumes. */
+@Immutable
+private data class ChapterListExtras(
+    val copies: CopiesFilter,
+    val volumes: VolumeView?,
+    val onPickVolume: (String?) -> Unit,
+)
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
 // chapter stays too, so a Never skip can be found and cleared.
@@ -191,7 +206,7 @@ private fun EntryDetailsSmallContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
-    copies: CopiesFilter,
+    extras: ChapterListExtras,
 ) {
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -227,7 +242,8 @@ private fun EntryDetailsSmallContent(
         if (state.isMerged) mergeSourceChipsItem(state, behavior)
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
-        chapterHeaderItem(state, nav, copies)
+        chapterHeaderItem(state, nav, extras.copies)
+        extras.volumes?.let { volumeChipsItem(it, extras.onPickVolume) }
         entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
     }
 }
@@ -241,7 +257,7 @@ private fun EntryDetailsLargeContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
-    copies: CopiesFilter,
+    extras: ChapterListExtras,
 ) {
     val chapterListState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -279,7 +295,8 @@ private fun EntryDetailsLargeContent(
         endContent = {
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
-            chapterHeaderItem(state, nav, copies)
+            chapterHeaderItem(state, nav, extras.copies)
+            extras.volumes?.let { volumeChipsItem(it, extras.onPickVolume) }
             entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
         },
     )
@@ -523,13 +540,19 @@ private fun LazyListScope.entryChapterItems(
         key = { item ->
             when (item) {
                 is EntryChapterListItem.Missing -> "missing-${item.id}"
+                is EntryChapterListItem.Volume -> "volume-${item.key}"
                 is EntryChapterListItem.Chapter -> "chapter-${item.id}"
             }
         },
-        contentType = { "entry-chapter" },
+        contentType = { if (it is EntryChapterListItem.Volume) "entry-volume" else "entry-chapter" },
     ) { item ->
         when (item) {
             is EntryChapterListItem.Missing -> MissingChapterCountListItem(count = item.count)
+            is EntryChapterListItem.Volume -> VolumeHeader(
+                volume = item,
+                onSelect = { behavior.toggleChapterBlock(item.chapterIds) },
+                onMarkRead = { read -> behavior.markChaptersRead(item.chapterIds, read) },
+            )
             is EntryChapterListItem.Chapter -> {
                 // Typed as the stable Chapter, so the lambdas compare it by value rather than by instance.
                 val chapter: EntryChapterListItem.Chapter = item

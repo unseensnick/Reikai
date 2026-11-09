@@ -51,6 +51,7 @@ import reikai.presentation.details.EntryDetailsScreenState
 import reikai.presentation.details.EntryDetailsSkeleton
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.NovelEntryAdapter
+import reikai.presentation.details.VolumePicking
 import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
@@ -107,7 +108,8 @@ class NovelScreen(
                 viewModel.viewModelScope,
                 graph.appCoroutineScope,
             )
-            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates)
+            val volumes = VolumePicking(graph.volumePicks, graph.appCoroutineScope)
+            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, volumes)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
