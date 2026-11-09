@@ -187,8 +187,9 @@ class LocalImport(
                         .onSuccess { copied++ }
                         .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
                 }
-                if (copied == 0 && folder.listFiles().isNullOrEmpty()) {
-                    folder.delete()
+                // Nothing copied, every file skipped or failed, so the series was not imported to.
+                if (copied == 0) {
+                    if (folder.listFiles().isNullOrEmpty()) folder.delete()
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {

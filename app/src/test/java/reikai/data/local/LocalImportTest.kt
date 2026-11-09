@@ -122,6 +122,17 @@ class LocalImportTest(private val type: ContentType) {
     }
 
     @Test
+    fun `a series whose every file was skipped is not reported as imported`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        val skipping = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Skip)
+
+        val result = localImport.import(listOf(skipping), addToLibrary = false, categoryIds = emptyList())
+
+        result.series shouldBe emptyList()
+    }
+
+    @Test
     fun `a replaced file keeps its name and takes the new contents`() = runTest {
         File(root, "Foo").mkdirs()
         File(root, "Foo/old").writeText("xyz")
