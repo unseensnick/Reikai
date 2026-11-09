@@ -31,8 +31,16 @@ fun interface LnRegistryFetcher {
 sealed interface LnRepoResult {
     data class Reached(val entries: List<LnRegistryEntry>) : LnRepoResult
 
-    data class Unreachable(val message: String) : LnRepoResult
+    /** [lastGood] is what the repo last listed this session, null when it has not answered since launch. */
+    data class Unreachable(val message: String, val lastGood: List<LnRegistryEntry>? = null) : LnRepoResult
 }
+
+/** The entries to judge this repo by: its registry, or while it is down the listing it last gave. */
+val LnRepoResult.listing: List<LnRegistryEntry>?
+    get() = when (this) {
+        is LnRepoResult.Reached -> entries
+        is LnRepoResult.Unreachable -> lastGood
+    }
 
 /**
  * Fetches every repo in [repos] at once, each to its own outcome, so one down repo neither fails nor
@@ -53,12 +61,11 @@ suspend fun LnRegistryFetcher.fetchEach(repos: Collection<String>): Map<String, 
     }.awaitAll().toMap()
 }
 
-/** Every entry the repos that answered list, in repo order. */
-fun Map<String, LnRepoResult>.reachedEntries(): List<LnRegistryEntry> =
-    values.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
+/** Every entry the repos list, in repo order, a down repo by its [lastGood][LnRepoResult.Unreachable.lastGood]. */
+fun Map<String, LnRepoResult>.listedPlugins(): List<LnRegistryEntry> = values.flatMap { it.listing.orEmpty() }
 
-/** The added repos that did not answer. */
-fun Map<String, LnRepoResult>.unreachableRepos(): Set<String> = filterValues { it !is LnRepoResult.Reached }.keys
+/** The added repos with no listing to judge by: down, and not answered since launch. */
+fun Map<String, LnRepoResult>.unlistedRepos(): Set<String> = filterValues { it.listing == null }.keys
 
 /**
  * The repo each listed plugin comes from, keyed by canonical script URL. A script two repos list
@@ -67,7 +74,7 @@ fun Map<String, LnRepoResult>.unreachableRepos(): Set<String> = filterValues { i
 fun pluginRepos(results: Map<String, LnRepoResult>): Map<String, String> {
     val repos = HashMap<String, String>()
     results.forEach { (repoUrl, result) ->
-        (result as? LnRepoResult.Reached)?.entries.orEmpty().forEach {
+        result.listing.orEmpty().forEach {
             repos.putIfAbsent(canonicalizePluginUrl(it.url), repoUrl)
         }
     }
@@ -78,7 +85,7 @@ fun pluginRepos(results: Map<String, LnRepoResult>): Map<String, String> {
  * The added LN plugin repos' registries, shared by every screen that lists them. A repo is fetched
  * when first needed and when it is added, and again only on [refresh], so reopening a screen or
  * installing a plugin downloads nothing. Each repo keeps its own outcome, so an unreachable repo is
- * told apart from an empty one. The update check and the post-restore trust check fetch on their
+ * told apart from an empty one, and one that stops answering keeps the listing it last gave this session. The update check and the post-restore trust check fetch on their
  * own, because both need the registry as it is now; the update check hands what it read to [accept].
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -118,14 +125,15 @@ class LnRepoRegistries(
      * Keeps what a fresher fetch of the added repos read, as Mihon's update check replaces the available
      * extensions, so the screens and the Browse badge they recompute show the newest registries.
      */
-    suspend fun accept(fetched: Map<String, LnRepoResult>) {
-        if (fetched.isEmpty()) return
-        mutex.withLock {
+    suspend fun accept(fetched: Map<String, LnRepoResult>): Map<String, LnRepoResult> {
+        if (fetched.isEmpty()) return fetched
+        return mutex.withLock {
             val kept = loaded.value.orEmpty()
             fetched.values.forEach { if (it is LnRepoResult.Reached) rememberIcons(it.entries) }
-            loaded.value = prefs.addedRepoUrls().get()
-                .mapNotNull { repo -> (fetched[repo] ?: kept[repo])?.let { repo to it } }
+            prefs.addedRepoUrls().get()
+                .mapNotNull { repo -> (fetched[repo]?.keepingListing(kept[repo]) ?: kept[repo])?.let { repo to it } }
                 .toMap()
+                .also { loaded.value = it }
         }
     }
 
@@ -134,17 +142,22 @@ class LnRepoRegistries(
     }
 
     private suspend fun load(repos: Set<String>, force: Boolean) = mutex.withLock {
-        val kept = if (force) emptyMap() else loaded.value.orEmpty().filterKeys { it in repos }
+        val previous = loaded.value.orEmpty()
+        val kept = if (force) emptyMap() else previous.filterKeys { it in repos }
         val missing = repos.filterNot { it in kept }
         isRefreshing.value = missing.isNotEmpty()
         try {
             val fetched = fetcher.fetchEach(missing)
             fetched.values.forEach { if (it is LnRepoResult.Reached) rememberIcons(it.entries) }
-            loaded.value = repos.associateWith { kept[it] ?: fetched.getValue(it) }
+            loaded.value = repos.associateWith { kept[it] ?: fetched.getValue(it).keepingListing(previous[it]) }
         } finally {
             isRefreshing.value = false
         }
     }
+
+    // The Extensions list and the Browse badge both judge an outage by this kept listing, so they agree.
+    private fun LnRepoResult.keepingListing(previous: LnRepoResult?): LnRepoResult =
+        if (this is LnRepoResult.Unreachable && lastGood == null) copy(lastGood = previous?.listing) else this
 
     // A novel app whose own icon shows nothing can take the icon a plugin lists for the same site.
     private fun rememberIcons(entries: List<LnRegistryEntry>) {

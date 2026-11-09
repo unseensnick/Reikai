@@ -46,7 +46,8 @@ class LnPluginUpdateBadgeTest {
 
     // The repo publishes a new version between the screen's fetch and the background check's.
     private var listed = INSTALLED
-    private val fetcher = LnRegistryFetcher { listOf(entry(listed)) }
+    private var down = false
+    private val fetcher = LnRegistryFetcher { if (down) error("HTTP 503") else listOf(entry(listed)) }
     private val registries = LnRepoRegistries(fetcher, prefs)
 
     // The Context only clears the notice once nothing is pending.
@@ -93,6 +94,49 @@ class LnPluginUpdateBadgeTest {
         val watching = launch { model().state.collect {} }
         advanceUntilIdle()
         watching.cancel()
+
+        prefs.pendingPluginUpdates().get() shouldBe setOf(ID)
+    }
+
+    @Test
+    fun `a refresh that finds the repo down keeps its update on the list the badge counts`() = runTest(dispatcher) {
+        listed = NEWER
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+
+        down = true
+        registries.refresh()
+        advanceUntilIdle()
+
+        (model.state.value.updates.map { it.entry.id }.toSet() to prefs.pendingPluginUpdates().get()) shouldBe
+            (setOf(ID) to setOf(ID))
+        watching.cancel()
+    }
+
+    @Test
+    fun `a check that finds the repo down keeps its update on the list the badge counts`() = runTest(dispatcher) {
+        listed = NEWER
+        val model = model()
+        val watching = launch { model.state.collect {} }
+        advanceUntilIdle()
+
+        down = true
+        checker.checkAndRecord()
+        advanceUntilIdle()
+
+        (model.state.value.updates.map { it.entry.id }.toSet() to prefs.pendingPluginUpdates().get()) shouldBe
+            (setOf(ID) to setOf(ID))
+        watching.cancel()
+    }
+
+    @Test
+    fun `a check that finds the repo down counts the update its kept listing offers`() = runTest(dispatcher) {
+        listed = NEWER
+        registries.results.first()
+
+        down = true
+        checker.checkAndRecord()
 
         prefs.pendingPluginUpdates().get() shouldBe setOf(ID)
     }

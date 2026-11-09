@@ -24,7 +24,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
-import reikai.novel.registry.reachedEntries
+import reikai.novel.registry.listedPlugins
 import reikai.util.runCatchingCancellable
 
 /** A backup's extension app or light-novel plugin that this device lacks, as a restore installs it. */
@@ -166,7 +166,7 @@ class RestoreInstallSources(
     /** What the repos on this device list now, each read live. */
     suspend fun device(): RepoListings = RepoListings(
         apps = storeRepository.fetchExtensionsByStore().values.flatMap { it.getOrDefault(emptyList()) },
-        plugins = registryFetcher.fetchEach(novelPreferences.addedRepoUrls().get()).reachedEntries(),
+        plugins = registryFetcher.fetchEach(novelPreferences.addedRepoUrls().get()).listedPlugins(),
     )
 
     /** Sorts [missing] against the device's repos and the backup's repos this device lacks. */

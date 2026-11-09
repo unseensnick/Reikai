@@ -27,8 +27,8 @@ import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoResult
 import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
+import reikai.novel.registry.listedPlugins
 import reikai.novel.registry.pluginRepos
-import reikai.novel.registry.reachedEntries
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelSourceManager
@@ -344,7 +344,7 @@ class LnPluginInstaller(
         if (needs.isEmpty()) return current
         val repos = prefs.addedRepoUrls().get()
         if (repos.isEmpty()) return current
-        val entries = fetchEach(repos).reachedEntries()
+        val entries = fetchEach(repos).listedPlugins()
         if (entries.isEmpty()) return current
         val updated = current.toMutableMap()
         needs.forEach { pluginUrl ->
