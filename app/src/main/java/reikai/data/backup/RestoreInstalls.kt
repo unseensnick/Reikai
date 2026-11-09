@@ -1,8 +1,10 @@
 package reikai.data.backup
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
+import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
@@ -121,15 +123,8 @@ class RestoreInstallSources(
     private val registryFetcher: LnRegistryFetcher,
 ) {
 
-    /** The keys of a backup's App settings that record its plugins and plugin repos. */
-    val pluginPreferenceKeys = with(novelPreferences) {
-        setOf(
-            installedPluginUrls().key(),
-            installedPluginMetadata().key(),
-            seenNovelSources().key(),
-            addedRepoUrls().key(),
-        )
-    }
+    /** The keys of a backup's App settings that record its plugins and plugin repos, and name them. */
+    val pluginPreferenceKeys = novelPreferences.pluginInstallKeys() + novelPreferences.seenNovelSources().key()
 
     /** The backup's apps and plugins this device has none of, read past the adult-source gate. */
     suspend fun missing(apps: List<BackupExtension>, preferences: Map<String, PreferenceValue>): List<RestoreItem> {
@@ -215,5 +210,28 @@ class RestoreInstallSources(
     private suspend fun readPluginRepo(url: String, name: String): Pair<BackupRepo, RepoListings>? {
         val entries = runCatchingCancellable { registryFetcher.fetchRepo(url) }.getOrNull() ?: return null
         return BackupRepo(url, name, isPluginRepo = true, signingKey = null) to RepoListings(plugins = entries)
+    }
+}
+
+/** The App settings keys that record the installed plugins and their repos. */
+fun NovelPreferences.pluginInstallKeys() =
+    setOf(installedPluginUrls().key(), installedPluginMetadata().key(), addedRepoUrls().key())
+
+/**
+ * Which of the App settings [all] a backup made with [options] writes. The plugin keys follow Extension
+ * stores, as the extension apps do, and the seen-source record that names the plugins comes with either.
+ */
+fun NovelPreferences.backedUpAppPreferences(
+    options: BackupOptions,
+    all: List<BackupPreference>,
+): List<BackupPreference> {
+    val pluginKeys = pluginInstallKeys()
+    val seenKey = seenNovelSources().key()
+    return all.filter {
+        when (it.key) {
+            in pluginKeys -> options.extensionStores
+            seenKey -> options.appSettings || options.extensionStores
+            else -> options.appSettings
+        }
     }
 }

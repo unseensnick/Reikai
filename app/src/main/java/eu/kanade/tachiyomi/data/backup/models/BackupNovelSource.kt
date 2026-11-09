@@ -11,5 +11,8 @@ data class BackupNovelSource(
     @ProtoNumber(2) var sourceId: String,
 )
 
-/** What a backed-up novel's source is called: the name the backup recorded, or its id in one older than that list. */
-fun Map<String, String>.novelSourceName(sourceId: String): String = this[sourceId]?.ifBlank { null } ?: sourceId
+/**
+ * What a backed-up source of either type is called: the name the backup recorded, or its id where it
+ * recorded none. A manga source never seen anywhere is backed up with a blank name.
+ */
+fun <K> Map<K, String>.backedUpSourceName(sourceId: K): String = this[sourceId]?.ifBlank { null } ?: sourceId.toString()

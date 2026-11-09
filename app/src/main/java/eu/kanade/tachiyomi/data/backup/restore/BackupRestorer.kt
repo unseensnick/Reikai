@@ -25,7 +25,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
-import eu.kanade.tachiyomi.data.backup.models.novelSourceName
+import eu.kanade.tachiyomi.data.backup.models.backedUpSourceName
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
@@ -431,7 +431,7 @@ class BackupRestorer(
                 },
                 restore = { novelRestorer.restore(it, membershipCategories) },
                 title = { it.title },
-                sourceName = { summary.novelSourceNames.novelSourceName(it.source) },
+                sourceName = { summary.novelSourceNames.backedUpSourceName(it.source) },
                 isAdult = { adultContentChecker.adultNovelIdsAmong(listOf(it.toNovelImpl())).isNotEmpty() },
             )
             restoreIsolated("novel custom info") {
@@ -523,7 +523,7 @@ class BackupRestorer(
             },
             restore = { mangaRestorer.restore(listOf(it), backupCategories) },
             title = { it.title },
-            sourceName = { sourceMapping[it.source] ?: it.source.toString() },
+            sourceName = { sourceMapping.backedUpSourceName(it.source) },
             isAdult = { adultContentChecker.adultIdsAmong(listOf(it.getMangaImpl())).isNotEmpty() },
         )
         restoreIsolated("manga custom info") {

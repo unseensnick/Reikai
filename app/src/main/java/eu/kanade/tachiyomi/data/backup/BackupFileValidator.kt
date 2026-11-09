@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
-import eu.kanade.tachiyomi.data.backup.models.novelSourceName
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -72,11 +71,10 @@ class BackupFileValidator(
             .sorted()
 
         // RK --> fold in novel sources the restore can't satisfy, so the pre-restore warning covers
-        // novels too. A missing novel source shows by the name the backup recorded, or by its id in a
-        // backup older than that list.
+        // novels too. Named as manga's are: the backup's name, else this device's record, else the id.
         val missingNovelSources = novelSources
             .filter { novelSourceManager.get(it) == null }
-            .map(novelSourceNames::novelSourceName)
+            .map { id -> novelSourceNames[id]?.takeIf { it.isNotBlank() && it != id } ?: novelSourceManager.nameOf(id) }
 
         return Results(
             (missingSources + missingNovelSources).distinct().sorted(),

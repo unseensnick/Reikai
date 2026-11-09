@@ -259,6 +259,9 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A Mihon backup's categories no longer restore with their own sorts wrong because of an old display setting.** Mihon kept each category's grid or list choice where Reikai now marks a category's own sort.
 - **A restore that runs out of memory now shows an error instead of stopping without a word.**
 - **Picking a damaged backup file now says it is invalid instead of showing a raw error.**
+- **A backup now records extensions that are installed but not trusted or hidden, so a restore can name them.**
+- **A backup made with Extension stores on and App settings off now carries your light-novel plugins and their repos.** They follow the same option as the extension apps.
+- **The missing-sources list before a restore names a novel source this device has seen, instead of showing its id.**
 
 ### Other
 

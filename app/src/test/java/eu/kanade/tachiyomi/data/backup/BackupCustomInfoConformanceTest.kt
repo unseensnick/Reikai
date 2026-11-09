@@ -216,6 +216,7 @@ class BackupCustomInfoConformanceTest {
                 ),
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
+                novelPreferences = mockk(relaxed = true),
             )
 
             creator.backup(uri, options)

@@ -44,10 +44,12 @@ import okio.BufferedSink
 import okio.buffer
 import okio.gzip
 import okio.sink
+import reikai.data.backup.backedUpAppPreferences
 import reikai.data.backup.backupEntries
 import reikai.data.backup.mergeGroupRefs
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -82,6 +84,7 @@ class BackupCreator(
     private val novelBackupCreator: NovelBackupCreator,
     private val extensionBackupCreator: ExtensionBackupCreator,
     private val feedBackupCreator: FeedBackupCreator,
+    private val novelPreferences: NovelPreferences,
     // RK <--
 ) {
     @AssistedFactory
@@ -324,9 +327,10 @@ class BackupCreator(
     }
 
     private fun backupAppPreferences(options: BackupOptions): List<BackupPreference> {
-        if (!options.appSettings) return emptyList()
+        if (!options.appSettings && !options.extensionStores) return emptyList() // RK: plugins ride Extension stores
 
         return preferenceBackupCreator.createApp(includePrivatePreferences = options.privateSettings)
+            .let { novelPreferences.backedUpAppPreferences(options, it) } // RK
     }
 
     // RK --> serialize the persisted manga merge groups as stable {url, source} refs, through the kernel
@@ -352,7 +356,8 @@ class BackupCreator(
         return extensionStoresBackupCreator()
     }
 
-    // RK: installed manga and novel extension apps, gated by the same toggle as their repos.
+    // RK: installed manga and novel extension apps, gated by the same toggle as their repos, as the LN
+    // plugins are (backedUpAppPreferences).
     private suspend fun backupExtensions(options: BackupOptions): List<BackupExtension> {
         if (!options.extensionStores) return emptyList()
 

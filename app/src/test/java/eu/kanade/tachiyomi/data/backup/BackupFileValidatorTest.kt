@@ -66,6 +66,7 @@ class BackupFileValidatorTest {
         val novelSources = mockk<NovelSourceManager>()
         coEvery { novelSources.ensureLoaded() } just runs
         coEvery { novelSources.get(any()) } returns null
+        coEvery { novelSources.nameOf(any()) } answers { firstArg() }
         return validator(novelSources, fields.asList(), trackerManager, extensions, sourceManager)
     }
 
@@ -175,6 +176,17 @@ class BackupFileValidatorTest {
 
         validator(source, sourceManager = sources).validate(mockk<Uri>()).missingSources shouldBe
             listOf(stub.toString())
+    }
+
+    // The manga half answers from its stub the same way, so an older backup still names what this device saw.
+    @Test
+    fun `a backup made before novel source names is named by this device's record`() = runTest {
+        val novelSources = mockk<NovelSourceManager>()
+        coEvery { novelSources.ensureLoaded() } just runs
+        coEvery { novelSources.get(any()) } returns null
+        coEvery { novelSources.nameOf("tachiyomi:123") } returns "Seen here"
+
+        validator(novelSources, listOf(novel)).validate(mockk<Uri>()).missingSources shouldBe listOf("Seen here")
     }
 
     @Test
