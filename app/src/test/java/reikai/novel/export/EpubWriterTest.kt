@@ -32,7 +32,7 @@ class EpubWriterTest {
         description = "About <it>",
         language = "en",
         genres = listOf("Fantasy"),
-        identifier = "urn:uuid:test",
+        identifier = "urn:reikai:novel:src:/test",
         cover = ExportPicture(png, "image/png"),
         chapters = listOf(
             ExportChapter("Chapter 1") { "<p>One&nbsp;line<br>next</p><img src=\"$dataPng\" alt=\"pic\">" },
@@ -209,6 +209,35 @@ class EpubWriterTest {
     @Test
     fun `a target named by xml id gets the id its link names`() = runTest {
         firstChapter(linked) shouldContain "<p id=\"x\">X</p>"
+    }
+
+    /** Both readers follow a link to an old-style named anchor, so the book must too. */
+    @Test
+    fun `a target named by name gets the id its link names`() = runTest {
+        val chapter = firstChapter("<p><a href=\"#fn1\">1</a></p><p><a name=\"fn1\">note</a></p>")
+
+        listOf("href=\"#fn1\"", "id=\"fn1\"").filter { it !in chapter } shouldBe emptyList()
+    }
+
+    @Test
+    fun `a percent-encoded jump to a place in the chapter stays a link`() = runTest {
+        firstChapter("<p><a href=\"#note%20one\">1</a></p><p id=\"note one\">note</p>") shouldContain
+            "href=\"#note%20one\""
+    }
+
+    /** An import joins a short chapter of any other book into the next, taking it for a part's title page. */
+    @Test
+    fun `a short chapter stays its own chapter through an export and an import`() = runTest {
+        val out = ByteArrayOutputStream()
+        val chapters = listOf(ExportChapter("Note") { "<p>Thanks.</p>" }, ExportChapter("Chapter 1") { "<p>Text</p>" })
+        EpubWriter().write(book.copy(chapters = chapters), out)
+        val files = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.forEach { files[it.name] = zip.readBytes() }
+        }
+        val archive = EpubArchive { paths -> paths.mapNotNull { p -> files[p]?.let { p to it } }.toMap() }
+
+        EpubChapters.list(EpubBook.parse(archive), archive).map { it.title } shouldBe listOf("Note", "Chapter 1")
     }
 
     @Test

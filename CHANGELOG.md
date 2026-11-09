@@ -23,6 +23,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters go in with the cover, pictures and details, so an imported copy keeps them.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
+#### Fixed
+
+- **Setting a smaller cover on a local manga no longer leaves part of the old picture's file behind.**
+
 ### Library
 
 #### Changed

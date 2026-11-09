@@ -25,7 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
-import eu.kanade.tachiyomi.util.storage.DiskUtil
+import reikai.novel.export.epubFileName
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.padding
 import tachiyomi.presentation.core.i18n.stringResource
@@ -105,7 +105,7 @@ fun NovelExportDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { saver.launch(DiskUtil.buildValidFilename("$fileName.epub")) },
+                onClick = { saver.launch(epubFileName(fileName)) },
                 enabled = onDevice != null && onDevice > 0 && rangeValid,
             ) {
                 Text(stringResource(MR.strings.export_epub_start))

@@ -6,12 +6,10 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.source.model.SManga
-import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.storage.localCover
+import reikai.storage.writeLocalCover
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.InputStream
-
-private const val DEFAULT_COVER_NAME = "cover.jpg"
 
 @Inject
 @SingleIn(AppScope::class)
@@ -35,15 +33,8 @@ class LocalCoverManager(
             return null
         }
 
-        val targetFile = find(manga.url) ?: directory.createFile(DEFAULT_COVER_NAME)!!
-
-        inputStream.use { input ->
-            targetFile.openOutputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-
-        DiskUtil.createNoMediaFile(directory, context)
+        // RK: the write moved to writeLocalCover, which the local novel source writes through too
+        val targetFile = writeLocalCover(context, directory, inputStream) ?: return null
 
         manga.thumbnail_url = targetFile.uri.toString()
         return targetFile

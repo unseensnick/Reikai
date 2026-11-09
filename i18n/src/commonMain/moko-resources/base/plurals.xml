@@ -9,6 +9,10 @@
         <item quantity="one">Exported %d novel</item>
         <item quantity="other">Exported %d novels</item>
     </plurals>
+    <plurals name="export_epub_failed_count">
+        <item quantity="one">Could not export %d novel</item>
+        <item quantity="other">Could not export %d novels</item>
+    </plurals>
     <plurals name="local_import_done">
         <item quantity="one">Imported %d series</item>
         <item quantity="other">Imported %d series</item>

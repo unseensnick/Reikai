@@ -1,5 +1,6 @@
 package reikai.novel.export
 
+import eu.kanade.tachiyomi.util.lang.Hash
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import org.jsoup.Jsoup
@@ -8,8 +9,8 @@ import org.jsoup.nodes.Element
 import org.jsoup.nodes.Entities
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.content.RenderTarget
+import reikai.novel.content.anchorTarget
 import java.io.OutputStream
-import java.security.MessageDigest
 import java.util.Base64
 import java.util.zip.CRC32
 import java.util.zip.ZipEntry
@@ -89,9 +90,20 @@ class EpubWriter(private val includePictures: Boolean = true) {
         // What a book needs gone beyond that: controls with nothing to drive them, styling the book's own
         // sheet replaces, and prefixed attributes, whose undeclared namespace makes the XHTML invalid.
         body.select("input, button, style, link").remove()
+        // A jump to a place in this chapter still works in the book, found as both readers find it; a target
+        // named by `name` or xml:id gets the id a book's reader looks for. Any other relative link pointed at
+        // the source's site and leads nowhere here, so it keeps only its text.
+        for (link in body.select("a[href]")) {
+            val href = link.attr("href")
+            if (href.startsWith("http")) continue
+            val target = href.takeIf { it.startsWith('#') }?.let { anchorTarget(body, it.substring(1)) }
+            if (target == null) {
+                link.unwrap()
+            } else if (!target.hasAttr("id")) {
+                target.attr("id", target.attr("name").ifEmpty { target.attr("xml:id") })
+            }
+        }
         for (element in body.getAllElements()) {
-            // A link can name its target by xml:id, which the book keeps as a plain id.
-            element.attr("xml:id").takeIf { it.isNotEmpty() && !element.hasAttr("id") }?.let { element.attr("id", it) }
             element.attributes().asList()
                 .filter { it.key == "contenteditable" || ':' in it.key }
                 .forEach { element.removeAttr(it.key) }
@@ -103,7 +115,7 @@ class EpubWriter(private val includePictures: Boolean = true) {
                 img.remove()
                 continue
             }
-            val hash = sha1(picture.bytes)
+            val hash = Hash.md5(picture.bytes)
             val path = pictures.getOrPut(hash) {
                 val path = "images/image-${pictures.size + 1}.${extensionOf(picture.mime)}"
                 writePicture(path, picture)
@@ -112,13 +124,6 @@ class EpubWriter(private val includePictures: Boolean = true) {
             img.attributes().asList().map { it.key }.filter { it != "alt" }.forEach(img::removeAttr)
             img.attr("src", "../$path").attr("alt", img.attr("alt"))
         }
-        // A jump to a place in this chapter still works in the book. Any other relative link pointed at the
-        // source's site and leads nowhere here, so it keeps only its text.
-        body.select("a[href]").filterNot { link ->
-            val href = link.attr("href")
-            href.startsWith("http") ||
-                (href.length > 1 && href[0] == '#' && body.getElementById(href.substring(1)) != null)
-        }.forEach { it.unwrap() }
 
         val document = Document.createShell("")
         document.outputSettings()
@@ -280,11 +285,7 @@ $points
         private fun descriptionHtml(text: String): String = text.trim().split(Regex("""\n\s*\n"""))
             .joinToString("") { paragraph -> "<p>" + escape(paragraph.trim()).replace("\n", "<br/>") + "</p>" }
 
-        private fun sha1(bytes: ByteArray): String =
-            MessageDigest.getInstance("SHA-1").digest(bytes).joinToString("") { "%02x".format(it) }
-
-        private fun escape(text: String): String = text
-            .replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace("\"", "&quot;")
+        private fun escape(text: String): String = NovelHtmlUtils.escapeHtml(text)
 
         private const val BASE64_MARKER = ";base64,"
         private val PICTURE_TYPES =

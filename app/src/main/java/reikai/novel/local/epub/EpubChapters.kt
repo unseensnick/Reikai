@@ -38,6 +38,8 @@ object EpubChapters {
     fun list(book: EpubBook, archive: EpubArchive): List<EpubChapterRef> {
         val parsed = archive.read(book.spine.toSet()).mapValues { (_, bytes) -> parseContent(bytes) }
         val refs = fromToc(book).ifEmpty { fromFiles(book, parsed) }
+        // Every entry of a book Reikai wrote is a real chapter, however short, so none is taken for a part title.
+        if (book.metadata.isReikaiExport) return refs
         return joinNearlyEmpty(book, refs) { path -> parsed[path]?.clone() }
     }
 
@@ -126,6 +128,9 @@ object EpubChapters {
         val slices = slice(book, chapters, index) { path -> bytesByPath[path]?.let(::parseContent) }
 
         val out = Document.createShell("")
+        // The output follows its own document's settings, not the parsed files', and pretty-printing folds the
+        // line breaks of a paragraph the book styles as preformatted.
+        out.outputSettings().prettyPrint(false)
         val styles = mutableListOf<StyleSource>()
         for ((path, document) in slices) {
             document.head().local("link").filter { "stylesheet" in it.attr("rel") }.forEach {
@@ -138,7 +143,7 @@ object EpubChapters {
             }
             val body = document.body()
             prepare(body, path, files)
-            out.body().appendElement("div").addClass(SECTION_CLASS).insertChildren(0, body.childNodes().toList())
+            out.body().appendElement("div").insertChildren(0, body.childNodes().toList())
         }
 
         val cssFiles = archive.read(styles.mapNotNull { it.path }.toSet())
@@ -205,8 +210,14 @@ object EpubChapters {
      * A contents label with a caption in front of its chapter name, as Project Gutenberg builds them from the
      * illustration that opens a chapter ("He rode a black horse. CHAPTER III."), reads as the chapter name.
      */
-    internal fun cleanTitle(title: String): String =
-        CAPTIONED_TITLE.matchEntire(title)?.groupValues?.get(2)?.trim() ?: title
+    internal fun cleanTitle(title: String): String {
+        val match = CAPTIONED_TITLE.matchEntire(title) ?: return title
+        // A web novel's own name can end the same way ("Chapter 45 - Showdown! Part 2"), but it numbers or names
+        // the chapter before that end, where a caption is prose.
+        val caption = match.groupValues[1]
+        if (caption.any(Char::isDigit) || NUMBERED_START.containsMatchIn(caption)) return title
+        return match.groupValues[2].trim()
+    }
 
     /** The element a cut points at, or null when the book names an anchor its file does not have. */
     private fun target(body: Element, cut: EpubCut): Element? = when {
@@ -327,7 +338,8 @@ object EpubChapters {
         """(.+?[.!?”"’)\]]\s+)((?:chapter|book|part|volume|canto|section)\s*[ivxlcdm\d]+\.?)""",
         RegexOption.IGNORE_CASE,
     )
-    private const val SECTION_CLASS = "epub-section"
+    private val NUMBERED_START =
+        Regex("""^\s*(?:chapter|book|part|volume|vol|canto|section|arc|episode|ch)\b""", RegexOption.IGNORE_CASE)
     private const val PATH_ATTR = "data-epub-path"
     private val CSS_URL = Regex("""url\(\s*(['"]?)([^'")]+)\1\s*\)""")
 

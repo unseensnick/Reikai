@@ -8,6 +8,7 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.R
+import eu.kanade.tachiyomi.util.lang.Hash
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import kotlinx.serialization.json.Json
 import mihon.core.archive.archiveReader
@@ -31,6 +32,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.storage.localCover
+import reikai.storage.writeLocalCover
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.metadata.tachiyomi.MangaDetails
@@ -234,7 +236,7 @@ class LocalNovelSource(
     private fun Series.coverAddress(file: UniFile, book: EpubBook): String? {
         files.localCover()?.let { return it.uri.toString() }
         val coverPath = book.coverPath ?: return null
-        val name = (path + file.lastModified()).hashCode().toUInt()
+        val name = "${coverCopyPrefix(path)}${file.lastModified()}"
         val target = File(File(context.filesDir, COVER_DIR), "$name.${coverPath.substringAfterLast('.', "jpg")}")
         if (!target.exists()) {
             val bytes = file.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] } ?: return null
@@ -247,16 +249,23 @@ class LocalNovelSource(
     /**
      * Writes [stream] as the `cover.*` picture of the series at [novelPath], which [coverAddress] reads
      * before any book's own, and returns its address; null for a loose EPUB, which has no folder to hold
-     * one. Twin of `LocalCoverManager.update`, pinned by CoverEditCapabilityConformanceTest.
+     * one. Twin of `LocalCoverManager.update`, pinned by writeLocalCover, which both write through.
      */
     suspend fun writeCover(novelPath: String, stream: InputStream): String? = withIOContext {
         val folder = storageManager.getLocalNovelsDirectory()?.findFile(novelPath)?.takeIf { it.isDirectory }
             ?: return@withIOContext null
-        val target = folder.listFiles().orEmpty().asIterable().localCover()
-            ?: folder.createFile(DEFAULT_COVER_NAME)
-            ?: return@withIOContext null
-        target.openOutputStream().use { stream.copyTo(it) }
-        target.uri.toString()
+        val written = writeLocalCover(context, folder, stream) ?: return@withIOContext null
+        // The folder cover now wins, so the book covers copied for this series are never read again.
+        dropCoverCopies(novelPath)
+        written.uri.toString()
+    }
+
+    /** What the name of every book cover copied for the series at [path] starts with, whatever its version. */
+    private fun coverCopyPrefix(path: String) = "${Hash.md5(path)}-"
+
+    private fun dropCoverCopies(path: String) {
+        val prefix = coverCopyPrefix(path)
+        File(context.filesDir, COVER_DIR).listFiles { copy -> copy.name.startsWith(prefix) }?.forEach(File::delete)
     }
 
     private data class Series(
@@ -276,7 +285,6 @@ class LocalNovelSource(
         private const val CHAPTER_CACHE_SIZE = 8
         private const val DETAILS_FILE = "details.json"
         private const val COVER_DIR = "local_novel_covers"
-        private const val DEFAULT_COVER_NAME = "cover.jpg"
         private const val EPUB_SUFFIX = ".epub"
         private const val PATH_SEPARATOR = "::"
 

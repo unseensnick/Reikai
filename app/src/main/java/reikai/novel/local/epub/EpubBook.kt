@@ -24,9 +24,11 @@ data class EpubMetadata(
     val language: String?,
     val series: String?,
     val seriesIndex: Double?,
-    val artist: String? = null,
+    val artist: String?,
     /** A status in a source's words, which Reikai's own exports record. */
-    val status: String? = null,
+    val status: String?,
+    /** Written by Reikai's own export, whose contents list each chapter as it was stored. */
+    val isReikaiExport: Boolean,
 )
 
 /**
@@ -40,7 +42,7 @@ class EpubBook(
     val coverPath: String?,
     val mediaTypes: Map<String, String>,
     /** Laid out as fixed pages, as a comic is, rather than as text that reflows. */
-    val isFixedLayout: Boolean = false,
+    val isFixedLayout: Boolean,
 ) {
     /** The picture type the manifest declares for [path], or null when it declares no picture there. */
     fun imageType(path: String): String? = mediaTypes[path]?.takeIf { it.startsWith("image/") }
@@ -105,6 +107,7 @@ class EpubBook(
                 seriesIndex = (collectionIndex ?: named("calibre:series_index"))?.trim()?.toDoubleOrNull(),
                 artist = illustrators(metadata, metas).takeIf { it.isNotEmpty() }?.joinToString(", "),
                 status = metas.firstOrNull { it.attr("property") == "reikai:status" }?.text()?.trim()?.ifEmpty { null },
+                isReikaiExport = dc("identifier").any { it.startsWith(REIKAI_IDENTIFIER_PREFIX) },
             )
         }
 
@@ -196,6 +199,8 @@ class EpubBook(
             return EpubTocEntry(title.replace(WHITESPACE, " "), resolve(base, file), fragment, depth)
         }
 
+        /** What the identifier of a book Reikai exported starts with. */
+        const val REIKAI_IDENTIFIER_PREFIX = "urn:reikai:"
         private const val CONTAINER = "META-INF/container.xml"
         private const val ENCRYPTION = "META-INF/encryption.xml"
         private const val DEFAULT_PACKAGE = "OEBPS/content.opf"

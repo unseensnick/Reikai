@@ -17,3 +17,14 @@ fun decodePercentKeepingPlus(value: String): String? =
 fun elementNamed(root: Element, name: String): Element? = root.getElementById(name)
     ?: root.getElementsByAttributeValue("name", name).firstOrNull()
     ?: root.getElementsByAttributeValue("xml:id", name).firstOrNull()
+
+/**
+ * The element a link's [fragment] names under [root]: as written first, then percent-decoded, the order a
+ * browser tries and reader.js mirrors, each by [elementNamed]. An empty name names nothing.
+ */
+fun anchorTarget(root: Element, fragment: String): Element? {
+    val decoded = decodePercentKeepingPlus(fragment)
+    return listOfNotNull(fragment, decoded).distinct().filter { it.isNotEmpty() }.firstNotNullOfOrNull { name ->
+        elementNamed(root, name)
+    }
+}

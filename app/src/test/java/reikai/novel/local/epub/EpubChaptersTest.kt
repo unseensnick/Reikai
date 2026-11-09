@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
 import reikai.novel.content.RenderTarget
@@ -119,6 +121,28 @@ class EpubChaptersTest {
     @Test
     fun `a title that only mentions a chapter keeps its words`() {
         EpubChapters.cleanTitle("The Last Chapter") shouldBe "The Last Chapter"
+    }
+
+    /** A web novel's chapter names end as a caption does, and an exported book carries them as they are. */
+    @ParameterizedTest
+    @ValueSource(strings = ["Chapter 45 - Showdown! Part 2", "Chapter 3 (Side Story) Part 2", "Arc 2. Chapter 5"])
+    fun `a chapter name that numbers its chapter before a part keeps every word`(title: String) {
+        EpubChapters.cleanTitle(title) shouldBe title
+    }
+
+    @Test
+    fun `a paragraph the book styles as preformatted keeps its line breaks`() {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("<p style=\"white-space: pre-line\">line one\nline two</p><p>$fill</p>"),
+            ),
+        )
+        val parsed = EpubBook.parse(book)
+
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { _, _ -> null } shouldContain
+            "line one\nline two"
     }
 
     @Test

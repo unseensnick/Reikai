@@ -315,6 +315,7 @@
     <string name="export_epub_start">Export</string>
     <string name="export_epub_progress">Exporting %1$s</string>
     <string name="export_epub_failed">Could not export %1$s</string>
+    <string name="export_epub_running">Exporting as EPUB</string>
     <string name="novel_page_use_for_details">Use page for details</string>
     <string name="novel_page_use_for_chapters">Use page for chapters</string>
     <string name="novel_page_use_for_chapter">Use page for this chapter</string>
