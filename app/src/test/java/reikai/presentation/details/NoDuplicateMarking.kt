@@ -31,5 +31,6 @@ fun noVolumePicking() = VolumePicking(
         override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
     },
     NoLocalVolumes,
+    { _, _, _ -> null },
     CoroutineScope(Dispatchers.Unconfined),
 )

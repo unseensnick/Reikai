@@ -21,8 +21,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light novels can be read from your own EPUB files, through a local source beside the manga one.** Chapters follow the book's table of contents, even when one file holds several.
 - **Books and comics can be imported from Library -> ⋮ -> Import files, or by opening or sharing a file with Reikai.** Reikai copies them into its local folders and adds them to your library.
 - **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters go in with the cover, pictures and details, so an imported copy keeps them.
-- **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** Each chapter is named with its volume in front.
-- **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows how much of the volume is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
+- **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** A picture named cover or folder is the volume's cover, and other loose pictures read as an Extras chapter.
+- **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows the volume's cover and how much of it is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
 - **A local series' volumes can be put in reading order and renamed from ⋮ -> Reorder volumes.** Chapters sorted by source are read in the new order; backups keep it.
 - **Local series of one type can be combined into one series with volumes from a library selection, keeping their read progress.** Combine as volumes takes Merge's place for an all-local selection, with Merge under ⋮.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.

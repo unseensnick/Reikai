@@ -240,8 +240,20 @@ class LocalNovelSource(
      */
     private fun Series.coverAddress(file: UniFile, book: EpubBook): String? {
         files.localCover()?.let { return it.uri.toString() }
+        return copyCover(file, book, "${coverCopyPrefix(path)}${file.lastModified()}")
+    }
+
+    /** The cover of the book [volume] in the series at [seriesPath], for its volume header. */
+    suspend fun volumeCover(seriesPath: String, volume: String): String? = withIOContext {
+        val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
+        val book = runCatching { book(file) }.getOrNull() ?: return@withIOContext null
+        // Under the series' prefix, so dropping the series' cover copies drops these too.
+        copyCover(file, book, "${coverCopyPrefix(seriesPath)}${Hash.md5(volume)}-${file.lastModified()}")
+    }
+
+    /** [book]'s cover copied out of [file] once, as [name], since a cover loader cannot read inside an EPUB. */
+    private fun copyCover(file: UniFile, book: EpubBook, name: String): String? {
         val coverPath = book.coverPath ?: return null
-        val name = "${coverCopyPrefix(path)}${file.lastModified()}"
         val target = File(File(context.filesDir, COVER_DIR), "$name.${coverPath.substringAfterLast('.', "jpg")}")
         if (!target.exists()) {
             val bytes = file.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] } ?: return null

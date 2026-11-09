@@ -572,6 +572,7 @@ private fun LazyListScope.entryChapterItems(
                 volume = item,
                 onSelect = { behavior.toggleChapterBlock(item.chapterIds) },
                 onMarkRead = { read -> behavior.markChaptersRead(item.chapterIds, read) },
+                coverOf = { behavior.volumePicking.cover(state.entryId.contentType, item.series, item.key) },
             )
             is EntryChapterListItem.Chapter -> {
                 // Typed as the stable Chapter, so the lambdas compare it by value rather than by instance.

@@ -89,12 +89,16 @@ fun ReaderChapterListDialog(
                 },
             ) { item ->
                 if (item is EntryChapterListItem.Volume) {
-                    VolumeHeader(volume = item, onSelect = null) { read ->
-                        item.chapterIds.forEach {
-                            readOverrides[it] = read
-                            onMarkRead(it, read)
-                        }
-                    }
+                    VolumeHeader(
+                        volume = item,
+                        onSelect = null,
+                        onMarkRead = { read ->
+                            item.chapterIds.forEach {
+                                readOverrides[it] = read
+                                onMarkRead(it, read)
+                            }
+                        },
+                    )
                     return@items
                 }
                 val row = item as ReaderChapterRow

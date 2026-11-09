@@ -304,6 +304,7 @@
     <!-- RK: the local novel source, its volumes, and importing books into it -->
     <string name="volume_label">Vol. %1$s</string>
     <string name="all_volumes">All volumes</string>
+    <string name="local_volume_extras">Extras</string>
     <string name="action_reorder_volumes">Reorder volumes</string>
     <string name="action_combine_volumes">Combine as volumes</string>
     <string name="combine_volumes_keep">Keep as the series</string>

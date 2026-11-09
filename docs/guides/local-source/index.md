@@ -210,3 +210,5 @@ All images inside the archive regardless of folder structure will become pages f
 ### Volume folders
 
 A series split into volumes can keep each volume in a folder of its own inside the `Series` folder, such as `Vol 01` and `Vol 02`, with the volume's chapter archives or chapter folders inside it. Reikai reads one level of volume folders and names each chapter with its volume in front, like `Vol 02 - Ch 011`. A folder that holds only pictures is still read as one chapter.
+
+A picture in a volume folder named `cover` or `folder`, or the only picture there, is that volume's cover on its header. Any other pictures beside the chapters read as an Extras chapter at the start of the volume.

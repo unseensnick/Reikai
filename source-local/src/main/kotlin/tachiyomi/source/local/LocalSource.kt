@@ -301,12 +301,21 @@ class LocalSource(
             // RK --> a folder holding chapter files or chapter folders is a volume, read one level down; its
             // chapters carry it in their address and in front of their name, as a local novel's volumes do
             .flatMap { file ->
-                val inside = file.takeIf { it.isDirectory }?.listFiles().orEmpty().filter(::isChapterFile)
-                if (inside.isNotEmpty()) inside.map { file to it } else listOf(null to file)
+                val listed = file.takeIf { it.isDirectory }?.listFiles().orEmpty().toList()
+                val inside = listed.filter(::isChapterFile)
+                // Pictures beside a volume's chapters, other than its cover, read as one Extras chapter: the
+                // folder itself, which the reader opens as a folder of pictures.
+                val extras = listOfNotNull(file.takeIf { inside.isNotEmpty() && listed.extraPictures().isNotEmpty() })
+                if (inside.isNotEmpty()) (extras + inside).map { file to it } else listOf(null to file)
             }
             .map { (volume, chapterFile) ->
+                val isExtras = chapterFile === volume
                 SChapter.create().apply {
-                    url = listOfNotNull(manga.url, volume?.name, chapterFile.name).joinToString("/")
+                    url = if (isExtras) {
+                        "${manga.url}/${volume.name}/"
+                    } else {
+                        listOfNotNull(manga.url, volume?.name, chapterFile.name).joinToString("/")
+                    }
                     // RK <--
                     name = if (chapterFile.isDirectory) {
                         chapterFile.name
@@ -334,14 +343,17 @@ class LocalSource(
                     } catch (e: Exception) {
                         logcat(LogPriority.ERROR, e) { "Failed to read metadata for ${chapterFile.name}" }
                     }
-                    // RK: after the metadata, which may name the chapter, so the volume order survives the sort
+                    // RK --> after the metadata, which may name the chapter, so the volume order survives the sort
+                    if (isExtras) name = context.stringResource(MR.strings.local_volume_extras)
                     volume?.let { name = "${it.name} - $name" }
+                    // RK <--
                 }
             }
             .sortedWith { c1, c2 ->
                 c2.name.compareToCaseInsensitiveNaturalOrder(c1.name)
             }
             .inUserVolumeOrder(manga.url) // RK
+            .numberingExtras() // RK
 
         // Copy the cover from the first chapter found if not available
         if (manga.thumbnail_url.isNullOrBlank()) {
@@ -362,7 +374,8 @@ class LocalSource(
     fun getFormat(chapter: SChapter): Format {
         try {
             // RK: one step per path part, since a chapter in a volume folder sits two levels down
-            return chapter.url.split('/').fold(fileSystem.getBaseDirectory()) { dir, part -> dir?.findFile(part) }
+            return chapter.url.split('/').filter { it.isNotEmpty() }
+                .fold(fileSystem.getBaseDirectory()) { dir, part -> dir?.findFile(part) }
                 ?.let(Format.Companion::valueOf)
                 ?: throw Exception(context.stringResource(MR.strings.chapter_not_found))
         } catch (e: Format.UnknownFormatException) {
@@ -372,12 +385,42 @@ class LocalSource(
         }
     }
 
-    // RK: volume folders in the order the user gave them, still newest first like the rest of the list
+    // RK --> volume folders
+    // In the order the user gave them, each led by its Extras, still newest first like the rest of the list.
     private fun List<SChapter>.inUserVolumeOrder(series: String): List<SChapter> {
-        val saved = userVolumes.volumes(ContentType.MANGA).value[series] ?: return this
+        val saved = userVolumes.volumes(ContentType.MANGA).value[series]
         return asReversed().groupBy { it.url.split('/').takeIf { parts -> parts.size == 3 }?.get(1).orEmpty() }
-            .entries.toList().inUserOrder({ it.key }, saved).flatMap { it.value }.asReversed()
+            .entries.toList().inUserOrder({ it.key }, saved)
+            .flatMap { (_, chapters) -> chapters.sortedByDescending { it.url.endsWith('/') } }.asReversed()
     }
+
+    // An Extras chapter has no number of its own, so it takes one just below its volume's first, which keeps it
+    // at the head of its volume under a sort by chapter number too.
+    private fun List<SChapter>.numberingExtras(): List<SChapter> = onEach { extras ->
+        if (!extras.url.endsWith('/')) return@onEach
+        val first = filter { it.url.startsWith(extras.url) && it !== extras && it.chapter_number >= 0f }
+            .minOfOrNull { it.chapter_number } ?: return@onEach
+        extras.chapter_number = first - 0.01f
+    }
+
+    /** A volume folder's cover: a picture named cover or folder, or its only picture. */
+    fun volumeCover(series: String, volume: String): UniFile? {
+        val pictures = fileSystem.getMangaDirectory(series)?.findFile(volume)?.listFiles().orEmpty().filter {
+            it.isPicture()
+        }
+        return pictures.firstOrNull { it.isNamedCover() } ?: pictures.singleOrNull()
+    }
+
+    private fun List<UniFile>.extraPictures(): List<UniFile> {
+        val pictures = filter { it.isPicture() }
+        val cover = pictures.firstOrNull { it.isNamedCover() } ?: pictures.singleOrNull()
+        return pictures - setOfNotNull(cover)
+    }
+
+    private fun UniFile.isPicture() = !isDirectory && ImageUtil.isImage(name)
+
+    private fun UniFile.isNamedCover() = name.orEmpty().substringBeforeLast('.').lowercase() in setOf("cover", "folder")
+    // RK <--
 
     // RK: a chapter's own file or folder, in a series folder or a volume folder
     private fun isChapterFile(file: UniFile): Boolean =

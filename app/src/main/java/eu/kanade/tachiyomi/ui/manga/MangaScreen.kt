@@ -129,7 +129,8 @@ class MangaScreen(
                 viewModel.viewModelScope,
                 graph.appCoroutineScope,
             )
-            val volumes = VolumePicking(graph.volumePicks, graph.localVolumes, graph.appCoroutineScope)
+            val volumes =
+                VolumePicking(graph.volumePicks, graph.localVolumes, graph.volumeCovers, graph.appCoroutineScope)
             MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates, volumes)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()

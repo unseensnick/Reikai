@@ -108,7 +108,8 @@ class NovelScreen(
                 viewModel.viewModelScope,
                 graph.appCoroutineScope,
             )
-            val volumes = VolumePicking(graph.volumePicks, graph.localVolumes, graph.appCoroutineScope)
+            val volumes =
+                VolumePicking(graph.volumePicks, graph.localVolumes, graph.volumeCovers, graph.appCoroutineScope)
             NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, volumes)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()

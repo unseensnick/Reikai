@@ -1,6 +1,7 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
+import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.chapter.LocalVolume
@@ -13,6 +14,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.novel.local.LocalNovelSource
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.source.local.LocalSource
 
@@ -62,8 +64,11 @@ private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Numbe
 class VolumePicking(
     private val picks: VolumePickRepository,
     private val volumes: LocalVolumeRepository,
+    private val covers: VolumeCovers,
     private val appScope: CoroutineScope,
 ) {
+    suspend fun cover(type: ContentType, series: String, key: String): Any? = covers.cover(type, series, key)
+
     fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)
 
     fun saved(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = volumes.volumes(type)
@@ -116,4 +121,18 @@ fun List<EntryChapterListItem>.inVolumes(picked: String?, saved: Map<String, Lis
     val items = runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }
         .flatMap { (run, header) -> listOf(header) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) } }
     return VolumeView(chips, shown, items)
+}
+
+/** A local volume's cover, as an image the cover loader takes, or null when the volume has none. */
+fun interface VolumeCovers {
+    suspend fun cover(type: ContentType, series: String, key: String): Any?
+}
+
+/** A manga volume folder's own picture, or a novel book's cover. */
+@Inject
+class LocalVolumeCovers(private val manga: LocalSource, private val novels: LocalNovelSource) : VolumeCovers {
+    override suspend fun cover(type: ContentType, series: String, key: String): Any? = when (type) {
+        ContentType.NOVELS -> novels.volumeCover(series, key)
+        else -> withIOContext { manga.volumeCover(series, key)?.uri }
+    }
 }

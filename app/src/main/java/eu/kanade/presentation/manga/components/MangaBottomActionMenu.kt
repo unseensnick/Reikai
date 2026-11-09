@@ -59,6 +59,7 @@ import mihon.icons.materialsymbols.rounded.BookmarkRemove
 import mihon.icons.materialsymbols.rounded.Delete
 import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.Download
+import mihon.icons.materialsymbols.rounded.LibraryBooks
 import mihon.icons.materialsymbols.rounded.MoreVert
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import mihon.icons.materialsymbols.rounded.SwapCalls
@@ -310,7 +311,7 @@ fun LibraryBottomActionMenu(
                 if (onCombineClicked != null) {
                     Button(
                         title = stringResource(MR.strings.action_combine_volumes),
-                        icon = ReikaiIcons.Merge,
+                        icon = MaterialSymbols.Rounded.LibraryBooks,
                         toConfirm = confirm[6],
                         onLongClick = { onLongClickItem(6) },
                         onClick = onCombineClicked,

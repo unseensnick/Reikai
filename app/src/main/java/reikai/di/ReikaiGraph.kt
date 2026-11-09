@@ -49,6 +49,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderHostServices
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.novel.update.LnPluginUpdateNotifier
+import reikai.presentation.details.LocalVolumeCovers
 import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.library.MangaLibraryAdapter
 import reikai.presentation.library.NovelLibraryAdapter
@@ -120,6 +121,7 @@ interface ReikaiGraph {
     val chapterCopyMarks: ChapterCopyMarkRepository
     val volumePicks: VolumePickRepository
     val localVolumes: LocalVolumeRepository
+    val volumeCovers: LocalVolumeCovers
 
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata
