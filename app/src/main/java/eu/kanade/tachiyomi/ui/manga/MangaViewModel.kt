@@ -126,6 +126,7 @@ import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.RemovalPrompt
 import reikai.domain.merge.gapPresent
+import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.merge.toGapNeighbour
 import reikai.domain.recommendation.PrepareRecommendationAssembly
@@ -1181,7 +1182,8 @@ class MangaViewModel(
         val sourceManager = sourceManager
         return ids.map { id ->
             val sourceManga = getMangaAndChapters.awaitManga(id)
-            EntryMergeSource(id, sourceManager.getOrStub(sourceManga.source).name)
+            val sourceName = sourceManager.getOrStub(sourceManga.source).name
+            EntryMergeSource(id, mergeMemberName(sourceName, sourceManga.title, sourceManga.isLocal()))
         }
     }
 

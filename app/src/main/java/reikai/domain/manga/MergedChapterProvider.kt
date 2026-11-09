@@ -9,11 +9,13 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.renderMergedReadingOrder
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.interactor.GetMangaWithChapters
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.isLocal
 
 /**
  * One-shot merge group resolver for manga: given an entry, it resolves the whole group and returns the
@@ -59,7 +61,9 @@ class MergedChapterProvider(
         }
         val mangaById = ids.associateWith { getMangaWithChapters.awaitManga(it) }
         val chaptersBySource = ids.associateWith { getMangaWithChapters.awaitChapters(it, applyScanlatorFilter = true) }
-        val sourceNameByMangaId = mangaById.mapValues { sourceManager.getOrStub(it.value.source).name }
+        val sourceNameByMangaId = mangaById.mapValues { (_, manga) ->
+            mergeMemberName(sourceManager.getOrStub(manga.source).name, manga.title, manga.isLocal())
+        }
         val pooled = chaptersBySource.values.flatten()
         val stitch = stitchOf(anchor.id)
         val merged = merged(pooled, stitch)

@@ -77,6 +77,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Manage sources now opens on the real primary source when you hide a scanlator.**
+- **Local series in a merge are now named by their titles instead of all reading Local source.** It shows on the source chips, in Manage sources and on each chapter, in the details screen and the reader.
 
 ### Downloads
 

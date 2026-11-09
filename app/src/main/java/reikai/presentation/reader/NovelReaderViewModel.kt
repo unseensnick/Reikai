@@ -60,6 +60,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
+import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -106,6 +107,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.toDownloadState
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelChapterStylesheet
 import reikai.novel.source.NovelChapterTextCache
@@ -1178,9 +1180,9 @@ class NovelReaderViewModel(
     /** Per-source display names keyed by the merge group's members, for a merged novel's source labels. */
     private suspend fun chapterSourceNames(): Map<Long, String> = mergeSourceLabels(
         memberIds.associateWith { id ->
-            textLoader.cachedSource(id)?.name
-                ?: novelRepo.getById(id)?.source?.let { sourceManager.nameOf(it) }
-                ?: ""
+            val novel = novelRepo.getById(id)
+            val sourceName = textLoader.cachedSource(id)?.name ?: novel?.source?.let { sourceManager.nameOf(it) } ?: ""
+            mergeMemberName(sourceName, novel?.title.orEmpty(), LocalNovelSource.isLocal(novel?.source))
         },
     )
 

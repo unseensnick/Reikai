@@ -89,6 +89,7 @@ import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.RemovalPrompt
+import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.refreshMergeGroup
 import reikai.domain.novel.NovelChapterAggregation
 import reikai.domain.novel.NovelChapterListEntry
@@ -598,7 +599,9 @@ class NovelDetailsViewModel(
             val id = novel.id
             val src = sourceManager.get(novel.source)
             if (src != null) resolved[id] = src
-            chips += EntryMergeSource(id, sourceManager.nameOf(novel.source))
+            val sourceName = sourceManager.nameOf(novel.source)
+            chips +=
+                EntryMergeSource(id, mergeMemberName(sourceName, novel.title, LocalNovelSource.isLocal(novel.source)))
         }
         siblingSources.value = resolved
         return chips
