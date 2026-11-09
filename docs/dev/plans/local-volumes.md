@@ -27,7 +27,7 @@ Merging separate local volumes is the only way to keep them together today, and 
 
 **Duplicates.** Nothing is decided silently. Two files that claim one volume both show ("Vol. 3", "Vol. 3 (2)") under a notice until the user keeps both or removes one, which asks first. An import clash asks Replace, Keep both or Skip, and dismissing it keeps both. The import's silent name-and-size skip is replaced by that question.
 
-**Merged sources that have volumes.** When two sources of a merge each have volumes (an official and a fan copy), the stitch pairs chapters by volume and chapter, not number alone. A second chip row shows a source's volumes once one source is picked; the source row's first chip then reads **All sources** and the volume row's **All volumes**.
+**Merged sources that have volumes.** When two sources of a merge each have volumes (an official and a fan copy), the stitch pairs chapters by volume and chapter, not number alone. A second chip row shows a source's volumes once one source is picked; the source row's first chip then reads **All sources** and the volume row's **All volumes**. In the merged **All sources** list a volume's chapters sit among another source's, where a header cannot go, so each carries its volume in its subtitle ("Vol. 2 • Local source"); a source without volumes gives no basis to pair a local volume's chapters with its numbers, so they stay unpaired there (seen on a device spike of an online novel merged with a three-volume local one).
 
 ## Key files
 
