@@ -40,14 +40,11 @@ Merging separate local volumes is the only way to keep them together today, and 
 - `app/src/main/java/reikai/presentation/components/MergeSourceChips.kt`, `ManageMergeSourcesDialog.kt`, `SettledReorder.kt`.
 - `app/src/main/java/reikai/domain/download/DownloadFolderRename.kt` (`renameDownloadFolder`), the rename pattern the file kernel extends.
 
-## Open questions
-
-1. **Manga volumes** (blocking for the manga half). A CBZ is one chapter, so a manga volume has to be a folder of chapter files, which Mihon's local source does not read today. Options: read one level of volume folders in an RK island; or treat each CBZ as a volume with one chapter, which gives headers nothing to group. Recommended: volume folders, since that is how volume-split comics are usually stored.
-2. **Where volume order lives** (non-blocking). Options: a Reikai table keyed by series and file, carried in backups; or a `volumes` list in the folder's `details.json`, which travels with the files. Recommended: the table, since `details.json` is user-edited and a missing or stale entry would reorder silently.
-
 ## Decisions & tradeoffs
 
 - **One series, not a better merge.** A merge's job is to line up the same chapters from different places; volumes are different chapters, so the fix is to stop merging them.
 - **Duplicates are never resolved automatically** (owner ruling): both copies show until the user chooses.
 - **Combine as volumes replaces Merge only for an all-local selection** (owner ruling), with Merge still in the overflow for two local copies of one series.
 - **Reorder is a sheet from the ⋮ menu, not a mode** (owner ruling): dragging headers inline would fight the chapter long press.
+- **A manga volume is a folder of chapter files** (owner ruling): the local manga source reads one level of volume folders inside a series folder, in an RK island, since that is how volume-split comics are usually stored; a CBZ stays one chapter.
+- **Volume order lives in a Reikai table, carried in backups** (owner ruling), not in the folder's `details.json`, which is edited by hand and would reorder silently when stale.
