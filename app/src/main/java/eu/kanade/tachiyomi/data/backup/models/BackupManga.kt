@@ -55,6 +55,8 @@ class BackupManga(
     @ProtoNumber(701) var readingSessions: List<BackupReadingSession> = emptyList(),
     // RK: the entry's places in Manual library orders (BackupManualOrderFields), beside 700 and 701.
     @ProtoNumber(702) override var manualOrder: List<BackupManualPosition> = emptyList(),
+    // RK: a local series' volume order and names (BackupLocalVolume), beside 702.
+    @ProtoNumber(703) var localVolumes: List<BackupLocalVolume> = emptyList(),
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

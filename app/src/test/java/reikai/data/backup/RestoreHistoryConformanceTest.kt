@@ -26,6 +26,7 @@ import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -204,6 +205,7 @@ class RestoreHistoryConformanceTest {
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
+                    localVolumes = NoLocalVolumes,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = ReadingPaceRepositoryImpl(database),
                     localNovelLanguages = NoLocalNovelLanguages,

@@ -46,6 +46,8 @@ class BackupNovel(
     @ProtoNumber(29) var language: String? = null,
     // The entry's places in Manual library orders, on the number BackupManga uses (BackupManualOrderFields).
     @ProtoNumber(702) override var manualOrder: List<BackupManualPosition> = emptyList(),
+    // A local series' volume order and names, on the number BackupManga uses (BackupLocalVolume).
+    @ProtoNumber(703) var localVolumes: List<BackupLocalVolume> = emptyList(),
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

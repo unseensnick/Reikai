@@ -18,6 +18,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -120,6 +121,7 @@ class GroupMemberBackupConformanceTest {
                 mergeGroupRepository = groups,
                 chapterNumberOverrides = NoChapterNumberOverrides,
                 copyMarks = InMemoryChapterCopyMarks(),
+                localVolumes = NoLocalVolumes,
                 readingLog = NoReadingLog,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
@@ -137,6 +139,7 @@ class GroupMemberBackupConformanceTest {
                 novelSourceManager = mockk(),
                 chapterNumberOverrides = NoChapterNumberOverrides,
                 copyMarks = InMemoryChapterCopyMarks(),
+                localVolumes = NoLocalVolumes,
                 readingLog = NoReadingLog,
                 readingPace = NoReadingPace,
                 localNovelLanguages = NoLocalNovelLanguages,

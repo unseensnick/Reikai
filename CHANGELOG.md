@@ -23,6 +23,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters go in with the cover, pictures and details, so an imported copy keeps them.
 - **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** Each chapter is named with its volume in front.
 - **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows how much of the volume is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
+- **A local series' volumes can be put in reading order and renamed from ⋮ -> Reorder volumes.** Chapters sorted by source are read in the new order; backups keep it.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
 #### Fixed

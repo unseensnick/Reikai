@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -93,6 +94,7 @@ class NovelRestorerChapterReadsTest {
         novelHistoryRepository = NovelHistoryRepositoryImpl(database),
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
+        localVolumes = NoLocalVolumes,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

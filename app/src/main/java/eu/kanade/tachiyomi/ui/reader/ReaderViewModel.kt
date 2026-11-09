@@ -82,6 +82,7 @@ import mihon.core.metro.AppCoroutineScope
 import mihon.data.cache.ChapterCache
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.download.rowDownloadChapters
@@ -124,6 +125,8 @@ import reikai.domain.track.TrackedChapterNumber
 import reikai.domain.track.source.ChapterWrite // RK
 import reikai.domain.track.source.SourceTrackerDispatcher // RK
 import reikai.presentation.components.mergeSourceLabels
+import reikai.presentation.details.ChapterVolume
+import reikai.presentation.details.mangaChapterVolume
 import reikai.presentation.reader.ChapterSwitches
 import reikai.presentation.reader.ReaderLoadState
 import reikai.presentation.reader.ReaderResume
@@ -195,6 +198,7 @@ class ReaderViewModel(
     private val trackedChapterNumber: TrackedChapterNumber,
     private val readingLog: ReadingLogRepository,
     private val copyMarks: ChapterCopyMarkRepository,
+    private val localVolumes: LocalVolumeRepository,
     // RK <--
 ) : ViewModel() {
 
@@ -329,8 +333,10 @@ class ReaderViewModel(
     private fun mangaForChapterId(chapterMangaId: Long): Manga =
         mergedGroup?.mangaById?.get(chapterMangaId) ?: manga!!
 
-    // RK: the source a chapter's own manga is from, which tells the chapter sheet a local volume
-    fun sourceIdOf(chapterMangaId: Long): Long = mangaForChapterId(chapterMangaId).source
+    // RK: the local volume a chapter is in, under the name the user gave it, for the chapter sheet
+    fun chapterVolume(chapter: Chapter): ChapterVolume? =
+        mangaChapterVolume(mangaForChapterId(chapter.mangaId).source, chapter.url, chapter.name)
+            ?.named(localVolumes.volumes(ContentType.MANGA).value)
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
     // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping

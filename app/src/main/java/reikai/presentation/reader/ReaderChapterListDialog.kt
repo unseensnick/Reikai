@@ -153,7 +153,18 @@ private val Download.State.isQueued: Boolean
 private fun List<ReaderChapterRow>.underVolumeHeaders(): List<Any> {
     val runs = volumeRuns { it.volume?.key } ?: return this
     return runs.flatMap { (key, run) ->
-        listOf(EntryChapterListItem.Volume(key, run.first().volume!!.label, run.map { it.id }, run.count { it.read })) +
+        val volume = run.first().volume!!
+        listOf(
+            EntryChapterListItem.Volume(
+                volume.series,
+                key,
+                volume.label,
+                run.map {
+                    it.id
+                },
+                run.count { it.read },
+            ),
+        ) +
             run
     }
 }

@@ -35,6 +35,7 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -244,6 +245,7 @@ class MangaReaderViewModelHarness private constructor(
                 upsertHistory = UpsertHistory(history),
                 readingLog = NoReadingLog,
                 copyMarks = copyMarks,
+                localVolumes = NoLocalVolumes,
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = mockk(relaxed = true),
                 getIncognitoState = mockk {

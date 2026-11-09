@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
+import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
@@ -20,6 +21,7 @@ import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
@@ -36,6 +38,7 @@ import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.track.repository.TrackRepository
+import tachiyomi.source.local.isLocal
 
 @Inject
 class MangaBackupCreator(
@@ -57,6 +60,8 @@ class MangaBackupCreator(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     // RK: the user's corrections to the duplicate rule, carried on each chapter.
     private val copyMarks: ChapterCopyMarkRepository,
+    // RK: a local series' volume order and names, carried with it.
+    private val localVolumes: LocalVolumeRepository,
     // RK: the reading log, carried with history.
     private val readingLog: ReadingLogRepository,
     // RK: each entry's places in Manual library orders, carried with its categories.
@@ -109,9 +114,12 @@ class MangaBackupCreator(
         val mangaIds = batch.map { it.first.id }
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
         val marksByMangaId = copyMarks.marks(ContentType.MANGA).value // RK
+        val volumesBySeries = localVolumes.volumes(ContentType.MANGA).value // RK
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK
+            // RK: a local series only, since only its url is the folder the volumes are keyed by
+            if (entry.isLocal()) backup.localVolumes = volumesBySeries[entry.url].orEmpty().map { it.toBackup() }
             backup.chapters = chapters.map { chapter ->
                 chapter.toBackupChapter().apply {
                     sourceChapterNumber = overrides[chapter.url]?.sourceNumber

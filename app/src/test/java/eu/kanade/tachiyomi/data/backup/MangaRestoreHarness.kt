@@ -8,6 +8,7 @@ import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
@@ -61,6 +62,7 @@ fun mangaRestorer(
         getMangaByUrlAndSourceId = GetMangaByUrlAndSourceId(mangas),
         restoreMergeGroups = RestoreMergeGroups(mergeGroups, PassThroughTransactions),
         setCustomMangaInfo = SetCustomMangaInfo(customInfo),
+        localVolumes = NoLocalVolumes,
     )
 }
 
@@ -95,6 +97,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
+        localVolumes = NoLocalVolumes,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

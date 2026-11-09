@@ -42,4 +42,16 @@ class ChapterVolumesTest {
     fun `a chapter with no volume means none head the list`() {
         listOf(Ch(1, "a"), Ch(2, null), Ch(3, "b")).volumeRuns { it.volume } shouldBe null
     }
+
+    @Test
+    fun `volumes the user placed come first in their order, the rest after as they came`() {
+        val saved = listOf(LocalVolume("c", 0, null), LocalVolume("a", 1, null), LocalVolume("x", null, "Named"))
+
+        listOf("a", "b", "c", "d").inUserOrder({ it }, saved) shouldBe listOf("c", "a", "b", "d")
+    }
+
+    @Test
+    fun `a series the user never ordered keeps its own order`() {
+        listOf("a", "b").inUserOrder({ it }, null) shouldBe listOf("a", "b")
+    }
 }

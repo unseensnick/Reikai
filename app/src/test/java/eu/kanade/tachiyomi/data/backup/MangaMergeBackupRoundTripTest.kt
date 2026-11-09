@@ -9,6 +9,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
@@ -32,6 +33,7 @@ class MangaMergeBackupRoundTripTest {
         getMangaByUrlAndSourceId = getByUrlSource,
         restoreMergeGroups = RestoreMergeGroups(repository, PassThroughTransactions),
         setCustomMangaInfo = mockk(relaxed = true),
+        localVolumes = NoLocalVolumes,
     )
 
     @Test

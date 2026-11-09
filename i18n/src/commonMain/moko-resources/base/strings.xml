@@ -304,6 +304,9 @@
     <!-- RK: the local novel source, its volumes, and importing books into it -->
     <string name="volume_label">Vol. %1$s</string>
     <string name="all_volumes">All volumes</string>
+    <string name="action_reorder_volumes">Reorder volumes</string>
+    <string name="volume_rename">Rename volume</string>
+    <string name="volume_order_hint">Chapters sorted by source are read in this order</string>
     <string name="volume_read_count">%1$d/%2$d read</string>
     <string name="local_novel_volume_chapter">Vol. %1$s - %2$s</string>
     <string name="local_import_title">Import files</string>

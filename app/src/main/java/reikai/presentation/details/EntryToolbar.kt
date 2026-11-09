@@ -64,6 +64,8 @@ fun EntryToolbar(
     onClickSearchText: (() -> Unit)? = null,
     onClickWordCount: (() -> Unit)? = null,
     onClickExport: (() -> Unit)? = null,
+    // Reorder and rename a local series' volumes, non-null only while its list is split by volume.
+    onClickReorderVolumes: (() -> Unit)? = null,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -277,6 +279,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_word_count),
                                 onClick = onClickWordCount,
+                            ),
+                        )
+                    }
+                    if (onClickReorderVolumes != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_reorder_volumes),
+                                onClick = onClickReorderVolumes,
                             ),
                         )
                     }

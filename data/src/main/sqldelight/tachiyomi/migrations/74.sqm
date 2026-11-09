@@ -1,0 +1,9 @@
+-- The order and names the user gave a local series' volumes (local_volume.sq). Empty on upgrade.
+CREATE TABLE local_volume(
+    content_type INTEGER NOT NULL,
+    series TEXT NOT NULL,
+    volume_key TEXT NOT NULL,
+    position INTEGER,
+    label TEXT,
+    PRIMARY KEY(content_type, series, volume_key)
+);

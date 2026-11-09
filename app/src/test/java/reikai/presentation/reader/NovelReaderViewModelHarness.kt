@@ -43,6 +43,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
@@ -381,6 +382,7 @@ class NovelReaderViewModelHarness private constructor(
             upsertNovelHistory = UpsertNovelHistory(history),
             readingLog = NoReadingLog,
             copyMarks = copyMarks,
+            localVolumes = NoLocalVolumes,
             setNovelReadStatus = setNovelReadStatus(),
             libraryPreferences = libraryPreferences,
             // The tracker network.

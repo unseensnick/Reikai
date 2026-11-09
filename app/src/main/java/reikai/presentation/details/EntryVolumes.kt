@@ -3,23 +3,32 @@ package reikai.presentation.details
 import androidx.compose.runtime.Immutable
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.chapter.LocalVolume
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
+import reikai.domain.chapter.inUserOrder
 import reikai.domain.chapter.volumeNumberIn
 import reikai.domain.chapter.volumeRuns
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.novel.local.LocalNovelSource
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.source.local.LocalSource
 
 /**
- * Where a chapter sits in a local series split into volumes: its volume's [key], the file or folder its
- * address names, the [label] a header shows, and the [prefix] that names the volume in front of its title.
+ * Where a chapter sits in a local series split into volumes: its [series] folder, its volume's [key], the
+ * file or folder its address names, the [label] a header shows, and the [prefix] that names the volume in
+ * front of its title.
  */
 @Immutable
-data class ChapterVolume(val key: String, val label: VolumeLabel, val prefix: String) {
+data class ChapterVolume(val series: String, val key: String, val label: VolumeLabel, val prefix: String) {
     /** [title] without the volume in front, for a row under its volume's header. */
     fun titleOf(title: String) = title.removePrefix(prefix)
+
+    /** This volume under the name the user gave it in [saved], if they gave it one. */
+    fun named(saved: Map<String, List<LocalVolume>>): ChapterVolume =
+        saved[series]?.firstOrNull { it.key == key }?.label?.let { copy(label = VolumeLabel.Name(it)) } ?: this
 }
 
 sealed interface VolumeLabel {
@@ -33,25 +42,46 @@ sealed interface VolumeLabel {
 /** A local manga chapter's volume: the folder between the series and the chapter in its address. */
 internal fun mangaChapterVolume(sourceId: Long, url: String, name: String): ChapterVolume? {
     if (sourceId != LocalSource.ID) return null
-    val key = url.split('/').takeIf { it.size == 3 }?.get(1) ?: return null
-    return ChapterVolume(key, labelOf(key), "$key - ")
+    val (series, key) = url.split('/').takeIf { it.size == 3 } ?: return null
+    return ChapterVolume(series, key, labelOf(key), "$key - ")
 }
 
 /** A local novel chapter's volume: the EPUB its address names, labelled as the source names the chapter. */
 internal fun novelChapterVolume(url: String, name: String): ChapterVolume? {
-    val key = LocalNovelSource.parseChapterPath(url)?.second ?: return null
+    val (series, key) = LocalNovelSource.parseChapterPath(url) ?: return null
     val named = name.substringBefore(" - ", "")
-    return ChapterVolume(key, labelOf(named.ifEmpty { key }), if (named.isEmpty()) "" else "$named - ")
+    return ChapterVolume(series, key, labelOf(named.ifEmpty { key }), if (named.isEmpty()) "" else "$named - ")
 }
 
 private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Number) ?: VolumeLabel.Name(name)
 
-/** The volume chip each local series was left on, and the write that moves it, on [appScope] so it lands. */
-class VolumePicking(private val repository: VolumePickRepository, private val appScope: CoroutineScope) {
-    fun picks(type: ContentType): StateFlow<Map<Long, String>> = repository.picks(type)
+/**
+ * A local series' volumes as the user arranges them: the chip each series was left on, and the order and
+ * names its volumes were given. Writes run on [appScope], so closing the screen does not cut one off.
+ */
+class VolumePicking(
+    private val picks: VolumePickRepository,
+    private val volumes: LocalVolumeRepository,
+    private val appScope: CoroutineScope,
+) {
+    fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)
+
+    fun saved(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = volumes.volumes(type)
 
     fun pick(entry: EntryId, volumeKey: String?) {
-        appScope.launchIO { repository.set(entry.contentType, entry.rawId, volumeKey) }
+        appScope.launchIO { picks.set(entry.contentType, entry.rawId, volumeKey) }
+    }
+
+    /** Orders [series]' volumes as [keys] lists them, then [relist]s, since the source lists in that order. */
+    fun reorder(type: ContentType, series: String, keys: List<String>, relist: () -> Unit) {
+        appScope.launchIO {
+            volumes.setOrder(type, series, keys)
+            withUIContext { relist() }
+        }
+    }
+
+    fun rename(type: ContentType, series: String, key: String, label: String?) {
+        appScope.launchIO { volumes.setLabel(type, series, key, label) }
     }
 }
 
@@ -68,19 +98,19 @@ data class VolumeView(
  * in front; null where volumes cannot head the list ([volumeRuns]). Chips follow the volumes' numbers when
  * every one states a number, else the list's order.
  */
-fun List<EntryChapterListItem>.inVolumes(picked: String?): VolumeView? {
+fun List<EntryChapterListItem>.inVolumes(picked: String?, saved: Map<String, List<LocalVolume>>): VolumeView? {
     val runs = filterIsInstance<EntryChapterListItem.Chapter>().volumeRuns { it.volume?.key } ?: return null
     val headers = runs.map { (key, rows) ->
-        EntryChapterListItem.Volume(key, rows.first().volume!!.label, rows.map { it.id }, rows.count { it.read })
+        val volume = rows.first().volume!!.named(saved)
+        EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map { it.id }, rows.count { it.read })
     }
+    val savedHere = saved[headers.first().series]
     val numbers = headers.map { (it.label as? VolumeLabel.Number)?.number }
-    val chips = if (numbers.all {
-            it != null
-        }
-    ) {
-        headers.sortedBy { (it.label as VolumeLabel.Number).number }
-    } else {
-        headers
+    val chips = when {
+        // A series the user ordered follows their order, whatever the numbers say.
+        savedHere.orEmpty().any { it.position != null } -> headers.inUserOrder({ it.key }, savedHere)
+        numbers.all { it != null } -> headers.sortedBy { (it.label as VolumeLabel.Number).number }
+        else -> headers
     }
     val shown = picked?.takeIf { key -> headers.any { it.key == key } }
     val items = runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }

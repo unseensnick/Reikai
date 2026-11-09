@@ -19,6 +19,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -54,6 +55,7 @@ class NovelBackupRoundTripTest {
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
+        localVolumes = NoLocalVolumes,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,
@@ -83,6 +85,7 @@ class NovelBackupRoundTripTest {
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
+            localVolumes = NoLocalVolumes,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,
@@ -197,6 +200,7 @@ class NovelBackupRoundTripTest {
             novelSourceManager = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
+            localVolumes = NoLocalVolumes,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,

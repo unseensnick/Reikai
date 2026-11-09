@@ -169,8 +169,13 @@ sealed interface EntryChapterListItem {
 
     /** The header over one volume of a local series split into volumes ([inVolumes]). */
     @Immutable
-    data class Volume(val key: String, val label: VolumeLabel, val chapterIds: List<Long>, val readCount: Int) :
-        EntryChapterListItem
+    data class Volume(
+        val series: String,
+        val key: String,
+        val label: VolumeLabel,
+        val chapterIds: List<Long>,
+        val readCount: Int,
+    ) : EntryChapterListItem
 }
 
 /**

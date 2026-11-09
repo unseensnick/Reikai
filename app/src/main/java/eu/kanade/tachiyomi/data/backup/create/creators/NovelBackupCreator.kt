@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toEpochMillisOrZero
@@ -27,6 +28,7 @@ import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
@@ -59,6 +61,7 @@ class NovelBackupCreator(
     private val novelSourceManager: NovelSourceManager,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val copyMarks: ChapterCopyMarkRepository,
+    private val localVolumes: LocalVolumeRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
@@ -104,10 +107,15 @@ class NovelBackupCreator(
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
         val marksByNovelId = copyMarks.marks(ContentType.NOVELS).value
+        val volumesBySeries = localVolumes.volumes(ContentType.NOVELS).value
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
             val marks = marksByNovelId[entry.id].orEmpty()
+            // A local series only, since only its url is the folder the volumes are keyed by.
+            if (LocalNovelSource.isLocal(entry.source)) {
+                backup.localVolumes = volumesBySeries[entry.url].orEmpty().map { it.toBackup() }
+            }
             backup.chapters = chapters.map {
                 it.toBackupNovelChapter(
                     sourceNumber = overrides[it.url]?.sourceNumber,

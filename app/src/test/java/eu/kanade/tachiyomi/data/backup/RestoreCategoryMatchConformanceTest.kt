@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -92,6 +93,7 @@ class RestoreCategoryMatchConformanceTest {
                     getMangaByUrlAndSourceId = mockk(),
                     restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
                     setCustomMangaInfo = mockk(relaxed = true),
+                    localVolumes = NoLocalVolumes,
                 ).restore(
                     listOf(BackupManga(source = 1L, url = "u", title = "T", categories = orders)),
                     backup.map { (name, order) -> BackupCategory(name = name, order = order) },
@@ -178,6 +180,7 @@ class RestoreCategoryMatchConformanceTest {
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
+            localVolumes = NoLocalVolumes,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,

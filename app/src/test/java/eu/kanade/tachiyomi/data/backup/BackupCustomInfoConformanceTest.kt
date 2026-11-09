@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -178,6 +179,7 @@ class BackupCustomInfoConformanceTest {
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
+                    localVolumes = NoLocalVolumes,
                     readingLog = NoReadingLog,
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
@@ -216,6 +218,7 @@ class BackupCustomInfoConformanceTest {
                     ),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
+                    localVolumes = NoLocalVolumes,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,
@@ -368,6 +371,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
+            localVolumes = NoLocalVolumes,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,

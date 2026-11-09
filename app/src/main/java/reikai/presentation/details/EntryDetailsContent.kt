@@ -131,12 +131,20 @@ fun EntryDetailsContent(
         onlyCopies = !onlyCopies
     }
     val filtered = if (copies.on) state.withOnlyCopies() else state
-    val picks by behavior.volumePicking.picks(state.entryId.contentType).collectAsState()
-    val volumes = remember(filtered.chapters.items, picks) {
-        filtered.chapters.items.inVolumes(picks[state.entryId.rawId])
+    val type = state.entryId.contentType
+    val picks by behavior.volumePicking.picks(type).collectAsState()
+    val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
+    val volumes = remember(filtered.chapters.items, picks, savedVolumes) {
+        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes)
     }
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
-    val extras = ChapterListExtras(copies, volumes) { behavior.volumePicking.pick(state.entryId, it) }
+    var reorderingVolumes by remember { mutableStateOf(false) }
+    val extras = ChapterListExtras(
+        copies = copies,
+        volumes = volumes,
+        onPickVolume = { behavior.volumePicking.pick(state.entryId, it) },
+        onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
+    )
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -160,6 +168,15 @@ fun EntryDetailsContent(
             extras,
         )
     }
+    if (reorderingVolumes && volumes != null) {
+        val series = volumes.chips.first().series
+        ReorderVolumesDialog(
+            volumes = volumes.chips,
+            onDismissRequest = { reorderingVolumes = false },
+            onReorder = { keys -> behavior.volumePicking.reorder(type, series, keys, behavior::refresh) },
+            onRename = { key, label -> behavior.volumePicking.rename(type, series, key, label) },
+        )
+    }
 }
 
 /** Whether the list shows only chapters with copies, from the duplicate count under the chapter header. */
@@ -172,6 +189,7 @@ private data class ChapterListExtras(
     val copies: CopiesFilter,
     val volumes: VolumeView?,
     val onPickVolume: (String?) -> Unit,
+    val onReorderVolumes: (() -> Unit)?,
 )
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
@@ -226,7 +244,7 @@ private fun EntryDetailsSmallContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { titleAlpha, backgroundAlpha ->
-            EntryDetailsToolbar(state, behavior, nav, web, titleAlpha, backgroundAlpha)
+            EntryDetailsToolbar(state, behavior, nav, web, extras.onReorderVolumes, titleAlpha, backgroundAlpha)
         },
         bottomActionMenu = { EntryDetailsSelectionBar(state, behavior, fillFraction = 1f) },
     ) { appBarPadding ->
@@ -277,7 +295,7 @@ private fun EntryDetailsLargeContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { modifier ->
-            EntryDetailsToolbar(state, behavior, nav, web, { 1f }, { 1f }, modifier)
+            EntryDetailsToolbar(state, behavior, nav, web, extras.onReorderVolumes, { 1f }, { 1f }, modifier)
         },
         bottomActionMenu = { modifier -> EntryDetailsSelectionBar(state, behavior, fillFraction = 0.5f, modifier) },
         startContent = { appBarPadding ->
@@ -308,6 +326,7 @@ private fun EntryDetailsToolbar(
     behavior: EntryDetailsBehavior,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
+    onReorderVolumes: (() -> Unit)?,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -337,6 +356,7 @@ private fun EntryDetailsToolbar(
         onClickSearchText = nav.onSearchText?.takeIf { state.textOnDevice },
         onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },
         onClickExport = nav.onExport,
+        onClickReorderVolumes = onReorderVolumes,
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

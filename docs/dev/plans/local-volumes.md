@@ -20,7 +20,7 @@ Merging separate local volumes is the only way to keep them together today, and 
 - **Import** offers to combine the batch's volumes into one series, and asks before adding a volume to an existing series ("Add to *X* as Vol. 6?"), with a series picker.
 - **Convert** a merge whose members are all local into one series, from Manage sources.
 - **Library selection**: with only local series of one type selected, **Combine as volumes** takes Merge's place in the bar, with Merge kept in the overflow; **Add to series** picks a target. A mixed selection keeps Merge.
-- **Details**: **Split out** a volume (⋮ menu and the volume's chip), **Reorder volumes** (a drag sheet built on `rememberSettledReorder`, the pattern of Manage sources), and rename a volume's label.
+- **Details**: **Split out** a volume (⋮ menu and the volume's chip). **Reorder volumes** and renaming a volume's label are a dialog from ⋮ over `local_volume`, which both local sources read when they list, so the source order, a novel's chapter numbers and the reader follow it after a relist; a manga sorted by chapter number keeps its numbers, which come from its files.
 - Every one of these first shows what will move and how files will be renamed.
 
 **Names.** The series folder is named after the series and files `<Series> - Vol. N.ext`; renaming the series renames the folder through the same kernel. The import's `%02d - ` prefix gives way to this naming.

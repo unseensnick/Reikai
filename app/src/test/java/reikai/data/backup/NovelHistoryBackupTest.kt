@@ -13,6 +13,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -92,6 +93,7 @@ class NovelHistoryBackupTest {
         novelSourceManager = mockk(),
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
+        localVolumes = NoLocalVolumes,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

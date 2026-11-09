@@ -4,6 +4,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -29,5 +30,6 @@ fun noVolumePicking() = VolumePicking(
 
         override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
     },
+    NoLocalVolumes,
     CoroutineScope(Dispatchers.Unconfined),
 )

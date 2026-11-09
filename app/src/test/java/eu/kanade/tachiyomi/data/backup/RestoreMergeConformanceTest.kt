@@ -20,6 +20,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -474,6 +475,7 @@ class NovelMergeRestorer : MergeRestorer {
                 novelHistoryRepository = mockk(relaxed = true),
                 chapterNumberOverrides = NoChapterNumberOverrides,
                 copyMarks = InMemoryChapterCopyMarks(),
+                localVolumes = NoLocalVolumes,
                 readingLog = NoReadingLog,
                 readingPace = pace,
                 localNovelLanguages = NoLocalNovelLanguages,
@@ -514,6 +516,7 @@ class NovelMergeRestorer : MergeRestorer {
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
+        localVolumes = NoLocalVolumes,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

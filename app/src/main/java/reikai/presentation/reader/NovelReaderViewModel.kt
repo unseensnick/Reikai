@@ -46,6 +46,7 @@ import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
@@ -155,6 +156,7 @@ class NovelReaderViewModel(
     private val upsertNovelHistory: UpsertNovelHistory,
     private val readingLog: ReadingLogRepository,
     private val copyMarks: ChapterCopyMarkRepository,
+    private val localVolumes: LocalVolumeRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
     // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
     // read (parity with the manga reader).
@@ -1165,6 +1167,8 @@ class NovelReaderViewModel(
                 chapters.map {
                     it.toReaderChapterRow(sourceNames, queued, flags, numberOnly, words, downloadTargets) { id ->
                         id in fetchable
+                    }.let { row ->
+                        row.copy(volume = row.volume?.named(localVolumes.volumes(ContentType.NOVELS).value))
                     }
                 }
             },

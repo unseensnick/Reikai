@@ -3,6 +3,7 @@ package reikai.presentation.details
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.LocalVolume
 
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
 class EntryVolumesTest {
@@ -26,7 +27,7 @@ class EntryVolumesTest {
 
     @Test
     fun `a local manga chapter in a volume folder names the folder and its number`() {
-        v1 shouldBe ChapterVolume("Vol 01", VolumeLabel.Number(1.0), "Vol 01 - ")
+        v1 shouldBe ChapterVolume("Series", "Vol 01", VolumeLabel.Number(1.0), "Vol 01 - ")
     }
 
     @Test
@@ -37,12 +38,16 @@ class EntryVolumesTest {
     @Test
     fun `a local novel chapter names the book its address names, labelled as the source names it`() {
         novelChapterVolume("Series::Book%202.epub::c1.xhtml::t", "Vol. 2 - Prologue") shouldBe
-            ChapterVolume("Book 2.epub", VolumeLabel.Number(2.0), "Vol. 2 - ")
+            ChapterVolume("Series", "Book 2.epub", VolumeLabel.Number(2.0), "Vol. 2 - ")
     }
 
     @Test
     fun `each volume gets a header with its read count, rows lose the volume in front`() {
-        val view = listOf(row(1, v1, read = true), row(2, v1), row(3, v2)).inVolumes(picked = null)!!
+        val view = listOf(
+            row(1, v1, read = true),
+            row(2, v1),
+            row(3, v2),
+        ).inVolumes(picked = null, saved = emptyMap())!!
 
         view.items.map {
             (it as? EntryChapterListItem.Chapter)?.name
@@ -53,17 +58,33 @@ class EntryVolumesTest {
 
     @Test
     fun `a picked volume shows alone`() {
-        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 02")!!.items.size shouldBe 2
+        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 02", saved = emptyMap())!!.items.size shouldBe 2
     }
 
     @Test
     fun `a picked volume the series no longer has shows every volume`() {
-        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 09")!!.picked shouldBe null
+        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 09", saved = emptyMap())!!.picked shouldBe null
     }
 
     @Test
     fun `chips follow the volume numbers whatever the chapter sort`() {
-        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null)!!.chips.map { it.key } shouldBe
+        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved = emptyMap())!!.chips.map { it.key } shouldBe
             listOf("Vol 01", "Vol 02")
+    }
+
+    @Test
+    fun `a volume the user named shows their name`() {
+        val saved = mapOf("Series" to listOf(LocalVolume("Vol 02", position = null, label = "Finale")))
+
+        listOf(row(1, v1), row(3, v2)).inVolumes(picked = null, saved)!!.chips.map { it.label } shouldBe
+            listOf(VolumeLabel.Number(1.0), VolumeLabel.Name("Finale"))
+    }
+
+    @Test
+    fun `chips follow the order the user gave the volumes`() {
+        val saved = mapOf("Series" to listOf(LocalVolume("Vol 02", 0, null), LocalVolume("Vol 01", 1, null)))
+
+        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved)!!.chips.map { it.key } shouldBe
+            listOf("Vol 02", "Vol 01")
     }
 }

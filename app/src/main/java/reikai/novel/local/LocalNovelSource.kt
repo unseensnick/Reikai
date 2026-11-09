@@ -14,6 +14,9 @@ import kotlinx.serialization.json.Json
 import mihon.core.archive.archiveReader
 import mihon.domain.extension.model.ContentWarning
 import reikai.data.novel.NovelStatusCode
+import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.inUserOrder
+import reikai.domain.library.ContentType
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.source.CatalogueEnd
 import reikai.novel.download.inlinedImageAddress
@@ -58,6 +61,7 @@ class LocalNovelSource(
     private val storageManager: StorageManager,
     private val json: Json,
     private val languages: LocalNovelLanguageRepository,
+    private val userVolumes: LocalVolumeRepository,
 ) : NovelSource {
 
     override val id: String = ID
@@ -102,6 +106,7 @@ class LocalNovelSource(
             LocalNovelMissingException(novelPath)
         }
         val volumes = inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
+            .inUserOrder({ it.first.name.orEmpty() }, userVolumes.volumes(ContentType.NOVELS).value[series.path])
         val (firstFile, first) = volumes.first()
         val details = series.details()
         val meta = first.book.metadata

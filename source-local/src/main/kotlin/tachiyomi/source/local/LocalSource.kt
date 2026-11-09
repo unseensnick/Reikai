@@ -28,6 +28,9 @@ import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
 import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
+import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.inUserOrder
+import reikai.domain.library.ContentType
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -62,6 +65,7 @@ class LocalSource(
     private val context: Context,
     private val fileSystem: LocalSourceFileSystem,
     private val coverManager: LocalCoverManager,
+    private val userVolumes: LocalVolumeRepository, // RK
 ) : Source, UnmeteredSource {
 
     private val json: Json by injectLazy()
@@ -337,6 +341,7 @@ class LocalSource(
             .sortedWith { c1, c2 ->
                 c2.name.compareToCaseInsensitiveNaturalOrder(c1.name)
             }
+            .inUserVolumeOrder(manga.url) // RK
 
         // Copy the cover from the first chapter found if not available
         if (manga.thumbnail_url.isNullOrBlank()) {
@@ -365,6 +370,13 @@ class LocalSource(
         } catch (e: Exception) {
             throw e
         }
+    }
+
+    // RK: volume folders in the order the user gave them, still newest first like the rest of the list
+    private fun List<SChapter>.inUserVolumeOrder(series: String): List<SChapter> {
+        val saved = userVolumes.volumes(ContentType.MANGA).value[series] ?: return this
+        return asReversed().groupBy { it.url.split('/').takeIf { parts -> parts.size == 3 }?.get(1).orEmpty() }
+            .entries.toList().inUserOrder({ it.key }, saved).flatMap { it.value }.asReversed()
     }
 
     // RK: a chapter's own file or folder, in a series folder or a volume folder

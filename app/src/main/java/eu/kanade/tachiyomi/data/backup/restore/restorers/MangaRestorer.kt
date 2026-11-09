@@ -19,6 +19,7 @@ import reikai.data.backup.restoredManualOrder
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomMangaInfo
@@ -43,6 +44,7 @@ class MangaRestorer(
     private val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId,
     private val restoreMergeGroups: RestoreMergeGroups,
     private val setCustomMangaInfo: SetCustomMangaInfo,
+    private val localVolumes: LocalVolumeRepository,
     // RK <--
 ) {
 
@@ -99,6 +101,10 @@ class MangaRestorer(
                 // RK: a next update still ahead is kept by the kernel the novel restore calls too
                 nextUpdate = restoredNextUpdate(manga.nextUpdate, nextUpdate, currentFetchWindow)
             }
+        }
+        // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
+        backupMangas.forEach {
+            localVolumes.restore(ContentType.MANGA, it.url, it.localVolumes.map { volume -> volume.toLocalVolume() })
         }
     }
 

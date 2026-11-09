@@ -25,6 +25,7 @@ import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -181,6 +182,7 @@ class BackupChunkConformanceTest {
                     mergeGroupRepository = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
+                    localVolumes = NoLocalVolumes,
                     readingLog = ReadingLogRepositoryImpl(database),
                 )
                 return options.backupChunk(ids.map { Manga.create().copy(id = it, url = "u$it", source = 1L) }, creator)
@@ -241,6 +243,7 @@ class BackupChunkConformanceTest {
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
+                    localVolumes = NoLocalVolumes,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = object : ReadingPaceRepository by pace {
                         override suspend fun novelChapterPace(novelIds: List<Long>) =

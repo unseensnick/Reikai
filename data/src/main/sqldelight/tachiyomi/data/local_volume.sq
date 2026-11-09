@@ -1,0 +1,25 @@
+-- A local series' volume the user has ordered or named, per content type, keyed by the series' folder and
+-- the volume's file or folder, which is what a local source knows when it lists. A null position leaves the
+-- volume in the order its files give; a null label keeps the one its name gives.
+CREATE TABLE local_volume(
+    content_type INTEGER NOT NULL,
+    series TEXT NOT NULL,
+    volume_key TEXT NOT NULL,
+    position INTEGER,
+    label TEXT,
+    PRIMARY KEY(content_type, series, volume_key)
+);
+
+getAll:
+SELECT content_type, series, volume_key, position, label
+FROM local_volume;
+
+setPosition:
+INSERT INTO local_volume(content_type, series, volume_key, position)
+VALUES (:contentType, :series, :volumeKey, :position)
+ON CONFLICT(content_type, series, volume_key) DO UPDATE SET position = excluded.position;
+
+setLabel:
+INSERT INTO local_volume(content_type, series, volume_key, label)
+VALUES (:contentType, :series, :volumeKey, :label)
+ON CONFLICT(content_type, series, volume_key) DO UPDATE SET label = excluded.label;

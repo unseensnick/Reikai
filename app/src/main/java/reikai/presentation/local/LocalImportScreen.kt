@@ -71,6 +71,7 @@ import reikai.data.local.LocalImport
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
 import reikai.novel.local.LocalNovelSource
+import reikai.presentation.components.NameDialog
 import reikai.presentation.components.readableColumn
 import reikai.presentation.novel.details.NovelScreen
 import tachiyomi.i18n.MR
@@ -432,16 +433,12 @@ private fun ImportBar(
 
 @Composable
 private fun RenameDialog(current: String, onDismiss: () -> Unit, onConfirm: (String) -> Unit) {
-    var text by rememberSaveable { mutableStateOf(current) }
-    AlertDialog(
+    NameDialog(
+        title = stringResource(MR.strings.local_import_series_name),
+        current = current,
+        confirmText = stringResource(MR.strings.action_ok),
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.local_import_series_name)) },
-        text = { OutlinedTextField(value = text, onValueChange = { text = it }, singleLine = true) },
-        confirmButton = {
-            TextButton(onClick = { onConfirm(text) }, enabled = text.isNotBlank()) {
-                Text(stringResource(MR.strings.action_ok))
-            }
-        },
+        onConfirm = onConfirm,
         dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
     )
 }
