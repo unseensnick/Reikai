@@ -40,6 +40,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.font.NovelFontManager
+import reikai.novel.host.LnPluginHost
 import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderHostServices
@@ -82,6 +83,9 @@ interface ReikaiGraph {
     fun inject(ehLoginActivity: EhLoginActivity)
 
     val preferenceStore: PreferenceStore
+
+    // Advanced settings' clear rows forget the site storage plugins keep.
+    val lnPluginHost: LnPluginHost
 
     // Read through Context.appGraph by companions, objects and composable bodies, none of which can
     // be member-injected. migrationAdapters is read from the migrate screens, which pick one by

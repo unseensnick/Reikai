@@ -48,7 +48,11 @@ fun bypassPreferenceItems(networkPreferences: NetworkPreferences): List<Preferen
     val flareSolverrUsername by networkPreferences.flareSolverrUsername.collectAsState()
     val flareSolverrPassword by networkPreferences.flareSolverrPassword.collectAsState()
     var flareSolverrTesting by remember { mutableStateOf(false) }
-    var flareSolverrTestResult by remember { mutableStateOf<FlareSolverrTestResult?>(null) }
+    // Keyed to what was tested, so a changed address or sign-in reads as untested, and a test still running
+    // against the old one lands in a state nothing shows.
+    var flareSolverrTestResult by remember(flareSolverrUrl, flareSolverrUsername, flareSolverrPassword) {
+        mutableStateOf<FlareSolverrTestResult?>(null)
+    }
     var flareSolverrTestFailure by remember { mutableStateOf<FlareSolverrTestResult.Failure?>(null) }
     var showFlareSolverrLogin by remember { mutableStateOf(false) }
     val turnstileSolverEnabled by networkPreferences.enableTurnstileSolver.collectAsState()

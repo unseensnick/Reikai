@@ -22,7 +22,8 @@ class WebViewScreen(
     private val novelId: Long? = null,
     // RK: a novel source's text id, so the page opens with that source's headers
     private val novelSourceId: String? = null,
-    // RK: a light-novel plugin, installed or not, that keeps this site's storage, as LNReader's WebView does
+    // RK: a light-novel plugin whose site this is; its storage is kept for it if it is installed and asks,
+    //     as LNReader's WebView does
     private val pluginId: String? = null,
 ) : Screen(), AssistContentScreen {
 
@@ -35,7 +36,8 @@ class WebViewScreen(
         val navigator = LocalNavigator.currentOrThrow
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<WebViewViewModel, WebViewViewModel.Factory> {
-            create(sourceId = sourceId, url = url, novelSourceId = novelSourceId) // RK
+            // RK: a plugin's source id is its plugin id, so its site opens under the agent its fetches send
+            create(sourceId = sourceId, url = url, novelSourceId = novelSourceId ?: pluginId)
         }
 
         val headers by viewModel.headers.collectAsState()

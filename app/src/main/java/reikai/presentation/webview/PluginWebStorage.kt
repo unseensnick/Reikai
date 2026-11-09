@@ -13,6 +13,8 @@ import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
+import kotlinx.coroutines.CoroutineScope
+import mihon.core.metro.AppCoroutineScope
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.WEB_STORAGE_SCRIPT
@@ -48,8 +50,9 @@ fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (We
 class PluginWebStorageViewModel(
     @Assisted pluginId: String?,
     @Assisted novelSourceId: String?,
-    sourceManager: NovelSourceManager,
+    private val sourceManager: NovelSourceManager,
     private val host: LnPluginHost,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -66,9 +69,10 @@ class PluginWebStorageViewModel(
     // plugin's site is known only once its source resolves, so the choice waits for the close.
     private val storageByHost = LinkedHashMap<String, Pair<String, WebStorageSnapshot>>()
 
+    // A plugin's source id is its plugin id, so both entries resolve the same way.
+    private val id = pluginId ?: novelSourceId
+
     init {
-        // A plugin's source id is its plugin id, so both entries resolve the same way.
-        val id = pluginId ?: novelSourceId
         if (id != null) viewModelScope.launchIO { target = webStoragePlugin(sourceManager.get(id)) }
     }
 
@@ -79,10 +83,17 @@ class PluginWebStorageViewModel(
         storageByHost[pageHost] = pageUrl to snapshot
     }
 
-    // On clear rather than on dispose: a rotation disposes the browser but keeps this model.
+    // On clear rather than on dispose: a rotation disposes the browser but keeps this model. On the app
+    // scope, since the plugin may still be resolving (the browser restored before the first plugin load),
+    // and this model's own scope is cancelled by now.
     override fun onCleared() {
-        val plugin = target ?: return
-        pluginSiteStorage(plugin.site, storageByHost.values)?.let { host.storeWebStorage(plugin.id, it) }
+        val id = id ?: return
+        val pages = storageByHost.values.toList()
+        if (pages.isEmpty()) return
+        appScope.launchIO {
+            val plugin = target ?: webStoragePlugin(sourceManager.get(id)) ?: return@launchIO
+            pluginSiteStorage(plugin.site, pages)?.let { host.storeWebStorage(plugin.id, it) }
+        }
     }
 }
 

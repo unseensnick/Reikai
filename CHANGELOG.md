@@ -193,6 +193,11 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Settings -> Novel reader now uses the same sections as Settings -> Manga reader, with its page readout and screen options under Display.**
 - **About twenty-five settings have clearer names, such as Merge series across sources and Load the next chapter after reading.**
 
+#### Fixed
+
+- **Settings -> Advanced -> Clear cookies and Clear WebView data now also sign novel plugins out of their sites.**
+- **Settings -> Advanced -> Test FlareSolverr no longer shows the last result after the address or sign-in changes.**
+
 ### Browse
 
 #### Added
@@ -215,6 +220,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Updating a light-novel plugin while plugins load no longer leaves the old version running.**
 - **The light-novel plugin update check is no longer skipped after restoring a backup from another device.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
+- **A tracker update sent to a Cloudflare-protected site while FlareSolverr is on is no longer reported saved when it was not.** The server can only fetch pages and send forms, so anything else goes through the app's own browser.
+- **Pages from a site FlareSolverr answers for now load side by side instead of one at a time.** Chapters and downloads from such a site were taking minutes.
+- **Requests to a site that sends you on to a Cloudflare-protected one no longer solve its check again one after another.**
+- **Open in WebView now opens the blocked page when Cloudflare blocks a later page of a source's listing, not the site's front page.**
+- **Passing a Cloudflare check on a novel plugin's site from Extensions or the plugin's page now unblocks the plugin too.**
+- **Madara novel sources behind a strict Cloudflare check now list their chapters through FlareSolverr.**
+- **FlareSolverr keeps its session again after being unreachable when the app first used it.** It had stayed slower until the app restarted.
+- **Forms a source sends no longer travel to a FlareSolverr server over plain http across the internet.** They go through the app's own browser instead, as the site's cookies already did.
+- **A novel plugin's own cookies now reach FlareSolverr along with the ones the site set.**
+- **Open in WebView after a form sent on to a blocked page now opens that page.**
+- **A novel site's sign-in captured in the browser just after the app was restored is no longer lost.**
 - **Clear cookies in WebView and on an extension's page no longer leaves some sites' Cloudflare pass behind.** Those sites store it in a way the old removal missed.
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page.** A source that fails through the server reports the server's reason too.
 - **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.

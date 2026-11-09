@@ -54,6 +54,16 @@ class LocalSourceActions(val onImport: () -> Unit, val onGuide: () -> Unit)
  * [localSource] replaces the whole empty-state action set when present, the way upstream points a
  * reader at the local-source guide instead of offering a retry there is nothing to retry.
  */
+private fun LazyPagingItems<*>.loadErrorState(): LoadState? =
+    loadState.refresh.takeIf { it is LoadState.Error } ?: loadState.append.takeIf { it is LoadState.Error }
+
+/**
+ * The page a Cloudflare challenge blocked the listing on, a first page or a later one, for Open in
+ * WebView: a source root is often not challenged at all, so opening that leaves nothing to solve.
+ */
+fun LazyPagingItems<*>.challengeUrl(): String? =
+    (loadErrorState() as? LoadState.Error)?.error?.cloudflareBlockedUrl()
+
 @Composable
 fun EntryBrowseCatalogue(
     rows: LazyPagingItems<EntryBrowseRow>,
@@ -68,12 +78,8 @@ fun EntryBrowseCatalogue(
 ) {
     val context = LocalContext.current
 
-    val errorState = rows.loadState.refresh.takeIf { it is LoadState.Error }
-        ?: rows.loadState.append.takeIf { it is LoadState.Error }
-
-    // A Cloudflare challenge blocks one URL, and a source root is often not challenged at all, so
-    // opening that leaves the reader nothing to solve and every retry keeps failing.
-    val challengeUrl = (errorState as? LoadState.Error)?.error?.cloudflareBlockedUrl()
+    val errorState = rows.loadErrorState()
+    val challengeUrl = rows.challengeUrl()
 
     // Indefinite: a fetch error stays until it is dismissed or retried. Raised only once results are
     // already on screen; an empty listing routes the same error through the empty state below.

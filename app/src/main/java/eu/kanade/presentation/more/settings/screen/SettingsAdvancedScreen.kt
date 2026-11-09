@@ -55,6 +55,7 @@ import okhttp3.Headers
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.bypassPreferenceItems
+import reikai.presentation.settings.forgetAllWebStorage
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -241,6 +242,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_clear_cookies),
                     onClick = {
                         networkHelper.cookieJar.removeAll()
+                        // RK: the copy of a site's sign-in LN plugins keep goes too, as LNReader's does
+                        context.appGraph.lnPluginHost.forgetAllWebStorage(context.appGraph.preferenceStore)
                         context.toast(MR.strings.cookies_cleared)
                     },
                 ),
@@ -256,6 +259,8 @@ object SettingsAdvancedScreen : SearchableSettings {
                                 clearSslPreferences()
                             }
                             WebStorage.getInstance().deleteAllData()
+                            // RK: and the copy of it LN plugins keep
+                            context.appGraph.lnPluginHost.forgetAllWebStorage(context.appGraph.preferenceStore)
                             scope.launchIO {
                                 context.applicationInfo?.dataDir?.let { File("$it/app_webview/").deleteRecursively() }
                                 withUIContext { context.toast(MR.strings.webview_data_deleted) }

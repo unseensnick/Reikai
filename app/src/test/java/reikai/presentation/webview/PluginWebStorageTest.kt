@@ -1,12 +1,23 @@
 package reikai.presentation.webview
 
+import androidx.lifecycle.ViewModelStore
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.mockk
+import io.mockk.verify
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.Test
+import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginInfo
 import reikai.novel.host.WebStorageSnapshot
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
+import reikai.novel.source.NovelSourceManager
+import reikai.util.testAppScope
 
 /** Which light-novel plugin, if any, keeps the storage of a page the in-app browser shows. */
 class PluginWebStorageTest {
@@ -58,6 +69,34 @@ class PluginWebStorageTest {
     @Test
     fun `a plugin with no site keeps nothing`() {
         pluginSiteStorage("", listOf("https://site.example/" to SITE_STORAGE)) shouldBe null
+    }
+
+    // The browser restored before the first plugin load pass finished, then closed at once.
+    @Test
+    fun `a site's storage captured before the plugin resolves is still kept when the browser closes`() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val loaded = CompletableDeferred<Unit>()
+            val site = LnPluginSource(
+                mockk(),
+                LnPluginInfo(id = "plugin", name = "Plugin", site = "https://site.example", webStorageUtilized = true),
+            )
+            val sourceManager = mockk<NovelSourceManager>()
+            coEvery { sourceManager.get("plugin") } coAnswers {
+                loaded.await()
+                site
+            }
+            val host = mockk<LnPluginHost>(relaxed = true)
+            val model = PluginWebStorageViewModel("plugin", null, sourceManager, host, testAppScope())
+            model.onPageStorage("https://site.example/login", SITE_STORAGE)
+
+            ViewModelStore().apply { put("browser", model) }.clear()
+            loaded.complete(Unit)
+
+            verify(timeout = 5_000) { host.storeWebStorage("plugin", SITE_STORAGE) }
+        } finally {
+            Dispatchers.resetMain()
+        }
     }
 
     private companion object {

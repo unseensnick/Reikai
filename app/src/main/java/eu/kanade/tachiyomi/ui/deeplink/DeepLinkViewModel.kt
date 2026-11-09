@@ -52,6 +52,7 @@ class DeepLinkViewModel(
     }
 
     init {
+        // RK: coroutine helper in place of upstream's raw dispatcher
         viewModelScope.launchIO {
             // RK --> link hooks, then stored rows, then checked guesses, manga before novel within each
             state.value = upstreamHook(query)

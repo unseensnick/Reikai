@@ -382,7 +382,7 @@ class EntryCatalogueScreen(
                             hasWebView = loaded.webUrl != null,
                             hasSettings = loaded.hasSettings,
                             navigateUp = navigateUp,
-                            onWebViewClick = { onWebViewClick(null) },
+                            onWebViewClick = { onWebViewClick(rows.challengeUrl()) },
                             onHelpClick = onHelpClick,
                             onSettingsClick = onOpenSettings,
                             onSearch = {
