@@ -307,6 +307,16 @@ class NovelDetailsViewModel(
     // they write, so a range anchor the list dropped stays dropped.
     private val chapterSelection = MutableStateFlow(SelectionState<Long>())
 
+    // Found by the address the screen opened with, then followed by id: renaming a local series' files
+    // changes its address, and the screen stays on it.
+    private val storedAnchor: Flow<Novel?> = flow {
+        val found = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
+            .onEach { if (it == null) emit(null) }
+            .filterNotNull()
+            .first()
+        emitAll(novelRepo.getByIdAsFlow(found.id))
+    }
+
     /**
      * Shared merge read/observe wiring: the group ids, the selected source chip, the membership observer,
      * and the switcher chips. Written once in [EntryMergeGroupHost] (the manga model composes the same host),
@@ -318,7 +328,7 @@ class NovelDetailsViewModel(
     private val mergeGroup = EntryMergeGroupHost(
         mergeManager = mergeManager,
         initialIds = longArrayOf(),
-        anchorChanges = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
+        anchorChanges = storedAnchor
             .filterNotNull()
             .onEach { anchorNovelId = it.id }
             .map { it.id },
@@ -348,8 +358,6 @@ class NovelDetailsViewModel(
 
     /** Cover-derived tint, extracted once; see [updateSeedColor]. */
     private val seedColor = MutableStateFlow<Color?>(null)
-
-    private val storedAnchor = novelRepo.getByUrlAndSourceAsFlow(novelUrl, sourceId)
 
     private val anchorIdChanges = storedAnchor.map { it?.id }.distinctUntilChanged()
 

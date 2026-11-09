@@ -110,6 +110,9 @@ class NovelRepositoryImpl(
         database.novelsQueries.findByUrlAndSource(url, source, ::mapNovel).subscribeToOneOrNull()
             .distinctUntilChanged()
 
+    override fun getByIdAsFlow(id: Long): Flow<Novel?> =
+        database.novelsQueries.findById(id, ::mapNovel).subscribeToOneOrNull().distinctUntilChanged()
+
     override suspend fun insertOrGet(novel: Novel): Novel? {
         val listed = novel.copy(thumbnailUrl = keptCover(null, novel.thumbnailUrl))
         val stored = getByUrlAndSource(listed.url, listed.source) ?: run {

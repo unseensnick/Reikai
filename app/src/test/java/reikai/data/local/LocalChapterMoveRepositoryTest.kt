@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
+import reikai.domain.local.SeriesRename
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -59,11 +60,37 @@ class LocalChapterMoveRepositoryTest {
         one("SELECT manga_id FROM history WHERE chapter_id = 10") shouldBe "1"
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a renamed series takes its new address, its chapters', and its volumes' names and picked chip`(type: Type) =
+        runTest {
+            type.seed.forEach { exec(it) }
+            val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
+            exec(
+                "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES ($dbType, 'B', 'v1', 0, 'One')",
+            )
+            exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
+
+            LocalChapterMoveRepositoryImpl(database).rename(
+                type.contentType,
+                SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
+                listOf(ChapterMove("B/c1", "Bee/c1")),
+            )
+
+            listOf(
+                one(type.seriesQuery),
+                one(type.chapterQuery),
+                one("SELECT series || '|' || volume_key || '|' || label FROM local_volume"),
+                one("SELECT volume_key FROM local_volume_pick"),
+            ) shouldBe listOf("Bee", "2|Bee/c1|1", "Bee|Vol. 1|One", "Vol. 1")
+        }
+
     enum class Type(
         val contentType: ContentType,
         val seed: List<String>,
         val chapterQuery: String,
         val overrideQuery: String,
+        val seriesQuery: String,
     ) {
         MANGA(
             ContentType.MANGA,
@@ -80,6 +107,7 @@ class LocalChapterMoveRepositoryTest {
             ),
             "SELECT manga_id || '|' || remote_url || '|' || user_read FROM chapter WHERE id = 10",
             "SELECT manga_id || '|' || url FROM manga_chapter_number_override",
+            "SELECT remote_url FROM manga WHERE id = 2",
         ),
         NOVEL(
             ContentType.NOVELS,
@@ -93,6 +121,7 @@ class LocalChapterMoveRepositoryTest {
             ),
             "SELECT novel_id || '|' || url || '|' || read FROM novel_chapters WHERE _id = 10",
             "SELECT novel_id || '|' || url FROM novel_chapter_number_override",
+            "SELECT url FROM novels WHERE _id = 2",
         ),
     }
 }

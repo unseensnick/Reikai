@@ -318,6 +318,14 @@
     <string name="local_volumes_combined">Combined into %1$s</string>
     <string name="local_volumes_added">Added to %1$s</string>
     <string name="local_volume_split_out">Split out as %1$s</string>
+    <string name="action_rename_files">Rename files</string>
+    <string name="rename_files_summary">The folder and files take the series and volume names shown here</string>
+    <string name="rename_files_none">The files already have these names</string>
+    <string name="rename_files_offer">Rename the files to match?</string>
+    <string name="rename_files_taken">%1$s is already taken, so the name below is used</string>
+    <string name="rename_files_choose_name">Choose another name</string>
+    <string name="local_files_renamed">Files renamed</string>
+    <string name="action_rename">Rename</string>
     <string name="undo_volumes_failed">Couldn't undo the move; the volumes stay where they are</string>
     <string name="action_combine">Combine</string>
     <string name="volume_rename">Rename volume</string>

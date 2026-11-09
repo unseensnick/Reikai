@@ -82,6 +82,9 @@ interface NovelRepository {
     /** The stored novel, emitted again only when its row changes, not on another novel's write. */
     fun getByUrlAndSourceAsFlow(url: String, source: String): Flow<Novel?>
 
+    /** The stored novel by its id, which outlives a change of address, emitted again when its row changes. */
+    fun getByIdAsFlow(id: Long): Flow<Novel?>
+
     /** The new row's id, or null when the source already lists this novel or the write failed. */
     suspend fun insert(novel: Novel): Long?
 

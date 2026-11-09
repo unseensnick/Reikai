@@ -43,6 +43,7 @@ import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import reikai.data.local.CombinableSeries
+import reikai.data.local.LocalFileNames
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
@@ -278,6 +279,89 @@ internal fun SplitOutDialog(
         confirmButton = {
             TextButton(onClick = { picked?.let { onConfirm(it, labels.getValue(it)) } }, enabled = picked != null) {
                 Text(stringResource(MR.strings.action_split_out))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
+    )
+}
+
+/**
+ * What Rename files will name a local series' folder and volumes, old name to new, from the [title] and the
+ * [volumes]' labels on screen. The series' folder loads once it opens.
+ */
+@Composable
+internal fun RenameFilesDialog(
+    title: String,
+    volumes: List<EntryChapterListItem.Volume>,
+    plan: suspend (title: String, labels: List<Pair<String, String>>) -> Pair<CombinableSeries, LocalFileNames>?,
+    onDismissRequest: () -> Unit,
+    onConfirm: (CombinableSeries, LocalFileNames) -> Unit,
+) {
+    // The name the files take, the series' title until the user picks another for a taken one.
+    var name by remember { mutableStateOf(title) }
+    var choosingName by remember { mutableStateOf(false) }
+    val labels = volumes.map { it.key to volumeLabel(it.label) }
+    val planned by produceState<Pair<CombinableSeries, LocalFileNames>?>(null, name, labels) {
+        value = plan(name, labels)
+    }
+    val series = planned?.first
+    val names = planned?.second
+    if (choosingName) {
+        NameDialog(
+            title = stringResource(MR.strings.rename_files_choose_name),
+            current = name,
+            confirmText = stringResource(MR.strings.action_ok),
+            onDismissRequest = { choosingName = false },
+            onConfirm = {
+                name = it.trim().ifEmpty { name }
+                choosingName = false
+            },
+            dismissButton = {
+                TextButton(onClick = { choosingName = false }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+        )
+    }
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(MR.strings.action_rename_files)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(
+                        if (names?.changes == false) MR.strings.rename_files_none else MR.strings.rename_files_summary,
+                    ),
+                )
+                names?.taken?.let { taken ->
+                    Text(
+                        stringResource(MR.strings.rename_files_taken, taken),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                    TextButton(onClick = { choosingName = true }) {
+                        Text(stringResource(MR.strings.rename_files_choose_name))
+                    }
+                }
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(listOfNotNull(names?.series) + names?.volumes.orEmpty()) { rename ->
+                        Column(modifier = Modifier.padding(vertical = 4.dp)) {
+                            Text(rename.from, style = MaterialTheme.typography.bodySmall)
+                            Text(
+                                "\u2192 ${rename.to}",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.run {
+                                    if (rename.changes) primary else onSurfaceVariant
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { series?.let { s -> names?.let { onConfirm(s, it) } } },
+                enabled = names?.changes == true,
+            ) {
+                Text(stringResource(MR.strings.action_rename))
             }
         },
         dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },

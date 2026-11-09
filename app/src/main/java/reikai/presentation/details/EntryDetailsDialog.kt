@@ -95,7 +95,10 @@ fun Screen.EntryDetailsDialogHost(
             source = dialog.source,
             coverModel = dialog.coverModel,
             onDismissRequest = onDismissRequest,
-            onSave = behavior::saveInfo,
+            onSave = { edited ->
+                behavior.saveInfo(edited)
+                if (edited.title != dialog.initial.title) behavior.volumePicking.offerFileRename()
+            },
             onResetAll = behavior::resetInfo,
             autofill = TrackerAutofill(
                 candidates = behavior::autofillCandidates,

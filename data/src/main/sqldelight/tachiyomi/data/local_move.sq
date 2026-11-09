@@ -29,3 +29,23 @@ WHERE novel_id = :fromOwner AND url = :fromUrl;
 moveNovelCopyMark:
 UPDATE novel_chapter_copy_mark SET novel_id = :toOwner, url = :toUrl
 WHERE novel_id = :fromOwner AND url = :fromUrl;
+
+-- A local series' files renamed: its address, then its volumes' saved order and labels and its picked chip,
+-- which are keyed by the folder and file names.
+renameManga:
+UPDATE manga SET remote_url = :url WHERE id = :id;
+
+renameNovel:
+UPDATE novels SET url = :url WHERE _id = :id;
+
+renameVolume:
+UPDATE local_volume SET volume_key = :toKey
+WHERE content_type = :contentType AND series = :series AND volume_key = :fromKey;
+
+renameVolumeSeries:
+UPDATE local_volume SET series = :toSeries
+WHERE content_type = :contentType AND series = :fromSeries;
+
+renameVolumePick:
+UPDATE local_volume_pick SET volume_key = :toKey
+WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :fromKey;

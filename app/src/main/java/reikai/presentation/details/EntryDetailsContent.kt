@@ -13,10 +13,13 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -154,7 +157,26 @@ fun EntryDetailsContent(
         onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
         onAddToSeries = { volumeDialog = VolumeDialog.AddToSeries }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
+        onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal },
     )
+    val context = LocalContext.current
+    // After a new title or volume name, the files can follow it; nothing on disk moves unless asked.
+    val offerFileRename: () -> Unit = {
+        scope.launch {
+            snackbarHostState.currentSnackbarData?.dismiss()
+            val picked = snackbarHostState.showSnackbar(
+                message = context.stringResource(MR.strings.rename_files_offer),
+                actionLabel = context.stringResource(MR.strings.action_rename),
+                duration = SnackbarDuration.Short,
+                withDismissAction = true,
+            )
+            if (picked == SnackbarResult.ActionPerformed) volumeDialog = VolumeDialog.RenameFiles
+        }
+    }
+    if (ownLocal) {
+        LaunchedEffect(behavior.volumePicking) { behavior.volumePicking.fileRenameOffers.collect { offerFileRename() } }
+    }
+    var volumeRenamed by remember { mutableStateOf(false) }
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -182,12 +204,18 @@ fun EntryDetailsContent(
         val series = volumes.chips.first().series
         ReorderVolumesDialog(
             volumes = volumes.chips,
-            onDismissRequest = { reorderingVolumes = false },
+            onDismissRequest = {
+                reorderingVolumes = false
+                if (volumeRenamed && ownLocal) offerFileRename()
+                volumeRenamed = false
+            },
             onReorder = { keys -> behavior.volumePicking.reorder(type, series, keys, behavior::refresh) },
-            onRename = { key, label -> behavior.volumePicking.rename(type, series, key, label) },
+            onRename = { key, label ->
+                behavior.volumePicking.rename(type, series, key, label)
+                volumeRenamed = true
+            },
         )
     }
-    val context = LocalContext.current
     when (volumeDialog) {
         VolumeDialog.AddToSeries -> AddToSeriesDialog(
             load = { behavior.volumePicking.library(type).filterNot { it.id == state.entryId.rawId } },
@@ -231,6 +259,25 @@ fun EntryDetailsContent(
                 },
             )
         }
+        VolumeDialog.RenameFiles -> RenameFilesDialog(
+            title = state.details.header.title,
+            volumes = volumes?.chips.orEmpty(),
+            plan = { title, labels -> behavior.volumePicking.renamePlan(state.entryId, title, labels) },
+            onDismissRequest = { volumeDialog = null },
+            onConfirm = { series, names ->
+                volumeDialog = null
+                scope.launch {
+                    val move = behavior.volumePicking.renameFiles(type, series, names)
+                    behavior.refresh()
+                    snackbarHostState.reportVolumeMove(
+                        context,
+                        move,
+                        context.stringResource(MR.strings.local_files_renamed),
+                    )
+                    behavior.refresh()
+                }
+            },
+        )
         null -> {}
     }
 }
@@ -248,9 +295,10 @@ private data class ChapterListExtras(
     val onReorderVolumes: (() -> Unit)?,
     val onAddToSeries: (() -> Unit)?,
     val onSplitOut: (() -> Unit)?,
+    val onRenameFiles: (() -> Unit)?,
 )
 
-private enum class VolumeDialog { AddToSeries, SplitOut }
+private enum class VolumeDialog { AddToSeries, SplitOut, RenameFiles }
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
 // chapter stays too, so a Never skip can be found and cleared.
@@ -419,6 +467,7 @@ private fun EntryDetailsToolbar(
         onClickReorderVolumes = extras.onReorderVolumes,
         onClickAddToSeries = extras.onAddToSeries,
         onClickSplitOut = extras.onSplitOut,
+        onClickRenameFiles = extras.onRenameFiles,
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

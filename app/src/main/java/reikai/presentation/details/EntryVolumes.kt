@@ -3,9 +3,12 @@ package reikai.presentation.details
 import androidx.compose.runtime.Immutable
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalFileNames
 import reikai.data.local.LocalVolumeMove
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
@@ -104,6 +107,23 @@ class VolumePicking(
 
     fun rename(type: ContentType, series: String, key: String, label: String?) {
         appScope.launchIO { volumes.setLabel(type, series, key, label) }
+    }
+
+    /** What Rename files gives [entry]'s files from its [title] and volume [labels], with the series it renames. */
+    suspend fun renamePlan(entry: EntryId, title: String, labels: List<Pair<String, String>>) =
+        series(entry)?.let { it to combine.renamePlan(entry.contentType, it, title, labels) }
+
+    /** Renames [series]' files on disk as [names] gives them. */
+    suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalVolumeMove =
+        combine.renameFiles(type, series, names)
+
+    private val renameOffers = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+
+    /** Emits each time a series' title changed, so its screen can offer to rename the files to match. */
+    val fileRenameOffers: SharedFlow<Unit> = renameOffers
+
+    fun offerFileRename() {
+        renameOffers.tryEmit(Unit)
     }
 }
 

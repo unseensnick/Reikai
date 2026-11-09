@@ -69,6 +69,8 @@ fun EntryToolbar(
     // Join another local series as its volumes, or take a volume out into a series of its own.
     onClickAddToSeries: (() -> Unit)? = null,
     onClickSplitOut: (() -> Unit)? = null,
+    // Names the files on disk after the series and its volumes.
+    onClickRenameFiles: (() -> Unit)? = null,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -306,6 +308,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_split_out_volume),
                                 onClick = onClickSplitOut,
+                            ),
+                        )
+                    }
+                    if (onClickRenameFiles != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_rename_files),
+                                onClick = onClickRenameFiles,
                             ),
                         )
                     }
