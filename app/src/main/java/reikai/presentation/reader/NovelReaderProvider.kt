@@ -227,6 +227,10 @@ class NovelReaderProvider(
 
         override fun setThemeColors(background: String, textColor: String) =
             viewModel.setThemeColors(background, textColor)
+
+        override val renderingMode: Flow<NovelRenderingMode?> = viewModel.renderingMode
+
+        override fun setRenderingMode(mode: NovelRenderingMode?) = viewModel.setRenderingMode(mode)
     }
 
     override val autoScrollOnOpen = novelPreferences.readerAutoScrollOnOpen()
@@ -286,8 +290,11 @@ class NovelReaderProvider(
      * A change to a setting [createViewport] reads once, after the one it was built with. The sheet reaches
      * all four, so the host rebuilds the viewport around the live session, as a rotation does.
      */
-    private val viewportRebuilds: Flow<Unit> = NovelViewportSettings.watched(novelPreferences)
-        .snapshotOnChange { NovelViewportSettings.read(novelPreferences) }
+    private val viewportRebuilds: Flow<Unit> = (
+        NovelViewportSettings.watched(novelPreferences) +
+            viewModel.renderingMode
+        )
+        .snapshotOnChange { NovelViewportSettings.read(novelPreferences, viewModel.renderingMode.value) }
         .drop(1)
         .map { }
 
@@ -297,7 +304,7 @@ class NovelReaderProvider(
      * are live without one: the switch is read each press and the rest arrives with every settings push.
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
-        val built = NovelViewportSettings.read(novelPreferences)
+        val built = NovelViewportSettings.read(novelPreferences, viewModel.renderingMode.value)
         // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
         val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
@@ -477,8 +484,9 @@ internal data class NovelViewportSettings(
     fun selectsText(spread: Boolean): Boolean = textSelectable && !spread
 
     companion object {
-        fun read(preferences: NovelPreferences) = NovelViewportSettings(
-            renderingMode = preferences.readerRenderingMode().get(),
+        /** [own] is the novel's own mode, which wins over the setting. */
+        fun read(preferences: NovelPreferences, own: NovelRenderingMode? = null) = NovelViewportSettings(
+            renderingMode = own ?: preferences.readerRenderingMode().get(),
             pageLayout = preferences.readerPageLayout().get(),
             dualPageView = preferences.readerDualPageView().get(),
             textSelectable = preferences.readerTextSelectable().get(),

@@ -5,6 +5,7 @@ import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.isActive
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -42,6 +43,10 @@ class NovelChapterTextLoader(
      */
     val settingsChanged: Flow<Unit> = NovelContentConfig.changes(preferences)
 
+    /** The mode this session's novel keeps for itself, which wins over the setting; null follows it. */
+    @Volatile
+    var renderingMode: NovelRenderingMode? = null
+
     private val sourcesByNovel: MutableMap<Long, NovelSource> =
         Collections.synchronizedMap(HashMap())
 
@@ -62,7 +67,9 @@ class NovelChapterTextLoader(
      */
     suspend fun load(chapter: NovelChapter, fromSource: Boolean = false): Pair<String, String?> {
         val (raw, baseUrl) = fetch(chapter, fromSource)
-        val config = NovelContentConfig.from(preferences, chapterUrl = chapter.url, chapterName = chapter.name)
+        val config = renderingMode
+            ?.let { NovelContentConfig.from(preferences, chapter.url, chapter.name, renderingMode = it) }
+            ?: NovelContentConfig.from(preferences, chapterUrl = chapter.url, chapterName = chapter.name)
         val coroutine = currentCoroutineContext()
         val processed = NovelContentPipeline.process(raw, config) { coroutine.isActive }
         // A plain-text chapter leaves the pipeline unescaped and unsanitised, because a text renderer

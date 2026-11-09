@@ -105,6 +105,22 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     HeadingItem(MR.strings.pref_category_for_this_series)
     val orientation by pages.orientation.collectAsState(null)
     EntryRotationRow(orientation) { pages.onChangeOrientation(it.flagValue) }
+    // The renderer this novel keeps, over the setting below, for a book that only reads well in one.
+    val ownMode by pages.textSettings.renderingMode.collectAsState(null)
+    SettingsChipRow(MR.strings.pref_novel_rendering_mode) {
+        FilterChip(
+            selected = ownMode == null,
+            onClick = { pages.textSettings.setRenderingMode(null) },
+            label = { Text(stringResource(MR.strings.label_default)) },
+        )
+        NovelRenderingMode.entries.forEach {
+            FilterChip(
+                selected = ownMode == it,
+                onClick = { pages.textSettings.setRenderingMode(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
 
     HeadingItem(MR.strings.pref_category_text)
     val renderingModePref = preferences.readerRenderingMode()

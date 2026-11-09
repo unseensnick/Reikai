@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.novel.NovelRenderingMode
 
 /** What the typography controls show while they are open. */
 @Immutable
@@ -30,4 +31,9 @@ interface ReaderTextSettings {
 
     /** Both colours together, since a background without its text colour can be unreadable. */
     fun setThemeColors(background: String, textColor: String)
+
+    /** The renderer this novel keeps for itself, null when it follows the rendering-mode setting. */
+    val renderingMode: Flow<NovelRenderingMode?>
+
+    fun setRenderingMode(mode: NovelRenderingMode?)
 }

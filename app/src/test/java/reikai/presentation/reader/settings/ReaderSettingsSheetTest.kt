@@ -11,6 +11,7 @@ import androidx.compose.ui.test.performClick
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import org.junit.Rule
@@ -18,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.reader.ReaderDisplayFilters
 import reikai.presentation.reader.ReaderTextSettings
@@ -171,4 +173,8 @@ private object FixedTextSettings : ReaderTextSettings {
     override fun setFontSize(size: Int) = Unit
     override fun followSystemTheme() = Unit
     override fun setThemeColors(background: String, textColor: String) = Unit
+
+    override val renderingMode: Flow<NovelRenderingMode?> = flowOf(null)
+
+    override fun setRenderingMode(mode: NovelRenderingMode?) = Unit
 }

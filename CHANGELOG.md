@@ -130,6 +130,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **A novel can keep its own rendering mode, Native text or WebView, from the reader settings' For this series.** Default follows the setting for every other novel.
 - **Long-press a picture in a novel chapter to open it full screen, where you can zoom, rotate, share or save it.** In scrolling mode a tap opens it.
 - **Paged novels keep each picture whole on one page, shrinking a tall one to fit while it stays readable.** A very tall picture keeps its width and continues across pages.
 - **Paged novels can show two pages side by side, from Dual page view on the reader settings' Reading tab.** Never, Always or When wide, as in the manga reader.

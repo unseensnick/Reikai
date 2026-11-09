@@ -36,6 +36,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -333,6 +334,16 @@ class NovelReaderViewModel(
     fun setOrientation(flagValue: Int) {
         orientationOverride.value = flagValue
         viewModelScope.launchIO { setNovelViewerFlags.awaitSetOrientation(novelId, flagValue.toLong()) }
+    }
+
+    /** The renderer this novel keeps for itself over the setting, null to follow it; on the opened entry, as rotation. */
+    val renderingMode: StateFlow<NovelRenderingMode?>
+        field = MutableStateFlow<NovelRenderingMode?>(null)
+
+    fun setRenderingMode(mode: NovelRenderingMode?) {
+        renderingMode.value = mode
+        textLoader.renderingMode = mode
+        appScope.launchIO { setNovelViewerFlags.awaitSetRenderingMode(novelId, mode) }
     }
 
     fun setKeepScreenOn(enabled: Boolean) = novelPreferences.readerKeepScreenOn().set(enabled)
@@ -739,6 +750,10 @@ class NovelReaderViewModel(
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
+                NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
+                    textLoader.renderingMode = mode
+                    renderingMode.value = mode
+                }
                 entryTitle.value = it.title
                 isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsRoute.value = DetailsRoute(it.source, it.url)
@@ -757,7 +772,8 @@ class NovelReaderViewModel(
             .launchIn(viewModelScope)
         // The cache holds pipeline output, so a chapter-text setting reaches the open chapter and the
         // prefetched next one only by dropping both and running it again.
-        textLoader.settingsChanged
+        // The novel's own mode reprocesses the text as a changed setting does.
+        merge(textLoader.settingsChanged, renderingMode.drop(1).map { })
             .onEach {
                 htmlCache.clear()
                 // Re-aimed at what is on screen: a seamless crossing moves the reader into a chapter

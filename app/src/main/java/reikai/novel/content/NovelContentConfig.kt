@@ -35,10 +35,11 @@ data class NovelContentConfig(
             preferences: NovelPreferences,
             chapterUrl: String?,
             chapterName: String,
+            renderingMode: NovelRenderingMode = preferences.readerRenderingMode().get(),
         ): NovelContentConfig = NovelContentConfig(
             chapterUrl = chapterUrl,
             chapterName = chapterName,
-            target = when (preferences.readerRenderingMode().get()) {
+            target = when (renderingMode) {
                 NovelRenderingMode.NATIVE -> RenderTarget.TEXT_VIEW
                 else -> RenderTarget.WEB_VIEW
             },

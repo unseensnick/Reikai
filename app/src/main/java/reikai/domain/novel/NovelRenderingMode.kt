@@ -17,4 +17,22 @@ enum class NovelRenderingMode(val titleRes: StringResource, val rendersMarkup: B
 
     /** The shared reader host rendering Reikai's own web document. */
     WEBVIEW(MR.strings.pref_novel_rendering_mode_webview, rendersMarkup = true),
+    ;
+
+    companion object {
+        /** A novel's viewer-flag bits for its own mode, above the rotation bits; none set follows the setting. */
+        const val MASK = 0x000000C0L
+
+        fun ofFlags(flags: Long): NovelRenderingMode? = when (flags and MASK) {
+            0x40L -> NATIVE
+            0x80L -> WEBVIEW
+            else -> null
+        }
+
+        fun flagOf(mode: NovelRenderingMode?): Long = when (mode) {
+            NATIVE -> 0x40L
+            WEBVIEW -> 0x80L
+            null -> 0L
+        }
+    }
 }
