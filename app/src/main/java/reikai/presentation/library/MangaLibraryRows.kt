@@ -79,7 +79,7 @@ class MangaLibraryRows(
                     source = sources.getValue(manga.manga.source),
                     downloadCount = downloadCounts.getValue(manga.id),
                     badgePrefs = preferences,
-                    sourceBadge = SourceBadge.Manga(sourceManager.badgeSource(manga.manga.source)),
+                    sourceBadge = mangaSourceBadge(sourceManager.badgeSource(manga.manga.source)),
                 )
             }
             // Collapse persisted merge groups into one entry per group. Returns the RAW items: search,

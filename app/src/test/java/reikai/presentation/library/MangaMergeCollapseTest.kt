@@ -99,7 +99,7 @@ class MangaMergeCollapseTest {
         merged.badges.mergedSources shouldContainExactlyInAnyOrder listOf(badge(100L), badge(200L))
     }
 
-    private fun badge(sourceId: Long) = SourceBadge.Manga(resolveSource(sourceId))
+    private fun badge(sourceId: Long) = mangaSourceBadge(resolveSource(sourceId))
 
     @Test
     fun `distinct chapter identities decide the primary, not the row count`() = runTest {

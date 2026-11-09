@@ -45,7 +45,6 @@ import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.source.model.Source
 import tachiyomi.presentation.core.components.Badge
 import tachiyomi.presentation.core.components.BadgeGroup
-import tachiyomi.source.local.LocalSource
 import kotlin.math.roundToInt
 
 /*
@@ -63,6 +62,11 @@ fun SourceIconBadge(badge: SourceBadge) {
         is SourceBadge.Icon -> LoadedSourceIconBadge(badge.url) { GenericSourceBadge() }
         SourceBadge.Generic -> GenericSourceBadge()
         SourceBadge.Missing -> MissingSourceBadge()
+        SourceBadge.Local -> Badge(
+            imageVector = MaterialSymbols.Rounded.Folder,
+            color = MaterialTheme.colorScheme.tertiary,
+            iconColor = MaterialTheme.colorScheme.onTertiary,
+        )
     }
 }
 
@@ -71,11 +75,6 @@ private fun MangaSourceIconBadge(source: Source) {
     val builtInLogo = builtInSourceLogo(source.id)
     when {
         source.isStub -> MissingSourceBadge()
-        source.id == LocalSource.ID -> Badge(
-            imageVector = MaterialSymbols.Rounded.Folder,
-            color = MaterialTheme.colorScheme.tertiary,
-            iconColor = MaterialTheme.colorScheme.onTertiary,
-        )
         // An installed extension's icon wins over a built-in source's bundled logo
         else -> LoadedSourceIconBadge(InstalledSourceIcon(source.id)) {
             if (builtInLogo != null) BuiltInSourceLogoBadge(builtInLogo) else GenericSourceBadge()
@@ -249,7 +248,8 @@ fun LibraryCoverEndBadges(item: LibraryItem) {
     val density = LocalDensity.current
     val isMerged = item.isMerged
     // An unmerged row still spends the same budget: one source icon competing with the language badge.
-    val sourceCount = item.badges.endSourceCount(isMerged)
+    val sources = item.badges.endSources(isMerged)
+    val sourceCount = sources.size
     val hasLanguage = item.badges.isLocal || item.badges.sourceLanguage.isNotEmpty()
 
     val plan = remember(budget, sourceCount, hasLanguage, isMerged) {
@@ -273,9 +273,9 @@ fun LibraryCoverEndBadges(item: LibraryItem) {
         // The group count stands in for icons that no longer fit; an unmerged row has none to stand in for.
         plan.showGroupCount -> if (isMerged) Badge(text = item.relatedMangaIds.size.toString())
         plan.icons == 0 -> Unit
-        !isMerged -> item.badges.source?.let { SourceIconBadge(it) }
+        !isMerged -> sources.firstOrNull()?.let { SourceIconBadge(it) }
         else -> {
-            item.badges.mergedSources.take(plan.icons).forEach { SourceIconBadge(it) }
+            sources.take(plan.icons).forEach { SourceIconBadge(it) }
             if (plan.overflow > 0) Badge(text = "+${plan.overflow}")
         }
     }

@@ -2,10 +2,12 @@ package reikai.presentation.library
 
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.source.siteHost
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
+import tachiyomi.source.local.LocalSource
 
 /**
  * A library row's source as a cover badge draws it, for both content types. A manga source is drawn
@@ -17,7 +19,13 @@ sealed interface SourceBadge {
     data class Icon(val url: String) : SourceBadge
     data object Generic : SourceBadge
     data object Missing : SourceBadge
+
+    /** Either type's local source, which the folder badge already names on a local row. */
+    data object Local : SourceBadge
 }
+
+fun mangaSourceBadge(source: Source): SourceBadge =
+    if (source.id == LocalSource.ID) SourceBadge.Local else SourceBadge.Manga(source)
 
 /** A manga source as its badge draws it: the installed source, or a stub once its extension is gone. */
 suspend fun SourceManager.badgeSource(sourceId: Long): Source {
@@ -32,6 +40,7 @@ suspend fun SourceManager.badgeSource(sourceId: Long): Source {
  */
 fun novelSourceBadge(source: NovelSource?, iconsBySite: Map<String, String>): SourceBadge = when {
     source == null -> SourceBadge.Missing
+    LocalNovelSource.isLocal(source.id) -> SourceBadge.Local
     else -> (source.iconUrl?.takeIf { it.isNotEmpty() } ?: siteHost(source.site)?.let(iconsBySite::get))
         ?.let(SourceBadge::Icon)
         ?: SourceBadge.Generic
@@ -45,9 +54,9 @@ fun installedIconsBySite(sources: List<NovelSource>): Map<String, String> = buil
     }
 }
 
-/** How many source icons the end badge group would draw: one per grouped source, else the row's own. */
-fun LibraryItem.Badges.endSourceCount(isMerged: Boolean): Int = when {
-    isMerged -> mergedSources.size
-    source != null -> 1
-    else -> 0
-}
+/**
+ * The source icons the end badge group draws: one per grouped source, else the row's own. The local
+ * source's is left out where the folder badge already shows, or a local row would draw two folders.
+ */
+fun LibraryItem.Badges.endSources(isMerged: Boolean): List<SourceBadge> =
+    (if (isMerged) mergedSources else listOfNotNull(source)).filterNot { isLocal && it == SourceBadge.Local }

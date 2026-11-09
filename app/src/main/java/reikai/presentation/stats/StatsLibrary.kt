@@ -39,6 +39,7 @@ import reikai.novel.source.NovelSourceManager
 import reikai.presentation.library.SourceBadge
 import reikai.presentation.library.badgeSource
 import reikai.presentation.library.installedIconsBySite
+import reikai.presentation.library.mangaSourceBadge
 import reikai.presentation.library.novelSourceBadge
 import reikai.presentation.stats.details.ReadTitle
 import tachiyomi.domain.category.interactor.GetCategories
@@ -238,7 +239,7 @@ class StatsLibraryLoader(
         val iconsBySite = installedIconsBySite(novelSourceManager.getAll())
         val novelLanguages = localNovelLanguages.getAll()
         val sourceBadges = mangaSources.keys.associate { id ->
-            id.toString() to SourceBadge.Manga(sourceManager.badgeSource(id))
+            id.toString() to mangaSourceBadge(sourceManager.badgeSource(id))
         } + novelSources.keys.associateWith { id -> novelSourceBadge(novelSourceManager.get(id), iconsBySite) }
 
         val mangaTitles = manga.statsTitles(

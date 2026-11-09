@@ -93,7 +93,7 @@ object MangaMergeCollapse {
             mergedDownloads = mergedDownloads,
             badgePrefs = badgePrefs,
             showSourceIcons = showMergeSourceIcons,
-            sourceBadge = { SourceBadge.Manga(resolveSource(it)) },
+            sourceBadge = { mangaSourceBadge(resolveSource(it)) },
         )
     }
 }

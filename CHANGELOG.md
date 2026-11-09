@@ -44,6 +44,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **In the library's List mode, a series' badges now sit together as one strip instead of two separately rounded ones.**
+- **A local series now shows one folder badge in the library instead of two.**
 
 - **Stopping a gallery update now really stops it, with no false failure notice.**
 - **Settings -> Advanced -> Refresh library covers now refreshes novels too, and Cancel on its notification stops it.**
