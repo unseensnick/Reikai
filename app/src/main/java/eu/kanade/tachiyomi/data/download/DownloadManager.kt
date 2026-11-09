@@ -339,6 +339,8 @@ class DownloadManager(
     private suspend fun removeFromDownloadQueue(chapters: List<Chapter>) {
         val wasRunning = downloader.isRunning
         downloader.dequeue(chapters)
+        // Before the saved queue has landed the live one looks empty, and the clear would wipe it from storage
+        downloader.awaitQueueRestored()
         if (!wasRunning && queueState.value.isEmpty()) clearQueue()
     }
 

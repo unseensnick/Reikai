@@ -95,7 +95,8 @@ class DownloadStore(
      */
     suspend fun restore(): List<Download> {
         Migrator.await() // RK: MergedDuplicateDownloads re-points this queue in a migration, which runs beside this
-        val objs = preferences.all
+        val read = preferences.all.filterValues { it is String } // RK: see the end
+        val objs = read // RK
             .mapNotNull { it.value as? String }
             .mapNotNull { deserialize(it) }
             .sortedBy { it.order }
@@ -113,9 +114,14 @@ class DownloadStore(
             }
         }
 
-        // Clear the store, downloads will be added again immediately.
-        clear()
-        return downloads
+        // RK --> where upstream clears the store: drop only the rows read above that are still saved as
+        // read, and restore only those. A chapter queued while this ran keeps the row it saved, and one
+        // cancelled meanwhile stays out, as the novel queue does. The kept ones are added again at once.
+        val saved = preferences.all
+        val unchanged = read.filter { (key, value) -> saved[key] == value }.keys
+        preferences.edit { unchanged.forEach { remove(it) } }
+        return downloads.filter { getKey(it) in unchanged }
+        // RK <--
     }
 
     // RK --> the saved rows as they are, for MergedDuplicateDownloads to re-point after the upgrade's dedupe

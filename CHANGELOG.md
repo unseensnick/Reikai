@@ -100,6 +100,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A novel chapter whose read mark could not be saved keeps its download, and the failure is reported.**
 
+- **Manga chapters saved in the download queue are no longer lost when you queue, reorder or cancel right after opening the app.**
+
+- **A manga parallel page limit below one, restored from a backup, no longer stops that source's downloads.**
+
 ### Reader
 
 #### Added

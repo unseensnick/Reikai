@@ -13,6 +13,7 @@ import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import mihon.app.di.appGraph
 import reikai.domain.download.DownloadPacing
+import reikai.domain.download.MAX_PARALLEL_PAGES
 import reikai.domain.download.MAX_PARALLEL_SOURCES
 import reikai.domain.library.ContentType
 import reikai.domain.library.labelRes
@@ -200,7 +201,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 ),
                 Preference.PreferenceItem.SliderPreference(
                     preference = downloadPreferences.parallelPageLimit,
-                    valueRange = 1..15,
+                    valueRange = 1..MAX_PARALLEL_PAGES, // RK
                     title = stringResource(MR.strings.pref_download_concurrent_pages),
                     subtitle = stringResource(MR.strings.pref_download_concurrent_pages_summary),
                     visible = showsManga,

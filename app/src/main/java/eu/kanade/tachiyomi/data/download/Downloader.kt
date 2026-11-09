@@ -58,6 +58,7 @@ import reikai.domain.download.SeriesCompletions
 import reikai.domain.download.SourceContacts
 import reikai.domain.download.SourcePace
 import reikai.domain.download.hasRoomToDownload // RK
+import reikai.domain.download.parallelPagesFor // RK
 import reikai.domain.download.parallelSourcesFor // RK
 import reikai.domain.manga.MangaPreferences
 import tachiyomi.core.common.i18n.stringResource
@@ -335,7 +336,7 @@ class Downloader(
         downloadJobs: MutableMap<Download, Job>,
         owner: Job,
     ) = launchIO {
-        val slots = Semaphore(downloadPreferences.parallelPageLimit.get())
+        val slots = Semaphore(parallelPagesFor(downloadPreferences.parallelPageLimit.get())) // RK: as the source limit
         val pace = SourcePace() // RK
         while (true) {
             // RK: a source an update or an earlier run reached moments ago waits out its delay first; Off never waits
@@ -911,6 +912,8 @@ class Downloader(
      * queued or removed meanwhile aren't lost to a stale copy of the queue.
      */
     suspend fun updateQueue(transform: (List<Download>) -> List<Download>) = editQueue {
+        // RK: the rewrite below clears the store, which before the restore has read it loses the saved queue
+        queueRestored.await()
         // One update, since chapters are queued without the lock
         _queueState.update { queue ->
             val downloads = transform(queue).distinctBy { it.chapter.id }

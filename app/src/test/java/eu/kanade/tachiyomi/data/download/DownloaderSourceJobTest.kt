@@ -81,6 +81,9 @@ class DownloaderSourceJobTest {
     private val context = mockk<Context>(relaxed = true)
     private val mangaPreferences = MangaPreferences(EmittingPreferenceStore())
 
+    // The downloader waits on its parallel-source setting, which an in-memory preference never emits.
+    private val downloadPreferences = DownloadPreferences(EmittingPreferenceStore())
+
     @AfterEach
     fun tearDown() {
         blockingFetch.complete(Unit)
@@ -149,6 +152,17 @@ class DownloaderSourceJobTest {
         fetched shouldBe listOf(first.url, second.url)
     }
 
+    @Test
+    fun `a page limit below one from a restored backup still downloads`() = runTest {
+        downloadPreferences.parallelPageLimit.set(0)
+        val downloader = downloader()
+        downloader.queueChapters(manga, listOf(first), autoStart = false)
+        downloader.start()
+        testScheduler.advanceUntilIdle()
+
+        fetched shouldBe listOf(first.url)
+    }
+
     private fun TestScope.downloader(): Downloader {
         // The downloader restores its saved queue on Main as it is built and downloads on IO, both the test's clock.
         Dispatchers.setMain(UnconfinedTestDispatcher(testScheduler))
@@ -164,8 +178,7 @@ class DownloaderSourceJobTest {
             cache = mockk(relaxed = true),
             sourceManager = mockk<SourceManager>().also { coEvery { it.get(manga.source) } returns source },
             chapterCache = mockk(relaxed = true) { coEvery { openImage(any()) } returns null },
-            // The downloader waits on its parallel-source setting, which an in-memory preference never emits.
-            downloadPreferences = DownloadPreferences(EmittingPreferenceStore()),
+            downloadPreferences = downloadPreferences,
             xml = mockk(),
             getCategories = mockk(),
             getTracks = mockk(),
