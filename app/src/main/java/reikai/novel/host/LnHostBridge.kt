@@ -1,8 +1,8 @@
 package reikai.novel.host
 
 import android.util.Base64
-import kotlinx.serialization.KSerializer
 import eu.kanade.tachiyomi.network.requestCookies
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer

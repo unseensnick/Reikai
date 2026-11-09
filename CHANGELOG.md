@@ -57,7 +57,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
-- **A novel whose plugin failed to load now says why on its details page and offers Retry, instead of not installed.**
+- **A novel whose plugin failed to load now says why when you open it or one of its chapters, with Retry on its details page, instead of not installed.**
 
 ### Merged series
 

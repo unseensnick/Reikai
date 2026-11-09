@@ -12,6 +12,7 @@ import reikai.novel.content.NovelContentConfig
 import reikai.novel.content.NovelContentPipeline
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.describing
 import reikai.novel.local.LocalNovelSource
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
@@ -108,7 +109,10 @@ class NovelChapterTextLoader(
         }
         val sourceId = novelRepo.getById(forNovelId)?.source ?: error("Novel not found")
         val resolved = sourceManager.get(sourceId)
-            ?: error(context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)))
+            ?: error(
+                installer.failures.value.describing(sourceId, context)
+                    ?: context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
+            )
         sourcesByNovel[forNovelId] = resolved
         return resolved
     }

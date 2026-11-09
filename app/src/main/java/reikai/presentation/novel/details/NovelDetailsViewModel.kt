@@ -148,7 +148,7 @@ import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
-import reikai.novel.install.description
+import reikai.novel.install.describing
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -493,14 +493,8 @@ class NovelDetailsViewModel(
             // A plugin that is installed but threw while loading says why and can be loaded again, as the
             // catalogue does; one that is really gone reads "not installed".
             SourceLookup.Missing -> if (stored == null) {
-                val loadFailure = installer.failures.value.values.firstOrNull { it.pluginId == sourceId }
-                failure.value = loadFailure?.let {
-                    NovelDetailsState.Failed(
-                        listOfNotNull(context.stringResource(it.reason.description), it.reason.message)
-                            .joinToString("\n\n"),
-                        retryable = true,
-                    )
-                }
+                failure.value = installer.failures.value.describing(sourceId, context)
+                    ?.let { NovelDetailsState.Failed(it, retryable = true) }
                     ?: NovelDetailsState.Failed(
                         context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
                     )
@@ -1484,8 +1478,8 @@ class NovelDetailsViewModel(
         pushProgress = { id, chapterNumber -> trackNovelChapter.await(context, id, chapterNumber) },
     )
 
-    /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction] (mirrors the
-     *  manga path's `executeChapterSwipeAction`; both take the download mapping from [swipeDownloadAction]). */
+    /** Row swipe, dispatched by the configured [LibraryPreferences.ChapterSwipeAction]. Twin of the manga
+     *  path's `executeChapterSwipeAction`, pinned by [swipeDownloadAction], the download mapping both take. */
     fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.
