@@ -180,17 +180,15 @@ class NovelSourceManager(
     }
 
     /**
-     * The names a restored backup recorded, for sources this device has no record of, so a novel whose
+     * The records a restored backup carries, for sources this device has no record of, so a novel whose
      * source is not installed shows that name, as a restored manga's stub source does. A record already
-     * here is left alone, since it carries more than a name.
+     * here is left alone, since the backup may be someone else's and this device's was seen first-hand.
      */
-    suspend fun rememberBackedUpNames(names: Map<String, String>) {
+    suspend fun rememberBackedUp(records: Map<String, LnSourceIdentity>) {
         seenMutex.withLock {
             val current = prefs.seenNovelSources().get()
-            val absent = names.filter { (id, name) -> name.isNotBlank() && id !in current }
-            if (absent.isNotEmpty()) {
-                prefs.seenNovelSources().set(current + absent.mapValues { LnSourceIdentity(it.value) })
-            }
+            val absent = records.filter { (id, record) -> record.name.isNotBlank() && id !in current }
+            if (absent.isNotEmpty()) prefs.seenNovelSources().set(current + absent)
         }
     }
 

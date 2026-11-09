@@ -249,6 +249,14 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
 
+### Backup & restore
+
+#### Fixed
+
+- **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.
+- **Restoring someone else's backup can no longer weaken your privacy or security settings.** Header redaction, verbose logging, crash reports, analytics, the app lock and hidden notifications only ever restore to the safer choice.
+- **Restoring App settings no longer forgets the names of novel sources you have uninstalled.** The device's own records are kept and the backup only adds ones it lacks.
+
 ### Other
 
 - Updated Compose, Conscrypt, jsoup, Metro and the WebGPU manga viewer (from Mihon).

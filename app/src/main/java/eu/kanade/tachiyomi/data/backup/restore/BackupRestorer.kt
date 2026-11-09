@@ -11,7 +11,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
-import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
@@ -28,7 +27,6 @@ import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.LegacyCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.novelSourceName
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
-import eu.kanade.tachiyomi.data.backup.restore.restorers.ExtensionStoreRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.FeedRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
@@ -58,6 +56,7 @@ import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.model.withDisplayBitFromSort
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.source.NovelSourceManager
@@ -85,7 +84,7 @@ class BackupRestorer(
     private val downloadCache: DownloadCache,
     private val categoriesRestorer: CategoriesRestorer,
     private val preferenceRestorer: PreferenceRestorer,
-    private val extensionStoreRestorer: ExtensionStoreRestorer,
+    // RK: no ExtensionStoreRestorer, a backup store comes back only through RestoreExtensionInstaller.addTrusted
     private val mangaRestorer: MangaRestorer,
     private val parser: ProtoBuf, // RK: the streaming restore decodes field by field, no BackupDecoder
     private val sourceManager: SourceManager,
@@ -164,7 +163,7 @@ class BackupRestorer(
 
         if (options.libraryEntries) {
             restoreSourceNames(summary.backupSources)
-            novelSourceManager.rememberBackedUpNames(summary.novelSourceNames) // RK
+            novelSourceManager.rememberBackedUp(summary.novelSourceNames.mapValues { LnSourceIdentity(it.value) }) // RK
             restoreAmount += summary.mangaCount + summary.novelCount
         }
         if (options.categories) {
@@ -172,9 +171,6 @@ class BackupRestorer(
         }
         if (options.appSettings) {
             restoreAmount += 1
-        }
-        if (options.extensionStores) {
-            restoreAmount += summary.backupExtensionStores.size // RK: from the pass-1 summary
         }
         if (options.sourceSettings) {
             restoreAmount += 1
@@ -211,9 +207,6 @@ class BackupRestorer(
                     if (options.categories) summary.backupCategories else emptyList(),
                     summary, // RK: the merge groups, older custom info and pref-era grouping inputs
                 )
-            }
-            if (options.extensionStores) {
-                restoreExtensionStores(summary.backupExtensionStores) // RK: from the pass-1 summary
             }
             // RK -->
             if (options.savedSearches) {
@@ -259,7 +252,6 @@ class BackupRestorer(
         val backupSources = mutableListOf<BackupSource>()
         val backupPreferences = mutableListOf<BackupPreference>()
         val backupSourcePreferences = mutableListOf<BackupSourcePreferences>()
-        val backupExtensionStores = mutableListOf<BackupExtensionStore>()
         val backupExtensions = mutableListOf<BackupExtension>() // RK
         val backupMangaMerges = mutableListOf<BackupMangaMergeGroup>()
         val backupCustomMangaInfo = mutableListOf<BackupCustomMangaInfo>()
@@ -296,8 +288,6 @@ class BackupRestorer(
                 BackupFields.SOURCE_PREFERENCES -> backupSourcePreferences.add(
                     parser.decodeFromByteArray(BackupSourcePreferences.serializer(), data),
                 )
-                BackupFields.EXTENSION_STORES ->
-                    backupExtensionStores.add(parser.decodeFromByteArray(BackupExtensionStore.serializer(), data))
                 BackupFields.EXTENSIONS -> // RK
                     backupExtensions.add(parser.decodeFromByteArray(BackupExtension.serializer(), data))
                 BackupFields.MANGA_MERGES ->
@@ -334,7 +324,6 @@ class BackupRestorer(
             backupSources = backupSources,
             backupPreferences = backupPreferences,
             backupSourcePreferences = backupSourcePreferences,
-            backupExtensionStores = backupExtensionStores,
             backupExtensions = backupExtensions, // RK
             backupMangaMerges = backupMangaMerges,
             legacyCustomInfo = LegacyCustomInfo(backupCustomMangaInfo, backupCustomNovelInfo),
@@ -363,7 +352,6 @@ class BackupRestorer(
         val backupSources: List<BackupSource>,
         val backupPreferences: List<BackupPreference>,
         val backupSourcePreferences: List<BackupSourcePreferences>,
-        val backupExtensionStores: List<BackupExtensionStore>,
         val backupExtensions: List<BackupExtension>, // RK
         val backupMangaMerges: List<BackupMangaMergeGroup>,
         // An older backup's root custom-info lists, folded onto each entry as it is decoded.
@@ -631,32 +619,6 @@ class BackupRestorer(
             restoreAmount,
             isSync,
         )
-    }
-
-    private fun CoroutineScope.restoreExtensionStores(
-        backupExtensionStores: List<BackupExtensionStore>,
-    ) = launch {
-        backupExtensionStores
-            .chunked(RESTORE_CHUNK) // RK
-            .forEach { chunk ->
-                chunk.forEach {
-                    ensureActive()
-
-                    try {
-                        extensionStoreRestorer(it)
-                    } catch (e: Exception) {
-                        errors.add(Date() to "Error Adding Repo: ${it.name} : ${e.message}")
-                    }
-
-                    restoreProgress.incrementAndFetch()
-                }
-                notifier.showRestoreProgress(
-                    context.stringResource(MR.strings.extensionStores),
-                    restoreProgress.load(),
-                    restoreAmount,
-                    isSync,
-                )
-            }
     }
 
     private fun writeErrorLog(): File {

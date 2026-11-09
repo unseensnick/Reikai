@@ -47,7 +47,6 @@ suspend fun restoreEncoded(
         downloadCache = mockk(relaxed = true),
         categoriesRestorer = categoriesRestorer,
         preferenceRestorer = mockk(relaxed = true),
-        extensionStoreRestorer = mockk(relaxed = true),
         mangaRestorer = mangaRestorer,
         parser = ProtoBuf,
         sourceManager = sourceManager,

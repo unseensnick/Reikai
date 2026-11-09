@@ -4,6 +4,9 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.core.security.PrivacyPreferences
+import eu.kanade.tachiyomi.core.security.SecurityPreferences
+import eu.kanade.tachiyomi.core.security.SecurityPreferences.SecureScreenMode
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BooleanPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.IntPreferenceValue
@@ -22,6 +25,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.carryShowNsfwSource
 import reikai.novel.content.NovelSnippets
+import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.Preference
 
 /**
@@ -37,7 +41,23 @@ class AppPreferenceCarry(
     private val networkPreferences: NetworkPreferences,
     private val trackPreferences: TrackPreferences,
     private val basePreferences: BasePreferences,
+    private val securityPreferences: SecurityPreferences,
+    privacyPreferences: PrivacyPreferences,
+    private val novelSourceManager: NovelSourceManager,
 ) {
+
+    // Restored only when the backup holds the safer value. Verbose logging without header redaction puts
+    // cookies and sign-in headers in the crash log users share; the app lock asks to authenticate before
+    // the settings screen loosens it; telemetry the user opted out of stays off.
+    private val saferValues = mapOf(
+        networkPreferences.redactSensitiveHeaders.key() to true,
+        networkPreferences.verboseLogging.key() to false,
+        privacyPreferences.crashlytics.key() to false,
+        privacyPreferences.analytics.key() to false,
+        securityPreferences.useAuthenticator.key() to true,
+        securityPreferences.hideNotificationContent.key() to true,
+        securityPreferences.hideAdultNotificationContent.key() to true,
+    )
 
     /** Carries the keys it owns, hands the rest to [write], then applies what must follow the write. */
     suspend fun restore(toRestore: List<BackupPreference>, write: suspend (List<BackupPreference>) -> Unit) {
@@ -50,8 +70,23 @@ class AppPreferenceCarry(
     }
 
     /** True when [key] is handled here and must not be written as it stands. */
-    private fun carry(key: String, value: PreferenceValue): Boolean {
+    private suspend fun carry(key: String, value: PreferenceValue): Boolean {
         when (key) {
+            in saferValues -> return (value as? BooleanPreferenceValue)?.value != saferValues[key]
+            securityPreferences.lockAppAfter.key() -> (value as? IntPreferenceValue)?.let {
+                val lockAfter = securityPreferences.lockAppAfter
+                if (lockDelayRank(it.value) < lockDelayRank(lockAfter.get())) lockAfter.set(it.value)
+            }
+            securityPreferences.secureScreen.key() -> (value as? StringPreferenceValue)?.let { stored ->
+                val secureScreen = securityPreferences.secureScreen
+                val mode = SecureScreenMode.entries.find { it.name == stored.value }
+                // Declared strictest first.
+                if (mode != null && mode < secureScreen.get()) secureScreen.set(mode)
+            }
+            // The device's records win: a backup only names sources this device has never seen.
+            novelPreferences.seenNovelSources().key() -> (value as? StringPreferenceValue)?.let {
+                novelSourceManager.rememberBackedUp(NovelPreferences.decodeSeenNovelSources(it.value))
+            }
             DEAD_READER_PADDING_KEY ->
                 (value as? IntPreferenceValue)?.let { novelPreferences.carryReaderPaddingToMargins(it.value) }
             // JavaScript runs in the chapter page beside the reader's bridge, so it comes back switched off.
@@ -86,6 +121,9 @@ class AppPreferenceCarry(
         }
         return true
     }
+
+    /** How long the app stays unlocked, where -1 is never locking again. */
+    private fun lockDelayRank(minutes: Int) = if (minutes < 0) Int.MAX_VALUE else minutes
 
     private companion object {
         val SKIPPED_KEYS = setOf(

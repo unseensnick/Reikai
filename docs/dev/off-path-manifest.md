@@ -110,6 +110,7 @@ The path is relative to the repo root and matches the `refs/` clone layout. `Ups
 | app/src/main/java/eu/kanade/presentation/reader/settings/ColorFilterPage.kt | mihon | reikai/presentation/reader/settings/ReaderFiltersPage.kt |
 | app/src/main/java/eu/kanade/presentation/reader/appbars/ReaderBottomBar.kt | mihon | reikai/presentation/reader/ReaderActionRow.kt |
 | app/src/main/java/eu/kanade/tachiyomi/data/backup/BackupDecoder.kt | mihon | eu/kanade/tachiyomi/data/backup/BackupProtoReader.kt |
+| app/src/main/java/eu/kanade/tachiyomi/data/backup/restore/restorers/ExtensionStoreRestorer.kt | mihon | reikai/data/backup/RestoreExtensionInstaller.kt |
 | app/src/main/java/eu/kanade/tachiyomi/ui/download/DownloadQueueViewModel.kt | mihon | reikai/presentation/download/EntryDownloadQueueViewModel.kt |
 | app/src/main/java/eu/kanade/presentation/download/DownloadQueueList.kt | mihon | reikai/presentation/download/EntryDownloadCardList.kt |
 | app/src/main/java/eu/kanade/presentation/more/settings/screen/browse/ExtensionStoresScreen.kt | mihon | reikai/presentation/browse/repos/RepositoriesScreen.kt |
