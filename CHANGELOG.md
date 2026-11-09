@@ -263,6 +263,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
+- **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
 
 ### Updates & History
 

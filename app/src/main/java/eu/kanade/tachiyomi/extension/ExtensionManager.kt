@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
@@ -143,6 +142,10 @@ class ExtensionManager(
     @Volatile
     private var scannedContentWarnings: ContentWarningScan? = null
 
+    /** The store keys and the extensions trusted by hand that the latest scan judged trust against. */
+    @Volatile
+    private var scannedTrust: Pair<Set<String>, Set<String>>? = null
+
     /**
      * The keys of the added stores that have one, read at each scan and listing fetch. The first scan
      * finishes before the install receiver is registered, so every status sees stored keys.
@@ -158,15 +161,20 @@ class ExtensionManager(
             ExtensionInstallReceiver(InstallationListener(), scope).register(context)
 
             // Everything the load decision rests on can change while running, so decide again
-            // RK --> content warnings compare against what the scan used rather than drop(1), which
-            // lost a write landing during the first scan (the upgrade carry, a backup restore).
+            // RK --> content warnings and trust compare against what the scan used rather than drop(1),
+            // which lost a write landing during the first scan (the upgrade carry, a backup restore, a
+            // store added).
             launch {
                 preferences.contentWarningScanChanges()
                     .reloadWhenScanStale({ scannedContentWarnings }) { loadExtensions() }
             }
-            trustExtension.changes()
-                // RK <--
-                .collectLatest { loadExtensions() }
+            combine(
+                extensionStoreRepository.getAllAsFlow().map { it.signingKeys },
+                preferences.trustedExtensions.changes(),
+                ::Pair,
+            )
+                .reloadWhenScanStale({ scannedTrust }) { loadExtensions() }
+            // RK <--
         }
 
         // Extensions are only reloaded when the set of signing keys changes, which misses a store being
@@ -252,6 +260,7 @@ class ExtensionManager(
             // RK --> read before the loader reads them, so a write in between costs only a spare scan
             val contentWarnings = preferences.contentWarningScan()
             readStores()
+            val trust = storeKeys to preferences.trustedExtensions.get()
             // RK <--
             // RK --> novel extensions go back in too, so a reload keeps their source instances
             val (extensions, novelExtensions) = ExtensionLoader.loadExtensions(
@@ -277,6 +286,7 @@ class ExtensionManager(
                 .associateBy { it.pkgName }
             // RK: recorded once the scan lands, since a cancelled one judged nothing
             scannedContentWarnings = contentWarnings
+            scannedTrust = trust // RK
 
             // Newly loaded extensions have no status derived from the store index yet
             refreshStatuses()
