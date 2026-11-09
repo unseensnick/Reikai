@@ -81,6 +81,7 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
+import reikai.presentation.components.reportVolumeMove
 import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
@@ -824,7 +825,13 @@ data object LibraryTab : Tab {
             is LibraryDialog.CombineVolumes -> CombineVolumesDialog(
                 series = dialog.series,
                 onDismissRequest = onDismissRequest,
-                onConfirm = { kept -> engine.combineVolumes(dialog, kept) },
+                onConfirm = { kept ->
+                    scope.launch {
+                        val move = engine.combineVolumes(dialog, kept) ?: return@launch
+                        val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
+                        snackbarHostState.reportVolumeMove(context, move, message)
+                    }
+                },
             )
             null -> {}
         }

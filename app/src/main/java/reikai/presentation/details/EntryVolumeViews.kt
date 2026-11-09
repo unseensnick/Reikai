@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -41,6 +42,7 @@ import mihon.icons.materialsymbols.rounded.DoneAll
 import mihon.icons.materialsymbols.rounded.DragHandle
 import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.RemoveDone
+import reikai.data.local.CombinableSeries
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
@@ -207,5 +209,77 @@ private fun RenameVolumeDialog(current: String, onDismissRequest: () -> Unit, on
         dismissButton = {
             TextButton(onClick = { onRename(null) }) { Text(stringResource(MR.strings.action_reset)) }
         },
+    )
+}
+
+/** Pick the local series this one joins as volumes; the list loads once it opens. */
+@Composable
+internal fun AddToSeriesDialog(
+    load: suspend () -> List<CombinableSeries>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (CombinableSeries) -> Unit,
+) {
+    val series by produceState<List<CombinableSeries>?>(null) { value = load() }
+    var picked by remember { mutableStateOf<CombinableSeries?>(null) }
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(MR.strings.action_add_to_series)) },
+        text = {
+            Column {
+                Text(stringResource(MR.strings.add_to_series_summary))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
+                    items(series.orEmpty(), key = { it.id }) { one ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { picked = one },
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            RadioButton(selected = one == picked, onClick = { picked = one })
+                            Text(one.title)
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { picked?.let(onConfirm) }, enabled = picked != null) {
+                Text(stringResource(MR.strings.action_add))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
+    )
+}
+
+/** Pick the volume that becomes a series of its own. */
+@Composable
+internal fun SplitOutDialog(
+    volumes: List<EntryChapterListItem.Volume>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (EntryChapterListItem.Volume, label: String) -> Unit,
+) {
+    var picked by remember { mutableStateOf<EntryChapterListItem.Volume?>(null) }
+    val labels = volumes.associateWith { volumeLabel(it.label) }
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(MR.strings.action_split_out_volume)) },
+        text = {
+            Column {
+                Text(stringResource(MR.strings.split_out_volume_summary))
+                volumes.forEach { volume ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable { picked = volume },
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RadioButton(selected = volume == picked, onClick = { picked = volume })
+                        Text(labels.getValue(volume))
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { picked?.let { onConfirm(it, labels.getValue(it)) } }, enabled = picked != null) {
+                Text(stringResource(MR.strings.action_split_out))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
     )
 }

@@ -43,7 +43,9 @@ private fun copyChecked(source: UniFile, dir: UniFile, name: String): UniFile {
     checkNotNull(target) { "Could not create $name in ${dir.name}" }
     try {
         if (source.isDirectory) {
-            source.listFiles().orEmpty().forEach { copyChecked(it, target, it.name.orEmpty()) }
+            // A hidden file is a marker such as .nomedia, which storage may not let a copy recreate as it was.
+            source.listFiles().orEmpty().filterNot { it.name.orEmpty().startsWith('.') }
+                .forEach { copyChecked(it, target, it.name.orEmpty()) }
         } else {
             source.openInputStream().use { input -> target.openOutputStream().use { input.copyTo(it) } }
             check(target.length() == source.length()) { "$name was copied short" }

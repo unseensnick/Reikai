@@ -4,6 +4,9 @@ import androidx.compose.runtime.Immutable
 import dev.zacsweers.metro.Inject
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
+import reikai.data.local.CombinableSeries
+import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalVolumeMove
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.VolumePickRepository
@@ -65,8 +68,22 @@ class VolumePicking(
     private val picks: VolumePickRepository,
     private val volumes: LocalVolumeRepository,
     private val covers: VolumeCovers,
+    private val combine: CombineLocalVolumes,
     private val appScope: CoroutineScope,
 ) {
+    suspend fun library(type: ContentType): List<CombinableSeries> = combine.library(type)
+
+    suspend fun series(entry: EntryId): CombinableSeries? =
+        combine.series(entry.contentType, listOf(entry.rawId)).firstOrNull()
+
+    /** Adds [series] to [target] as its volumes. */
+    suspend fun addToSeries(type: ContentType, series: CombinableSeries, target: CombinableSeries): LocalVolumeMove =
+        combine.combine(type, target, listOf(series))
+
+    /** Takes [series]' volume [key] out into a series of its own named [title]. */
+    suspend fun splitOut(type: ContentType, series: CombinableSeries, key: String, title: String): LocalVolumeMove =
+        combine.splitOut(type, series, key, title)
+
     suspend fun cover(type: ContentType, series: String, key: String): Any? = covers.cover(type, series, key)
 
     fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)

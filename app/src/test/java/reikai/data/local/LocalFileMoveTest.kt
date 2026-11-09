@@ -83,4 +83,14 @@ class LocalFileMoveTest {
 
         (File(from, "A").exists() to File(from, "Ch 1.cbz").exists()) shouldBe (false to true)
     }
+
+    @Test
+    fun `a hidden marker file in a folder is left behind with the original`() = runTest {
+        val from = series("B", "Vol 1/Ch 1.cbz" to "one", "Vol 1/.nomedia" to "")
+        val to = series("A")
+
+        moveLocalFiles(listOf(FileCopy(uni(File(from, "Vol 1")), uni(to), null, "Vol 1"))) {}
+
+        (File(to, "Vol 1/Ch 1.cbz").exists() to File(to, "Vol 1/.nomedia").exists()) shouldBe (true to false)
+    }
 }

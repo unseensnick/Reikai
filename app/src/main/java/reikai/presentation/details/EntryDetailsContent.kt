@@ -21,6 +21,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +39,7 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
+import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.domain.chapter.CopyMark
@@ -47,11 +49,13 @@ import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
+import reikai.presentation.components.reportVolumeMove
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.reader.chapterRowTitle
 import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.recents.NO_PROGRESS
 import reikai.presentation.recommendation.RelatedMangaCarousel
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -124,6 +128,7 @@ fun EntryDetailsContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
 ) {
+    val scope = rememberCoroutineScope()
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val libraryNav = nav.forState(state)
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
@@ -139,11 +144,16 @@ fun EntryDetailsContent(
     }
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     var reorderingVolumes by remember { mutableStateOf(false) }
+    var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
+    // A local series that is its own, not one source of a merge, can join another or give up a volume.
+    val ownLocal = state.details.header.sourceState == EntrySourceState.Local && !state.isMerged
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
         onPickVolume = { behavior.volumePicking.pick(state.entryId, it) },
         onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
+        onAddToSeries = { volumeDialog = VolumeDialog.AddToSeries }.takeIf { ownLocal },
+        onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
     )
     if (isTabletUi) {
         EntryDetailsLargeContent(
@@ -177,6 +187,52 @@ fun EntryDetailsContent(
             onRename = { key, label -> behavior.volumePicking.rename(type, series, key, label) },
         )
     }
+    val context = LocalContext.current
+    when (volumeDialog) {
+        VolumeDialog.AddToSeries -> AddToSeriesDialog(
+            load = { behavior.volumePicking.library(type).filterNot { it.id == state.entryId.rawId } },
+            onDismissRequest = { volumeDialog = null },
+            onConfirm = { target ->
+                volumeDialog = null
+                scope.launch {
+                    val own = behavior.volumePicking.series(state.entryId) ?: return@launch
+                    val move = behavior.volumePicking.addToSeries(type, own, target)
+                    behavior.refresh()
+                    // This series is empty once it moved, so the screen stays only for the Undo.
+                    val message = context.stringResource(MR.strings.local_volumes_added, target.title)
+                    if (snackbarHostState.reportVolumeMove(
+                            context,
+                            move,
+                            message,
+                        )
+                    ) {
+                        nav.navigateUp()
+                    } else {
+                        behavior.refresh()
+                    }
+                }
+            },
+        )
+        VolumeDialog.SplitOut -> volumes?.let { view ->
+            SplitOutDialog(
+                volumes = view.chips,
+                onDismissRequest = { volumeDialog = null },
+                onConfirm = { volume, label ->
+                    volumeDialog = null
+                    scope.launch {
+                        val own = behavior.volumePicking.series(state.entryId) ?: return@launch
+                        val title = "${state.details.header.title} - $label"
+                        val move = behavior.volumePicking.splitOut(type, own, volume.key, title)
+                        behavior.refresh()
+                        val message = context.stringResource(MR.strings.local_volume_split_out, title)
+                        snackbarHostState.reportVolumeMove(context, move, message)
+                        behavior.refresh()
+                    }
+                },
+            )
+        }
+        null -> {}
+    }
 }
 
 /** Whether the list shows only chapters with copies, from the duplicate count under the chapter header. */
@@ -190,7 +246,11 @@ private data class ChapterListExtras(
     val volumes: VolumeView?,
     val onPickVolume: (String?) -> Unit,
     val onReorderVolumes: (() -> Unit)?,
+    val onAddToSeries: (() -> Unit)?,
+    val onSplitOut: (() -> Unit)?,
 )
+
+private enum class VolumeDialog { AddToSeries, SplitOut }
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
 // chapter stays too, so a Never skip can be found and cleared.
@@ -244,7 +304,7 @@ private fun EntryDetailsSmallContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { titleAlpha, backgroundAlpha ->
-            EntryDetailsToolbar(state, behavior, nav, web, extras.onReorderVolumes, titleAlpha, backgroundAlpha)
+            EntryDetailsToolbar(state, behavior, nav, web, extras, titleAlpha, backgroundAlpha)
         },
         bottomActionMenu = { EntryDetailsSelectionBar(state, behavior, fillFraction = 1f) },
     ) { appBarPadding ->
@@ -295,7 +355,7 @@ private fun EntryDetailsLargeContent(
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
         topBar = { modifier ->
-            EntryDetailsToolbar(state, behavior, nav, web, extras.onReorderVolumes, { 1f }, { 1f }, modifier)
+            EntryDetailsToolbar(state, behavior, nav, web, extras, { 1f }, { 1f }, modifier)
         },
         bottomActionMenu = { modifier -> EntryDetailsSelectionBar(state, behavior, fillFraction = 0.5f, modifier) },
         startContent = { appBarPadding ->
@@ -326,7 +386,7 @@ private fun EntryDetailsToolbar(
     behavior: EntryDetailsBehavior,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
-    onReorderVolumes: (() -> Unit)?,
+    extras: ChapterListExtras,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -356,7 +416,9 @@ private fun EntryDetailsToolbar(
         onClickSearchText = nav.onSearchText?.takeIf { state.textOnDevice },
         onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },
         onClickExport = nav.onExport,
-        onClickReorderVolumes = onReorderVolumes,
+        onClickReorderVolumes = extras.onReorderVolumes,
+        onClickAddToSeries = extras.onAddToSeries,
+        onClickSplitOut = extras.onSplitOut,
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

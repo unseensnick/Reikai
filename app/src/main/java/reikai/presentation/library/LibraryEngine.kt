@@ -15,7 +15,6 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
-import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -33,11 +32,10 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
-import reikai.data.local.LocalMoveResult
+import reikai.data.local.LocalVolumeMove
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
@@ -67,7 +65,6 @@ import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
-import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -781,16 +778,10 @@ class LibraryEngine(
     }
 
     /** Combines the dialog's series into [kept]; the move outlives the screen, as every library write does. */
-    fun combineVolumes(dialog: LibraryDialog.CombineVolumes, kept: CombinableSeries) {
-        if (stillSelected(dialog.entries).size != dialog.entries.size) return
+    suspend fun combineVolumes(dialog: LibraryDialog.CombineVolumes, kept: CombinableSeries): LocalVolumeMove? {
+        if (stillSelected(dialog.entries).size != dialog.entries.size) return null
         clearSelection()
-        appScope.launchIO {
-            val result = combineLocalVolumes.combine(dialog.type, kept, dialog.series - kept)
-            if (result is LocalMoveResult.Failed) {
-                logcat(LogPriority.ERROR, result.error) { "Combining local volumes failed" }
-                withUIContext { context.toast(MR.strings.combine_volumes_failed) }
-            }
-        }
+        return combineLocalVolumes.combine(dialog.type, kept, dialog.series - kept)
     }
 
     /** The bulk Download action applies when ANY provider's part of the selection can download,

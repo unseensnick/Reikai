@@ -16,6 +16,7 @@ import exh.ui.login.EhLoginActivity
 import kotlinx.coroutines.CoroutineScope
 import mihon.core.metro.AppCoroutineScope
 import mihon.core.migration.migrations.MergedDuplicateCarryMigration
+import reikai.data.local.CombineLocalVolumes
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
@@ -122,6 +123,7 @@ interface ReikaiGraph {
     val volumePicks: VolumePickRepository
     val localVolumes: LocalVolumeRepository
     val volumeCovers: LocalVolumeCovers
+    val combineLocalVolumes: CombineLocalVolumes
 
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata

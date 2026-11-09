@@ -66,6 +66,9 @@ fun EntryToolbar(
     onClickExport: (() -> Unit)? = null,
     // Reorder and rename a local series' volumes, non-null only while its list is split by volume.
     onClickReorderVolumes: (() -> Unit)? = null,
+    // Join another local series as its volumes, or take a volume out into a series of its own.
+    onClickAddToSeries: (() -> Unit)? = null,
+    onClickSplitOut: (() -> Unit)? = null,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -287,6 +290,22 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_reorder_volumes),
                                 onClick = onClickReorderVolumes,
+                            ),
+                        )
+                    }
+                    if (onClickAddToSeries != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_add_to_series),
+                                onClick = onClickAddToSeries,
+                            ),
+                        )
+                    }
+                    if (onClickSplitOut != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_split_out_volume),
+                                onClick = onClickSplitOut,
                             ),
                         )
                     }

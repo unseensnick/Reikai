@@ -1,5 +1,6 @@
 package reikai.presentation.details
 
+import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,5 +33,6 @@ fun noVolumePicking() = VolumePicking(
     },
     NoLocalVolumes,
     { _, _, _ -> null },
+    mockk(relaxed = true),
     CoroutineScope(Dispatchers.Unconfined),
 )

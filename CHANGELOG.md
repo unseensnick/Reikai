@@ -24,7 +24,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** A picture named cover or folder is the volume's cover, and other loose pictures read as an Extras chapter.
 - **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows the volume's cover and how much of it is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
 - **A local series' volumes can be put in reading order and renamed from ⋮ -> Reorder volumes.** Chapters sorted by source are read in the new order; backups keep it.
-- **Local series of one type can be combined into one series with volumes from a library selection, keeping their read progress.** Combine as volumes takes Merge's place for an all-local selection, with Merge under ⋮.
+- **Local series can be combined into one series with volumes, and a volume split back out, keeping read progress and offering Undo.** Combine as volumes takes Merge's place for an all-local library selection; a series' ⋮ menu has Add to series and Split out a volume.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
 #### Fixed
