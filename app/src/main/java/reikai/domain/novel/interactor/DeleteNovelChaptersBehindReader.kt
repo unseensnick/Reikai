@@ -1,7 +1,10 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
+import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.CopyMark
 import reikai.domain.download.NovelRemovableDownloads
+import reikai.domain.library.ContentType
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.expandToUnits
 import reikai.domain.novel.NovelChapterRepository
@@ -31,6 +34,7 @@ class DeleteNovelChaptersBehindReader(
     private val chapterRepository: NovelChapterRepository,
     private val pendingDeleter: NovelDownloadPendingDeleter,
     private val libraryPreferences: LibraryPreferences,
+    private val copyMarks: ChapterCopyMarkRepository,
 ) {
 
     /** [orderedIds] is the session's reading order, so the slots count positions the user actually
@@ -55,6 +59,7 @@ class DeleteNovelChaptersBehindReader(
             stitch,
             libraryPreferences,
             incognito,
+            copyMarks.marks(ContentType.NOVELS).value,
         )
             .map { it.copy(read = true) }
         val removable = removableDownloads(listOf(target) + duplicates)
@@ -79,6 +84,7 @@ internal suspend fun NovelChapterRepository.duplicatesOfFinished(
     stitch: List<ChapterUnit>,
     libraryPreferences: LibraryPreferences,
     incognito: ChapterIncognito,
+    marks: Map<Long, Map<String, CopyMark>>,
 ): List<NovelChapter> {
     val markDuplicates = libraryPreferences.markDuplicateReadChapterAsRead.get()
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
@@ -91,5 +97,6 @@ internal suspend fun NovelChapterRepository.duplicatesOfFinished(
         idOf = { it.id },
         originOf = { it.scanlator },
         ownerOf = { it.novelId },
+        markOf = { marks[it.novelId]?.get(it.url) },
     ).filterNot { incognito.of(it.novelId) }
 }

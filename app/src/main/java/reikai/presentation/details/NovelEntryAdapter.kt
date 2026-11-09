@@ -8,7 +8,6 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.flow.StateFlow
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
-import reikai.domain.chapter.duplicateCopyCounts
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
@@ -59,23 +58,22 @@ internal fun NovelChapter.toEntryChapter(
 class NovelEntryAdapter(
     private val model: NovelDetailsViewModel,
     private val coverViewModelFactory: NovelCoverViewModel.Factory,
-    /** Whether to mark the chapters skip-duplicate folds together (the setting and the rule both on). */
-    showDuplicates: StateFlow<Boolean>,
+    override val duplicateMarking: DuplicateMarking,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
-        model.neutralDetailsState(model.state, showDuplicates) { state, show -> state.toNeutral(show) }
+        model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override val downloadProgress = EntryDownloadProgress.Unsupported
 
-    private fun NovelDetailsState.toNeutral(showDuplicates: Boolean): EntryDetailsScreenState = when (this) {
+    private fun NovelDetailsState.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
         is NovelDetailsState.Failed -> EntryDetailsScreenState.Failed(message)
-        is NovelDetailsState.Loaded -> toNeutralLoaded(showDuplicates)
+        is NovelDetailsState.Loaded -> toNeutralLoaded(marks)
     }
 
-    private fun NovelDetailsState.Loaded.toNeutralLoaded(showDuplicates: Boolean): EntryDetailsScreenState.Loaded {
+    private fun NovelDetailsState.Loaded.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
         val sibling = displayNovel.takeIf { it.id != novel.id }
         val display = shownNovel(novel, sibling, customInfo, chipCustomInfo)
         return EntryDetailsScreenState.Loaded(
@@ -110,16 +108,16 @@ class NovelEntryAdapter(
                 // every row and say nothing.
                 undatedChapterDate = UndatedChapterDate.Blank,
                 // The arguments the reader's skip-duplicate rule takes (NovelReaderViewModel)
-                duplicateCopies = if (showDuplicates) {
-                    chapters.duplicateCopyCounts(
+                duplicates = marks?.let {
+                    chapters.duplicateMarks(
+                        it,
                         numberOf = { it.chapterNumber },
                         nameOf = { it.name },
                         originOf = { it.scanlator },
                         ownerOf = { it.novelId },
+                        urlOf = { it.url },
                         idOf = { it.id },
                     )
-                } else {
-                    emptyMap()
                 },
             ),
             capabilities = EntryCapabilities(
@@ -252,6 +250,12 @@ class NovelEntryAdapter(
     }
 
     private fun loadedState(): NovelDetailsState.Loaded? = model.state.value as? NovelDetailsState.Loaded
+
+    override fun selectedMarkable(): List<MarkableChapter> {
+        val loaded = loadedState() ?: return emptyList()
+        val ids = EntrySelection.selectedAmong(loaded.selection, loaded.chapters.map { it.id })
+        return loaded.chapters.filter { it.id in ids }.map { MarkableChapter(it.novelId, it.url) }
+    }
     override fun showEditInfoDialog() {
         model.showEditNovelInfoDialog()
     }

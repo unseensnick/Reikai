@@ -30,6 +30,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -176,6 +177,7 @@ class BackupCustomInfoConformanceTest {
                     getManga = mockk(),
                     mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = NoReadingLog,
                 ),
                 preferenceBackupCreator = mockk(relaxed = true),
@@ -213,6 +215,7 @@ class BackupCustomInfoConformanceTest {
                         },
                     ),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,
@@ -364,6 +367,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             setCustomNovelInfo = SetCustomNovelInfo(repository),
             novelHistoryRepository = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            copyMarks = InMemoryChapterCopyMarks(),
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,

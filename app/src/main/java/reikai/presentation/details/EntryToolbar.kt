@@ -4,6 +4,7 @@ import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,6 +68,8 @@ fun EntryToolbar(
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
     onCorrectChapterNumber: (() -> Unit)? = null,
+    // Corrections to the duplicate rule, non-null only while the list shows duplicates.
+    copyMarkActions: CopyMarkActions? = null,
     actionModeCounter: Int,
     onCancelActionMode: () -> Unit,
     onSelectAll: () -> Unit,
@@ -151,6 +154,30 @@ fun EntryToolbar(
                                 AppBar.OverflowAction(
                                     title = stringResource(MR.strings.action_correct_chapter_number),
                                     onClick = onCorrectChapterNumber,
+                                ),
+                            )
+                        }
+                        copyMarkActions?.neverSkip?.let {
+                            add(
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.action_never_skip),
+                                    onClick = it,
+                                ),
+                            )
+                        }
+                        copyMarkActions?.markAsCopies?.let {
+                            add(
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.action_mark_as_copies),
+                                    onClick = it,
+                                ),
+                            )
+                        }
+                        copyMarkActions?.clear?.let {
+                            add(
+                                AppBar.OverflowAction(
+                                    title = stringResource(MR.strings.action_clear_copy_mark),
+                                    onClick = it,
                                 ),
                             )
                         }
@@ -312,3 +339,11 @@ fun EntryToolbar(
         onCancelActionMode = onCancelActionMode,
     )
 }
+
+/** The selection's corrections to the duplicate rule; each is null where it would change nothing. */
+@Immutable
+data class CopyMarkActions(
+    val neverSkip: (() -> Unit)?,
+    val markAsCopies: (() -> Unit)?,
+    val clear: (() -> Unit)?,
+)

@@ -19,7 +19,6 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
@@ -147,7 +146,7 @@ class UnifiedViewMemberConformanceTest {
             sourceManager = sources,
         ).also { store.put("manga", it) }
         try {
-            return MangaEntryAdapter(model, mockk(relaxed = true), MutableStateFlow(false)).settled().shown(ids)
+            return MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking()).settled().shown(ids)
         } finally {
             // The model reads on the real IO dispatcher, so it stops before the database closes.
             val job = model.viewModelScope.coroutineContext.job
@@ -170,7 +169,7 @@ class UnifiedViewMemberConformanceTest {
             NovelEntryAdapter(
                 harness.openDetails(ids[opened]),
                 mockk(relaxed = true),
-                MutableStateFlow(false),
+                noDuplicateMarking(),
             ).settled().shown(ids)
         }
 

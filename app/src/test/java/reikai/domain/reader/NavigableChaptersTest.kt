@@ -30,6 +30,7 @@ class NavigableChaptersTest {
         idOf = { it.id },
         originOf = { it.origin },
         ownerOf = { 1L },
+        markOf = { null },
     )
 
     /** Where a forward step from [from] lands, as both readers walk the list this returns. */

@@ -1,0 +1,19 @@
+-- Never skip and hand-made copy groups for the duplicate-chapter rule (chapter_copy_mark.sq). Empty on
+-- upgrade: a chapter gains a row when the user marks it.
+CREATE TABLE manga_chapter_copy_mark(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    copy_group INTEGER,
+    PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_copy_mark(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    copy_group INTEGER,
+    PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);

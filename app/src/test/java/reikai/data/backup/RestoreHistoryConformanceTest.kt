@@ -24,6 +24,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -202,6 +203,7 @@ class RestoreHistoryConformanceTest {
                     setCustomNovelInfo = mockk(relaxed = true),
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = ReadingPaceRepositoryImpl(database),
                     localNovelLanguages = NoLocalNovelLanguages,

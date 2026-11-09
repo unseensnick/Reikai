@@ -16,7 +16,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -34,6 +39,7 @@ import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import reikai.domain.chapter.CopyMark
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
@@ -119,28 +125,49 @@ fun EntryDetailsContent(
 ) {
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val libraryNav = nav.forState(state)
+    var onlyCopies by rememberSaveable { mutableStateOf(false) }
+    val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
+        onlyCopies = !onlyCopies
+    }
+    val shown = if (copies.on) state.withOnlyCopies() else state
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
-            state,
+            shown,
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
             libraryNav,
             web,
+            copies,
         )
     } else {
         EntryDetailsSmallContent(
             behavior,
-            state,
+            shown,
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
             libraryNav,
             web,
+            copies,
         )
     }
 }
+
+/** Whether the list shows only chapters with copies, from the duplicate count under the chapter header. */
+@Immutable
+private data class CopiesFilter(val on: Boolean, val toggle: () -> Unit)
+
+// Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
+// chapter stays too, so a Never skip can be found and cleared.
+private fun EntryDetailsScreenState.Loaded.withOnlyCopies() = copy(
+    chapters = chapters.copy(
+        items = chapters.items.filterIsInstance<EntryChapterListItem.Chapter>()
+            .filter { chapters.duplicates?.run { it.id in copies || it.id in marks } == true }
+            .groupBy { it.chapterNumber }.values.flatten(),
+    ),
+)
 
 /** [this] with the actions that only act on a library entry dropped while [state]'s entry is outside it. */
 internal fun EntryDetailsNavigation.forState(state: EntryDetailsScreenState.Loaded) = copy(
@@ -164,6 +191,7 @@ private fun EntryDetailsSmallContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
+    copies: CopiesFilter,
 ) {
     val listState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -199,7 +227,7 @@ private fun EntryDetailsSmallContent(
         if (state.isMerged) mergeSourceChipsItem(state, behavior)
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
-        chapterHeaderItem(state, nav)
+        chapterHeaderItem(state, nav, copies)
         entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
     }
 }
@@ -213,6 +241,7 @@ private fun EntryDetailsLargeContent(
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
+    copies: CopiesFilter,
 ) {
     val chapterListState = rememberLazyListState()
     val haptic = LocalHapticFeedback.current
@@ -250,7 +279,7 @@ private fun EntryDetailsLargeContent(
         endContent = {
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
-            chapterHeaderItem(state, nav)
+            chapterHeaderItem(state, nav, copies)
             entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
         },
     )
@@ -296,6 +325,22 @@ private fun EntryDetailsToolbar(
         onUnhide = behavior::unhideSelected,
         onToggleShowHidden = behavior::toggleShowHidden,
         onCorrectChapterNumber = { behavior.showChapterNumberDialog() }.takeIf { state.selection.size == 1 },
+        copyMarkActions = state.chapters.duplicates?.let { duplicates ->
+            val selectedMarks = state.selection.map { duplicates.marks[it] }
+
+            // Each closes the selection afterwards, as Hide does.
+            fun onSelected(write: DuplicateMarking.(List<MarkableChapter>) -> Unit) = {
+                behavior.duplicateMarking.write(behavior.selectedMarkable())
+                behavior.clearSelection()
+            }
+            CopyMarkActions(
+                neverSkip = onSelected(DuplicateMarking::neverSkip).takeIf {
+                    selectedMarks.any { it != CopyMark.NeverSkip }
+                },
+                markAsCopies = onSelected(DuplicateMarking::markAsCopies).takeIf { state.selection.size > 1 },
+                clear = onSelected(DuplicateMarking::clear).takeIf { selectedMarks.any { it != null } },
+            )
+        },
         showHidden = state.chapters.showHidden,
         hasHiddenChapters = state.chapters.hasHiddenChapters,
         allHiddenSelected = state.chapters.showHidden && state.selection.isNotEmpty() &&
@@ -422,6 +467,7 @@ private fun LazyListScope.pagePreviewsItem(
 private fun LazyListScope.chapterHeaderItem(
     state: EntryDetailsScreenState.Loaded,
     nav: EntryDetailsNavigation,
+    copies: CopiesFilter,
 ) {
     item(key = "entry-chapter-header") {
         Column {
@@ -432,12 +478,19 @@ private fun LazyListScope.chapterHeaderItem(
                 onClick = nav.onOpenFilterSettings,
             )
             // Only with "Show duplicate chapters the reader skips" on, so the rule's work is visible at a glance.
-            state.chapters.duplicateCopies.size.takeIf { it > 0 }?.let { count ->
+            state.chapters.duplicates?.copies?.size?.takeIf { it > 0 }?.let { count ->
+                val action = MR.strings.run {
+                    if (copies.on) chapter_duplicate_show_all else chapter_duplicate_show_only
+                }
                 Text(
-                    text = stringResource(MR.strings.chapter_duplicate_copies_count, count),
+                    text = stringResource(MR.strings.chapter_duplicate_copies_count, count) + " • " +
+                        stringResource(action),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
-                    modifier = Modifier.padding(horizontal = 16.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable(enabled = !state.selectionMode, onClick = copies.toggle)
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
                 )
             }
             // A paged novel's page bar sits under the header, opening the page selector. The
@@ -497,7 +550,7 @@ private fun LazyListScope.entryChapterItems(
                     ),
                     date = chapterRowDate(chapter.dateUpload, state.chapters.undatedChapterDate),
                     readProgress = readProgressLabel(chapter.progress),
-                    scanlator = duplicateSubtitle(chapter.subtitle, state.chapters.duplicateCopies[chapter.id]),
+                    scanlator = duplicateSubtitle(chapter.subtitle, chapter.id, state.chapters.duplicates),
                     read = chapter.read,
                     bookmark = chapter.bookmark,
                     selected = isSelected,
@@ -571,7 +624,12 @@ private fun NovelPageBar(
 
 /** A row's subtitle with the number of copies skip-duplicate folds it into, when the list shows them. */
 @Composable
-private fun duplicateSubtitle(subtitle: String?, copies: Int?): String? =
-    listOfNotNull(subtitle, copies?.let { stringResource(MR.strings.chapter_duplicate_copies, it) })
-        .joinToString(" • ")
-        .ifEmpty { null }
+private fun duplicateSubtitle(subtitle: String?, chapterId: Long, duplicates: DuplicateMarks?): String? {
+    val mark = when (duplicates?.marks?.get(chapterId)) {
+        CopyMark.NeverSkip -> stringResource(MR.strings.chapter_never_skip)
+        is CopyMark.Group -> stringResource(MR.strings.chapter_marked_copy)
+        null -> null
+    }
+    val copies = duplicates?.copies?.get(chapterId)?.let { stringResource(MR.strings.chapter_duplicate_copies, it) }
+    return listOfNotNull(subtitle, copies, mark).joinToString(" • ").ifEmpty { null }
+}

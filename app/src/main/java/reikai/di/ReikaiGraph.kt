@@ -19,6 +19,7 @@ import mihon.core.migration.migrations.MergedDuplicateCarryMigration
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.entry.ResetEntryViewerFlags
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -114,6 +115,7 @@ interface ReikaiGraph {
     val kitsuEntryIdCopies: KitsuEntryIdCopies // Kitsu heals every copy of a Yokai-restored row
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
+    val chapterCopyMarks: ChapterCopyMarkRepository
 
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata

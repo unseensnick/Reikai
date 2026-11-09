@@ -26,6 +26,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.ChapterNumberOverride
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -151,6 +152,7 @@ class ChapterNumberOverrideBackupTest {
                         getManga = mockk(),
                         mergeGroupRepository = mockk(),
                         chapterNumberOverrides = overrides,
+                        copyMarks = InMemoryChapterCopyMarks(),
                         readingLog = NoReadingLog,
                     ).chapters(listOf(Manga.create().copy(id = 1) to backup))
                 }.chapters.single().let { it.chapterNumber.toDouble() to it.sourceChapterNumber }
@@ -193,6 +195,7 @@ class ChapterNumberOverrideBackupTest {
                         novelHistoryRepository = mockk(),
                         novelSourceManager = mockk(),
                         chapterNumberOverrides = overrides,
+                        copyMarks = InMemoryChapterCopyMarks(),
                         readingLog = NoReadingLog,
                         readingPace = NoReadingPace,
                         localNovelLanguages = NoLocalNovelLanguages,
@@ -210,6 +213,7 @@ class ChapterNumberOverrideBackupTest {
                     setCustomNovelInfo = mockk(relaxed = true),
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,

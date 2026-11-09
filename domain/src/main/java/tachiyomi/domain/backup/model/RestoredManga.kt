@@ -2,6 +2,7 @@ package tachiyomi.domain.backup.model
 
 import exh.metadata.metadata.base.FlatMetadata
 import reikai.domain.chapter.ChapterNumberOverride
+import reikai.domain.chapter.CopyMark
 import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.CustomMangaInfo
@@ -22,6 +23,8 @@ data class RestoredManga(
     val customInfo: CustomMangaInfo? = null,
     // The chapter numbers the user corrected, keyed by url, which land after the chapters do.
     val chapterNumberOverrides: List<ChapterNumberOverride> = emptyList(),
+    // The user's corrections to the duplicate rule, keyed by url, which land after the chapters do.
+    val copyMarks: Map<String, CopyMark> = emptyMap(),
     // The reading log's sessions, keyed by url, which land after the chapters do.
     val readingSessions: List<UrlReadingSession> = emptyList(),
     // The entry's places in Manual library orders, as this device's (category id, position).

@@ -35,6 +35,8 @@ class BackupChapter(
     // RK: the source's own number when the user corrected it, the corrected one being chapterNumber, so
     // a restore keeps the correction and clearing it still finds the source's number. Null when uncorrected.
     @ProtoNumber(701) var sourceChapterNumber: Double? = null,
+    // RK: the user's correction to the duplicate rule (CopyMark.toBackupValue), null when unmarked.
+    @ProtoNumber(702) var copyMark: Long? = null,
 ) {
     fun toChapterImpl(): Chapter {
         return Chapter.create().copy(

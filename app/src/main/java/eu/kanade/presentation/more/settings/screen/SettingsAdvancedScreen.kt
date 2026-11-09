@@ -6,6 +6,8 @@ import android.content.Intent
 import android.provider.Settings
 import android.webkit.WebStorage
 import android.webkit.WebView
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts.CreateDocument
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -52,6 +54,7 @@ import kotlinx.coroutines.launch
 import logcat.LogPriority
 import mihon.app.di.appGraph
 import okhttp3.Headers
+import reikai.data.chapter.writeCopyMarkReport
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.bypassPreferenceItems
@@ -338,6 +341,19 @@ object SettingsAdvancedScreen : SearchableSettings {
         // Their database work runs off the main thread and finishes if the screen is left
         val appScope = remember { graph.appCoroutineScope }
         val appContext = context.applicationContext
+        val exportCopyMarks = rememberLauncherForActivityResult(CreateDocument("application/json")) { uri ->
+            if (uri == null) return@rememberLauncherForActivityResult
+            appScope.launchIO {
+                val count = writeCopyMarkReport(
+                    appContext,
+                    uri,
+                    graph.chapterCopyMarks,
+                    graph.sourceManager,
+                    graph.novelSourceManager,
+                )
+                withUIContext { appContext.toast(appContext.stringResource(MR.strings.copy_marks_exported, count)) }
+            }
+        }
         // RK <--
 
         return Preference.PreferenceGroup(
@@ -367,6 +383,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                     preference = graph.reikaiLibraryPreferences.showSkippedDuplicates,
                     title = stringResource(MR.strings.pref_show_skipped_duplicates),
                     subtitle = stringResource(MR.strings.pref_show_skipped_duplicates_summary),
+                ),
+                // RK: the user's Never skip and copy marks, saved as a file to attach to a report on the rule
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_export_copy_marks),
+                    subtitle = stringResource(MR.strings.pref_export_copy_marks_summary),
+                    onClick = { exportCopyMarks.launch("reikai-duplicate-marks.json") },
                 ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.updateMangaTitles,

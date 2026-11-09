@@ -14,6 +14,7 @@ import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.backup.RestoredChapterHistory
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -104,6 +105,7 @@ class BackupDatesConformanceTest {
                     getManga = mockk(relaxed = true),
                     mergeGroupRepository = mockk(relaxed = true),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = NoReadingLog,
                 )
                 val batch = listOf(manga to creator.base(listOf(manga)).single())
@@ -167,6 +169,7 @@ class BackupDatesConformanceTest {
                     },
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
+                    copyMarks = InMemoryChapterCopyMarks(),
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,

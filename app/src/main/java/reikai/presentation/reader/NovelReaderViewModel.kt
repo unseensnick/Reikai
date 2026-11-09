@@ -45,6 +45,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.novel.tts.SystemTtsEngine
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.offersDownload
 import reikai.domain.download.rowDownloadChapters
@@ -152,6 +153,7 @@ class NovelReaderViewModel(
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val upsertNovelHistory: UpsertNovelHistory,
     private val readingLog: ReadingLogRepository,
+    private val copyMarks: ChapterCopyMarkRepository,
     private val setNovelReadStatus: SetNovelReadStatus,
     // The shared "mark duplicate read" pref, for marking a merged novel's copies of a finished chapter
     // read (parity with the manga reader).
@@ -308,6 +310,7 @@ class NovelReaderViewModel(
         trackNovelChapter = trackNovelChapter,
         trackedChapterNumber = trackedChapterNumber,
         incognito = incognito,
+        copyMarks = copyMarks,
         scope = appScope,
         context = context,
     )
@@ -1311,6 +1314,7 @@ class NovelReaderViewModel(
         isForwardEligible: (NovelChapter) -> Boolean,
     ): List<NovelChapter> {
         val isHidden = getNextNovelChapter.hiddenAmong(chapters)
+        val marks = copyMarks.marks(ContentType.NOVELS).value
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(
             current,
@@ -1323,6 +1327,7 @@ class NovelReaderViewModel(
             idOf = { it.id },
             originOf = { it.scanlator },
             ownerOf = { it.novelId },
+            markOf = { chapter -> marks[chapter.novelId]?.get(chapter.url) },
         )
     }
 

@@ -8,33 +8,38 @@ import kotlin.math.floor
  * each set's first member. Copies share an entry ([ownerOf]) and a recognised number, write that number
  * as the chapter's own, name the same volume when both name one, and come from different scanlators or
  * carry matching titles. A shared number alone is not enough: "Interlude 1" is no copy of "Chapter 1".
- * The rule and the libraries it was measured on are in docs/dev/subsystems/reader.md, "Duplicate chapters".
+ * [markOf] overrides the rule by hand: [CopyMark.NeverSkip] stands alone, and one entry's chapters in one
+ * [CopyMark.Group] are copies whatever their numbers. The rule is in docs/dev/subsystems/reader.md.
  */
 fun <T> List<T>.chapterCopySets(
     numberOf: (T) -> Double,
     nameOf: (T) -> String,
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
+    markOf: (T) -> CopyMark? = { null },
 ): List<List<T>> {
-    val sets = mutableListOf<List<T>>()
-    groupBy { ownerOf(it) to numberOf(it) }.values.forEach { sameNumber ->
-        val number = numberOf(sameNumber.first())
-        if (sameNumber.size == 1 || !isRecognizedChapterNumber(number)) {
-            sameNumber.forEach { sets += listOf(it) }
-            return@forEach
-        }
-        val written = sameNumber.map { WrittenChapter(nameOf(it), number, originOf(it)) }
-        val root = IntArray(sameNumber.size) { it }
-        fun find(i: Int): Int = if (root[i] == i) i else find(root[i]).also { root[i] = it }
-        for (i in sameNumber.indices) {
-            for (j in i + 1 until sameNumber.size) {
-                if (written[i].isCopyOf(written[j])) root[find(j)] = find(i)
+    val marks = map(markOf)
+    val root = IntArray(size) { it }
+    fun find(i: Int): Int = if (root[i] == i) i else find(root[i]).also { root[i] = it }
+    fun join(i: Int, j: Int) {
+        root[find(j)] = find(i)
+    }
+    indices.filter { marks[it] != CopyMark.NeverSkip }
+        .groupBy { ownerOf(this[it]) to numberOf(this[it]) }.values.forEach { sameNumber ->
+            val number = numberOf(this[sameNumber.first()])
+            if (sameNumber.size == 1 || !isRecognizedChapterNumber(number)) return@forEach
+            val written = sameNumber.map { WrittenChapter(nameOf(this[it]), number, originOf(this[it])) }
+            for (a in sameNumber.indices) {
+                for (b in a + 1 until sameNumber.size) {
+                    if (written[a].isCopyOf(written[b])) join(sameNumber[a], sameNumber[b])
+                }
             }
         }
-        sameNumber.indices.groupBy(::find).values.forEach { members -> sets += members.map(sameNumber::get) }
-    }
-    val firstIndex = withIndex().associate { (index, chapter) -> chapter to index }
-    return sets.sortedBy { set -> set.minOf { firstIndex.getValue(it) } }
+    indices.filter { marks[it] is CopyMark.Group }
+        .groupBy { ownerOf(this[it]) to marks[it] }.values
+        .forEach { grouped -> grouped.drop(1).forEach { join(grouped.first(), it) } }
+    // Grouping by root in index order keeps each set in list order and the sets in first-member order.
+    return indices.groupBy(::find).values.map { members -> members.map { this[it] } }
 }
 
 /** What a chapter's name says about the number it is stored under, read once per same-numbered set. */
@@ -131,8 +136,9 @@ fun <T> List<T>.duplicateCopyCounts(
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
     idOf: (T) -> Long,
+    markOf: (T) -> CopyMark?,
 ): Map<Long, Int> =
-    chapterCopySets(numberOf, nameOf, originOf, ownerOf)
+    chapterCopySets(numberOf, nameOf, originOf, ownerOf, markOf)
         .filter { it.size > 1 }
         .flatMap { copies -> copies.map { idOf(it) to copies.size } }
         .toMap()

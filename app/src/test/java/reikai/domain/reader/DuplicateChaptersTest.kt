@@ -2,6 +2,7 @@ package reikai.domain.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.CopyMark
 
 /**
  * The one skip-duplicate rule both readers now run. The novel reader used to step over duplicates while
@@ -17,6 +18,7 @@ class DuplicateChaptersTest {
         val owner: Long = 1L,
         val eligible: Boolean = true,
         val name: String = "Chapter $number",
+        val mark: CopyMark? = null,
     )
 
     private fun List<Ch>.dedup(current: Ch) = removeDuplicateChapters(
@@ -27,6 +29,7 @@ class DuplicateChaptersTest {
         idOf = { it.id },
         originOf = { it.origin },
         ownerOf = { it.owner },
+        markOf = { it.mark },
     )
 
     private val a1 = Ch(id = 1, number = 1.0, origin = "alpha")
@@ -37,6 +40,17 @@ class DuplicateChaptersTest {
     @Test
     fun `each chapter number survives exactly once`() {
         listOf(a1, b1, a2, b2).dedup(a1).map { it.number } shouldBe listOf(1.0, 2.0)
+    }
+
+    @Test
+    fun `a copy marked Never skip is kept beside the copy the reader keeps`() {
+        listOf(a1, b1.copy(mark = CopyMark.NeverSkip), a2).dedup(a1).map { it.id } shouldBe listOf(1L, 2L, 3L)
+    }
+
+    @Test
+    fun `chapters marked as copies fold into one whatever their numbers`() {
+        val misnumbered = Ch(id = 5, number = 21.0, origin = "beta", mark = CopyMark.Group(1L))
+        listOf(a2.copy(mark = CopyMark.Group(1L)), misnumbered).dedup(a1).map { it.id } shouldBe listOf(3L)
     }
 
     @Test

@@ -2,6 +2,7 @@ package reikai.domain.reader
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.CopyMark
 
 /**
  * What finishing a chapter marks read with it. Within one entry the number decides, as upstream does,
@@ -9,7 +10,13 @@ import org.junit.jupiter.api.Test
  */
 class DuplicatesOfReadTest {
 
-    private data class Ch(val id: Long, val number: Double, val owner: Long = 1L, val name: String = "Chapter $number")
+    private data class Ch(
+        val id: Long,
+        val number: Double,
+        val owner: Long = 1L,
+        val name: String = "Chapter $number",
+        val mark: CopyMark? = null,
+    )
 
     private fun List<Ch>.duplicatesOf(read: Ch, stitchCopies: Set<Long> = emptySet()) = duplicatesOfRead(
         read,
@@ -19,11 +26,24 @@ class DuplicatesOfReadTest {
         idOf = { it.id },
         originOf = { null },
         ownerOf = { it.owner },
+        markOf = { it.mark },
     ).map { it.id }
 
     private val alphaFive = Ch(id = 1, number = 5.0)
     private val betaFive = Ch(id = 2, number = 5.0)
     private val six = Ch(id = 3, number = 6.0)
+
+    @Test
+    fun `a chapter marked as a copy is marked read with it whatever its number`() {
+        val five = alphaFive.copy(mark = CopyMark.Group(1L))
+        val misnumbered = Ch(id = 4, number = 50.0, mark = CopyMark.Group(1L))
+        listOf(five, six, misnumbered).duplicatesOf(five) shouldBe listOf(4L)
+    }
+
+    @Test
+    fun `a copy marked Never skip is not marked read with the copy finished`() {
+        listOf(alphaFive, betaFive.copy(mark = CopyMark.NeverSkip), six).duplicatesOf(alphaFive) shouldBe emptyList()
+    }
 
     @Test
     fun `another scanlator's copy in the same entry is marked with it`() {

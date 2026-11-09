@@ -1,5 +1,6 @@
 package reikai.domain.reader
 
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.chapterCopySets
 
 /**
@@ -18,10 +19,11 @@ fun <T> List<T>.removeDuplicateChapters(
     idOf: (T) -> Long,
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
+    markOf: (T) -> CopyMark?,
 ): List<T> {
     val currentId = idOf(current)
     val currentOrigin = originOf(current)
-    val kept = chapterCopySets(numberOf, nameOf, originOf, ownerOf).mapTo(HashSet()) { copies ->
+    val kept = chapterCopySets(numberOf, nameOf, originOf, ownerOf, markOf).mapTo(HashSet()) { copies ->
         val chosen = copies.find { idOf(it) == currentId } ?: run {
             val best = copies.minOf(rank)
             val ranked = copies.filter { rank(it) == best }
@@ -34,8 +36,8 @@ fun <T> List<T>.removeDuplicateChapters(
 
 /**
  * What finishing [read] also marks read under "mark duplicate read chapter as read", [read] excluded.
- * Within its own entry that is [read]'s copies by [chapterCopySets], which is how another scanlator's
- * copy is reached. Across a merge group a number identifies nothing, so there only [stitchCopies], the
+ * Within its own entry that is [read]'s copies by [chapterCopySets], marks included, which is how
+ * another scanlator's copy is reached. Across a merge group a number identifies nothing, so there only [stitchCopies], the
  * chapters the stored stitch places with [read], count.
  */
 fun <T> List<T>.duplicatesOfRead(
@@ -46,14 +48,14 @@ fun <T> List<T>.duplicatesOfRead(
     idOf: (T) -> Long,
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
+    markOf: (T) -> CopyMark?,
 ): List<T> {
     val readId = idOf(read)
     val readOwner = ownerOf(read)
-    // Narrowed to Float: a source-reported number is a float, a parsed one a double, and both must match.
-    val readNumber = numberOf(read).toFloat()
-    val sameNumber = filter { ownerOf(it) == readOwner && numberOf(it).toFloat() == readNumber }
-    val copies = (sameNumber + read).distinctBy(idOf)
-        .chapterCopySets({ readNumber.toDouble() }, nameOf, originOf, ownerOf)
+    // The whole entry, since a hand-made group joins chapters of other numbers. Narrowed to Float: a
+    // source-reported number is a float, a parsed one a double, and both must match.
+    val copies = (filter { ownerOf(it) == readOwner } + read).distinctBy(idOf)
+        .chapterCopySets({ numberOf(it).toFloat().toDouble() }, nameOf, originOf, ownerOf, markOf)
         .first { set -> set.any { idOf(it) == readId } }
         .mapTo(HashSet(), idOf)
     return filter { idOf(it) != readId && (idOf(it) in stitchCopies || idOf(it) in copies) }
@@ -86,6 +88,7 @@ fun <T> List<T>.navigableChapters(
     idOf: (T) -> Long,
     originOf: (T) -> String?,
     ownerOf: (T) -> Long,
+    markOf: (T) -> CopyMark?,
 ): List<T> {
     val shown = filter { idOf(it) == idOf(current) || !isHidden(it) }
     if (!skipDuplicates) return shown
@@ -94,5 +97,5 @@ fun <T> List<T>.navigableChapters(
         val offDisk = downloadedOnlyIds != null && idOf(chapter) !in downloadedOnlyIds
         (if (offDisk) 2 else 0) + (if (isForwardEligible(chapter)) 0 else 1)
     }
-    return shown.removeDuplicateChapters(current, rank, numberOf, nameOf, idOf, originOf, ownerOf)
+    return shown.removeDuplicateChapters(current, rank, numberOf, nameOf, idOf, originOf, ownerOf, markOf)
 }

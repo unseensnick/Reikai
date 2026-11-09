@@ -42,6 +42,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.EditChapterNumber
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
@@ -134,6 +135,10 @@ class NovelReaderViewModelHarness private constructor(
     private val database = DatabaseBindings.providesDatabase(driver)
     private val novelRepo = NovelRepositoryImpl(database)
     private val chapterRepo = NovelChapterRepositoryImpl(database)
+
+    /** The Never skip and copy groups the reader reads; a test sets them before opening. */
+    val copyMarks = InMemoryChapterCopyMarks()
+
     private val groups = MergeGroupRepositoryImpl(database)
     private val units = MergedChapterUnitRepositoryImpl(database)
     val numberOverrides = ChapterNumberOverrideRepositoryImpl(database)
@@ -375,6 +380,7 @@ class NovelReaderViewModelHarness private constructor(
             downloadManagerProvider = { downloadManager },
             upsertNovelHistory = UpsertNovelHistory(history),
             readingLog = NoReadingLog,
+            copyMarks = copyMarks,
             setNovelReadStatus = setNovelReadStatus(),
             libraryPreferences = libraryPreferences,
             // The tracker network.
@@ -404,6 +410,7 @@ class NovelReaderViewModelHarness private constructor(
                     every { addChapters(any()) } answers { pendingDeletes += firstArg<List<NovelChapter>>() }
                 },
                 libraryPreferences,
+                copyMarks,
             ),
             // Only the Downloaded only switch; BasePreferences itself cannot be built on the JVM.
             basePreferences = mockk<BasePreferences> {

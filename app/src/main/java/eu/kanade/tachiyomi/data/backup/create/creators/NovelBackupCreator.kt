@@ -25,7 +25,9 @@ import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
@@ -56,6 +58,7 @@ class NovelBackupCreator(
     private val novelHistoryRepository: NovelHistoryRepository,
     private val novelSourceManager: NovelSourceManager,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val copyMarks: ChapterCopyMarkRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
@@ -100,11 +103,17 @@ class NovelBackupCreator(
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
+        val marksByNovelId = copyMarks.marks(ContentType.NOVELS).value
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
+            val marks = marksByNovelId[entry.id].orEmpty()
             backup.chapters = chapters.map {
-                it.toBackupNovelChapter(sourceNumber = overrides[it.url]?.sourceNumber, words = wordsByChapterId[it.id])
+                it.toBackupNovelChapter(
+                    sourceNumber = overrides[it.url]?.sourceNumber,
+                    words = wordsByChapterId[it.id],
+                    copyMark = marks[it.url]?.toBackupValue(),
+                )
             }
         }
     }
@@ -191,21 +200,23 @@ private fun Novel.toBackupNovel() = BackupNovel(
     nextUpdate = this.nextUpdate.toEpochMillisOrZero(),
 )
 
-private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?, words: Long?) = BackupNovelChapter(
-    url = this.url,
-    name = this.name,
-    read = this.read,
-    bookmark = this.bookmark,
-    lastTextProgress = this.lastTextProgress,
-    chapterNumber = this.chapterNumber,
-    sourceOrder = this.sourceOrder,
-    dateFetch = this.dateFetch.toEpochMilliseconds(),
-    dateUpload = this.dateUpload.toEpochMillisOrZero(),
-    page = this.page,
-    scanlator = this.scanlator,
-    sourceChapterNumber = sourceNumber,
-    words = words ?: 0,
-)
+private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?, words: Long?, copyMark: Long?) =
+    BackupNovelChapter(
+        url = this.url,
+        name = this.name,
+        read = this.read,
+        bookmark = this.bookmark,
+        lastTextProgress = this.lastTextProgress,
+        chapterNumber = this.chapterNumber,
+        sourceOrder = this.sourceOrder,
+        dateFetch = this.dateFetch.toEpochMilliseconds(),
+        dateUpload = this.dateUpload.toEpochMillisOrZero(),
+        page = this.page,
+        scanlator = this.scanlator,
+        sourceChapterNumber = sourceNumber,
+        words = words ?: 0,
+        copyMark = copyMark,
+    )
 
 private fun NovelTrack.toBackupNovelTracking() = BackupNovelTracking(
     trackerId = this.trackerId,

@@ -32,7 +32,10 @@ import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
+import reikai.domain.chapter.ChapterCopyMark
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomNovelInfo
 import reikai.domain.library.ContentType
@@ -67,6 +70,7 @@ class NovelRestorer(
     private val setCustomNovelInfo: SetCustomNovelInfo,
     private val novelHistoryRepository: NovelHistoryRepository,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val copyMarks: ChapterCopyMarkRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
@@ -108,6 +112,11 @@ class NovelRestorer(
             ContentType.NOVELS,
             novelId,
             backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
+        )
+        copyMarks.set(
+            ContentType.NOVELS,
+            backedUpCopyMarks(backupNovel.chapters, { it.url }, { it.copyMark })
+                .map { (url, mark) -> ChapterCopyMark(novelId, url, mark) },
         )
         // Predicted from the restored chapters, keeping a next update still ahead, as manga's restore does.
         novelRepository.getById(novelId)?.let { stored ->

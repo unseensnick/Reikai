@@ -80,6 +80,8 @@ import kotlinx.coroutines.runBlocking
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import mihon.data.cache.ChapterCache
+import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.download.rowDownloadChapters
@@ -192,6 +194,7 @@ class ReaderViewModel(
     private val chapterDownloadActions: MangaChapterDownloadActions,
     private val trackedChapterNumber: TrackedChapterNumber,
     private val readingLog: ReadingLogRepository,
+    private val copyMarks: ChapterCopyMarkRepository,
     // RK <--
 ) : ViewModel() {
 
@@ -346,7 +349,14 @@ class ReaderViewModel(
             idOf = { it.id },
             originOf = { it.scanlator },
             ownerOf = { it.mangaId },
+            markOf = markOf(),
         )
+    }
+
+    // RK: the user's Never skip and copy groups, read off the held set so a page turn does not suspend
+    private fun markOf(): (Chapter) -> CopyMark? {
+        val marks = copyMarks.marks(ContentType.MANGA).value
+        return { marks[it.mangaId]?.get(it.url) }
     }
 
     // RK: which of [chapters] are on disk, each asked of its own merged source
@@ -1089,6 +1099,7 @@ class ReaderViewModel(
                 idOf = { it.id },
                 originOf = { it.scanlator },
                 ownerOf = { it.mangaId },
+                markOf = markOf(),
             )
             // RK: a copy on a source in incognito is not written, as its own chapter would not be
             .filterNot { it.read || incognito.of(it.mangaId) }
@@ -1709,6 +1720,7 @@ class ReaderViewModel(
                     idOf = { it.id },
                     originOf = { it.scanlator },
                     ownerOf = { it.mangaId },
+                    markOf = markOf(),
                 )
                 // A private source's copy is not marked read, so it stays too
                 .filterNot { incognito.of(it.mangaId) }

@@ -18,7 +18,9 @@ import reikai.data.backup.ChunkRead
 import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
@@ -53,6 +55,8 @@ class MangaBackupCreator(
     private val mergeGroupRepository: MergeGroupRepository,
     // RK: chapter numbers the user corrected, carried beside the source's own.
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    // RK: the user's corrections to the duplicate rule, carried on each chapter.
+    private val copyMarks: ChapterCopyMarkRepository,
     // RK: the reading log, carried with history.
     private val readingLog: ReadingLogRepository,
     // RK: each entry's places in Manual library orders, carried with its categories.
@@ -104,10 +108,15 @@ class MangaBackupCreator(
     override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
         val mangaIds = batch.map { it.first.id }
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
+        val marksByMangaId = copyMarks.marks(ContentType.MANGA).value // RK
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
+            val marks = marksByMangaId[entry.id].orEmpty() // RK
             backup.chapters = chapters.map { chapter ->
-                chapter.toBackupChapter().apply { sourceChapterNumber = overrides[chapter.url]?.sourceNumber }
+                chapter.toBackupChapter().apply {
+                    sourceChapterNumber = overrides[chapter.url]?.sourceNumber
+                    copyMark = marks[chapter.url]?.toBackupValue() // RK
+                }
             }
         }
     }

@@ -20,6 +20,8 @@ import reikai.domain.backup.foldChapterCopies
 import reikai.domain.backup.foldHistoryCopies
 import reikai.domain.backup.mergedHistory
 import reikai.domain.backup.restoredFavoriteAt
+import reikai.domain.chapter.ChapterCopyMark
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
@@ -54,6 +56,7 @@ class RestoreRepositoryImpl(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
     private val manualOrder: LibraryManualOrderRepository,
+    private val copyMarks: ChapterCopyMarkRepository,
     // RK <--
 ) : RestoreRepository {
 
@@ -86,6 +89,8 @@ class RestoreRepositoryImpl(
         )
         restoreChapters(manga, entry.chapters)
         chapterNumberOverrides.restore(ContentType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
+        val marks = entry.copyMarks.map { (url, mark) -> ChapterCopyMark(manga.id, url, mark) } // RK
+        copyMarks.set(ContentType.MANGA, marks) // RK
         restoreTracking(manga, entry.tracks)
         restoreHistory(manga, entry.history)
         readingLog.restore(ContentType.MANGA, manga.id, entry.readingSessions) // RK

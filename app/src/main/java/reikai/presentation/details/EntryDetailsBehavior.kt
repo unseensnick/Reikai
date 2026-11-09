@@ -45,15 +45,15 @@ internal fun <S> ViewModel.neutralDetailsState(
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value))
 
-/** [neutralDetailsState] that also re-maps when [showDuplicates] changes, which no model state carries. */
-internal fun <S> ViewModel.neutralDetailsState(
+/** [neutralDetailsState] that also re-maps when [duplicates] changes, which no model state carries. */
+internal fun <S, D> ViewModel.neutralDetailsState(
     source: StateFlow<S>,
-    showDuplicates: StateFlow<Boolean>,
-    toNeutral: (S, Boolean) -> EntryDetailsScreenState,
+    duplicates: StateFlow<D>,
+    toNeutral: (S, D) -> EntryDetailsScreenState,
 ): StateFlow<EntryDetailsScreenState> =
-    combine(source, showDuplicates, toNeutral)
+    combine(source, duplicates, toNeutral)
         .flowOn(Dispatchers.Default)
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value, showDuplicates.value))
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value, duplicates.value))
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the
@@ -106,6 +106,12 @@ interface EntryDetailsBehavior {
     fun hideSelected()
     fun unhideSelected()
     fun toggleShowHidden()
+
+    // Hand-made corrections to the duplicate rule, offered while the list shows duplicates.
+    val duplicateMarking: DuplicateMarking
+
+    /** The selected chapters as a copy mark keys them. */
+    fun selectedMarkable(): List<MarkableChapter>
 
     // Chapter number.
 

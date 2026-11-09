@@ -16,6 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -118,6 +119,7 @@ class GroupMemberBackupConformanceTest {
                 getManga = GetManga(MangaRepositoryImpl(database)),
                 mergeGroupRepository = groups,
                 chapterNumberOverrides = NoChapterNumberOverrides,
+                copyMarks = InMemoryChapterCopyMarks(),
                 readingLog = NoReadingLog,
             )
             options.backupEntries(creator).toList().map { it.url to it.favorite }
@@ -134,6 +136,7 @@ class GroupMemberBackupConformanceTest {
                 novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                 novelSourceManager = mockk(),
                 chapterNumberOverrides = NoChapterNumberOverrides,
+                copyMarks = InMemoryChapterCopyMarks(),
                 readingLog = NoReadingLog,
                 readingPace = NoReadingPace,
                 localNovelLanguages = NoLocalNovelLanguages,

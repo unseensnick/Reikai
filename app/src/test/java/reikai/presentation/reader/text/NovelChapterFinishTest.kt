@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.merge.ChapterUnit
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.DeleteNovelChaptersAfterRead
@@ -75,6 +76,7 @@ class NovelChapterFinishTest {
         trackNovelChapter = trackNovelChapter,
         trackedChapterNumber = trackedChapterNumber,
         incognito = ChapterIncognito(sourceOf = { null }, isIncognito = { false }),
+        copyMarks = InMemoryChapterCopyMarks(),
         scope = backgroundScope,
         context = mockk(relaxed = true),
     )

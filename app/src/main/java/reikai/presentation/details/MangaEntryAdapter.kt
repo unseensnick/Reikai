@@ -15,7 +15,6 @@ import exh.source.getMainSource
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
-import reikai.domain.chapter.duplicateCopyCounts
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.coverFallbacks
 import reikai.domain.reader.ChapterProgress
@@ -41,21 +40,20 @@ import tachiyomi.source.local.isLocal
 class MangaEntryAdapter(
     private val model: MangaViewModel,
     private val coverViewModelFactory: MangaEntryCoverViewModel.Factory,
-    /** Whether to mark the chapters skip-duplicate folds together (the setting and the rule both on). */
-    showDuplicates: StateFlow<Boolean>,
+    override val duplicateMarking: DuplicateMarking,
 ) : EntryDetailsBehavior {
 
     override val state: StateFlow<EntryDetailsScreenState> =
-        model.neutralDetailsState(model.state, showDuplicates) { state, show -> state.toNeutral(show) }
+        model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
 
     override val downloadProgress = EntryDownloadProgress.Live(model::getDownloadProgress)
 
-    private fun MangaViewModel.State.toNeutral(showDuplicates: Boolean): EntryDetailsScreenState = when (this) {
+    private fun MangaViewModel.State.toNeutral(marks: CopyMarks?): EntryDetailsScreenState = when (this) {
         MangaViewModel.State.Loading -> EntryDetailsScreenState.Loading
-        is MangaViewModel.State.Success -> toNeutralLoaded(showDuplicates)
+        is MangaViewModel.State.Success -> toNeutralLoaded(marks)
     }
 
-    private fun MangaViewModel.State.Success.toNeutralLoaded(showDuplicates: Boolean): EntryDetailsScreenState.Loaded {
+    private fun MangaViewModel.State.Success.toNeutralLoaded(marks: CopyMarks?): EntryDetailsScreenState.Loaded {
         // Header, description, tags and the gallery chips all read this one entry; actions keep the raw `manga`.
         val shown = shownManga(manga, siblingChip(), customInfo, chipCustomInfo)
         // The inline carousel shows only for inline placement; in-menu still loads the pool, just hides it.
@@ -95,17 +93,17 @@ class MangaEntryAdapter(
                 hasHiddenChapters = hasHiddenChapters,
                 hiddenChapterIds = hiddenChapterIds,
                 undatedChapterDate = UndatedChapterDate.NotApplicable,
-                // The arguments the reader's skip-duplicate rule takes (ReaderViewModel.navigableChaptersOf)
-                duplicateCopies = if (showDuplicates) {
-                    chapters.map { it.chapter }.duplicateCopyCounts(
+                // The arguments the reader's skip-duplicate rule takes (ReaderViewModel.navigable)
+                duplicates = marks?.let {
+                    chapters.map { item -> item.chapter }.duplicateMarks(
+                        it,
                         numberOf = { it.chapterNumber },
                         nameOf = { it.name },
                         originOf = { it.scanlator },
                         ownerOf = { it.mangaId },
+                        urlOf = { it.url },
                         idOf = { it.id },
                     )
-                } else {
-                    emptyMap()
                 },
             ),
             capabilities = EntryCapabilities(
@@ -177,6 +175,8 @@ class MangaEntryAdapter(
     }
 
     private fun selectedChapters(): List<Chapter> = selectedItems().map { it.chapter }
+
+    override fun selectedMarkable() = selectedChapters().map { MarkableChapter(it.mangaId, it.url) }
 
     // --- EntryDetailsBehavior: forward to the model (reconciling neutral ids -> the model's shapes). ---
 

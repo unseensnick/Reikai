@@ -19,6 +19,7 @@ import reikai.data.backup.restoredManualOrder
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
+import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomMangaInfo
 import reikai.domain.library.ContentType
@@ -84,6 +85,7 @@ class MangaRestorer(
                     numberOf = { it.chapterNumber.toDouble() },
                     sourceNumberOf = { it.sourceChapterNumber },
                 ),
+                copyMarks = backedUpCopyMarks(backupManga.chapters, { it.url }, { it.copyMark }),
                 readingSessions = backupManga.readingSessions.map { it.toUrlReadingSession() },
                 manualOrder = backupManga.restoredManualOrder { order ->
                     backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }

@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -472,6 +473,7 @@ class NovelMergeRestorer : MergeRestorer {
                 setCustomNovelInfo = mockk(relaxed = true),
                 novelHistoryRepository = mockk(relaxed = true),
                 chapterNumberOverrides = NoChapterNumberOverrides,
+                copyMarks = InMemoryChapterCopyMarks(),
                 readingLog = NoReadingLog,
                 readingPace = pace,
                 localNovelLanguages = NoLocalNovelLanguages,
@@ -511,6 +513,7 @@ class NovelMergeRestorer : MergeRestorer {
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        copyMarks = InMemoryChapterCopyMarks(),
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

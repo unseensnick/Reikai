@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -52,6 +53,7 @@ fun mangaRestorer(
             mangaMetadataRepository = MangaMetadataRepositoryImpl(database),
             setCustomMangaInfo = SetCustomMangaInfo(customInfo),
             chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+            copyMarks = InMemoryChapterCopyMarks(),
             readingLog = readingLog,
         ),
         getCategories = GetCategories(CategoryRepositoryImpl(database)),
@@ -92,6 +94,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         setCustomNovelInfo = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        copyMarks = InMemoryChapterCopyMarks(),
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

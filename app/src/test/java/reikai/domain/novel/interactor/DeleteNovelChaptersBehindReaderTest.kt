@@ -8,6 +8,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.GetNovelCategories
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelPreferences
@@ -91,6 +92,7 @@ class DeleteNovelChaptersBehindReaderTest {
             chapterRepository = repo,
             pendingDeleter = pending,
             libraryPreferences = LibraryPreferences(store),
+            copyMarks = InMemoryChapterCopyMarks(),
         )
     }
 

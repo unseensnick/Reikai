@@ -1,0 +1,59 @@
+-- A hand-made correction to the duplicate-chapter rule, one table per content type, keyed by the
+-- chapter's owner and url so a refresh that deletes and re-adds the row keeps it. A null copy_group
+-- is Never skip; chapters of one owner sharing a copy_group are copies whatever their numbers.
+CREATE TABLE manga_chapter_copy_mark(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    copy_group INTEGER,
+    PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_copy_mark(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    copy_group INTEGER,
+    PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+getMangaMarks:
+SELECT manga_id, url, copy_group
+FROM manga_chapter_copy_mark;
+
+getNovelMarks:
+SELECT novel_id, url, copy_group
+FROM novel_chapter_copy_mark;
+
+upsertManga:
+INSERT OR REPLACE INTO manga_chapter_copy_mark(manga_id, url, copy_group)
+VALUES (:ownerId, :url, :copyGroup);
+
+upsertNovel:
+INSERT OR REPLACE INTO novel_chapter_copy_mark(novel_id, url, copy_group)
+VALUES (:ownerId, :url, :copyGroup);
+
+deleteManga:
+DELETE FROM manga_chapter_copy_mark
+WHERE manga_id = :ownerId AND url = :url;
+
+deleteNovel:
+DELETE FROM novel_chapter_copy_mark
+WHERE novel_id = :ownerId AND url = :url;
+
+-- What a report needs to correct the rule: the series, its source and the chapter as the source names it.
+reportManga:
+SELECT M.remote_title, M.source_id, K.url, C.remote_name, C.remote_chapter_number, C.remote_scanlator, K.copy_group
+FROM manga_chapter_copy_mark K
+JOIN manga M ON M.id = K.manga_id
+LEFT JOIN chapter C ON C.manga_id = K.manga_id AND C.remote_url = K.url
+ORDER BY M.remote_title, K.copy_group, C.remote_chapter_number;
+
+reportNovel:
+SELECT N.title, N.source, K.url, C.name, C.chapter_number, C.scanlator, K.copy_group
+FROM novel_chapter_copy_mark K
+JOIN novels N ON N._id = K.novel_id
+LEFT JOIN novel_chapters C ON C.novel_id = K.novel_id AND C.url = K.url
+ORDER BY N.title, K.copy_group, C.chapter_number;

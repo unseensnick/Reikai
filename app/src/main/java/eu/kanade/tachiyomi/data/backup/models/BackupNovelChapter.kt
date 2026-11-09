@@ -27,6 +27,8 @@ class BackupNovelChapter(
     // The word count a reading pace is learned against, as BackupChapter carries manga's page count. 0
     // when the reader never counted it.
     @ProtoNumber(13) var words: Long = 0,
+    // The user's correction to the duplicate rule, as BackupChapter carries it. Null when unmarked.
+    @ProtoNumber(14) var copyMark: Long? = null,
     // No download flag is carried: the on-disk text file isn't in the backup, so downloaded state is
     // rederived from disk by NovelDownloadCache after restore.
 ) {

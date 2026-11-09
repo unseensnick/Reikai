@@ -48,6 +48,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.details.DuplicateMarking // RK
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -60,7 +61,6 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
-import reikai.presentation.details.showsSkippedDuplicates // RK
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -120,12 +120,15 @@ class MangaScreen(
         val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
         val adapter = remember(viewModel) {
             val graph = context.appGraph
-            val showDuplicates = showsSkippedDuplicates(
+            val duplicates = DuplicateMarking(
+                ContentType.MANGA,
+                graph.chapterCopyMarks,
                 graph.reikaiLibraryPreferences.showSkippedDuplicates,
                 graph.readerPreferences.skipDupe,
                 viewModel.viewModelScope,
+                graph.appCoroutineScope,
             )
-            MangaEntryAdapter(viewModel, coverViewModelFactory, showDuplicates)
+            MangaEntryAdapter(viewModel, coverViewModelFactory, duplicates)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 

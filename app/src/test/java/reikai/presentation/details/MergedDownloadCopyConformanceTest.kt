@@ -219,7 +219,7 @@ class MergedDownloadCopyConformanceTest {
             stitch = stitch,
         ).also { store.put("manga", it) }
         try {
-            val behavior = MangaEntryAdapter(model, mockk(relaxed = true), MutableStateFlow(false))
+            val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking())
             return probe(Group(behavior, behavior.settled(rows = 4), ids, queued))
         } finally {
             // The model reads on the real IO dispatcher, so it stops before the database closes.
@@ -252,7 +252,7 @@ class MergedDownloadCopyConformanceTest {
                 every { harness.downloadManager.queueState } returns
                     MutableStateFlow(listOf(NovelDownload(a, ids.getValue(copy), "/queued")))
             }
-            val behavior = NovelEntryAdapter(harness.openDetails(m), mockk(relaxed = true), MutableStateFlow(false))
+            val behavior = NovelEntryAdapter(harness.openDetails(m), mockk(relaxed = true), noDuplicateMarking())
             probe(Group(behavior, behavior.settled(rows = 4), ids, queued))
         }
 

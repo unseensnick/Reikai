@@ -34,6 +34,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.download.MangaChapterDownloadActions
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
@@ -87,6 +88,9 @@ class MangaReaderViewModelHarness private constructor(
     private val chapters = ChapterRepositoryImpl(database)
     private val history = HistoryRepositoryImpl(database)
     private val titles = mutableMapOf<Long, String>()
+
+    /** The Never skip and copy groups the reader reads; a test sets them before opening. */
+    val copyMarks = InMemoryChapterCopyMarks()
 
     /** Stores a manga under a chosen [id], so a test can name its chapters' owners. */
     suspend fun manga(id: Long, source: Long, title: String, chapterFlags: Long = 0L): Manga {
@@ -239,6 +243,7 @@ class MangaReaderViewModelHarness private constructor(
                 getNextChapters = GetNextChapters(GetChaptersByMangaId(chapters), getManga, mockk(relaxed = true)),
                 upsertHistory = UpsertHistory(history),
                 readingLog = NoReadingLog,
+                copyMarks = copyMarks,
                 updateChapter = UpdateChapter(chapters),
                 setMangaViewerFlags = mockk(relaxed = true),
                 getIncognitoState = mockk {

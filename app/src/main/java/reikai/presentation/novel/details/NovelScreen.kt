@@ -42,6 +42,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.details.DuplicateMarking
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
 import reikai.presentation.details.EntryDetailsDialogHost
@@ -54,7 +55,6 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
-import reikai.presentation.details.showsSkippedDuplicates
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -99,12 +99,15 @@ class NovelScreen(
         val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
         val adapter = remember(viewModel) {
             val graph = context.appGraph
-            val showDuplicates = showsSkippedDuplicates(
+            val duplicates = DuplicateMarking(
+                ContentType.NOVELS,
+                graph.chapterCopyMarks,
                 graph.reikaiLibraryPreferences.showSkippedDuplicates,
                 graph.novelPreferences.readerSkipDuplicateChapters(),
                 viewModel.viewModelScope,
+                graph.appCoroutineScope,
             )
-            NovelEntryAdapter(viewModel, coverViewModelFactory, showDuplicates)
+            NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates)
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
