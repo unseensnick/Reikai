@@ -47,6 +47,8 @@ What counts as a copy of a chapter is one rule, `chapterCopySets` (`domain/.../r
 
 So "Interlude 1", "Side Story 7", "Volume 1: The Trap 2" and "Notice.32" are never copies of Chapter 1, 7, 2 or 32. Skip duplicate keeps each chosen copy at its own place in the list, so opening a later copy does not move it into the first copy's slot.
 
+Settings -> Advanced -> Show duplicate chapters the reader skips marks those sets on the details screen, for manga and novels: a count under the chapter header and "N copies" on each copy's row. It reads `duplicateCopyCounts`, which calls `chapterCopySets` with the arguments both readers pass, and shows only while that type's skip setting is on, so it marks exactly what the reader folds.
+
 The latest chapter switch wins in both readers by two mechanisms: manga's overlapping background loads go through `ChapterSwitches` (a pick, a step or the first open always lands; a page switch something newer overtook is dropped), and novels serialize switches under the model's `lane`.
 
 ### Loading ahead

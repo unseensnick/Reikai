@@ -157,7 +157,7 @@ Skips over already read chapters while reading.
 Skips over filtered chapters while reading.
 
 ### Skip duplicate chapters <Badge type="info" text="Off" />
-Skips over chapters detected as duplicates. With **Downloaded only** on, the copy on your device is the one kept.
+Skips over chapters detected as duplicates. With **Downloaded only** on, the copy on your device is the one kept. To see which chapters count as copies, turn on **Settings -> Advanced -> Show duplicate chapters the reader skips**.
 
 ### Mark chapter read when skipping ahead <Badge type="info" text="Off" />
 When you jump to the next chapter, marks the one you skipped as read.

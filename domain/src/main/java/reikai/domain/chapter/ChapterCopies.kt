@@ -118,3 +118,20 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
         }
     }
 }
+
+/**
+ * Each chapter that has copies, with how many its set holds, by [idOf]: the chapters "Skip duplicate
+ * chapters" folds into one, of which the reader stops on one. Built from [chapterCopySets] with the
+ * arguments both readers pass it, so the details screen shows the same sets the reader skips.
+ */
+fun <T> List<T>.duplicateCopyCounts(
+    numberOf: (T) -> Double,
+    nameOf: (T) -> String,
+    originOf: (T) -> String?,
+    ownerOf: (T) -> Long,
+    idOf: (T) -> Long,
+): Map<Long, Int> =
+    chapterCopySets(numberOf, nameOf, originOf, ownerOf)
+        .filter { it.size > 1 }
+        .flatMap { copies -> copies.map { idOf(it) to copies.size } }
+        .toMap()

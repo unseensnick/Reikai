@@ -56,6 +56,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Edit info tags can be dragged into a new order (ported from TachiyomiSY).** Hold a tag near the top or bottom edge to scroll the form.
 - **Edit info on a merged series can collate every source's tags (ported from TachiyomiSY).**
+- **Settings -> Advanced -> Show duplicate chapters the reader skips marks each copy on a series' chapter list.** Turn it on to see why a chapter goes missing while reading, and include it in a report.
 
 #### Fixed
 

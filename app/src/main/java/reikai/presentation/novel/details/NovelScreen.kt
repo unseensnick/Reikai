@@ -9,6 +9,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
@@ -53,6 +54,7 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
+import reikai.presentation.details.showsSkippedDuplicates
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
@@ -95,7 +97,15 @@ class NovelScreen(
         // Lifecycle-aware so collection pauses when the screen is not resumed (parity with MangaScreen).
         val state by viewModel.state.collectAsStateWithLifecycle()
         val coverViewModelFactory = remember { context.appGraph.novelCoverViewModelFactory }
-        val adapter = remember(viewModel) { NovelEntryAdapter(viewModel, coverViewModelFactory) }
+        val adapter = remember(viewModel) {
+            val graph = context.appGraph
+            val showDuplicates = showsSkippedDuplicates(
+                graph.reikaiLibraryPreferences.showSkippedDuplicates,
+                graph.novelPreferences.readerSkipDuplicateChapters(),
+                viewModel.viewModelScope,
+            )
+            NovelEntryAdapter(viewModel, coverViewModelFactory, showDuplicates)
+        }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         when (val s = state) {

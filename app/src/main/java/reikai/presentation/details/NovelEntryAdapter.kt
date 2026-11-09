@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.flow.StateFlow
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.chapter.ChapterNumberEdit
+import reikai.domain.chapter.duplicateCopyCounts
 import reikai.domain.entry.EntryId
 import reikai.domain.merge.GroupMarks
 import reikai.domain.merge.coverFallbacks
@@ -58,20 +59,23 @@ internal fun NovelChapter.toEntryChapter(
 class NovelEntryAdapter(
     private val model: NovelDetailsViewModel,
     private val coverViewModelFactory: NovelCoverViewModel.Factory,
+    /** Whether to mark the chapters skip-duplicate folds together (the setting and the rule both on). */
+    showDuplicates: StateFlow<Boolean>,
 ) : EntryDetailsBehavior {
 
-    override val state: StateFlow<EntryDetailsScreenState> = model.neutralDetailsState(model.state) { it.toNeutral() }
+    override val state: StateFlow<EntryDetailsScreenState> =
+        model.neutralDetailsState(model.state, showDuplicates) { state, show -> state.toNeutral(show) }
 
     // A novel chapter is one request, so there is no percentage to report while it runs.
     override val downloadProgress = EntryDownloadProgress.Unsupported
 
-    private fun NovelDetailsState.toNeutral(): EntryDetailsScreenState = when (this) {
+    private fun NovelDetailsState.toNeutral(showDuplicates: Boolean): EntryDetailsScreenState = when (this) {
         NovelDetailsState.Loading -> EntryDetailsScreenState.Loading
         is NovelDetailsState.Failed -> EntryDetailsScreenState.Failed(message)
-        is NovelDetailsState.Loaded -> toNeutralLoaded()
+        is NovelDetailsState.Loaded -> toNeutralLoaded(showDuplicates)
     }
 
-    private fun NovelDetailsState.Loaded.toNeutralLoaded(): EntryDetailsScreenState.Loaded {
+    private fun NovelDetailsState.Loaded.toNeutralLoaded(showDuplicates: Boolean): EntryDetailsScreenState.Loaded {
         val sibling = displayNovel.takeIf { it.id != novel.id }
         val display = shownNovel(novel, sibling, customInfo, chipCustomInfo)
         return EntryDetailsScreenState.Loaded(
@@ -105,6 +109,18 @@ class NovelEntryAdapter(
                 // Novel sources hardly ever date a chapter, so upstream's "N/A" would land on nearly
                 // every row and say nothing.
                 undatedChapterDate = UndatedChapterDate.Blank,
+                // The arguments the reader's skip-duplicate rule takes (NovelReaderViewModel)
+                duplicateCopies = if (showDuplicates) {
+                    chapters.duplicateCopyCounts(
+                        numberOf = { it.chapterNumber },
+                        nameOf = { it.name },
+                        originOf = { it.scanlator },
+                        ownerOf = { it.novelId },
+                        idOf = { it.id },
+                    )
+                } else {
+                    emptyMap()
+                },
             ),
             capabilities = EntryCapabilities(
                 novelPageSelector = if (pages.size > 1) {

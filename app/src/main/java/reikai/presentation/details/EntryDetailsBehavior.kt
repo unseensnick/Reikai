@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -43,6 +44,16 @@ internal fun <S> ViewModel.neutralDetailsState(
     source.map(toNeutral)
         .flowOn(Dispatchers.Default)
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value))
+
+/** [neutralDetailsState] that also re-maps when [showDuplicates] changes, which no model state carries. */
+internal fun <S> ViewModel.neutralDetailsState(
+    source: StateFlow<S>,
+    showDuplicates: StateFlow<Boolean>,
+    toNeutral: (S, Boolean) -> EntryDetailsScreenState,
+): StateFlow<EntryDetailsScreenState> =
+    combine(source, showDuplicates, toNeutral)
+        .flowOn(Dispatchers.Default)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), toNeutral(source.value, showDuplicates.value))
 
 /**
  * The neutral behaviour both content types expose to the shared details UI: the state stream plus the

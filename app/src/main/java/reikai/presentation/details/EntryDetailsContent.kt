@@ -46,6 +46,8 @@ import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.recents.NO_PROGRESS
 import reikai.presentation.recommendation.RelatedMangaCarousel
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.i18n.stringResource
 
 /** Dim level for a hidden chapter row shown via "Show hidden chapters". */
 private const val HIDDEN_CHAPTER_ALPHA = 0.4f
@@ -429,6 +431,15 @@ private fun LazyListScope.chapterHeaderItem(
                 missingChapterCount = state.chapters.missingChapterCount,
                 onClick = nav.onOpenFilterSettings,
             )
+            // Only with "Show duplicate chapters the reader skips" on, so the rule's work is visible at a glance.
+            state.chapters.duplicateCopies.size.takeIf { it > 0 }?.let { count ->
+                Text(
+                    text = stringResource(MR.strings.chapter_duplicate_copies_count, count),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 16.dp),
+                )
+            }
             // A paged novel's page bar sits under the header, opening the page selector. The
             // count above is the current page's, so the paged scope stays visible (sort/filter are paged).
             state.capabilities.novelPageSelector?.let { page ->
@@ -486,7 +497,7 @@ private fun LazyListScope.entryChapterItems(
                     ),
                     date = chapterRowDate(chapter.dateUpload, state.chapters.undatedChapterDate),
                     readProgress = readProgressLabel(chapter.progress),
-                    scanlator = chapter.subtitle,
+                    scanlator = duplicateSubtitle(chapter.subtitle, state.chapters.duplicateCopies[chapter.id]),
                     read = chapter.read,
                     bookmark = chapter.bookmark,
                     selected = isSelected,
@@ -557,3 +568,10 @@ private fun NovelPageBar(
         )
     }
 }
+
+/** A row's subtitle with the number of copies skip-duplicate folds it into, when the list shows them. */
+@Composable
+private fun duplicateSubtitle(subtitle: String?, copies: Int?): String? =
+    listOfNotNull(subtitle, copies?.let { stringResource(MR.strings.chapter_duplicate_copies, it) })
+        .joinToString(" • ")
+        .ifEmpty { null }

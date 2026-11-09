@@ -75,6 +75,10 @@
     <string name="action_sort_random">Random</string>
     <string name="action_sort_reset_to_global">Reset to global sort</string>
     <string name="action_sort_manual">Manual</string>
+    <string name="pref_show_skipped_duplicates">Show duplicate chapters the reader skips</string>
+    <string name="pref_show_skipped_duplicates_summary">Marks them on a series' chapter list while Skip duplicate chapters is on</string>
+    <string name="chapter_duplicate_copies">%1$d copies</string>
+    <string name="chapter_duplicate_copies_count">%1$d chapters have copies the reader skips</string>
     <string name="action_sort_reset_manual">Reset manual order</string>
     <string name="library_manual_order_moved">Moved %1$s</string>
     <string name="action_search">Search</string>

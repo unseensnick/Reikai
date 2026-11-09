@@ -132,6 +132,9 @@ data class EntryChapterListUiState(
     val hiddenChapterIds: Set<Long>,
     /** How a chapter the source dated nothing reads; see [UndatedChapterDate]. */
     val undatedChapterDate: UndatedChapterDate,
+    /** Chapters the reader's skip-duplicate rule folds together, with their set's size; empty unless both
+     *  that rule and "Show duplicate chapters the reader skips" are on. */
+    val duplicateCopies: Map<Long, Int> = emptyMap(),
 )
 
 /**

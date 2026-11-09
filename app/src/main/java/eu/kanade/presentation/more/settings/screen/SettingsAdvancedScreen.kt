@@ -362,6 +362,12 @@ object SettingsAdvancedScreen : SearchableSettings {
                         }
                     },
                 ),
+                // RK: shows what Skip duplicate chapters folds together, so a wrong call can be seen and reported
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = graph.reikaiLibraryPreferences.showSkippedDuplicates,
+                    title = stringResource(MR.strings.pref_show_skipped_duplicates),
+                    subtitle = stringResource(MR.strings.pref_show_skipped_duplicates_summary),
+                ),
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.updateMangaTitles,
                     title = stringResource(MR.strings.pref_update_library_manga_titles),

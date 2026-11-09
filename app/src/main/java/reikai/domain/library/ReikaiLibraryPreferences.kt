@@ -74,6 +74,9 @@ class ReikaiLibraryPreferences(
      *  Off falls back to the dump file a failed-update notification opens instead. */
     val trackUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_update_errors", true)
 
+    /** Marks, on the details screen, the chapters "Skip duplicate chapters" folds together, to see what it skips. */
+    val showSkippedDuplicates: Preference<Boolean> = preferenceStore.getBoolean("show_skipped_duplicates", false)
+
     /** Opt-out: the novel half of [trackUpdateErrors], same fallback. */
     val trackNovelUpdateErrors: Preference<Boolean> = preferenceStore.getBoolean("track_novel_update_errors", true)
 

@@ -17,6 +17,7 @@ import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.unmockkAll
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.TestScope
@@ -104,13 +105,13 @@ class MergedChapterSettingsConformanceTest {
     }
 
     private class MangaPage(private val model: MangaViewModel) : Page {
-        override val behavior = MangaEntryAdapter(model, mockk(relaxed = true))
+        override val behavior = MangaEntryAdapter(model, mockk(relaxed = true), MutableStateFlow(false))
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setDisplayMode(Manga.CHAPTER_DISPLAY_NUMBER)
     }
 
     private class NovelPage(private val model: NovelDetailsViewModel) : Page {
-        override val behavior = NovelEntryAdapter(model, mockk(relaxed = true))
+        override val behavior = NovelEntryAdapter(model, mockk(relaxed = true), MutableStateFlow(false))
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setHideChapterTitles(true)
     }

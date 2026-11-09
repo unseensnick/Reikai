@@ -1,6 +1,7 @@
 package reikai.domain.chapter
 
 import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 
@@ -30,6 +31,14 @@ class ChapterCopiesTest {
 
         // The shared number is part of the expectation, so a case cannot pass by the recognizer splitting it.
         (numbered.map { it.number }.distinct().size to (sets.size == 1)) shouldBe (1 to case.copies)
+    }
+
+    @Test
+    fun `each copy reports the size of its set, and a chapter with none is absent`() {
+        val chapters = listOf(Ch(1, "Chapter 1", "A", 1.0), Ch(2, "Chapter 1", "B", 1.0), Ch(3, "Chapter 2", "A", 2.0))
+
+        chapters.duplicateCopyCounts({ it.number }, { it.name }, { it.origin }, { 1L }, { it.id }) shouldBe
+            mapOf(1L to 2, 2L to 2)
     }
 
     companion object {

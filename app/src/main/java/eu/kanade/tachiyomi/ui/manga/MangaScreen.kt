@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
 import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.navigator.currentOrThrow
@@ -59,6 +60,7 @@ import reikai.presentation.details.chapterToOpen
 import reikai.presentation.details.openDownloadFolder
 import reikai.presentation.details.searchGenreFromDetails
 import reikai.presentation.details.searchLibraryFromDetails
+import reikai.presentation.details.showsSkippedDuplicates // RK
 import reikai.presentation.manga.EhRemoveFavoriteDialog
 import reikai.presentation.migrate.flow.EntryMigrateFor
 import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
@@ -116,7 +118,15 @@ class MangaScreen(
 
         // RK --> the shared details body renders through the manga adapter over the live model.
         val coverViewModelFactory = remember { context.appGraph.mangaCoverViewModelFactory }
-        val adapter = remember(viewModel) { MangaEntryAdapter(viewModel, coverViewModelFactory) }
+        val adapter = remember(viewModel) {
+            val graph = context.appGraph
+            val showDuplicates = showsSkippedDuplicates(
+                graph.reikaiLibraryPreferences.showSkippedDuplicates,
+                graph.readerPreferences.skipDupe,
+                viewModel.viewModelScope,
+            )
+            MangaEntryAdapter(viewModel, coverViewModelFactory, showDuplicates)
+        }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
         // RK: tint the details screen from the cover color
