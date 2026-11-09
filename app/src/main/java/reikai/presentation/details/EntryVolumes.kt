@@ -114,8 +114,8 @@ class VolumePicking(
         series(entry)?.let { it to combine.renamePlan(entry.contentType, it, title, labels) }
 
     /** Renames [series]' files on disk as [names] gives them. */
-    suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalVolumeMove =
-        combine.renameFiles(type, series, names)
+    suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames, title: String?) =
+        combine.renameFiles(type, series, names, title)
 
     private val renameOffers = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
 

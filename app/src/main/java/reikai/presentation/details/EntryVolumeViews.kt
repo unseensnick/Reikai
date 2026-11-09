@@ -295,9 +295,9 @@ internal fun RenameFilesDialog(
     volumes: List<EntryChapterListItem.Volume>,
     plan: suspend (title: String, labels: List<Pair<String, String>>) -> Pair<CombinableSeries, LocalFileNames>?,
     onDismissRequest: () -> Unit,
-    onConfirm: (CombinableSeries, LocalFileNames) -> Unit,
+    onConfirm: (CombinableSeries, LocalFileNames, title: String?) -> Unit,
 ) {
-    // The name the files take, the series' title until the user picks another for a taken one.
+    // The name the files take, the series' title until the user picks another, which then becomes the title.
     var name by remember { mutableStateOf(title) }
     var choosingName by remember { mutableStateOf(false) }
     val labels = volumes.map { it.key to volumeLabel(it.label) }
@@ -358,8 +358,8 @@ internal fun RenameFilesDialog(
         },
         confirmButton = {
             TextButton(
-                onClick = { series?.let { s -> names?.let { onConfirm(s, it) } } },
-                enabled = names?.changes == true,
+                onClick = { series?.let { s -> names?.let { onConfirm(s, it, name.takeIf { name != title }) } } },
+                enabled = names?.changes == true || name != title,
             ) {
                 Text(stringResource(MR.strings.action_rename))
             }

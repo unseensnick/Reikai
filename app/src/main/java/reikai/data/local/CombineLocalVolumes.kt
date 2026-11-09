@@ -14,6 +14,8 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.download.renameDownloadFolder
+import reikai.domain.entry.EntryId
+import reikai.domain.entry.SetEntryTitle
 import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.local.ChapterMove
@@ -88,6 +90,7 @@ class CombineLocalVolumes(
     private val networkToLocalManga: NetworkToLocalManga,
     private val mangaAdder: MangaLibraryAdder,
     private val novelAdder: NovelLibraryAdder,
+    private val setEntryTitle: SetEntryTitle,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
 
@@ -406,18 +409,29 @@ class CombineLocalVolumes(
      * Renames [series]' folder and volumes on disk as [names] gives them, with every chapter's address and what
      * is keyed by it, so read state stays. A rename that fails partway puts back what it renamed.
      */
-    suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalVolumeMove =
-        onApp {
-            val result = rename(type, series, names)
-            if (result !is LocalMoveResult.Moved) return@onApp failed(result)
-            relist(type, series.id)
-            val renamed = series.copy(folder = names.series.to)
-            val back = LocalFileNames(names.series.reversed(), names.volumes.map { it.reversed() })
-            val undoing = suspend {
-                rename(type, renamed, back).also { if (it is LocalMoveResult.Moved) relist(type, series.id) }
+    suspend fun renameFiles(
+        type: ContentType,
+        series: CombinableSeries,
+        names: LocalFileNames,
+        title: String? = null,
+    ): LocalVolumeMove = onApp {
+        val result = rename(type, series, names)
+        if (result !is LocalMoveResult.Moved) return@onApp failed(result)
+        // A name chosen in place of the title becomes the title, so the two stay in step for both types.
+        val entry = if (type == ContentType.NOVELS) EntryId.Novel(series.id) else EntryId.Manga(series.id)
+        val titleBefore = title?.let { setEntryTitle.await(entry, it) }
+        relist(type, series.id)
+        val renamed = series.copy(folder = names.series.to)
+        val back = LocalFileNames(names.series.reversed(), names.volumes.map { it.reversed() })
+        val undoing = suspend {
+            rename(type, renamed, back).also {
+                if (it !is LocalMoveResult.Moved) return@also
+                if (title != null) setEntryTitle.await(entry, titleBefore)
+                relist(type, series.id)
             }
-            LocalVolumeMove(result, undoing, {}, appScope)
         }
+        LocalVolumeMove(result, undoing, {}, appScope)
+    }
 
     private suspend fun rename(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalMoveResult {
         val parent = parent(type) ?: return missing(series)

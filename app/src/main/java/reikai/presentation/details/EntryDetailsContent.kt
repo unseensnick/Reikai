@@ -264,10 +264,10 @@ fun EntryDetailsContent(
             volumes = volumes?.chips.orEmpty(),
             plan = { title, labels -> behavior.volumePicking.renamePlan(state.entryId, title, labels) },
             onDismissRequest = { volumeDialog = null },
-            onConfirm = { series, names ->
+            onConfirm = { series, names, newTitle ->
                 volumeDialog = null
                 scope.launch {
-                    val move = behavior.volumePicking.renameFiles(type, series, names)
+                    val move = behavior.volumePicking.renameFiles(type, series, names, newTitle)
                     behavior.refresh()
                     snackbarHostState.reportVolumeMove(
                         context,
