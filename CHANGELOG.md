@@ -270,6 +270,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A migration that fails to carry tracker links or reading history now shows as failed, so Retry can finish it.**
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
 
 ### Backup & restore

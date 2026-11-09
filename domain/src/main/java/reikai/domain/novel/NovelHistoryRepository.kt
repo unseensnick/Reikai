@@ -28,6 +28,9 @@ interface NovelHistoryRepository {
     /** Answers whether the wipe went through, so a surface can say so only when it did. */
     suspend fun deleteAllNovelHistory(): Boolean
     suspend fun upsertNovelHistory(update: NovelHistoryUpdate)
+
+    /** All of [updates] in one transaction; false when it failed, for a caller that must fail with it. */
+    suspend fun upsertAllNovelHistory(updates: List<NovelHistoryUpdate>): Boolean
     suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory>
 
     /** Every history row of each of [novelIds], keyed by its chapter's url, as a backup carries it. */

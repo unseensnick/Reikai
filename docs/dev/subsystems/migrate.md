@@ -69,8 +69,8 @@ The hide toggles remove a row rather than filter it, checked when the search lan
 `commitMigration` is the one commit path: `resolve`, then `migrate` with `targetJustSynced` set from `syncedNow` so the engine skips a second identical fetch. The adapters call `MigrateMangaUseCase` and `MigrateNovelUseCase`, which do the same work:
 
 - Refresh the target's chapters unless told it was just synced; a failed refresh fails the row.
-- Under the chapter flag, carry read, bookmark and fetch date by recognized chapter number, mark everything at or below the highest read number read, and raise page progress, never lower it (manga `lastPageRead`, novels `lastTextProgress`). Each matched chapter's history merges onto the target's through `mergedHistory`. The carry is one checked write, so a half-carried state fails the row.
-- Categories, notes and a custom cover under their flags; trackers always (enhanced manga trackers through `migrateTrack`); chapter and viewer flags always.
+- Under the chapter flag, carry read, bookmark and fetch date by recognized chapter number, mark everything at or below the highest read number read, and raise page progress, never lower it (manga `lastPageRead`, novels `lastTextProgress`). Each matched chapter's history merges onto the target's through `mergedHistory`. The chapter carry and the history carry are each one checked write, so a half-carried state fails the row.
+- Categories, notes and a custom cover under their flags; trackers always, through one checked write (enhanced manga trackers through `migrateTrack`); chapter and viewer flags always.
 - Remove the old entry's downloads under that flag (manga only while its source is installed; novels await the delete). Nothing is re-downloaded onto the target.
 - Last, in one transaction: the merge-group rewrite (`replaceInGroup` on Migrate, a merge on Copy of a grouped entry, see [merged-series.md](merged-series.md)) and the favorite swap, which is checked. The source tracker is then told of the move.
 

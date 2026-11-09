@@ -34,4 +34,7 @@ interface HistoryRepository {
     suspend fun deleteResetHistory()
 
     suspend fun upsertHistory(historyUpdate: HistoryUpdate)
+
+    // RK: one transaction that throws on failure, for a caller that must fail with it (migration).
+    suspend fun upsertAllHistory(historyUpdates: List<HistoryUpdate>)
 }

@@ -32,13 +32,13 @@ import tachiyomi.domain.chapter.interactor.UpdateChapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory // RK
-import tachiyomi.domain.history.interactor.UpsertHistory // RK
 import tachiyomi.domain.history.model.HistoryUpdate // RK
+import tachiyomi.domain.history.repository.HistoryRepository // RK
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.UpsertTrack
+import tachiyomi.domain.track.repository.TrackRepository // RK
 import kotlin.time.Clock
 
 @Inject
@@ -54,7 +54,8 @@ class MigrateMangaUseCase(
     private val getCategories: GetCategories,
     private val setMangaCategories: SetMangaCategories,
     private val getTracks: GetTracks,
-    private val upsertTrack: UpsertTrack,
+    // RK: the repository, not UpsertTrack, which logs and swallows; see the track carry below.
+    private val trackRepository: TrackRepository,
     private val coverCache: CoverCache,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     // RK: keeps migration merge-aware.
@@ -68,7 +69,7 @@ class MigrateMangaUseCase(
     private val sourceTracker: SourceTrackerDispatcher,
     // RK: reading history carries onto the matched chapters, as Komikku's migration does.
     private val getHistory: GetHistory,
-    private val upsertHistory: UpsertHistory,
+    private val historyRepository: HistoryRepository,
     private val readingLog: ReadingLogRepository, // RK: and so does its reading log
 ) {
     private val enhancedServices by lazy { trackerManager.trackers.filterIsInstance<EnhancedTracker>() }
@@ -165,7 +166,7 @@ class MigrateMangaUseCase(
                 // what the Failed row and its retry exist to prevent. Runs before the downloads are
                 // deleted, so a retry after this throws heals everything.
                 chapterRepository.updateAll(chapterUpdates)
-                historyUpdates.forEach { upsertHistory.await(it) } // RK
+                historyRepository.upsertAllHistory(historyUpdates) // RK: one write that throws
                 readingLog.move(ContentType.MANGA, sessionMoves(sessionSources)) // RK
             }
 
@@ -193,7 +194,8 @@ class MigrateMangaUseCase(
                 }
             }
                 .takeIf { it.isNotEmpty() }
-                ?.let { upsertTrack.awaitAll(it) }
+                // RK: throws on failure, so a dropped tracker link fails the row before the swap
+                ?.let { trackRepository.upsertAll(it) }
 
             // Delete downloaded
             // RK: through the stub, which names the same folder, so a source whose extension is uninstalled,

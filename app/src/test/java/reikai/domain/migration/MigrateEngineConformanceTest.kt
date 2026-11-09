@@ -52,16 +52,16 @@ import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.chapter.model.ChapterUpdate
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.interactor.GetHistory
-import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.history.model.History
 import tachiyomi.domain.history.model.HistoryUpdate
+import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.track.interactor.GetTracks
-import tachiyomi.domain.track.interactor.UpsertTrack
 import tachiyomi.domain.track.model.Track
+import tachiyomi.domain.track.repository.TrackRepository
 import java.io.File
 import java.io.InputStream
 import java.nio.file.Files
@@ -467,6 +467,29 @@ class MigrateEngineConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
+    fun `a failed tracker carry fails the row before the library changes`(engine: MigrateEngine) = runTest {
+        val outcome = engine.migrate(Setup(sourceTrackId = 5L, trackWriteFails = true), replace = true)
+
+        ((outcome.error != null) to outcome.swap) shouldBe (true to null)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a failed history carry fails the row before the library changes`(engine: MigrateEngine) = runTest {
+        val setup = Setup(
+            sourceChapters = listOf(Ch(1, 1.0, read = true)),
+            targetChapters = listOf(Ch(10, 1.0)),
+            history = listOf(Hist(1, readAt = 500, duration = 60)),
+            historyWriteFails = true,
+        )
+
+        val outcome = engine.migrate(setup, replace = true, flags = setOf(Flag.CHAPTER))
+
+        ((outcome.error != null) to outcome.swap) shouldBe (true to null)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
     fun `a committed migration is passed to the source tracker`(engine: MigrateEngine) = runTest {
         engine.migrate(Setup(), replace = true, flags = setOf(Flag.CHAPTER)).sourceTrackerCalls shouldBe
             listOf("$SOURCE->$TARGET replace=true chapters=true")
@@ -524,6 +547,8 @@ data class Setup(
     /** The source entry's extension is uninstalled; the novel engine asks only for the target's plugin. */
     val sourceUninstalled: Boolean = false,
     val carryWriteFails: Boolean = false,
+    val trackWriteFails: Boolean = false,
+    val historyWriteFails: Boolean = false,
     val swapFails: Boolean = false,
 )
 
@@ -766,9 +791,11 @@ class MangaEngine : MigrateEngine {
         }
         val track = setup.sourceTrackId?.let { mangaTrack(it) }
         val getTracks = mockk<GetTracks> { coEvery { await(any<Long>()) } answers { listOfNotNull(track) } }
-        val upsertTrack = mockk<UpsertTrack> {
-            coEvery { awaitAll(any()) } answers
-                { firstArg<List<Track>>().forEach { rec.tracksWritten += it.id to it.mangaId } }
+        val trackRepository = mockk<TrackRepository> {
+            coEvery { upsertAll(any()) } answers {
+                if (setup.trackWriteFails) throw Injected()
+                firstArg<List<Track>>().forEach { rec.tracksWritten += it.id to it.mangaId }
+            }
         }
         // Reached only when a case lets the refresh run, which is the case that breaks it. Stubbed
         // outside a mockk block, where a bare invoke binds to the matcher scope.
@@ -787,10 +814,12 @@ class MangaEngine : MigrateEngine {
                 }
             }
         }
-        val upsertHistory = mockk<UpsertHistory> {
-            coEvery { await(any()) } answers {
-                val u = firstArg<HistoryUpdate>()
-                rec.upsertHistory(u.chapterId, u.readAt.toEpochMilliseconds(), u.sessionReadDuration)
+        val historyRepository = mockk<HistoryRepository> {
+            coEvery { upsertAllHistory(any()) } answers {
+                if (setup.historyWriteFails) throw Injected()
+                firstArg<List<HistoryUpdate>>().forEach { u ->
+                    rec.upsertHistory(u.chapterId, u.readAt.toEpochMilliseconds(), u.sessionReadDuration)
+                }
             }
         }
         val useCase = MigrateMangaUseCase(
@@ -810,7 +839,7 @@ class MangaEngine : MigrateEngine {
                 coEvery { await(any(), any()) } answers { rec.categoryWrites[firstArg()] = secondArg() }
             },
             getTracks = getTracks,
-            upsertTrack = upsertTrack,
+            trackRepository = trackRepository,
             coverCache = coverCache,
             updateMangaFromRemote = updateFromRemote,
             mangaMergeManager = merge,
@@ -818,7 +847,7 @@ class MangaEngine : MigrateEngine {
             transactions = rec,
             sourceTracker = sourceTracker,
             getHistory = getHistory,
-            upsertHistory = upsertHistory,
+            historyRepository = historyRepository,
             readingLog = rec.readingLog,
         )
         val current = Manga.create().copy(
@@ -959,6 +988,7 @@ class NovelEngine : MigrateEngine {
         val upsertTrack = mockk<UpsertNovelTrack> {
             coEvery { awaitAll(any()) } answers {
                 firstArg<List<NovelTrack>>().forEach { rec.tracksWritten += it.id to it.novelId }
+                !setup.trackWriteFails
             }
         }
         val sourceTracker = mockk<SourceTrackerDispatcher> {
@@ -973,9 +1003,15 @@ class NovelEngine : MigrateEngine {
                     NovelHistory(it.chapterId, Instant.fromEpochMilliseconds(it.readAt), it.duration)
                 }
             }
-            coEvery { upsertNovelHistory(any()) } answers {
-                val u = firstArg<NovelHistoryUpdate>()
-                rec.upsertHistory(u.chapterId, u.readAt.toEpochMilliseconds(), u.sessionReadDuration)
+            coEvery { upsertAllNovelHistory(any()) } answers {
+                if (setup.historyWriteFails) {
+                    false
+                } else {
+                    firstArg<List<NovelHistoryUpdate>>().forEach { u ->
+                        rec.upsertHistory(u.chapterId, u.readAt.toEpochMilliseconds(), u.sessionReadDuration)
+                    }
+                    true
+                }
             }
         }
         val useCase = MigrateNovelUseCase(

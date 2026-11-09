@@ -19,11 +19,11 @@ class UpsertNovelTrack(
         }
     }
 
-    suspend fun awaitAll(tracks: List<NovelTrack>) {
-        try {
-            repository.upsertAll(tracks)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-        }
+    /** False when the write failed. */
+    suspend fun awaitAll(tracks: List<NovelTrack>): Boolean = try {
+        repository.upsertAll(tracks)
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e)
+        false
     }
 }

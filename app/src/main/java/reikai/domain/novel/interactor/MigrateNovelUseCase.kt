@@ -124,12 +124,15 @@ class MigrateNovelUseCase(
                         "Chapter-state carry failed (${current.id} -> ${target.id})"
                     }
                 }
-                computeHistoryMigration(
+                val history = computeHistoryMigration(
                     currentChapters,
                     targetChapters,
                     novelHistoryRepository.getHistoryByNovelId(current.id),
                     novelHistoryRepository.getHistoryByNovelId(target.id),
-                ).forEach { novelHistoryRepository.upsertNovelHistory(it) }
+                )
+                check(novelHistoryRepository.upsertAllNovelHistory(history)) {
+                    "History carry failed (${current.id} -> ${target.id})"
+                }
                 val matched = matchedSourceChapters(currentChapters, targetChapters)
                 readingLog.move(ContentType.NOVELS, sessionMoves(matched.toList()))
                 // The listened share of the history time carried above, so a listened chapter stays one.
@@ -149,10 +152,11 @@ class MigrateNovelUseCase(
             }
 
             // Carry tracker links onto the target, re-pointed to its id (matching manga migration). The
-            // source's own track rows are left intact, which is correct for a Copy.
-            upsertNovelTrack.awaitAll(
-                getNovelTracks.await(current.id).map { it.copy(novelId = target.id) },
-            )
+            // source's own track rows are left intact, which is correct for a Copy. Checked, so a dropped
+            // link fails the row before the swap.
+            check(upsertNovelTrack.awaitAll(getNovelTracks.await(current.id).map { it.copy(novelId = target.id) })) {
+                "Tracker carry failed (${current.id} -> ${target.id})"
+            }
 
             // Delete the old source's downloaded chapters (parity with manga's REMOVE_DOWNLOAD). The
             // file delete is a no-op when nothing is downloaded. Downloads are never auto re-fetched

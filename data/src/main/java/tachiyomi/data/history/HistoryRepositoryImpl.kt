@@ -121,4 +121,18 @@ class HistoryRepositoryImpl(
             logcat(LogPriority.ERROR, throwable = e)
         }
     }
+
+    // RK -->
+    override suspend fun upsertAllHistory(historyUpdates: List<HistoryUpdate>) {
+        database.transaction {
+            historyUpdates.forEach {
+                database.historyQueries.upsert(
+                    chapterId = it.chapterId,
+                    readAt = it.readAt,
+                    readDuration = it.sessionReadDuration,
+                )
+            }
+        }
+    }
+    // RK <--
 }

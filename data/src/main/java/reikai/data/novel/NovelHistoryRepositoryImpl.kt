@@ -80,6 +80,16 @@ class NovelHistoryRepositoryImpl(
         }
     }
 
+    override suspend fun upsertAllNovelHistory(updates: List<NovelHistoryUpdate>): Boolean = try {
+        database.transaction {
+            updates.forEach { database.novel_historyQueries.upsert(it.chapterId, it.readAt, it.sessionReadDuration) }
+        }
+        true
+    } catch (e: Exception) {
+        logcat(LogPriority.ERROR, e) { "Failed to upsert history on ${updates.size} novel chapters" }
+        false
+    }
+
     override suspend fun getHistoryByNovelId(novelId: Long): List<NovelHistory> =
         database.novel_historyQueries.getHistoryByNovelId(novelId) { chapterId, readAt, readDuration ->
             NovelHistory(chapterId, readAt, readDuration)
