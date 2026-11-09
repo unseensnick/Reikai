@@ -727,6 +727,7 @@ class NovelReaderViewModel(
 
     init {
         readAloudOffScreen()
+        holdReadClockInMenu()
         viewModelScope.launchIO {
             novelRepo.getById(novelId)?.let {
                 orientationOverride.value = it.readerOrientation.toInt()
@@ -1084,6 +1085,28 @@ class NovelReaderViewModel(
         upsertNovelHistory.await(NovelHistoryUpdate(id, now, duration))
         readingLog.record(ContentType.NOVELS, id, now, duration)
     }
+
+    private var isMenuOpen = false
+
+    /** Called through [ReaderProvider.setMenuOpen]: time in the menu is not reading. */
+    fun setMenuOpen(open: Boolean) {
+        isMenuOpen = open
+        holdReadClock()
+    }
+
+    /** Speech playing is reading whether or not the menu is open, so starting or stopping it re-decides the hold. */
+    private fun holdReadClockInMenu() {
+        readAloud.state
+            .map { it.playback }
+            .distinctUntilChanged()
+            .onEach { holdReadClock() }
+            .launchIn(viewModelScope)
+    }
+
+    private fun holdReadClock() = chapterReadSession.hold(
+        held = isMenuOpen && readAloud.state.value.playback != TtsPlayback.Playing,
+        now = Clock.System.now(),
+    )
 
     /** Called through [ReaderProvider.restartReadTimer] on resume, since leaving the reader stamped
      *  [updateHistory] and stopped the clock, unless read aloud kept it running. */

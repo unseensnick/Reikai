@@ -138,6 +138,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
 
+- **Time with the reader's menu open no longer counts as reading time, in Statistics or for time left.** Read aloud playing still counts.
+
 #### Fixed
 
 - **A novel chapter no longer hangs while loading on a find-and-replace rule whose pattern never finishes.**

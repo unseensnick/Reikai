@@ -669,6 +669,17 @@ class ReaderEngineTest {
         stepped.advances shouldBe 2
     }
 
+    /** Time in the menu is not reading, so the reader's clock is told when it opens. */
+    @Test
+    fun `opening the menu tells the reader`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+
+        engine.setMenuVisible(true)
+
+        provider.menuOpenTold shouldBe true
+    }
+
     @Test
     fun `closing the menu restarts from full`() {
         val stepped = FakeStepped()
@@ -1249,6 +1260,12 @@ private class FakeReaderProvider(
     override fun saveHistory() = Unit
 
     override fun restartReadTimer() = Unit
+
+    var menuOpenTold = false
+
+    override fun setMenuOpen(open: Boolean) {
+        menuOpenTold = open
+    }
 
     override fun onActivityFinish() = Unit
 

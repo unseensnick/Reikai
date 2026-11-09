@@ -261,7 +261,10 @@ class ReaderEngine(
 
     private val autoScrollPause = MutableStateFlow(AutoScrollPause())
 
-    fun setMenuVisible(visible: Boolean) = autoScrollPause.update { it.copy(menuVisible = visible) }
+    fun setMenuVisible(visible: Boolean) {
+        autoScrollPause.update { it.copy(menuVisible = visible) }
+        provider.setMenuOpen(visible)
+    }
 
     /** Off screen pauses it, since nothing else stops a frame loop running behind another app. */
     fun setOnScreen(onScreen: Boolean) = autoScrollPause.update { it.copy(onScreen = onScreen) }

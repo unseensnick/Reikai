@@ -95,6 +95,9 @@ interface ReaderProvider {
     /** Starts the read clock again. The host calls it on resume, since pausing stopped it. */
     fun restartReadTimer()
 
+    /** Told when the reader's menu opens or closes: time spent in the menu is not reading, so the clock holds. */
+    fun setMenuOpen(open: Boolean)
+
     /** Told when the user leaves the reader, which is when both types delete the chapters "after reading
      *  automatically delete" queued while it was open. */
     fun onActivityFinish()

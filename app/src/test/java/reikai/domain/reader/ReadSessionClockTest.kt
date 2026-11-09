@@ -44,5 +44,41 @@ class ReadSessionClockTest {
         ReadSessionClock().take(now = at(5_000L)) shouldBe 0L
     }
 
+    /** The reader's menu was open from 2 s to 5 s, which is not reading. */
+    @Test
+    fun `time held counts nothing`() {
+        val clock = ReadSessionClock().apply { start(now = at(1_000L)) }
+        clock.hold(held = true, now = at(2_000L))
+        clock.hold(held = false, now = at(5_000L))
+
+        clock.take(now = at(6_000L)) shouldBe 2_000L
+    }
+
+    @Test
+    fun `a session taken while held counts up to the hold`() {
+        val clock = ReadSessionClock().apply { start(now = at(1_000L)) }
+        clock.hold(held = true, now = at(3_000L))
+
+        clock.take(now = at(9_000L)) shouldBe 2_000L
+    }
+
+    /** Coming back to the reader with its menu still open starts nothing until the menu closes. */
+    @Test
+    fun `a session started while held runs from the release`() {
+        val clock = ReadSessionClock().apply { hold(held = true, now = at(1_000L)) }
+        clock.resume(now = at(2_000L))
+        clock.hold(held = false, now = at(7_000L))
+
+        clock.take(now = at(8_000L)) shouldBe 1_000L
+    }
+
+    @Test
+    fun `releasing a hold with no session starts none`() {
+        val clock = ReadSessionClock().apply { hold(held = true, now = at(1_000L)) }
+        clock.hold(held = false, now = at(2_000L))
+
+        clock.take(now = at(8_000L)) shouldBe 0L
+    }
+
     private fun at(millis: Long) = Instant.fromEpochMilliseconds(millis)
 }

@@ -1124,6 +1124,9 @@ class ReaderViewModel(
         chapterReadSession.start(Clock.System.now()) // RK
     }
 
+    // RK: time with the menu open is not reading
+    fun holdReadTimer(held: Boolean) = chapterReadSession.hold(held, Clock.System.now())
+
     // RK: the host calls this on pause, so a kill cannot drop the page the reader settled on
     fun flushProgress() = progressSave.flush()
 

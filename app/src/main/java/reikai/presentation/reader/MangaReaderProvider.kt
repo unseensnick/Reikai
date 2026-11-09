@@ -238,6 +238,8 @@ class MangaReaderProvider(
 
     override fun restartReadTimer() = viewModel.restartReadTimer()
 
+    override fun setMenuOpen(open: Boolean) = viewModel.holdReadTimer(open)
+
     override fun onActivityFinish() = viewModel.onActivityFinish()
 
     override suspend fun previousChapter() = viewModel.loadPreviousChapter()
