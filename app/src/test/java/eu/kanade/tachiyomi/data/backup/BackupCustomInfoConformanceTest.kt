@@ -145,10 +145,10 @@ class BackupCustomInfoConformanceTest {
                 every { this@mockk.uri } returns uri
             }
             val mangaCustomInfo = mockk<CustomMangaInfoRepository> {
-                every { getByMangaIdAsFlow(7) } returns flowOf(EVERY_FIELD.toManga(7))
+                every { getAllAsFlow() } returns flowOf(listOf(EVERY_FIELD.toManga(7)))
             }
             val novelCustomInfo = mockk<CustomNovelInfoRepository> {
-                every { getByNovelIdAsFlow(7) } returns flowOf(EVERY_FIELD.toNovel(7))
+                every { getAllAsFlow() } returns flowOf(listOf(EVERY_FIELD.toNovel(7)))
             }
             val creator = BackupCreator(
                 isAutoBackup = false,

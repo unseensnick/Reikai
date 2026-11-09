@@ -15,13 +15,13 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
-import eu.kanade.tachiyomi.data.backup.models.customInfo
-import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
+import reikai.data.backup.ChunkRead
 import reikai.data.backup.mergeGroupRefs
+import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterNumberOverrideRepository
@@ -32,6 +32,7 @@ import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.local.LocalNovelLanguageRepository
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
@@ -57,6 +58,9 @@ class NovelBackupCreator(
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
+
+    // The chapters part reads the word counts and history the read-aloud times, from the same chunk-wide row.
+    private val chunkPace = ChunkRead { readingPace.novelChapterPace(it) }
 
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
         if (options.categories) backupNovelCategories() else emptyList()
@@ -93,7 +97,7 @@ class NovelBackupCreator(
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
-        val wordsByChapterId = readingPace.novelChapterPace(novelIds).associate { it.chapterId to it.words }
+        val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
             backup.chapters = chapters.map {
@@ -120,7 +124,7 @@ class NovelBackupCreator(
         val novelIds = batch.map { it.first.id }
         val historyByNovelId = novelHistoryRepository.getUrlKeyedHistoryByNovelIds(novelIds)
         val sessionsByNovelId = readingLog.sessionsByUrl(ContentType.NOVELS, novelIds)
-        val listenedByNovelId = readingPace.novelChapterPace(novelIds)
+        val listenedByNovelId = chunkPace(novelIds)
             .groupBy({ it.novelId }, { it.url to it.listenedMs })
             .mapValues { (_, listened) -> listened.toMap() }
         batch.forEach { (entry, backup) ->
@@ -142,10 +146,7 @@ class NovelBackupCreator(
     }
 
     override suspend fun customInfo(batch: List<Pair<Novel, BackupNovel>>) {
-        batch.forEach { (entry, backup) ->
-            customNovelInfoRepository.getByNovelIdAsFlow(entry.id).first()
-                ?.let { backup.customInfo = it.toBackupCustomInfo() }
-        }
+        batch.writeCustomInfo(customNovelInfoRepository.getAllAsFlow().first(), CustomNovelInfo::novelId, Novel::id)
     }
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {

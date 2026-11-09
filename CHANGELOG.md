@@ -251,6 +251,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Backup & restore
 
+#### Changed
+
+- **Creating a backup makes fewer database reads, which helps most on a large library.** Chapters are read once for both chapters and history, and custom info once per hundred entries instead of once each.
+
 #### Fixed
 
 - **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.

@@ -1,6 +1,9 @@
 package reikai.data.backup
 
 import eu.kanade.tachiyomi.data.backup.create.BackupOptions
+import eu.kanade.tachiyomi.data.backup.models.BackupCustomInfoFields
+import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
@@ -10,6 +13,7 @@ import logcat.LogPriority
 import logcat.asLog
 import logcat.logcat
 import reikai.domain.db.Transactions
+import reikai.domain.entry.EntryCustomInfo
 
 /**
  * One content type's half of writing its series into a backup. The driver owns which series are backed
@@ -38,6 +42,17 @@ interface BackupEntryParts<E, B> {
     suspend fun history(batch: List<Pair<E, B>>)
 
     suspend fun customInfo(batch: List<Pair<E, B>>)
+}
+
+/**
+ * A chunk-wide read two parts of one chunk both need, made once: [backupChunk] runs a chunk's parts one
+ * after another, so the second asks for the ids the first just read.
+ */
+class ChunkRead<V>(private val read: suspend (ids: List<Long>) -> V) {
+    private var last: Pair<List<Long>, V>? = null
+
+    suspend operator fun invoke(ids: List<Long>): V =
+        last?.takeIf { it.first == ids }?.second ?: read(ids).also { last = ids to it }
 }
 
 /**
@@ -80,6 +95,19 @@ inline fun <E, B, T> List<Pair<E, B>>.writeRows(
     id: (E) -> Long,
     write: (entry: E, backup: B, rows: List<T>) -> Unit,
 ) = forEach { (entry, backup) -> rows[id(entry)]?.takeIf { it.isNotEmpty() }?.let { write(entry, backup, it) } }
+
+/**
+ * Hands each series in a chunk its custom info from [stored], one read of a table that holds only the
+ * series the user edited, keyed by [ownerId].
+ */
+inline fun <E, B : BackupCustomInfoFields, I : EntryCustomInfo> List<Pair<E, B>>.writeCustomInfo(
+    stored: List<I>,
+    ownerId: (I) -> Long,
+    id: (E) -> Long,
+) {
+    val byOwner = stored.associateBy(ownerId)
+    forEach { (entry, backup) -> byOwner[id(entry)]?.let { backup.customInfo = it.toBackupCustomInfo() } }
+}
 
 /**
  * A backup's merge groups as lists of member refs. [ref] returns null for a member whose row has gone,

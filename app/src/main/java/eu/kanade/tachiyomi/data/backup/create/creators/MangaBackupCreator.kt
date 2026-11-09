@@ -6,9 +6,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
-import eu.kanade.tachiyomi.data.backup.models.customInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
-import eu.kanade.tachiyomi.data.backup.models.toBackupCustomInfo
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
 import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
@@ -16,6 +14,8 @@ import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toByteArray
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
+import reikai.data.backup.ChunkRead
+import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
@@ -26,6 +26,7 @@ import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.history.repository.HistoryRepository
 import tachiyomi.domain.manga.interactor.GetFavorites
 import tachiyomi.domain.manga.interactor.GetManga
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.repository.CustomMangaInfoRepository
 import tachiyomi.domain.manga.repository.MangaMetadataRepository
@@ -53,6 +54,9 @@ class MangaBackupCreator(
     // RK: the reading log, carried with history.
     private val readingLog: ReadingLogRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
+
+    // RK: history keys by chapter url, so it reuses the chapters part's read of the same chunk, as upstream reads once
+    private val chunkChapters = ChunkRead { chapterRepository.getChaptersByMangaIds(it) }
 
     // RK --> the option gates, the choice of which manga to back up and the chunking live in the driver
     // shared with novels (reikai.data.backup.backupEntries), so this class answers one part at a time for
@@ -96,7 +100,7 @@ class MangaBackupCreator(
     override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
         val mangaIds = batch.map { it.first.id }
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
-        batch.writeRows(chapterRepository.getChaptersByMangaIds(mangaIds), Manga::id) { entry, backup, chapters ->
+        batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             backup.chapters = chapters.map { chapter ->
                 chapter.toBackupChapter().apply { sourceChapterNumber = overrides[chapter.url]?.sourceNumber }
@@ -128,13 +132,7 @@ class MangaBackupCreator(
         val mangaIds = batch.map { it.first.id }
         val historyByMangaId = historyRepository.getHistoryByMangaIds(mangaIds)
         // History is backed up by chapter URL, so it needs the chapters too
-        val chaptersByMangaId = if (historyByMangaId.isEmpty()) {
-            emptyMap()
-        } else {
-            chapterRepository.getChaptersByMangaIds(
-                mangaIds,
-            )
-        }
+        val chaptersByMangaId = if (historyByMangaId.isEmpty()) emptyMap() else chunkChapters(mangaIds)
         val sessionsByMangaId = readingLog.sessionsByUrl(ContentType.MANGA, mangaIds)
         batch.forEach { (entry, backup) ->
             val chapterUrlsById = chaptersByMangaId[entry.id].orEmpty().associate { it.id to it.url }
@@ -152,10 +150,7 @@ class MangaBackupCreator(
     }
 
     override suspend fun customInfo(batch: List<Pair<Manga, BackupManga>>) {
-        batch.forEach { (entry, backup) ->
-            customMangaInfoRepository.getByMangaIdAsFlow(entry.id).first()
-                ?.let { backup.customInfo = it.toBackupCustomInfo() }
-        }
+        batch.writeCustomInfo(customMangaInfoRepository.getAllAsFlow().first(), CustomMangaInfo::mangaId, Manga::id)
     }
     // RK <--
 }

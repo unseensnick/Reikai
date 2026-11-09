@@ -26,6 +26,7 @@ import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
+import reikai.domain.readinglog.ReadingPaceRepository
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.category.CategoryRepositoryImpl
@@ -33,6 +34,7 @@ import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.data.track.TrackRepositoryImpl
+import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.model.Manga
 
 /**
@@ -100,6 +102,16 @@ class BackupChunkConformanceTest {
             listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
     }
 
+    // Manga history keys by chapter url and novel history takes its read-aloud times from the pace rows, both
+    // read for the chapters part already.
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chunk reads the rows its chapters and history share once`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.sharedReads(database, listOf(1L, 2L)) shouldBe 1
+    }
+
     enum class Type {
         MANGA {
             override val statements = listOf(
@@ -137,10 +149,25 @@ class BackupChunkConformanceTest {
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
-            private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupManga> {
+            override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
+                var reads = 0
+                chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
+                return reads
+            }
+
+            private suspend fun chunk(
+                options: BackupOptions,
+                database: Database,
+                ids: List<Long>,
+                onSharedRead: () -> Unit = {},
+            ): List<BackupManga> {
+                val chapters = ChapterRepositoryImpl(database)
                 val creator = MangaBackupCreator(
                     mangaRepository = MangaRepositoryImpl(database),
-                    chapterRepository = ChapterRepositoryImpl(database),
+                    chapterRepository = object : ChapterRepository by chapters {
+                        override suspend fun getChaptersByMangaIds(mangaIds: List<Long>) =
+                            chapters.getChaptersByMangaIds(mangaIds).also { onSharedRead() }
+                    },
                     categoryRepository = CategoryRepositoryImpl(database),
                     historyRepository = HistoryRepositoryImpl(database),
                     trackRepository = TrackRepositoryImpl(database),
@@ -185,7 +212,19 @@ class BackupChunkConformanceTest {
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
-            private suspend fun chunk(options: BackupOptions, database: Database, ids: List<Long>): List<BackupNovel> {
+            override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
+                var reads = 0
+                chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
+                return reads
+            }
+
+            private suspend fun chunk(
+                options: BackupOptions,
+                database: Database,
+                ids: List<Long>,
+                onSharedRead: () -> Unit = {},
+            ): List<BackupNovel> {
+                val pace = ReadingPaceRepositoryImpl(database)
                 val creator = NovelBackupCreator(
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -197,7 +236,10 @@ class BackupChunkConformanceTest {
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     readingLog = ReadingLogRepositoryImpl(database),
-                    readingPace = ReadingPaceRepositoryImpl(database),
+                    readingPace = object : ReadingPaceRepository by pace {
+                        override suspend fun novelChapterPace(novelIds: List<Long>) =
+                            pace.novelChapterPace(novelIds).also { onSharedRead() }
+                    },
                     localNovelLanguages = NoLocalNovelLanguages,
                 )
                 return options.backupChunk(
@@ -222,6 +264,9 @@ class BackupChunkConformanceTest {
 
         /** Each series' history as (url, lastRead, readDuration). */
         abstract suspend fun history(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
+
+        /** How many times one chunk ran the read its chapters and history parts share. */
+        abstract suspend fun sharedReads(database: Database, ids: List<Long>): Int
 
         protected fun List<BackupReadingSession>.asTriples() = map { Triple(it.url, it.endedAt, it.duration) }
     }
