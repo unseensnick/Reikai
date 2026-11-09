@@ -195,6 +195,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Browse
 
+#### Added
+
+- **A light-novel plugin's page now has Clear cookies in its ⋮ menu, as an extension's page does.**
+
 #### Changed
 
 - **Extension settings now use the app's own look (from Mihon).**

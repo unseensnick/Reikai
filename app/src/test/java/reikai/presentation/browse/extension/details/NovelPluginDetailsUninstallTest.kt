@@ -45,6 +45,7 @@ class NovelPluginDetailsUninstallTest {
                 harness.prefs,
                 harness.installer,
                 backgroundScope,
+                mockk(),
             )
         store.put("details", model)
         model.uninstall()

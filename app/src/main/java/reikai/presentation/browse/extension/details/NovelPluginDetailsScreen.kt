@@ -35,6 +35,7 @@ import eu.kanade.presentation.browse.ExtensionUninstallConfirmation
 import eu.kanade.presentation.browse.InfoDivider
 import eu.kanade.presentation.browse.InfoText
 import eu.kanade.presentation.components.AppBar
+import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.more.settings.widget.TextPreferenceWidget
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.webview.WebViewScreen
@@ -77,6 +78,16 @@ data class NovelPluginDetailsScreen(private val pluginId: String) : Screen() {
                     AppBar(
                         title = stringResource(MR.strings.label_extension_info),
                         navigateUp = navigator::pop,
+                        actions = {
+                            AppBarActions(
+                                actions = listOf(
+                                    AppBar.OverflowAction(
+                                        title = stringResource(MR.strings.pref_clear_cookies),
+                                        onClick = viewModel::clearCookies,
+                                    ),
+                                ),
+                            )
+                        },
                         scrollBehavior = scrollBehavior,
                     )
                 },

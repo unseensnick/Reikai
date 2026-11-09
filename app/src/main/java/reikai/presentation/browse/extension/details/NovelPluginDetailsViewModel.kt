@@ -10,6 +10,7 @@ import dev.zacsweers.metro.AssistedInject
 import dev.zacsweers.metro.ContributesIntoMap
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactory
 import dev.zacsweers.metrox.viewmodel.ManualViewModelAssistedFactoryKey
+import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import reikai.domain.extension.repoNameFromAddress
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.NovelPreferences
@@ -31,6 +33,7 @@ import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.system.logcat
 import kotlin.time.Duration.Companion.seconds
 
 /** One installed light-novel plugin, as Mihon's extension details screen shows one extension. */
@@ -42,6 +45,7 @@ class NovelPluginDetailsViewModel(
     prefs: NovelPreferences,
     private val installer: LnPluginInstaller,
     @AppCoroutineScope private val appScope: CoroutineScope,
+    private val network: NetworkHelper,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -61,6 +65,13 @@ class NovelPluginDetailsViewModel(
     ) { source, metadata, repos ->
         source?.let { novelPluginDetails(it, metadata, repos) } ?: State.Uninstalled
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), State.Loading)
+
+    /** Drops the plugin site's cookies, as an extension's page does for its sources' sites; plugin requests share the jar. */
+    fun clearCookies() {
+        val site = (state.value as? State.Success)?.plugin?.site?.toHttpUrlOrNull() ?: return
+        val cleared = network.cookieJar.remove(site)
+        logcat { "Cleared $cleared cookies for: $site" }
+    }
 
     fun uninstall() {
         // A delete: the page closing, or the user leaving it while this waits on an update, must not cut it off.
