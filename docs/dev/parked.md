@@ -57,7 +57,7 @@ deleting it here.
 - **Auto-refresh-metadata toggle for novels** - no-op; novels return metadata + chapters in one call.
 - **Dynamic launcher shortcuts** - cosmetic; Mihon ships a static `shortcuts.xml`.
 - **Force side-nav rail, DOKI theme, in-app app-icon changer** - dropped (icon changer revivable once branded icon assets exist).
-- **Drag-sort library, staggered grid** - out of scope / out of plan.
+- **Staggered grid** - out of scope / out of plan.
 - **Further adult-source wrappers** - the remaining candidate sites either need a base extension written first or expose too little structured metadata to justify a wrapper. Specifics in [adult-sources.md](../adult-sources.md).
 - **isLewd metadata-id rewire** - the name/genre heuristic already recognizes the common adult sources, so the filter gains nothing from reading the delegated-id sets.
 - **Backup source-ID remapper** - not needed; the built-in adult sources already register under every stock-extension id.
