@@ -494,6 +494,7 @@ class NovelReaderViewModelHarness private constructor(
                 every { downloadedOnly } returns this@NovelReaderViewModelHarness.downloadedOnly
             },
             removeNovelsFromLibrary = removeNovelsFromLibrary,
+            combineLocalVolumes = mockk(relaxed = true),
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
             downloadedTexts = mockk(relaxed = true),

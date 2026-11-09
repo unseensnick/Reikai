@@ -73,7 +73,7 @@ sealed interface EntryDetailsDialog {
 }
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
-data class EntryManageSourceInfo(val id: Long, val sourceName: String, val chapterCount: Int)
+data class EntryManageSourceInfo(val id: Long, val sourceName: String, val chapterCount: Int, val isLocal: Boolean)
 
 /**
  * Renders the shared details dialogs from the neutral [EntryDetailsDialog], driving every action through
@@ -163,11 +163,12 @@ fun Screen.EntryDetailsDialogHost(
             },
             isOverridden = dialog.isOverridden,
             onDismissRequest = onDismissRequest,
-            onReorder = behavior::reorderSources,
-            onResetOrder = behavior::resetSourceOrder,
-            onSplit = behavior::splitSources,
-            onRemoveFromLibrary = behavior::removeSourcesFromLibrary,
-            onRemoveAll = behavior::removeAllSourcesFromLibrary,
+            onReorder = behavior.mergeActions::reorderSources,
+            onResetOrder = behavior.mergeActions::resetSourceOrder,
+            onSplit = behavior.mergeActions::splitSources,
+            onRemoveFromLibrary = behavior.mergeActions::removeSourcesFromLibrary,
+            onRemoveAll = behavior.mergeActions::removeAllSourcesFromLibrary,
+            onCombineVolumes = behavior.mergeActions::combineAsVolumes.takeIf { dialog.sources.all { it.isLocal } },
         )
         is EntryDetailsDialog.TrackSheet -> {
             // Remember the screen so the merge collectors' frequent recompositions don't rebuild it and reset

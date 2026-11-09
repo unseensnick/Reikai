@@ -54,6 +54,7 @@ import kotlinx.coroutines.plus
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
+import reikai.data.local.CombineLocalVolumes
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
@@ -242,6 +243,7 @@ class NovelDetailsViewModel(
     private val trackPreferences: TrackPreferences,
     private val basePreferences: BasePreferences,
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
+    private val combineLocalVolumes: CombineLocalVolumes,
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
     private val downloadedTexts: NovelDownloadedTexts,
@@ -940,7 +942,7 @@ class NovelDetailsViewModel(
 
     // Shared split / remove / reorder actions. showManageSourcesDialog stays below: its body genuinely
     // diverges.
-    private val mergeActions = EntryMergeActionHost(
+    val mergeActions = EntryMergeActionHost(
         scope = viewModelScope,
         appScope = appScope,
         snackbarHostState = snackbarHostState,
@@ -951,6 +953,7 @@ class NovelDetailsViewModel(
         dismissDialog = ::dismissDialog,
         removal = removeNovelsFromLibrary,
         offerToDeleteDownloads = ::promptDeleteDownloadsOnRemoved,
+        volumes = combineLocalVolumes,
     )
 
     /** Switch the chapter view between the unified list (null) and a single grouped source's list. */
@@ -980,7 +983,8 @@ class NovelDetailsViewModel(
             // Per-source chapters, resolved on open for both the coverage-hint counts and the trunk rank.
             val chaptersByNovel = loaded.mergeSources.associate { it.id to chapterRepo.getByNovelId(it.id) }
             val withCounts = loaded.mergeSources.associateBy({ it.id }) {
-                EntryManageSourceInfo(it.id, it.sourceName, chaptersByNovel[it.id]?.size ?: 0)
+                val isLocal = LocalNovelSource.isLocal(memberSources[it.id])
+                EntryManageSourceInfo(it.id, it.sourceName, chaptersByNovel[it.id]?.size ?: 0, isLocal)
             }
             // Order the rows by the same ranking aggregation uses, so the primary source opens on top even
             // under the global order (no override). memberRanking non-empty == override on.
@@ -996,16 +1000,6 @@ class NovelDetailsViewModel(
             showDialog(NovelDetailsDialog.ManageSources(orderedSources, memberRanking.isNotEmpty()))
         }
     }
-
-    fun reorderSources(orderedIds: List<Long>) = mergeActions.reorderSources(orderedIds)
-
-    fun resetSourceOrder() = mergeActions.resetSourceOrder()
-
-    fun splitSources(targetIds: List<Long>) = mergeActions.splitSources(targetIds)
-
-    fun removeSourcesFromLibrary(targetIds: List<Long>) = mergeActions.removeSourcesFromLibrary(targetIds)
-
-    fun removeAllSourcesFromLibrary() = mergeActions.removeAllSourcesFromLibrary()
 
     /** Stale-then-fresh: the cached list stays under a spinner while the sync runs, then the flow
      *  swaps in fresh rows. Read/bookmark are preserved by the sync. Deduped against concurrent runs.

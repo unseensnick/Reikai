@@ -65,6 +65,8 @@ fun ManageMergeSourcesDialog(
     onSplit: (List<Long>) -> Unit,
     onRemoveFromLibrary: (List<Long>) -> Unit,
     onRemoveAll: () -> Unit,
+    // Only for a merge of local series, which can become one series with volumes.
+    onCombineVolumes: (() -> Unit)? = null,
 ) {
     val items = remember { sources.toMutableStateList() }
     val listState = rememberLazyListState()
@@ -187,6 +189,11 @@ fun ManageMergeSourcesDialog(
                         if (overridden) {
                             TextButton(onClick = onResetOrder) {
                                 Text(stringResource(MR.strings.merge_sources_reset_order_action))
+                            }
+                        }
+                        if (onCombineVolumes != null) {
+                            TextButton(onClick = onCombineVolumes) {
+                                Text(stringResource(MR.strings.action_combine_volumes))
                             }
                         }
                         TextButton(onClick = onRemoveAll) {

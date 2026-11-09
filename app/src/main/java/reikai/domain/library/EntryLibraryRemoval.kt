@@ -47,7 +47,7 @@ abstract class EntryLibraryRemoval(
         }
     }
 
-    protected abstract fun entryId(id: Long): EntryId
+    abstract fun entryId(id: Long): EntryId
 
     /** When the stored row joined the library, null when it is not in it or is gone. */
     protected abstract suspend fun favoriteAt(id: Long): Instant?

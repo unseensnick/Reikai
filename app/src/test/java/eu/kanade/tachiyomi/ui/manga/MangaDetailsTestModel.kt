@@ -124,6 +124,7 @@ internal fun mangaDetailsModel(
         mergeManager = mergeManager,
         mangaLibraryAdder = mockk(relaxed = true),
         removeMangaFromLibrary = removeMangaFromLibrary,
+        combineLocalVolumes = mockk(relaxed = true),
         mergedChapterProvider = mergedChapterProvider,
         mangaPreferences = MangaPreferences(prefs),
         relatedMangasLoader = mockk(relaxed = true),

@@ -19,6 +19,10 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
+import reikai.data.local.CombinableSeries
+import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalMoveResult
+import reikai.data.local.LocalVolumeMove
 import reikai.domain.entry.EntryId
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.EntryMergeManager
@@ -39,11 +43,13 @@ class EntryMergeActionHostTest {
     private val snackbarShown = CompletableDeferred<Unit>()
     private val snackbarResult = CompletableDeferred<SnackbarResult>()
     private val offered = CompletableDeferred<List<Long>>()
+    private val restoredGroup = CompletableDeferred<GroupSnapshot>()
 
     private val host = EntryMergeActionHost(
         scope = scope,
         appScope = scope,
         snackbarHostState = mockk<SnackbarHostState> {
+            every { currentSnackbarData } returns null
             coEvery { showSnackbar(any(), any(), any(), any()) } coAnswers {
                 snackbarShown.complete(Unit)
                 snackbarResult.await()
@@ -58,18 +64,24 @@ class EntryMergeActionHostTest {
         ) { emptyList() },
         anchorId = { 3L },
         mergeManager = mockk<MergeManager>(relaxed = true) {
-            coEvery { captureGroup(any()) } returns GroupSnapshot.EMPTY
+            coEvery { captureGroup(any()) } returns GROUP
             coEvery { removeFromGroup(any(), any()) } returns longArrayOf(3L)
+            coEvery { restoreGroup(any()) } coAnswers { restoredGroup.complete(firstArg()) }
         },
         dismissDialog = {},
         removal = removal,
         offerToDeleteDownloads = { offered.complete(it) },
+        volumes = mockk<CombineLocalVolumes> {
+            coEvery { series(any(), any()) } returns listOf(1L, 2L, 3L).map { CombinableSeries(it, "S$it", "S$it") }
+            coEvery { combine(any(), any(), any()) } returns LocalVolumeMove(MOVED, { MOVED }, {}, scope)
+        },
     )
 
     @BeforeEach
     fun setUp() {
         mockkStatic(LOCALIZE)
         every { any<Context>().stringResource(any()) } returns "localized"
+        every { any<Context>().stringResource(any(), *anyVararg()) } returns "localized"
     }
 
     @AfterEach
@@ -130,6 +142,14 @@ class EntryMergeActionHostTest {
         removal.coversDropped shouldBe SOURCES
     }
 
+    @Test
+    fun `an undone combine as volumes merges the local series again`() = runTest {
+        host.combineAsVolumes()
+        snackbarResult.complete(SnackbarResult.ActionPerformed)
+
+        restoredGroup.await() shouldBe GROUP
+    }
+
     private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true)) {
         val favoriteAt: MutableMap<Long, Instant?> = Collections.synchronizedMap(
             mutableMapOf<Long, Instant?>(
@@ -157,6 +177,8 @@ class EntryMergeActionHostTest {
 
     private companion object {
         val SOURCES = listOf(1L, 2L)
+        val GROUP = GroupSnapshot(listOf(1L, 2L, 3L), overrideSourceRanking = true)
+        val MOVED = LocalMoveResult.Moved(emptyList())
         const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
     }
 }

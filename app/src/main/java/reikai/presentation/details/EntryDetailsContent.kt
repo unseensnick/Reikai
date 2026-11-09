@@ -527,7 +527,7 @@ private fun LazyListScope.mergeSourceChipsItem(
             sources = state.mergeSources.map { ManageMergeSourceRow(id = it.id, sourceName = it.sourceName) },
             selectedId = state.selectedSourceId,
             onSelect = behavior::selectSource,
-            onSplitSource = { behavior.splitSources(listOf(it)) },
+            onSplitSource = { behavior.mergeActions.splitSources(listOf(it)) },
         )
     }
 }

@@ -304,21 +304,7 @@ class NovelEntryAdapter(
     override fun showManageSourcesDialog() {
         model.showManageSourcesDialog()
     }
-    override fun reorderSources(orderedIds: List<Long>) {
-        model.reorderSources(orderedIds)
-    }
-    override fun resetSourceOrder() {
-        model.resetSourceOrder()
-    }
-    override fun splitSources(targetIds: List<Long>) {
-        model.splitSources(targetIds)
-    }
-    override fun removeSourcesFromLibrary(targetIds: List<Long>) {
-        model.removeSourcesFromLibrary(targetIds)
-    }
-    override fun removeAllSourcesFromLibrary() {
-        model.removeAllSourcesFromLibrary()
-    }
+    override val mergeActions get() = model.mergeActions
     override fun refresh() {
         model.refresh()
     }

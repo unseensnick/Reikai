@@ -95,6 +95,7 @@ import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
+import reikai.data.local.CombineLocalVolumes
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
@@ -252,6 +253,7 @@ class MangaViewModel(
     private val mergeManager: MangaMergeManager,
     private val mangaLibraryAdder: MangaLibraryAdder,
     private val removeMangaFromLibrary: RemoveMangaFromLibrary,
+    private val combineLocalVolumes: CombineLocalVolumes,
     private val mergedChapterProvider: MergedChapterProvider,
     private val mangaPreferences: MangaPreferences,
     private val relatedMangasLoader: RelatedMangasLoader,
@@ -1798,7 +1800,7 @@ class MangaViewModel(
 
     // RK: shared source split / remove / reorder actions (the snackbar-with-undo logic both details
     // models run). showManageSourcesDialog stays here: its body genuinely diverges.
-    private val mergeActions = EntryMergeActionHost(
+    val mergeActions = EntryMergeActionHost(
         scope = viewModelScope,
         appScope = appScope,
         snackbarHostState = snackbarHostState,
@@ -1809,6 +1811,7 @@ class MangaViewModel(
         dismissDialog = ::dismissDialog,
         removal = removeMangaFromLibrary,
         offerToDeleteDownloads = ::promptDeleteDownloadsOnRemoved,
+        volumes = combineLocalVolumes,
     )
 
     /** Switch the chapter list to a single grouped source, or null for the unified merged view. */
@@ -1848,21 +1851,14 @@ class MangaViewModel(
             val ranked = mergedChapterProvider.rankedMemberIds(ids, memberRanking)
             val orderedSources = ranked.mapNotNull { id ->
                 state.mergeSources.find { it.id == id }
-                    ?.let { EntryManageSourceInfo(it.id, it.sourceName, chaptersBySource[id]?.size ?: 0) }
+                    ?.let {
+                        val isLocal = getMangaAndChapters.awaitManga(id).isLocal()
+                        EntryManageSourceInfo(it.id, it.sourceName, chaptersBySource[id]?.size ?: 0, isLocal)
+                    }
             }
             dialog.value = Dialog.ManageSources(orderedSources, memberRanking.isNotEmpty())
         }
     }
-
-    fun reorderSources(orderedIds: List<Long>) = mergeActions.reorderSources(orderedIds)
-
-    fun resetSourceOrder() = mergeActions.resetSourceOrder()
-
-    fun splitSources(targetIds: List<Long>) = mergeActions.splitSources(targetIds)
-
-    fun removeSourcesFromLibrary(targetIds: List<Long>) = mergeActions.removeSourcesFromLibrary(targetIds)
-
-    fun removeAllSourcesFromLibrary() = mergeActions.removeAllSourcesFromLibrary()
     // RK <--
 
     // RK --> related-mangas carousel (recommendations)
