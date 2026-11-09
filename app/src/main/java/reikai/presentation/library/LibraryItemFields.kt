@@ -27,8 +27,9 @@ fun libraryItemFilterFields(
     /** The two content types keep separate track tables, so each resolves its own, already unioned. */
     trackerIds: (LibraryItem) -> List<Long>,
 ) = LibraryFilterFields<LibraryItem>(
-    // A local series' files are on the device, so it counts as downloaded, for either type.
-    isDownloaded = { it.isLocal || it.downloadCount > 0 },
+    // A local series' files are on the device, so it counts as downloaded, for either type, and so does a
+    // merged series with a local member, which the leading row's own flag does not say.
+    isDownloaded = { it.isLocal || it.downloadCount > 0 || it.memberSources.any { source -> source.isLocal } },
     // LibraryItem.unreadCount is the deduplicated group count, not the LibraryManga's own.
     isUnread = { it.unreadCount > 0 },
     hasStarted = { it.libraryManga.hasStarted },

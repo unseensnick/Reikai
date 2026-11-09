@@ -42,6 +42,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Details and the reader take their tint from a series' new cover once its cover changes.**
 
+- **A merged series with a local copy counts that copy's chapters as downloaded in the library badge and Downloaded filter.**
+
 ### Details
 
 #### Added

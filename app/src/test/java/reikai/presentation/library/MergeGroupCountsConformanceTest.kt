@@ -8,12 +8,14 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.merge.MergedGroupCounts
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
+import reikai.novel.local.LocalNovelSource
 import reikai.presentation.library.novels.NovelMergeCollapse
 import reikai.presentation.library.novels.toLibraryRow
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.model.Source
+import tachiyomi.source.local.LocalSource
 import kotlin.time.Instant
 
 /**
@@ -95,15 +97,30 @@ class MergeGroupCountsConformanceTest {
             Instant.fromEpochMilliseconds(500L)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("collapses")
+    fun `a group whose sibling is local passes the Downloaded filter`(collapse: GroupCountCollapse) = runTest {
+        val row = collapse.group7(stitched = null, stitchedDownloads = 0, localSibling = true)
+
+        libraryFilterMatches(row, filterPrefs(downloaded = TriState.ENABLED_IS), filterFields) shouldBe true
+    }
+
     companion object {
         @JvmStatic
         fun collapses() = listOf(MangaGroupCountCollapse(), NovelGroupCountCollapse())
     }
 }
 
-/** One type's collapse over the fixture the test describes, returning group 7's library row. */
+/**
+ * One type's collapse over the fixture the test describes, returning group 7's library row; [localSibling]
+ * makes entry 2 a local series.
+ */
 interface GroupCountCollapse {
-    suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem
+    suspend fun group7(
+        stitched: MergedGroupCounts?,
+        stitchedDownloads: Int?,
+        localSibling: Boolean = false,
+    ): LibraryItem
 }
 
 private fun counts(total: Long, read: Long = 0, bookmarked: Long = 0) = MergedGroupCounts(total, read, bookmarked)
@@ -120,9 +137,13 @@ private val filterFields = libraryItemFilterFields(
 private val queryFields = libraryItemQueryFields(sourceKey = { "" })
 private val sortFields = libraryItemSortFields(trackerMean = { 0.0 })
 
-private fun filterPrefs(started: TriState = TriState.DISABLED, bookmarked: TriState = TriState.DISABLED) =
+private fun filterPrefs(
+    started: TriState = TriState.DISABLED,
+    bookmarked: TriState = TriState.DISABLED,
+    downloaded: TriState = TriState.DISABLED,
+) =
     LibraryFilterPrefs(
-        downloaded = TriState.DISABLED,
+        downloaded = downloaded,
         unread = TriState.DISABLED,
         started = started,
         bookmarked = bookmarked,
@@ -157,12 +178,17 @@ class MangaGroupCountCollapse : GroupCountCollapse {
 
     override fun toString() = "manga"
 
-    override suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem {
+    override suspend fun group7(
+        stitched: MergedGroupCounts?,
+        stitchedDownloads: Int?,
+        localSibling: Boolean,
+    ): LibraryItem {
         val items = members.map { (id, counts) ->
             val (chapters, unread, downloads) = counts
+            val local = localSibling && id == 2L
             LibraryItem(
                 libraryManga = LibraryManga(
-                    manga = Manga.create().copy(id = id, source = 100L),
+                    manga = Manga.create().copy(id = id, source = if (local) LocalSource.ID else 100L),
                     categories = emptyList(),
                     totalChapters = chapters,
                     readCount = chapters - unread,
@@ -173,11 +199,11 @@ class MangaGroupCountCollapse : GroupCountCollapse {
                 ),
                 downloadCount = downloads,
                 unreadCount = unread,
-                isLocal = false,
+                isLocal = local,
                 badges = LibraryItem.Badges(
                     downloadCount = downloads,
                     unreadCount = unread,
-                    isLocal = false,
+                    isLocal = local,
                     sourceLanguage = "",
                 ),
             )
@@ -199,11 +225,16 @@ class NovelGroupCountCollapse : GroupCountCollapse {
 
     override fun toString() = "novel"
 
-    override suspend fun group7(stitched: MergedGroupCounts?, stitchedDownloads: Int?): LibraryItem {
+    override suspend fun group7(
+        stitched: MergedGroupCounts?,
+        stitchedDownloads: Int?,
+        localSibling: Boolean,
+    ): LibraryItem {
         val library = members.map { (id, counts) ->
             val (chapters, unread, downloads) = counts
+            val source = if (localSibling && id == 2L) LocalNovelSource.ID else "src"
             LibraryNovel(
-                novel = Novel.create().copy(id = id, source = "src", favoriteAt = Instant.fromEpochMilliseconds(0L)),
+                novel = Novel.create().copy(id = id, source = source, favoriteAt = Instant.fromEpochMilliseconds(0L)),
                 categories = emptyList(),
                 totalChapters = chapters,
                 readCount = chapters - unread,
@@ -223,7 +254,7 @@ class NovelGroupCountCollapse : GroupCountCollapse {
         ).single { 1L in it.memberIds }.toLibraryRow(
             badgePrefs = LibraryBadgePrefs(false, false, false, false, false),
             showSourceIcons = false,
-            querySource = { LibraryQuerySource(it, name = "", language = "", isLocal = false) },
+            querySource = { LibraryQuerySource(it, name = "", language = "", isLocal = LocalNovelSource.isLocal(it)) },
             localLanguages = emptyMap(),
             sourceBadge = { SourceBadge.Generic },
         )

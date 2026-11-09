@@ -20,6 +20,7 @@ import reikai.domain.library.localFilesLanguage
 import reikai.domain.manga.MangaPreferences
 import reikai.domain.manga.MergedChapterProvider
 import reikai.domain.manga.chapterSettingsOf
+import reikai.domain.manga.isOnDevice
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.MergedChapterUnitRepository
 import reikai.domain.merge.downloadedUnitsByGroup
@@ -133,11 +134,11 @@ class MangaLibraryRows(
             entries = items,
             membership = membership,
             idOf = { it.libraryManga.manga.id },
-            downloadCountOf = { it.downloadCount.toLong() },
+            holdsFiles = { it.isLocal || it.downloadCount > 0 },
             rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.MANGA, it) },
         ) { item, row ->
             val owner = item.libraryManga.manga
-            downloadManager.isChapterDownloaded(
+            downloadManager.isOnDevice(
                 row.chapterName,
                 row.scanlator,
                 row.chapterUrl,

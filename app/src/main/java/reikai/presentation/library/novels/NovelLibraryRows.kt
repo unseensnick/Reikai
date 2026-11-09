@@ -13,6 +13,7 @@ import reikai.domain.merge.downloadedUnitsByGroup
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.isOnDevice
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.NovelChapter
@@ -148,11 +149,11 @@ class NovelLibraryRows(
             entries = library,
             membership = membership,
             idOf = { it.novel.id },
-            downloadCountOf = { it.downloadCount },
+            holdsFiles = { LocalNovelSource.isLocal(it.novel.source) || it.downloadCount > 0 },
             rowsFor = { mergedChapterUnitRepository.getDownloadUnits(ContentType.NOVELS, it) },
         ) { item, row ->
             val owner = item.novel
-            novelDownloadCache.isChapterDownloaded(owner.source, owner.title, row.chapterName, row.chapterUrl)
+            novelDownloadCache.isOnDevice(owner.source, owner.title, row.chapterName, row.chapterUrl)
         }
     }
 

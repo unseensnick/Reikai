@@ -72,7 +72,7 @@ class DownloadedUnitsTest {
             entries = library,
             membership = mapOf(1L to 7L, 2L to 7L),
             idOf = { it.first },
-            downloadCountOf = { it.second },
+            holdsFiles = { it.second > 0 },
             rowsFor = { owners -> mapOf(7L to rows).also { read = owners } },
         ) { _, _ -> true }
 
