@@ -7,6 +7,7 @@ import android.os.ParcelFileDescriptor
 import android.provider.OpenableColumns
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
+import eu.kanade.presentation.util.formatChapterNumber
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.storage.DiskUtil
@@ -27,23 +28,33 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.storage.service.StorageManager
+import tachiyomi.i18n.MR
 import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.Archive
 import java.io.File
 import java.io.IOException
 
-/** One file the user picked, as the system names it; [size] is -1 when the provider does not say. */
-data class ImportFile(val uri: Uri, val name: String, val size: Long)
+/**
+ * One file the user picked, as the system names it; [size] is -1 when the provider does not say. [seriesIndex]
+ * is the volume number a book states, which names its copy.
+ */
+data class ImportFile(val uri: Uri, val name: String, val size: Long, val seriesIndex: Double? = null)
+
+/** What an import does with a file the series it joins already holds. */
+enum class DuplicateChoice { Replace, KeepBoth, Skip }
 
 /**
  * One series an import will create or add to: [files] in the order they become volumes or chapters, the
  * [type] it imports as, and [cover] for the preview. [canBeEitherType] marks an EPUB, which can be a novel
- * or, laid out as fixed pages, a comic.
+ * or, laid out as fixed pages, a comic. [existing] is the folder of a series already there that it joins,
+ * unless the user made it [separate]; [duplicates] are its files that folder already holds, which
+ * [onDuplicate] decides about. Nothing joins or replaces without the preview showing it.
  */
 data class ImportGroup(
     val key: String,
@@ -53,7 +64,14 @@ data class ImportGroup(
     val cover: ByteArray?,
     val files: List<ImportFile>,
     val canBeEitherType: Boolean,
-)
+    val existing: String? = null,
+    val separate: Boolean = false,
+    val duplicates: Set<Uri> = emptySet(),
+    val onDuplicate: DuplicateChoice = DuplicateChoice.KeepBoth,
+) {
+    /** The folder of the series this group goes into, when it joins one already there. */
+    val joins: String? get() = existing?.takeUnless { separate }
+}
 
 /** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
 data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
@@ -101,7 +119,31 @@ class LocalImport(
                 .onFailure { problems += ImportProblem(file.name, readFailure(it), uri) }
                 .getOrNull()
         }
-        groupSeries(read) to problems
+        groupSeries(read).map { inspect(it) } to problems
+    }
+
+    /**
+     * [group] with the series already there that it joins: [target]'s folder when the user picked one, else
+     * the folder its title matches the way a batch groups its files. Its files that folder already holds, by
+     * size, are its duplicates.
+     */
+    suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
+        val root = rootOf(group.type) ?: return@withIOContext group
+        val folder = target?.let { root.findFile(it) }
+            ?: root.listFiles().orEmpty().firstOrNull {
+                it.isDirectory &&
+                    groupKey(it.name.orEmpty()) == groupKey(group.title)
+            }
+        val sizes = folder?.listFiles().orEmpty().filter { it.isFile }.map { it.length() }.toSet()
+        group.copy(
+            existing = folder?.name,
+            duplicates = group.files.filter { it.size > 0 && it.size in sizes }.map { it.uri }.toSet(),
+        )
+    }
+
+    private fun rootOf(type: ContentType) = when (type) {
+        ContentType.NOVELS -> storageManager.getLocalNovelsDirectory()
+        else -> storageManager.getLocalSourceDirectory()
     }
 
     /**
@@ -112,31 +154,37 @@ class LocalImport(
         withIOContext {
             val problems = mutableListOf<ImportProblem>()
             val series = groups.mapNotNull { group ->
-                val root = when (group.type) {
-                    ContentType.NOVELS -> storageManager.getLocalNovelsDirectory()
-                    else -> storageManager.getLocalSourceDirectory()
-                }
+                val root = rootOf(group.type)
                 if (root == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
-                val folderName = DiskUtil.buildValidFilename(group.title)
-                // Matched as a batch groups its files, so "foo bar" joins the "Foo Bar" folder a past import made.
-                val folder = root.listFiles().orEmpty()
-                    .firstOrNull { it.isDirectory && groupKey(it.name.orEmpty()) == groupKey(folderName) }
-                    ?: root.createDirectory(folderName)
+                // A new series never lands in a folder already there, which the preview would have shown it joining.
+                val folder = group.joins?.let { root.findFile(it) }
+                    ?: root.createDirectory(
+                        freeNames(DiskUtil.buildValidFilename(group.title)).first { root.findFile(it) == null },
+                    )
                 val path = folder?.name
                 if (folder == null || path == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
-                val numbered = group.files.size > 1 && folder.listFiles().isNullOrEmpty()
                 var copied = 0
-                group.files.forEachIndexed { index, file ->
-                    // Numbered when a new series gets several files, so the folder reads in the order shown.
-                    val name = if (numbered) "%02d - %s".format(index + 1, file.name) else file.name
-                    runCatching { copy(file, folder, name) }
-                        .onSuccess { if (it) copied++ }
+                val present = folder.listFiles().orEmpty().filter { it.isFile }
+                val taken = present.mapNotNull { it.name }.toMutableSet()
+                var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
+                group.files.forEach { file ->
+                    val duplicate = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
+                    if (duplicate != null && group.onDuplicate == DuplicateChoice.Skip) return@forEach
+                    val name = when {
+                        duplicate != null && group.onDuplicate == DuplicateChoice.Replace -> duplicate.name.orEmpty()
+                        // A book takes the series and its volume, as Rename files names it; a comic keeps its name,
+                        // which names its chapter.
+                        group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
+                        else -> freeName(file.name, taken)
+                    }
+                    runCatching { copy(file, folder, name, replacing = duplicate?.takeIf { name == it.name }) }
+                        .onSuccess { copied++ }
                         .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
                 }
                 if (copied == 0 && folder.listFiles().isNullOrEmpty()) {
@@ -187,11 +235,19 @@ class LocalImport(
         }
     }
 
-    /** Copies [file] into [folder] as [name]; false when a file of that name and size is already there. */
-    private fun copy(file: ImportFile, folder: UniFile, name: String): Boolean {
-        val existing = folder.findFile(name) ?: folder.listFiles().orEmpty().firstOrNull { it.name == file.name }
-        if (existing != null && existing.length() == file.size) return false
-        val target = folder.createFile(uniqueName(folder, name)) ?: throw IOException("Could not create $name")
+    /** "<series> - Vol. N.epub", N the book's own number or else its place in the series. */
+    private fun bookName(series: String, file: ImportFile, place: Int): String {
+        val number = formatChapterNumber(file.seriesIndex ?: place.toDouble())
+        return DiskUtil.buildValidFilename("$series - ${context.stringResource(MR.strings.volume_label, number)}$EPUB")
+    }
+
+    /**
+     * Copies [file] into [folder] as [name]. Over [replacing], the copy is made beside it first and takes its
+     * name only once whole, so a failed copy leaves the old file, and its chapters' read state, as it was.
+     */
+    private fun copy(file: ImportFile, folder: UniFile, name: String, replacing: UniFile? = null) {
+        val temporary = replacing?.let { freeNames("$name.part").first { folder.findFile(it) == null } }
+        val target = folder.createFile(temporary ?: name) ?: throw IOException("Could not create $name")
         try {
             val input =
                 context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
@@ -200,14 +256,10 @@ class LocalImport(
             target.delete()
             throw e
         }
-        return true
-    }
-
-    private fun uniqueName(folder: UniFile, name: String): String {
-        if (folder.findFile(name) == null) return name
-        val stem = name.substringBeforeLast('.')
-        val extension = name.substringAfterLast('.', "")
-        return generateSequence(2) { it + 1 }.map { "$stem ($it).$extension" }.first { folder.findFile(it) == null }
+        if (replacing != null) {
+            replacing.delete()
+            if (!target.renameTo(name)) throw IOException("Could not replace $name")
+        }
     }
 
     /** Reads [file]; one whose provider gave no size takes the descriptor's, so a repeat import is spotted. */
@@ -248,7 +300,7 @@ class LocalImport(
                 val book = EpubBook.parse(archive)
                 val meta = book.metadata
                 ReadFile(
-                    file = named,
+                    file = named.copy(seriesIndex = meta.seriesIndex.takeUnless { meta.isReikaiExport }),
                     type = if (book.isFixedLayout) ContentType.MANGA else ContentType.NOVELS,
                     series = meta.series ?: meta.title ?: stem,
                     seriesIndex = meta.seriesIndex,

@@ -16,6 +16,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.local.CombinableSeries
+import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.DuplicateChoice
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
@@ -36,6 +39,7 @@ import tachiyomi.domain.category.model.Category
 class LocalImportViewModel(
     @Assisted initialUris: List<String>,
     private val localImport: LocalImport,
+    private val combineLocalVolumes: CombineLocalVolumes,
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     @AppCoroutineScope private val appScope: CoroutineScope,
@@ -67,10 +71,55 @@ class LocalImportViewModel(
                     isReading = false,
                 )
             }
+            // A group that grew from a second round has new files to check against the series it joins.
+            groups.forEach { reinspect(it.key) }
         }
     }
 
-    fun rename(key: String, title: String) = updateGroup(key) { it.copy(title = title.trim().ifEmpty { it.title }) }
+    fun rename(key: String, title: String) {
+        updateGroup(key) { it.copy(title = title.trim().ifEmpty { it.title }) }
+        // A new name can match another series already there, or none.
+        reinspect(key, auto = true)
+    }
+
+    fun setSeparate(key: String, separate: Boolean) = updateGroup(key) { it.copy(separate = separate) }
+
+    fun setDuplicateChoice(key: String, choice: DuplicateChoice) = updateGroup(key) { it.copy(onDuplicate = choice) }
+
+    /** The local series of [type] already in the library, which a group can be added to. */
+    suspend fun librarySeries(type: ContentType): List<CombinableSeries> = combineLocalVolumes.library(type)
+
+    /** Adds group [key]'s files to group [into] of this import, as more of its volumes. */
+    fun addToGroup(key: String, into: String) {
+        state.update { s ->
+            val from = s.groups.firstOrNull { it.key == key } ?: return@update s
+            val groups = s.groups.filterNot { it.key == key }.map { group ->
+                if (group.key != into) return@map group
+                group.copy(
+                    files = group.files + from.files,
+                    canBeEitherType =
+                    group.canBeEitherType && from.canBeEitherType,
+                )
+            }
+            s.copy(groups = groups)
+        }
+        reinspect(into)
+    }
+
+    /** Adds group [key] to the series already in [folder]. */
+    fun addToSeries(key: String, folder: String) {
+        updateGroup(key) { it.copy(separate = false) }
+        reinspect(key, target = folder)
+    }
+
+    /** Finds again the series [key] joins, [target] or the one it joins now, or by its title when [auto]. */
+    private fun reinspect(key: String, target: String? = null, auto: Boolean = false) {
+        viewModelScope.launchIO {
+            val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
+            val found = localImport.inspect(group, if (auto) null else target ?: group.existing)
+            updateGroup(key) { it.copy(existing = found.existing, duplicates = found.duplicates) }
+        }
+    }
 
     fun setType(key: String, type: ContentType) = updateGroup(key) {
         if (it.canBeEitherType) it.copy(type = type) else it

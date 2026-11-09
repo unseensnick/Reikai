@@ -349,6 +349,14 @@
     <string name="local_import_reason_copy_failed">Could not be copied</string>
     <string name="local_import_reason_add_failed">Copied, but could not be added to the library</string>
     <string name="local_import_open">Open</string>
+    <string name="local_import_joins">Adds to %1$s</string>
+    <string name="local_import_beside">A new series, beside %1$s</string>
+    <string name="local_import_keep_separate">Keep separate</string>
+    <string name="local_import_add_to_it">Add to it</string>
+    <string name="local_import_replace">Replace</string>
+    <string name="local_import_keep_both">Keep both</string>
+    <string name="local_import_skip">Skip</string>
+    <string name="local_import_this_import">In this import</string>
     <!-- RK: exporting novels as EPUB -->
     <string name="action_export_epub">Export as EPUB</string>
     <string name="export_epub_available">%1$d of %2$d chapters are on this device</string>

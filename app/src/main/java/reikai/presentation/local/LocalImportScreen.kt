@@ -2,6 +2,7 @@ package reikai.presentation.local
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
@@ -13,6 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -38,6 +40,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -65,6 +68,8 @@ import mihon.icons.materialsymbols.rounded.Add
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.Folder
+import reikai.data.local.CombinableSeries
+import reikai.data.local.DuplicateChoice
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.LocalImport
@@ -98,6 +103,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
         }
         val pick = { picker.launch(LocalImport.MIME_TYPES) }
         var renaming by remember { mutableStateOf<ImportGroup?>(null) }
+        var adding by remember { mutableStateOf<ImportGroup?>(null) }
 
         // A single series opens once imported, since reading it is why the user came; several land in the library.
         // Not while files shared in during the import wait, which leaving would drop.
@@ -155,6 +161,9 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                     onRename = { renaming = it },
                     onType = viewModel::setType,
                     onRemove = viewModel::remove,
+                    onSeparate = viewModel::setSeparate,
+                    onDuplicateChoice = viewModel::setDuplicateChoice,
+                    onAddTo = { adding = it },
                     onOpen = { series ->
                         when {
                             series.type == ContentType.NOVELS ->
@@ -171,6 +180,22 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                 viewModel.rename(group.key, it)
                 renaming = null
             }
+        }
+        adding?.let { group ->
+            AddToDialog(
+                group = group,
+                batch = state.groups.filter { it.key != group.key && it.type == group.type },
+                load = { viewModel.librarySeries(group.type) },
+                onDismiss = { adding = null },
+                onGroup = {
+                    viewModel.addToGroup(group.key, it)
+                    adding = null
+                },
+                onSeries = {
+                    viewModel.addToSeries(group.key, it)
+                    adding = null
+                },
+            )
         }
         state.pickCategories?.let { pick ->
             ChangeCategoryDialog(
@@ -220,6 +245,9 @@ internal fun ImportList(
     onType: (String, ContentType) -> Unit,
     onRemove: (String) -> Unit,
     onOpen: (reikai.data.local.ImportedSeries) -> Unit,
+    onSeparate: (String, Boolean) -> Unit = { _, _ -> },
+    onDuplicateChoice: (String, DuplicateChoice) -> Unit = { _, _ -> },
+    onAddTo: (ImportGroup) -> Unit = {},
 ) {
     LazyColumn(
         contentPadding = padding,
@@ -262,6 +290,9 @@ internal fun ImportList(
                 onRename = { onRename(group) },
                 onType = { onType(group.key, it) },
                 onRemove = { onRemove(group.key) },
+                onSeparate = { onSeparate(group.key, it) },
+                onDuplicateChoice = { onDuplicateChoice(group.key, it) },
+                onAddTo = { onAddTo(group) },
             )
         }
         val problems = state.problems + state.result?.problems.orEmpty()
@@ -308,6 +339,9 @@ internal fun GroupCard(
     onRename: () -> Unit,
     onType: (ContentType) -> Unit,
     onRemove: () -> Unit,
+    onSeparate: (Boolean) -> Unit = {},
+    onDuplicateChoice: (DuplicateChoice) -> Unit = {},
+    onAddTo: () -> Unit = {},
 ) {
     ElevatedCard(
         modifier = Modifier.readableColumn().padding(horizontal = MaterialTheme.padding.medium),
@@ -355,6 +389,7 @@ internal fun GroupCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                JoinLine(group, enabled, onSeparate, onAddTo)
                 if (group.canBeEitherType) {
                     // Wraps, so a large font size moves a chip to the next line instead of crushing it.
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
@@ -381,6 +416,9 @@ internal fun GroupCard(
                 }
             }
         }
+        if (group.joins != null && group.duplicates.isNotEmpty()) {
+            DuplicateChoices(group, enabled, onDuplicateChoice)
+        }
         if (group.files.size > 1) {
             Column(
                 Modifier.padding(
@@ -401,6 +439,119 @@ internal fun GroupCard(
             }
         }
     }
+}
+
+/** Where the group goes: the series already there it joins, or a new one, with the way to change it. */
+@Composable
+private fun JoinLine(group: ImportGroup, enabled: Boolean, onSeparate: (Boolean) -> Unit, onAddTo: () -> Unit) {
+    group.existing?.let { existing ->
+        Text(
+            text = stringResource(
+                if (group.separate) MR.strings.local_import_beside else MR.strings.local_import_joins,
+                existing,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+        if (group.existing != null) {
+            TextButton(onClick = { onSeparate(!group.separate) }, enabled = enabled) {
+                val toggle = MR.strings.run {
+                    if (group.separate) local_import_add_to_it else local_import_keep_separate
+                }
+                Text(
+                    stringResource(toggle),
+                )
+            }
+        }
+        TextButton(onClick = onAddTo, enabled = enabled) { Text(stringResource(MR.strings.action_add_to_series)) }
+    }
+}
+
+/** The group's files the series it joins already holds, and whether to replace, keep both or skip them. */
+@Composable
+private fun DuplicateChoices(group: ImportGroup, enabled: Boolean, onChoice: (DuplicateChoice) -> Unit) {
+    Column(Modifier.padding(start = MaterialTheme.padding.medium, end = MaterialTheme.padding.medium)) {
+        Text(
+            text = pluralStringResource(
+                MR.plurals.local_import_duplicates,
+                group.duplicates.size,
+                group.duplicates.size,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.error,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
+            DuplicateChoice.entries.forEach { choice ->
+                FilterChip(
+                    selected = group.onDuplicate == choice,
+                    onClick = { onChoice(choice) },
+                    enabled = enabled,
+                    label = { Text(stringResource(choice.label())) },
+                )
+            }
+        }
+    }
+}
+
+private fun DuplicateChoice.label() = when (this) {
+    DuplicateChoice.Replace -> MR.strings.local_import_replace
+    DuplicateChoice.KeepBoth -> MR.strings.local_import_keep_both
+    DuplicateChoice.Skip -> MR.strings.local_import_skip
+}
+
+/** Pick another group of this import, or a series already in the library, for [group] to join. */
+@Composable
+private fun AddToDialog(
+    group: ImportGroup,
+    batch: List<ImportGroup>,
+    load: suspend () -> List<CombinableSeries>,
+    onDismiss: () -> Unit,
+    onGroup: (key: String) -> Unit,
+    onSeries: (folder: String) -> Unit,
+) {
+    val library by produceState<List<CombinableSeries>?>(null) { value = load() }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.action_add_to_series)) },
+        text = {
+            LazyColumn(Modifier.heightIn(max = 400.dp)) {
+                if (batch.isNotEmpty()) {
+                    item { PickerHeader(stringResource(MR.strings.local_import_this_import)) }
+                    items(batch, key = { "batch:${it.key}" }) { other ->
+                        PickerRow(other.title) { onGroup(other.key) }
+                    }
+                }
+                val series = library.orEmpty().filterNot { it.folder == group.joins }
+                if (series.isNotEmpty()) {
+                    item { PickerHeader(stringResource(MR.strings.label_library)) }
+                    items(series, key = { "library:${it.id}" }) { one -> PickerRow(one.title) { onSeries(one.folder) } }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) } },
+    )
+}
+
+@Composable
+private fun PickerHeader(text: String) {
+    Text(
+        text = text,
+        style = MaterialTheme.typography.titleSmall,
+        color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(vertical = MaterialTheme.padding.small),
+    )
+}
+
+@Composable
+private fun PickerRow(title: String, onClick: () -> Unit) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.bodyLarge,
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 12.dp),
+    )
 }
 
 @Composable

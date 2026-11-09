@@ -84,9 +84,62 @@ class LocalImportTest(private val type: ContentType) {
     fun `a series joins the folder a past import made under another spelling`() = runTest {
         File(root, "Foo Bar").mkdirs()
 
-        localImport.import(listOf(group("foo-bar")), addToLibrary = false, categoryIds = emptyList())
+        localImport.import(
+            listOf(localImport.inspect(group("foo-bar"))),
+            addToLibrary = false,
+            categoryIds = emptyList(),
+        )
 
         root.list()!!.toList() shouldBe listOf("Foo Bar")
+    }
+
+    @Test
+    fun `a series kept separate gets a folder of its own beside the one it matched`() = runTest {
+        File(root, "Foo Bar").mkdirs()
+        val separate = localImport.inspect(group("foo-bar")).copy(separate = true)
+
+        localImport.import(listOf(separate), addToLibrary = false, categoryIds = emptyList())
+
+        root.list()!!.sorted() shouldBe listOf("Foo Bar", "foo-bar")
+    }
+
+    @Test
+    fun `a new series names its files as Rename files would`() = runTest {
+        localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+
+        File(root, "Foo").list()!!.toList() shouldBe listOf(NEW_NAME.getValue(type))
+    }
+
+    @Test
+    fun `a file the series already holds is skipped when asked`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        val skipping = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Skip)
+
+        localImport.import(listOf(skipping), addToLibrary = false, categoryIds = emptyList())
+
+        File(root, "Foo").list()!!.toList() shouldBe listOf("old")
+    }
+
+    @Test
+    fun `a replaced file keeps its name and takes the new contents`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+
+        (File(root, "Foo").list()!!.toList() to File(root, "Foo/old").readText()) shouldBe (listOf("old") to "abc")
+    }
+
+    @Test
+    fun `a file kept beside its duplicate is copied too`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+
+        localImport.import(listOf(localImport.inspect(group("Foo"))), addToLibrary = false, categoryIds = emptyList())
+
+        File(root, "Foo").list()!!.size shouldBe 2
     }
 
     private fun group(title: String) = ImportGroup(
@@ -100,6 +153,9 @@ class LocalImportTest(private val type: ContentType) {
     )
 
     companion object {
+        // A book takes the series and its volume; a comic keeps its own name, which names its chapter.
+        private val NEW_NAME = mapOf(ContentType.MANGA to "a.cbz", ContentType.NOVELS to "Foo - Vol. 1.epub")
+
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)

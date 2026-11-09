@@ -5,6 +5,10 @@
         <item quantity="one">%d file</item>
         <item quantity="other">%d files</item>
     </plurals>
+    <plurals name="local_import_duplicates">
+        <item quantity="one">%d file is already in that series</item>
+        <item quantity="other">%d files are already in that series</item>
+    </plurals>
     <plurals name="export_epub_done">
         <item quantity="one">Exported %d novel</item>
         <item quantity="other">Exported %d novels</item>

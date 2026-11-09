@@ -36,6 +36,7 @@ class LocalImportViewModelTest {
 
     // The file system and the database are the boundary: previews answer from a table, imports wait on a gate.
     private val localImport = mockk<LocalImport> {
+        coEvery { inspect(any(), any()) } answers { firstArg() }
         coEvery { preview(listOf(first)) } returns (listOf(group("a", first)) to emptyList())
         coEvery { preview(listOf(second)) } returns (listOf(group("b", second)) to emptyList())
         coEvery { preview(listOf(broken)) } returns
@@ -54,6 +55,7 @@ class LocalImportViewModelTest {
     private fun model() = LocalImportViewModel(
         initialUris = emptyList(),
         localImport = localImport,
+        combineLocalVolumes = mockk(),
         novelAdder = mockk<NovelLibraryAdder>(),
         mangaAdder = mangaAdder,
         appScope = testAppScope(),
@@ -119,6 +121,7 @@ class LocalImportViewModelTest {
         val model = LocalImportViewModel(
             initialUris = emptyList(),
             localImport = localImport,
+            combineLocalVolumes = mockk(),
             novelAdder = mockk(),
             mangaAdder = mangaAdder,
             appScope = testAppScope(),
