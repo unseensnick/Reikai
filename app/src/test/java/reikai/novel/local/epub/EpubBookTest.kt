@@ -83,6 +83,20 @@ class EpubBookTest {
     }
 
     @Test
+    fun `an EPUB 3 collection's position reads as a decimal`() {
+        val meta = book(
+            "OEBPS/content.opf" to opf(
+                listOf("a" to "a.xhtml"),
+                metadata = """<meta property="belongs-to-collection" id="s">Saga</meta>
+                    <meta refines="#s" property="group-position">1.5</meta>""",
+            ),
+            "OEBPS/a.xhtml" to xhtml("<p>x</p>"),
+        ).metadata
+
+        (meta.series to meta.seriesIndex) shouldBe ("Saga" to 1.5)
+    }
+
+    @Test
     fun `a description written as HTML reads as text`() {
         book(
             "OEBPS/content.opf" to

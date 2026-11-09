@@ -182,7 +182,8 @@ class NovelEpubExportWorker(
         shownTitle: String,
     ): Boolean {
         val onDevice = downloadedTexts.chaptersOf(novel.id, sourceScoped = false).onDisk
-        val chosen = if (from > 0 && to >= from) onDevice.drop(from - 1).take(to - from + 1) else onDevice
+        val isRun = from > 0 && to >= from
+        val chosen = if (isRun) onDevice.drop(from - 1).take(to - from + 1) else onDevice
         if (chosen.isEmpty()) return false
         val owners = novelRepository.ownersOf(chosen)
         val book = EpubExportBook(
@@ -202,6 +203,8 @@ class NovelEpubExportWorker(
             cover = cover(novel),
             artist = novel.artist,
             status = NovelStatusCode.toSourceString(novel.status.toInt()),
+            // A run is one volume of the novel, placed by its first chapter so several runs import in order.
+            seriesPosition = from.takeIf { isRun },
             chapters = chosen.map { chapter ->
                 ExportChapter(chapter.name) {
                     downloadedTexts.storedHtml(chapter, owners) ?: throw IOException("Missing ${chapter.name}")

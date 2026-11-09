@@ -26,6 +26,7 @@ import reikai.novel.local.epub.EpubChapterKey
 import reikai.novel.local.epub.EpubChapterRef
 import reikai.novel.local.epub.EpubChapters
 import reikai.novel.local.epub.EpubException
+import reikai.novel.local.epub.EpubMetadata
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
@@ -46,7 +47,7 @@ import kotlin.time.Instant
 
 /**
  * The novels in the `localnovels` storage folder: each folder is a series and each EPUB in it a volume,
- * in natural name order, and an EPUB loose in the folder itself is a series of one. A `details.json`
+ * in [inVolumeOrder], and an EPUB loose in the folder itself is a series of one. A `details.json`
  * (the manga local source's schema) or a `cover.*` picture in a series folder overrides what the books say.
  * Everything reaches the reader through [NovelSource], so no screen above the seam knows a novel is local.
  */
@@ -97,9 +98,10 @@ class LocalNovelSource(
 
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
         val series = seriesAt(novelPath) ?: throw LocalNovelMissingException(novelPath)
-        val volumes = readableVolumes(series.volumes.map { file -> file to runCatching { open(file) } }) {
+        val readable = readableVolumes(series.volumes.map { file -> file to runCatching { open(file) } }) {
             LocalNovelMissingException(novelPath)
         }
+        val volumes = inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
         val (firstFile, first) = volumes.first()
         val details = series.details()
         val meta = first.book.metadata
@@ -200,10 +202,8 @@ class LocalNovelSource(
         }
     }
 
-    private fun volumeTitle(index: Int, book: EpubBook, ref: EpubChapterRef): String {
-        val number = book.metadata.seriesIndex?.let(::formatChapterNumber) ?: (index + 1).toString()
-        return context.stringResource(MR.strings.local_novel_volume_chapter, number, ref.title)
-    }
+    private fun volumeTitle(index: Int, book: EpubBook, ref: EpubChapterRef): String =
+        context.stringResource(MR.strings.local_novel_volume_chapter, volumeLabel(index, book.metadata), ref.title)
 
     private fun Series.toItem(): NovelItem {
         val first = volumes.firstNotNullOfOrNull { file -> runCatching { book(file) }.getOrNull()?.let { file to it } }
@@ -309,6 +309,13 @@ class LocalNovelSource(
             return opened.mapNotNull { (file, result) -> result.getOrNull()?.let { file to it } }
                 .ifEmpty { throw opened.firstNotNullOfOrNull { it.second.exceptionOrNull() } ?: missing() }
         }
+
+        /**
+         * The number a volume at [index] in the series is labelled with: its series number, except in a book
+         * Reikai exported, whose number is where its run of chapters starts and so would read "Vol. 51".
+         */
+        internal fun volumeLabel(index: Int, meta: EpubMetadata): String =
+            meta.seriesIndex?.takeUnless { meta.isReikaiExport }?.let(::formatChapterNumber) ?: (index + 1).toString()
 
         /** One chapter of a series as it is listed: its [volume]'s index, address and place in the series. */
         internal data class LocalChapter(val volume: Int, val ref: EpubChapterRef, val path: String, val number: Double)

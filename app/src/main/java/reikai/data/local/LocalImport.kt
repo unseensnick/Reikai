@@ -23,6 +23,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
 import reikai.novel.local.epub.EpubException
+import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -369,10 +370,7 @@ class LocalImport(
          */
         internal fun groupSeries(read: List<ReadFile>): List<ImportGroup> =
             read.groupBy { it.type to groupKey(it.series) }.map { (key, members) ->
-                val ordered = members.sortedWith(
-                    compareBy<ReadFile> { it.seriesIndex ?: Double.MAX_VALUE }
-                        .thenComparator { a, b -> a.file.name.compareToCaseInsensitiveNaturalOrder(b.file.name) },
-                )
+                val ordered = inVolumeOrder(members, { it.file.name }) { it.seriesIndex }
                 val first = ordered.first()
                 ImportGroup(
                     key = "${key.first}:${key.second}",

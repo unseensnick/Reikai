@@ -48,7 +48,7 @@ Files protected with DRM cannot be read. Remove the protection with the tool you
 
 ## Light novels
 
-Local novels live in a `localnovels` folder in your storage location, beside the `local` one. Each folder inside it is a series, and each EPUB in that folder is a volume, read in name order. An EPUB placed straight in `localnovels` is a series of its own.
+Local novels live in a `localnovels` folder in your storage location, beside the `local` one. Each folder inside it is a series, and each EPUB in that folder is a volume. Volumes are read in the order of their series number when every book has one, and in name order otherwise. An EPUB placed straight in `localnovels` is a series of its own.
 
 * Chapters come from the book's table of contents. A file that holds several chapters is divided at them, and a part title with no text of its own joins the chapter after it.
 * A book with no table of contents gets a chapter per file, or, for a book that is one long file, a chapter per heading.

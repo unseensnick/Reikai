@@ -29,6 +29,8 @@ data class EpubExportBook(
     val artist: String? = null,
     /** The source's own word for the status ("Ongoing"), kept so an import reads it back. */
     val status: String? = null,
+    /** Where this book stands in a series of exports of one novel, so an import orders them by it. */
+    val seriesPosition: Int? = null,
 )
 
 /** One chapter, its HTML read only when the writer reaches it, so a long novel is never held whole. */
@@ -211,6 +213,15 @@ $points
                 add("""<meta refines="#artist" property="role" scheme="marc:relators">ill</meta>""")
             }
             book.status?.let { add("""<meta property="reikai:status">${escape(it)}</meta>""") }
+            book.seriesPosition?.let { position ->
+                // EPUB 3's collection for EPUB 3 readers, Calibre's metas for Calibre and EPUB 2 readers.
+                val series = escape(book.title)
+                add("""<meta property="belongs-to-collection" id="series">$series</meta>""")
+                add("""<meta refines="#series" property="collection-type">series</meta>""")
+                add("""<meta refines="#series" property="group-position">$position</meta>""")
+                add("""<meta name="calibre:series" content="$series"/>""")
+                add("""<meta name="calibre:series_index" content="$position"/>""")
+            }
             // As HTML paragraphs, the form readers and Calibre expect, so a reader keeps its line breaks.
             book.description?.let { add("<dc:description>${escape(descriptionHtml(it))}</dc:description>") }
             book.genres.forEach { add("<dc:subject>${escape(it)}</dc:subject>") }

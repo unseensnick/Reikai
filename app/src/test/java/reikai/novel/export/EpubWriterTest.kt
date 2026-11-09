@@ -14,6 +14,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
 import reikai.novel.local.epub.EpubChapters
+import reikai.novel.local.inVolumeOrder
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.util.Base64
@@ -109,6 +110,48 @@ class EpubWriterTest {
 
         Triple(parsed.metadata.title, parsed.metadata.author, parsed.coverPath) shouldBe
             Triple("A & B", "Someone", "OEBPS/images/cover.png")
+    }
+
+    private suspend fun readBack(book: EpubExportBook): EpubBook {
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(book, out)
+        val files = LinkedHashMap<String, ByteArray>()
+        ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.forEach { files[it.name] = zip.readBytes() }
+        }
+        return EpubBook.parse { paths -> paths.mapNotNull { p -> files[p]?.let { p to it } }.toMap() }
+    }
+
+    @Test
+    fun `a run's series position is written for EPUB 3 readers and for Calibre`() = runTest {
+        val out = ByteArrayOutputStream()
+        EpubWriter().write(book.copy(seriesPosition = 51), out)
+        val opf = ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+            generateSequence { zip.nextEntry }.first { it.name == "OEBPS/content.opf" }
+            zip.readBytes().toString(Charsets.UTF_8)
+        }
+
+        listOf(
+            """property="group-position">51<""" in opf,
+            """name="calibre:series_index" content="51"""" in opf,
+        ) shouldBe listOf(true, true)
+    }
+
+    @Test
+    fun `a whole novel's export carries no series position`() = runTest {
+        readBack(book).metadata.seriesIndex shouldBe null
+    }
+
+    @Test
+    fun `runs of one novel exported and imported read in their order`() = runTest {
+        // Named so the file names alone would put the later run first.
+        val volumes = listOf(
+            "a.epub" to readBack(book.copy(seriesPosition = 51)),
+            "b.epub" to readBack(book.copy(seriesPosition = 1)),
+        )
+
+        inVolumeOrder(volumes, { it.first }) { it.second.metadata.seriesIndex }.map { it.first } shouldBe
+            listOf("b.epub", "a.epub")
     }
 
     @Test
