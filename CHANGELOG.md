@@ -193,6 +193,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A failed manga page only offers Open in WebView when the image came from the web (from Mihon).**
 - **Replacing an added reader font with a smaller file of the same name now replaces it whole.**
 - **More links inside novel chapters now reach their target in the WebView reading mode, as they already did in the native one.**
+- **A chapter that fails to load while offline now says there is no Internet connection, for manga and novels.**
+- **The novel reader no longer offers WebView, Open in browser or Share for a local novel.**
 
 ### Statistics
 

@@ -183,7 +183,7 @@ class MangaReaderProvider(
         val initError = state.initError
         when {
             initError != null -> ReaderLoadState.Failed(
-                initError.message,
+                viewModel.describeFailure(initError),
                 canKeepReading = false,
                 // No chapter without the series, which is also what resolves the chapter's page.
                 chapterId = viewModel.openingChapterId.takeIf { state.manga != null },

@@ -28,6 +28,7 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.interactor.TrackChapter
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.util.loadFailureMessage // RK
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -785,12 +786,15 @@ class ReaderViewModel(
                 throw e
             }
             logcat(LogPriority.ERROR, e)
-            val failure = AdjacentLoadFailure(chapterId, e.message, fromSource)
+            val failure = AdjacentLoadFailure(chapterId, describeFailure(e), fromSource)
             mutableState.update { it.copy(adjacentLoadFailure = failure) }
         } finally {
             mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
         }
     }
+
+    /** A load failure as the failed-load sheet words it, for both content types ([loadFailureMessage]). */
+    fun describeFailure(error: Throwable): String = with(context) { error.loadFailureMessage }
     // RK <--
 
     private var nextChapterPreloadJob: Job? = null

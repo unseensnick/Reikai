@@ -36,6 +36,14 @@ val Throwable.formattedMessage: String
         }
     }
 
+// RK --> the reader's failed-load sheet and retry block, for both content types: a cause the formatter
+// words is worded, so an offline failure reads as one, and any other keeps the text it was thrown with
+// rather than gaining its class name; one with no text at all falls back to the formatter.
+context(context: Context)
+val Throwable.loadFailureMessage: String
+    get() = message?.takeUnless { wordedCause() != null || it.isBlank() } ?: formattedMessage
+// RK <--
+
 // RK --> the first throwable in the cause chain the formatter has a message for, or null for none
 internal fun Throwable.wordedCause(): Throwable? = firstCause {
     it.takeIf { cause ->

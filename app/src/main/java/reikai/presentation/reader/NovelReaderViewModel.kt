@@ -16,6 +16,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
+import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -931,7 +932,7 @@ class NovelReaderViewModel(
                 // A failed step stamped the chapter it left into history, and the reader goes on in it.
                 if (chapter.value != null) startReadSession(resume = true)
                 loadState.value = ReaderLoadState.Failed(
-                    e.message,
+                    with(context) { e.loadFailureMessage },
                     canKeepReading = chapter.value != null,
                     chapterId = target,
                 )
@@ -1191,15 +1192,16 @@ class NovelReaderViewModel(
         chapterRepo.getById(chapterId)?.let { webUrl(it.novelId, it.url) }
 
     /**
-     * [chapter]'s page on the source site, or null when its source cannot be resolved (not installed),
-     * which is the case the web actions have to hide rather than open empty. A chapter read from disk
-     * resolves its source here, since its open never needed one.
+     * [chapter]'s page on the source site, or null when its source cannot be resolved (not installed) or
+     * has no page (a local novel answers blank), which the web actions have to hide rather than open
+     * empty. A chapter read from disk resolves its source here, since its open never needed one.
      */
     suspend fun webUrlFor(chapter: LoadedChapter): String? = webUrl(chapter.novelId, chapter.url)
 
     private suspend fun webUrl(novelId: Long, chapterUrl: String): String? =
         runCatchingCancellable { textLoader.resolveSource(novelId) }.getOrNull()
             ?.webUrl(chapterUrl, isNovel = false)
+            ?.takeIf { it.isNotBlank() }
 
     /** Start, cancel or delete a chapter download from the sheet. */
     fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
@@ -1376,7 +1378,7 @@ class NovelReaderViewModel(
                 // and leaving on the last chapter of a novel would then look like a broken one.
                 if (e is CancellationException) throw e
                 logcat(LogPriority.WARN, e) { "Failed to prefetch novel chapter $id" }
-                warmFailures.record(id, SystemClock.elapsedRealtime(), e.message)
+                warmFailures.record(id, SystemClock.elapsedRealtime(), with(context) { e.loadFailureMessage })
                 // The window is republished so the renderer can offer a retry at the edge the reader
                 // is about to reach, rather than the text simply stopping there.
                 rebuildWindow()

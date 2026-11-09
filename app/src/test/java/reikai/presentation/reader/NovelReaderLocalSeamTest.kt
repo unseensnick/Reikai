@@ -32,4 +32,18 @@ class NovelReaderLocalSeamTest {
             model.window.value.chapters.single { it.chapterId == first.id }.downloaded shouldBe true
         }
     }
+
+    // LocalNovelSource answers a blank address so the web actions hide; the reader hides them on null.
+    @Test
+    fun `a chapter whose source answers a blank address has no web page`() = runTest {
+        NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source(LocalNovelSource.ID).apply { resolve = { "" } }
+            val novel = harness.novel(source)
+            val first = harness.chapter(novel, 1.0)
+            val model = harness.open(novel, first.id)
+            advanceUntilIdle()
+
+            model.webUrlOf(first.id) shouldBe null
+        }
+    }
 }
