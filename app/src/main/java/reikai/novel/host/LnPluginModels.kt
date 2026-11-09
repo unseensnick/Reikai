@@ -1,13 +1,21 @@
 package reikai.novel.host
 
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonDecoder
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.contentOrNull
+import logcat.LogPriority
+import tachiyomi.core.common.util.system.logcat
 
 /**
  * Kotlin mirrors of the lnreader Plugin types (see refs/lnreader-plugins/src/types/plugin.ts).
@@ -82,6 +90,47 @@ private object ScanlatorSerializer : JsonTransformingSerializer<String>(String.s
     }
 }
 
+/**
+ * A plugin's list, decoded one item at a time so one item without a usable path drops alone instead of
+ * failing the whole listing or chapter list, as LNReader tolerates it. [fill] repairs an item before it is decoded.
+ */
+internal open class TolerantListSerializer<T>(
+    private val element: KSerializer<T>,
+    private val fill: (index: Int, item: JsonObject) -> JsonObject,
+) : KSerializer<List<T>> {
+    private val strict = ListSerializer(element)
+    override val descriptor: SerialDescriptor = strict.descriptor
+
+    override fun serialize(encoder: Encoder, value: List<T>) = strict.serialize(encoder, value)
+
+    override fun deserialize(decoder: Decoder): List<T> {
+        val json = decoder as? JsonDecoder ?: return strict.deserialize(decoder)
+        val items = json.json.decodeFromJsonElement(JsonArray.serializer(), json.decodeJsonElement())
+        val kept = items.mapIndexedNotNull { index, item ->
+            val path = ((item as? JsonObject)?.get("path") as? JsonPrimitive)?.contentOrNull
+            if (path.isNullOrBlank()) return@mapIndexedNotNull null
+            runCatching { json.json.decodeFromJsonElement(element, fill(index, item as JsonObject)) }.getOrNull()
+        }
+        if (kept.size <
+            items.size
+        ) {
+            logcat(LogPriority.WARN) { "dropped ${items.size - kept.size} malformed plugin items" }
+        }
+        return kept
+    }
+}
+
+internal object NovelItemsSerializer : TolerantListSerializer<NovelItem>(NovelItem.serializer(), { _, item -> item })
+
+// LNReader's insertChapters names a nameless chapter by its place in the list the plugin returned.
+internal object ChapterItemsSerializer : TolerantListSerializer<ChapterItem>(
+    ChapterItem.serializer(),
+    { index, item ->
+        val name = (item["name"] as? JsonPrimitive)?.contentOrNull
+        if (name.isNullOrBlank()) JsonObject(item + ("name" to JsonPrimitive("Chapter ${index + 1}"))) else item
+    },
+)
+
 @Serializable
 data class SourceNovel(
     val path: String,
@@ -92,6 +141,7 @@ data class SourceNovel(
     val author: String? = null,
     val artist: String? = null,
     val status: String? = null,
+    @Serializable(with = ChapterItemsSerializer::class)
     val chapters: List<ChapterItem>? = null,
     /**
      * Number of pages the source spans for this novel. Most novels are single-page (default 1);
@@ -108,5 +158,6 @@ data class SourceNovel(
  */
 @Serializable
 data class SourcePage(
+    @Serializable(with = ChapterItemsSerializer::class)
     val chapters: List<ChapterItem>? = null,
 )

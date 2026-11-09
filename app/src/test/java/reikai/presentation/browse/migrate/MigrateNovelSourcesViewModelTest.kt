@@ -25,7 +25,7 @@ class MigrateNovelSourcesViewModelTest {
     /** Before the plugins load, the registry is empty, which drew every installed source as a stub. */
     @Test
     fun `an installed plugin's source is never listed as not installed`() = runTest {
-        coEvery { harness.host.loadPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info("plugin")
+        coEvery { harness.host.inspectPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info("plugin")
         val repository = mockk<NovelRepository> {
             every { getSourcesWithLibraryNovelAsFlow() } returns flowOf(listOf("plugin" to 1L))
         }

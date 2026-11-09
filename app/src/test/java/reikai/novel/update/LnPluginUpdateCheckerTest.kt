@@ -19,6 +19,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
 import reikai.novel.registry.LnRepoRegistries
 import reikai.presentation.recents.EmittingPreferenceStore
+import tachiyomi.core.common.preference.Preference
 
 class LnPluginUpdateCheckerTest {
 
@@ -142,6 +143,12 @@ class LnPluginUpdateCheckerTest {
         checker(repos(homeRepo to emptyList(), otherRepo to null)).checkAndRecord()
 
         prefs.pendingPluginUpdates().get().shouldBeEmpty()
+    }
+
+    // A backup leaves out app-state keys; a restored check time skipped this device's next check.
+    @Test
+    fun `the check time is not backed up`() {
+        Preference.isAppState(prefs.lastLnPluginCheck().key()) shouldBe true
     }
 
     private fun entry(version: String, url: String) =

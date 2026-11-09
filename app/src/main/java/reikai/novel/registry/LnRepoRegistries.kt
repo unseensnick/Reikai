@@ -53,6 +53,13 @@ suspend fun LnRegistryFetcher.fetchEach(repos: Collection<String>): Map<String, 
     }.awaitAll().toMap()
 }
 
+/** Every entry the repos that answered list, in repo order. */
+fun Map<String, LnRepoResult>.reachedEntries(): List<LnRegistryEntry> =
+    values.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
+
+/** The added repos that did not answer. */
+fun Map<String, LnRepoResult>.unreachableRepos(): Set<String> = filterValues { it !is LnRepoResult.Reached }.keys
+
 /**
  * The repo each listed plugin comes from, keyed by canonical script URL. A script two repos list
  * belongs to the earlier one in [results], so every screen naming a plugin's repo names the same one.

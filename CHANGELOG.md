@@ -201,6 +201,16 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
+- **One broken item no longer fails a whole light-novel plugin listing or chapter list.** A nameless chapter is named by its place, as in LNReader.
+- **A novel chapter a plugin returns empty now shows the empty-chapter error, not the word "null".**
+- **Light-novel plugins that name their own text encoding show every character of titles and chapters.**
+- **A novel from a plugin whose page count is unreadable now loads its details and chapters.**
+- **Light-novel plugin links with a stray % or non-UTF-8 escapes no longer fail the page.**
+- **After a light-novel plugin call times out, the next one no longer waits on it or reports its error.**
+- **Updating a light-novel plugin while plugins load no longer leaves the old version running.**
+- **The light-novel plugin update check is no longer skipped after restoring a backup from another device.**
+- **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
 - **Clear cookies in WebView and on an extension's page no longer leaves some sites' Cloudflare pass behind.** Those sites store it in a way the old removal missed.
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page.** A source that fails through the server reports the server's reason too.
 - **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.

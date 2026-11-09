@@ -23,11 +23,9 @@ class LnPluginMissingScriptTest {
     private fun recorded(version: String?) =
         harness.prefs.installedPluginMetadata().set(mapOf(URL to LnInstalledPluginMetadata(ID, version = version)))
 
-    // Read or loaded, the served script reports its own version.
+    // Checked or loaded, the served script reports its own version.
     private fun repoServes(version: String) {
-        coEvery { harness.host.inspectPlugin(any(), SCRIPT, any(), any(), any()) } returns
-            LnPluginHarness.info(ID, version)
-        coEvery { harness.host.loadPlugin(any(), SCRIPT, any(), any(), any()) } returns
+        coEvery { harness.host.inspectPlugin(SCRIPT, any(), any(), any(), any()) } returns
             LnPluginHarness.info(ID, version)
     }
 
@@ -68,7 +66,18 @@ class LnPluginMissingScriptTest {
 
         harness.installer.ensureLoaded()
 
-        coVerify(exactly = 0) { harness.host.loadPlugin(any(), SCRIPT, any(), any(), any()) }
+        coVerify(exactly = 0) { harness.host.retainPlugin(any(), SCRIPT) }
+    }
+
+    // The version check may yet reject it, so its code must not meet the plugin's storage.
+    @Test
+    fun `a served script is checked without the plugin's storage`() = runTest {
+        recorded(INSTALLED)
+        repoServes(NEWER)
+
+        harness.installer.ensureLoaded()
+
+        coVerify(exactly = 0) { harness.host.inspectPlugin(SCRIPT, any(), any(), any(), ID) }
     }
 
     @Test

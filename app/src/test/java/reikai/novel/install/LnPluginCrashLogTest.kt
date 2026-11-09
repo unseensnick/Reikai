@@ -12,7 +12,8 @@ class LnPluginCrashLogTest {
     @Test
     fun `a crash log lists a plugin that fails to load in a process that never loaded the plugins`() = runTest {
         val harness = LnPluginHarness(setOf("https://repo.test/broken.js"))
-        coEvery { harness.host.loadPlugin(any(), any(), any(), any(), any()) } throws LnPluginException("broken plugin")
+        coEvery { harness.host.inspectPlugin(any(), any(), any(), any(), any()) } throws
+            LnPluginException("broken plugin")
 
         val entries = novelPluginCrashLogEntries(harness.installer)
 

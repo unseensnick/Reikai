@@ -20,7 +20,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.ToggleNovelSource
 import reikai.novel.registry.LnRepoRegistries
-import reikai.novel.registry.LnRepoResult
+import reikai.novel.registry.reachedEntries
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -54,7 +54,7 @@ class NovelSourcesFilterViewModel(
         registries.results.onStart { emit(emptyMap()) },
         extensionManager.availableNovelExtensionsFlow,
     ) { results, apps ->
-        results.values.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty().map { entry -> entry.lang } } +
+        results.reachedEntries().map { it.lang } +
             apps.flatMap { app -> app.sources.map { it.lang } }
     }
 

@@ -30,8 +30,8 @@ class LnPluginInstallerRaceTest {
 
     /** The pass loads the stored script and waits on [passGate]; an install loads the new one at once. */
     private fun holdThePass() {
-        coEvery { harness.host.loadPlugin(any(), any(), any(), any(), any()) } coAnswers {
-            if (secondArg<String>() == NEW_SCRIPT) {
+        coEvery { harness.host.inspectPlugin(any(), any(), any(), any(), any()) } coAnswers {
+            if (firstArg<String>() == NEW_SCRIPT) {
                 LnPluginHarness.info(ID, version = "2")
             } else {
                 passEntered.complete(Unit)
@@ -121,6 +121,20 @@ class LnPluginInstallerRaceTest {
         release(pass, install)
 
         registered() shouldBe listOf(ID to "2")
+    }
+
+    // The host is keyed by plugin id, so the pass finishing last would otherwise swap the old script in.
+    @Test
+    fun `a load pass of an address an install replaced leaves the new script in the host`() = runTest {
+        holdThePass()
+        val pass = launch { installer.ensureLoaded() }
+        passEntered.await()
+
+        val install = launch { installer.installFromUrl(OTHER_URL, LnInstalledPluginMetadata(pluginId = ID)) }
+        advanceUntilIdle()
+        release(pass, install)
+
+        harness.retained[ID] shouldBe NEW_SCRIPT
     }
 
     private suspend fun release(vararg jobs: Job) {

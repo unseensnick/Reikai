@@ -21,7 +21,7 @@ class NovelSourceLookupTest {
     private val manager = harness.manager
 
     private fun failEveryLoad() {
-        coEvery { harness.host.loadPlugin(any(), any(), any(), any(), any()) } answers {
+        coEvery { harness.host.inspectPlugin(any(), any(), any(), any(), any()) } answers {
             loads++
             throw LnPluginException("broken plugin")
         }
@@ -50,7 +50,7 @@ class NovelSourceLookupTest {
     /** The raw registry starts empty, which a screen showing install state reads as every plugin missing. */
     @Test
     fun `the loaded sources hold the installed plugins from their first emission`() = runTest {
-        coEvery { harness.host.loadPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info("broken")
+        coEvery { harness.host.inspectPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info("broken")
 
         manager.loadedSources().first().map { it.id } shouldBe listOf("broken")
     }

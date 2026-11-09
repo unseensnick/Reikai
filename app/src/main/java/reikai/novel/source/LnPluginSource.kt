@@ -15,8 +15,8 @@ import reikai.novel.host.withDecodedDetails
  * does not own the host: construct one for every plugin loaded on the host, and dispose them
  * together when the host goes away.
  *
- * The plugin id stored in [info] is the same string passed to `host.loadPlugin(pluginId, source)`,
- * so the adapter routes every method call to the right plugin instance inside the engine.
+ * The plugin id in [info] is the one the installer retained the script under (`host.retainPlugin`),
+ * so the adapter routes every method call to that plugin's own engine.
  */
 class LnPluginSource(
     private val host: LnPluginHost,

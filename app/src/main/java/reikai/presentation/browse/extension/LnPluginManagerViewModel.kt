@@ -34,6 +34,7 @@ import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
 import reikai.novel.registry.pluginRepos
+import reikai.novel.registry.reachedEntries
 import reikai.novel.registry.toMetadata
 import reikai.novel.source.LnPluginSource
 import reikai.novel.source.NovelSource
@@ -120,21 +121,15 @@ class LnPluginManagerViewModel(
         disabledLanguages: Set<String>,
     ): RepoFetch {
         // Merge in repo order, so first-write-wins on URL collisions matches the install/check surfaces.
-        val registries = results.values.map { (it as? LnRepoResult.Reached)?.entries.orEmpty() }
         val byUrl = LinkedHashMap<String, LnRegistryEntry>()
-        registries.flatten().forEach { entry -> byUrl.putIfAbsent(canonicalizePluginUrl(entry.url), entry) }
+        results.reachedEntries().forEach { entry -> byUrl.putIfAbsent(canonicalizePluginUrl(entry.url), entry) }
         val repoByUrl = pluginRepos(results).mapValues { repoNameFromAddress(it.value).first }
         return RepoFetch(
             hasRepos = results.isNotEmpty(),
             // The novel sources' language filter narrows what is offered, as manga's does for extensions.
             available = byUrl.filterKeys { it !in installedUrls }.values
                 .filterNot { it.lang.isInDisabledNovelLanguage(disabledLanguages) },
-            found = findPluginUpdates(
-                installedUrls,
-                metadata,
-                registries.flatten(),
-                unreachable = results.filterValues { it !is LnRepoResult.Reached }.keys,
-            ),
+            found = findPluginUpdates(installedUrls, metadata, results),
             installedVersions = metadata.values
                 .mapNotNull { meta -> meta.version?.let { meta.pluginId to it } }
                 .toMap(),
@@ -192,9 +187,7 @@ class LnPluginManagerViewModel(
 
     fun uninstall(source: NovelSource) {
         appScope.launchIO {
-            // Uninstall by plugin id; the installer resolves the URL(s) from fresh metadata. A cached
-            // id->url map lags a same-session install (install registers the source before persisting
-            // metadata), which silently no-op'd the trash button until an app restart.
+            // By plugin id; the installer resolves its URL(s) from fresh metadata, which a UI-cached id->url map would not.
             installer.uninstall(source.id)
         }
     }

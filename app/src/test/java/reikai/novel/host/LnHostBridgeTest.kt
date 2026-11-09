@@ -5,9 +5,12 @@ import eu.kanade.tachiyomi.network.HttpException
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.mockk
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
@@ -18,9 +21,8 @@ import java.net.InetSocketAddress
 import java.util.concurrent.atomic.AtomicReference
 
 /**
- * Plugins hand the host a JSON `FetchInit`. When strict decoding fails (a field has a shape the
- * serializer rejects), the bridge falls back to picking out the fields it understands rather than
- * aborting the whole fetch. These pin that lenient fallback.
+ * Plugins hand the host a JSON `FetchInit`, read field by field so a field with a shape the
+ * serializer rejects drops alone rather than aborting the whole fetch; and the fetch itself.
  */
 class LnHostBridgeTest {
 
@@ -43,6 +45,43 @@ class LnHostBridgeTest {
         val opts = bridge.parseFetchOpts("""{"method":"POST","headers":["bad"],"body":"data"}""")
 
         Triple(opts.method, opts.headers, opts.body) shouldBe Triple("POST", null, "data")
+    }
+
+    // A null header failed the strict decode, and the fallback sent the FormData post with no body.
+    @Test
+    fun `a null header leaves a multipart body in place`() {
+        val opts = bridge.parseFetchOpts("""{"method":"POST","headers":{"X-A":null},"multipart":[["k","v"]]}""")
+
+        opts.multipart shouldBe listOf(listOf("k", "v"))
+    }
+
+    @Test
+    fun `a null header leaves a binary body in place`() {
+        val opts = bridge.parseFetchOpts("""{"headers":{"X-A":null},"bodyBase64":"AAE=","binary":true}""")
+
+        (opts.bodyBase64 to opts.binary) shouldBe ("AAE=" to true)
+    }
+
+    // A GBK site declares gb2312, which cannot decode the rarer characters its pages carry.
+    @Test
+    fun `the encoding a plugin names decodes the body over the declared charset`() {
+        val gbk = "镕喆".toByteArray(charset("GBK"))
+        val bridge = LnHostBridge(
+            preferenceStore = mockk(relaxed = true),
+            client = OkHttpClient.Builder().addInterceptor { chain ->
+                Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("")
+                    .body(gbk.toResponseBody("text/html; charset=gb2312".toMediaType())).build()
+            }.build(),
+        ) { "agent" }
+
+        val response = bridge.runFetch("https://example.org/c", """{"encoding":"gbk"}""") {}
+
+        LnPluginHost.JSON.parseToJsonElement(response).jsonObject["body"]?.jsonPrimitive?.content shouldBe "镕喆"
+    }
+
+    @Test
+    fun `a failed fetch is logged without its query or fragment`() {
+        loggableUrl("https://example.org/search?q=private+terms&token=abc#top") shouldBe "https://example.org/search"
     }
 
     /**

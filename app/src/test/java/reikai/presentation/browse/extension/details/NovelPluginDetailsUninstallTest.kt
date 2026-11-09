@@ -21,7 +21,7 @@ class NovelPluginDetailsUninstallTest {
 
     private val harness = LnPluginHarness(setOf(URL)).also {
         it.prefs.installedPluginMetadata().set(mapOf(URL to LnInstalledPluginMetadata(pluginId = ID)))
-        coEvery { it.host.loadPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info(ID)
+        coEvery { it.host.inspectPlugin(any(), any(), any(), any(), any()) } returns LnPluginHarness.info(ID)
     }
 
     @Test

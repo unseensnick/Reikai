@@ -1,6 +1,7 @@
 package reikai.novel.install
 
 import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.network.NetworkHelper
 import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.every
@@ -20,11 +21,17 @@ import reikai.util.testAppScope
  * [installedUrls] names already stored. The host is left for each test to answer, so one can fail a
  * load, count loads or hold one on a gate.
  */
-class LnPluginHarness(installedUrls: Set<String>) {
+class LnPluginHarness(installedUrls: Set<String>, networkHelper: NetworkHelper = mockk()) {
 
     val prefs = NovelPreferences(EmittingPreferenceStore()).also { it.installedPluginUrls().set(installedUrls) }
 
-    val host = mockk<LnPluginHost> { every { forgetWebStorage(any()) } just Runs }
+    /** The script the host holds for each plugin id, as the installer last retained it. */
+    val retained = mutableMapOf<String, String>()
+
+    val host = mockk<LnPluginHost> {
+        every { forgetWebStorage(any()) } just Runs
+        every { retainPlugin(any(), any()) } answers { retained[firstArg()] = secondArg() }
+    }
 
     val loader = mockk<LnPluginLoader>(relaxed = true) {
         coEvery { installed(any()) } returns "plugin source"
@@ -39,7 +46,7 @@ class LnPluginHarness(installedUrls: Set<String>) {
         { installer },
         mockk<ExtensionManager> { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
         prefs,
-    ).also { installer = LnPluginInstaller(mockk(), loader, it, prefs, host) }
+    ).also { installer = LnPluginInstaller(networkHelper, loader, it, prefs, host) }
 
     companion object {
         fun info(id: String, version: String? = null) = LnPluginInfo(id = id, name = id, version = version)

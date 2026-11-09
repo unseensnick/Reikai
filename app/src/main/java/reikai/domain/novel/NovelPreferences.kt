@@ -110,8 +110,9 @@ class NovelPreferences(
     /** Ids of the installed plugins a repo offers a newer version of; the Browse badge counts them. */
     fun pendingPluginUpdates() = preferenceStore.getStringSet("ln_plugin_updates_pending", emptySet())
 
-    /** Last successful update-check timestamp (millis); gates the on-launch path to skip if recent. */
-    fun lastLnPluginCheck() = preferenceStore.getLong("ln_plugin_last_check", 0L)
+    /** Last successful update-check timestamp (millis); gates the on-launch path to skip if recent. App-state,
+     *  so a restore does not bring another device's check time and skip this one's next check. */
+    fun lastLnPluginCheck() = preferenceStore.getLong(Preference.appStateKey("ln_plugin_last_check"), 0L)
 
     /** Epoch-millis the last novel library update started; feeds the shared Updates "Last updated"
      *  line. App-state (not backed up), mirroring manga's [LibraryPreferences.lastUpdatedTimestamp]. */

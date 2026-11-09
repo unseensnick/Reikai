@@ -60,18 +60,7 @@ class LnPluginLoader(
     }
 
     /** Makes [script] the installed one for [url], replacing the file whole so a crash can't leave half. */
-    suspend fun store(url: String, script: String): Unit = withIOContext {
-        val file = fileFor(url)
-        // Named apart per write: a self-heal load and a reinstall can store one plugin at once.
-        val partial = File.createTempFile(file.name, ".tmp", file.parentFile)
-        try {
-            partial.writeText(script)
-            Files.move(partial.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
-        } finally {
-            // Gone already once moved; a write that failed leaves no stray file behind.
-            partial.delete()
-        }
-    }
+    suspend fun store(url: String, script: String): Unit = withIOContext { writeWhole(fileFor(url), script) }
 
     suspend fun delete(url: String) = withIOContext {
         fileFor(url).delete()
@@ -86,7 +75,19 @@ class LnPluginLoader(
     /** Makes [css] the plugin's chapter stylesheet, or removes the stored one when it ships none. */
     suspend fun storeStylesheet(url: String, css: String?): Unit = withIOContext {
         val file = fileFor(url, STYLESHEET_EXTENSION)
-        if (css == null) file.delete() else file.writeText(css)
+        if (css == null) file.delete() else writeWhole(file, css)
+    }
+
+    private fun writeWhole(file: File, text: String) {
+        // Named apart per write: a self-heal load and a reinstall can store one plugin at once.
+        val partial = File.createTempFile(file.name, ".tmp", file.parentFile)
+        try {
+            partial.writeText(text)
+            Files.move(partial.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE)
+        } finally {
+            // Gone already once moved; a write that failed leaves no stray file behind.
+            partial.delete()
+        }
     }
 
     /** Scripts used to live in the cache folder, where Android could clear them and force a download. */

@@ -40,7 +40,7 @@ class LnPluginHostThreadTest {
 
         // Real time: the test scheduler skips ahead while this waits on the slot's thread, which fires
         // the load's timeout before the runtime is read.
-        runCatching { withContext(Dispatchers.Default) { host.loadPlugin("plugin", "source") } }
+        runCatching { withContext(Dispatchers.Default) { host.inspectPlugin("source") } }
 
         readOn.distinct() shouldContainOnly listOf("LnPlugin-loader")
     }

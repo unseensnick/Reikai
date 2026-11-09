@@ -5,6 +5,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRepoResult
 
 class FindPluginUpdatesTest {
 
@@ -21,6 +22,18 @@ class FindPluginUpdatesTest {
             it.entry
         } shouldContainExactly
             listOf(newer)
+    }
+
+    // The background check and the Extensions screen both read a fetch's outcomes through this.
+    @Test
+    fun `a fetch's outcomes take an update only from the repos that answered`() {
+        val results = mapOf(
+            HOME_REPO to LnRepoResult.Unreachable("down"),
+            OTHER_REPO to LnRepoResult.Reached(listOf(entry(version = "1.1.0", url = otherRepoUrl))),
+        )
+        val homeRecorded = mapOf(installedUrl to metadata.getValue(installedUrl).copy(repoUrl = HOME_REPO))
+
+        findPluginUpdates(setOf(installedUrl), homeRecorded, results).undecided shouldContainExactly setOf("novelbin")
     }
 
     @Test

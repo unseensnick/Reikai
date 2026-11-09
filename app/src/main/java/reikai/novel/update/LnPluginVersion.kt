@@ -19,9 +19,7 @@ object LnPluginVersion {
     fun compare(a: String, b: String): Int {
         val sa = a.replace(DIGITS_AND_DOTS, "")
         val sb = b.replace(DIGITS_AND_DOTS, "")
-        if (sa.isEmpty() && sb.isEmpty()) return a.compareTo(b)
-        if (sa.isEmpty()) return a.compareTo(b)
-        if (sb.isEmpty()) return a.compareTo(b)
+        if (sa.isEmpty() || sb.isEmpty()) return a.compareTo(b)
 
         val partsA = sa.split('.')
         val partsB = sb.split('.')

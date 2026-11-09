@@ -96,7 +96,7 @@ class HeadlessJsIntegrationTest {
                     }
                 fetchOk++
 
-                val info = runCatching { host.loadPlugin(entry.id, source, entry.iconUrl, entry.lang) }
+                val info = runCatching { host.load(source, entry.iconUrl, entry.lang) }
                     .getOrElse {
                         val msg = "${entry.id}: ${it.message}"
                         loadFailures += msg
@@ -209,7 +209,7 @@ class HeadlessJsIntegrationTest {
                     }
                 fetchOk++
 
-                val info = runCatching { host.loadPlugin(entry.id, source, entry.iconUrl, entry.lang) }
+                val info = runCatching { host.load(source, entry.iconUrl, entry.lang) }
                     .getOrElse {
                         Log.i(TAG, "RESULT $tag LOAD_FAIL ${it.message?.take(160)}")
                         continue
@@ -372,6 +372,38 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
+     * The query shim decodes a malformed escape as a browser does, leaving a stray `%` and reading bad
+     * UTF-8 bytes as U+FFFD, where decodeURIComponent threw and failed a plugin's whole page. Inline: no network.
+     */
+    @Test
+    fun queryShimDecodesMalformedEscapesLikeABrowser() = runBlocking {
+        val q = DokarQuickJs.create(Dispatchers.IO)
+        try {
+            q.function("__lnLog") { null }
+            q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
+            LnPluginHost.RUNTIME_ASSETS.forEach { path ->
+                q.evaluate<Any?>(context.assets.open(path).bufferedReader().use { it.readText() })
+            }
+            val results = q.evaluate<String>(
+                """
+                (function () {
+                  var p = new URLSearchParams("k=%B0%A1&j=%E4%BD%A0");
+                  var k = p.get("k");
+                  return [
+                    new URL("https://a.org/s?q=100%").searchParams.get("q"),
+                    p.get("j"),
+                    k.charCodeAt(0).toString(16) + " " + k.charCodeAt(1).toString(16),
+                  ].join("|");
+                })()
+                """.trimIndent(),
+            )
+            assertEquals("100%|你|fffd fffd", results)
+        } finally {
+            q.close()
+        }
+    }
+
+    /**
      * A stored undefined reads back as undefined, as LNReader's Storage.get returns item.value
      * (refs/lnreader-main/src/plugins/helpers/storage.ts). JSON drops the undefined, so the envelope
      * carried only its timestamp and came back whole. Inline plugin: no network.
@@ -389,7 +421,7 @@ class HeadlessJsIntegrationTest {
               },
             };
         """.trimIndent()
-        host.loadPlugin("storage-undefined-test", plugin)
+        host.load(plugin)
 
         assertEquals("undefined", host.parseChapter("storage-undefined-test", "/c"))
     }
@@ -410,7 +442,7 @@ class HeadlessJsIntegrationTest {
               parseChapter: async function () { return String(this.auth); },
             };
         """.trimIndent()
-        host.loadPlugin("web-storage-test", plugin)
+        host.load(plugin)
         host.storeWebStorage("web-storage-test", WebStorageSnapshot(local = "{}", session = "{}"))
         host.parseChapter("web-storage-test", "/c")
 
@@ -423,10 +455,7 @@ class HeadlessJsIntegrationTest {
     @Test
     fun aPluginCannotReadAnotherPluginsStorage() = runBlocking {
         val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
-        host.loadPlugin(
-            "victim-test",
-            "module.exports.default = { id: 'victim-test', name: 'V', site: 'https://a.org', version: '1' };",
-        )
+        host.load("module.exports.default = { id: 'victim-test', name: 'V', site: 'https://a.org', version: '1' };")
         host.storeWebStorage("victim-test", WebStorageSnapshot(local = """{"auth":"secret"}""", session = "{}"))
         val thief = """
             module.exports.default = {
@@ -436,7 +465,7 @@ class HeadlessJsIntegrationTest {
               },
             };
         """.trimIndent()
-        host.loadPlugin("thief-test", thief)
+        host.load(thief)
 
         assertEquals("blocked", host.parseChapter("thief-test", "/c"))
     }
@@ -445,18 +474,105 @@ class HeadlessJsIntegrationTest {
     @Test
     fun aReloadDeclaringAnotherIdIsRefused() = runBlocking {
         val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
-        host.loadPlugin(
-            "owner-test",
+        host.load(
             "module.exports.default = { id: 'owner-test', name: 'O', site: 'https://a.org', version: '1'," +
                 " parseChapter: async function () { return 'owner'; } };",
         )
         val impostor = "module.exports.default = { id: 'owner-test', name: 'I', site: 'https://b.org', version: '1'," +
             " parseChapter: async function () { return 'impostor'; } };"
 
-        runCatching { host.loadPlugin("impostor-test", impostor, expectedId = "impostor-test") }
+        runCatching { host.load(impostor, expectedId = "impostor-test") }
 
         assertEquals("owner", host.parseChapter("owner-test", "/c"))
     }
+
+    /**
+     * Plugin code reaching the runtime's loader with a stub that declares another plugin's id is refused,
+     * and the engine's storage is its own plugin's whatever id the stub declares. Inline plugins: no network.
+     */
+    @Test
+    fun aPluginCannotLoadAStubUnderAnotherPluginsId() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        host.load("module.exports.default = { id: 'nested-victim', name: 'V', site: 'https://a.org', version: '1' };")
+        host.storeWebStorage("nested-victim", WebStorageSnapshot(local = """{"auth":"secret"}""", session = "{}"))
+        host.setSetting("nested-victim", "password", JsonPrimitive("hunter2"))
+        val stub = "var s = require('@libs/storage');" +
+            " globalThis.leak = JSON.stringify(s.localStorage.get()) + '|' + s.storage.get('password');" +
+            " s.storage.set('password', 'pwned');" +
+            " module.exports.default = { id: 'nested-victim', name: 'X' };"
+        val attacker = """
+            module.exports.default = {
+              id: 'nested-attacker', name: 'A', site: 'https://b.org', version: '1',
+              parseChapter: async function () {
+                try { globalThis.__lnLoadPlugin(${JsonPrimitive(stub)}); } catch (e) { return 'refused'; }
+                return String(globalThis.leak);
+              },
+            };
+        """.trimIndent()
+        host.load(attacker)
+
+        val read = host.parseChapter("nested-attacker", "/c")
+
+        val password = (host.getSetting("nested-victim", "password") as? JsonPrimitive)?.content
+        assertEquals(listOf("refused", "hunter2"), listOf(read, password))
+    }
+
+    /** A script read before the installer accepted its declared id sees no plugin's storage. */
+    @Test
+    fun aScriptReadForInstallSeesNoStorageOfTheIdItDeclares() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        host.setSetting("read-victim", "password", JsonPrimitive("hunter2"))
+        val impostor = "var s = require('@libs/storage');" +
+            " module.exports.default = { id: 'read-victim', name: String(s.storage.get('password')) };"
+
+        assertEquals("undefined", host.inspectPlugin(impostor).name)
+    }
+
+    /** The other half: an update of the plugin its URL is installed as reads that plugin's storage, as komga's site does. */
+    @Test
+    fun aScriptReadAsItsInstalledIdSeesItsStorage() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        host.setSetting("read-owner", "url", JsonPrimitive("https://self.hosted"))
+        val plugin = "var s = require('@libs/storage');" +
+            " module.exports.default = { id: 'read-owner', name: 'O', site: s.storage.get('url') };"
+
+        assertEquals("https://self.hosted", host.inspectPlugin(plugin, trustedId = "read-owner").site)
+    }
+
+    /** A reload declaring another id is refused before its code meets that id's storage or its own. */
+    @Test
+    fun aRefusedReloadWritesNoStorage() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val impostor = "require('@libs/storage').storage.set('k', 'x');" +
+            " module.exports.default = { id: 'refused-other', name: 'I' };"
+
+        runCatching { host.inspectPlugin(impostor, expectedId = "refused-owner") }
+
+        val written = listOf(host.getSetting("refused-other", "k"), host.getSetting("refused-owner", "k"))
+        assertEquals(listOf(null, null), written)
+    }
+
+    /**
+     * Each script is read in an engine of its own, so one cannot leave a hook behind for the next, as a
+     * wrapped loader in a shared engine read every later plugin's storage. Inline plugins: no network.
+     */
+    @Test
+    fun aScriptCannotLeaveCodeBehindForTheNextOneRead() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        host.inspectPlugin(
+            "globalThis.__lnLoadPlugin = function () { return { id: 'hijacked', name: 'H' }; };" +
+                " module.exports.default = { id: 'hook-first', name: 'F' };",
+        )
+
+        assertEquals("hook-second", host.inspectPlugin("module.exports.default = { id: 'hook-second', name: 'S' };").id)
+    }
+
+    private suspend fun LnPluginHost.load(
+        source: String,
+        iconUrl: String? = null,
+        lang: String? = null,
+        expectedId: String? = null,
+    ): LnPluginInfo = inspectPlugin(source, iconUrl, lang, expectedId).also { retainPlugin(it.id, source) }
 
     /** LNReader's opt-in to the browser's storage reaches the app, which keeps none for a plugin without it. */
     @Test
@@ -469,7 +585,7 @@ class HeadlessJsIntegrationTest {
             };
         """.trimIndent()
 
-        assertTrue(host.loadPlugin("web-storage-flag-test", plugin).webStorageUtilized)
+        assertTrue(host.load(plugin).webStorageUtilized)
     }
 
     /** The other half of the opt-in: a plugin that never asks is never handed the site's storage. */
@@ -482,7 +598,7 @@ class HeadlessJsIntegrationTest {
             };
         """.trimIndent()
 
-        assertFalse(host.loadPlugin("no-web-storage-test", plugin).webStorageUtilized)
+        assertFalse(host.load(plugin).webStorageUtilized)
     }
 
     /**
@@ -499,7 +615,7 @@ class HeadlessJsIntegrationTest {
               parseNovel: async function (path) { return { path: path, name: 'T', status: NovelStatus[path] }; },
             };
         """.trimIndent()
-        host.loadPlugin("status-test", plugin)
+        host.load(plugin)
 
         val codes = listOf("Inactive", "STUB").map { host.parseNovel("status-test", it).toNovel("status-test").status }
 
@@ -522,7 +638,7 @@ class HeadlessJsIntegrationTest {
               parseChapter: async function () { return 'ok'; },
             };
         """.trimIndent()
-        host.loadPlugin("replay-failure-test", plugin)
+        host.load(plugin)
         host.setSetting("replay-failure-test", "fail", JsonPrimitive(true))
         runCatching { host.parseChapter("replay-failure-test", "/c") }
 

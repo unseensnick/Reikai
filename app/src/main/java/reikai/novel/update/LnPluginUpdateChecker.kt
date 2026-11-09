@@ -14,6 +14,8 @@ import reikai.novel.registry.LnRepoRegistries
 import reikai.novel.registry.LnRepoResult
 import reikai.novel.registry.byPluginUrl
 import reikai.novel.registry.fetchEach
+import reikai.novel.registry.reachedEntries
+import reikai.novel.registry.unreachableRepos
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import java.util.concurrent.TimeUnit
@@ -44,12 +46,7 @@ class LnPluginUpdateChecker(
         // The screens recompute the badge from their registries, so they must not keep an older copy.
         registries.accept(fetched)
         installer.recordRepos(fetched)
-        val found = findPluginUpdates(
-            installedUrls,
-            prefs.installedPluginMetadata().get(),
-            fetched.values.flatMap { (it as? LnRepoResult.Reached)?.entries.orEmpty() },
-            unreachable = fetched.filterValues { it !is LnRepoResult.Reached }.keys,
-        )
+        val found = findPluginUpdates(installedUrls, prefs.installedPluginMetadata().get(), fetched)
         notifier.setPending(found)
         // With no repo answering nothing was learned, so the next launch or Browse open checks again.
         if (fetched.isEmpty() || fetched.values.any { it is LnRepoResult.Reached }) {
@@ -93,6 +90,13 @@ data class LnPluginUpdates(
     fun pendingIds(previous: Set<String>): Set<String> =
         updates.mapTo(HashSet()) { it.entry.id } + (previous intersect undecided)
 }
+
+/** [findPluginUpdates] over what fetching every added repo gave, which the check and the Extensions screen both hold. */
+fun findPluginUpdates(
+    installedUrls: Set<String>,
+    metadata: Map<String, LnInstalledPluginMetadata>,
+    results: Map<String, LnRepoResult>,
+): LnPluginUpdates = findPluginUpdates(installedUrls, metadata, results.reachedEntries(), results.unreachableRepos())
 
 /**
  * The installed plugins a repo offers a newer version of, matched by plugin id since a repo can publish
