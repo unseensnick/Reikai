@@ -308,9 +308,10 @@
     <string name="action_reorder_volumes">Reorder volumes</string>
     <string name="action_add_to_series">Add to series</string>
     <string name="add_to_series_summary">This series moves in as volumes of the one you pick, with its read progress, and leaves the library</string>
-    <string name="action_split_out_volume">Split out a volume</string>
+    <string name="action_split_out_volume">Split out volumes</string>
     <string name="action_split_out">Split out</string>
-    <string name="split_out_volume_summary">The volume becomes a series of its own in the library, with its read progress</string>
+    <string name="split_out_volume_summary">The volumes you tick become one series of their own in the library, with their read progress</string>
+    <string name="split_out_series_name">Series name</string>
     <string name="action_combine_volumes">Combine as volumes</string>
     <string name="combine_volumes_keep">Keep as the series</string>
     <string name="combine_volumes_summary">The others move in as its volumes, with their read progress, and leave the library</string>
@@ -2009,7 +2010,7 @@
     <string name="markdown_alert_caution">Caution</string>
 
     <!-- RK: search and word count over a novel's downloaded chapters (from Tsundoku) -->
-    <string name="action_search_downloaded_text">Search downloaded chapters</string>
+    <string name="action_search_chapter_text">Search chapter text</string>
     <string name="novel_text_search_hint">Find in downloaded chapters</string>
     <string name="novel_text_search_progress">Searched %1$d of %2$d chapters</string>
     <string name="novel_text_search_no_chapters">No downloaded chapters to search</string>

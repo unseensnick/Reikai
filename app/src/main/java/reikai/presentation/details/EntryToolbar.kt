@@ -274,7 +274,7 @@ fun EntryToolbar(
                     if (onClickSearchText != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = stringResource(MR.strings.action_search_downloaded_text),
+                                title = stringResource(MR.strings.action_search_chapter_text),
                                 onClick = onClickSearchText,
                             ),
                         )

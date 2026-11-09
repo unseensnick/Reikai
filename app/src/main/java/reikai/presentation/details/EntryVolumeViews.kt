@@ -15,6 +15,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -25,6 +26,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -176,7 +178,7 @@ internal fun ReorderVolumesDialog(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 4.dp).draggableHandle(),
                                 )
-                                Text(volumeLabel(volume.label), modifier = Modifier.weight(1f))
+                                VolumeName(volumeLabel(volume.label), volume.key, Modifier.weight(1f))
                                 IconButton(onClick = { renaming = volume }) {
                                     Icon(
                                         MaterialSymbols.Rounded.Edit,
@@ -264,39 +266,74 @@ internal fun AddToSeriesDialog(
     )
 }
 
-/** Pick the volume that becomes a series of its own. */
+/**
+ * Pick the volumes that become one series of their own, named [title] and the first one's label until the
+ * name is edited.
+ */
 @Composable
 internal fun SplitOutDialog(
+    title: String,
     volumes: List<EntryChapterListItem.Volume>,
     onDismissRequest: () -> Unit,
-    onConfirm: (EntryChapterListItem.Volume, label: String) -> Unit,
+    onConfirm: (keys: List<String>, name: String) -> Unit,
 ) {
-    var picked by remember { mutableStateOf<EntryChapterListItem.Volume?>(null) }
-    val labels = volumes.associateWith { volumeLabel(it.label) }
+    val picked = remember { mutableStateListOf<String>() }
+    val labels = volumes.associate { it.key to volumeLabel(it.label) }
+    var edited by remember { mutableStateOf<String?>(null) }
+    val name =
+        edited ?: volumes.firstOrNull { it.key in picked }?.let { "$title - ${labels.getValue(it.key)}" }.orEmpty()
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(MR.strings.action_split_out_volume)) },
         text = {
             Column {
                 Text(stringResource(MR.strings.split_out_volume_summary))
-                volumes.forEach { volume ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { picked = volume },
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        RadioButton(selected = volume == picked, onClick = { picked = volume })
-                        Text(labels.getValue(volume))
+                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
+                    items(volumes, key = { it.key }) { volume ->
+                        val toggle = { if (!picked.remove(volume.key)) picked += volume.key }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = toggle),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Checkbox(checked = volume.key in picked, onCheckedChange = { toggle() })
+                            VolumeName(labels.getValue(volume.key), volume.key)
+                        }
                     }
                 }
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { edited = it },
+                    label = { Text(stringResource(MR.strings.split_out_series_name)) },
+                    singleLine = true,
+                    enabled = picked.isNotEmpty(),
+                    modifier = Modifier.fillMaxWidth(),
+                )
             }
         },
         confirmButton = {
-            TextButton(onClick = { picked?.let { onConfirm(it, labels.getValue(it)) } }, enabled = picked != null) {
+            TextButton(
+                onClick = { onConfirm(volumes.map { it.key }.filter { it in picked }, name.trim()) },
+                enabled = picked.isNotEmpty() && name.isNotBlank(),
+            ) {
                 Text(stringResource(MR.strings.action_split_out))
             }
         },
         dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
     )
+}
+
+/**
+ * A volume's [label] and, below it, the file or folder it is, when that names it differently: after a
+ * combine, two volumes can share a label while their files still say which series each came from.
+ */
+@Composable
+private fun VolumeName(label: String, key: String, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(label)
+        if (key.substringBeforeLast(".epub") != label) {
+            Text(key, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
 }
 
 /**

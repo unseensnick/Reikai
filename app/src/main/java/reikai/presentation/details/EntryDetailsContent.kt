@@ -230,14 +230,14 @@ fun EntryDetailsContent(
         )
         VolumeDialog.SplitOut -> volumes?.let { view ->
             SplitOutDialog(
+                title = state.details.header.title,
                 volumes = view.chips,
                 onDismissRequest = { volumeDialog = null },
-                onConfirm = { volume, label ->
+                onConfirm = { keys, title ->
                     volumeDialog = null
                     scope.launch {
                         val own = behavior.volumePicking.series(state.entryId) ?: return@launch
-                        val title = "${state.details.header.title} - $label"
-                        val move = behavior.volumePicking.splitOut(type, own, volume.key, title)
+                        val move = behavior.volumePicking.splitOut(type, own, keys, title)
                         behavior.refresh()
                         val message = context.stringResource(MR.strings.local_volume_split_out, title)
                         snackbarHostState.reportVolumeMove(context, move, message)
@@ -430,6 +430,11 @@ private fun EntryDetailsToolbar(
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
 ) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val openOwnFolder: () -> Unit = {
+        scope.launch { openDownloadFolder(context, behavior.volumePicking.seriesFolder(state.entryId)) }
+    }
     EntryToolbar(
         modifier = modifier,
         title = state.details.header.title,
@@ -450,7 +455,12 @@ private fun EntryDetailsToolbar(
         onClickClearDownloads = { behavior.showClearDownloadsDialog() }.takeIf {
             state.chaptersDownloadable && state.hasViewedDownloads
         },
-        onClickOpenFolder = nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads },
+        // A local series opens its own folder, where its files are; others their downloads, once there are some.
+        onClickOpenFolder = if (state.ownsLocalFiles) {
+            openOwnFolder
+        } else {
+            nav.onOpenFolder?.takeIf { state.chaptersDownloadable && state.hasViewedDownloads }
+        },
         // A local series' text is on the device without being a download, so it searches and counts too.
         onClickSearchText = nav.onSearchText?.takeIf { state.textOnDevice },
         onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },

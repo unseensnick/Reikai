@@ -76,6 +76,8 @@ class VolumePicking(
 ) {
     suspend fun library(type: ContentType): List<CombinableSeries> = combine.library(type)
 
+    suspend fun seriesFolder(entry: EntryId) = combine.folderOf(entry.contentType, entry.rawId)
+
     suspend fun series(entry: EntryId): CombinableSeries? =
         combine.series(entry.contentType, listOf(entry.rawId)).firstOrNull()
 
@@ -83,9 +85,9 @@ class VolumePicking(
     suspend fun addToSeries(type: ContentType, series: CombinableSeries, target: CombinableSeries): LocalVolumeMove =
         combine.combine(type, target, listOf(series))
 
-    /** Takes [series]' volume [key] out into a series of its own named [title]. */
-    suspend fun splitOut(type: ContentType, series: CombinableSeries, key: String, title: String): LocalVolumeMove =
-        combine.splitOut(type, series, key, title)
+    /** Takes [series]' volumes [keys] out into one series of their own named [title]. */
+    suspend fun splitOut(type: ContentType, series: CombinableSeries, keys: List<String>, title: String) =
+        combine.splitOut(type, series, keys, title)
 
     suspend fun cover(type: ContentType, series: String, key: String): Any? = covers.cover(type, series, key)
 

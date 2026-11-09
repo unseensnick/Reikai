@@ -120,7 +120,7 @@ class CombineLocalVolumes(
     suspend fun splitOut(
         type: ContentType,
         series: CombinableSeries,
-        volumeKey: String,
+        volumeKeys: List<String>,
         title: String,
     ): LocalVolumeMove {
         val folder = DiskUtil.buildValidFilename(title)
@@ -128,9 +128,9 @@ class CombineLocalVolumes(
             if (type ==
                 ContentType.NOVELS
             ) {
-                splitNovel(series, volumeKey, folder)
+                splitNovel(series, volumeKeys, folder)
             } else {
-                splitManga(series, volumeKey, folder)
+                splitManga(series, volumeKeys, folder)
             }
         }
     }
@@ -235,57 +235,72 @@ class CombineLocalVolumes(
         )
     }
 
-    private suspend fun splitManga(series: CombinableSeries, volumeKey: String, folder: String): LocalVolumeMove {
+    private suspend fun splitManga(series: CombinableSeries, keys: List<String>, folder: String): LocalVolumeMove {
         val base = localFiles.getBaseDirectory() ?: return failed(missing(series))
         val seriesDir = localFiles.getMangaDirectory(series.folder) ?: return failed(missing(series))
-        val volume = seriesDir.findFile(volumeKey) ?: return failed(missing(series))
+        val volumes = keys.map { seriesDir.findFile(it) ?: return failed(missing(series)) }
         if (base.findFile(folder) != null) return failed(taken(folder))
-        // An Extras chapter is the volume folder itself, which a series of its own has no place for.
-        val moves = chapterRepository.getChapterByMangaId(series.id)
-            .mapNotNull { chapter ->
-                chapter.url.split('/').takeIf {
-                    it.size == 3 && it[1] == volumeKey &&
-                        it[2].isNotEmpty()
-                }
+        val chapters = chapterRepository.getChapterByMangaId(series.id)
+            .mapNotNull { chapter -> chapter.url.split('/').takeIf { it.size == 3 && it[1] in keys } }
+        // One volume becomes the series folder itself; several keep their folders inside a new one.
+        val single = keys.size == 1
+        val moves = chapters
+            // An Extras chapter is the volume folder itself, which a series of one volume has no place for.
+            .filterNot { single && it[2].isEmpty() }
+            .map { (seriesName, volume, file) ->
+                ChapterMove("$seriesName/$volume/$file", if (single) "$folder/$file" else "$folder/$volume/$file")
             }
-            .map { (_, _, file) -> ChapterMove("${series.folder}/$volumeKey/$file", "$folder/$file") }
         val created = networkToLocalManga(
             SManga.create().apply {
                 url = folder
                 title = folder
             }.toDomainManga(LocalSource.ID),
         )
+        val placements = if (single) {
+            listOf(Placement(FileCopy(volumes.single(), base, null, folder), seriesDir))
+        } else {
+            volumes.map { Placement(FileCopy(it, base, folder, it.name.orEmpty()), seriesDir) }
+        }
         return perform(
             type = ContentType.MANGA,
-            placements = listOf(Placement(FileCopy(volume, base, null, folder), seriesDir)),
+            placements = placements,
             rows = listOf(RowMove(series.id, created.id, moves)),
+            volumeRows = if (single) emptyList() else volumeRowsOut(ContentType.MANGA, series.folder, folder, keys),
             joining = created.id,
             relist = listOf(created.id, series.id),
         )
     }
 
-    private suspend fun splitNovel(series: CombinableSeries, volumeKey: String, folder: String): LocalVolumeMove {
+    private suspend fun splitNovel(series: CombinableSeries, keys: List<String>, folder: String): LocalVolumeMove {
         val root = storageManager.getLocalNovelsDirectory() ?: return failed(missing(series))
         val seriesDir = root.findFile(series.folder) ?: return failed(missing(series))
-        val book = seriesDir.findFile(volumeKey) ?: return failed(missing(series))
+        val books = keys.map { seriesDir.findFile(it) ?: return failed(missing(series)) }
         if (root.findFile(folder) != null) return failed(taken(folder))
         val created = novelRepository.insertOrGet(
             Novel.create().copy(source = LocalNovelSource.ID, url = folder, title = folder),
         ) ?: return failed(missing(series))
         val moves = novelChapterRepository.getByNovelId(series.id).mapNotNull { chapter ->
             val (_, volume, key) = LocalNovelSource.parseChapterPath(chapter.url) ?: return@mapNotNull null
-            ChapterMove(chapter.url, LocalNovelSource.chapterPath(folder, volumeKey, key)).takeIf {
-                volume == volumeKey
-            }
+            ChapterMove(chapter.url, LocalNovelSource.chapterPath(folder, volume, key)).takeIf { volume in keys }
         }
         return perform(
             type = ContentType.NOVELS,
-            placements = listOf(Placement(FileCopy(book, root, folder, volumeKey), seriesDir)),
+            placements = books.map { Placement(FileCopy(it, root, folder, it.name.orEmpty()), seriesDir) },
             rows = listOf(RowMove(series.id, created.id, moves)),
+            volumeRows = volumeRowsOut(ContentType.NOVELS, series.folder, folder, keys),
             joining = created.id,
             relist = listOf(created.id, series.id),
         )
     }
+
+    /** The saved order and names of [keys], going from series [from] to [to] under the same keys. */
+    private fun volumeRowsOut(type: ContentType, from: String, to: String, keys: List<String>) =
+        localVolumes.volumes(type).value[from].orEmpty().filter { it.key in keys }.map { row ->
+            VolumeRowPair(
+                VolumeRowMove(from, row.key, to, row.key, row.position),
+                VolumeRowMove(to, row.key, from, row.key, row.position),
+            )
+        }
 
     /**
      * Runs one move and builds its undo. [leaving] entries leave the library, [joining] joins it, and the
@@ -412,6 +427,13 @@ class CombineLocalVolumes(
             }
             names.copy(series = names.series.copy(to = free), taken = names.series.to.takeIf { it != free })
         }
+
+    /** Series [id]'s folder on disk, or for a loose book the folder it sits in. */
+    suspend fun folderOf(type: ContentType, id: Long): UniFile? {
+        val series = series(type, listOf(id)).firstOrNull() ?: return null
+        val parent = parent(type) ?: return null
+        return parent.findFile(series.folder)?.let { if (it.isDirectory) it else parent }
+    }
 
     private suspend fun heldBy(type: ContentType, url: String): Long? = when (type) {
         ContentType.NOVELS -> novelRepository.getByUrlAndSource(url, LocalNovelSource.ID)?.id
