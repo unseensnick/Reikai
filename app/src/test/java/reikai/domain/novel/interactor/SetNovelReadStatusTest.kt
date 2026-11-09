@@ -1,6 +1,7 @@
 package reikai.domain.novel.interactor
 
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
 import io.mockk.verify
@@ -22,7 +23,9 @@ class SetNovelReadStatusTest {
     )
 
     private fun interactor(
-        chapterRepository: NovelChapterRepository = mockk(relaxed = true),
+        chapterRepository: NovelChapterRepository = mockk(relaxed = true) {
+            coEvery { setReadBulk(any(), any()) } returns true
+        },
         deleteAfterRead: DeleteNovelChaptersAfterRead = mockk(relaxed = true),
         sourceTracker: SourceTrackerDispatcher = mockk(relaxed = true),
         pushNovelUnread: PushNovelUnread = mockk(relaxed = true),

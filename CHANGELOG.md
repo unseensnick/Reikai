@@ -98,6 +98,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The per-source delay count under Settings -> Downloads no longer counts sources you have uninstalled.** Their delay comes back if you reinstall them.
 
+- **A novel chapter whose read mark could not be saved keeps its download, and the failure is reported.**
+
 ### Reader
 
 #### Added

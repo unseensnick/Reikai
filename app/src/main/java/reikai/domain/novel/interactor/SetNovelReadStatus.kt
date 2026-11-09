@@ -1,14 +1,12 @@
 package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
-import logcat.LogPriority
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.PushNovelUnread
 import reikai.domain.track.source.ChapterWrite
 import reikai.domain.track.source.SourceTrackerDispatcher
-import tachiyomi.core.common.util.system.logcat
 
 /**
  * Central "mark novel chapters read/unread" interactor, twin of
@@ -56,11 +54,9 @@ class SetNovelReadStatus(
         }
         if (toUpdate.isEmpty()) return Result.NoChapters
 
-        try {
-            chapterRepository.setReadBulk(toUpdate.map { it.id }, read)
-        } catch (e: Exception) {
-            logcat(LogPriority.ERROR, e)
-            return Result.InternalError(e)
+        // The repository logs and reports a failed write by returning false rather than throwing.
+        if (!chapterRepository.setReadBulk(toUpdate.map { it.id }, read)) {
+            return Result.InternalError(IllegalStateException("Failed to set read on ${toUpdate.size} novel chapters"))
         }
 
         sourceTracker.readStateWritten(read, toUpdate.map { ChapterWrite(EntryId.Novel(it.novelId), it.id, it.read) })

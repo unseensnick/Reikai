@@ -1,12 +1,14 @@
 package reikai.domain.track.source
 
 import eu.kanade.domain.chapter.interactor.SetReadStatus
+import io.mockk.coEvery
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
+import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -71,7 +73,8 @@ class ReadStatusHandOffConformanceTest {
         },
         NOVELS(EntryId.Novel(1L)) {
             override suspend fun mark(tracker: SourceTrackerDispatcher, read: Boolean, rows: List<Row>) {
-                SetNovelReadStatus(mockk(relaxed = true), mockk(relaxed = true), tracker, mockk(relaxed = true))
+                val repository = mockk<NovelChapterRepository> { coEvery { setReadBulk(any(), any()) } returns true }
+                SetNovelReadStatus(repository, mockk(relaxed = true), tracker, mockk(relaxed = true))
                     .await(
                         read = read,
                         chapters = rows.map {

@@ -58,6 +58,12 @@ class MarkReadDeleteConformanceTest {
         half.markRead(excluded = emptySet(), categoryIds = listOf(6L), installed = false) shouldBe setOf(CHAPTER)
     }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `a chapter whose read write fails keeps its download`(half: MarkReadHalf) = runTest {
+        half.markRead(excluded = emptySet(), categoryIds = listOf(6L), writeFails = true) shouldBe emptySet()
+    }
+
     companion object {
         const val ENTRY = 1L
         const val CHAPTER = 10L
@@ -70,13 +76,14 @@ class MarkReadDeleteConformanceTest {
 interface MarkReadHalf {
     /**
      * Marks one unread chapter of an entry filed in [categoryIds], from a source [installed] or not, read; the
-     * ids whose download goes.
+     * ids whose download goes. [writeFails] fails the read write the way that type's repository reports it.
      */
     suspend fun markRead(
         excluded: Set<String>,
         categoryIds: List<Long>,
         bookmarked: Boolean = false,
         installed: Boolean = true,
+        writeFails: Boolean = false,
     ): Set<Long>
 }
 
@@ -89,6 +96,7 @@ class MangaMarkReadHalf : MarkReadHalf {
         categoryIds: List<Long>,
         bookmarked: Boolean,
         installed: Boolean,
+        writeFails: Boolean,
     ): Set<Long> {
         val preferences = DownloadPreferences(EmittingPreferenceStore())
         preferences.removeAfterMarkedAsRead.set(true)
@@ -125,7 +133,9 @@ class MangaMarkReadHalf : MarkReadHalf {
                 downloadManager,
             ),
             mangaRepository = mockk { coEvery { getMangaById(manga.id) } returns manga },
-            chapterRepository = mockk { coEvery { updateAll(any()) } returns Unit },
+            chapterRepository = mockk {
+                coEvery { updateAll(any()) } answers { if (writeFails) throw IllegalStateException() }
+            },
             sourceTracker = mockk(relaxed = true),
         )
 
@@ -151,6 +161,7 @@ class NovelMarkReadHalf : MarkReadHalf {
         categoryIds: List<Long>,
         bookmarked: Boolean,
         installed: Boolean,
+        writeFails: Boolean,
     ): Set<Long> {
         val preferences = NovelPreferences(EmittingPreferenceStore())
         preferences.removeAfterMarkedAsRead().set(true)
@@ -165,7 +176,7 @@ class NovelMarkReadHalf : MarkReadHalf {
             every { deleteChapters(any()) } answers { handed += firstArg<List<NovelChapter>>() }
         }
         val setNovelReadStatus = SetNovelReadStatus(
-            chapterRepository = mockk { coEvery { setReadBulk(any(), any()) } returns true },
+            chapterRepository = mockk { coEvery { setReadBulk(any(), any()) } returns !writeFails },
             deleteAfterRead = DeleteNovelChaptersAfterRead(preferences, removable) { manager },
             sourceTracker = mockk(relaxed = true),
             pushNovelUnread = mockk(relaxed = true),
