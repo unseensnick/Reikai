@@ -7,6 +7,7 @@ import io.mockk.mockk
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -51,7 +52,9 @@ class FlareSolverrUserAgentPinTest {
             pins[chain.request().url.host] = "Pinned"
             chain.proceed(chain.request())
         }
-        val client = OkHttpClient.Builder().pinFlareSolverrUserAgents(pins::get).addInterceptor(waiter).build()
+        val client = OkHttpClient.Builder().pinFlareSolverrUserAgents {
+            pins[it.url.host]
+        }.addInterceptor(waiter).build()
 
         val request = Request.Builder()
             .url("http://${server.inetAddress.hostAddress}:${server.localPort}/")
@@ -68,21 +71,30 @@ class FlareSolverrUserAgentPinTest {
     fun `a solved host is not pinned once FlareSolverr is turned off`() {
         val client = solver(enabled = false, url = SOLVER_URL).apply { pin("a.example", "FS-UA") }
 
-        client.pinnedUserAgentFor("a.example").shouldBeNull()
+        client.pinnedUserAgentFor(GET_A).shouldBeNull()
     }
 
     @Test
     fun `a solved host is not pinned once the solver's address is cleared`() {
         val client = solver(enabled = true, url = " ").apply { pin("a.example", "FS-UA") }
 
-        client.pinnedUserAgentFor("a.example").shouldBeNull()
+        client.pinnedUserAgentFor(GET_A).shouldBeNull()
     }
 
     @Test
     fun `a solved host keeps its pin while FlareSolverr is in use`() {
         val client = solver(enabled = true, url = SOLVER_URL).apply { pin("a.example", "FS-UA") }
 
-        client.pinnedUserAgentFor("a.example") shouldBe "FS-UA"
+        client.pinnedUserAgentFor(GET_A) shouldBe "FS-UA"
+    }
+
+    // Solved in the WebView under the request's own User-Agent, so the retry must not swap in the pin.
+    @Test
+    fun `a request the server would not carry keeps its own User-Agent on a solved host`() {
+        val client = solver(enabled = true, url = SOLVER_URL).apply { pin("a.example", "FS-UA") }
+        val post = Request.Builder().url("https://a.example/search").post("q=x".toRequestBody()).build()
+
+        client.pinnedUserAgentFor(post).shouldBeNull()
     }
 
     // Seeded through the constructor: an in-memory preference cannot be written afterwards.
@@ -101,5 +113,6 @@ class FlareSolverrUserAgentPinTest {
 
     private companion object {
         const val SOLVER_URL = "http://solver.example:8191"
+        val GET_A = Request.Builder().url("https://a.example/").build()
     }
 }

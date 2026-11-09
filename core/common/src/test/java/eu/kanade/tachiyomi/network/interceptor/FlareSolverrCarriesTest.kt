@@ -3,11 +3,17 @@ package eu.kanade.tachiyomi.network.interceptor
 import com.sun.net.httpserver.HttpServer
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import io.kotest.matchers.shouldBe
+import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import okhttp3.FormBody
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import java.net.InetSocketAddress
 
 /** A server only gets a request it can send as asked: Byparr turns a POST into a GET of the same url. */
@@ -29,6 +35,33 @@ class FlareSolverrCarriesTest {
     @Test
     fun `a GET goes to the server whatever its banner says`() {
         client.carries(Request.Builder().url("https://example.org/").build()) shouldBe true
+    }
+
+    // The solvers have only a GET and a POST command, so the write would go out as a GET.
+    @ParameterizedTest
+    @ValueSource(strings = ["PUT", "PATCH", "DELETE"])
+    fun `a write other than a POST never goes to the server`(method: String) {
+        val write = Request.Builder().url("https://example.org/progress").method(method, "{}".toRequestBody())
+
+        client.carries(write.build()) shouldBe false
+    }
+
+    @Test
+    fun `a POST body never crosses the internet in the clear, even to a FlareSolverr`() {
+        val public = spyk(
+            FlareSolverrClient(
+                mockk(relaxed = true),
+                NetworkPreferences(
+                    InMemoryPreferenceStore(sequenceOf(InMemoryPreference(FLARESOLVERR_URL_KEY, PUBLIC_URL, ""))),
+                    false,
+                ),
+            ),
+            recordPrivateCalls = true,
+        )
+        every { public["speaksFlareSolverr"](any<String>()) } returns true
+        val post = Request.Builder().url("https://example.org/login").post(FormBody.Builder().add("pw", "x").build())
+
+        public.carries(post.build()) shouldBe false
     }
 
     @Test
@@ -58,5 +91,9 @@ class FlareSolverrCarriesTest {
         } finally {
             server.stop(0)
         }
+    }
+
+    private companion object {
+        const val PUBLIC_URL = "http://solver.example.com:8191"
     }
 }

@@ -117,6 +117,8 @@ This is not theoretical. A reader who did this had the hostname appear in Certif
 
 Reikai sends the sign-in only to the address in **FlareSolverr URL**, on the same scheme, host and port, and only over https or to an address on your own network or mesh VPN. It never follows a redirect from that address, so the sign-in cannot be carried somewhere else.
 
+The same rule covers what a source sends in a form, such as a search or a site's own sign-in: to a server on a plain `http://` address across the internet it goes through Reikai's own browser instead. So does anything that is neither a page fetch nor a form, like a tracker saving your progress, since a solver can only do those two.
+
 ::: details Advanced: removing the sign-in at your reverse proxy
 Most reverse proxies pass the sign-in on to FlareSolverr after checking it. FlareSolverr ignores it and never sends it to the sites it opens, but nothing past your proxy needs to see it, so remove it there:
 
@@ -182,7 +184,7 @@ Opening the source in <nav to="webview"> and solving it by hand may get you thro
 
 **Every request is slow, follow-ups never get fast.**
 Sessions are not being reused.
-Either the app is being killed between requests, the proxy is destroying its session each time, or the app could not open a session the first time it reached the proxy (for example while the proxy was still starting) and runs without one until the app restarts or the proxy login changes.
+Either the app is being killed between requests, or the proxy is destroying its session each time. A proxy that could not open a session (for example while it was still starting) is asked again on the next request, so that alone does not keep it slow.
 Expected on Byparr, which has no sessions at all.
 
 **A source returns nothing, but the proxy's log says `Challenge not detected!` with a 200.**

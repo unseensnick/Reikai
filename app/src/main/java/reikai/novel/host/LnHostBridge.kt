@@ -2,6 +2,7 @@ package reikai.novel.host
 
 import android.util.Base64
 import kotlinx.serialization.KSerializer
+import eu.kanade.tachiyomi.network.requestCookies
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
@@ -199,23 +200,9 @@ internal fun loggableUrl(url: String): String =
     url.toHttpUrlOrNull()?.newBuilder()?.query(null)?.fragment(null)?.build()?.toString()
         ?: url.substringBefore('?').substringBefore('#')
 
-/**
- * The jar's cookies plus the ones a plugin set in its own Cookie header, the plugin's winning by name.
- * OkHttp replaces a request's Cookie header with the jar's whenever the jar holds any for the url, so
- * without this a plugin's age gate or read token never reached a site that had set a cookie itself.
- */
-private class WithPluginCookies(private val jar: CookieJar, header: String) : CookieJar {
-    private val pairs = header.split(';').mapNotNull { part ->
-        part.trim().takeIf { '=' in it }?.let { it.substringBefore('=').trim() to it.substringAfter('=').trim() }
-    }
-
-    override fun loadForRequest(url: HttpUrl): List<Cookie> {
-        val own = pairs.mapNotNull { (name, value) ->
-            runCatching { Cookie.Builder().name(name).value(value).domain(url.host).build() }.getOrNull()
-        }
-        val names = own.mapTo(HashSet()) { it.name }
-        return jar.loadForRequest(url).filterNot { it.name in names } + own
-    }
+/** A plugin's own Cookie header sent along with the jar's cookies, by the rule the bypass server forwards too. */
+private class WithPluginCookies(private val jar: CookieJar, private val header: String) : CookieJar {
+    override fun loadForRequest(url: HttpUrl): List<Cookie> = requestCookies(jar.loadForRequest(url), header, url)
 
     override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = jar.saveFromResponse(url, cookies)
 }

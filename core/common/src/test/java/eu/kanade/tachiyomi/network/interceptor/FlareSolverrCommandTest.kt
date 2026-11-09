@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.network.interceptor
 
+import eu.kanade.tachiyomi.network.requestCookies
 import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldStartWith
@@ -37,15 +38,19 @@ class FlareSolverrCommandTest {
     }
 
     @Test
-    fun `a cookie the source set on the request goes when the jar has none, as OkHttp sends it`() {
-        cookiesToForward(emptyList(), "session=abc; lang=en", "https://www.example.com/".toHttpUrl())
+    fun `a cookie the source set on the request goes when the jar has none`() {
+        requestCookies(emptyList(), "session=abc; lang=en", "https://www.example.com/".toHttpUrl())
             .map { it.name to it.value } shouldBe listOf("session" to "abc", "lang" to "en")
     }
 
+    // What the LN host sends: a plugin's age gate or read token reaches a site that set a cookie itself.
     @Test
-    fun `the jar's cookies win over a Cookie header, as OkHttp sends them`() {
-        cookiesToForward(listOf(cookie("site", "jar")), "site=header", "https://www.example.com/".toHttpUrl())
-            .map { it.value } shouldBe listOf("jar")
+    fun `a Cookie header the source set joins the jar's cookies and wins by name`() {
+        requestCookies(
+            listOf(cookie("a", "jar"), cookie("keep", "jar")),
+            "a=plugin; b=x",
+            "https://www.example.com/".toHttpUrl(),
+        ).map { it.name to it.value } shouldBe listOf("keep" to "jar", "a" to "plugin", "b" to "x")
     }
 
     @Test

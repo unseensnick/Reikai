@@ -93,7 +93,7 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
             val redirected = when {
                 first is Answer.Redirect -> true
                 manualOnly || first !is Answer.Error || !first.fromPage -> false
-                current.method !in setOf("GET", "HEAD") -> false
+                !followsRedirect(current, chain.followRedirects) -> false
                 else -> fetchOnce(chain, current, manualRedirect = true) is Answer.Redirect
             }
             if (!redirected) return first.toOutcome(current)
@@ -305,8 +305,8 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
      * may reload its own origin once it passes; any other navigation ends the wait.
      */
     private fun redirectTarget(request: Request): String? {
-        val origin = webViewFetchOrigin(request.url)
-        val path = request.url.encodedPath
+        val asked = request.url
+        val path = asked.encodedPath
         val target = AtomicReference<String?>()
         val done = CountDownLatch(1)
         val view = AtomicReference<WebView?>()
@@ -328,7 +328,7 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
                         }
                         // Only the challenge reloading the page asked for, so no other redirect is taken.
                         val reload = request.url.toString().toHttpUrlOrNull()
-                            ?.let { webViewFetchOrigin(it) == origin && it.encodedPath == path } == true
+                            ?.let { isSameOrigin(it, asked) && it.encodedPath == path } == true
                         if (!reload) done.countDown()
                         return !reload
                     }

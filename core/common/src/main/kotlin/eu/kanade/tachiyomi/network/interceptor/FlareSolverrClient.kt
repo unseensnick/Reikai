@@ -3,6 +3,7 @@ package eu.kanade.tachiyomi.network.interceptor
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.jsonMime
+import eu.kanade.tachiyomi.network.requestCookies
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -20,7 +21,6 @@ import okhttp3.Connection
 import okhttp3.Cookie
 import okhttp3.EventListener
 import okhttp3.FormBody
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import okhttp3.MultipartBody
@@ -106,11 +106,12 @@ class FlareSolverrClient(
     @Volatile private var fsSessionId: String? = null
 
     // Byparr (a Camoufox-based FlareSolverr-compatible solver) is sessionless: it has no
-    // sessions.create command and 500s on it. Once we see that, stop creating sessions and send
-    // sessionless request.get / request.post for the rest of this app session.
+    // sessions.create command and 500s on it. Once its banner says so, stop creating sessions and send
+    // sessionless request.get / request.post until the address or the login changes.
     @Volatile private var fsSessionsSupported = true
 
-    // The login a failed probe ran under: a proxy 401 before the reader saved theirs says nothing once they have.
+    // The address and login a banner said "not FlareSolverr" under: a proxy 401 before the reader saved
+    // their login says nothing once they have, and another address may be another server.
     @Volatile private var sessionlessUnder: String? = null
 
     // What the banner said, for the address and login it was read under. Only an answer the server gave
@@ -122,13 +123,16 @@ class FlareSolverrClient(
         networkPreferences.flareSolverrPassword.get(),
     ).orEmpty()
 
+    private fun serverKey(flareSolverrUrl: String): String = flareSolverrUrl + currentLogin()
+
     /** Whether challenges go to FlareSolverr at all: switched on, with an address to send them to. */
     fun isActive(): Boolean =
         networkPreferences.enableFlareSolverr.get() && networkPreferences.flareSolverrUrl.get().isNotBlank()
 
-    // Answered only while FlareSolverr is in use: otherwise the WebView solves under the request's own
-    // User-Agent, and a retry sent under the pin would carry a clearance Cloudflare bound to another.
-    fun pinnedUserAgentFor(host: String): String? = fsPinByHost[host]?.takeIf { isActive() }
+    // Answered only for a request the server would carry: any other is solved in the WebView under the
+    // request's own User-Agent, and a retry sent under the pin would carry a clearance bound to another.
+    fun pinnedUserAgentFor(request: Request): String? =
+        fsPinByHost[request.url.host]?.takeIf { isActive() && carries(request) }
 
     internal fun pin(host: String, userAgent: String) {
         if (userAgent.isNotBlank()) fsPinByHost[host] = userAgent
@@ -137,19 +141,27 @@ class FlareSolverrClient(
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)
 
     /**
-     * Whether the server can send [request] as asked. Byparr reads only a command's url, so a POST
-     * through it goes out as a GET and that page would be served as the POST's answer; such a request
-     * stays with the WebView, which can post. Only a FlareSolverr banner vouches for a server.
+     * Whether the server can send [request] as asked; one it cannot stays with the WebView. The solvers
+     * have only a GET and a POST command, so any other method would go out as a GET and that page be
+     * served as its answer. A POST needs a FlareSolverr banner, since Byparr reads only a command's url,
+     * and a private channel, since its body (a login form, a token) is as secret as the site's cookies.
      */
-    fun carries(request: Request): Boolean =
-        !request.method.equals("POST", ignoreCase = true) ||
-            speaksFlareSolverr(networkPreferences.flareSolverrUrl.get().trim())
+    fun carries(request: Request): Boolean {
+        val flareSolverrUrl = networkPreferences.flareSolverrUrl.get().trim()
+        return when (request.method.uppercase()) {
+            "GET", "HEAD" -> true
+            "POST" -> isPrivateChannel(flareSolverrUrl) && speaksFlareSolverr(flareSolverrUrl)
+            else -> false
+        }
+    }
 
-    private fun speaksFlareSolverr(flareSolverrUrl: String): Boolean {
-        val under = flareSolverrUrl + currentLogin()
+    private fun speaksFlareSolverr(flareSolverrUrl: String): Boolean = flareSolverrBannerKept(flareSolverrUrl) == true
+
+    // Null when the server gave no answer, which is never kept.
+    private fun flareSolverrBannerKept(flareSolverrUrl: String): Boolean? {
+        val under = serverKey(flareSolverrUrl)
         bannerUnder?.takeIf { it.first == under }?.let { return it.second }
-        val answer = flareSolverrBanner(flareSolverrUrl) ?: return false
-        return answer.also { bannerUnder = under to it }
+        return flareSolverrBanner(flareSolverrUrl)?.also { bannerUnder = under to it }
     }
 
     /**
@@ -182,11 +194,7 @@ class FlareSolverrClient(
      * the reader's own language and still show the technical text. Runs off the main thread.
      */
     suspend fun test(flareSolverrUrl: String): FlareSolverrTestResult = withIOContext {
-        val command = buildJsonObject {
-            put("cmd", "request.get")
-            put("url", "https://www.google.com/")
-            put("maxTimeout", 60000)
-        }
+        val command = flareSolverrCommand("https://www.google.com/", false, null, null, emptyList())
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(jsonMime)
         // A restored address skipped the settings field's check, so it may not parse at all.
@@ -240,17 +248,10 @@ class FlareSolverrClient(
                 e.message ?: e.toString(),
             )
         }
-        if (result.status != "ok") {
-            return@withIOContext FlareSolverrTestResult.Failure(
-                FlareSolverrTestFailure.SOLVE_FAILED,
-                result.message.ifBlank { "status: ${result.status}" },
-            )
+        val solution = result.solutionOr { reason ->
+            return@withIOContext FlareSolverrTestResult.Failure(FlareSolverrTestFailure.SOLVE_FAILED, reason)
         }
-        val solution = result.solution
-            ?: return@withIOContext FlareSolverrTestResult.Failure(
-                FlareSolverrTestFailure.SOLVE_FAILED,
-                "no solution in the response",
-            )
+        // Google answers 200 to a browser that got through; a real solve serves the site's status as it is.
         if (solution.status !in 200..299) {
             return@withIOContext FlareSolverrTestResult.Failure(
                 FlareSolverrTestFailure.SOLVE_FAILED,
@@ -267,9 +268,10 @@ class FlareSolverrClient(
      * Returns the shared FlareSolverr session id, or null when the server is sessionless (Byparr) or
      * sessions.create otherwise fails. A null result means "send requests without a session"; the
      * solve still proceeds, just without the warm-cookie reuse a FlareSolverr session would give.
+     * Only a banner that says "not FlareSolverr" is kept; a probe or a create that failed asks again next solve.
      */
     private fun ensureFlareSolverrSession(flareSolverrUrl: String): String? {
-        if (!fsSessionsSupported && sessionlessUnder != currentLogin()) fsSessionsSupported = true
+        if (!fsSessionsSupported && sessionlessUnder != serverKey(flareSolverrUrl)) fsSessionsSupported = true
         if (!fsSessionsSupported) return null
         fsSessionId?.let { return it }
         return synchronized(fsSessionLock) {
@@ -278,10 +280,14 @@ class FlareSolverrClient(
             // Only real FlareSolverr implements sessions. Byparr is sessionless and 500s on
             // sessions.create (it has no url to navigate), spamming its console with a stack trace.
             // Probe the root banner so we attempt sessions.create only on FlareSolverr.
-            if (!speaksFlareSolverr(flareSolverrUrl)) {
-                sessionlessUnder = currentLogin()
-                fsSessionsSupported = false
-                return@synchronized null
+            when (flareSolverrBannerKept(flareSolverrUrl)) {
+                null -> return@synchronized null
+                false -> {
+                    sessionlessUnder = serverKey(flareSolverrUrl)
+                    fsSessionsSupported = false
+                    return@synchronized null
+                }
+                true -> Unit
             }
             val newId = "reikai-${UUID.randomUUID()}"
             val body = """{"cmd":"sessions.create","session":"$newId"}"""
@@ -297,13 +303,8 @@ class FlareSolverrClient(
                     parsed.status == "ok"
                 }
             }.getOrDefault(false)
-            if (!created) {
-                // Sessionless solver (Byparr) or a transient error: fall back to sessionless requests
-                // rather than failing the solve. request.get still works without a session.
-                sessionlessUnder = currentLogin()
-                fsSessionsSupported = false
-                return@synchronized null
-            }
+            // The banner said FlareSolverr, so a failed create is transient: this solve goes sessionless.
+            if (!created) return@synchronized null
             fsSessionId = newId
             newId
         }
@@ -338,7 +339,7 @@ class FlareSolverrClient(
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
         val forwarded = if (isPrivateChannel(flareSolverrUrl)) {
-            cookiesToForward(cookieManager.get(request.url), request.header("Cookie"), request.url)
+            requestCookies(cookieManager.get(request.url), request.header("Cookie"), request.url)
         } else {
             emptyList()
         }
@@ -363,30 +364,36 @@ class FlareSolverrClient(
         }
 
         val result = json.decodeFromString(FlareSolverrResponse.serializer(), fsBody)
+        val solution = result.solutionOr { throw IOException("FlareSolverr error: $it") }
 
-        if (result.status != "ok") {
-            throw IOException("FlareSolverr error: ${result.message}")
-        }
-
-        val solution = result.solution
-            ?: throw IOException("FlareSolverr returned no solution: ${result.message}")
-
-        if (solution.status !in 200..299) {
+        // The site's own refusal is its answer, served as OkHttp would hand it over, so a source can
+        // act on it (MadaraChapterEndpoint repairs a refused chapter request). A page still challenged
+        // is the server's failure.
+        val passed = solution.status in 200..299
+        if (!passed && isCloudflareChallenge(solution.headers.toList())) {
             throw IOException("FlareSolverr solution status: ${solution.status}")
         }
 
-        // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
-        // without re-invoking FS. The current request's correctness comes from the synthetic
-        // response we build below, not from these.
-        cookiesToKeep(solution.cookies, forwarded).forEach { fsCookie ->
-            cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
+        if (passed) {
+            // Best-effort: stash cookies + UA so unrelated future requests to this host can succeed
+            // without re-invoking FS. The current request's correctness comes from the synthetic
+            // response we build below, not from these.
+            cookiesToKeep(solution.cookies, forwarded).forEach { fsCookie ->
+                cookieManager.saveCookieString(request.url, fsCookie.toRawCookieString(request.url.host))
+            }
+            pin(request.url.host, solution.userAgent)
         }
-        pin(request.url.host, solution.userAgent)
 
         // Mark this host as known-FS so the next request skips the WebView pre-attempt.
         fsRequiredHosts.add(request.url.host)
 
         return buildResponseFromFlareSolverr(request, solution)
+    }
+
+    /** The solution, or why the reply is not one: the rule the solve and the Test row both apply. */
+    private inline fun FlareSolverrResponse.solutionOr(rejected: (String) -> Nothing): FlareSolverrSolution {
+        if (status != "ok") rejected(message.ifBlank { "status: $status" })
+        return solution ?: rejected("no solution in the response")
     }
 
     private fun buildResponseFromFlareSolverr(request: Request, solution: FlareSolverrSolution): Response {
@@ -410,8 +417,12 @@ class FlareSolverrClient(
             .set("Content-Type", contentType)
             .build()
 
+        // Where the server's browser landed, as OkHttp reports a followed redirect: a caller reads it
+        // for the page a redirect named (MadaraChapterEndpoint's permalink, an LN plugin's final url).
+        val landed = solution.url.toHttpUrlOrNull()?.let { request.newBuilder().url(it).build() } ?: request
+
         return Response.Builder()
-            .request(request)
+            .request(landed)
             .protocol(Protocol.HTTP_1_1)
             .code(solution.status)
             .message(if (solution.status in 200..299) "OK" else "FlareSolverr")
@@ -516,19 +527,6 @@ private val MESH_SUFFIXES = listOf(".netbird.cloud", ".netbird.selfhosted")
 // A Tailscale name resolves only inside the tailnet unless Funnel publishes it, to relays taking https
 // on 443, 8443 and 10000; 80 too, since how a relay answers plain http there is undocumented.
 private val TAILSCALE_PUBLIC_PORTS = setOf(80, 443, 8443, 10000)
-
-/**
- * The cookies a request carries, as OkHttp would send them: the jar's for [url], or when the jar has
- * none, the Cookie header the source set on the request itself.
- */
-internal fun cookiesToForward(jar: List<Cookie>, cookieHeader: String?, url: HttpUrl): List<Cookie> =
-    jar.ifEmpty {
-        cookieHeader.orEmpty().split(';').mapNotNull { pair ->
-            val name = pair.substringBefore('=').trim()
-            if (name.isEmpty() || '=' !in pair) return@mapNotNull null
-            Cookie.Builder().name(name).value(pair.substringAfter('=').trim()).domain(url.host).build()
-        }
-    }
 
 /**
  * The solver's cookies worth storing: not one it only echoed back from [forwarded], which returns

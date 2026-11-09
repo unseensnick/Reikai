@@ -26,9 +26,11 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 import kotlin.concurrent.thread
@@ -165,7 +167,7 @@ class CloudflareInterceptorTest {
         runBounded { interceptor.intercept(chain("https://site.example/b")) }?.code shouldBe 200
     }
 
-    private fun blockedUrl(request: Request): String? {
+    private fun blockedUrl(request: Request, respond: (Request) -> Response = ::server): String? {
         // Neither route answers: the WebView solve fails and the WebView fetch is challenged too.
         val fetcher = mockk<WebViewFetcher> {
             every { serves(any()) } returns false
@@ -180,7 +182,7 @@ class CloudflareInterceptorTest {
         }
         val chain = mockk<Interceptor.Chain> {
             every { request() } returns request
-            every { proceed(any()) } answers { server(firstArg()) }
+            every { proceed(any()) } answers { respond(firstArg()) }
         }
         return runCatching { interceptor.intercept(chain) }.exceptionOrNull()?.cloudflareBlockedUrl()
     }
@@ -205,6 +207,133 @@ class CloudflareInterceptorTest {
         val search = Request.Builder().url("https://site.example/api/search?q=x").post("q=x".toRequestBody()).build()
 
         blockedUrl(search) shouldBe "https://site.example/"
+    }
+
+    @Test
+    fun `a POST redirected to a challenged GET offers the page the solve ran on`() {
+        val login = Request.Builder().url("https://site.example/api/login").post("q=x".toRequestBody()).build()
+        // What a 303 leaves: the challenge arrives on the GET the POST was sent on to.
+        val landed = Request.Builder().url("https://site.example/account?tab=1").build()
+
+        blockedUrl(login) { server(landed) } shouldBe "https://site.example/account?tab=1"
+    }
+
+    private fun setServer(server: FlareSolverrClient) {
+        CloudflareInterceptor::class.java.getDeclaredField("flareSolverr").apply { isAccessible = true }
+            .set(interceptor, server)
+    }
+
+    private fun ok(request: Request): Response = Response.Builder()
+        .request(request)
+        .protocol(Protocol.HTTP_1_1)
+        .code(200)
+        .message("OK")
+        .body("".toResponseBody())
+        .build()
+
+    // Every one of [count] requests is challenged before the solve finishes, so each has to queue.
+    private fun allChallenged(count: Int, respond: (Request) -> Response): Pair<CountDownLatch, (Request) -> Response> {
+        val challenged = CountDownLatch(count)
+        return challenged to { request ->
+            respond(request).also { if (it.code == 403) challenged.countDown() }
+        }
+    }
+
+    private fun runAll(count: Int, call: (Int) -> Unit) {
+        val start = CountDownLatch(1)
+        val workers = List(count) {
+            thread(isDaemon = true) {
+                start.await()
+                runCatching { call(it) }
+            }
+        }
+        start.countDown()
+        workers.forEach { it.join(TimeUnit.SECONDS.toMillis(5)) }
+    }
+
+    @Test
+    fun `requests to a host the server already answers are fetched side by side`() {
+        val inside = CountDownLatch(2)
+        val release = CountDownLatch(1)
+        setServer(
+            mockk {
+                every { isActive() } returns true
+                every { carries(any()) } returns true
+                every { shouldSkipWebView(any()) } returns true
+                every { resolve(any(), any()) } answers {
+                    inside.countDown()
+                    release.await(5, TimeUnit.SECONDS)
+                    ok(secondArg())
+                }
+            },
+        )
+        val workers = List(2) { thread(isDaemon = true) { interceptor.intercept(chain("https://site.example/$it")) } }
+
+        val bothInside = inside.await(2, TimeUnit.SECONDS)
+        release.countDown()
+        workers.forEach { it.join(TimeUnit.SECONDS.toMillis(5)) }
+
+        bothInside shouldBe true
+    }
+
+    @Test
+    fun `requests queued behind a solve that left the host to the server are answered by it`() {
+        val served = AtomicInteger()
+        val marked = AtomicBoolean()
+        setServer(
+            mockk {
+                every { isActive() } returns true
+                every { carries(any()) } returns true
+                every { shouldSkipWebView(any()) } answers { marked.get() }
+                every { resolve(any(), any()) } answers {
+                    served.incrementAndGet()
+                    ok(secondArg())
+                }
+            },
+        )
+        val (challenged, respond) = allChallenged(4, ::server)
+        // The server's solve saves its cookies, a fresh cf_clearance among them, which a sibling would
+        // otherwise take for a clearance it can replay.
+        solveWith {
+            challenged.await(1, TimeUnit.SECONDS)
+            clearance = "from the server"
+            marked.set(true)
+        }
+
+        runAll(4) { interceptor.intercept(chain("https://site.example/page/$it", respond)).close() }
+
+        served.get() shouldBe 3
+    }
+
+    @Test
+    fun `a challenge served after a redirect to another site is solved once`() {
+        val clearances = ConcurrentHashMap<String, String>()
+        val jar = mockk<AndroidCookieJar>()
+        every { jar.get(any()) } answers {
+            val url = firstArg<HttpUrl>()
+            listOfNotNull(
+                clearances[url.host]?.let { Cookie.Builder().name("cf_clearance").value(it).domain(url.host).build() },
+            )
+        }
+        every { jar.remove(any(), any(), any()) } answers {
+            clearances.remove(firstArg<HttpUrl>().host)
+            1
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("cookieManager").apply { isAccessible = true }
+            .set(interceptor, jar)
+        // The mirror redirects every request to the main site, which challenges until it is cleared.
+        val (challenged, redirecting) = allChallenged(4) { request ->
+            val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
+            if (clearances["main.example"] == null) server(landed) else ok(landed)
+        }
+        solveWith {
+            challenged.await(1, TimeUnit.SECONDS)
+            clearances["main.example"] = "solved"
+        }
+
+        runAll(4) { interceptor.intercept(chain("https://mirror.example/page/$it", redirecting)).close() }
+
+        solves.get() shouldBe 1
     }
 
     @Test

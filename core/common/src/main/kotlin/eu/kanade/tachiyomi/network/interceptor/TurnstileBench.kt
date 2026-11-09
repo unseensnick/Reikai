@@ -1,10 +1,8 @@
 package eu.kanade.tachiyomi.network.interceptor
 
 import android.content.Context
-import android.net.Uri
 import android.os.Handler
 import android.os.Looper
-import android.webkit.CookieManager
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.webkit.WebViewCompat
@@ -107,16 +105,16 @@ object TurnstileBench {
             .filter { it.startsWith("https://") }
         if (urls.isEmpty()) return null
         val url = urls[nextSite++ % urls.size]
-        val uri = Uri.parse(url)
-        val origin = "https://${uri.host}"
-        val cookies = CookieManager.getInstance()
-        val hasClearance = { cookies.getCookie(url)?.contains("$CF_CLEARANCE=") == true }
-        AndroidCookieJar().remove(url.toHttpUrl(), listOf(CF_CLEARANCE))
+        val httpUrl = url.toHttpUrl()
+        val origin = webViewFetchOrigin(httpUrl)
+        val jar = AndroidCookieJar()
+        val hasClearance = { jar.clearanceFor(httpUrl) != null }
+        jar.remove(httpUrl, listOf(CF_CLEARANCE))
         Handler(Looper.getMainLooper()).postDelayed({
             // Logged, so a jar that fails to clear shows as such rather than as a site that stopped
             // challenging.
             log("clearance left after dropping it: ${hasClearance()}")
-            start(context, uri.host!!, origin, { webView ->
+            start(context, httpUrl.host, origin, { webView ->
                 log("loading $origin")
                 webView.loadUrl(url)
             }, hasClearance)
