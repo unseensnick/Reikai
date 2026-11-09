@@ -321,7 +321,7 @@ fun Screen.RecentsScreen(
                                         orderedRefs = orderedRefs,
                                         swipeActions = swipeActions,
                                         timeFormatter = timeFormatter,
-                                        onOpen = ::open,
+                                        onOpen = { open(it) },
                                         onOpenDetails = ::openDetails,
                                     )
                                 }
@@ -717,8 +717,8 @@ private fun LazyListScope.recentsRows(
                 selectionActive = selection.isNotEmpty(),
                 swipeActions = swipeActions,
                 timeFormatter = timeFormatter,
-                onPress = ::press,
-                onLongPress = ::longPress,
+                onPress = { press(it) },
+                onLongPress = { longPress(it) },
                 onOpenDetails = onOpenDetails,
                 modifier = Modifier.animateItem(),
             )

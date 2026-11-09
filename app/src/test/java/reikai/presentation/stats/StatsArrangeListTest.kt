@@ -116,6 +116,54 @@ class StatsArrangeListTest {
         hiddenFigures shouldBe StatsFigureKind.entries.toSet() - StatsFigureKind.MEAN_SCORE
     }
 
+    /** The screen hands each write back as the next state, so a second tap must see the first one. */
+    @Test
+    fun `unticking two figures in turn hides both`() {
+        var cards by mutableStateOf<Set<StatsCardKind>>(emptySet())
+        var figures by mutableStateOf<Set<StatsFigureKind>>(emptySet())
+        showLive({ cards }, { cards = it }, { figures }, { figures = it })
+
+        compose.onNodeWithText("Mean score").performClick()
+        compose.onNodeWithText("Total chapters").performClick()
+
+        figures shouldBe setOf(StatsFigureKind.MEAN_SCORE, StatsFigureKind.TOTAL_CHAPTERS)
+    }
+
+    @Test
+    fun `after unticking the whole shelf a figure can be ticked back`() {
+        var cards by mutableStateOf<Set<StatsCardKind>>(emptySet())
+        var figures by mutableStateOf<Set<StatsFigureKind>>(emptySet())
+        showLive({ cards }, { cards = it }, { figures }, { figures = it })
+
+        compose.onNodeWithText("At a glance").performClick()
+        compose.onNodeWithText("Mean score").performClick()
+
+        (StatsCardKind.OVERVIEW !in cards && StatsFigureKind.MEAN_SCORE !in figures) shouldBe true
+    }
+
+    private fun showLive(
+        cards: () -> Set<StatsCardKind>,
+        setCards: (Set<StatsCardKind>) -> Unit,
+        figures: () -> Set<StatsFigureKind>,
+        setFigures: (Set<StatsFigureKind>) -> Unit,
+    ) {
+        compose.setContent {
+            ComposeTestHost {
+                StatsArrangeList(
+                    layout = StatsCardKind.entries,
+                    hidden = cards(),
+                    figureLayout = StatsFigureKind.entries,
+                    hiddenFigures = figures(),
+                    contentPadding = PaddingValues(),
+                    onArrange = {},
+                    onHide = setCards,
+                    onArrangeFigures = {},
+                    onHideFigures = setFigures,
+                )
+            }
+        }
+    }
+
     @Test
     fun `dragging an at a glance figure moves it`() {
         show()

@@ -484,7 +484,7 @@ private fun TagChips(
                                 if (target != null && target != index) tags.add(target, tags.removeAt(index))
                                 endDrag()
                             },
-                            onDragCancel = ::endDrag,
+                            onDragCancel = { endDrag() },
                             onDrag = { change, amount ->
                                 change.consume()
                                 dragTranslation += amount

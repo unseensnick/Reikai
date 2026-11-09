@@ -229,12 +229,14 @@ private fun ShelfCard(
                     color = MaterialTheme.colorScheme.outlineVariant,
                 )
                 if (listsFigures) {
+                    // Lambdas, not `::` references: Compose remembers a local function reference without
+                    // the state it closes over, so each tap would act on the list as it first stood.
                     ReorderableRows(
                         items = figureLayout,
                         title = { it.title },
-                        isShown = ::isFigureShown,
+                        isShown = { isFigureShown(it) },
                         onArrange = onArrangeFigures,
-                        onToggle = ::toggleFigure,
+                        onToggle = { toggleFigure(it) },
                     )
                 } else {
                     ReorderableRows(
