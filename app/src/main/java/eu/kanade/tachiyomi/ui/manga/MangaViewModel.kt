@@ -102,6 +102,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenKey
+import reikai.domain.download.SourceContacts
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.entry.EntryId
@@ -275,6 +276,7 @@ class MangaViewModel(
     private val remoteFirstRemoval: RemoteFirstRemoval,
     private val editChapterNumber: EditChapterNumber,
     private val chapterSettings: MangaChapterSettings,
+    private val sourceContacts: SourceContacts,
     // RK <--
 ) : ViewModel() {
 
@@ -719,13 +721,17 @@ class MangaViewModel(
             // RK --> one fetch per grouped source by the rule novels share; the first failure is rethrown
             // once all have run
             val newChapters = mutableListOf<Chapter>()
-            suspend fun fetch(source: Source, manga: Manga) = updateMangaFromRemote(
-                source = source,
-                manga = manga,
-                fetchDetails = fetchDetails,
-                fetchChapters = fetchChapters,
-                manualFetch = manualFetch,
-            ).onSuccess { newChapters += it.newChapters }
+
+            // Recorded as a contact, so a new chapter queued below still waits out the source's delay
+            suspend fun fetch(source: Source, manga: Manga) = sourceContacts.reaching(source.id.toString()) {
+                updateMangaFromRemote(
+                    source = source,
+                    manga = manga,
+                    fetchDetails = fetchDetails,
+                    fetchChapters = fetchChapters,
+                    manualFetch = manualFetch,
+                )
+            }.onSuccess { newChapters += it.newChapters }
             val firstError = refreshMergeGroup(
                 anchor = { fetch(sourceManager.getOrStub(manga.source), manga) },
                 siblings = groupIds.filter { it != manga.id }.map { getMangaAndChapters.awaitManga(it) },

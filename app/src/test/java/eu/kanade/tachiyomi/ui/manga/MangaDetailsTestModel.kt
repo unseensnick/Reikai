@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.flowOf
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.domain.chapter.EditChapterNumber
+import reikai.domain.download.SourceContacts
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
@@ -70,6 +71,7 @@ internal fun mangaDetailsModel(
     prefs: PreferenceStore = InMemoryPreferenceStore(),
     editChapterNumber: EditChapterNumber = mockk(relaxed = true),
     removeMangaFromLibrary: RemoveMangaFromLibrary = mockk(relaxed = true),
+    sourceContacts: SourceContacts = SourceContacts { 0L },
     beforeModel: () -> Unit = {},
 ): MangaViewModel {
     // Built ahead of the hook: recording a coEvery reads Dispatchers.Default, which undoes a static stub of it
@@ -148,6 +150,7 @@ internal fun mangaDetailsModel(
         remoteFirstRemoval = mockk(relaxed = true),
         editChapterNumber = editChapterNumber,
         chapterSettings = MangaChapterSettings(mangas),
+        sourceContacts = sourceContacts,
     )
 }
 

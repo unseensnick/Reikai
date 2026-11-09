@@ -43,6 +43,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.download.NovelRemovableDownloads
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
@@ -72,6 +73,7 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.NovelItem
 import reikai.novel.host.SourceNovel
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
@@ -148,7 +150,12 @@ class NovelReaderViewModelHarness private constructor(
 
     // Plugins are fetched and evaluated by the installer, which is the network; a registered fake
     // source stands in for what it would have loaded.
+
+    /** The installed plugins that threw while loading, by URL. */
+    val pluginFailures = MutableStateFlow<Map<String, LnPluginLoadFailure>>(emptyMap())
+
     private val installer = mockk<LnPluginInstaller>(relaxed = true) {
+        every { failures } returns pluginFailures
         coEvery { ensureLoaded() } coAnswers {
             pluginLoadGate.await()
             pluginLoads.release()
@@ -181,6 +188,9 @@ class NovelReaderViewModelHarness private constructor(
 
     /** What a details refresh asks of the new chapters it would download. */
     var filterChaptersForDownload = mockk<FilterNovelChaptersForDownload>(relaxed = true)
+
+    /** When each source was last reached, as a details model opened after setting it sees it. */
+    var sourceContacts = SourceContacts { 0L }
 
     /** What the in-app browser reports as a chapter saved from its page. */
     val pageSaves = MutableSharedFlow<Long>(extraBufferCapacity = 1)
@@ -478,6 +488,7 @@ class NovelReaderViewModelHarness private constructor(
             trackPorts = mockk(relaxed = true),
             autoBindTrackers = mockk(relaxed = true),
             downloadedTexts = mockk(relaxed = true),
+            sourceContacts = sourceContacts,
         ).also { model ->
             track(model)
             if (shown) model.viewModelScope.launch { model.state.collect {} }

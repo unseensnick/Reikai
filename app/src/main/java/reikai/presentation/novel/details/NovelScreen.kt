@@ -24,6 +24,8 @@ import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.setting.SettingsScreen
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.data.novel.expectedNextUpdate
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -56,8 +58,10 @@ import reikai.presentation.migrate.flow.EntryMigrationSourcePickScreen
 import reikai.presentation.novel.browse.NovelSourceSettingsSheet
 import reikai.presentation.novel.notes.NovelNotesScreen
 import reikai.presentation.novel.search.NovelChapterSearchScreen
+import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.screens.EmptyScreen
+import tachiyomi.presentation.core.screens.EmptyScreenAction
 
 /**
  * Light-novel details screen, the novel twin of `MangaScreen`, pinned by [EntryDetailsContent]. Builds a
@@ -98,7 +102,23 @@ class NovelScreen(
             NovelDetailsState.Loading -> EntryDetailsSkeleton()
             is NovelDetailsState.Failed -> Scaffold(
                 topBar = { AppBar(title = null, navigateUp = navigator::pop, scrollBehavior = it) },
-            ) { padding -> EmptyScreen(message = s.message, modifier = Modifier.padding(padding)) }
+            ) { padding ->
+                EmptyScreen(
+                    message = s.message,
+                    modifier = Modifier.padding(padding),
+                    actions = if (s.retryable) {
+                        listOf(
+                            EmptyScreenAction(
+                                MR.strings.action_retry,
+                                MaterialSymbols.Rounded.Refresh,
+                                viewModel::retryLoad,
+                            ),
+                        )
+                    } else {
+                        null
+                    },
+                )
+            }
             is NovelDetailsState.Loaded -> TachiyomiTheme(
                 seedColor = s.seedColor.takeIf {
                     viewModel.themeCoverBased

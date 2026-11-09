@@ -28,6 +28,7 @@ import reikai.domain.entry.signedKey
 import reikai.domain.novel.model.NovelChapterFlags
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
+import reikai.novel.install.LnPluginLoadFailure
 import reikai.presentation.details.EntrySourceState
 import reikai.presentation.reader.FakeNovelSource
 import reikai.presentation.reader.NovelReaderViewModelHarness
@@ -69,6 +70,27 @@ class NovelDetailsFetchTest {
         }
 
         state.shouldBeInstanceOf<NovelDetailsState.Failed>()
+    }
+
+    @Test
+    fun `a novel whose plugin threw while loading offers to load it again`() = runTest {
+        val state = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            harness.pluginFailures.value = mapOf(
+                "https://example.org/gone.js" to LnPluginLoadFailure(
+                    url = "https://example.org/gone.js",
+                    pluginId = "gone",
+                    name = "Gone plugin",
+                    iconUrl = null,
+                    lang = null,
+                    version = "1.0.0",
+                    customCssUrl = null,
+                    reason = LnPluginLoadFailure.Reason.Failed("ReferenceError: x", "trace"),
+                ),
+            )
+            harness.openDetails("gone", NEW_URL).awaitState { it is NovelDetailsState.Failed }
+        }
+
+        (state as NovelDetailsState.Failed).retryable shouldBe true
     }
 
     @Test

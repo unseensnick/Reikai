@@ -36,6 +36,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -50,6 +51,7 @@ import tachiyomi.data.chapter.ChapterRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.service.SourceManager
 import java.util.concurrent.ConcurrentHashMap
 
 /**
@@ -86,6 +88,18 @@ class MergedNewChapterDownloadConformanceTest {
         judged shouldBe mapOf(Member.ANCHOR to setOf(Member.ANCHOR), Member.SIBLING to setOf(Member.SIBLING))
     }
 
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a refresh counts as reaching each member's source`(type: ContentType) = runTest {
+        val contacts = SourceContacts { 0L }
+        val sources = when (type) {
+            ContentType.MANGA -> mangaJudged(contacts).let { listOf("1", "2") }
+            else -> novelJudged(contacts).let { listOf("alpha", "beta") }
+        }
+
+        sources.map { contacts.waitBefore(it, floorMs = 1_000L) } shouldBe listOf(1_000L, 1_000L)
+    }
+
     private enum class Member { ANCHOR, SIBLING }
 
     /** Entry the filter was asked about, to the entries owning the chapters it was handed, once both arrive. */
@@ -97,12 +111,23 @@ class MergedNewChapterDownloadConformanceTest {
             calls.entries.associate { (owner, chapters) -> roleOf(owner) to chapters.mapTo(HashSet(), roleOf) }
         }
 
-    private suspend fun TestScope.mangaJudged(): Map<Member, Set<Member>> {
+    private suspend fun TestScope.mangaJudged(
+        contacts: SourceContacts = SourceContacts { 0L },
+    ): Map<Member, Set<Member>> {
         val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         val database = DatabaseBindings.providesDatabase(driver)
-        driver.seedManga(ANCHOR, chapterId = 101L)
-        driver.seedManga(SIBLING, chapterId = 201L)
+        driver.seedManga(ANCHOR, chapterId = 101L, sourceId = 1L)
+        driver.seedManga(SIBLING, chapterId = 201L, sourceId = 2L)
+        val sources = listOf(1L, 2L).associateWith { id ->
+            mockk<Source>(relaxed = true) {
+                every { this@mockk.id } returns
+                    id
+            }
+        }
+        val sourceManager = mockk<SourceManager>(relaxed = true)
+        coEvery { sourceManager.get(any()) } answers { sources[firstArg()] }
+        coEvery { sourceManager.getOrStub(any()) } answers { sources[firstArg()] ?: mockk(relaxed = true) }
         val calls = ConcurrentHashMap<Long, Set<Long>>()
         val update = mockk<UpdateMangaFromRemote> {
             coEvery { this@mockk.invoke(any<Source>(), any(), any(), any(), any(), any()) } answers {
@@ -124,8 +149,10 @@ class MergedNewChapterDownloadConformanceTest {
             MangaRepositoryImpl(database),
             ChapterRepositoryImpl(database),
             longArrayOf(ANCHOR, SIBLING),
+            sourceManager = sourceManager,
             filterChaptersForDownload = filter,
             updateMangaFromRemote = update,
+            sourceContacts = contacts,
         ).also { store.put("manga", it) }
         try {
             withContext(Dispatchers.Default) {
@@ -144,8 +171,11 @@ class MergedNewChapterDownloadConformanceTest {
         }
     }
 
-    private suspend fun TestScope.novelJudged(): Map<Member, Set<Member>> =
+    private suspend fun TestScope.novelJudged(
+        contacts: SourceContacts = SourceContacts { 0L },
+    ): Map<Member, Set<Member>> =
         NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            harness.sourceContacts = contacts
             val alpha = harness.source("alpha")
             val beta = harness.source("beta")
             val anchor = harness.novel(alpha)

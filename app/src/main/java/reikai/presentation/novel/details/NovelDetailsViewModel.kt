@@ -70,6 +70,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.download.SourceContacts
 import reikai.domain.download.downloadStateOf
 import reikai.domain.download.rowDownloadChapters
 import reikai.domain.download.runChapterAction
@@ -147,6 +148,7 @@ import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.download.toDownloadState
 import reikai.novel.export.NovelEpubExportWorker
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.description
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
@@ -243,6 +245,7 @@ class NovelDetailsViewModel(
     private val trackPorts: EntryTrackPorts,
     private val autoBindTrackers: AutoBindTrackers,
     private val downloadedTexts: NovelDownloadedTexts,
+    private val sourceContacts: SourceContacts,
 ) : ViewModel() {
 
     private val subscriberGate = SubscriberGate()
@@ -277,7 +280,7 @@ class NovelDetailsViewModel(
     private val resolvedSource: NovelSource? get() = (anchorSource.value as? SourceLookup.Resolved)?.source
 
     /** Why the opened novel could not load. Shown only while there is no stored novel to show instead. */
-    private val failure = MutableStateFlow<String?>(null)
+    private val failure = MutableStateFlow<NovelDetailsState.Failed?>(null)
 
     private var refreshJob: Job? = null
     private var seededCover: NovelCover? = null
@@ -436,7 +439,7 @@ class NovelDetailsViewModel(
             isPageLoading = overlay.isPageLoading,
             seedColor = overlay.seedColor,
         )
-            ?: failure?.let(NovelDetailsState::Failed)
+            ?: failure
             ?: NovelDetailsState.Loading
     }
         .flowOn(Dispatchers.IO)
@@ -463,6 +466,12 @@ class NovelDetailsViewModel(
         }
     }
 
+    /** Loads a plugin that threw while loading again, through the screen's loading state. */
+    fun retryLoad() {
+        failure.value = null
+        resolveSource()
+    }
+
     /** Looks the opened novel's plugin up, then makes the first fetch when nothing is stored to show. */
     private fun resolveSource() {
         viewModelScope.launchIO {
@@ -481,8 +490,20 @@ class NovelDetailsViewModel(
         val stored = novelRepo.getByUrlAndSource(novelUrl, sourceId)
         when (lookup) {
             SourceLookup.Pending -> Unit
+            // A plugin that is installed but threw while loading says why and can be loaded again, as the
+            // catalogue does; one that is really gone reads "not installed".
             SourceLookup.Missing -> if (stored == null) {
-                failure.value = context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId))
+                val loadFailure = installer.failures.value.values.firstOrNull { it.pluginId == sourceId }
+                failure.value = loadFailure?.let {
+                    NovelDetailsState.Failed(
+                        listOfNotNull(context.stringResource(it.reason.description), it.reason.message)
+                            .joinToString("\n\n"),
+                        retryable = true,
+                    )
+                }
+                    ?: NovelDetailsState.Failed(
+                        context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
+                    )
             }
             is SourceLookup.Resolved -> if (stored == null || chapterRepo.getByNovelId(stored.id).isEmpty()) {
                 runCatchingCancellable { fetchAndSync(lookup.source, stored) }
@@ -490,7 +511,7 @@ class NovelDetailsViewModel(
                         val message = with(context) { e.refreshFailureMessage() }
                         // A stored row still shows, so the reason goes in a snackbar, as manga's first fetch does.
                         if (novelRepo.getByUrlAndSource(novelUrl, sourceId) == null) {
-                            failure.value = message
+                            failure.value = NovelDetailsState.Failed(message)
                         } else {
                             withUIContext { snackbarHostState.showSnackbar(message) }
                         }
@@ -1044,19 +1065,22 @@ class NovelDetailsViewModel(
 
     /** Shared favorite-refresh: parseNovel + merge + sync page 1 + walk newly-opened pages. Bounded,
      *  never a full fetch-all. Returns the refreshed novel and adds the new chapters the
-     *  download-new-chapters setting takes to [toDownload]; a failure is the caller's to report. */
+     *  download-new-chapters setting takes to [toDownload]; a failure is the caller's to report. Recorded
+     *  as a contact, so a new chapter queued after it still waits out the source's delay. */
     private suspend fun refreshNovel(src: NovelSource, novel: Novel, toDownload: MutableList<NovelChapter>): Novel =
-        refreshNovelFromSource(
-            novel,
-            src,
-            chapterRepo,
-            novelRepo,
-            libraryPreferences,
-            chapterNumberOverrides,
-            coverCache,
-            novelDownloadManager = downloadManager,
-            manualFetch = true,
-        ).also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }.novel
+        sourceContacts.reaching(novel.source) {
+            refreshNovelFromSource(
+                novel,
+                src,
+                chapterRepo,
+                novelRepo,
+                libraryPreferences,
+                chapterNumberOverrides,
+                coverCache,
+                novelDownloadManager = downloadManager,
+                manualFetch = true,
+            )
+        }.also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }.novel
     private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
         val newTotalPages = updated.totalPages
         if (newTotalPages <= 1L) return
@@ -1693,7 +1717,9 @@ private fun EntryEditInfoUi.toCustomNovelInfo(source: Novel) =
 
 sealed interface NovelDetailsState {
     data object Loading : NovelDetailsState
-    data class Failed(val message: String) : NovelDetailsState
+
+    /** [retryable] when loading the source again can fix it: a plugin that threw while loading. */
+    data class Failed(val message: String, val retryable: Boolean = false) : NovelDetailsState
 
     @Immutable
     data class Loaded(
