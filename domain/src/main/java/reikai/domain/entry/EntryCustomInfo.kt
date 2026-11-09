@@ -1,12 +1,14 @@
 package reikai.domain.entry
 
 import reikai.domain.library.updateerror.LibraryUpdateError
+import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.NovelHistoryWithRelations
 import reikai.domain.novel.model.NovelUpdateWithRelations
 import reikai.domain.novel.updateerror.NovelUpdateError
 import reikai.domain.recents.RecentlyAddedManga
 import reikai.domain.recents.RecentlyAddedNovel
 import tachiyomi.domain.history.model.HistoryWithRelations
+import tachiyomi.domain.manga.model.CustomMangaInfo
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.updates.model.UpdatesWithRelations
 
@@ -28,6 +30,14 @@ interface EntryCustomInfo {
         get() = title == null && author == null && artist == null && description == null &&
             genre == null && status == null && thumbnailUrl == null
 }
+
+/** These overrides as [mangaId]'s stored row. */
+fun EntryCustomInfo.toCustomMangaInfo(mangaId: Long) =
+    CustomMangaInfo(mangaId, title, author, artist, description, genre, status, thumbnailUrl)
+
+/** These overrides as [novelId]'s stored row. */
+fun EntryCustomInfo.toCustomNovelInfo(novelId: Long) =
+    CustomNovelInfo(novelId, title, author, artist, description, genre, status, thumbnailUrl)
 
 /**
  * Each set field wins, the rest pass through. Novels reach this too, since the library renders a novel

@@ -22,14 +22,14 @@ interface BackupCustomInfoFields {
 
 /** One entry's custom info, a null field meaning no override. */
 data class BackupCustomInfo(
-    val title: String? = null,
-    val author: String? = null,
-    val artist: String? = null,
-    val description: String? = null,
-    val genre: List<String>? = null,
-    val status: Long? = null,
-    val thumbnailUrl: String? = null,
-)
+    override val title: String? = null,
+    override val author: String? = null,
+    override val artist: String? = null,
+    override val description: String? = null,
+    override val genre: List<String>? = null,
+    override val status: Long? = null,
+    override val thumbnailUrl: String? = null,
+) : EntryCustomInfo
 
 fun EntryCustomInfo.toBackupCustomInfo() =
     BackupCustomInfo(title, author, artist, description, genre, status, thumbnailUrl)
@@ -48,7 +48,7 @@ var BackupCustomInfoFields.customInfo: BackupCustomInfo?
         genre = customGenre?.takeIf { it.isNotEmpty() },
         status = customStatus.takeIf { it > 0 }?.toLong(),
         thumbnailUrl = customThumbnailUrl,
-    ).takeUnless { it == BackupCustomInfo() }
+    ).takeUnless { it.isEmpty }
     set(value) {
         customTitle = value?.title
         customAuthor = value?.author

@@ -19,6 +19,7 @@ import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.backedUpOverrides
+import reikai.domain.entry.toCustomMangaInfo
 import reikai.domain.library.ContentType
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
@@ -29,7 +30,6 @@ import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.manga.interactor.FetchInterval
 import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.SetCustomMangaInfo
-import tachiyomi.domain.manga.model.CustomMangaInfo
 import kotlin.time.Clock
 
 @Inject
@@ -117,18 +117,6 @@ class MangaRestorer(
     suspend fun restoreCustomInfo(source: Long, url: String, info: BackupCustomInfo) {
         getMangaByUrlAndSourceId.await(url, source)?.let { setCustomMangaInfo.set(info.toCustomMangaInfo(it.id)) }
     }
-
-    // RK: the novel twin is NovelRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo.
-    private fun BackupCustomInfo.toCustomMangaInfo(mangaId: Long) = CustomMangaInfo(
-        mangaId = mangaId,
-        title = title,
-        author = author,
-        artist = artist,
-        description = description,
-        genre = genre,
-        status = status,
-        thumbnailUrl = thumbnailUrl,
-    )
 
     // RK: the id is a placeholder; the repository writes the rows under the restored entry's own
     private fun BackupSearchMetadata.toFlatMetadata() = FlatMetadata(

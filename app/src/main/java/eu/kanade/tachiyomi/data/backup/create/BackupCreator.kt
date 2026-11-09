@@ -199,7 +199,7 @@ class BackupCreator(
                         out,
                         BackupFields.MANGA_MERGES,
                         BackupMangaMergeGroup.serializer(),
-                        backupMangaMergeGroups(options),
+                        backupMangaMergeGroups(),
                     )
                 }
                 // Novel categories ride the Categories option alone, like manga's field 2: a
@@ -293,7 +293,7 @@ class BackupCreator(
         fieldNumber: Int,
         serializer: SerializationStrategy<T>,
         entries: Flow<T>,
-        onEntry: (T) -> Unit = {},
+        onEntry: (T) -> Unit,
     ) {
         var written = 0
         entries.collect { entry ->
@@ -335,10 +335,8 @@ class BackupCreator(
 
     // RK --> serialize the persisted manga merge groups as stable {url, source} refs, through the kernel
     // NovelBackupCreator.serializeGroups also calls. Reads the merge_group tables, not the retired prefs;
-    // any member resolves by id (not favorites-only). Gated by libraryEntries (merges are meaningless
-    // without the library).
-    private suspend fun backupMangaMergeGroups(options: BackupOptions): List<BackupMangaMergeGroup> {
-        if (!options.libraryEntries) return emptyList()
+    // any member resolves by id (not favorites-only).
+    private suspend fun backupMangaMergeGroups(): List<BackupMangaMergeGroup> {
         return mergeGroupRefs(mergeGroupRepository.getAllMemberships(ContentType.MANGA)) { id ->
             mangaOrNull(id)?.let { BackupMangaSourceRef(url = it.url, source = it.source) }
         }.map { BackupMangaMergeGroup(refs = it) }

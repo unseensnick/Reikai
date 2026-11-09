@@ -33,6 +33,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.backedUpOverrides
+import reikai.domain.entry.toCustomNovelInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReleaseInterval
 import reikai.domain.merge.PrefEraGrouping
@@ -43,7 +44,6 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.interactor.SetCustomNovelInfo
 import reikai.domain.novel.local.LocalNovelLanguageRepository
-import reikai.domain.novel.model.CustomNovelInfo
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.readinglog.ReadingLogRepository
@@ -282,19 +282,7 @@ class NovelRestorer(
         novelRepository.getByUrlAndSource(url, source)?.let { restoreCustomInfo(it.id, info) }
     }
 
-    /** The manga twin is MangaRestorer.restoreCustomInfo; both read BackupCustomInfoFields.customInfo. */
     private suspend fun restoreCustomInfo(novelId: Long, info: BackupCustomInfo) {
-        setCustomNovelInfo.set(
-            CustomNovelInfo(
-                novelId = novelId,
-                title = info.title,
-                author = info.author,
-                artist = info.artist,
-                description = info.description,
-                genre = info.genre,
-                status = info.status,
-                thumbnailUrl = info.thumbnailUrl,
-            ),
-        )
+        setCustomNovelInfo.set(info.toCustomNovelInfo(novelId))
     }
 }

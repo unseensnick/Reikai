@@ -27,7 +27,7 @@ class RestoreInstallItemsTest {
                     plan = RestoreInstallPlan(
                         repos = listOf(BackupRepo("https://store.example/index.min.json", "Store", false, signingKey)),
                     ),
-                    installs = true,
+                    shouldInstall = true,
                     trusted = emptySet(),
                     onTrust = { _, _ -> },
                 )

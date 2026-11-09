@@ -24,13 +24,13 @@ import tachiyomi.presentation.core.i18n.stringResource
  */
 fun LazyListScope.restoreInstallItems(
     plan: RestoreInstallPlan,
-    installs: Boolean,
+    shouldInstall: Boolean,
     trusted: Set<String>,
     onTrust: (BackupRepo, Boolean) -> Unit,
 ) {
     if (plan.ready.isNotEmpty()) {
         item(key = "restore-ready") {
-            SectionCard(if (installs) MR.strings.restore_installs_ready else MR.strings.restore_installs_off) {
+            SectionCard(if (shouldInstall) MR.strings.restore_installs_ready else MR.strings.restore_installs_off) {
                 plan.ready.forEach { Text(it, style = MaterialTheme.typography.bodyMedium) }
             }
         }

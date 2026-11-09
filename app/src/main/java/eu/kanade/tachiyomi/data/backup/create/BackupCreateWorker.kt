@@ -24,8 +24,6 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.app.di.AppGraph
 import mihon.app.di.appGraph

@@ -30,10 +30,7 @@ class BackupNovel(
     // Read only, from backups made before the Last read sort came from history: NovelRestorer seeds a
     // history row from it for a novel that has none. Nothing writes it any more.
     @ProtoNumber(17) var lastReadAt: Long? = null,
-    // Retired lock bitmask, kept as a reserved proto slot for backup round-trip compatibility with
-    // older backups (and upstream Yokai). Novel edits now live in the custom_novel_info overlay
-    // (backed up in the custom fields below); this field is written 0 and ignored on restore.
-    @ProtoNumber(18) var editedFlags: Long = 0,
+    // @ProtoNumber(18) var editedFlags: Long, a retired lock bitmask; edits ride in the custom fields below
     @ProtoNumber(19) var favorite: Boolean = true,
     @ProtoNumber(20) var chapters: List<BackupNovelChapter> = emptyList(),
     @ProtoNumber(21) var categories: List<Long> = emptyList(),
