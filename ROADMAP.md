@@ -12,7 +12,7 @@ Backlog, grouped by area. Unordered within an area.
 
 ### Library
 
-- **Manual drag order within a category** `[L]` - a Manual sort mode whose order is set by dragging tiles, for both content types and both library views. Requested in unseensnick/Reikai#86.
+- **Manual drag order within a category** `[L]` - a Manual sort mode whose order is set by dragging tiles, for both content types and both library views. Requested in unseensnick/Reikai#86. [Plan](docs/dev/plans/library-manual-order.md).
 
 ## Parked and not building
 
