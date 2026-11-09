@@ -6,4 +6,4 @@ The template and the rule for what earns a plan live in [.claude/rules/roadmap-p
 
 ## Open plans
 
-None right now.
+- [local-volumes.md](local-volumes.md): one local series holding several volumes, with Vol. N headers, volume chips, and combining or splitting volumes without reimporting.
