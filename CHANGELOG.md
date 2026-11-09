@@ -21,6 +21,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Light novels can be read from your own EPUB files, through a local source beside the manga one.** Chapters follow the book's table of contents, even when one file holds several.
 - **Books and comics can be imported from Library -> ⋮ -> Import files, or by opening or sharing a file with Reikai.** Reikai copies them into its local folders and adds them to your library.
 - **A novel can be saved as an EPUB file from its ⋮ menu, or several at once from a library selection.** Downloaded chapters go in with the cover, pictures and details, so an imported copy keeps them.
+- **Local manga can keep each volume in a folder of its own, with that volume's chapters inside.** Each chapter is named with its volume in front.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
 #### Fixed

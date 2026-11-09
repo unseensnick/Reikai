@@ -293,11 +293,17 @@ class LocalSource(
     private suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
         val chapters = fileSystem.getFilesInMangaDirectory(manga.url)
             // Only keep supported formats
-            .filterNot { it.name.orEmpty().startsWith('.') }
-            .filter { it.isDirectory || Archive.isSupported(it) || it.extension.equals("epub", true) }
-            .map { chapterFile ->
+            .filter(::isChapterFile) // RK: shared with the volume folders below
+            // RK --> a folder holding chapter files or chapter folders is a volume, read one level down; its
+            // chapters carry it in their address and in front of their name, as a local novel's volumes do
+            .flatMap { file ->
+                val inside = file.takeIf { it.isDirectory }?.listFiles().orEmpty().filter(::isChapterFile)
+                if (inside.isNotEmpty()) inside.map { file to it } else listOf(null to file)
+            }
+            .map { (volume, chapterFile) ->
                 SChapter.create().apply {
-                    url = "${manga.url}/${chapterFile.name}"
+                    url = listOfNotNull(manga.url, volume?.name, chapterFile.name).joinToString("/")
+                    // RK <--
                     name = if (chapterFile.isDirectory) {
                         chapterFile.name
                     } else {
@@ -324,6 +330,8 @@ class LocalSource(
                     } catch (e: Exception) {
                         logcat(LogPriority.ERROR, e) { "Failed to read metadata for ${chapterFile.name}" }
                     }
+                    // RK: after the metadata, which may name the chapter, so the volume order survives the sort
+                    volume?.let { name = "${it.name} - $name" }
                 }
             }
             .sortedWith { c1, c2 ->
@@ -348,10 +356,8 @@ class LocalSource(
 
     fun getFormat(chapter: SChapter): Format {
         try {
-            val (mangaDirName, chapterName) = chapter.url.split('/', limit = 2)
-            return fileSystem.getBaseDirectory()
-                ?.findFile(mangaDirName)
-                ?.findFile(chapterName)
+            // RK: one step per path part, since a chapter in a volume folder sits two levels down
+            return chapter.url.split('/').fold(fileSystem.getBaseDirectory()) { dir, part -> dir?.findFile(part) }
                 ?.let(Format.Companion::valueOf)
                 ?: throw Exception(context.stringResource(MR.strings.chapter_not_found))
         } catch (e: Format.UnknownFormatException) {
@@ -360,6 +366,11 @@ class LocalSource(
             throw e
         }
     }
+
+    // RK: a chapter's own file or folder, in a series folder or a volume folder
+    private fun isChapterFile(file: UniFile): Boolean =
+        !file.name.orEmpty().startsWith('.') &&
+            (file.isDirectory || Archive.isSupported(file) || file.extension.equals("epub", true))
 
     private fun updateCover(chapter: SChapter, manga: SManga): UniFile? {
         return try {
