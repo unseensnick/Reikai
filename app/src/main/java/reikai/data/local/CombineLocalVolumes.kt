@@ -13,6 +13,8 @@ import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalVolume
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.download.renameDownloadFolder
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.SetEntryTitle
@@ -21,6 +23,7 @@ import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.VolumeRowMove
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -91,6 +94,7 @@ class CombineLocalVolumes(
     private val mangaAdder: MangaLibraryAdder,
     private val novelAdder: NovelLibraryAdder,
     private val setEntryTitle: SetEntryTitle,
+    private val localVolumes: LocalVolumeRepository,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
 
@@ -155,13 +159,16 @@ class CombineLocalVolumes(
             }
             rows += RowMove(kept.id, kept.id, moves)
         }
+        val volumeRows = VolumeRows(localVolumes.volumes(ContentType.MANGA).value, kept.folder, kept.folder)
         for (other in others) {
             val dir = localFiles.getMangaDirectory(other.folder) ?: return failed(missing(other))
             val chapters = chapterRepository.getChapterByMangaId(other.id)
+            volumeRows.next(other.folder)
             val moves = if (chapters.any { it.url.count { c -> c == '/' } == 2 }) {
                 // Already split into volumes: each volume folder joins as it is.
                 chapters.groupBy { it.url.split('/')[1] }.flatMap { (volume, inVolume) ->
                     val name = freeName(volume, taken)
+                    volumeRows.move(volume, name)
                     placements +=
                         Placement(
                             FileCopy(dir.findFile(volume) ?: return failed(missing(other)), keptDir, null, name),
@@ -180,6 +187,7 @@ class CombineLocalVolumes(
             type = ContentType.MANGA,
             placements = placements,
             rows = rows,
+            volumeRows = volumeRows.moves,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
             leftovers = { others.mapNotNull { localFiles.getMangaDirectory(it.folder) } },
@@ -194,9 +202,11 @@ class CombineLocalVolumes(
         val taken = keptEntry.takeIf { it.isDirectory }?.listFiles().orEmpty().mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<RowMove>()
+        val volumeRows = VolumeRows(localVolumes.volumes(ContentType.NOVELS).value, kept.folder, folder)
         if (!keptEntry.isDirectory) {
             if (root.findFile(folder) != null) return failed(taken(folder))
             val name = freeName(kept.folder, taken)
+            volumeRows.move(kept.folder, name)
             placements += Placement(FileCopy(keptEntry, root, folder, name), root)
             rows += RowMove(kept.id, kept.id, novelMoves(kept, folder) { name })
         }
@@ -205,6 +215,8 @@ class CombineLocalVolumes(
             val parent = if (entry.isDirectory) entry else root
             val books = if (entry.isDirectory) entry.listFiles().orEmpty().filter { it.isEpub() } else listOf(entry)
             val renamed = books.associate { book -> book.name.orEmpty() to freeName(book.name.orEmpty(), taken) }
+            volumeRows.next(other.folder)
+            renamed.forEach { (from, to) -> volumeRows.move(from, to) }
             books.forEach {
                 placements +=
                     Placement(FileCopy(it, root, folder, renamed.getValue(it.name.orEmpty())), parent)
@@ -215,6 +227,7 @@ class CombineLocalVolumes(
             type = ContentType.NOVELS,
             placements = placements,
             rows = rows,
+            volumeRows = volumeRows.moves,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
             renamed = UrlChange(kept.id, kept.folder, folder).takeIf { folder != kept.folder },
@@ -284,6 +297,7 @@ class CombineLocalVolumes(
         placements: List<Placement>,
         rows: List<RowMove>,
         relist: List<Long>,
+        volumeRows: List<VolumeRowPair> = emptyList(),
         leaving: List<Long> = emptyList(),
         joining: Long? = null,
         renamed: UrlChange? = null,
@@ -293,6 +307,7 @@ class CombineLocalVolumes(
         val result = moveLocalFiles(placements.map { it.copy }) {
             renamed?.let { novelRepository.update(NovelUpdate(it.id) { url = it.to }) }
             rows.forEach { chapterMoves.move(type, it.from, it.to, it.moves) }
+            chapterMoves.moveVolumes(type, volumeRows.map { it.forward })
         }
         if (result !is LocalMoveResult.Moved) return failed(result)
         val tookOut = removal.takeOut(leaving)
@@ -309,6 +324,7 @@ class CombineLocalVolumes(
                 }
                 val undone = moveLocalFiles(back) {
                     renamed?.let { novelRepository.update(NovelUpdate(it.id) { url = it.from }) }
+                    chapterMoves.moveVolumes(type, volumeRows.map { it.back })
                     rows.forEach { row ->
                         chapterMoves.move(type, row.to, row.from, row.moves.map { ChapterMove(it.toUrl, it.fromUrl) })
                     }
@@ -487,6 +503,41 @@ class CombineLocalVolumes(
 
     private fun missing(series: CombinableSeries) =
         LocalMoveResult.Failed(IllegalStateException("${series.title}'s files are not in the local folder"))
+
+    /**
+     * The saved order and names of volumes joining [toSeries], read before they move. Each series that joins
+     * is placed after the ones before it, kept order first; a series with no saved order of its own, or
+     * joining one with none, keeps none, so its volumes sort by name among the rest.
+     */
+    private class VolumeRows(
+        private val saved: Map<String, List<LocalVolume>>,
+        keptSeries: String,
+        private val toSeries: String,
+    ) {
+        val moves = mutableListOf<VolumeRowPair>()
+        private var from = keptSeries
+        private var base: Long? = 0L
+        private var next: Long? = saved[keptSeries]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
+
+        /** Starts on [series]' volumes, placed after those before it. */
+        fun next(series: String) {
+            from = series
+            base = next
+            val span = saved[series]?.mapNotNull { it.position }?.maxOrNull()?.plus(1) ?: 0L
+            next = next?.plus(span)
+        }
+
+        fun move(key: String, toKey: String) {
+            val row = saved[from]?.firstOrNull { it.key == key } ?: return
+            val position = row.position?.let { p -> base?.plus(p) }
+            moves += VolumeRowPair(
+                VolumeRowMove(from, key, toSeries, toKey, position),
+                VolumeRowMove(toSeries, toKey, from, key, row.position),
+            )
+        }
+    }
+
+    private class VolumeRowPair(val forward: VolumeRowMove, val back: VolumeRowMove)
 
     /** One chapter-row move from series [from] to series [to]. */
     private class RowMove(val from: Long, val to: Long, val moves: List<ChapterMove>)

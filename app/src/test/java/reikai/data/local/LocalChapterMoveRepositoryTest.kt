@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -84,6 +85,21 @@ class LocalChapterMoveRepositoryTest {
                 one("SELECT volume_key FROM local_volume_pick"),
             ) shouldBe listOf("Bee", "2|Bee/c1|1", "Bee|Vol. 1|One", "Vol. 1")
         }
+
+    @Test
+    fun `a moved volume takes its saved order and name to its new series and key`() = runTest {
+        exec(
+            "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
+        )
+
+        LocalChapterMoveRepositoryImpl(database).moveVolumes(
+            ContentType.MANGA,
+            listOf(VolumeRowMove("B", "v1", "A", "v1 (2)", 3)),
+        )
+
+        one("SELECT series || '|' || volume_key || '|' || position || '|' || label FROM local_volume") shouldBe
+            "A|v1 (2)|3|One"
+    }
 
     enum class Type(
         val contentType: ContentType,

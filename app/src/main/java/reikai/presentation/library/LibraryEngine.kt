@@ -762,10 +762,15 @@ class LibraryEngine(
     /** Whether Combine as volumes takes the selection: two or more local series of one type, none merged. */
     fun canCombineSelection(contentType: ContentType): Boolean {
         val entries = selection.value
-        val type = entries.map { it.contentType }.distinct().singleOrNull() ?: return false
+        entries.map { it.contentType }.distinct().singleOrNull() ?: return false
+        return entries.size >= 2 && !selectionContainsMerged(contentType) && selectionAllLocal(contentType)
+    }
+
+    /** Whether every selected entry is a local series, whose files are on the device already. */
+    fun selectionAllLocal(contentType: ContentType): Boolean {
+        val entries = selection.value
         val providers = providersFor(contentType).owning(entries)
-        return entries.size >= 2 && !selectionContainsMerged(contentType) &&
-            entries.all { entry -> providers.any { it.contentType == type && it.containsLocal(setOf(entry)) } }
+        return entries.isNotEmpty() && entries.all { entry -> providers.any { it.containsLocal(setOf(entry)) } }
     }
 
     fun openCombineDialog() {

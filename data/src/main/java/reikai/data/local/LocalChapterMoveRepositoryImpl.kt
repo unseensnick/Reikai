@@ -9,6 +9,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
 
 @Inject
@@ -23,6 +24,14 @@ class LocalChapterMoveRepositoryImpl(
     override suspend fun move(type: ContentType, fromOwner: Long, toOwner: Long, moves: List<ChapterMove>) {
         database.transaction {
             moves.forEach { moveChapter(type, fromOwner, toOwner, it) }
+        }
+    }
+
+    override suspend fun moveVolumes(type: ContentType, moves: List<VolumeRowMove>) {
+        if (moves.isEmpty()) return
+        val dbType = type.toDbValue()
+        database.transaction {
+            moves.forEach { queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey) }
         }
     }
 

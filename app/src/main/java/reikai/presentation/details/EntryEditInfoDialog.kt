@@ -86,6 +86,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -127,11 +128,13 @@ fun EntryEditInfoDialog(
     source: EntryEditInfoUi,
     coverModel: (thumbnailUrl: String) -> Any?,
     onDismissRequest: () -> Unit,
-    onSave: (EntryEditInfoUi) -> Unit,
+    // renameFiles: the files follow the new title, asked only where [canRenameFiles].
+    onSave: (EntryEditInfoUi, renameFiles: Boolean) -> Unit,
     // "Reset all": clear every override and close (each caller clears its overlay).
     onResetAll: () -> Unit,
     autofill: TrackerAutofill,
     mergedTags: suspend () -> List<String>?,
+    canRenameFiles: Boolean = false,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -140,6 +143,8 @@ fun EntryEditInfoDialog(
     var isDraggingTag by remember { mutableStateOf(false) }
     var pickerTracks by remember { mutableStateOf<List<Pair<Track, Tracker>>?>(null) }
     var isAddingTags by remember { mutableStateOf(false) }
+    var alsoRenameFiles by remember { mutableStateOf(true) }
+    val titleChanged = form.title.text.toString() != initial.title
     var collatable by remember { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(Unit) { collatable = runCatchingCancellable { mergedTags() }.getOrNull() }
 
@@ -187,6 +192,13 @@ fun EntryEditInfoDialog(
                 )
                 StatusField(selected = form.status, onSelect = { form.status = it })
                 InfoField(form.title, stringResource(MR.strings.title))
+                if (canRenameFiles && titleChanged) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.edit_info_also_rename_files),
+                        checked = alsoRenameFiles,
+                        onCheckedChange = { alsoRenameFiles = it },
+                    )
+                }
                 InfoField(form.author, stringResource(MR.strings.author))
                 InfoField(form.artist, stringResource(MR.strings.artist))
                 InfoField(
@@ -246,7 +258,7 @@ fun EntryEditInfoDialog(
                 TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) }
                 TextButton(
                     onClick = {
-                        onSave(form.collect())
+                        onSave(form.collect(), canRenameFiles && titleChanged && alsoRenameFiles)
                         onDismissRequest()
                     },
                 ) { Text(stringResource(MR.strings.action_save)) }

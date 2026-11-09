@@ -13,9 +13,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -148,8 +146,7 @@ fun EntryDetailsContent(
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     var reorderingVolumes by remember { mutableStateOf(false) }
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
-    // A local series that is its own, not one source of a merge, can join another or give up a volume.
-    val ownLocal = state.details.header.sourceState == EntrySourceState.Local && !state.isMerged
+    val ownLocal = state.ownsLocalFiles
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
@@ -160,23 +157,16 @@ fun EntryDetailsContent(
         onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal },
     )
     val context = LocalContext.current
-    // After a new title or volume name, the files can follow it; nothing on disk moves unless asked.
-    val offerFileRename: () -> Unit = {
-        scope.launch {
-            snackbarHostState.currentSnackbarData?.dismiss()
-            val picked = snackbarHostState.showSnackbar(
-                message = context.stringResource(MR.strings.rename_files_offer),
-                actionLabel = context.stringResource(MR.strings.action_rename),
-                duration = SnackbarDuration.Short,
-                withDismissAction = true,
-            )
-            if (picked == SnackbarResult.ActionPerformed) volumeDialog = VolumeDialog.RenameFiles
+    // Edit info saves the title before the screen shows it, so the files take the title it sent.
+    var renameTitle by remember { mutableStateOf<String?>(null) }
+    if (ownLocal) {
+        LaunchedEffect(behavior.volumePicking) {
+            behavior.volumePicking.fileRenameRequests.collect {
+                renameTitle = it
+                volumeDialog = VolumeDialog.RenameFiles
+            }
         }
     }
-    if (ownLocal) {
-        LaunchedEffect(behavior.volumePicking) { behavior.volumePicking.fileRenameOffers.collect { offerFileRename() } }
-    }
-    var volumeRenamed by remember { mutableStateOf(false) }
     if (isTabletUi) {
         EntryDetailsLargeContent(
             behavior,
@@ -204,16 +194,13 @@ fun EntryDetailsContent(
         val series = volumes.chips.first().series
         ReorderVolumesDialog(
             volumes = volumes.chips,
-            onDismissRequest = {
+            canRenameFiles = ownLocal,
+            onDismissRequest = { renameFiles ->
                 reorderingVolumes = false
-                if (volumeRenamed && ownLocal) offerFileRename()
-                volumeRenamed = false
+                if (renameFiles) volumeDialog = VolumeDialog.RenameFiles
             },
             onReorder = { keys -> behavior.volumePicking.reorder(type, series, keys, behavior::refresh) },
-            onRename = { key, label ->
-                behavior.volumePicking.rename(type, series, key, label)
-                volumeRenamed = true
-            },
+            onRename = { key, label -> behavior.volumePicking.rename(type, series, key, label) },
         )
     }
     when (volumeDialog) {
@@ -260,12 +247,16 @@ fun EntryDetailsContent(
             )
         }
         VolumeDialog.RenameFiles -> RenameFilesDialog(
-            title = state.details.header.title,
+            title = renameTitle ?: state.details.header.title,
             volumes = volumes?.chips.orEmpty(),
             plan = { title, labels -> behavior.volumePicking.renamePlan(state.entryId, title, labels) },
-            onDismissRequest = { volumeDialog = null },
+            onDismissRequest = {
+                volumeDialog = null
+                renameTitle = null
+            },
             onConfirm = { series, names, newTitle ->
                 volumeDialog = null
+                renameTitle = null
                 scope.launch {
                     val move = behavior.volumePicking.renameFiles(type, series, names, newTitle)
                     behavior.refresh()

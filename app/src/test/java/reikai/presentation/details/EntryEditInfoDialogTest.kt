@@ -36,7 +36,7 @@ class EntryEditInfoDialogTest {
                 source = SOURCE,
                 coverModel = { null },
                 onDismissRequest = {},
-                onSave = { saved = it },
+                onSave = { info, _ -> saved = info },
                 onResetAll = {},
                 autofill = TrackerAutofill(candidates = { emptyList() }, fetch = { _, _ -> error("unused") }),
                 mergedTags = { mergedTags },

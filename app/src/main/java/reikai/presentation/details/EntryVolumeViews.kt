@@ -48,6 +48,7 @@ import reikai.presentation.components.NameDialog
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** The volume chips above a local series' list: every volume, then each one alone. */
@@ -136,7 +137,9 @@ private fun volumeLabel(label: VolumeLabel): String = when (label) {
 @Composable
 internal fun ReorderVolumesDialog(
     volumes: List<EntryChapterListItem.Volume>,
-    onDismissRequest: () -> Unit,
+    canRenameFiles: Boolean,
+    // renameFiles: a volume was renamed and the files are to follow it.
+    onDismissRequest: (renameFiles: Boolean) -> Unit,
     onReorder: (keys: List<String>) -> Unit,
     onRename: (key: String, label: String?) -> Unit,
 ) {
@@ -146,8 +149,11 @@ internal fun ReorderVolumesDialog(
         onReorder(settled.map { it.key })
     }
     var renaming by remember { mutableStateOf<EntryChapterListItem.Volume?>(null) }
+    var renamed by remember { mutableStateOf(false) }
+    var alsoRenameFiles by remember { mutableStateOf(true) }
+    val close = { onDismissRequest(canRenameFiles && renamed && alsoRenameFiles) }
     AlertDialog(
-        onDismissRequest = onDismissRequest,
+        onDismissRequest = close,
         title = { Text(stringResource(MR.strings.action_reorder_volumes)) },
         text = {
             Column {
@@ -181,10 +187,17 @@ internal fun ReorderVolumesDialog(
                         }
                     }
                 }
+                if (canRenameFiles && renamed) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.edit_info_also_rename_files),
+                        checked = alsoRenameFiles,
+                        onCheckedChange = { alsoRenameFiles = it },
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_close)) }
+            TextButton(onClick = close) { Text(stringResource(MR.strings.action_close)) }
         },
     )
     renaming?.let { volume ->
@@ -193,6 +206,7 @@ internal fun ReorderVolumesDialog(
             onDismissRequest = { renaming = null },
             onRename = { label ->
                 onRename(volume.key, label)
+                renamed = true
                 renaming = null
             },
         )

@@ -321,7 +321,7 @@
     <string name="action_rename_files">Rename files</string>
     <string name="rename_files_summary">The folder and files take the series and volume names shown here</string>
     <string name="rename_files_none">The files already have these names</string>
-    <string name="rename_files_offer">Rename the files to match?</string>
+    <string name="edit_info_also_rename_files">Also rename files</string>
     <string name="rename_files_taken">%1$s is already taken, so the name below is used. A name you choose also becomes the title</string>
     <string name="rename_files_choose_name">Choose another name</string>
     <string name="local_files_renamed">Files renamed</string>

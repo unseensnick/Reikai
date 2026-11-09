@@ -37,6 +37,7 @@ import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
 import reikai.domain.source.SourceKey
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSettings
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
@@ -220,7 +221,8 @@ class NovelScreen(
                                 )
                             },
                             onWordCount = viewModel::showWordCountDialog,
-                            onExport = viewModel::showExportDialog,
+                            // A local novel's books are EPUB files on the device already.
+                            onExport = viewModel::showExportDialog.takeIf { !LocalNovelSource.isLocal(sourceId) },
                             onOpenFolder = {
                                 scope.launch { openDownloadFolder(context, viewModel.viewedDownloadDir()) }
                             },

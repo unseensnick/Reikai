@@ -62,6 +62,9 @@ sealed interface EntryDetailsScreenState {
         val selectionMode: Boolean get() = selection.isNotEmpty()
         val isMerged: Boolean get() = mergeSources.size > 1
 
+        /** A local series of its own, not one source of a merge, whose files it can move and rename. */
+        val ownsLocalFiles: Boolean get() = details.header.sourceState == EntrySourceState.Local && !isMerged
+
         /** Downloads go through the viewed member's own source, so only an installed one gates them on. */
         val chaptersDownloadable: Boolean get() = details.header.sourceState == EntrySourceState.Installed
 

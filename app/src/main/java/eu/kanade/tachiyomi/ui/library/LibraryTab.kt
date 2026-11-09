@@ -587,7 +587,10 @@ data object LibraryTab : Tab {
                         exportIds = activeSelection.filterIsInstance<EntryId.Novel>().map { it.rawId }
                         engine.clearSelection()
                         exportFolder.launch(null)
-                    }.takeIf { singleContentType(activeSelection.map { it.contentType }) == ContentType.NOVELS },
+                    }.takeIf {
+                        singleContentType(activeSelection.map { it.contentType }) == ContentType.NOVELS &&
+                            !engine.selectionAllLocal(libraryContentType)
+                    },
                     // RK: local series of one type become one series with volumes
                     onCombineClicked = engine::openCombineDialog.takeIf {
                         engine.canCombineSelection(libraryContentType)

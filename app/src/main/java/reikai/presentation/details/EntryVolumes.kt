@@ -117,13 +117,13 @@ class VolumePicking(
     suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames, title: String?) =
         combine.renameFiles(type, series, names, title)
 
-    private val renameOffers = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    private val renameRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
-    /** Emits each time a series' title changed, so its screen can offer to rename the files to match. */
-    val fileRenameOffers: SharedFlow<Unit> = renameOffers
+    /** The titles Edit info asked the files to take, which the series' screen opens Rename files for. */
+    val fileRenameRequests: SharedFlow<String> = renameRequests
 
-    fun offerFileRename() {
-        renameOffers.tryEmit(Unit)
+    fun requestFileRename(title: String) {
+        renameRequests.tryEmit(title)
     }
 }
 

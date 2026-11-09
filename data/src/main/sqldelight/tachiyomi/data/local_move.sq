@@ -49,3 +49,7 @@ WHERE content_type = :contentType AND series = :fromSeries;
 renameVolumePick:
 UPDATE local_volume_pick SET volume_key = :toKey
 WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :fromKey;
+
+moveVolume:
+UPDATE local_volume SET series = :toSeries, volume_key = :toKey, position = :position
+WHERE content_type = :contentType AND series = :fromSeries AND volume_key = :fromKey;
