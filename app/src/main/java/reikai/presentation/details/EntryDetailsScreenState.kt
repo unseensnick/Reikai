@@ -178,6 +178,8 @@ sealed interface EntryChapterListItem {
         val label: VolumeLabel,
         val chapterIds: List<Long>,
         val readCount: Int,
+        // 0, or 1 and up for each later volume showing the same label, which then reads "Vol. 3 (2)".
+        val duplicate: Int = 0,
     ) : EntryChapterListItem
 }
 

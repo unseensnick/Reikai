@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.StateFlow
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalFileNames
+import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalVolumeMove
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
@@ -78,6 +79,10 @@ class VolumePicking(
 
     suspend fun seriesFolder(entry: EntryId) = combine.folderOf(entry.contentType, entry.rawId)
 
+    /** Deletes [entry]'s volumes [keys] from the device, for good. */
+    suspend fun deleteVolumes(entry: EntryId, keys: List<String>): LocalMoveResult =
+        combine.deleteVolumes(entry.contentType, entry.rawId, keys)
+
     suspend fun series(entry: EntryId): CombinableSeries? =
         combine.series(entry.contentType, listOf(entry.rawId)).firstOrNull()
 
@@ -135,7 +140,13 @@ data class VolumeView(
     val chips: List<EntryChapterListItem.Volume>,
     val picked: String?,
     val items: List<EntryChapterListItem>,
-)
+) {
+    /** The volumes that show one label, each set in chip order, which the series' screen asks about. */
+    val duplicates: List<List<EntryChapterListItem.Volume>> get() = chips.groupBy { it.label }.values.filter {
+        it.size >
+            1
+    }
+}
 
 /**
  * [this] under a header per volume, only [picked]'s when it names one, each row titled without its volume
@@ -156,10 +167,17 @@ fun List<EntryChapterListItem>.inVolumes(picked: String?, saved: Map<String, Lis
         numbers.all { it != null } -> headers.sortedBy { (it.label as VolumeLabel.Number).number }
         else -> headers
     }
+    // A later volume showing an earlier one's label is told apart by its place among them, in chip order.
+    val duplicates = chips.groupBy {
+        it.label
+    }.values.flatMap { same -> same.mapIndexed { i, it -> it.key to i } }.toMap()
+    fun EntryChapterListItem.Volume.numbered() = copy(duplicate = duplicates.getValue(key))
     val shown = picked?.takeIf { key -> headers.any { it.key == key } }
     val items = runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }
-        .flatMap { (run, header) -> listOf(header) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) } }
-    return VolumeView(chips, shown, items)
+        .flatMap { (run, header) ->
+            listOf(header.numbered()) + run.second.map { it.copy(name = it.volume!!.titleOf(it.name)) }
+        }
+    return VolumeView(chips.map { it.numbered() }, shown, items)
 }
 
 /** A local volume's cover, as an image the cover loader takes, or null when the volume has none. */

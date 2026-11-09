@@ -27,6 +27,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Local series can be combined into one series with volumes, and a volume split back out, keeping read progress and offering Undo.** Use Combine as volumes on a library selection or in Manage sources, or Add to series and Split out volumes from ⋮.
 - **A local series' folder and files can take its title and volume names, from ⋮ -> Rename files.** A preview lists every new name first; Also rename files does it from Edit info and Reorder volumes.
 - **Open folder on a local series opens the folder its files are in.**
+- **A local series flags volumes that share a name, and ⋮ -> Delete volumes removes the copies you don't want.** Keep all names the later ones "Vol. 3 (2)" instead.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
 #### Fixed

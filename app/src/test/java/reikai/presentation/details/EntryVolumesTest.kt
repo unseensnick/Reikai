@@ -87,4 +87,27 @@ class EntryVolumesTest {
         listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved)!!.chips.map { it.key } shouldBe
             listOf("Vol 02", "Vol 01")
     }
+
+    // Two books of one series that both state volume 1, as after combining two series.
+    private val book1 = novelChapterVolume("Series::Book%20One.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
+    private val other1 = novelChapterVolume("Series::Other.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
+
+    @Test
+    fun `a later volume showing an earlier one's label is numbered after it`() {
+        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved = emptyMap())!!.chips
+            .map { it.duplicate } shouldBe listOf(0, 1)
+    }
+
+    @Test
+    fun `volumes that show one label are asked about together`() {
+        listOf(row(1, book1), row(2, other1), row(3, v2)).inVolumes(picked = null, saved = emptyMap())!!
+            .duplicates.map { same -> same.map { it.key } } shouldBe listOf(listOf("Book One.epub", "Other.epub"))
+    }
+
+    @Test
+    fun `a volume kept under its own name no longer clashes`() {
+        val saved = mapOf("Series" to listOf(LocalVolume("Other.epub", position = null, label = "Vol. 1 (2)")))
+
+        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved)!!.duplicates shouldBe emptyList()
+    }
 }

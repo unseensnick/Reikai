@@ -40,9 +40,11 @@ import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.presentation.manga.components.MissingChapterCountListItem
 import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
+import reikai.data.local.LocalMoveResult
 import reikai.domain.chapter.CopyMark
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.recommendation.RelatedMangaCandidate
@@ -146,6 +148,7 @@ fun EntryDetailsContent(
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     var reorderingVolumes by remember { mutableStateOf(false) }
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
+    var deletingVolumes by remember { mutableStateOf<List<String>?>(null) }
     val ownLocal = state.ownsLocalFiles
     val extras = ChapterListExtras(
         copies = copies,
@@ -155,6 +158,16 @@ fun EntryDetailsContent(
         onAddToSeries = { volumeDialog = VolumeDialog.AddToSeries }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
         onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal },
+        onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: volumes?.chips?.map { it.key } }
+            .takeIf { ownLocal && volumes != null },
+        onKeepDuplicates = { renames: List<Pair<String, String>> ->
+            val series = volumes?.chips?.firstOrNull()?.series
+            if (series !=
+                null
+            ) {
+                renames.forEach { (key, label) -> behavior.volumePicking.rename(type, series, key, label) }
+            }
+        }.takeIf { ownLocal },
     )
     val context = LocalContext.current
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
@@ -271,6 +284,20 @@ fun EntryDetailsContent(
         )
         null -> {}
     }
+    deletingVolumes?.let { keys ->
+        DeleteVolumesDialog(
+            volumes = volumes?.chips.orEmpty().filter { it.key in keys },
+            onDismissRequest = { deletingVolumes = null },
+            onConfirm = { picked ->
+                deletingVolumes = null
+                scope.launch {
+                    val result = behavior.volumePicking.deleteVolumes(state.entryId, picked)
+                    behavior.refresh()
+                    if (result is LocalMoveResult.Failed) context.toast(MR.strings.delete_volumes_failed)
+                }
+            },
+        )
+    }
 }
 
 /** Whether the list shows only chapters with copies, from the duplicate count under the chapter header. */
@@ -287,6 +314,9 @@ private data class ChapterListExtras(
     val onAddToSeries: (() -> Unit)?,
     val onSplitOut: (() -> Unit)?,
     val onRenameFiles: (() -> Unit)?,
+    // Null keys offers every volume; the duplicate notice offers only the ones that clash.
+    val onDeleteVolumes: ((keys: List<String>?) -> Unit)?,
+    val onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)?,
 )
 
 private enum class VolumeDialog { AddToSeries, SplitOut, RenameFiles }
@@ -360,7 +390,16 @@ private fun EntryDetailsSmallContent(
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
         chapterHeaderItem(state, nav, extras.copies)
-        extras.volumes?.let { volumeChipsItem(it, extras.onPickVolume) }
+        extras.volumes?.let {
+            volumeChipsItem(
+                it,
+                extras.onPickVolume,
+                extras.onKeepDuplicates,
+                extras.onDeleteVolumes?.let { d ->
+                    { keys -> d(keys) }
+                },
+            )
+        }
         entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
     }
 }
@@ -413,7 +452,16 @@ private fun EntryDetailsLargeContent(
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
             chapterHeaderItem(state, nav, extras.copies)
-            extras.volumes?.let { volumeChipsItem(it, extras.onPickVolume) }
+            extras.volumes?.let {
+                volumeChipsItem(
+                    it,
+                    extras.onPickVolume,
+                    extras.onKeepDuplicates,
+                    extras.onDeleteVolumes?.let { d ->
+                        { keys -> d(keys) }
+                    },
+                )
+            }
             entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
         },
     )
@@ -469,6 +517,7 @@ private fun EntryDetailsToolbar(
         onClickAddToSeries = extras.onAddToSeries,
         onClickSplitOut = extras.onSplitOut,
         onClickRenameFiles = extras.onRenameFiles,
+        onClickDeleteVolumes = extras.onDeleteVolumes?.let { delete -> { delete(null) } },
         onClickRecommendations = nav.onRecommendations,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,

@@ -320,6 +320,11 @@
     <string name="local_volumes_added">Added to %1$s</string>
     <string name="local_volume_split_out">Split out as %1$s</string>
     <string name="action_rename_files">Rename files</string>
+    <string name="action_delete_volumes">Delete volumes</string>
+    <string name="delete_volumes_failed">Couldn\'t delete every volume; the rest are still there</string>
+    <string name="volume_duplicates">%1$d volumes show %2$s</string>
+    <string name="volume_duplicates_keep">Keep all</string>
+    <string name="volume_duplicates_delete">Delete some</string>
     <string name="rename_files_summary">The folder and files take the series and volume names shown here</string>
     <string name="rename_files_none">The files already have these names</string>
     <string name="edit_info_also_rename_files">Also rename files</string>

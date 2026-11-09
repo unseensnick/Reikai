@@ -71,6 +71,7 @@ fun EntryToolbar(
     onClickSplitOut: (() -> Unit)? = null,
     // Names the files on disk after the series and its volumes.
     onClickRenameFiles: (() -> Unit)? = null,
+    onClickDeleteVolumes: (() -> Unit)? = null,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -308,6 +309,14 @@ fun EntryToolbar(
                             AppBar.OverflowAction(
                                 title = stringResource(MR.strings.action_split_out_volume),
                                 onClick = onClickSplitOut,
+                            ),
+                        )
+                    }
+                    if (onClickDeleteVolumes != null) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_delete_volumes),
+                                onClick = onClickDeleteVolumes,
                             ),
                         )
                     }

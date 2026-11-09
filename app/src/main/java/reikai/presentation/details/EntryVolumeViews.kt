@@ -51,10 +51,21 @@ import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
+import tachiyomi.presentation.core.i18n.pluralStringResource
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** The volume chips above a local series' list: every volume, then each one alone. */
-internal fun LazyListScope.volumeChipsItem(view: VolumeView, onPick: (String?) -> Unit) {
+internal fun LazyListScope.volumeChipsItem(
+    view: VolumeView,
+    onPick: (String?) -> Unit,
+    onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)? = null,
+    onDeleteDuplicates: ((keys: List<String>) -> Unit)? = null,
+) {
+    if (view.duplicates.isNotEmpty() && onKeepDuplicates != null && onDeleteDuplicates != null) {
+        item(key = "rk-volume-duplicates", contentType = "rk-volume-duplicates") {
+            DuplicateVolumesNotice(view.duplicates, onKeepDuplicates, onDeleteDuplicates)
+        }
+    }
     item(key = "rk-volume-chips", contentType = "rk-volume-chips") {
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -72,7 +83,7 @@ internal fun LazyListScope.volumeChipsItem(view: VolumeView, onPick: (String?) -
                 FilterChip(
                     selected = view.picked == chip.key,
                     onClick = { onPick(chip.key) },
-                    label = { Text(volumeLabel(chip.label)) },
+                    label = { Text(volumeName(chip)) },
                 )
             }
         }
@@ -108,7 +119,7 @@ internal fun VolumeHeader(
             )
         }
         Column(modifier = Modifier.weight(1f)) {
-            Text(volumeLabel(volume.label), style = MaterialTheme.typography.titleMedium)
+            Text(volumeName(volume), style = MaterialTheme.typography.titleMedium)
             Text(
                 stringResource(MR.strings.volume_read_count, volume.readCount, volume.chapterIds.size),
                 style = MaterialTheme.typography.bodySmall,
@@ -125,6 +136,98 @@ internal fun VolumeHeader(
         }
     }
 }
+
+/**
+ * Volumes that show one label, until the user keeps them all, each later one named as it reads ("Vol. 3 (2)"),
+ * or deletes the ones they do not want.
+ */
+@Composable
+private fun DuplicateVolumesNotice(
+    duplicates: List<List<EntryChapterListItem.Volume>>,
+    onKeep: (renames: List<Pair<String, String>>) -> Unit,
+    onDelete: (keys: List<String>) -> Unit,
+) {
+    val renames = duplicates.flatten().filter { it.duplicate > 0 }.map { it.key to volumeName(it) }
+    Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+        duplicates.forEach { same ->
+            Text(
+                stringResource(MR.strings.volume_duplicates, same.size, volumeLabel(same.first().label)),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+        Row {
+            TextButton(onClick = { onKeep(renames) }) { Text(stringResource(MR.strings.volume_duplicates_keep)) }
+            TextButton(onClick = { onDelete(duplicates.flatten().map { it.key }) }) {
+                Text(stringResource(MR.strings.volume_duplicates_delete))
+            }
+        }
+    }
+}
+
+/**
+ * Pick volumes to delete from the device, each by its label, file and read count, then confirm, since a
+ * deleted file cannot be brought back.
+ */
+@Composable
+internal fun DeleteVolumesDialog(
+    volumes: List<EntryChapterListItem.Volume>,
+    onDismissRequest: () -> Unit,
+    onConfirm: (keys: List<String>) -> Unit,
+) {
+    val picked = remember { mutableStateListOf<String>() }
+    var confirming by remember { mutableStateOf(false) }
+    if (confirming) {
+        AlertDialog(
+            onDismissRequest = { confirming = false },
+            title = { Text(stringResource(MR.strings.action_delete_volumes)) },
+            text = { Text(pluralStringResource(MR.plurals.delete_volumes_confirm, picked.size, picked.size)) },
+            confirmButton = {
+                TextButton(onClick = { onConfirm(volumes.map { it.key }.filter { it in picked }) }) {
+                    Text(stringResource(MR.strings.action_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirming = false }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+        )
+        return
+    }
+    AlertDialog(
+        onDismissRequest = onDismissRequest,
+        title = { Text(stringResource(MR.strings.action_delete_volumes)) },
+        text = {
+            LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 400.dp)) {
+                items(volumes, key = { it.key }) { volume ->
+                    val toggle = { if (!picked.remove(volume.key)) picked += volume.key }
+                    Row(
+                        modifier = Modifier.fillMaxWidth().clickable(onClick = toggle),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Checkbox(checked = volume.key in picked, onCheckedChange = { toggle() })
+                        VolumeName(volumeName(volume), volume.key, Modifier.weight(1f))
+                        Text(
+                            "${volume.readCount}/${volume.chapterIds.size}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = { confirming = true }, enabled = picked.isNotEmpty()) {
+                Text(stringResource(MR.strings.action_delete))
+            }
+        },
+        dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
+    )
+}
+
+/** A volume's label, with "(2)" and up where an earlier volume shows the same one. */
+@Composable
+internal fun volumeName(volume: EntryChapterListItem.Volume): String =
+    volumeLabel(volume.label).let { if (volume.duplicate > 0) "$it (${volume.duplicate + 1})" else it }
 
 @Composable
 private fun volumeLabel(label: VolumeLabel): String = when (label) {
@@ -178,7 +281,7 @@ internal fun ReorderVolumesDialog(
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                     modifier = Modifier.padding(horizontal = 4.dp).draggableHandle(),
                                 )
-                                VolumeName(volumeLabel(volume.label), volume.key, Modifier.weight(1f))
+                                VolumeName(volumeName(volume), volume.key, Modifier.weight(1f))
                                 IconButton(onClick = { renaming = volume }) {
                                     Icon(
                                         MaterialSymbols.Rounded.Edit,
@@ -278,7 +381,7 @@ internal fun SplitOutDialog(
     onConfirm: (keys: List<String>, name: String) -> Unit,
 ) {
     val picked = remember { mutableStateListOf<String>() }
-    val labels = volumes.associate { it.key to volumeLabel(it.label) }
+    val labels = volumes.associate { it.key to volumeName(it) }
     var edited by remember { mutableStateOf<String?>(null) }
     val name =
         edited ?: volumes.firstOrNull { it.key in picked }?.let { "$title - ${labels.getValue(it.key)}" }.orEmpty()
@@ -351,7 +454,7 @@ internal fun RenameFilesDialog(
     // The name the files take, the series' title until the user picks another, which then becomes the title.
     var name by remember { mutableStateOf(title) }
     var choosingName by remember { mutableStateOf(false) }
-    val labels = volumes.map { it.key to volumeLabel(it.label) }
+    val labels = volumes.map { it.key to volumeName(it) }
     val planned by produceState<Pair<CombinableSeries, LocalFileNames>?>(null, name, labels) {
         value = plan(name, labels)
     }

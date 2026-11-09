@@ -435,6 +435,20 @@ class CombineLocalVolumes(
         return parent.findFile(series.folder)?.let { if (it.isDirectory) it else parent }
     }
 
+    /**
+     * Deletes series [id]'s volumes [keys], a manga volume folder with all it holds or a book, for good, and
+     * lists the series again so their chapters leave it. Stops at the first that will not delete.
+     */
+    suspend fun deleteVolumes(type: ContentType, id: Long, keys: List<String>): LocalMoveResult = onAppResult {
+        val folder = folderOf(type, id) ?: return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
+        val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteAll() == false }
+        relist(type, id)
+        failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
+            ?: LocalMoveResult.Moved(emptyList())
+    }
+
+    private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async { work() }.await()
+
     private suspend fun heldBy(type: ContentType, url: String): Long? = when (type) {
         ContentType.NOVELS -> novelRepository.getByUrlAndSource(url, LocalNovelSource.ID)?.id
         else -> mangaRepository.getMangaByUrlAndSourceId(url, LocalSource.ID)?.id
@@ -599,6 +613,9 @@ class CombineLocalVolumes(
 
     private companion object {
         fun UniFile.isEpub() = name.orEmpty().endsWith(EPUB, true)
+
+        /** Deletes this file, or this folder after everything in it, since a plain folder delete needs it empty. */
+        fun UniFile.deleteAll(): Boolean = listFiles().orEmpty().all { it.deleteAll() } && delete()
 
         /** Whether what is left in a series folder is only its cover and details, which went with its chapters. */
         fun UniFile.holdsOnlyDetails() = listFiles().orEmpty().all { file ->
