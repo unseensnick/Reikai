@@ -41,15 +41,12 @@ Users keep a few series in a deliberate order (reading next, favourites first) t
 - `data/src/main/sqldelight/tachiyomi/data/dedupe_merged_ids.sq`: the keyed-table pattern; the new table gets the next-numbered migration after `70.sqm`.
 - `BackupManga.kt`, `BackupNovel.kt`, `MangaRestorer.kt`, `NovelRestorer.kt`: the backup field and its restore.
 
-## Open questions
-
-1. **Default category (non-blocking).** `canOverrideSort` refuses Default, so Default could only be Manual through the global sort. Options: lift the refusal for Manual only, or leave Default on the global sort. Recommended: lift it for Manual, since Default is where most libraries keep most series.
-2. **Statistics (non-blocking).** `StatsSeriesViewModel` sorts with the same comparator. Options: order a Statistics list by the stored positions, or by the starting sort. Recommended: the starting sort, since a Statistics list mixes categories.
-3. **Selection mode (non-blocking).** Whether a drag may start while a selection is open. Recommended: no; in selection mode a long press extends the selection as today.
-
 ## Decisions & tradeoffs
 
 - **Long-press and move first; a Reorder mode only if the gesture cannot be made reliable** (owner ruling). The spike on a Fold passed drag, select on release, category swipe, edge auto-scroll and the section boundary in both views.
 - **A Reikai-owned table rather than a column on Mihon's link tables**: no Mihon patch to carry, one table for both content types, and Default needs a row the link tables do not have.
 - **Yokai's id list on the category is not reused**: a bare id is ambiguous when a manga and a novel share one, and a list rewrites whole on every drop.
 - **Drag only with the whole category visible**: a drop between two visible tiles under a filter could land anywhere among the hidden ones between them; category reorder makes the same call.
+- **Default can be Manual on its own** (owner ruling): `canOverrideSort` lets Default take Manual as its per-category sort, and no other override; Default is where most libraries keep most series.
+- **Statistics lists use the starting sort, not the positions** (owner ruling): a Statistics list mixes categories, so a per-category order has nothing to say there.
+- **No drag while a selection is open** (owner ruling): in selection mode a long press extends the selection, as today.
