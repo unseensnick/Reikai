@@ -7,8 +7,10 @@ import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.preferring
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.LEGACY_DISPLAY_MODE_MASK
 import reikai.domain.library.isSortOverridden
 import reikai.domain.library.markLegacySortOverride
+import reikai.domain.library.withoutLegacyDisplayMode
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.library.model.LibrarySort
@@ -26,6 +28,7 @@ class CategoriesRestorer(
         backupCategories: List<BackupCategory>,
         sortOverridesStored: Boolean = true,
         restoredPreferences: List<BackupPreference>? = null,
+        fromReikai: Boolean = true,
     ) {
         if (backupCategories.isEmpty()) return
 
@@ -47,7 +50,8 @@ class CategoriesRestorer(
         val novelOnlyNames = categoryRepository.getAll(CategoryContentType.NOVEL)
             .filter { it.contentType == CategoryContentType.NOVEL }
             .mapTo(HashSet()) { it.name }
-        val legacyGlobal = legacySortGlobal(backupCategories, sortOverridesStored, restoredPreferences)
+        val overrideBitTrusted = overrideBitTrusted(backupCategories, sortOverridesStored, fromReikai)
+        val legacyGlobal = if (overrideBitTrusted) null else legacySortGlobal(backupCategories, restoredPreferences)
         categoryRepository.insertAll(
             newCategories.map { backup ->
                 backup.toNewCategory().let {
@@ -58,7 +62,11 @@ class CategoriesRestorer(
                         it
                     }
                 }.let { new ->
-                    legacyGlobal?.let { new.copy(flags = markLegacySortOverride(new.flags, it)) } ?: new
+                    when {
+                        overrideBitTrusted -> new
+                        legacyGlobal != null -> new.copy(flags = markLegacySortOverride(new.flags, legacyGlobal))
+                        else -> new.copy(flags = withoutLegacyDisplayMode(new.flags))
+                    }
                 }
             },
         )
@@ -67,16 +75,28 @@ class CategoriesRestorer(
     }
 
     // RK -->
+    // Reikai 0.3.0 to 0.3.2 wrote the override bit before the marker. Bit 1 is Mihon's retired display mode
+    // and nothing Reikai writes, and bit 0 alone may be that mode too, so only a file Reikai wrote is trusted.
+    private fun overrideBitTrusted(
+        backupCategories: List<BackupCategory>,
+        sortOverridesStored: Boolean,
+        fromReikai: Boolean,
+    ): Boolean {
+        if (sortOverridesStored) return true
+        val bitOne = LEGACY_DISPLAY_MODE_MASK xor CATEGORY_SORT_CUSTOMIZED
+        return fromReikai &&
+            backupCategories.none { it.flags and bitOne != 0L } &&
+            backupCategories.any { it.flags and CATEGORY_SORT_CUSTOMIZED != 0L }
+    }
+
     // Flags from before the override bit (Mihon's, Reikai's before 0.3.0) hold a category's own sort with
     // nothing marking it. Marked by the upgrade migration's rule, only where Mihon would turn per-category
     // sort on, the backup's sorts differing. The global is the backup's when its settings restore too, since
     // the settings restore after the categories.
     private fun legacySortGlobal(
         backupCategories: List<BackupCategory>,
-        sortOverridesStored: Boolean,
         restoredPreferences: List<BackupPreference>?,
     ): LibrarySort? {
-        if (sortOverridesStored || backupCategories.any { it.flags and CATEGORY_SORT_CUSTOMIZED != 0L }) return null
         if (backupCategories.distinctBy { LibrarySort.valueOf(it.flags) }.size < 2) return null
         val key = libraryPreferences.sortingMode.key()
         return (restoredPreferences?.find { it.key == key }?.value as? StringPreferenceValue)

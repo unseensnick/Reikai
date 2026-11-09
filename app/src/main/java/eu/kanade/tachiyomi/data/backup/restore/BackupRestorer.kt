@@ -188,6 +188,7 @@ class BackupRestorer(
                     summary.backupCategories,
                     summary.backupNovelCategories,
                     summary.sortOverridesStored,
+                    summary.fromReikai,
                     summary.backupPreferences.takeIf { options.appSettings },
                 ).join()
             }
@@ -334,6 +335,9 @@ class BackupRestorer(
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
+            fromReikai = novelCount > 0 || backupNovelCategories.isNotEmpty() || novelSourceNames.isNotEmpty() ||
+                backupExtensions.isNotEmpty() || backupMangaMerges.isNotEmpty() || backupNovelMerges.isNotEmpty() ||
+                backupMangaUnmerges.isNotEmpty() || backupNovelUnmerges.isNotEmpty(),
             novelDisplayBitStored = sortOverridesStored || novelSourceNames.isNotEmpty(),
             // 38.sqm moved Kitsu to the native scale before either of the other two markers was written.
             kitsuScoreScale = KitsuBackupScoreScale.of(
@@ -366,6 +370,9 @@ class BackupRestorer(
         val mergeGroupsStored: Boolean,
         // False for a backup written before the sort-override bit, whose flags alone hold each category's sort.
         val sortOverridesStored: Boolean,
+        // Carries a field only Reikai writes, so a low flag bit on its categories is the override bit, not
+        // the per-category display mode Mihon retired without clearing.
+        val fromReikai: Boolean,
         // False for a backup written before a novel's title display had its own local bit (46.sqm). The
         // sort-override marker and the novel source names both postdate that bit, so either one proves it.
         val novelDisplayBitStored: Boolean,
@@ -468,11 +475,12 @@ class BackupRestorer(
         // before the app settings, so both content types' category-id settings translate inline
         backupNovelCategories: List<BackupNovelCategory>,
         sortOverridesStored: Boolean,
+        fromReikai: Boolean,
         restoredPreferences: List<BackupPreference>?,
         // RK <--
     ) = launch {
         ensureActive()
-        categoriesRestorer(backupCategories, sortOverridesStored, restoredPreferences) // RK
+        categoriesRestorer(backupCategories, sortOverridesStored, restoredPreferences, fromReikai) // RK
         // RK -->
         novelRestorer.restoreCategories(backupNovelCategories)
         if (backupCategories.isNotEmpty() || backupNovelCategories.isNotEmpty()) {

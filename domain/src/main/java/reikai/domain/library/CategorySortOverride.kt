@@ -25,12 +25,23 @@ fun isSortOverridden(category: Category): Boolean =
     canOverrideSort(category) && category.flags and CATEGORY_SORT_CUSTOMIZED != 0L
 
 /**
+ * Bits 0 and 1 of flags written before the override bit: Mihon's per-category display mode, retired
+ * upstream without clearing it, so a stale value would read as an override.
+ */
+const val LEGACY_DISPLAY_MODE_MASK = 0b11L
+
+/** [flags] written before the override bit, with the retired display mode dropped. */
+fun withoutLegacyDisplayMode(flags: Long): Long = flags and LEGACY_DISPLAY_MODE_MASK.inv()
+
+/**
  * [flags] written before the override bit existed, marked as an override when their sort differs from
  * [global]: back then a category kept its own sort in its flags alone. The upgrade migration and the
  * restore of a backup from before the bit both read old flags through this.
  */
-fun markLegacySortOverride(flags: Long, global: LibrarySort): Long =
-    if (LibrarySort.valueOf(flags) != global) flags or CATEGORY_SORT_CUSTOMIZED else flags
+fun markLegacySortOverride(flags: Long, global: LibrarySort): Long {
+    val sortOnly = withoutLegacyDisplayMode(flags)
+    return if (LibrarySort.valueOf(sortOnly) != global) sortOnly or CATEGORY_SORT_CUSTOMIZED else sortOnly
+}
 
 /** The sort [category] uses: its own decoded flags when overridden, else the [global] library sort. */
 fun sortForCategory(category: Category, global: LibrarySort): LibrarySort =

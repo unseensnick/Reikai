@@ -141,13 +141,52 @@ class CategorizedDisplayRestoreTest {
     }
 
     @Test
-    fun `a backup whose categories carry the bit is trusted without the marker`() = runTest {
+    fun `a Reikai backup whose categories carry the bit is trusted without the marker`() = runTest {
         overrides(
             backup(
                 BackupCategory("A", 1, 1, lastReadAsc.flag or CATEGORY_SORT_CUSTOMIZED),
                 BackupCategory("B", 2, 2, totalDesc.flag),
+            ).apply { backupNovelCategories = listOf(BackupNovelCategory("Novels", 1, 5, 0)) },
+        ) - "Novels" shouldBe mapOf("A" to true, "B" to false)
+    }
+
+    /** Mihon kept a category's display mode in bits 0 and 1 and retired it without clearing them. */
+    @Test
+    fun `a Mihon backup's old display mode reads as no override`() = runTest {
+        overrides(
+            backup(
+                BackupCategory("A", 1, 1, lastReadAsc.flag or COMFORTABLE_GRID),
+                BackupCategory("B", 2, 2, totalDesc.flag),
+                BackupCategory("C", 3, 3, alphabeticalAsc.flag or COMFORTABLE_GRID),
             ),
-        ) shouldBe mapOf("A" to true, "B" to false)
+        ) shouldBe mapOf("A" to true, "B" to true, "C" to false)
+    }
+
+    @Test
+    fun `a Mihon backup sharing one sort with an old display mode leaves per-category sort off`() = runTest {
+        restoredSwitch(
+            backup(
+                BackupCategory("A", 1, 1, lastReadAsc.flag or COMFORTABLE_GRID),
+                BackupCategory("B", 2, 2, lastReadAsc.flag),
+            ),
+        ) shouldBe false
+    }
+
+    /** Reikai never writes bit 1, so it marks the display mode even in a file Reikai wrote. */
+    @Test
+    fun `a Reikai backup carrying Mihon's cover-only display mode is read as legacy`() = runTest {
+        overrides(
+            backup(
+                BackupCategory("A", 1, 1, alphabeticalAsc.flag or COVER_ONLY_GRID),
+                BackupCategory("B", 2, 2, totalDesc.flag),
+            ).apply { backupNovelCategories = listOf(BackupNovelCategory("Novels", 1, 5, 0)) },
+        ) - "Novels" shouldBe mapOf("A" to false, "B" to true)
+    }
+
+    private companion object {
+        // Mihon's retired LibraryDisplayMode values, in the low bits of a category's flags.
+        const val COMFORTABLE_GRID = 0b01L
+        const val COVER_ONLY_GRID = 0b11L
     }
 
     @Test
