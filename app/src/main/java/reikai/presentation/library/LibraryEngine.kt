@@ -15,6 +15,7 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -32,7 +33,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.local.CombinableSeries
+import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalMoveResult
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
@@ -61,6 +66,8 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.SetSortModeForCategory
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -97,6 +104,7 @@ class LibraryEngine(
     private val manualOrderRepository: LibraryManualOrderRepository,
     // A stored order must land even when the drop closes the screen, as every library write does.
     @AppCoroutineScope private val appScope: CoroutineScope,
+    private val combineLocalVolumes: CombineLocalVolumes,
 ) : ViewModel() {
 
     /**
@@ -753,6 +761,37 @@ class LibraryEngine(
     /** Any selected entry is a merge group; drives the bulk Unmerge action. */
     fun selectionContainsMerged(contentType: ContentType): Boolean =
         providersFor(contentType).any { it.containsMerged(selection.value) }
+
+    /** Whether Combine as volumes takes the selection: two or more local series of one type, none merged. */
+    fun canCombineSelection(contentType: ContentType): Boolean {
+        val entries = selection.value
+        val type = entries.map { it.contentType }.distinct().singleOrNull() ?: return false
+        val providers = providersFor(contentType).owning(entries)
+        return entries.size >= 2 && !selectionContainsMerged(contentType) &&
+            entries.all { entry -> providers.any { it.contentType == type && it.containsLocal(setOf(entry)) } }
+    }
+
+    fun openCombineDialog() {
+        val entries = selection.value
+        val type = entries.map { it.contentType }.distinct().singleOrNull() ?: return
+        appScope.launchIO {
+            val series = combineLocalVolumes.series(type, entries.map { it.rawId })
+            withUIContext { mutableDialog.value = LibraryDialog.CombineVolumes(type, entries, series) }
+        }
+    }
+
+    /** Combines the dialog's series into [kept]; the move outlives the screen, as every library write does. */
+    fun combineVolumes(dialog: LibraryDialog.CombineVolumes, kept: CombinableSeries) {
+        if (stillSelected(dialog.entries).size != dialog.entries.size) return
+        clearSelection()
+        appScope.launchIO {
+            val result = combineLocalVolumes.combine(dialog.type, kept, dialog.series - kept)
+            if (result is LocalMoveResult.Failed) {
+                logcat(LogPriority.ERROR, result.error) { "Combining local volumes failed" }
+                withUIContext { context.toast(MR.strings.combine_volumes_failed) }
+            }
+        }
+    }
 
     /** The bulk Download action applies when ANY provider's part of the selection can download,
      *  so a mixed local-manga + novel selection keeps the action; dispatch skips the rest. */

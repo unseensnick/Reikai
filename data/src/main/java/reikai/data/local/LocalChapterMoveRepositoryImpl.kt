@@ -1,0 +1,40 @@
+package reikai.data.local
+
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import reikai.domain.library.ContentType
+import reikai.domain.local.ChapterMove
+import reikai.domain.local.LocalChapterMoveRepository
+import tachiyomi.data.Database
+
+@Inject
+@SingleIn(AppScope::class)
+@ContributesBinding(AppScope::class)
+class LocalChapterMoveRepositoryImpl(
+    private val database: Database,
+) : LocalChapterMoveRepository {
+
+    private val queries = database.local_moveQueries
+
+    override suspend fun move(type: ContentType, fromOwner: Long, toOwner: Long, moves: List<ChapterMove>) {
+        database.transaction {
+            moves.forEach { (fromUrl, toUrl) ->
+                when (type) {
+                    ContentType.NOVELS -> {
+                        queries.moveNovelChapter(toOwner, toUrl, fromOwner, fromUrl)
+                        queries.moveNovelNumberOverride(toOwner, toUrl, fromOwner, fromUrl)
+                        queries.moveNovelCopyMark(toOwner, toUrl, fromOwner, fromUrl)
+                    }
+                    else -> {
+                        queries.moveMangaChapter(toOwner, toUrl, fromOwner, fromUrl)
+                        queries.moveMangaHistory(toOwner, toUrl)
+                        queries.moveMangaNumberOverride(toOwner, toUrl, fromOwner, fromUrl)
+                        queries.moveMangaCopyMark(toOwner, toUrl, fromOwner, fromUrl)
+                    }
+                }
+            }
+        }
+    }
+}

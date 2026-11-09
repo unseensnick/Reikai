@@ -1,0 +1,31 @@
+-- Moves one chapter of a local series to another series and another address, with everything keyed by
+-- the chapter's owner and address, so its read state, history and corrections stay with it. Rows keyed
+-- by the chapter's own id (sessions, words, a novel's history) follow the row without a write.
+
+moveMangaChapter:
+UPDATE chapter SET manga_id = :toOwner, remote_url = :toUrl
+WHERE manga_id = :fromOwner AND remote_url = :fromUrl;
+
+moveMangaHistory:
+UPDATE history SET manga_id = :toOwner
+WHERE chapter_id = (SELECT id FROM chapter WHERE manga_id = :toOwner AND remote_url = :toUrl);
+
+moveMangaNumberOverride:
+UPDATE manga_chapter_number_override SET manga_id = :toOwner, url = :toUrl
+WHERE manga_id = :fromOwner AND url = :fromUrl;
+
+moveMangaCopyMark:
+UPDATE manga_chapter_copy_mark SET manga_id = :toOwner, url = :toUrl
+WHERE manga_id = :fromOwner AND url = :fromUrl;
+
+moveNovelChapter:
+UPDATE novel_chapters SET novel_id = :toOwner, url = :toUrl
+WHERE novel_id = :fromOwner AND url = :fromUrl;
+
+moveNovelNumberOverride:
+UPDATE novel_chapter_number_override SET novel_id = :toOwner, url = :toUrl
+WHERE novel_id = :fromOwner AND url = :fromUrl;
+
+moveNovelCopyMark:
+UPDATE novel_chapter_copy_mark SET novel_id = :toOwner, url = :toUrl
+WHERE novel_id = :fromOwner AND url = :fromUrl;

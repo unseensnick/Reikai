@@ -81,6 +81,7 @@ import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
 import reikai.presentation.components.ContentTypeFilterChips
 import reikai.presentation.components.cachedAnimatedVector
 import reikai.presentation.components.libraryRefreshMessage
+import reikai.presentation.library.CombineVolumesDialog // RK
 import reikai.presentation.library.LibraryBucket
 import reikai.presentation.library.LibraryDialog
 import reikai.presentation.library.LibraryEngine
@@ -586,6 +587,10 @@ data object LibraryTab : Tab {
                         engine.clearSelection()
                         exportFolder.launch(null)
                     }.takeIf { singleContentType(activeSelection.map { it.contentType }) == ContentType.NOVELS },
+                    // RK: local series of one type become one series with volumes
+                    onCombineClicked = engine::openCombineDialog.takeIf {
+                        engine.canCombineSelection(libraryContentType)
+                    },
                 )
             },
             snackbarHost = { SnackbarHost(hostState = snackbarHostState) },
@@ -816,6 +821,11 @@ data object LibraryTab : Tab {
                     },
                 )
             }
+            is LibraryDialog.CombineVolumes -> CombineVolumesDialog(
+                series = dialog.series,
+                onDismissRequest = onDismissRequest,
+                onConfirm = { kept -> engine.combineVolumes(dialog, kept) },
+            )
             null -> {}
         }
         // RK <--

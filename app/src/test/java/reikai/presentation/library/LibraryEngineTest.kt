@@ -143,6 +143,7 @@ class LibraryEngineTest {
                 trackerManager = mockk(relaxed = true),
                 manualOrderRepository = manualOrder,
                 appScope = testAppScope(),
+                combineLocalVolumes = mockk(relaxed = true),
             ),
         )
     }

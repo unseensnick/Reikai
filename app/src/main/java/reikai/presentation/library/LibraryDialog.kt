@@ -1,5 +1,6 @@
 package reikai.presentation.library
 
+import reikai.data.local.CombinableSeries
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.CheckboxState
@@ -42,5 +43,12 @@ sealed interface LibraryDialog {
         val contentType: ContentType,
         val categoryId: Long?,
         val initialTab: LibrarySettingsTab,
+    ) : LibraryDialog
+
+    /** Combine as volumes over [series], the selection's local series, one of which the user keeps. */
+    data class CombineVolumes(
+        val type: ContentType,
+        val entries: Set<EntryId>,
+        val series: List<CombinableSeries>,
     ) : LibraryDialog
 }

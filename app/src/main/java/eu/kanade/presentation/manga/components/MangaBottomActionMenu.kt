@@ -247,6 +247,8 @@ fun LibraryBottomActionMenu(
     onUnmergeClicked: (() -> Unit)? = null,
     // RK: write the selected novels as EPUB files (only when every selected entry is a novel)
     onExportClicked: (() -> Unit)? = null,
+    // RK: combine local series into one with volumes; takes Merge's place, Merge moving into the overflow
+    onCombineClicked: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
     AnimatedVisibility(
@@ -273,7 +275,8 @@ fun LibraryBottomActionMenu(
                     if (isActive) confirm[toConfirmIndex] = false
                 }
             }
-            val itemOverflow = onDownloadClicked != null || onExportClicked != null // RK: Export lives there
+            // RK: Export lives there, and Merge when Combine as volumes takes its place
+            val itemOverflow = onDownloadClicked != null || onExportClicked != null || onCombineClicked != null
             Row(
                 modifier = Modifier
                     .windowInsetsPadding(
@@ -303,8 +306,17 @@ fun LibraryBottomActionMenu(
                     onLongClick = { onLongClickItem(2) },
                     onClick = onMarkAsUnreadClicked,
                 )
-                // RK: merge the selected entries (shown only when 2+ of one type are selected)
-                if (onMergeClicked != null) {
+                // RK --> Combine as volumes, for an all-local selection, in Merge's place
+                if (onCombineClicked != null) {
+                    Button(
+                        title = stringResource(MR.strings.action_combine_volumes),
+                        icon = ReikaiIcons.Merge,
+                        toConfirm = confirm[6],
+                        onLongClick = { onLongClickItem(6) },
+                        onClick = onCombineClicked,
+                    )
+                } else if (onMergeClicked != null) {
+                    // RK <--
                     Button(
                         title = stringResource(MR.strings.action_merge),
                         icon = ReikaiIcons.Merge,
@@ -378,6 +390,15 @@ fun LibraryBottomActionMenu(
                                 DropdownMenuItem(
                                     text = { Text(stringResource(MR.strings.migrate)) },
                                     onClick = onMigrateClicked,
+                                )
+                            }
+                            if (onCombineClicked != null && onMergeClicked != null) {
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(MR.strings.action_merge)) },
+                                    onClick = {
+                                        overflowMenuOpen = false
+                                        onMergeClicked()
+                                    },
                                 )
                             }
                             if (onExportClicked != null) {
