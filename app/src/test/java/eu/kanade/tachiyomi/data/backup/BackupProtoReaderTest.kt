@@ -77,4 +77,22 @@ class BackupProtoReaderTest {
 
         error.message shouldBe "Invalid backup"
     }
+
+    /** Ten varint bytes can set the sign bit, which the byte read would reject in okio's own words. */
+    @Test
+    fun `a negative field length reads as invalid`() = runTest {
+        // Field 1, length-delimited, then a length with every bit set.
+        val header = byteArrayOf(0x0A) + ByteArray(9) { 0xFF.toByte() } + byteArrayOf(0x01)
+        val file = ByteArrayOutputStream().also { out -> GZIPOutputStream(out).use { it.write(header) } }
+        val context = mockk<Context> {
+            every { contentResolver.openInputStream(any()) } returns file.toByteArray().inputStream()
+            every { stringResource(MR.strings.invalid_backup_file_unknown) } returns "Invalid backup"
+        }
+
+        val error = shouldThrow<IOException> {
+            BackupProtoReader(context).read(mockk<Uri>()) { _, _ -> }
+        }
+
+        error.message shouldBe "Invalid backup"
+    }
 }

@@ -63,7 +63,9 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
                 backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options, trusted) // RK
             }
             Result.success()
-        } catch (e: Exception) {
+            // RK: Throwable, as BackupCreateWorker catches: an Error skipped the Exception catch and the
+            // restore vanished with no error shown.
+        } catch (e: Throwable) {
             if (e is CancellationException) {
                 notifier.showRestoreError(context.stringResource(MR.strings.restoring_backup_canceled))
                 Result.success()

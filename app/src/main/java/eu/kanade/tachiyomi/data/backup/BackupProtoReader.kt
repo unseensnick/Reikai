@@ -49,7 +49,7 @@ class BackupProtoReader(
                         WIRE_TYPE_LENGTH_DELIMITED -> {
                             val length = orInvalid { readVarint(payloadSource) }
                                 ?: throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
-                            if (length > Int.MAX_VALUE) {
+                            if (length !in 0..Int.MAX_VALUE.toLong()) {
                                 throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
                             }
                             val bytes = orInvalid { payloadSource.readByteArray(length) }
