@@ -32,6 +32,9 @@ data class LibraryItem(
     val memberSources: List<LibraryQuerySource> = emptyList(),
     // RK: every member's genres on a merged series, for the Lewd filter. Empty when not merged.
     val memberGenres: List<String> = emptyList(),
+    // RK: every member's non-blank notes on a merged series, since each source keeps its own, for the
+    // notes search terms. Empty when not merged, or when no member has notes.
+    val memberNotes: List<String> = emptyList(),
     // RK: the other members' cover models on a merged series, best ranked first, drawn when the row's
     // own cover is missing or fails to load (libraryCoverModel). Empty when not merged.
     val coverFallbacks: List<Any> = emptyList(),

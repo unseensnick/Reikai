@@ -57,7 +57,7 @@ A plain word never searches `language:`, `srcid:`, `chapter:`, `status:`, `track
 **`srcid:` matches its exact identity** instead: a number for manga sources, the plugin's id (such as `novelupdates`) for light-novel plugins, and a prefixed number such as `tachiyomi:42` or `ireader:42` for novel [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins).
 Reach for `srcid:` when two sources have similar names.
 `source:local` finds entries from the local sources, manga and novels alike. A local series answers `lang:` by the language its files name, which you can set in its [`details.json`](/docs/guides/local-source/advanced).
-A merged series answers for every source it reads from, so `source:`, `srcid:` and `lang:` find it through any of them, not only the one leading it.
+A merged series answers for every source it reads from, so `source:`, `srcid:` and `lang:` find it through any of them, not only the one leading it. Each source keeps its own notes, so `notes:` and a bare word find it by any source's notes too.
 
 **`chapter:` searches chapter names**, so `chapter:epilogue` finds every entry with a chapter called that.
 It is the one field that looks past the entry itself, which is why a plain word never includes chapter names.

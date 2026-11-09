@@ -79,7 +79,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
-- **Picking a source chip in a merged series now shows and edits that source's own notes.** The All chip keeps the series' main notes.
+- **Picking a source chip in a merged series now shows and edits that source's own notes, and library search finds the series by any of them.** The All chip keeps the series' main notes.
 
 #### Fixed
 

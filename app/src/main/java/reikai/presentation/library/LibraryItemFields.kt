@@ -71,7 +71,8 @@ fun libraryItemQueryFields(
     author = { overlay[it.id]?.author ?: it.libraryManga.manga.author },
     artist = { overlay[it.id]?.artist ?: it.libraryManga.manga.artist },
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
-    notes = { it.libraryManga.manga.notes },
+    // Each source of a merged series keeps its own notes, so the card is found by any of them.
+    notes = { it.memberNotes.ifEmpty { listOf(it.libraryManga.manga.notes) }.joinToString("\n") },
     genre = { seriesGenres(overlay[it.id]?.genre, listOf(it.libraryManga.manga.genre, it.memberGenres)) },
     sources = { item -> item.allSources(sourceKey(item)) },
     // The deduplicated group counts, matching what the badges and the sort read.

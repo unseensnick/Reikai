@@ -100,6 +100,7 @@ suspend fun NovelMergeCollapse.CollapsedNovel.toLibraryRow(
                 it.lastRead,
                 it.downloadCount.toInt(),
                 it.novel.genre,
+                it.novel.notes,
                 it.novel.lastUpdate,
                 it.latestUpload,
                 it.chapterFetchedAt,
