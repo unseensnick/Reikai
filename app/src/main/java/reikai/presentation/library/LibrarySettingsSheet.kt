@@ -15,6 +15,7 @@ import eu.kanade.presentation.components.TabbedDialog
 import eu.kanade.presentation.components.TabbedDialogPaddings
 import eu.kanade.tachiyomi.ui.library.LibrarySettingsViewModel
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Refresh
 import reikai.domain.library.isSortOverridden
 import reikai.domain.library.sortForCategory
@@ -161,6 +162,15 @@ private fun ColumnScope.SortPage(
     val options = remember(trackers.isEmpty()) { librarySortTypes(hasTracker = trackers.isNotEmpty()) }
 
     options.forEach { mode ->
+        // Random and Manual have no direction: a drag order is one order, and Random re-rolls on a tap.
+        if (mode == LibrarySort.Type.Manual) {
+            BaseSortItem(
+                label = stringResource(sortLabelRes(mode)),
+                icon = MaterialSymbols.Rounded.Check.takeIf { currentSort.type == LibrarySort.Type.Manual },
+                onClick = { settings.setSort(categoryId, mode, LibrarySort.Direction.Ascending) },
+            )
+            return@forEach
+        }
         if (mode == LibrarySort.Type.Random) {
             BaseSortItem(
                 label = stringResource(sortLabelRes(mode)),
@@ -184,6 +194,12 @@ private fun ColumnScope.SortPage(
         )
     }
 
+    // A category's menu resets its own order; the global one resets every Manual category's.
+    val anyManual = currentSort.type == LibrarySort.Type.Manual ||
+        (category == null && categories.any { sortForCategory(it, globalSort).type == LibrarySort.Type.Manual })
+    if (anyManual) {
+        ResetManualOrderItem(onClick = { settings.resetManualOrder(categoryId) })
+    }
     // Clear this category's override so it follows the global sort again (only when overridden).
     if (category != null && isSortOverridden(category)) {
         ResetToGlobalSortItem(onClick = { settings.resetSort(category.id) })

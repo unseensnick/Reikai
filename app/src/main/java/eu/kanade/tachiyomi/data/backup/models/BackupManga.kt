@@ -53,6 +53,8 @@ class BackupManga(
     @ProtoNumber(700) var searchMetadata: BackupSearchMetadata? = null,
     // RK: the reading log, one entry per session (BackupReadingSession); field 701, beside 700.
     @ProtoNumber(701) var readingSessions: List<BackupReadingSession> = emptyList(),
+    // RK: the entry's places in Manual library orders (BackupManualOrderFields), beside 700 and 701.
+    @ProtoNumber(702) override var manualOrder: List<BackupManualPosition> = emptyList(),
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,
@@ -62,7 +64,7 @@ class BackupManga(
     @ProtoNumber(804) override var customDescription: String? = null,
     @ProtoNumber(805) override var customGenre: List<String>? = null,
     // RK <--
-) : BackupCustomInfoFields /* RK */ {
+) : BackupCustomInfoFields, BackupManualOrderFields /* RK */ {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(
             url = this@BackupManga.url,

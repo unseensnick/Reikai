@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.NoReadingLog
@@ -101,6 +102,7 @@ class NovelPaceBackupTest {
         .map { it.url to (it.words to it.listenedMs) }
 
     private fun creator() = NovelBackupCreator(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),
         novelChapterRepository = NovelChapterRepositoryImpl(database),
         categoryRepository = mockk(),
@@ -116,6 +118,7 @@ class NovelPaceBackupTest {
     )
 
     private fun restorer() = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),
         categoryRepository = mockk(),

@@ -21,6 +21,9 @@ enum class LibrarySortMode {
     TrackerMean,
     Downloaded,
     Random,
+
+    /** A category's own drag order. The kernel alone has no positions, so it orders these by title. */
+    Manual,
 }
 
 /**
@@ -84,7 +87,7 @@ fun <T> librarySortComparator(
     }
 
     val base: Comparator<T> = when (mode) {
-        LibrarySortMode.Alphabetical -> tiebreak
+        LibrarySortMode.Alphabetical, LibrarySortMode.Manual -> tiebreak
         LibrarySortMode.LastRead -> compareBy { fields.lastRead(it) }
         LibrarySortMode.LastUpdate -> compareBy { fields.lastUpdate(it) }
         LibrarySortMode.TotalChapters -> compareBy { fields.totalChapters(it) }

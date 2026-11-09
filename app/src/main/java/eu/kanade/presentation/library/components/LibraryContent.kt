@@ -18,6 +18,7 @@ import kotlinx.coroutines.launch
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.components.LibraryUpdatePullRefresh // RK
 import reikai.presentation.library.LibraryBucket // RK
+import reikai.presentation.library.ManualOrderDrag // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 
 @Composable
@@ -44,6 +45,7 @@ fun LibraryContent(
     getDisplayMode: (Int) -> PreferenceMutableState<LibraryDisplayMode>,
     getColumnsForOrientation: (Boolean) -> PreferenceMutableState<Int>,
     getItemsForCategory: (LibraryBucket) -> List<LibraryItem>,
+    getManualDrag: (LibraryBucket) -> ManualOrderDrag?,
     // RK <--
 ) {
     Column(
@@ -103,6 +105,7 @@ fun LibraryContent(
                 },
                 // RK <--
                 onLongClickManga = onToggleRangeSelection,
+                getManualDrag = getManualDrag, // RK
                 onClickContinueReading = onContinueReadingClicked,
             )
         }

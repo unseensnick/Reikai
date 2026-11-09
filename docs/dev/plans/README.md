@@ -6,4 +6,4 @@ The template and the rule for what earns a plan live in [.claude/rules/roadmap-p
 
 ## Open plans
 
-- [library-manual-order.md](library-manual-order.md): a Manual library sort set by long-press and move, with Reset and Undo, for both content types and both views.
+None right now.

@@ -44,6 +44,8 @@ class BackupNovel(
     // A local novel's language as its files name it (local_novel_language), which a local manga keeps in
     // its memo. Null for an online novel, and in a backup made before it was carried.
     @ProtoNumber(29) var language: String? = null,
+    // The entry's places in Manual library orders, on the number BackupManga uses (BackupManualOrderFields).
+    @ProtoNumber(702) override var manualOrder: List<BackupManualPosition> = emptyList(),
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,
@@ -52,7 +54,7 @@ class BackupNovel(
     @ProtoNumber(802) override var customAuthor: String? = null,
     @ProtoNumber(804) override var customDescription: String? = null,
     @ProtoNumber(805) override var customGenre: List<String>? = null,
-) : BackupCustomInfoFields {
+) : BackupCustomInfoFields, BackupManualOrderFields {
     fun toNovelImpl(): Novel {
         return Novel.create().copy(
             source = this@BackupNovel.source,

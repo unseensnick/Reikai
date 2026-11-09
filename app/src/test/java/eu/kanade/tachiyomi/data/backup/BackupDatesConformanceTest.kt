@@ -15,6 +15,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -82,6 +83,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = MangaBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
                         coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap()
                     },
@@ -147,6 +149,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = NovelBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(relaxed = true),
                     novelChapterRepository = mockk {
                         coEvery { getByNovelIds(any()) } returns

@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -87,6 +88,7 @@ class RestoreNextUpdateConformanceTest {
                     }
                     val wire = BackupNovel(source = "s", url = URL, nextUpdate = backup.millis())
                     NovelRestorer(
+                        manualOrder = FakeLibraryManualOrderRepository(),
                         novelRepository = novels,
                         novelChapterRepository = NovelChapterRepositoryImpl(harness.database),
                         categoryRepository = mockk(relaxed = true),

@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -79,6 +80,7 @@ class NovelHistoryBackupTest {
     }
 
     private fun creator(chapters: NovelChapterRepository = NovelChapterRepositoryImpl(database)) = NovelBackupCreator(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),
         novelChapterRepository = chapters,
         categoryRepository = mockk(),

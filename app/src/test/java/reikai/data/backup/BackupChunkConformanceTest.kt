@@ -24,6 +24,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.ReadingPaceRepository
@@ -163,6 +164,7 @@ class BackupChunkConformanceTest {
             ): List<BackupManga> {
                 val chapters = ChapterRepositoryImpl(database)
                 val creator = MangaBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = MangaRepositoryImpl(database),
                     chapterRepository = object : ChapterRepository by chapters {
                         override suspend fun getChaptersByMangaIds(mangaIds: List<Long>) =
@@ -226,6 +228,7 @@ class BackupChunkConformanceTest {
             ): List<BackupNovel> {
                 val pace = ReadingPaceRepositoryImpl(database)
                 val creator = NovelBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
                     categoryRepository = CategoryRepositoryImpl(database),

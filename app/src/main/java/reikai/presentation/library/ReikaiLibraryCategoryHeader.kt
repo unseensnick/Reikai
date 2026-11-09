@@ -92,7 +92,7 @@ fun ReikaiLibraryCategoryHeader(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.weight(1f),
         )
-        if (sortLabel != null && sortAscending != null && onClickSort != null) {
+        if (sortLabel != null && onClickSort != null) {
             Row(
                 modifier = Modifier
                     .clickable(onClick = onClickSort)
@@ -104,16 +104,19 @@ fun ReikaiLibraryCategoryHeader(
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Icon(
-                    imageVector = if (sortAscending) {
-                        MaterialSymbols.Rounded.ArrowUpward
-                    } else {
-                        MaterialSymbols.Rounded.ArrowDownward
-                    },
-                    contentDescription = stringResource(MR.strings.action_sort),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(16.dp),
-                )
+                // A sort with no direction (Manual) draws no arrow.
+                if (sortAscending != null) {
+                    Icon(
+                        imageVector = if (sortAscending) {
+                            MaterialSymbols.Rounded.ArrowUpward
+                        } else {
+                            MaterialSymbols.Rounded.ArrowDownward
+                        },
+                        contentDescription = stringResource(MR.strings.action_sort),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
         if (onClickRefresh != null) {

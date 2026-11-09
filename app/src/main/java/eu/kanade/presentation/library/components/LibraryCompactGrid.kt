@@ -2,12 +2,17 @@ package eu.kanade.presentation.library.components
 
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryItemCell // RK
+import reikai.presentation.library.ManualOrderDrag // RK
+import reikai.presentation.library.PAGE_SECTION // RK
+import reikai.presentation.library.libraryCells // RK
+import reikai.presentation.library.rememberManualOrder // RK
+import reikai.presentation.library.rememberManualOrderGrid // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 
@@ -24,25 +29,37 @@ internal fun LibraryCompactGrid(
     onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    drag: ManualOrderDrag? = null, // RK: set on a Manual category whose tiles drag into a new order
 ) {
+    // RK --> the Manual drag, one section per page (reikai.presentation.library.ManualOrder)
+    val gridState = rememberLazyGridState()
+    val manualOrder = rememberManualOrder()
+    val reorder = rememberManualOrderGrid(gridState, manualOrder) { items }
+    // RK <--
     LazyLibraryGrid(
         modifier = Modifier.fillMaxSize(),
+        state = gridState, // RK
         columns = columns,
         contentPadding = contentPadding,
     ) {
         globalSearchItem(searchQuery, onGlobalSearchClicked)
 
-        items(
-            items = items,
-            contentType = { "library_compact_grid_item" },
-        ) { libraryItem ->
-            // RK: one cell for both content types and both library views
+        // RK: one cell for both content types and both library views, draggable in a Manual category
+        libraryCells(
+            section = PAGE_SECTION,
+            rows = items,
+            contentType = "library_compact_grid_item",
+            drag = drag,
+            manualOrder = manualOrder,
+            reorder = reorder,
+            onLongClick = onLongClick,
+        ) { libraryItem, longClick, tapAllowed ->
             LibraryItemCell(
                 item = libraryItem,
                 displayMode = if (showTitle) LibraryDisplayMode.CompactGrid else LibraryDisplayMode.CoverOnlyGrid,
                 isSelected = libraryItem.entryId in selection,
-                onClick = { onClick(libraryItem) },
-                onLongClick = { onLongClick(libraryItem) },
+                onClick = { if (tapAllowed()) onClick(libraryItem) },
+                onLongClick = longClick,
                 onClickContinueReading = onClickContinueReading,
             )
         }

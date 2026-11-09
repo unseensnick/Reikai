@@ -19,6 +19,7 @@ internal fun librarySortTypes(hasTracker: Boolean): List<LibrarySort.Type> = lis
     LibrarySort.Type.DateAdded,
     LibrarySort.Type.TrackerMean.takeIf { hasTracker },
     LibrarySort.Type.Downloaded,
+    LibrarySort.Type.Manual,
     LibrarySort.Type.Random,
 )
 
@@ -35,4 +36,5 @@ internal fun sortLabelRes(type: LibrarySort.Type): StringResource = when (type) 
     LibrarySort.Type.TrackerMean -> MR.strings.action_sort_tracker_score
     LibrarySort.Type.Downloaded -> MR.strings.action_sort_downloaded
     LibrarySort.Type.Random -> MR.strings.action_sort_random
+    LibrarySort.Type.Manual -> MR.strings.action_sort_manual
 }

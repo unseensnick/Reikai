@@ -24,6 +24,8 @@ data class RestoredManga(
     val chapterNumberOverrides: List<ChapterNumberOverride> = emptyList(),
     // The reading log's sessions, keyed by url, which land after the chapters do.
     val readingSessions: List<UrlReadingSession> = emptyList(),
+    // The entry's places in Manual library orders, as this device's (category id, position).
+    val manualOrder: List<Pair<Long, Long>> = emptyList(),
     // RK <--
 )
 

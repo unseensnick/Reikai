@@ -78,7 +78,7 @@ private const val RATIO_SWITCH_TO_PANORAMA = 0.75f
 fun MangaCompactGridItem(
     coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?, // RK: null in a Manual drag, whose handle takes the long press
     isSelected: Boolean = false,
     title: String? = null,
     onClickContinueReading: (() -> Unit)? = null,
@@ -184,7 +184,7 @@ fun MangaComfortableGridItem(
     coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?, // RK: null in a Manual drag, whose handle takes the long press
     isSelected: Boolean = false,
     titleMaxLines: Int = 2,
     coverAlpha: Float = 1f,
@@ -313,7 +313,7 @@ internal fun GridItemTitle(
 internal fun GridItemSelectable(
     isSelected: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?, // RK: null in a Manual drag, whose handle takes the long press
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
@@ -354,7 +354,7 @@ fun MangaListItem(
     coverData: Any, // RK: Any (not MangaCover) so reikai.domain.novel.model.NovelCover renders through these cells too
     title: String,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    onLongClick: (() -> Unit)?, // RK: null in a Manual drag, whose handle takes the long press
     // RK: split into two groups like the grid cells, so the badge ladder can degrade the end group
     badgeStart: (@Composable RowScope.() -> Unit)? = null,
     badgeEnd: (@Composable RowScope.() -> Unit)? = null,

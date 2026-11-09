@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelRepository
@@ -159,6 +160,7 @@ class BackupCustomInfoConformanceTest {
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 categoriesBackupCreator = mockk(relaxed = true),
                 mangaBackupCreator = MangaBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
                         coEvery { getExcludedScanlatorsByMangaIds(listOf(7)) } returns emptyMap()
                     },
@@ -181,6 +183,7 @@ class BackupCustomInfoConformanceTest {
                 sourcesBackupCreator = mockk { coEvery { forSourceIds(any()) } returns emptyList() },
                 backupFileValidator = mockk(relaxed = true),
                 novelBackupCreator = NovelBackupCreator(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk {
                         coEvery { getFavorites() } returns
                             listOf(
@@ -352,6 +355,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             coEvery { update(any<Novel>()) } returns true
         }
         val restorer = NovelRestorer(
+            manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = novels,
             novelChapterRepository = mockk(relaxed = true),
             categoryRepository = mockk(relaxed = true),

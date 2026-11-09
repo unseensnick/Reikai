@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.NovelTrackRepository
@@ -90,6 +91,7 @@ class NovelRestorerWriteFailureTest {
     }
 
     private fun restorer(repos: Repos) = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = repos.novels,
         novelChapterRepository = repos.chapters,
         categoryRepository = mockk(relaxed = true),

@@ -74,6 +74,9 @@
     <string name="action_sort_downloaded">Downloaded</string>
     <string name="action_sort_random">Random</string>
     <string name="action_sort_reset_to_global">Reset to global sort</string>
+    <string name="action_sort_manual">Manual</string>
+    <string name="action_sort_reset_manual">Reset manual order</string>
+    <string name="library_manual_order_moved">Moved %1$s</string>
     <string name="action_search">Search</string>
     <string name="action_search_hint">Search…</string>
     <string name="action_search_settings">Search settings</string>

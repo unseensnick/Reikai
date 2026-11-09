@@ -29,6 +29,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Library
 
+#### Added
+
+- **Library categories can be arranged by hand: pick Manual in Sort, then long-press a cover and move it.** Each move offers Undo, and Reset manual order puts a category back.
+
 #### Changed
 
 - **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**

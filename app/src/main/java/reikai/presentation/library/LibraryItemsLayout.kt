@@ -32,6 +32,8 @@ fun LibraryItemsLayout(
     onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    /** Set when these rows are a Manual category's, whose tiles then drag into a new order. */
+    drag: ManualOrderDrag? = null,
 ) {
     val columns by if (displayMode != LibraryDisplayMode.List) {
         val configuration = LocalConfiguration.current
@@ -53,6 +55,7 @@ fun LibraryItemsLayout(
                 onClickContinueReading = onClickContinueReading,
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
+                drag = drag,
             )
         }
         LibraryDisplayMode.CompactGrid, LibraryDisplayMode.CoverOnlyGrid -> {
@@ -67,6 +70,7 @@ fun LibraryItemsLayout(
                 onClickContinueReading = onClickContinueReading,
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
+                drag = drag,
             )
         }
         LibraryDisplayMode.ComfortableGrid, LibraryDisplayMode.ComfortableGridPanorama -> {
@@ -81,6 +85,7 @@ fun LibraryItemsLayout(
                 onClickContinueReading = onClickContinueReading,
                 searchQuery = searchQuery,
                 onGlobalSearchClicked = onGlobalSearchClicked,
+                drag = drag,
             )
         }
     }

@@ -35,6 +35,9 @@ data class LibrarySort(
         // RK --> download-count sort (parity with the novel library's Downloaded sort)
         data object Downloaded : Type(0b00100100)
 
+        // RK: a category's own drag order (reikai.domain.library.LibraryManualOrderRepository)
+        data object Manual : Type(0b00101000)
+
         // RK <--
         data object Random : Type(0b00111100)
 
@@ -85,6 +88,7 @@ data class LibrarySort(
                 Type.TrackerMean,
                 // RK --> download-count sort
                 Type.Downloaded,
+                Type.Manual,
                 // RK <--
                 Type.Random,
             )
@@ -116,6 +120,7 @@ data class LibrarySort(
                     "TRACKER_MEAN" -> Type.TrackerMean
                     // RK --> download-count sort
                     "DOWNLOADED" -> Type.Downloaded
+                    "MANUAL" -> Type.Manual
                     // RK <--
                     "RANDOM" -> Type.Random
                     else -> Type.Alphabetical
@@ -141,6 +146,7 @@ data class LibrarySort(
             Type.TrackerMean -> "TRACKER_MEAN"
             // RK --> download-count sort
             Type.Downloaded -> "DOWNLOADED"
+            Type.Manual -> "MANUAL"
             // RK <--
             Type.Random -> "RANDOM"
         }

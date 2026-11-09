@@ -282,4 +282,52 @@ class LibraryAssemblyTest {
         )
         result.map { it.first.categoryId } shouldBe listOf(0L, 20L, 10L)
     }
+
+    private val manualSort = LibrarySort(LibrarySort.Type.Manual, LibrarySort.Direction.Ascending)
+
+    /** Default keeps a Manual order through the global sort, and its tiles carry positions under category 0. */
+    @Test
+    fun `a manual category shows its stored order`() {
+        val result = assembleLibrary(
+            rows = listOf(item(1, "A"), item(2, "B"), item(3, "C")),
+            categories = listOf(system),
+            inputs = inputs(sort = manualSort).copy(
+                manualPositions = mapOf(
+                    0L to mapOf(EntryId.Manga(3) to 0L, EntryId.Manga(1) to 1L, EntryId.Manga(2) to 2L),
+                ),
+            ),
+            fields = fields,
+        )
+        titlesByCategory(result) shouldBe listOf(0L to listOf("C", "A", "B"))
+    }
+
+    /** A series added after the order was set has no position, so it follows in the starting sort. */
+    @Test
+    fun `a series with no position follows the placed ones in the starting sort`() {
+        val dateAddedDescending = LibrarySort(LibrarySort.Type.DateAdded, LibrarySort.Direction.Descending)
+        val result = assembleLibrary(
+            rows = listOf(item(1, "A", dateAdded = 1), item(2, "B", dateAdded = 2), item(3, "C", dateAdded = 3)),
+            categories = listOf(system),
+            inputs = inputs(sort = manualSort).copy(
+                manualPositions = mapOf(0L to mapOf(EntryId.Manga(1) to 0L)),
+                manualBases = mapOf(0L to dateAddedDescending.flag),
+            ),
+            fields = fields,
+        )
+        titlesByCategory(result) shouldBe listOf(0L to listOf("A", "C", "B"))
+    }
+
+    /** A manga and a novel can share a row id, so a position is the entry's, not the id's. */
+    @Test
+    fun `a manual position belongs to its content type`() {
+        val result = assembleLibrary(
+            rows = listOf(item(1, "Manga"), item(1, "Novel", novel = true)),
+            categories = listOf(system),
+            inputs = inputs(sort = manualSort).copy(
+                manualPositions = mapOf(0L to mapOf(EntryId.Novel(1) to 0L, EntryId.Manga(1) to 1L)),
+            ),
+            fields = fields,
+        )
+        titlesByCategory(result) shouldBe listOf(0L to listOf("Novel", "Manga"))
+    }
 }

@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryBucket // RK
 import reikai.presentation.library.LibraryItemsLayout // RK
+import reikai.presentation.library.ManualOrderDrag // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.screens.EmptyScreen
@@ -40,6 +41,7 @@ fun LibraryPager(
     onClickManga: (LibraryBucket, LibraryItem) -> Unit,
     onLongClickManga: (LibraryBucket, LibraryItem) -> Unit,
     onClickContinueReading: ((LibraryItem) -> Unit)?,
+    getManualDrag: (LibraryBucket) -> ManualOrderDrag?, // RK: a Manual category's drag, else null
 ) {
     HorizontalPager(
         modifier = Modifier.fillMaxSize(),
@@ -77,6 +79,7 @@ fun LibraryPager(
             onClickContinueReading = onClickContinueReading,
             searchQuery = searchQuery,
             onGlobalSearchClicked = onGlobalSearchClicked,
+            drag = getManualDrag(bucket),
         )
         // RK <--
     }

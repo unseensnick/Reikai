@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
@@ -75,6 +76,7 @@ class NovelLegacyLastReadRestoreTest {
             ?.toEpochMilliseconds()
 
     private fun restorer() = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),
         categoryRepository = mockk(),

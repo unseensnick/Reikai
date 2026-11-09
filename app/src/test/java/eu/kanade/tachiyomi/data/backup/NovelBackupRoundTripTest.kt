@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.NovelRepository
@@ -42,6 +43,7 @@ class NovelBackupRoundTripTest {
         )
 
     private fun restorer(repo: NovelRepository, repository: MergeGroupRepository) = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = repo,
         novelChapterRepository = mockk(relaxed = true),
         categoryRepository = mockk(relaxed = true),
@@ -68,6 +70,7 @@ class NovelBackupRoundTripTest {
             coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 100L, 5L to 100L)
         }
         val creator = NovelBackupCreator(
+            manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = backupRepo,
             novelChapterRepository = mockk(relaxed = true),
             categoryRepository = mockk(relaxed = true),
@@ -178,6 +181,7 @@ class NovelBackupRoundTripTest {
             page = "", scanlator = "Group",
         )
         val creator = NovelBackupCreator(
+            manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = mockk(),
             novelChapterRepository = mockk {
                 coEvery { getByNovelIds(listOf(1L)) } returns mapOf(1L to listOf(stored))

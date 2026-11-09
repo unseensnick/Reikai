@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.data.backup.models.toUrlReadingSession
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.core.common.extensions.toInstantOrNull
+import reikai.data.backup.restoredManualOrder
 import reikai.data.novel.novelFetchInterval
 import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
@@ -35,6 +36,8 @@ import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomNovelInfo
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
+import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReleaseInterval
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.RestoreMergeGroups
@@ -57,6 +60,7 @@ import kotlin.time.Clock
 class NovelRestorer(
     private val novelRepository: NovelRepository,
     private val novelChapterRepository: NovelChapterRepository,
+    private val manualOrder: LibraryManualOrderRepository,
     private val categoryRepository: CategoryRepository,
     private val novelTrackRepository: NovelTrackRepository,
     private val restoreMergeGroups: RestoreMergeGroups,
@@ -113,6 +117,7 @@ class NovelRestorer(
             novelRepository.update(update)
         }
         restoreCategoryMembership(novelId, backupNovel.categories, backupCategories)
+        restoreManualOrder(novelId, backupNovel, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(chapters, backupNovel.history)
         readingLog.restore(ContentType.NOVELS, novelId, backupNovel.readingSessions.map { it.toUrlReadingSession() })
@@ -220,6 +225,25 @@ class NovelRestorer(
         if (categoryIds.isNotEmpty()) {
             novelRepository.setCategories(novelId, categoryIds)
         }
+    }
+
+    private suspend fun restoreManualOrder(
+        novelId: Long,
+        backupNovel: BackupNovel,
+        backupCategories: List<BackupNovelCategory>,
+    ) {
+        if (backupNovel.manualOrder.isEmpty()) return
+        val dbCategoriesByName = categoryRepository.getAll(CategoryContentType.NOVEL)
+            .byNamePreferring(CategoryContentType.NOVEL)
+        val backupCategoriesByOrder = backupCategories.associateBy { it.order }
+        val places = backupNovel.restoredManualOrder { order ->
+            backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }
+        }
+        manualOrder.upsert(
+            places.map { (categoryId, position) ->
+                ManualOrderPosition(ContentType.NOVELS, novelId, categoryId, position)
+            },
+        )
     }
 
     private suspend fun restoreTracks(

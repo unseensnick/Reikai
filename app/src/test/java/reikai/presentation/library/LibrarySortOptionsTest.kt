@@ -18,6 +18,7 @@ class LibrarySortOptionsTest {
         LibrarySort.Type.DateAdded,
         LibrarySort.Type.TrackerMean,
         LibrarySort.Type.Downloaded,
+        LibrarySort.Type.Manual,
         LibrarySort.Type.Random,
     )
 

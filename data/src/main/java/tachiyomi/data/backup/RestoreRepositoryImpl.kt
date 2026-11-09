@@ -22,6 +22,8 @@ import reikai.domain.backup.mergedHistory
 import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
+import reikai.domain.library.ManualOrderPosition
 import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.data.Database
 import tachiyomi.domain.backup.model.RestoredHistory
@@ -51,6 +53,7 @@ class RestoreRepositoryImpl(
     private val setCustomMangaInfo: SetCustomMangaInfo,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val readingLog: ReadingLogRepository,
+    private val manualOrder: LibraryManualOrderRepository,
     // RK <--
 ) : RestoreRepository {
 
@@ -75,6 +78,12 @@ class RestoreRepositoryImpl(
         if (entry.categoryIds.isNotEmpty()) {
             mangaRepository.setMangaCategories(manga.id, entry.categoryIds)
         }
+        // RK: Manual order places land with the categories they belong to
+        manualOrder.upsert(
+            entry.manualOrder.map { (categoryId, position) ->
+                ManualOrderPosition(ContentType.MANGA, manga.id, categoryId, position)
+            },
+        )
         restoreChapters(manga, entry.chapters)
         chapterNumberOverrides.restore(ContentType.MANGA, manga.id, entry.chapterNumberOverrides) // RK
         restoreTracking(manga, entry.tracks)

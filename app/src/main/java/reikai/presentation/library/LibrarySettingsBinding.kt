@@ -80,4 +80,6 @@ data class LibrarySettingsBinding(
     val globalSort: StateFlow<LibrarySort>,
     val setSort: (categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) -> Unit,
     val resetSort: (categoryId: Long) -> Unit,
+    /** Drops a stored Manual order: one category's from its own menu, every Manual one's from the global (null). */
+    val resetManualOrder: (categoryId: Long?) -> Unit,
 )

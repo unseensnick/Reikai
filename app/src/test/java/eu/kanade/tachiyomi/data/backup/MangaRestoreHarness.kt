@@ -8,6 +8,7 @@ import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -43,6 +44,7 @@ fun mangaRestorer(
     val chapters = ChapterRepositoryImpl(database)
     return MangaRestorer(
         restoreRepository = RestoreRepositoryImpl(
+            manualOrder = FakeLibraryManualOrderRepository(),
             database = database,
             mangaRepository = mangas,
             chapterRepository = chapters,
@@ -81,6 +83,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
 
     /** The novel restore over this database's categories, the rest of it relaxed. */
     fun novelCategoryRestorer() = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(relaxed = true),
         novelChapterRepository = mockk(relaxed = true),
         categoryRepository = categories,

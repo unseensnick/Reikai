@@ -35,10 +35,13 @@ import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.category.CategoryContentType
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.stats.StatsShortcut
 import reikai.presentation.MainDispatcherExtension
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.testAppScope
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.domain.category.model.Category
@@ -48,6 +51,7 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import kotlin.time.Duration.Companion.seconds
 
 class LibraryEngineTest {
 
@@ -115,6 +119,7 @@ class LibraryEngineTest {
         groupBy: Int = LibraryGroup.BY_DEFAULT,
         shown: ContentType = ContentType.ALL,
         statsShortcut: StatsShortcut = StatsShortcut.OFF,
+        manualOrder: FakeLibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
     ): LibraryEngine {
         val store = EmittingPreferenceStore()
         val uiPreferences = UiPreferences(store).also { it.statsShortcut.set(statsShortcut) }
@@ -136,6 +141,8 @@ class LibraryEngineTest {
                 // Only the dynamic-grouping assembly reaches these, which no case here exercises.
                 context = mockk(relaxed = true),
                 trackerManager = mockk(relaxed = true),
+                manualOrderRepository = manualOrder,
+                appScope = testAppScope(),
             ),
         )
     }
@@ -175,6 +182,51 @@ class LibraryEngineTest {
         badges = LibraryItem.Badges(downloadCount = 0, unreadCount = 0, isLocal = false, sourceLanguage = ""),
         entryId = EntryId.Manga(id),
     )
+
+    private val defaultCategory = Category(id = 0, name = "", order = -1, flags = 0)
+
+    /** A merged tile's lead can change after a restitch, so every member keeps the tile's place. */
+    @Test
+    fun `a drop stores each merged member at its tile's place`() = runTest {
+        val manualOrder = FakeLibraryManualOrderRepository()
+        val engine = engineOver(listOf(provider(ContentType.MANGA)), manualOrder = manualOrder)
+        val merged = row(5, emptyList()).copy(relatedMangaIds = listOf(5L, 6L))
+
+        engine.moveInCategory(defaultCategory, listOf(row(1, emptyList()), merged))
+
+        manualOrder.positions.first { it.isNotEmpty() }.map { it.entryId to it.position }.toSet() shouldBe
+            setOf(1L to 0L, 5L to 1L, 6L to 1L)
+    }
+
+    @Test
+    fun `undo puts back the order a drop replaced`() = runTest {
+        val manualOrder = FakeLibraryManualOrderRepository()
+        val before =
+            listOf(ManualOrderPosition(ContentType.MANGA, 2, 0, 0), ManualOrderPosition(ContentType.MANGA, 1, 0, 1))
+        manualOrder.positions.value = before
+        val engine = engineOver(listOf(provider(ContentType.MANGA)), manualOrder = manualOrder)
+        engine.moveInCategory(defaultCategory, listOf(row(1, emptyList()), row(2, emptyList())))
+        manualOrder.positions.first { it != before }
+
+        engine.undoManualMove()
+
+        manualOrder.positions.first { it.toSet() == before.toSet() }.toSet() shouldBe before.toSet()
+    }
+
+    /** A tap can land before the drop's write has, so Undo waits on the drop it undoes. */
+    @Test
+    fun `an undo tapped straight after a drop still puts the order back`() = runTest(timeout = 10.seconds) {
+        val manualOrder = FakeLibraryManualOrderRepository()
+        val before =
+            listOf(ManualOrderPosition(ContentType.MANGA, 2, 0, 0), ManualOrderPosition(ContentType.MANGA, 1, 0, 1))
+        manualOrder.positions.value = before
+        val engine = engineOver(listOf(provider(ContentType.MANGA)), manualOrder = manualOrder)
+
+        engine.moveInCategory(defaultCategory, listOf(row(1, emptyList()), row(2, emptyList())))
+        engine.undoManualMove()
+
+        manualOrder.positions.first { it.toSet() == before.toSet() && it !== before }.toSet() shouldBe before.toSet()
+    }
 
     /**
      * The prune runs on what the assembly kept, not on the rows it was built from. A hidden category

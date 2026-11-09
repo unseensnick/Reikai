@@ -98,10 +98,18 @@ Turn on **Show all categories in one list** under **Tabs** on the **Display** ta
 Each category gets a header with its name, plus its item count when **Show number of items** is on.
 Tap the header to collapse or expand that category.
 A category's header also shows its sort, which you can tap to change for that category alone, and a button that updates just that category.
-On **Default**, the sort you pick there is the library-wide sort, which every category without its own sort follows.
+On **Default**, the sort you pick there is the library-wide sort, which every category without its own sort follows, except **Manual**, which Default can keep as its own.
 A group from the **Group** tab has neither, since it is not one of your categories.
 
 With the setting off you are back to one category per page.
+
+## Manual order
+
+Pick **Manual** in the **Sort** tab to arrange a category yourself: long-press a cover and move it where you want it. A long press you let go of without moving still selects, as before. After each move, **Undo** at the bottom of the screen puts it back.
+
+Moving works in every display mode and in both the tabbed view and the one-list view, as long as no filter or search is on and nothing is selected. Under the **Manga** or **Novels** chip, the other type's series keep their places. A category switched to Manual keeps the order it showed until you move something, and series added later go at the end.
+
+**Reset manual order** in a category's sort puts that category back to the order it started from. In the library-wide sort it resets every category that is on Manual.
 
 ## The category hopper
 

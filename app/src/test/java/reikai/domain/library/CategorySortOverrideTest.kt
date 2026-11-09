@@ -49,11 +49,23 @@ class CategorySortOverrideTest {
 
     @Test
     fun `the Default category cannot keep a sort of its own`() {
-        canOverrideSort(category(Category.UNCATEGORIZED_ID, 0L)) shouldBe false
+        canOverrideSort(category(Category.UNCATEGORIZED_ID, 0L), LibrarySort.Type.Alphabetical) shouldBe false
+    }
+
+    /** A drag order is one order over both content types, so the universal Default row can keep one. */
+    @Test
+    fun `the Default category can keep a manual order of its own`() {
+        canOverrideSort(category(Category.UNCATEGORIZED_ID, 0L), LibrarySort.Type.Manual) shouldBe true
+    }
+
+    @Test
+    fun `a Default category set to manual counts as overridden`() {
+        val flags = LibrarySort.Type.Manual.flag or CATEGORY_SORT_CUSTOMIZED
+        isSortOverridden(category(Category.UNCATEGORIZED_ID, flags)) shouldBe true
     }
 
     @Test
     fun `a real category can keep a sort of its own`() {
-        canOverrideSort(category(7, 0L)) shouldBe true
+        canOverrideSort(category(7, 0L), LibrarySort.Type.Alphabetical) shouldBe true
     }
 }

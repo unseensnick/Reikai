@@ -16,8 +16,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.surfaceColorAtElevation
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -85,6 +87,7 @@ import reikai.presentation.library.LibraryEngine
 import reikai.presentation.library.LibraryScreenState
 import reikai.presentation.library.LibrarySettingsSheet
 import reikai.presentation.library.LibrarySettingsTab
+import reikai.presentation.library.ManualOrderDrag
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
 import reikai.presentation.library.libraryToolbarTitle
@@ -102,6 +105,7 @@ import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibraryManga
+import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.material.Scaffold
 import tachiyomi.presentation.core.i18n.stringResource
@@ -240,6 +244,38 @@ data object LibraryTab : Tab {
         // RK <--
 
         val snackbarHostState = remember { SnackbarHostState() }
+
+        // RK --> a Manual category drags into a new order with no filter, search or selection, since a drop
+        // between visible tiles could otherwise land anywhere among hidden ones. Under a type chip the other
+        // type's tiles keep their places (LibraryEngine.moveInCategory).
+        val sortForDrag by engine.globalSort.collectAsState()
+        val manualDragFor: (LibraryBucket) -> ManualOrderDrag? = { bucket ->
+            bucket.realCategory
+                ?.takeIf {
+                    !activeHasActiveFilters &&
+                        activeSearchQuery.isNullOrEmpty() &&
+                        !activeSelectionMode &&
+                        sortForCategory(it, sortForDrag).type == LibrarySort.Type.Manual
+                }
+                ?.let { category ->
+                    ManualOrderDrag { order, moved ->
+                        engine.moveInCategory(category, order)
+                        scope.launch {
+                            snackbarHostState.currentSnackbarData?.dismiss()
+                            val result = snackbarHostState.showSnackbar(
+                                message = context.stringResource(
+                                    MR.strings.library_manual_order_moved,
+                                    moved.libraryManga.manga.title,
+                                ),
+                                actionLabel = context.stringResource(MR.strings.action_undo),
+                                duration = SnackbarDuration.Short,
+                            )
+                            if (result == SnackbarResult.ActionPerformed) engine.undoManualMove()
+                        }
+                    }
+                }
+        }
+        // RK <--
 
         // RK --> hopper + jump-to-category picker drive both views through a single `hopperTarget`.
         // Single-list jumps (prev/next and the picker) are instant: categories can hold hundreds of
@@ -660,9 +696,12 @@ data object LibraryTab : Tab {
                                         sortLabelRes(sortForCategory(category, globalSort).type)
                                     },
                                     sortAscendingFor = { category ->
-                                        sortForCategory(category, globalSort).isAscending
+                                        sortForCategory(category, globalSort)
+                                            .takeIf { it.type != LibrarySort.Type.Manual }
+                                            ?.isAscending
                                     },
                                     onClickContinueReading = onContinueReading,
+                                    manualDragFor = manualDragFor, // RK
                                 )
                             }
                         } else {
@@ -690,6 +729,7 @@ data object LibraryTab : Tab {
                                     getDisplayMode = { engine.displayMode() },
                                     getColumnsForOrientation = { engine.columnsForOrientation(it) },
                                     getItemsForCategory = activeGetItems,
+                                    getManualDrag = manualDragFor, // RK
                                 )
                             }
                         }

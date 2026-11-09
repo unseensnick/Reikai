@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.calculateStartPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
@@ -134,9 +133,11 @@ fun ReikaiLibraryContent(
     // The effective sort per category (its override, or the global sort it follows): the header label via
     // [sortLabelFor] and the arrow direction via [sortAscendingFor].
     sortLabelFor: (Category) -> StringResource,
-    sortAscendingFor: (Category) -> Boolean,
+    sortAscendingFor: (Category) -> Boolean?,
     // continue-reading button on covers, single-list parity with the pager; null = hidden
     onClickContinueReading: ((LibraryItem) -> Unit)? = null,
+    // a Manual category's drag, else null; each section reorders only within itself
+    manualDragFor: (LibraryBucket) -> ManualOrderDrag? = { null },
 ) {
     val isList = displayMode is LibraryDisplayMode.List
     // Mode-qualified so Compose doesn't recycle a list-row slot as a grid cell when the mode flips.
@@ -167,6 +168,11 @@ fun ReikaiLibraryContent(
             itemCount = { getItemsForCategory(it).size },
             columns = columnCount,
         )
+
+        val manualOrder = rememberManualOrder()
+        val reorder = rememberManualOrderGrid(gridState, manualOrder) { section ->
+            buckets.find { it.key == section }?.let(getItemsForCategory).orEmpty()
+        }
 
         LibraryUpdatePullRefresh(
             updating = refreshing,
@@ -231,19 +237,23 @@ fun ReikaiLibraryContent(
                     }
 
                     if (!collapsed) {
-                        items(
-                            items = items,
-                            // An entry can belong to several buckets, so qualify the key by bucket, and
-                            // by content type since a manga and a novel can share a row id.
-                            key = { "reikai_cell_${bucket.key}_${it.entryId.contentType}_${it.entryId.rawId}" },
-                            contentType = { cellContentType },
-                        ) { libraryItem ->
+                        // Keyed by bucket and type (manualOrderKey): an entry can belong to several buckets,
+                        // and a manga and a novel can share a row id.
+                        libraryCells(
+                            section = bucket.key,
+                            rows = items,
+                            contentType = cellContentType,
+                            drag = manualDragFor(bucket),
+                            manualOrder = manualOrder,
+                            reorder = reorder,
+                            onLongClick = { onLongClickManga(bucket, it) },
+                        ) { libraryItem, longClick, tapAllowed ->
                             LibraryItemCell(
                                 item = libraryItem,
                                 displayMode = displayMode,
                                 isSelected = libraryItem.entryId in selection,
-                                onClick = { onClickManga(bucket, libraryItem) },
-                                onLongClick = { onLongClickManga(bucket, libraryItem) },
+                                onClick = { if (tapAllowed()) onClickManga(bucket, libraryItem) },
+                                onLongClick = longClick,
                                 onClickContinueReading = onClickContinueReading,
                             )
                         }

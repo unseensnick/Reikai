@@ -1,0 +1,18 @@
+-- A category's Manual order and the sort it started from (library_manual_order.sq). Empty on upgrade:
+-- a category gains rows when it is first switched to Manual.
+CREATE TABLE library_manual_order(
+    content_type INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY(content_type, entry_id, category_id),
+    FOREIGN KEY(category_id) REFERENCES category (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE library_manual_order_base(
+    category_id INTEGER NOT NULL PRIMARY KEY,
+    sort_flags INTEGER NOT NULL,
+    FOREIGN KEY(category_id) REFERENCES category (id)
+    ON DELETE CASCADE
+);

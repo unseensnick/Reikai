@@ -18,7 +18,8 @@ fun LibraryItemCell(
     displayMode: LibraryDisplayMode,
     isSelected: Boolean,
     onClick: () -> Unit,
-    onLongClick: () -> Unit,
+    /** Null on a tile a Manual drag owns, whose handle takes the long press instead. */
+    onLongClick: (() -> Unit)?,
     onClickContinueReading: ((LibraryItem) -> Unit)?,
 ) {
     val title = item.libraryManga.manga.title

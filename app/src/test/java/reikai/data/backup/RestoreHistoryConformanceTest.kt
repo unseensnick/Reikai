@@ -27,6 +27,7 @@ import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.readinglog.UrlReadingSession
@@ -192,6 +193,7 @@ class RestoreHistoryConformanceTest {
 
             override suspend fun restore(database: Database, copies: List<Copy>, sessions: List<BackupReadingSession>) {
                 NovelRestorer(
+                    manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = NovelRepositoryImpl(database),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
                     categoryRepository = mockk(relaxed = true),

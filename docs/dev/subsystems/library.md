@@ -61,7 +61,15 @@ Restore translates every category-id preference through `translateCategoryId` (o
 
 ### Per-category sort
 
-With "Per-category settings for sort" (`categorizedDisplaySettings`) on, every category follows the global sort unless bit 0 of its flags (`CATEGORY_SORT_CUSTOMIZED`) marks an override (`sortForCategory`, `isSortOverridden` in `CategorySortOverride.kt`). The toolbar sort always writes the global; a single-list header sets an override; `ResetToGlobalSortItem` clears one; turning the setting off clears every bit (`ResetCategoryFlags`, the `clearSortOverrides` query). `canOverrideSort` keeps the universal Default row on the global sort on read and write. Backups carry the bit verbatim plus marker field 719; `CategoriesRestorer.restoreCategorizedDisplay` turns the setting on when a restored category carries the bit, and a pre-719 backup is marked through `markLegacySortOverride` only where its sorts differ.
+With "Per-category settings for sort" (`categorizedDisplaySettings`) on, every category follows the global sort unless bit 0 of its flags (`CATEGORY_SORT_CUSTOMIZED`) marks an override (`sortForCategory`, `isSortOverridden` in `CategorySortOverride.kt`). The toolbar sort always writes the global; a single-list header sets an override; `ResetToGlobalSortItem` clears one; turning the setting off clears every bit (`ResetCategoryFlags`, the `clearSortOverrides` query). `canOverrideSort` keeps the universal Default row on the global sort on read and write, Manual excepted. Backups carry the bit verbatim plus marker field 719; `CategoriesRestorer.restoreCategorizedDisplay` turns the setting on when a restored category carries the bit, and a pre-719 backup is marked through `markLegacySortOverride` only where its sorts differ.
+
+### Manual order
+
+A category whose sort is Manual (`LibrarySort.Type.Manual`) orders by positions in `library_manual_order` (content type, entry id, category id, position; Default is category 0), then whatever has none in the sort it showed when switched to Manual (`library_manual_order_base`), which `manualComparator` in `LibraryAssembly.kt` applies. Switching records that starting sort and writes no positions, so nothing moves until the first drop; series added later follow the placed ones. Default may keep Manual as its own sort (`canOverrideSort`).
+
+The gesture is `ManualOrder.kt`, written once for both views and every display mode: `libraryCells` / `libraryRows` wrap each tile in a reorderable item whose whole surface is a long-press drag handle, and the tile's own long press is null, since a handler there takes the long press and the drag never starts. A press that turns long sets `swallowsTap`, so the tap its release also reports is dropped; a long press released within touch slop selects, measured on screen because the tile follows the finger. In the one-list view a move lands only on a tile of the dragged one's own section. The tab offers a drag (`ManualOrderDrag`) on a Manual real category with no filter, search or selection.
+
+A drop writes through `LibraryEngine.moveInCategory` on the app scope: `reorderedPositions` refills the places the shown tiles held in their new order and leaves hidden tiles (the other type under a type chip) where they were; every merged member takes its tile's position. Writes go one at a time, and Undo waits on the drop it undoes. Reset deletes positions: a category's own menu resets that category, the library-wide menu every Manual one. Backups carry an entry's places at field 702 on both entry messages, naming the category by order (`writeManualOrder`, `restoredManualOrder`).
 
 ### Library updates
 
@@ -124,6 +132,10 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 - **One category table with a content type, membership in two junctions.** Entry tables stay separate; a universal category answers what a mixed bucket means.
 - **A category's type is fixed at creation.** Retyping would orphan memberships in the junction that no longer matches.
 - **Universal categories stay in both backup lists.** Emitting one once would drop novel memberships, which resolve by order inside the novel list.
+- **Manual order lives in a Reikai-owned table.** A column on the link tables would patch Mihon's schema, and Default has no link row to hold one; Yōkai's id list on the category is ambiguous once a manga and a novel share an id.
+- **A drag needs no filter, search or selection, but any content chip.** A drop between tiles a filter left apart could land anywhere among the hidden ones; a type chip hides a whole type, whose tiles keep their places.
+- **Long-press and move, not a reorder mode.** A device spike passed drag, select on release, the category swipe, edge auto-scroll and section boundaries in both views; a mode is the fallback if that ever stops holding.
+- **Statistics lists ignore Manual.** They mix categories, so a per-category order has nothing to say there; the shared comparator orders Manual by title.
 - **The toolbar sort is always global.** The tabbed pager has no per-category sort control; overrides are set from the single list.
 - **Smart update reuses the manga restriction constants.** They are content-agnostic tags; renaming would touch manga code for nothing.
 
@@ -134,7 +146,7 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 ## Extending
 
 - **A new filter axis**: add it to `LibraryFilterFields` and `LibraryFilterSettings`, list it in each provider's `filterAxes`, and pin it in `LibraryFilterTest`. A type without the axis omits it from its list.
-- **A new sort mode**: add it to `librarySortComparator` and `LibrarySortFields`, then `LibrarySortComparatorTest`.
+- **A new sort mode**: add it to `librarySortComparator` and `LibrarySortFields`, then `LibrarySortComparatorTest`, and to the sort sheet's list (`librarySortTypes`, `sortLabelRes`).
 - **A new group mode**: extend `libraryDynamicGroupingFeed` and `LibraryDynamicGrouping.build`; `LibraryDynamicGroupingFeedTest` runs every mode over both row types.
 - **A new search field**: add it to `LibraryQueryFields` and `libraryItemQueryFields`, and to the user grammar page.
 - **A new bulk verb**: put it on `LibraryBehavior`, implement it in both adapters, and dispatch it from the engine over the selection.
@@ -142,7 +154,7 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 
 ## Tests
 
-Engine and assembly: `LibraryEngineTest`, `LibraryAssemblyTest`, `LibraryScreenStateTest`, `LibraryCategoryCollapseTest`. Kernels: `LibrarySortComparatorTest`, `LibraryFilterTest`, `LibraryQueryMatchTest`, `GallerySearchIndexTest`, `SearchEngineTest`, `LibraryDynamicGroupingTest`, `LibraryDynamicGroupingFeedTest`, `LibraryTrackingStatusOrderTest`, `LibraryTrackerMeansTest`, `LibraryMergeMembersTest`, `LibraryLewdConformanceTest`, `NovelLibraryItemTest`, `EntryIdKeysTest`. Categories: `CategorySortOverrideTest`, `CategoryViewModelTest`, `CategoryLinkGuardTest`, `CategoriesRestorerTest`, `CategorizedDisplayRestoreTest`, `DeleteCategoryCleanupTest`, `NovelCategoryFlagsMigrationTest`. Updates: `LibraryUpdateScheduleTest`, `NovelUpdateDefaultsTest`, `DownloadNewChaptersConformanceTest`, `UnsentDetailConformanceTest`, `NewChaptersTest`, `UpdateErrorConformanceTest`. Library tests run under `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, the domain kernels' included; `CategoryLinkGuardTest` and `UpdateErrorConformanceTest` are in `:data`, under `:data:testDebugUnitTest`. Device passes need both views and all three chips.
+Engine and assembly: `LibraryEngineTest`, `LibraryAssemblyTest`, `ReorderedPositionsTest`, `ManualOrderTest` (the gesture), `ManualOrderBackupTest`, `LibraryScreenStateTest`, `LibraryCategoryCollapseTest`. Kernels: `LibrarySortComparatorTest`, `LibraryFilterTest`, `LibraryQueryMatchTest`, `GallerySearchIndexTest`, `SearchEngineTest`, `LibraryDynamicGroupingTest`, `LibraryDynamicGroupingFeedTest`, `LibraryTrackingStatusOrderTest`, `LibraryTrackerMeansTest`, `LibraryMergeMembersTest`, `LibraryLewdConformanceTest`, `NovelLibraryItemTest`, `EntryIdKeysTest`. Categories: `CategorySortOverrideTest`, `CategoryViewModelTest`, `CategoryLinkGuardTest`, `CategoriesRestorerTest`, `CategorizedDisplayRestoreTest`, `DeleteCategoryCleanupTest`, `NovelCategoryFlagsMigrationTest`. Updates: `LibraryUpdateScheduleTest`, `NovelUpdateDefaultsTest`, `DownloadNewChaptersConformanceTest`, `UnsentDetailConformanceTest`, `NewChaptersTest`, `UpdateErrorConformanceTest`. Library tests run under `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, the domain kernels' included; `CategoryLinkGuardTest` and `UpdateErrorConformanceTest` are in `:data`, under `:data:testDebugUnitTest`. Device passes need both views and all three chips.
 
 ## Related
 

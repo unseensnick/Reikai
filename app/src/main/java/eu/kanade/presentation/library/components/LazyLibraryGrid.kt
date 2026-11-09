@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
+import androidx.compose.foundation.lazy.grid.LazyGridState
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -14,6 +16,7 @@ import tachiyomi.presentation.core.util.plus
 @Composable
 internal fun LazyLibraryGrid(
     modifier: Modifier = Modifier,
+    state: LazyGridState = rememberLazyGridState(), // RK: the Manual drag reads it
     columns: Int,
     contentPadding: PaddingValues,
     content: LazyGridScope.() -> Unit,
@@ -21,6 +24,7 @@ internal fun LazyLibraryGrid(
     FastScrollLazyVerticalGrid(
         columns = gridCellsFor(columns), // RK: one adaptive width, which the Reikai library views share
         modifier = modifier,
+        state = state, // RK
         contentPadding = contentPadding + PaddingValues(8.dp),
         verticalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridVerticalSpacer),
         horizontalArrangement = Arrangement.spacedBy(CommonMangaItemDefaults.GridHorizontalSpacer),

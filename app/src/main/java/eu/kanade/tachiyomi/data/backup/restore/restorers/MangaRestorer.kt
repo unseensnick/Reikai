@@ -15,6 +15,7 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.data.backup.restoredManualOrder
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
@@ -84,6 +85,9 @@ class MangaRestorer(
                     sourceNumberOf = { it.sourceChapterNumber },
                 ),
                 readingSessions = backupManga.readingSessions.map { it.toUrlReadingSession() },
+                manualOrder = backupManga.restoredManualOrder { order ->
+                    backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }
+                },
                 // RK <--
             )
         }

@@ -3,13 +3,18 @@ package eu.kanade.presentation.library.components
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId // RK
 import reikai.presentation.library.LibraryItemCell // RK
+import reikai.presentation.library.ManualOrderDrag // RK
+import reikai.presentation.library.PAGE_SECTION // RK
+import reikai.presentation.library.libraryRows // RK
+import reikai.presentation.library.rememberManualOrder // RK
+import reikai.presentation.library.rememberManualOrderColumn // RK
 import tachiyomi.domain.library.model.LibraryDisplayMode
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.presentation.core.components.FastScrollLazyColumn
@@ -26,9 +31,16 @@ internal fun LibraryList(
     onClickContinueReading: ((LibraryItem) -> Unit)?,
     searchQuery: String?,
     onGlobalSearchClicked: () -> Unit,
+    drag: ManualOrderDrag? = null, // RK: set on a Manual category whose rows drag into a new order
 ) {
+    // RK --> the Manual drag, one section per page (reikai.presentation.library.ManualOrder)
+    val listState = rememberLazyListState()
+    val manualOrder = rememberManualOrder()
+    val reorder = rememberManualOrderColumn(listState, manualOrder) { items }
+    // RK <--
     FastScrollLazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = listState, // RK
         contentPadding = contentPadding + PaddingValues(vertical = 8.dp),
     ) {
         item {
@@ -41,17 +53,22 @@ internal fun LibraryList(
             }
         }
 
-        items(
-            items = items,
-            contentType = { "library_list_item" },
-        ) { libraryItem ->
-            // RK: one cell for both content types and both library views
+        // RK: one cell for both content types and both library views, draggable in a Manual category
+        libraryRows(
+            section = PAGE_SECTION,
+            rows = items,
+            contentType = "library_list_item",
+            drag = drag,
+            manualOrder = manualOrder,
+            reorder = reorder,
+            onLongClick = onLongClick,
+        ) { libraryItem, longClick, tapAllowed ->
             LibraryItemCell(
                 item = libraryItem,
                 displayMode = LibraryDisplayMode.List,
                 isSelected = libraryItem.entryId in selection,
-                onClick = { onClick(libraryItem) },
-                onLongClick = { onLongClick(libraryItem) },
+                onClick = { if (tapAllowed()) onClick(libraryItem) },
+                onLongClick = longClick,
                 onClickContinueReading = onClickContinueReading,
             )
         }

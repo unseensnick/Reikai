@@ -15,7 +15,10 @@ import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.DownloadAction
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,16 +30,25 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.category.categoriesForContentType
 import reikai.domain.category.categoryDiff
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.LibrarySortFields
+import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.includes
+import reikai.domain.library.isSortOverridden
 import reikai.domain.library.librarySortComparator
+import reikai.domain.library.reorderedPositions
+import reikai.domain.library.sortForCategory
+import reikai.domain.library.sortsOnItsOwn
 import reikai.domain.library.toSortMode
 import reikai.domain.library.within
 import reikai.domain.stats.inMenus
@@ -82,6 +94,9 @@ class LibraryEngine(
     // Only the dynamic-grouping assembly needs these: the group labels and the track-status ordering.
     private val context: Context,
     private val trackerManager: TrackerManager,
+    private val manualOrderRepository: LibraryManualOrderRepository,
+    // A stored order must land even when the drop closes the screen, as every library write does.
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) : ViewModel() {
 
     /**
@@ -163,11 +178,16 @@ class LibraryEngine(
                 collapsedDynamicAtBottom = group.collapsedDynamicAtBottom,
             )
         }
+        val manualFlow = combine(
+            manualOrderRepository.subscribeAll(),
+            manualOrderRepository.subscribeBases(),
+        ) { positions, bases -> ManualOrder(manualPositionsByCategory(positions), bases) }
         combine(
             activeAssemblyInputs(contentType, providers),
             categoryRepository.getUnfilteredAsFlow(),
             prefsFlow,
-        ) { inputs, allCategories, prefs ->
+            manualFlow,
+        ) { inputs, allCategories, prefs, manual ->
             // Piggybacked here rather than a collector of its own so it runs exactly when the list
             // changes: a selected entry the assembly dropped must leave the selection too, or the
             // toolbar count promises more than the verbs will touch. Pruned after the assembly, not
@@ -175,7 +195,7 @@ class LibraryEngine(
             // category, an emptied bucket and a lagging dynamic group all do, and those leave the
             // entry in the providers' rows, where the verbs would still find and act on it.
             // No assembly says nothing about what is on screen, so it prunes nothing.
-            assembleFor(inputs, allCategories, prefs)
+            assembleFor(inputs, allCategories, prefs, manual)
                 ?.also { pruneSelection(it.presentIds) }
         }
             // The transform sorts and buckets the whole library; keep it off the main thread.
@@ -199,6 +219,7 @@ class LibraryEngine(
         inputs: ActiveAssemblyInputs,
         allCategories: List<Category>,
         prefs: AssemblyPrefs,
+        manual: ManualOrder,
     ): LibraryAssembled? {
         val chip = inputs.chip
         val active = providersFor(chip)
@@ -218,6 +239,8 @@ class LibraryEngine(
                 randomSeed = prefs.seed,
                 showHiddenCategories = prefs.showHidden,
                 categorySortOrder = prefs.categorySortOrder,
+                manualPositions = manual.positions,
+                manualBases = manual.bases,
             )
             assembleLibrary(rows, categories, inputs, fields)
         } else {
@@ -299,6 +322,8 @@ class LibraryEngine(
         val categorySortOrder: CategorySortOrder,
         val showCounts: Boolean,
     )
+
+    private data class ManualOrder(val positions: Map<Long, Map<EntryId, Long>>, val bases: Map<Long, Long>)
 
     private data class GroupPrefs(
         val groupBy: Int,
@@ -423,6 +448,7 @@ class LibraryEngine(
         globalSort = globalSort,
         setSort = ::setSort,
         resetSort = ::resetSort,
+        resetManualOrder = ::resetManualOrder,
     )
 
     /**
@@ -438,7 +464,79 @@ class LibraryEngine(
     }
 
     private fun setSort(categoryId: Long?, type: LibrarySort.Type, direction: LibrarySort.Direction) {
-        viewModelScope.launchIO { setSortModeForCategory.await(categoryId, type, direction) }
+        viewModelScope.launchIO {
+            if (type == LibrarySort.Type.Manual) recordManualBases(categoryId)
+            setSortModeForCategory.await(categoryId, type, direction)
+        }
+    }
+
+    /**
+     * The categories a sort chosen from [categoryId]'s sheet applies to, by the rule the write uses: that
+     * category alone when it keeps sorts of its own, otherwise every category following the global sort.
+     */
+    private suspend fun sortScope(categoryId: Long?, type: LibrarySort.Type): List<Category> {
+        val all = categoryRepository.getUnfiltered()
+        val category = categoryId?.let { id -> all.find { it.id == id } }
+        if (sortsOnItsOwn(category, type, libraryPreferences.categorizedDisplaySettings.get())) {
+            return listOfNotNull(category)
+        }
+        return all.filterNot(::isSortOverridden)
+    }
+
+    /** Keeps the sort each category shows before it turns Manual, which orders what has no position yet. */
+    private suspend fun recordManualBases(categoryId: Long?) {
+        val global = libraryPreferences.sortingMode.get()
+        sortScope(categoryId, LibrarySort.Type.Manual).forEach { category ->
+            val shown = sortForCategory(category, global)
+            if (shown.type != LibrarySort.Type.Manual) manualOrderRepository.setBase(category.id, shown.flag)
+        }
+    }
+
+    // One write at a time, so a drop reads the order the previous one left; Undo waits on the drop it undoes,
+    // since a tap can land before that drop's write has.
+    private val manualOrderLane = Mutex()
+    private var undoableMove: Pair<Long, Deferred<List<ManualOrderPosition>>>? = null
+
+    /**
+     * Stores [order], the tiles shown of [category], as its Manual order. Under a content-type chip the other
+     * type's tiles are hidden and keep their places ([reorderedPositions]). Each merged series' members share
+     * its position, as its lead can change. The order it replaces is kept for [undoManualMove].
+     */
+    fun moveInCategory(category: Category, order: List<LibraryItem>) {
+        val tiles = order.map { item -> item.memberIds().mapTo(HashSet()) { item.entryId.contentType to it } }
+        val move = appScope.async(Dispatchers.IO) {
+            manualOrderLane.withLock {
+                val previous = manualOrderRepository.getCategory(category.id)
+                manualOrderRepository.replaceCategory(category.id, reorderedPositions(category.id, previous, tiles))
+                previous
+            }
+        }
+        undoableMove = category.id to move
+    }
+
+    /** Puts back the order the last move replaced. */
+    fun undoManualMove() {
+        val (categoryId, move) = undoableMove ?: return
+        undoableMove = null
+        appScope.launchIO {
+            val previous = move.await()
+            manualOrderLane.withLock { manualOrderRepository.replaceCategory(categoryId, previous) }
+        }
+    }
+
+    /**
+     * Drops a stored Manual order, so the category shows its starting sort again: [categoryId]'s alone from
+     * its own sort menu, every Manual category's from the global one (a null [categoryId]).
+     */
+    private fun resetManualOrder(categoryId: Long?) {
+        appScope.launchIO {
+            val global = libraryPreferences.sortingMode.get()
+            categoryRepository.getUnfiltered()
+                .filter { categoryId == null || it.id == categoryId }
+                .filter { sortForCategory(it, global).type == LibrarySort.Type.Manual }
+                .forEach { manualOrderLane.withLock { manualOrderRepository.replaceCategory(it.id, emptyList()) } }
+            undoableMove = null
+        }
     }
 
     private fun resetSort(categoryId: Long) {
@@ -704,3 +802,14 @@ internal class ProviderAssemblyInputs(val rows: List<LibraryItem>?, val searchQu
 
 /** [perProvider] is aligned with the engine's providers, null for one [chip] hides. */
 internal data class ActiveAssemblyInputs(val chip: ContentType, val perProvider: List<ProviderAssemblyInputs?>)
+
+private fun manualPositionsByCategory(positions: List<ManualOrderPosition>): Map<Long, Map<EntryId, Long>> =
+    positions.groupBy { it.categoryId }.mapValues { (_, rows) ->
+        rows.associate { row ->
+            val id = when (row.contentType) {
+                ContentType.MANGA -> EntryId.Manga(row.entryId)
+                else -> EntryId.Novel(row.entryId)
+            }
+            id to row.position
+        }
+    }

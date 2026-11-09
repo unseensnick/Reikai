@@ -21,11 +21,13 @@ import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.ChunkRead
 import reikai.data.backup.mergeGroupRefs
+import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelHistoryRepository
@@ -57,6 +59,7 @@ class NovelBackupCreator(
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
+    private val manualOrder: LibraryManualOrderRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     // The chapters part reads the word counts and history the read-aloud times, from the same chunk-wide row.
@@ -108,9 +111,9 @@ class NovelBackupCreator(
 
     override suspend fun categories(batch: List<Pair<Novel, BackupNovel>>) {
         val categoriesByNovelId = categoryRepository.getCategoriesByNovelIds(batch.map { it.first.id })
-        batch.writeRows(categoriesByNovelId, Novel::id) { _, backup, categories ->
-            backup.categories = categories.map { it.order }
-        }
+        batch.writeCategories(ContentType.NOVELS, Novel::id, categoriesByNovelId, {
+            categories = it
+        }, manualOrder, categoryRepository)
     }
 
     override suspend fun tracking(batch: List<Pair<Novel, BackupNovel>>) {

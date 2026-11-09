@@ -25,6 +25,10 @@ data class LibraryAssemblyInputs(
     val showHiddenCategories: Boolean,
     /** Applied via [reikaiSortCategories]. */
     val categorySortOrder: CategorySortOrder,
+    /** Each Manual category's stored positions, by category id. */
+    val manualPositions: Map<Long, Map<EntryId, Long>> = emptyMap(),
+    /** Each Manual category's starting sort flags, which order what has no position yet. */
+    val manualBases: Map<Long, Long> = emptyMap(),
 )
 
 /**
@@ -58,10 +62,29 @@ fun assembleLibrary(
         .mapNotNull { category ->
             val bucket = buckets[category.id] ?: return@mapNotNull null
             val sort = sortForCategory(category, inputs.globalSort)
-            val comparator =
+            val comparator = if (sort.type == LibrarySort.Type.Manual) {
+                manualComparator(category.id, inputs, fields)
+            } else {
                 librarySortComparator(sort.type.toSortMode(), sort.isAscending, inputs.randomSeed, fields)
+            }
             LibraryBucket.Real(category) to bucket.sortedWith(comparator)
         }
+}
+
+/**
+ * A Manual category's order: stored positions first, then whatever has none (nothing before the first drag,
+ * a series added since after it) in the sort the category showed when it was switched to Manual.
+ */
+private fun manualComparator(
+    categoryId: Long,
+    inputs: LibraryAssemblyInputs,
+    fields: LibrarySortFields<LibraryItem>,
+): Comparator<LibraryItem> {
+    val positions = inputs.manualPositions[categoryId].orEmpty()
+    val base = LibrarySort.valueOf(inputs.manualBases[categoryId])
+        .takeIf { it.type != LibrarySort.Type.Manual } ?: LibrarySort.default
+    return compareBy<LibraryItem, Long?>(nullsLast()) { positions[it.entryId] }
+        .then(librarySortComparator(base.type.toSortMode(), base.isAscending, inputs.randomSeed, fields))
 }
 
 /**

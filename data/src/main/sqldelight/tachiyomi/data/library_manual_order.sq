@@ -1,0 +1,50 @@
+-- A category's Manual order: each entry's position in it, written whole when a drag ends.
+-- content_type: 0 = manga, 1 = novel, as in merge_group. category_id 0 is Default, which keeps no
+-- link row of its own. A merged series stores one position on every member, since its lead can change.
+CREATE TABLE library_manual_order(
+    content_type INTEGER NOT NULL,
+    entry_id INTEGER NOT NULL,
+    category_id INTEGER NOT NULL,
+    position INTEGER NOT NULL,
+    PRIMARY KEY(content_type, entry_id, category_id),
+    FOREIGN KEY(category_id) REFERENCES category (id)
+    ON DELETE CASCADE
+);
+
+-- The sort a category showed when it was switched to Manual, which Reset rebuilds its order from.
+CREATE TABLE library_manual_order_base(
+    category_id INTEGER NOT NULL PRIMARY KEY,
+    sort_flags INTEGER NOT NULL,
+    FOREIGN KEY(category_id) REFERENCES category (id)
+    ON DELETE CASCADE
+);
+
+getAll:
+SELECT content_type, entry_id, category_id, position
+FROM library_manual_order;
+
+getCategory:
+SELECT content_type, entry_id, category_id, position
+FROM library_manual_order
+WHERE category_id = :categoryId;
+
+getForEntries:
+SELECT content_type, entry_id, category_id, position
+FROM library_manual_order
+WHERE content_type = :contentType AND entry_id IN :entryIds;
+
+insert:
+INSERT OR REPLACE INTO library_manual_order(content_type, entry_id, category_id, position)
+VALUES (:contentType, :entryId, :categoryId, :position);
+
+deleteCategory:
+DELETE FROM library_manual_order
+WHERE category_id = :categoryId;
+
+getAllBases:
+SELECT category_id, sort_flags
+FROM library_manual_order_base;
+
+setBase:
+INSERT OR REPLACE INTO library_manual_order_base(category_id, sort_flags)
+VALUES (:categoryId, :sortFlags);

@@ -16,6 +16,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.local.LocalNovelLanguageRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.NoReadingLog
@@ -78,6 +79,7 @@ class LocalNovelLanguageBackupTest {
     }
 
     private suspend fun backupOf(novel: Novel) = NovelBackupCreator(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),
         novelChapterRepository = mockk(),
         categoryRepository = mockk(),
@@ -93,6 +95,7 @@ class LocalNovelLanguageBackupTest {
     ).base(listOf(novel)).single()
 
     private fun restorer() = NovelRestorer(
+        manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),
         categoryRepository = mockk(relaxed = true),

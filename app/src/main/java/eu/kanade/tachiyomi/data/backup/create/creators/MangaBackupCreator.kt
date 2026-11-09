@@ -15,10 +15,12 @@ import mihon.core.common.extensions.toByteArray
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.ChunkRead
+import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.readinglog.ReadingLogRepository
 import tachiyomi.domain.category.repository.CategoryRepository
@@ -53,6 +55,8 @@ class MangaBackupCreator(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     // RK: the reading log, carried with history.
     private val readingLog: ReadingLogRepository,
+    // RK: each entry's places in Manual library orders, carried with its categories.
+    private val manualOrder: LibraryManualOrderRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     // RK: history keys by chapter url, so it reuses the chapters part's read of the same chunk, as upstream reads once
@@ -110,9 +114,10 @@ class MangaBackupCreator(
 
     override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {
         val categoriesByMangaId = categoryRepository.getCategoriesByMangaIds(batch.map { it.first.id })
-        batch.writeRows(categoriesByMangaId, Manga::id) { _, backup, categories ->
-            backup.categories = categories.map { it.order }
-        }
+        // RK: the step both types share, which also writes each entry's places in Manual orders
+        batch.writeCategories(ContentType.MANGA, Manga::id, categoriesByMangaId, {
+            categories = it
+        }, manualOrder, categoryRepository)
     }
 
     override suspend fun tracking(batch: List<Pair<Manga, BackupManga>>) {

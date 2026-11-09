@@ -25,3 +25,14 @@ fun ResetToGlobalSortItem(onClick: () -> Unit) {
         onClick = onClick,
     )
 }
+
+/** "Reset manual order" in the Sort tab, shown while the scope is Manual: back to the sort it started from. */
+@Composable
+fun ResetManualOrderItem(onClick: () -> Unit) {
+    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+    BaseSortItem(
+        label = stringResource(MR.strings.action_sort_reset_manual),
+        icon = MaterialSymbols.Rounded.Autorenew,
+        onClick = onClick,
+    )
+}
