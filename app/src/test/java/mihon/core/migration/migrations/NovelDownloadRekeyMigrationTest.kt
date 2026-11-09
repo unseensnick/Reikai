@@ -21,6 +21,7 @@ import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.dedupe.MergedDuplicateRepository
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -61,6 +62,7 @@ class NovelDownloadRekeyMigrationTest {
             storageManager = storageManager,
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
+            novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
         )
     }
     private val storageManager by lazy {

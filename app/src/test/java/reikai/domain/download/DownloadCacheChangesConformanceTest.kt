@@ -22,6 +22,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
@@ -131,6 +132,7 @@ class DownloadCacheChangesConformanceTest {
                     storageManager = storageManager,
                     downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                     libraryPreferences = libraryPreferences,
+                    novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
                 ),
             )
             val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")

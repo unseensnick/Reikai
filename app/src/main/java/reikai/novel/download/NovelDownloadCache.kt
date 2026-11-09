@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.onStart
@@ -86,6 +87,8 @@ class NovelDownloadCache(
     init {
         // Re-scan when the storage location moves: the files relocate under the new root.
         storageManager.changes.onEach { invalidate() }.launchIn(scope)
+        // A source renamed has had its folder renamed by the time this emits, so a rescan finds its downloads.
+        provider.sourceFolders.drop(1).onEach { invalidate() }.launchIn(scope)
         scope.launch {
             restoreIndex()
             renewIfStale()

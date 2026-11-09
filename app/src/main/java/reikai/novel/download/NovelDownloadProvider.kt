@@ -8,13 +8,20 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.renameDownloadFolder
+import reikai.domain.novel.LnSourceIdentity
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.source.isNovelAppSourceId
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 
@@ -22,9 +29,8 @@ import tachiyomi.domain.storage.service.StorageManager
  * Resolves on-disk locations for downloaded novel chapter text, mirroring the manga [DownloadProvider]:
  * `<novel downloads dir>/<source>/<novel title>/<chapter name>[_<url hash>].html`, the chapter part named by
  * manga's rule, hash setting included. Derived from stable metadata rather than numeric DB ids, so a download
- * survives reinstall, restore and storage moves. The `<source>` segment keys on the PLUGIN ID, not a display name,
- * which a plugin update can change (the manga side keys on display name because its numeric source ids are stable).
- * One self-contained HTML file per chapter, written to a temp name and renamed on success.
+ * survives reinstall, restore and storage moves. The `<source>` segment is [sourceFolderLabels], renamed with its
+ * source ([sourceFolders]). One self-contained HTML file per chapter, written to a temp name and renamed on success.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -33,9 +39,28 @@ class NovelDownloadProvider(
     private val storageManager: StorageManager,
     private val downloadProvider: DownloadProvider,
     private val libraryPreferences: LibraryPreferences,
+    novelPreferences: NovelPreferences,
 ) {
 
     private var downloadsDir = storageManager.getNovelDownloadsDirectory()
+
+    // The seen record names every source loaded, installed or since removed. Read once per change rather than
+    // per lookup, since the download cache names a source for every library row.
+    @Volatile
+    private var folderLabels = novelPreferences.seenNovelSources().get().let(::sourceFolderLabels)
+
+    /**
+     * Each source's folder label, emitted only once a source whose label changed has had its folder renamed,
+     * so the download cache can rescan on it and find every download where it now is.
+     */
+    val sourceFolders: StateFlow<Map<String, String>> = novelPreferences.seenNovelSources().changes()
+        .map(::sourceFolderLabels)
+        .onEach { labels ->
+            val renamed = labels.keys.filter { folderLabels[it] != labels[it] }
+            renameSourceFolders(renamed, from = { folderLabels[it] ?: it }, to = { labels.getValue(it) })
+            folderLabels = labels
+        }
+        .stateIn(scope, SharingStarted.Eagerly, folderLabels)
 
     init {
         storageManager.changes.onEach {
@@ -48,11 +73,27 @@ class NovelDownloadProvider(
     // novel-specific (plugin id); title + chapter reuse the manga provider so both content types produce
     // byte-identical folder/file names for the same inputs.
 
-    fun sourceDirName(source: String): String =
-        DiskUtil.buildValidFilename(
-            source,
-            disallowNonAscii = libraryPreferences.disallowNonAsciiFilenames.get(),
-        )
+    fun sourceDirName(source: String): String = folderName(sourceFolderLabel(source))
+
+    /** What [source]'s folder is called before it is made a valid file name: see [sourceFolderLabels]. */
+    fun sourceFolderLabel(source: String): String = folderLabels[source] ?: source
+
+    /**
+     * Moves each of [sources]' folders from the label [from] gives it to the one [to] gives it, where the old one
+     * exists and the new one is free; a taken name leaves the folder where it is, its downloads unread but kept.
+     */
+    fun renameSourceFolders(sources: Collection<String>, from: (String) -> String, to: (String) -> String) {
+        val root = downloadsDir ?: return
+        sources.forEach { source ->
+            val target = folderName(to(source))
+            val folder = root.findFile(folderName(from(source)))?.takeIf { it.isDirectory } ?: return@forEach
+            if (folder.name == target || root.findFile(target) != null) return@forEach
+            renameDownloadFolder(folder, target)
+        }
+    }
+
+    private fun folderName(label: String): String =
+        DiskUtil.buildValidFilename(label, disallowNonAscii = libraryPreferences.disallowNonAsciiFilenames.get())
 
     fun novelDirName(title: String): String = downloadProvider.getMangaDirName(title)
 
@@ -166,3 +207,18 @@ class NovelDownloadProvider(
         private const val HTML_EXT = ".html"
     }
 }
+
+/**
+ * The folder label of every source the seen record names: an app catalogue as manga's `Source.toString()` names
+ * one, `Name (LANG)`; a plugin by the id its updates keep, with its name beside it to tell the folders apart.
+ */
+internal fun sourceFolderLabels(seen: Map<String, LnSourceIdentity>): Map<String, String> =
+    seen.mapValues { (id, identity) ->
+        val name = identity.name.takeIf { it.isNotBlank() && it != id }
+        when {
+            isNovelAppSourceId(id) && name != null ->
+                identity.lang?.takeIf { it.isNotBlank() }?.let { "$name (${it.uppercase()})" } ?: name
+            name != null -> "$id ($name)"
+            else -> id
+        }
+    }

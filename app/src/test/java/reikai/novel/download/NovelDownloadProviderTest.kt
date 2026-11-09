@@ -15,10 +15,13 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import reikai.domain.novel.LnSourceIdentity
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -43,6 +46,14 @@ class NovelDownloadProviderTest {
     }
 
     private val libraryPreferences = LibraryPreferences(EmittingPreferenceStore())
+    private val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
+        seenNovelSources().set(
+            mapOf(
+                "tachiyomi:123" to LnSourceIdentity(name = "Novel Site", lang = "en"),
+                "plugin" to LnSourceIdentity(name = "Plugin Site", lang = "en"),
+            ),
+        )
+    }
 
     private val provider by lazy {
         NovelDownloadProvider(
@@ -53,7 +64,34 @@ class NovelDownloadProviderTest {
             },
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
+            novelPreferences = novelPreferences,
         )
+    }
+
+    @Test
+    fun `an app catalogue's folder is named by its name and language, as manga's is`() {
+        provider.sourceDirName("tachiyomi:123") shouldBe "Novel Site (EN)"
+    }
+
+    /** The id is what a plugin update cannot change; the name beside it tells the folders apart. */
+    @Test
+    fun `a plugin's folder is its id with its name`() {
+        provider.sourceDirName("plugin") shouldBe "plugin (Plugin Site)"
+    }
+
+    @Test
+    fun `a source never recorded keeps its id`() {
+        provider.sourceDirName("unknown") shouldBe "unknown"
+    }
+
+    /** What the upgrade does: a folder named by id moves to the name the source has now, downloads and all. */
+    @Test
+    fun `renaming a source folder moves its downloads`() {
+        File(root, "plugin/Old Title").mkdirs()
+
+        provider.renameSourceFolders(listOf("plugin"), from = { it }, to = provider::sourceFolderLabel)
+
+        File(root, "plugin (Plugin Site)/Old Title").isDirectory shouldBe true
     }
 
     private val novel = Novel.create().copy(id = 1L, source = "src", url = "/n", title = "Old Title")

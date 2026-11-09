@@ -7,6 +7,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -58,6 +59,7 @@ class NovelDownloadCacheRenewTest {
     }
 
     private val provider = mockk<NovelDownloadProvider> {
+        every { sourceFolders } returns MutableStateFlow(emptyMap())
         every { sourceDirName(any<Novel>()) } returns "src"
         every { novelDirName(any<Novel>()) } returns "Novel"
         every { sourceDirName(any<String>()) } returns "src"

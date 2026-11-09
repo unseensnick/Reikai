@@ -30,6 +30,7 @@ import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.download.QueuedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.download.FakeSharedPreferences
@@ -74,7 +75,13 @@ class MergedDuplicateDownloadsTest {
     }
     private val downloadProvider = DownloadProvider(mockk(), storageManager, libraryPreferences)
     private val novelProvider =
-        NovelDownloadProvider(testAppScope(), storageManager, downloadProvider, libraryPreferences)
+        NovelDownloadProvider(
+            testAppScope(),
+            storageManager,
+            downloadProvider,
+            libraryPreferences,
+            NovelPreferences(InMemoryPreferenceStore()),
+        )
 
     private val sourceManager = mockk<SourceManager> {
         coEvery { getOrStub(SOURCE_ID) } returns StubSource(id = SOURCE_ID, lang = "en", name = "Src")

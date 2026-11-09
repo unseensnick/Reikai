@@ -145,6 +145,7 @@ class NovelTitleRenameHalf : TitleRenameHalf {
                 },
                 downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                 libraryPreferences = libraryPreferences,
+                novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
             ),
             cache = mockk(relaxed = true),
             chapterRepo = mockk(),
