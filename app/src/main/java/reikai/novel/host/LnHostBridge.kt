@@ -1,7 +1,7 @@
 package reikai.novel.host
 
 import android.util.Base64
-import eu.kanade.tachiyomi.network.requestCookies
+import eu.kanade.tachiyomi.network.WithPluginCookies
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -11,9 +11,6 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import logcat.LogPriority
-import okhttp3.Cookie
-import okhttp3.CookieJar
-import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
@@ -199,10 +196,3 @@ class LnHostBridge(
 internal fun loggableUrl(url: String): String =
     url.toHttpUrlOrNull()?.newBuilder()?.query(null)?.fragment(null)?.build()?.toString()
         ?: url.substringBefore('?').substringBefore('#')
-
-/** A plugin's own Cookie header sent along with the jar's cookies, by the rule the bypass server forwards too. */
-private class WithPluginCookies(private val jar: CookieJar, private val header: String) : CookieJar {
-    override fun loadForRequest(url: HttpUrl): List<Cookie> = requestCookies(jar.loadForRequest(url), header, url)
-
-    override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = jar.saveFromResponse(url, cookies)
-}

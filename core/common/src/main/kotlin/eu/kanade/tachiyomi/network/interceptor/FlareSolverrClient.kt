@@ -2,8 +2,8 @@ package eu.kanade.tachiyomi.network.interceptor
 
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkPreferences
+import eu.kanade.tachiyomi.network.cookiesSent
 import eu.kanade.tachiyomi.network.jsonMime
-import eu.kanade.tachiyomi.network.requestCookies
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -19,6 +19,7 @@ import kotlinx.serialization.json.putJsonArray
 import okhttp3.Call
 import okhttp3.Connection
 import okhttp3.Cookie
+import okhttp3.CookieJar
 import okhttp3.EventListener
 import okhttp3.FormBody
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
@@ -179,11 +180,12 @@ class FlareSolverrClient(
     /**
      * Solve the challenge for [request] through the FlareSolverr server at [flareSolverrUrl] and
      * return its fully-fetched response. One solve per host at a time is [CloudflareInterceptor]'s
-     * per-host lock, which every caller holds.
+     * per-host lock, which every caller holds. [cookieJar] is the jar of the client sending [request],
+     * whose cookies are the ones forwarded.
      */
-    fun resolve(flareSolverrUrl: String, request: Request): Response {
+    fun resolve(flareSolverrUrl: String, request: Request, cookieJar: CookieJar): Response {
         cookieManager.remove(request.url, listOf(CF_CLEARANCE), 0)
-        return resolveWithFlareSolverr(flareSolverrUrl, request).also {
+        return resolveWithFlareSolverr(flareSolverrUrl, request, cookieJar).also {
             logBypassServed(it, "solved by FlareSolverr", networkPreferences.verboseLogging.get())
         }
     }
@@ -261,8 +263,8 @@ class FlareSolverrClient(
         FlareSolverrTestResult.Success
     }
 
-    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request): Response =
-        runFlareSolverrRequest(flareSolverrUrl, request, ensureFlareSolverrSession(flareSolverrUrl))
+    private fun resolveWithFlareSolverr(flareSolverrUrl: String, request: Request, cookieJar: CookieJar): Response =
+        runFlareSolverrRequest(flareSolverrUrl, request, cookieJar, ensureFlareSolverrSession(flareSolverrUrl))
 
     /**
      * Returns the shared FlareSolverr session id, or null when the server is sessionless (Byparr) or
@@ -327,6 +329,7 @@ class FlareSolverrClient(
     private fun runFlareSolverrRequest(
         flareSolverrUrl: String,
         request: Request,
+        cookieJar: CookieJar,
         sessionId: String?,
     ): Response {
         val targetUrl = request.url.toString()
@@ -339,7 +342,7 @@ class FlareSolverrClient(
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
         val forwarded = if (isPrivateChannel(flareSolverrUrl)) {
-            requestCookies(cookieManager.get(request.url), request.header("Cookie"), request.url)
+            cookiesSent(cookieJar, request)
         } else {
             emptyList()
         }

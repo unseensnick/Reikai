@@ -15,6 +15,7 @@ import io.mockk.mockkStatic
 import io.mockk.spyk
 import io.mockk.unmockkAll
 import okhttp3.Cookie
+import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.Protocol
@@ -95,6 +96,7 @@ class CloudflareInterceptorTest {
         return mockk {
             every { request() } returns request
             every { proceed(any()) } answers { server(firstArg()) }
+            every { cookieJar } returns CookieJar.NO_COOKIES
         }
     }
 
@@ -260,7 +262,7 @@ class CloudflareInterceptorTest {
                 every { isActive() } returns true
                 every { carries(any()) } returns true
                 every { shouldSkipWebView(any()) } returns true
-                every { resolve(any(), any()) } answers {
+                every { resolve(any(), any(), any()) } answers {
                     inside.countDown()
                     release.await(5, TimeUnit.SECONDS)
                     ok(secondArg())
@@ -285,7 +287,7 @@ class CloudflareInterceptorTest {
                 every { isActive() } returns true
                 every { carries(any()) } returns true
                 every { shouldSkipWebView(any()) } answers { marked.get() }
-                every { resolve(any(), any()) } answers {
+                every { resolve(any(), any(), any()) } answers {
                     served.incrementAndGet()
                     ok(secondArg())
                 }

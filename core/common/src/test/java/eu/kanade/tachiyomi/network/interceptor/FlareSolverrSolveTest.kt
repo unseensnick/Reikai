@@ -5,6 +5,9 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
 import io.mockk.mockk
+import okhttp3.Cookie
+import okhttp3.CookieJar
+import okhttp3.HttpUrl
 import okhttp3.Request
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
@@ -50,7 +53,21 @@ class FlareSolverrSolveTest {
     @AfterEach
     fun stop() = server.stop(0)
 
-    private fun resolve(request: Request = page) = client.resolve("http://127.0.0.1:${server.address.port}", request)
+    private fun resolve(request: Request = page, cookieJar: CookieJar = CookieJar.NO_COOKIES) =
+        client.resolve("http://127.0.0.1:${server.address.port}", request, cookieJar)
+
+    @Test
+    fun `the cookies forwarded are the ones the request's own client sends`() {
+        val clientJar = object : CookieJar {
+            override fun loadForRequest(url: HttpUrl) =
+                listOf(Cookie.Builder().name("site").value("from-jar").domain(url.host).build())
+            override fun saveFromResponse(url: HttpUrl, cookies: List<Cookie>) = Unit
+        }
+
+        resolve(page, clientJar).close()
+
+        commands.last() shouldContain "from-jar"
+    }
 
     @Test
     fun `a banner probe the server failed leaves only that solve without a session`() {
