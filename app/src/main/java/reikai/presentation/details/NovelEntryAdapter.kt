@@ -95,7 +95,7 @@ class NovelEntryAdapter(
                 isUserIntervalMode = intervalNovel.fetchInterval < 0,
                 description = display.description,
                 tags = display.genre,
-                notes = novel.notes,
+                notes = display.notes,
                 descriptionDefaultExpanded = model.isFromSource,
             ),
             chapters = EntryChapterListUiState(

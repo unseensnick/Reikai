@@ -81,7 +81,7 @@ class MangaEntryAdapter(
                 isUserIntervalMode = intervalManga.fetchInterval < 0,
                 description = shown.description,
                 tags = shown.genre,
-                notes = manga.notes,
+                notes = shown.notes,
                 // Expand by default for EH/EXH galleries (tags are the content, no description).
                 descriptionDefaultExpanded = isFromSource || isMetadataSource,
             ),

@@ -569,6 +569,13 @@ class NovelDetailsViewModel(
         val pageIndex: Int,
     )
 
+    private data class SingleInputs(
+        val chapters: List<NovelChapter>,
+        val gapRows: List<NovelChapter>,
+        val siblings: List<NovelChapter>,
+        val shown: Novel,
+    )
+
     /** What the page lays over the chapter list: written by the verbs, never derived from the rows. */
     private data class Overlay(
         val selection: SelectionState<Long>,
@@ -712,22 +719,27 @@ class NovelDetailsViewModel(
         } else {
             combine(siblingFlows) { rows -> rows.toList().flatten() }
         }
+        // A sibling chip's row is watched like manga's, so its notes or a refresh reach the page; the
+        // anchor's already arrives live through storedAnchor.
+        val viewRow = if (isAnchorView) flowOf(viewNovel) else novelRepo.getByIdAsFlow(viewNovel.id).filterNotNull()
         // Fold the download cache's change signal in so a download/delete rebuilds the list, and the plugin's
         // answer so a page shown before it loaded is still fetched once it has.
         return combine(
             chapterFlow,
             otherPages,
             novelDownloadCache.changes.pausedWhileUnsubscribed(),
-            siblingChapters,
+            combine(siblingChapters, viewRow, ::Pair),
             anchorSource,
-        ) { chapters, allPages, _, siblings, _ -> Triple(chapters, allPages ?: chapters, siblings) }
-            .mapLatest { (chapters, gapRows, siblings) ->
+        ) { chapters, allPages, _, (siblings, shown), _ ->
+            SingleInputs(chapters, allPages ?: chapters, siblings, shown)
+        }
+            .mapLatest { (chapters, gapRows, siblings, shown) ->
                 val stitch = mergedChapterProvider.stitchOf(viewNovel.id)
                 val flags = group.novelRowFlags(chapters + siblings, chapters, stitch)
                 buildLoaded(
                     group,
                     anchor,
-                    viewNovel,
+                    shown,
                     chapters,
                     pages,
                     idx,

@@ -172,7 +172,8 @@ class MangaScreen(
                         onOpenTrackingSettings = {
                             navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                         },
-                        onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.manga)) },
+                        // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
+                        onEditNotes = { navigator.push(MangaNotesScreen(manga = successState.shownManga)) },
                         onOpenFilterSettings = viewModel::showSettingsDialog,
                         onMigrate = {
                             // Source picker first, so a merged manga can pick which source to migrate.

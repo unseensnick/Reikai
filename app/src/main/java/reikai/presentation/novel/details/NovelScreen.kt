@@ -200,8 +200,10 @@ class NovelScreen(
                             onOpenTrackingSettings = {
                                 navigator.push(SettingsScreen(SettingsScreen.Destination.Tracking))
                             },
+                            // The viewed member's own notes, as shown above it: the chip's, the anchor's under All.
                             onEditNotes = {
-                                navigator.push(NovelNotesScreen(s.novel.id, s.novel.title, s.novel.notes))
+                                val viewed = s.displayNovel
+                                navigator.push(NovelNotesScreen(viewed.id, viewed.title, viewed.notes))
                             },
                             onOpenFilterSettings = viewModel::showChapterSettingsDialog,
                             onEditInterval = viewModel::showSetFetchIntervalDialog,
