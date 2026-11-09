@@ -45,6 +45,10 @@ class ReadingPaceRepositoryImpl(
         queries.addNovelListened(chapterId, ms)
     }
 
+    override suspend fun keepLength(chapterId: Long, words: Long) {
+        queries.keepNovelWords(chapterId, words)
+    }
+
     override suspend fun keepListenedTime(chapterId: Long, ms: Long) {
         queries.keepNovelListened(chapterId, ms)
     }

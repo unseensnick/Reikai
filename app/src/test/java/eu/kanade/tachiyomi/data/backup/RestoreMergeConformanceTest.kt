@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
@@ -14,6 +15,9 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.merge.RestoreMergeGroups
@@ -26,6 +30,8 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelTrack
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.track.model.Track
@@ -140,6 +146,14 @@ class RestoreMergeConformanceTest {
         ) shouldBe null
     }
 
+    // A length only differs when the chapter changed since the backup; neither side can tell which is current.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("restorers")
+    fun `a chapter keeps the larger of its two lengths`(restorer: MergeRestorer) = runTest {
+        listOf(restorer.length(device = 40, backup = 25), restorer.length(device = 25, backup = 40)) shouldBe
+            listOf(40L, 40L)
+    }
+
     companion object {
         const val DEVICE_ID = 10L
         const val TRACKER_ID = 3L
@@ -178,6 +192,9 @@ interface MergeRestorer {
 
     /** Restores one track over the device's track on the same tracker, returning the device's row afterwards. */
     suspend fun track(device: TrackState, backup: TrackState): TrackState?
+
+    /** Restores one chapter of [backup] length over the device's of [device] length, returning the length kept. */
+    suspend fun length(device: Long, backup: Long): Long
 }
 
 class MangaMergeRestorer : MergeRestorer {
@@ -247,6 +264,17 @@ class MangaMergeRestorer : MergeRestorer {
             val stored = harness.chapters.getChapterByMangaId(id).single()
             ChapterState(stored.read, stored.bookmark, stored.lastPageRead.toLong())
         }
+
+    override suspend fun length(device: Long, backup: Long): Long = MangaRestoreHarness.create().use { harness ->
+        val id = harness.insert(deviceManga)
+        harness.insert(Chapter.create().copy(mangaId = id, url = "c", name = "C", pageCount = device.toInt()))
+        val backupChapter = BackupChapter(url = "c", name = "C", pageCount = backup)
+        harness.restorer().restore(
+            listOf(BackupManga(source = 1L, url = "u", chapters = listOf(backupChapter))),
+            emptyList(),
+        )
+        harness.chapters.getChapterByMangaId(id).single().pageCount.toLong()
+    }
 
     override suspend fun track(device: TrackState, backup: TrackState): TrackState? =
         MangaRestoreHarness.create().use { harness ->
@@ -417,6 +445,46 @@ class NovelMergeRestorer : MergeRestorer {
         restorer(novels(deviceNovel), tracks = tracks)
             .restore(BackupNovel(source = "s", url = "u", tracking = listOf(backupTrack)), emptyList())
         return result
+    }
+
+    /** Over real SQL, since the novel side's rule lives in the word-count upsert. */
+    override suspend fun length(device: Long, backup: Long): Long {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        return try {
+            Database.Schema.create(driver).await()
+            val database = DatabaseBindings.providesDatabase(driver)
+            listOf(
+                "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
+                    "VALUES (1, 's', 'u', 'T', 0, 0, 0, 0)",
+                "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, " +
+                    "source_order, date_fetch, date_upload) VALUES (10, 1, 'c', 'C', 0, 0, 1, 0, 0, 0)",
+                "INSERT INTO novel_chapter_words(chapter_id, words) VALUES (10, $device)",
+            ).forEach { driver.execute(null, it, 0).await() }
+            val pace = ReadingPaceRepositoryImpl(database)
+            NovelRestorer(
+                novelRepository = NovelRepositoryImpl(database),
+                novelChapterRepository = NovelChapterRepositoryImpl(database),
+                categoryRepository = mockk(relaxed = true),
+                novelTrackRepository = mockk(relaxed = true),
+                restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
+                setCustomNovelInfo = mockk(relaxed = true),
+                novelHistoryRepository = mockk(relaxed = true),
+                chapterNumberOverrides = NoChapterNumberOverrides,
+                readingLog = NoReadingLog,
+                readingPace = pace,
+                localNovelLanguages = NoLocalNovelLanguages,
+            ).restore(
+                BackupNovel(
+                    source = "s",
+                    url = "u",
+                    chapters = listOf(BackupNovelChapter(url = "c", name = "C", words = backup)),
+                ),
+                emptyList(),
+            )
+            pace.novelChapterPace(listOf(1L)).single().words
+        } finally {
+            driver.close()
+        }
     }
 
     private fun novels(dbNovel: Novel, block: NovelRepository.() -> Unit = {}) =

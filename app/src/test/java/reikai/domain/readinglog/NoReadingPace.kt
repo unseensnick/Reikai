@@ -10,6 +10,8 @@ object NoReadingPace : ReadingPaceRepository {
 
     override suspend fun addListenedTime(chapterId: Long, ms: Long) = Unit
 
+    override suspend fun keepLength(chapterId: Long, words: Long) = Unit
+
     override suspend fun keepListenedTime(chapterId: Long, ms: Long) = Unit
 
     override suspend fun novelChapterPace(novelIds: List<Long>) = emptyList<NovelChapterPace>()

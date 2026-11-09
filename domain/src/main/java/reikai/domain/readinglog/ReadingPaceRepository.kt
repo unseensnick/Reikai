@@ -17,6 +17,9 @@ interface ReadingPaceRepository {
      */
     suspend fun setLength(contentType: ContentType, chapterId: Long, units: Long)
 
+    /** Raises a novel chapter's word count to at least [words], for a restore carrying it. */
+    suspend fun keepLength(chapterId: Long, words: Long)
+
     /** Adds [ms] of read-aloud to a novel chapter, the only type that reads aloud. */
     suspend fun addListenedTime(chapterId: Long, ms: Long)
 

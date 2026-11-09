@@ -15,6 +15,13 @@ INSERT INTO novel_chapter_words(chapter_id, words)
 VALUES (:chapterId, :words)
 ON CONFLICT(chapter_id) DO UPDATE SET words = excluded.words;
 
+-- Backup restore: a chapter's word count is at least [words], the larger of the two, as a restored manga
+-- chapter keeps the larger page count.
+keepNovelWords:
+INSERT INTO novel_chapter_words(chapter_id, words)
+VALUES (:chapterId, :words)
+ON CONFLICT(chapter_id) DO UPDATE SET words = MAX(words, excluded.words);
+
 addNovelListened:
 INSERT INTO novel_chapter_words(chapter_id, words, listened_ms)
 VALUES (:chapterId, 0, :ms)

@@ -200,7 +200,7 @@ class NovelRestorer(
         val chapterIdsByUrl = chapters.associate { it.url to it.id }
         backupChapters.filter { it.words > 0 }.forEach { backupChapter ->
             val chapterId = chapterIdsByUrl[backupChapter.url] ?: return@forEach
-            readingPace.setLength(ContentType.NOVELS, chapterId, backupChapter.words)
+            readingPace.keepLength(chapterId, backupChapter.words)
         }
     }
 
