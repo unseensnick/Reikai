@@ -142,6 +142,8 @@ Tap a row to list the series it counts, drawn as your library draws them: the sa
 
 **Open** on **Reading this week** shows your reading time with the series you read and for how long. Pick **Week** (the last seven days, a bar per day), **Month** (a bar per day) or **Year** (a bar per month), or **Custom** to choose any dates: up to two months gets a bar per day, up to three years a bar per month, and longer a bar per year. The arrows step back or forward by the same length. Tap a bar to list only its dates, and tap it again to see the whole period. Tap a series to open it.
 
+Reading time counts while a chapter is on screen. It stops while the reader's menu is open or you are away from the reader, unless read aloud is playing.
+
 <img
   class="only-light"
   src="/docs/statistics/reading-time.light.webp"
