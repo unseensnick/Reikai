@@ -73,6 +73,8 @@ class ChapterCopiesTest {
             apart("Chapter 16-20", "Chapter 16.2"),
             apart("Vol.1 Chapter 1", "Vol.2 Chapter 1"),
             apart("第12章", "番外12"),
+            apart("Ch. 1 - Double Dungeon", "Special Episode 1", "official" to "unofficial"),
+            apart("Ch. 1", "Special Episode 1", "unofficial" to "official"),
             apart("Hoofdstuk 4", "Bonushoofdstuk 4"),
         )
     }

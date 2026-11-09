@@ -65,12 +65,13 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
     fun isCopyOf(other: WrittenChapter): Boolean {
         if (!numbered || !other.numbered) return false
         if (volume != null && other.volume != null && volume != other.volume) return false
+        // Before the scanlator check: two groups each translating a side story is no reason to fold it.
+        if (marksExtra != other.marksExtra) return false
         return origin != other.origin || titlesMatch(other)
     }
 
     // A bare "Chapter 2" matches "Chapter 2: New World"; words one title adds to the other's still match.
     private fun titlesMatch(other: WrittenChapter): Boolean {
-        if (marksExtra != other.marksExtra) return false
         if (words.isEmpty() || other.words.isEmpty()) return true
         return words.toSet().containsAll(other.words) || other.words.toSet().containsAll(words)
     }
