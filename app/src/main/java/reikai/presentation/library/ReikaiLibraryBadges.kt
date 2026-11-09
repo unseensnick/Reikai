@@ -312,7 +312,10 @@ fun CoverBadgeRow(
     spread: Boolean = true,
     widthFraction: Float = 1f,
 ) {
-    SubcomposeLayout(modifier) { constraints ->
+    // Kept together, the two groups read as one strip: rounded once on the outside, square where they meet.
+    val outer = MaterialTheme.shapes.extraSmall
+    val groupShape = if (spread) outer else RectangleShape
+    SubcomposeLayout(if (spread) modifier else modifier.clip(outer)) { constraints ->
         val width = (constraints.maxWidth * widthFraction).roundToInt()
 
         // Each group is measured against a hard ceiling, so a badge the ladder's estimates did not
@@ -323,7 +326,7 @@ fun CoverBadgeRow(
                     CompositionLocalProvider(
                         LocalCoverBadgeBudget provides budget,
                         LocalCoverBadgeDropDownload provides drop,
-                    ) { BadgeGroup(content = it) }
+                    ) { BadgeGroup(shape = groupShape, content = it) }
                 }.map { measurable ->
                     measurable.measure(
                         Constraints(maxWidth = budget.coerceAtLeast(0), maxHeight = constraints.maxHeight),
