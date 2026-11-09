@@ -50,3 +50,14 @@ fun sourceLanguageName(lang: String, context: Context): String? =
 /** The language line under a Sources row, led by its flag; left blank for a source declaring none. */
 fun sourceLanguageLabel(lang: String, context: Context): String =
     sourceLanguageName(lang, context)?.let { "${FlagEmoji.getEmojiLangFlag(lang)} $it" }.orEmpty()
+
+/**
+ * The sources filter's language order, both content types' halves of the one screen: languages switched on
+ * before those switched off ([isOff]), as Mihon lists its enabled languages first, each by [compareBrowseLanguages].
+ */
+fun sourcesFilterLanguageOrder(isOff: (String) -> Boolean): Comparator<String> =
+    compareBy<String> { isOff(it) }.then(Comparator(::compareBrowseLanguages))
+
+/** Within one language of the sources filter, both types' sources switched off last, then by name ignoring case. */
+fun <T> sourcesFilterSourceOrder(isOff: (T) -> Boolean, name: (T) -> String): Comparator<T> =
+    compareBy<T> { isOff(it) }.thenBy(String.CASE_INSENSITIVE_ORDER, name)

@@ -185,17 +185,23 @@ class NovelImageRequestsTest {
     /** A Cloudflare clearance is tied to the agent that earned it, so the WebView must pass as the fetches. */
     @Test
     fun `an LNReader source's WebView sends the user agent its fetches send`() {
-        pluginWebViewHeaders("p") { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
+        pluginWebViewHeaders("p", emptyMap()) { "Device UA" } shouldBe mapOf("user-agent" to "Device UA")
+    }
+
+    @Test
+    fun `a plugin that sets its own user agent has its WebView send that one`() {
+        pluginWebViewHeaders("p", mapOf("user-agent" to "Plugin UA")) { "Device UA" } shouldBe
+            mapOf("user-agent" to "Plugin UA")
     }
 
     @Test
     fun `an app source's WebView takes no plugin user agent`() {
-        pluginWebViewHeaders("tachiyomi:42") { "Device UA" } shouldBe emptyMap()
+        pluginWebViewHeaders("tachiyomi:42", emptyMap()) { "Device UA" } shouldBe emptyMap()
     }
 
     @Test
     fun `an unknown device user agent sends none rather than an empty one`() {
-        pluginWebViewHeaders("p") { "" } shouldBe emptyMap()
+        pluginWebViewHeaders("p", emptyMap()) { "" } shouldBe emptyMap()
     }
 
     private fun apkWithToken() = novelApp(apkSource(headersOf("X-Token", "secret")))

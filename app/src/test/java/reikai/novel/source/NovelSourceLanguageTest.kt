@@ -5,7 +5,6 @@ import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
 import reikai.novel.host.LnPluginInfo
-import reikai.presentation.browse.compareBrowseLanguages
 
 /**
  * An lnreader registry names a language in the language itself, so these pin that those names reach
@@ -41,25 +40,6 @@ class NovelSourceLanguageTest {
     @Test
     fun `a language nobody has mapped is kept rather than dropped`() {
         "Klingon".toLangCode() shouldBe "Klingon"
-    }
-
-    /** A plugin says "English" where an app source says "en"; a sort by display name merged the two. */
-    @Test
-    fun `a plugin and an app source of one language share one group`() {
-        val plugin = plugin("Plugin", "English")
-        val app = named("App", "en")
-
-        groupByLanguage(listOf(plugin, app), naturalOrder()) shouldBe listOf("en" to listOf(app, plugin))
-    }
-
-    /** Android names "in" and "id" alike, and a sorted map keyed by display name alone kept one group. */
-    @Test
-    fun `two codes Android names alike stay two groups`() {
-        val legacy = named("Legacy", "in")
-        val current = named("Current", "id")
-
-        groupByLanguage(listOf(legacy, current), ::compareBrowseLanguages).map { it.first } shouldBe
-            listOf("id", "in")
     }
 
     @Test
@@ -105,10 +85,5 @@ class NovelSourceLanguageTest {
     private fun withId(id: String, lang: String) = mockk<NovelSource> {
         every { this@mockk.id } returns id
         every { this@mockk.lang } returns lang
-    }
-
-    private fun named(name: String, lang: String) = mockk<NovelSource> {
-        every { this@mockk.lang } returns lang
-        every { this@mockk.name } returns name
     }
 }

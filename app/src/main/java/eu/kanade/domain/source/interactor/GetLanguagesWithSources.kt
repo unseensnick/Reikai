@@ -2,9 +2,10 @@ package eu.kanade.domain.source.interactor
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.source.service.SourcePreferences
-import eu.kanade.tachiyomi.util.system.LocaleHelper
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import reikai.presentation.browse.sourcesFilterLanguageOrder
+import reikai.presentation.browse.sourcesFilterSourceOrder
 import tachiyomi.domain.source.model.Source
 import tachiyomi.domain.source.repository.SourceRepository
 import java.util.SortedMap
@@ -21,19 +22,15 @@ class GetLanguagesWithSources(
             preferences.disabledSources.changes(),
             repository.getOnlineSources(),
         ) { enabledLanguage, disabledSource, onlineSources ->
+            // RK --> the sources filter's order, which the novel half of the screen sorts by too
             val sortedSources = onlineSources.sortedWith(
-                compareBy<Source> { it.id.toString() in disabledSource }
-                    .thenBy(String.CASE_INSENSITIVE_ORDER) { it.name },
+                sourcesFilterSourceOrder({ it.id.toString() in disabledSource }, Source::name),
             )
 
             sortedSources
                 .groupBy { it.lang }
-                .toSortedMap(
-                    compareBy<String> { it !in enabledLanguage }.then(LocaleHelper.comparator)
-                        // RK --> two codes Android names alike ("in", "id") would share a key and drop a group
-                        .then(naturalOrder()),
-                    // RK <--
-                )
+                .toSortedMap(sourcesFilterLanguageOrder { it !in enabledLanguage })
+            // RK <--
         }
     }
 }

@@ -106,10 +106,13 @@ class NovelImageRequests(
     suspend fun webViewHeaders(sourceId: String?, url: String): Map<String, String> =
         runCatchingCancellable {
             appImages(sourceId)?.webViewHeaders(url)
-                ?: pluginWebViewHeaders(sourceId) { deviceWebViewUserAgent(context) }
+                ?: pluginWebViewHeaders(sourceId, seenImageHeaders(sourceId)) { deviceWebViewUserAgent(context) }
         }
             .onFailure { logcat(LogPriority.ERROR, it) { "Failed to build headers" } }
             .getOrDefault(emptyMap())
+
+    private fun seenImageHeaders(sourceId: String?): Map<String, String> =
+        sourceId?.let { novelPreferences.seenNovelSources().get()[it] }?.imageHeaders.orEmpty()
 
     // An app's id is checked first, since the registry answers only once the extension scan is done.
     private suspend fun appImages(sourceId: String?): NovelImageClient? {
@@ -144,12 +147,18 @@ internal fun lnImageHeaders(deviceUserAgent: String, site: String?, pluginHeader
 
 /**
  * An LNReader plugin's WebView headers: the User-Agent its fetches send, so a Cloudflare check passed
- * in the WebView leaves a cookie those fetches can use, since the clearance is tied to the agent.
- * An app source's id gets none here, its own headers being the app's to give.
+ * in the WebView leaves a cookie those fetches can use, since the clearance is tied to the agent. That is
+ * the one its [pluginHeaders] set, else the device's. An app source's id gets none here, its own headers
+ * being the app's to give.
  */
-internal fun pluginWebViewHeaders(sourceId: String?, deviceUserAgent: () -> String): Map<String, String> {
+internal fun pluginWebViewHeaders(
+    sourceId: String?,
+    pluginHeaders: Map<String, String>,
+    deviceUserAgent: () -> String,
+): Map<String, String> {
     if (sourceId == null || isNovelAppSourceId(sourceId)) return emptyMap()
-    val agent = deviceUserAgent()
+    val agent = pluginHeaders.entries.firstOrNull { it.key.equals("User-Agent", ignoreCase = true) }?.value
+        ?: deviceUserAgent()
     return if (agent.isBlank()) emptyMap() else mapOf("user-agent" to agent)
 }
 

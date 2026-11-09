@@ -32,12 +32,6 @@ fun NovelSource.isInDisabledLanguage(disabled: Set<String>): Boolean = lang.isIn
 fun NovelSource.isDisabled(disabledIds: Set<String>, disabledLangs: Set<String>): Boolean =
     !LocalNovelSource.isLocal(id) && (id in disabledIds || isInDisabledLanguage(disabledLangs))
 
-/** [sources] in one group per language code, so a plugin and an app source of one language share it. */
-fun groupByLanguage(sources: List<NovelSource>, order: Comparator<String>): List<Pair<String, List<NovelSource>>> =
-    sources.groupBy { it.lang }
-        .toSortedMap(order)
-        .map { (lang, langSources) -> lang to langSources.sortedBy { it.name.lowercase() } }
-
 // The registry's own name-to-language table (lnreader-plugins `scripts/languages.js`), inverted.
 // Multi maps onto Mihon's "all", so a multi-language plugin shares the manga sources' Multi section.
 private val LANGUAGE_CODES = mapOf(

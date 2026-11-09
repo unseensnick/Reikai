@@ -12,8 +12,8 @@ import reikai.novel.host.withDecodedDetails
 
 /**
  * [NovelSource] backed by an upstream lnreader plugin running inside an [LnPluginHost]. The adapter
- * does not own the host: construct one for every plugin loaded on the host, and dispose them
- * together when the host goes away.
+ * does not own the host: construct one for every plugin loaded on the host, whose own `close()` tears
+ * its engines down.
  *
  * The plugin id in [info] is the one the installer retained the script under (`host.retainPlugin`),
  * so the adapter routes every method call to that plugin's own engine.

@@ -24,9 +24,9 @@ import reikai.novel.registry.reachedEntries
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
-import reikai.novel.source.groupByLanguage
 import reikai.novel.source.toLangCode
-import reikai.presentation.browse.compareBrowseLanguages
+import reikai.presentation.browse.sourcesFilterLanguageOrder
+import reikai.presentation.browse.sourcesFilterSourceOrder
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -64,10 +64,11 @@ class NovelSourcesFilterViewModel(
         sourcePreferences.disabledNovelSources.changes(),
         sourcePreferences.disabledNovelLanguages.changes(),
     ) { sources, listed, disabled, disabledLanguages ->
+        val disabledCodes = disabledLanguages.mapTo(HashSet()) { it.toLangCode() }
         State.Success(
-            items = filterLanguages(sources, listed),
+            items = filterLanguages(sources, listed, disabled, disabledCodes),
             disabledSources = disabled,
-            disabledLanguages = disabledLanguages.mapTo(HashSet()) { it.toLangCode() },
+            disabledLanguages = disabledCodes,
         )
     }
         .flowOn(Dispatchers.IO)
@@ -102,14 +103,18 @@ class NovelSourcesFilterViewModel(
 
 /**
  * The installed [sources] by language, plus each language a listing declares with nothing installed in
- * it, as Mihon's extension filter lists every language its stores offer.
+ * it, as Mihon's extension filter lists every language its stores offer. Ordered as the manga half of the
+ * screen is, by the sources filter's own order: switched-off languages and sources after the rest.
  */
 internal fun filterLanguages(
     sources: List<NovelSource>,
     listed: Collection<String>,
+    disabledSources: Set<String>,
+    disabledLanguages: Set<String>,
 ): List<Pair<String, List<NovelSource>>> {
-    val installed = groupByLanguage(sources, ::compareBrowseLanguages).toMap()
+    val sourceOrder = sourcesFilterSourceOrder<NovelSource>({ it.id in disabledSources }, { it.name })
+    val installed = sources.groupBy { it.lang }.mapValues { (_, inLanguage) -> inLanguage.sortedWith(sourceOrder) }
     return (installed.keys + listed.map { it.toLangCode() })
-        .sortedWith(::compareBrowseLanguages)
+        .sortedWith(sourcesFilterLanguageOrder { it in disabledLanguages })
         .map { it to installed[it].orEmpty() }
 }
