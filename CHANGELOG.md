@@ -49,6 +49,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Tapping a cover in its full view now closes it with the high quality renderer on.**
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
+- **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
 - **Edit info keeps the app's theme while Settings -> Appearance -> Theme based on cover is off.**
 
 ### Merged series
@@ -69,7 +70,19 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Settings -> Downloads gathers its speed settings in one Download speed group at the end, with sliders for each delay.** The per-source list adds a search, a type filter and a reset back to the default.
 
+- **The novel download notification offers Pause and Show entry, as manga's does, without a Cancel that cleared the whole queue.**
+
 #### Fixed
+
+- **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**
+
+- **A novel chapter cancelled or deleted just after the app starts no longer comes back into the queue.**
+
+- **Pausing novel downloads now stops fetching the current chapter's pictures straight away.**
+
+- **Deleting a downloaded novel chapter whose file name differs only in capitals now removes the file.**
+
+- **A downloaded novel chapter with pictures keeps the styling its source sent.**
 
 - **The first chapter downloaded after a library update now waits out its site's download delay.** So does one queued just after other downloads from the same site finish.
 
@@ -114,6 +127,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A novel chapter no longer hangs while loading on a find-and-replace rule whose pattern never finishes.**
+- **Auto-split no longer puts a blank line inside a novel chapter's list items, headings or quotes.**
 - **A novel chapter read aloud is now marked read and keeps your place, with Keep in view off too.** Reopening the chapter takes you to the paragraph being read.
 - **Read aloud no longer speaks brackets, quote marks, tildes, emoji or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.
 - **Turning back onto the second half of a split wide page now shows that page's number.**

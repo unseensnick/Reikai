@@ -37,6 +37,8 @@ class FakeNotificationShade : AutoCloseable {
 
     private val contentTitles = mutableMapOf<NotificationCompat.Builder, CharSequence?>()
 
+    private val actionIcons = mutableMapOf<NotificationCompat.Builder, MutableList<Int>>()
+
     /** What `SystemClock.elapsedRealtime` reads, well past boot as on a device, for the progress throttles. */
     var now = 1_000_000L
 
@@ -45,6 +47,9 @@ class FakeNotificationShade : AutoCloseable {
 
     /** The title the notification shown under [id] carries. */
     fun titleOf(id: Int): CharSequence? = shown[id]?.let(contentTitles::get)
+
+    /** The icons of the action buttons the notification shown under [id] carries, in order. */
+    fun actionIconsOf(id: Int): List<Int> = shown[id]?.let(actionIcons::get).orEmpty()
 
     /** Shows each of [requests] in turn, as a worker's foreground service does once it has started. */
     fun postAll(requests: List<ForegroundInfo>) = requests.forEach {
@@ -58,8 +63,14 @@ class FakeNotificationShade : AutoCloseable {
             val builder = mockk<NotificationCompat.Builder>(relaxed = true)
             every { builder.build() } returns notification
             // The novel notifier chains its calls on one builder, so each returns the builder itself.
-            every { builder.clearActions() } returns builder
-            every { builder.addAction(any<Int>(), any(), any()) } returns builder
+            every { builder.clearActions() } answers {
+                actionIcons.remove(builder)
+                builder
+            }
+            every { builder.addAction(any<Int>(), any(), any()) } answers {
+                actionIcons.getOrPut(builder, ::mutableListOf) += firstArg<Int>()
+                builder
+            }
             every { builder.setContentTitle(any()) } answers {
                 contentTitles[builder] = firstArg()
                 builder

@@ -2,9 +2,12 @@ package reikai.novel.download
 
 import android.util.Base64
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.string.shouldContain
 import io.mockk.every
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
@@ -163,5 +166,40 @@ class NovelChapterImageInlinerTest {
         ).selectFirst("img")!!
 
         (img.attr("src") to img.attr("srcset")) shouldBe ("/a.jpg" to "/a-800.jpg 800w")
+    }
+
+    @Test
+    fun `a chapter with a picture keeps its leading style block`() = runTest {
+        val saved = inlineChapterImages(
+            """<style>.x{color:red}</style><p class="x">a</p><img src="/a.png">""",
+            "https://site.example/chapter/1",
+            images,
+        )
+
+        saved shouldContain "<style>.x{color:red}</style>"
+    }
+
+    /** A pause cancels the drain mid-chapter, and the pictures left would be fetched for nothing. */
+    @Test
+    fun `a cancelled save fetches no picture after the one in flight`() = runTest {
+        var save: Job? = null
+        val cancelling = OkHttpClient.Builder()
+            .addInterceptor { chain ->
+                save?.cancel()
+                chain.proceed(chain.request())
+            }
+            .addInterceptor(client.interceptors.single())
+            .build()
+
+        save = launch {
+            inlineChapterImages(
+                """<img src="/a.png"><img src="/b.png">""",
+                "https://site.example/chapter/1",
+                NovelImageClient(cancelling, headersOf()),
+            )
+        }
+        save.join()
+
+        fetched shouldBe listOf("https://site.example/a.png")
     }
 }

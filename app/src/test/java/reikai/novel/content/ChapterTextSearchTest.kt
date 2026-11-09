@@ -85,12 +85,13 @@ class ChapterTextSearchTest {
 
     @Test
     fun `every match is counted past the snippet cap`() {
-        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a"), maxSnippets = 2).count shouldBe 10
+        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a")).count shouldBe 10
     }
 
     @Test
     fun `snippets stop at the cap`() {
-        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a"), maxSnippets = 2).snippets.size shouldBe 2
+        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a")).snippets.size shouldBe
+            ChapterTextSearch.MAX_SNIPPETS_PER_CHAPTER
     }
 
     @Test

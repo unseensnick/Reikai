@@ -4,6 +4,7 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.util.Collections
 import java.util.LinkedHashMap
+import kotlin.coroutines.cancellation.CancellationException
 
 object NovelRegexReplacements {
 
@@ -13,7 +14,7 @@ object NovelRegexReplacements {
      * exactly as typed, so a price like `$5` does not read as a group and fail the whole rule.
      */
     data class Compiled(val regex: Regex, val replacement: String, val literal: Boolean) {
-        fun applyTo(input: String): String =
+        fun applyTo(input: CharSequence): String =
             if (literal) regex.replace(input) { replacement } else regex.replace(input, replacement)
     }
 
@@ -57,7 +58,8 @@ object NovelRegexReplacements {
         return Regex(bounded, options)
     }
 
-    fun apply(content: String, rulesJson: String): String {
+    /** Throws [CancellationException] once [isActive] turns false, even inside a slow match. */
+    fun apply(content: String, rulesJson: String, isActive: () -> Boolean = { true }): String {
         if (rulesJson.isBlank() || rulesJson == "[]") return content
 
         val compiled = synchronized(cache) {
@@ -77,7 +79,9 @@ object NovelRegexReplacements {
         var result = content
         for (rule in compiled) {
             try {
-                result = rule.applyTo(result)
+                result = rule.applyTo(CancellableCharSequence(result, isActive))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logcat(LogPriority.WARN, e) { "Regex replacement failed" }
             }

@@ -53,7 +53,7 @@ object NovelTextSplitter {
                 val tag = html.substring(i, tagEnd + 1).lowercase()
                 // A tag that already breaks the line restarts the count, so an existing paragraph
                 // never gets a break inserted right after it.
-                if (lineBreakingTags.any { tag.startsWith(it) }) {
+                if (tagName.find(tag)?.groupValues?.get(1) in lineBreakingTags) {
                     breaks += htmlBreaks(html, runs, targetWordCount)
                     runs.clear()
                 }
@@ -72,7 +72,13 @@ object NovelTextSplitter {
         return insertAt(html, breaks, "<br><br>")
     }
 
-    private val lineBreakingTags = listOf("<p>", "<br", "</p>", "<div", "</div", "<body", "</body")
+    // Every block a page ends a line at, opening or closing, by name: a heading, list item or rule the
+    // count ran across got a break inside it, and `<p class=...>` did not reset it.
+    private val lineBreakingTags = setOf(
+        "p", "br", "div", "body", "h1", "h2", "h3", "h4", "h5", "h6", "hr", "li", "ul", "ol", "blockquote", "tr",
+        "table", "section", "article", "header", "footer",
+    )
+    private val tagName = Regex("""^</?([a-z][a-z0-9]*)""")
 
     /**
      * Offsets in [html] a break goes at, for the paragraph made of [runs]. Its text is read with each

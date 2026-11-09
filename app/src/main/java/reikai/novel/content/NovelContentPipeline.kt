@@ -10,8 +10,9 @@ import androidx.annotation.WorkerThread
  */
 object NovelContentPipeline {
 
+    /** [isActive] lets a cancelled load escape a user regex that never finishes. */
     @WorkerThread
-    fun process(raw: String, config: NovelContentConfig): NovelChapterContent {
+    fun process(raw: String, config: NovelContentConfig, isActive: () -> Boolean = { true }): NovelChapterContent {
         var content = raw
         val plainTextMode = NovelHtmlUtils.isPlainTextChapter(config.chapterUrl)
 
@@ -31,7 +32,7 @@ object NovelContentPipeline {
             content = NovelHtmlUtils.removeExtraParagraphSpacing(content)
         }
 
-        content = NovelRegexReplacements.apply(content, config.regexRulesJson)
+        content = NovelRegexReplacements.apply(content, config.regexRulesJson, isActive)
 
         // Before lowercasing, which would hide every sentence end: a full stop followed by a lower-case
         // word is not one.

@@ -185,4 +185,13 @@ class NovelTextSplitterTest {
 
         NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe html
     }
+
+    /** A markdown chapter's tight list renders as bare items, each already its own line. */
+    @Test
+    fun `a list item starts the count again`() {
+        val first = sentences(count = 1, wordsEach = 15)
+        val html = "<ul><li>$first</li><li>${sentences(count = 2, wordsEach = 10)}</li></ul>"
+
+        NovelTextSplitter.splitText(html, wordCount = 20, isHtml = true) shouldBe html
+    }
 }

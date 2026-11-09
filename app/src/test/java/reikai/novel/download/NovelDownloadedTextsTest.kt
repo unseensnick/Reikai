@@ -57,6 +57,12 @@ class NovelDownloadedTextsTest {
         visibleText("a <b and c", chapter(10, 1).copy(url = "u10.txt")) shouldBe "a <b and c"
     }
 
+    /** The reader decides plain text by the name alone and shows this as written, so search must find it. */
+    @Test
+    fun `a plain-text chapter keeps a word written like a tag`() = runTest {
+        visibleText("use </i> here", chapter(10, 1).copy(url = "u10.txt")) shouldBe "use </i> here"
+    }
+
     @Test
     fun `a local chapter's stored HTML is its book's, with no download file`() = runTest {
         val local = Novel.create().copy(id = 1L, source = LocalNovelSource.ID)

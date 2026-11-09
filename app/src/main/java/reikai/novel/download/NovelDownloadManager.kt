@@ -180,11 +180,15 @@ class NovelDownloadManager(
             .map { ch -> NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url) }
         if (targets.isEmpty()) return
         // Only what was not queued is saved, as Mihon's Downloader stores only its toAdd: saving a queued row
-        // again gives it a new order, so a restart would move it last. A failed row is already saved.
+        // again gives it a new order, so a restart would move it last. A failed row is saved again, since a
+        // source that was missing when it failed took it out of the saved queue.
         var added = emptyList<NovelDownload>()
         _queueState.update { current ->
             val byId = current.associateByTo(LinkedHashMap()) { it.chapterId }
-            added = targets.filter { it.chapterId !in byId }
+            added = targets.filter { t ->
+                val existing = byId[t.chapterId]
+                existing == null || existing.state == NovelDownload.State.ERROR
+            }
             targets.forEach { t ->
                 val existing = byId[t.chapterId]
                 // Re-queue an errored entry, add a brand-new one, leave a queued/active one alone.
@@ -240,9 +244,7 @@ class NovelDownloadManager(
     fun cancelDownloads(chapterIds: List<Long>) {
         val ids = chapterIds.toSet()
         if (ids.isEmpty()) return
-        _queueState.update { q -> q.filter { it.chapterId !in ids } }
-        afterDequeue()
-        scope.launch { removeSaved(ids) }
+        dequeue(ids)
     }
 
     /** Bump a queued chapter to the front so it downloads next, retrying it if it failed, and persist
@@ -341,7 +343,7 @@ class NovelDownloadManager(
             )
             if (deletable.isEmpty()) return@launch
             saveLock.withLock {
-                dequeueChapters(deletable)
+                dequeue(deletable.mapTo(HashSet()) { it.id })
                 deleteChapterFiles(deletable)
             }
         }
@@ -361,19 +363,25 @@ class NovelDownloadManager(
      * novel migrated away from.
      */
     suspend fun awaitDeleteNovel(novel: Novel): Unit = saveLock.withLock {
-        val queued = _queueState.value.filter { it.novelId == novel.id }.map { it.chapterId }
-        _queueState.update { q -> q.filterNot { it.novelId == novel.id } }
-        afterDequeue()
         withIOContext {
-            removeSaved(queued)
+            // Saved rows the launch restore has not landed yet go too, or it would bring them back.
+            val ids = _queueState.value.filter { it.novelId == novel.id }.mapTo(HashSet()) { it.chapterId }
+            synchronized(storeLock) { store.persisted() }.filter { it.entryId == novel.id }.mapTo(ids) { it.chapterId }
+            dequeue(ids)
             provider.deleteNovel(novel)
         }
         cache.removeNovel(novel)
     }
 
-    private fun dequeueChapters(chapters: List<NovelChapter>) {
-        val ids = chapters.map { it.id }.toSet()
-        _queueState.update { q -> q.filter { it.chapterId !in ids } }
+    /**
+     * Drops [ids] from the live queue and the saved one in one step under [storeLock], which the launch
+     * restore's merge also holds, so it can never land between the two and put a removed row back.
+     */
+    private fun dequeue(ids: Set<Long>) {
+        synchronized(storeLock) {
+            _queueState.update { q -> q.filter { it.chapterId !in ids } }
+            store.removeAll(ids)
+        }
         afterDequeue()
     }
 
@@ -389,7 +397,6 @@ class NovelDownloadManager(
 
     private suspend fun deleteChapterFiles(chapters: List<NovelChapter>) {
         val novelsById = novelRepo.ownersOf(chapters)
-        removeSaved(chapters.map { it.id })
         chapters.groupBy { it.novelId }.forEach { (novelId, owned) ->
             val novel = novelsById[novelId] ?: return@forEach
             provider.deleteChapters(novel, owned)
@@ -493,8 +500,9 @@ class NovelDownloadManager(
     ) {
         val next = claimed.download
         val novel = novelRepo.getById(next.novelId)
+        val source = novel?.let { sourceManager.get(it.source) }
         // The least delay the source declares binds its retries as well as its pacing.
-        val minimumMs = novel?.let { sourceManager.get(it.source) }?.minimumRequestDelayMs ?: 0L
+        val minimumMs = source?.minimumRequestDelayMs ?: 0L
         // A source an update or an earlier run reached moments ago waits out its delay before this chapter too.
         delay(sourceContacts.waitBefore(claimed.source, paceFloor(claimed.source, minimumMs)))
         if (!startDownloading(next.chapterId)) return
@@ -508,6 +516,15 @@ class NovelDownloadManager(
             Novel::id,
             adultChecker::adultNovelIdsAmong,
         )
+        // No retry or Resume can fetch from a source that is gone, so the row fails at once and leaves the
+        // saved queue, as Mihon's DownloadStore.restore drops a manga row whose source is missing.
+        if (novel != null && source == null) {
+            val reason = context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(novel.source))
+            setState(next.chapterId, NovelDownload.State.ERROR, reason)
+            removeSaved(listOf(next.chapterId))
+            onError(shown, chapter?.name, reason, isAdult)
+            return
+        }
         // Checked before the fetch, so a full disk costs no source request and no retries.
         if (!hasRoomToDownload(provider.availableSpace())) {
             val reason = context.stringResource(MR.strings.download_insufficient_space)
@@ -529,9 +546,7 @@ class NovelDownloadManager(
             while (true) {
                 // A pause cancels the worker mid-attempt, and the last attempt has no delay to rethrow it.
                 ok = runCatchingCancellable {
-                    val source = novel?.let { sourceManager.get(it.source) }
-                        ?: return@runCatchingCancellable false
-                    if (chapter == null) return@runCatchingCancellable false
+                    if (novel == null || source == null || chapter == null) return@runCatchingCancellable false
                     val html = source.parseChapter(next.url).ifBlank { throw EmptyChapterException() }
                     val selfContained = saver.prepare(source, html)
                     saveLock.withLock {

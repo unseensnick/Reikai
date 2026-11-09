@@ -109,12 +109,23 @@ class EmptiedPausedQueueConformanceTest {
             half.removeFromPausedQueue(this, Pause.USER, Removal.DELETE_SERIES).noticeDismissed shouldBe true
         }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("halves")
+    fun `deleting a queued series takes its download folder`(half: EmptiedQueueHalf) = runTest {
+        half.removeFromPausedQueue(this, Pause.USER, Removal.DELETE_SERIES).folderDeleted shouldBe true
+    }
+
     enum class Pause { OFFLINE, OFF_WIFI, USER }
 
     enum class Removal { CANCEL_CHAPTER, DELETE_CHAPTER, DELETE_SERIES, RENAME_SERIES }
 
-    /** Whether the downloader ended, the chapter ids still queued, and whether the paused notice went. */
-    data class Outcome(val ended: Boolean, val left: List<Long>, val noticeDismissed: Boolean)
+    /** Whether the downloader ended, the chapter ids still queued, whether the paused notice went, and the folder. */
+    data class Outcome(
+        val ended: Boolean,
+        val left: List<Long>,
+        val noticeDismissed: Boolean,
+        val folderDeleted: Boolean,
+    )
 
     companion object {
         const val ENTRY = 1L
@@ -159,6 +170,7 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
         val queue = MutableStateFlow(downloads)
         var stopped = false
         var cleared = false
+        var folderDeleted = false
         val downloader = mockk<Downloader>(relaxed = true) {
             every { isRunning } returns false
             every { queueState } returns queue
@@ -178,6 +190,10 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
                 coEvery { findMangaDir(any(), any()) } returns mockk(relaxed = true) {
                     every { name } returns "Old"
                     every { parentFile } returns null
+                    every { delete() } answers {
+                        folderDeleted = true
+                        true
+                    }
                 }
                 every { getMangaDirName(any()) } returns "New"
                 coEvery { findChapterDirs(any(), any(), any()) } returns (null to emptyList())
@@ -206,6 +222,7 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
             ended = stopped,
             left = queue.value.map { it.chapter.id },
             noticeDismissed = cleared,
+            folderDeleted = folderDeleted,
         )
     }
 }
@@ -226,6 +243,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
         val novel = Novel.create().copy(id = EmptiedPausedQueueConformanceTest.ENTRY, source = "src", title = "Novel")
         val chapters = EmptiedPausedQueueConformanceTest.chapterIds(queued).map { id -> chapter(id, novel.id) }
         val cancelled = mutableListOf<Int>()
+        var folderDeleted = false
         val notifications = mockk<NotificationManager>(relaxed = true) {
             every { cancel(any<Int>()) } answers { cancelled += firstArg<Int>() }
         }
@@ -253,6 +271,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                         every { parentFile } returns null
                     }
                     every { novelDirName("New") } returns "New"
+                    every { deleteNovel(novel) } answers { folderDeleted = true }
                 },
                 cache = mockk(relaxed = true) { every { downloadedChapterIds(novel, any()) } returns emptySet() },
                 chapterRepo = mockk { chapters.forEach { ch -> coEvery { getById(ch.id) } returns ch } },
@@ -294,6 +313,7 @@ class NovelEmptiedQueueHalf : EmptiedQueueHalf {
                 ended = drain?.isCompleted == true,
                 left = manager.queueState.value.map { it.chapterId },
                 noticeDismissed = Notifications.ID_NOVEL_DOWNLOADER_PAUSED in cancelled,
+                folderDeleted = folderDeleted,
             )
         } finally {
             unmockkObject(NovelDownloadWorker.Companion)

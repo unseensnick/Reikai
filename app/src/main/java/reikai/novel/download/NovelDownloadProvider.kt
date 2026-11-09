@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import mihon.core.metro.AppCoroutineScope
+import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.renameDownloadFolder
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -117,13 +118,10 @@ class NovelDownloadProvider(
         return tmp.renameTo(finalName)
     }
 
-    /**
-     * Deletes [chapters]' files, all [novel]'s, each the first of its names found, as Mihon's findChapterDirs
-     * picks. Lists the folder once, where a lookup per chapter costs a few storage-provider queries each.
-     */
+    /** Deletes [chapters]' files, all [novel]'s, each the first of its names found, as Mihon's findChapterDirs picks. */
     fun deleteChapters(novel: Novel, chapters: List<NovelChapter>) {
-        val files = findNovelDir(novel)?.listFiles()?.associateBy { it.name } ?: return
-        chapters.forEach { chapter -> validChapterFileNames(chapter).firstNotNullOfOrNull(files::get)?.delete() }
+        val find = findNovelDir(novel)?.chapterFileLookup(chapters.size) ?: return
+        chapters.forEach { chapter -> validChapterFileNames(chapter).firstNotNullOfOrNull(find)?.delete() }
     }
 
     /** Deletes the novel's folder, then its source's folder once that is empty, as manga's does. */

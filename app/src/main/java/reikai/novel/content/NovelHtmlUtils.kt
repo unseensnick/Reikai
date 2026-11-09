@@ -14,6 +14,7 @@ import org.jsoup.nodes.Node
 import org.jsoup.nodes.TextNode
 import org.jsoup.parser.Parser
 import org.jsoup.select.NodeVisitor
+import reikai.novel.host.NovelTextSanitizer
 import tachiyomi.core.common.util.system.logcat
 
 object NovelHtmlUtils {
@@ -164,14 +165,14 @@ object NovelHtmlUtils {
     }
 
     fun normalizePlainTextContent(content: String): String {
-        return content
-            .replace("\u0000", "")
+        // The fetching adapters strip these too, but a local book's text comes straight from its file.
+        return NovelTextSanitizer.stripInvalidChars(content)
             .replace("\r\n", "\n")
             .replace("\r", "\n")
     }
 
     fun normalizeContentForHtml(content: String, chapterUrl: String?): String {
-        val normalized = content.replace("\u0000", "")
+        val normalized = NovelTextSanitizer.stripInvalidChars(content)
         val kind = detectTextKind(chapterUrl, normalized)
         logcat(LogPriority.DEBUG) { "normalizeContentForHtml: $kind len=${normalized.length}" }
         return when (kind) {
@@ -187,6 +188,8 @@ object NovelHtmlUtils {
         return when (ext) {
             "md", "markdown" -> ChapterTextKind.MARKDOWN
             "html", "htm", "xhtml", "epub" -> ChapterTextKind.HTML
+            // By name alone, as the reader decides with isPlainTextChapter, so a word written like a tag stays text.
+            "txt", "text" -> ChapterTextKind.PLAIN_TEXT
             else -> {
                 if (htmlTagRegex.containsMatchIn(content) || closingTagRegex.containsMatchIn(content)) {
                     ChapterTextKind.HTML
@@ -278,7 +281,8 @@ object NovelHtmlUtils {
         return out.append(transform(markup.substring(from))).toString()
     }
 
-    private fun escapeHtml(text: String): String {
+    /** Every character markup gives meaning to, as entities XML defines too, so XHTML can take the result. */
+    internal fun escapeHtml(text: String): String {
         return text
             .replace("&", "&amp;")
             .replace("<", "&lt;")

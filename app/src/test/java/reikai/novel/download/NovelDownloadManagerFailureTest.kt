@@ -32,8 +32,10 @@ import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.realTimeSourceContacts
 import reikai.util.testAppScope
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
+import tachiyomi.i18n.MR
 import java.io.IOException
 import kotlin.time.Instant
 
@@ -67,9 +69,12 @@ class NovelDownloadManagerFailureTest {
         every { getSystemService(NotificationManager::class.java) } returns mockk<NotificationManager>(relaxed = true)
     }
     private val sameName = chapter.copy(id = 11L, url = "u11")
+    private val uninstalled = novel.copy(id = 2L, source = "gone")
+    private val uninstalledChapter = chapter.copy(id = 20L, novelId = 2L, url = "u20")
     private val chapterRepo = mockk<NovelChapterRepository> {
         coEvery { getById(10L) } returns chapter
         coEvery { getById(11L) } returns sameName
+        coEvery { getById(20L) } returns uninstalledChapter
     }
     private val source = mockk<NovelSource> {
         every { minimumRequestDelayMs } returns 0L
@@ -78,15 +83,22 @@ class NovelDownloadManagerFailureTest {
     }
 
     // Stubbed outside a mockk block, where a bare get binds to MockK's own.
-    private val sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source }
+    private val sourceManager = mockk<NovelSourceManager>().also {
+        coEvery { it.get("src") } returns source
+        coEvery { it.get("gone") } returns null
+        coEvery { it.nameOf("gone") } returns "Gone"
+    }
 
     private val manager = NovelDownloadManager(
         scope = testAppScope(),
         context = context,
         provider = mockk { every { availableSpace() } returns -1L },
-        cache = mockk { every { downloadedChapterIds(novel, any()) } returns emptySet() },
+        cache = mockk { every { downloadedChapterIds(any(), any()) } returns emptySet() },
         chapterRepo = chapterRepo,
-        novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
+        novelRepo = mockk<NovelRepository> {
+            coEvery { getById(1L) } returns novel
+            coEvery { getById(2L) } returns uninstalled
+        },
         sourceManager = sourceManager,
         installer = mockk { coEvery { ensureLoaded() } just runs },
         downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
@@ -101,6 +113,7 @@ class NovelDownloadManagerFailureTest {
         sourceTitles = mockk(),
         getEntryCustomInfo = mockk {
             coEvery { await(EntryId.Novel(1L)) } returns CustomNovelInfo(novelId = 1L, title = "Mine")
+            coEvery { await(EntryId.Novel(2L)) } returns null
         },
         sourceContacts = realTimeSourceContacts(),
     )
@@ -111,12 +124,16 @@ class NovelDownloadManagerFailureTest {
         every { NovelDownloadWorker.start(any()) } just runs
         mockkStatic(Context::activeNetworkState)
         every { any<Context>().activeNetworkState() } returns NetworkState(true, true, true)
+        mockkStatic(LOCALIZE)
+        every { any<Context>().stringResource(MR.strings.source_not_installed, *anyVararg()) } returns
+            "Source not installed"
     }
 
     @AfterEach
     fun tearDown() {
         unmockkObject(NovelDownloadWorker.Companion)
         unmockkStatic(Context::activeNetworkState)
+        unmockkStatic(LOCALIZE)
     }
 
     @Test
@@ -136,7 +153,29 @@ class NovelDownloadManagerFailureTest {
 
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
     }
+
+    @Test
+    fun `a chapter whose source is not installed fails with the reason`() = runTest {
+        var reason: String? = null
+        manager.downloadChapters(listOf(uninstalledChapter))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, error, _ -> reason = error })
+
+        reason shouldBe "Source not installed"
+    }
+
+    /** No Resume can fetch it, as a manga row of a removed source is dropped on restore. */
+    @Test
+    fun `a chapter whose source is not installed leaves the saved queue`() = runTest {
+        manager.downloadChapters(listOf(uninstalledChapter))
+
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe emptyList()
+    }
 }
+
+private const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
 
 /** An in-memory SharedPreferences, enough for the download store's string entries. */
 internal class FakeSharedPreferences : SharedPreferences {

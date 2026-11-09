@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.novel.local.LocalNovelSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.model.Chapter
 import kotlin.time.Instant
@@ -25,7 +26,7 @@ class NovelChapterTextCacheTest {
     private val chapterCache = testChapterCache()
     private val cache = testChapterTextCache(chapterCache)
 
-    private fun loader(): NovelChapterTextLoader {
+    private fun loader(sourceId: String = "s"): NovelChapterTextLoader {
         val source = mockk<NovelSource> {
             every { site } answers { this@NovelChapterTextCacheTest.site }
             coEvery { parseChapter(any()) } answers { answer }
@@ -35,7 +36,7 @@ class NovelChapterTextCacheTest {
             context = mockk(relaxed = true),
             novelRepo = mockk {
                 coEvery { getById(any()) } answers
-                    { Novel.create().copy(id = firstArg(), source = "s") }
+                    { Novel.create().copy(id = firstArg(), source = sourceId) }
             },
             sourceManager = sourceManager,
             installer = mockk(relaxed = true),
@@ -75,6 +76,17 @@ class NovelChapterTextCacheTest {
         val (_, baseUrl) = loader().load(chapter(novelId = 1L))
 
         baseUrl.orEmpty() shouldContain "example.test"
+    }
+
+    /** A local book can be replaced under the same path, and the old text must not outlive it. */
+    @Test
+    fun `a local chapter is read from its book every time`() = runTest {
+        loader(LocalNovelSource.ID).load(chapter(novelId = 1L))
+        answer = "<p>second answer</p>"
+
+        val (html, _) = loader(LocalNovelSource.ID).load(chapter(novelId = 1L))
+
+        html shouldContain "second answer"
     }
 
     /** Two sources can use the same chapter path, so the cache keys on the novel as well. */

@@ -85,11 +85,6 @@ class NovelDownloadNotifier(
                     NotificationReceiver.openNovelPendingActivity(context, novel),
                 )
             }
-            .addAction(
-                MaterialSymbolsR.drawable.rounded_close,
-                context.stringResource(MR.strings.action_cancel),
-                NotificationReceiver.cancelNovelDownloadPendingBroadcast(context),
-            )
             .setContentTitle(
                 "${context.stringResource(MR.strings.label_download_queue)} (${progress.current}/${progress.total})",
             )

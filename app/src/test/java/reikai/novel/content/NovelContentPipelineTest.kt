@@ -62,6 +62,22 @@ class NovelContentPipelineTest {
         processed.text shouldNotContain "badger"
     }
 
+    /** A local book's text reaches here straight from its file, with no adapter to strip it first. */
+    @Test
+    fun `a control character no page can show is dropped`() = runTest {
+        NovelContentPipeline.process("<p>a\u0001b</p>", config("/book/ch1.html")).text shouldContain "ab"
+    }
+
+    @Test
+    fun `a cancelled load stops inside a find-and-replace rule`() = runTest {
+        val rule = """[{"title":"t","pattern":"b","replacement":"c","isRegex":true}]"""
+        val seeded = preferencesWith(InMemoryPreference("ln_reader_regex_replacements", rule, "[]"))
+
+        shouldThrow<CancellationException> {
+            NovelContentPipeline.process("<p>${"a".repeat(100_000)}</p>", config("/book/ch1.html", seeded)) { false }
+        }
+    }
+
     @Test
     fun `auto-split breaks a wall of text into paragraphs`() = runTest {
         val seeded = preferencesWith(

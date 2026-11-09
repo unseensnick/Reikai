@@ -8,8 +8,9 @@
 # - Backup models (BackupManga/BackupNovel, custom info): the
 #   proto shapes share field numbers on purpose; pinned by BackupCustomInfoConformanceTest and
 #   BackupDatesConformanceTest.
-# - DownloadStore / NovelDownloadStore: upstream's queue store copied for the separate novel engine,
-#   which content-layer.md keeps apart from Mihon's.
+# - DownloadStore / NovelDownloadStore: Reikai's persisted/replacePersisted pair, written into each
+#   engine's store (the manga one as an RK island) for MergedDuplicateDownloads; pinned by
+#   MergedDuplicateDownloadsTest over both types.
 # - NovelListApi / RanobeDbApi: tracker API client scaffolding (auth, request and paging setup).
 # - NHentai / NHentaiNet: the wrapper and the native source for one site share a metadata contract;
 #   each body is already a call into NHentaiApi.kt.

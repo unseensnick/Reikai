@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.assertThrows
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import kotlin.coroutines.cancellation.CancellationException
 
 /**
  * The compile kernel both the reading pipeline and the rule editor's preview run through, so a rule
@@ -93,5 +94,15 @@ class NovelRegexReplacementsTest {
     @ValueSource(strings = ["$1", "\${w}", "\\$1", "plain"])
     fun `a regex replacement naming a group the pattern has compiles`(replacement: String) {
         run(rule("(?<w>a)", replacement), "b") shouldBe "b"
+    }
+
+    /** A nested quantifier can run for hours, so a load that gave up must be able to leave the match. */
+    @Test
+    fun `a cancelled load leaves a rule mid-match`() {
+        val rules = """[{"title":"t","pattern":"b","replacement":"","isRegex":true}]"""
+
+        assertThrows<CancellationException> {
+            NovelRegexReplacements.apply("a".repeat(100_000), rules, isActive = { false })
+        }
     }
 }
