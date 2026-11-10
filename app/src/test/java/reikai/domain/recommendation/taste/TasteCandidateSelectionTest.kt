@@ -38,6 +38,12 @@ class TasteCandidateSelectionTest {
     }
 
     @Test
+    fun `a genre of only dashes or spaces is passed over`() {
+        selectContextualTags(profile("action" to 0.9), listOf("-", " _ ", "Action"), 3) shouldContainExactly
+            listOf("action")
+    }
+
+    @Test
     fun `tag search keeps only the current manga's genres that score positively, ranked by score`() {
         val profile = profile("action" to 0.9, "isekai" to -0.4, "comedy" to 0.3)
         selectContextualTags(profile, currentGenres = listOf("Comedy", "Action", "Isekai"), n = 3)

@@ -127,10 +127,12 @@ class TasteCandidateFetcher(
  */
 internal fun selectContextualTags(profile: TasteProfile, currentGenres: List<String>, n: Int): List<String> {
     if (currentGenres.isEmpty() || profile.tagScores.isEmpty()) return emptyList()
-    // Scored by the profile's aliased key, but searched by the genre's own name, which the source knows.
-    return currentGenres.map { it.lowercase().trim() }.filter { it.isNotEmpty() }.distinctBy(::tagKey).asSequence()
+    // Scored by the profile's aliased key, but searched by the genre's own name, which the source knows. A genre
+    // the key folds to nothing, only dashes or spaces, has no key.
+    return currentGenres.map { it.lowercase().trim() }.filter { tagKey(it).isNotEmpty() }.distinctBy(::tagKey)
+        .asSequence()
         .mapNotNull { genre ->
-            profile.tagScores[profile.keysOf(listOf(genre)).single()]?.let { score -> genre to score }
+            profile.keysOf(listOf(genre)).firstOrNull()?.let(profile.tagScores::get)?.let { score -> genre to score }
         }
         .filter { it.second > 0.0 }
         .sortedByDescending { it.second }
