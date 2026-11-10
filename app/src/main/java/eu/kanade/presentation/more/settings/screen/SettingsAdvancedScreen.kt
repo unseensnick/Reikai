@@ -351,7 +351,9 @@ object SettingsAdvancedScreen : SearchableSettings {
                     graph.sourceManager,
                     graph.novelSourceManager,
                 )
-                withUIContext { appContext.toast(appContext.stringResource(MR.strings.copy_marks_exported, count)) }
+                val message = count?.let { appContext.stringResource(MR.strings.copy_marks_exported, it) }
+                    ?: appContext.stringResource(MR.strings.copy_marks_export_failed)
+                withUIContext { appContext.toast(message) }
             }
         }
         // RK <--

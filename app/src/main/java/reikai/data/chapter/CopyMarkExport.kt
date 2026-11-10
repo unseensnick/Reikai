@@ -7,17 +7,22 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
+import logcat.LogPriority
+import logcat.asLog
+import logcat.logcat
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.CopyMarkReport
 import reikai.domain.library.ContentType
 import reikai.novel.source.NovelSourceManager
+import reikai.util.runCatchingCancellable
 import tachiyomi.domain.source.service.SourceManager
+import java.io.IOException
 
 /**
  * Writes every Never skip and hand-made copy group, of both types, to [uri] as JSON, for a report on the
  * duplicate rule: each chapter as its source names and numbers it, which is what the rule reads.
- * Returns how many chapters it wrote.
+ * Returns how many chapters it wrote, or null when the file could not be written.
  */
 suspend fun writeCopyMarkReport(
     context: Context,
@@ -25,7 +30,7 @@ suspend fun writeCopyMarkReport(
     marks: ChapterCopyMarkRepository,
     sourceManager: SourceManager,
     novelSourceManager: NovelSourceManager,
-): Int {
+): Int? {
     val manga = marks.report(ContentType.MANGA)
     val novels = marks.report(ContentType.NOVELS)
     val json = buildJsonObject {
@@ -40,10 +45,16 @@ suspend fun writeCopyMarkReport(
             buildJsonArray { novels.forEach { add(it.toJson(novelSourceManager.get(it.source)?.name ?: it.source)) } },
         )
     }
-    context.contentResolver.openOutputStream(uri, "wt")!!.bufferedWriter().use {
-        it.write(Json { prettyPrint = true }.encodeToString(JsonObject.serializer(), json))
-    }
-    return manga.size + novels.size
+    // The provider behind a picked file may refuse it or fail mid-write.
+    return runCatchingCancellable {
+        val stream = context.contentResolver.openOutputStream(uri, "wt") ?: throw IOException("No output stream")
+        stream.bufferedWriter().use {
+            it.write(Json { prettyPrint = true }.encodeToString(JsonObject.serializer(), json))
+        }
+        manga.size + novels.size
+    }.onFailure {
+        logcat("CopyMarkExport", LogPriority.ERROR) { "Couldn't export the duplicate marks: ${it.asLog()}" }
+    }.getOrNull()
 }
 
 private fun CopyMarkReport.toJson(sourceName: String) = buildJsonObject {
