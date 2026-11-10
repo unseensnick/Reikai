@@ -1684,9 +1684,9 @@ class MangaViewModel(
 
     // RK --> chapter selection routes through the shared kernel, so manga, novels and every other
     // multi-select surface answer a range the same way. A long press ranges from the last row you
-    // touched; a tap toggles one row. Each verb starts from the selection the rows show, retained to them.
-    fun toggleSelection(item: ChapterList.Item, fromLongPress: Boolean = false) {
-        val visible = successState?.processedChapters?.map { it.id } ?: return
+    // touched; a tap toggles one row. Each verb starts from the selection the rows show, retained to them:
+    // [visible] is what the screen shows, which its own filters (Only copies, a volume) narrow further.
+    fun toggleSelection(item: ChapterList.Item, fromLongPress: Boolean = false, visible: List<Long>) {
         chapterSelection.update { held ->
             val shown = EntrySelection.retain(held, visible)
             if (fromLongPress) {
@@ -1702,12 +1702,14 @@ class MangaViewModel(
             chapterSelection.value = EntrySelection.clear()
             return
         }
-        val visible = successState?.processedChapters?.map { it.id } ?: return
+        selectAll(successState?.processedChapters?.map { it.id } ?: return)
+    }
+
+    fun selectAll(visible: List<Long>) {
         chapterSelection.update { EntrySelection.selectAll(EntrySelection.retain(it, visible), visible) }
     }
 
-    fun invertSelection() {
-        val visible = successState?.processedChapters?.map { it.id } ?: return
+    fun invertSelection(visible: List<Long>) {
         chapterSelection.update { EntrySelection.invert(EntrySelection.retain(it, visible), visible) }
     }
 

@@ -34,6 +34,9 @@ class DetailsSettings(
                 DetailsChromePlacement(ui.detailsScrollActionsInMenu.get(), ui.readButtonSide.get()),
             )
 
+    /** Read once per page, as upstream's details header does. */
+    val descriptionImages: Boolean = ui.imagesInDescription.get()
+
     fun dockReadButton(side: ReadButtonSide) = ui.readButtonSide.set(side)
 
     /** Sets the library's tag filter to show only [tag], or to hide it. */

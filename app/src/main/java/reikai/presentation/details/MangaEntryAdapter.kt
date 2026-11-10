@@ -191,7 +191,8 @@ class MangaEntryAdapter(
     override fun toggleChapterBlock(chapterIds: List<Long>) {
         val items = chapterIds.mapNotNull(::itemById)
         val select = !items.all { it.selected }
-        items.filter { it.selected != select }.forEach { model.toggleSelection(it) }
+        val shown = successState()?.processedChapters?.map { it.id } ?: return
+        items.filter { it.selected != select }.forEach { model.toggleSelection(it, visible = shown) }
     }
 
     override fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
@@ -200,16 +201,16 @@ class MangaEntryAdapter(
 
     // --- EntryDetailsBehavior: forward to the model (reconciling neutral ids -> the model's shapes). ---
 
-    override fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
+    override fun toggleSelection(chapterId: Long, fromLongPress: Boolean, shown: List<Long>) {
         val item = itemById(chapterId) ?: return
-        model.toggleSelection(item, fromLongPress)
+        model.toggleSelection(item, fromLongPress, shown)
     }
 
-    override fun selectAll() {
-        model.toggleAllSelection(true)
+    override fun selectAll(shown: List<Long>) {
+        model.selectAll(shown)
     }
-    override fun invertSelection() {
-        model.invertSelection()
+    override fun invertSelection(shown: List<Long>) {
+        model.invertSelection(shown)
     }
     override fun clearSelection() {
         model.toggleAllSelection(false)

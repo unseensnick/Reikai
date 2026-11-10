@@ -167,15 +167,15 @@ class NovelEntryAdapter(
 
     // --- EntryDetailsBehavior: forward to the model (resolving id -> NovelChapter where needed). ---
 
-    override fun toggleSelection(chapterId: Long, fromLongPress: Boolean) {
-        model.toggleSelection(chapterId, fromLongPress)
+    override fun toggleSelection(chapterId: Long, fromLongPress: Boolean, shown: List<Long>) {
+        model.toggleSelection(chapterId, fromLongPress, shown)
     }
 
-    override fun selectAll() {
-        model.selectAll()
+    override fun selectAll(shown: List<Long>) {
+        model.selectAll(shown)
     }
-    override fun invertSelection() {
-        model.invertSelection()
+    override fun invertSelection(shown: List<Long>) {
+        model.invertSelection(shown)
     }
     override fun clearSelection() {
         model.clearSelection()

@@ -49,6 +49,7 @@ fun LazyListScope.entryInfoItems(
     onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)?,
     onCopyTagToClipboard: (String) -> Unit,
     onEditNotes: () -> Unit,
+    descriptionImages: Boolean,
     searchMetadataChips: SearchMetadataChips? = null,
     aboveDescription: (@Composable () -> Unit)? = null,
 ) {
@@ -93,6 +94,7 @@ fun LazyListScope.entryInfoItems(
             onCopyTagToClipboard = onCopyTagToClipboard,
             onEditNotes = onEditNotes,
             onGlobalSearch = onGlobalSearch,
+            loadImages = descriptionImages,
             searchMetadataChips = searchMetadataChips,
         )
     }

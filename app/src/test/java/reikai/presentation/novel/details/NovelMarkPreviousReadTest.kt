@@ -70,7 +70,7 @@ class NovelMarkPreviousReadTest {
                 model.state.first {
                     (it as? NovelDetailsState.Loaded)?.chapters?.map { c -> c.id } == listOf(pointer.id)
                 }
-                model.toggleSelection(pointer.id, fromLongPress = false)
+                model.toggleSelection(pointer.id, fromLongPress = false, shown = listOf(pointer.id))
                 model.markPreviousRead()
             }
             withTimeoutOrNull(5_000) { while (earlier.none { harness.isRead(it) == true }) delay(20) }

@@ -76,10 +76,11 @@ interface EntryDetailsBehavior {
     /** Read by each row's indicator alone, so a progress tick redraws the ring rather than the list. */
     val downloadProgress: EntryDownloadProgress
 
-    // Chapter selection.
-    fun toggleSelection(chapterId: Long, fromLongPress: Boolean)
-    fun selectAll()
-    fun invertSelection()
+    // Chapter selection, over [shown]: the rows on screen, in their order, which the screen's own filters
+    // (Only copies, a picked volume) narrow below the model's list.
+    fun toggleSelection(chapterId: Long, fromLongPress: Boolean, shown: List<Long>)
+    fun selectAll(shown: List<Long>)
+    fun invertSelection(shown: List<Long>)
     fun clearSelection()
 
     // Mark read / bookmark. markPreviousRead is selection-based (mark everything before the single

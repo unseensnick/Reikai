@@ -24,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -160,6 +161,12 @@ fun EntryDetailsContent(
         filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes)
     }
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
+    val shownIds = remember(shown.chapters.items) {
+        shown.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
+    }
+    // Read at tap time, so a row's lambdas stay the same instance while the rows change.
+    val currentShownIds by rememberUpdatedState(shownIds)
+    val shownChapterIds = remember { { currentShownIds } }
     var reorderingVolumes by remember { mutableStateOf(false) }
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
     var deletingVolumes by remember { mutableStateOf<List<String>?>(null) }
@@ -167,7 +174,12 @@ fun EntryDetailsContent(
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
-        onPickVolume = { behavior.volumePicking.pick(state.entryId, it) },
+        shownChapterIds = shownChapterIds,
+        // A picked volume hides the others' rows, so a selection among them would act out of sight.
+        onPickVolume = {
+            behavior.volumePicking.pick(state.entryId, it)
+            behavior.clearSelection()
+        },
         onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
         onAddVolumes = { volumeDialog = VolumeDialog.AddVolumes }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
@@ -188,6 +200,7 @@ fun EntryDetailsContent(
         jumpsInMenu = placement.jumpsInMenu,
         readButtonSide = placement.readButtonSide,
         onReadButtonDocked = settings::dockReadButton,
+        descriptionImages = settings.descriptionImages,
     )
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
     var renameTitle by remember { mutableStateOf<String?>(null) }
@@ -322,6 +335,8 @@ private data class CopiesFilter(val on: Boolean, val toggle: () -> Unit)
 private data class ChapterListExtras(
     val copies: CopiesFilter,
     val volumes: VolumeView?,
+    // The chapter rows on screen after both, which the selection verbs act on.
+    val shownChapterIds: () -> List<Long>,
     val onPickVolume: (String?) -> Unit,
     val onReorderVolumes: (() -> Unit)?,
     val onAddVolumes: (() -> Unit)?,
@@ -332,12 +347,13 @@ private data class ChapterListExtras(
     val onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)?,
 )
 
-/** Where the details chrome sits: the scroll actions' place and the Start/Resume button's side. */
+/** Where the details chrome sits (the scroll actions, the Start/Resume button), and whether the description shows images. */
 @Immutable
 private data class DetailsChrome(
     val jumpsInMenu: Boolean,
     val readButtonSide: ReadButtonSide,
     val onReadButtonDocked: (ReadButtonSide) -> Unit,
+    val descriptionImages: Boolean,
 )
 
 private enum class VolumeDialog { AddVolumes, SplitOut, RenameFiles }
@@ -410,6 +426,7 @@ private fun EntryDetailsSmallContent(
             isTabletUi = false,
             appBarPadding = appBarPadding,
             onAddToLibrary = onAddToLibrary,
+            descriptionImages = chrome.descriptionImages,
         )
         if (state.isMerged) mergeSourceChipsItem(state, behavior)
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
@@ -425,7 +442,14 @@ private fun EntryDetailsSmallContent(
                 },
             )
         }
-        entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
+        entryChapterItems(
+            state,
+            behavior,
+            chapterSwipeStartAction,
+            chapterSwipeEndAction,
+            nav.onOpenChapter,
+            extras.shownChapterIds,
+        )
     }
 }
 
@@ -474,6 +498,7 @@ private fun EntryDetailsLargeContent(
                 isTabletUi = true,
                 appBarPadding = appBarPadding,
                 onAddToLibrary = onAddToLibrary,
+                descriptionImages = chrome.descriptionImages,
             )
             state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
         },
@@ -491,7 +516,14 @@ private fun EntryDetailsLargeContent(
                     },
                 )
             }
-            entryChapterItems(state, behavior, chapterSwipeStartAction, chapterSwipeEndAction, nav.onOpenChapter)
+            entryChapterItems(
+                state,
+                behavior,
+                chapterSwipeStartAction,
+                chapterSwipeEndAction,
+                nav.onOpenChapter,
+                extras.shownChapterIds,
+            )
         },
     )
 }
@@ -578,8 +610,8 @@ private fun EntryDetailsToolbar(
             state.selection.all { it in state.chapters.hiddenChapterIds },
         actionModeCounter = state.selection.size,
         onCancelActionMode = behavior::clearSelection,
-        onSelectAll = behavior::selectAll,
-        onInvertSelection = behavior::invertSelection,
+        onSelectAll = { behavior.selectAll(extras.shownChapterIds()) },
+        onInvertSelection = { behavior.invertSelection(extras.shownChapterIds()) },
         titleAlphaProvider = titleAlphaProvider,
         backgroundAlphaProvider = backgroundAlphaProvider,
     )
@@ -616,6 +648,7 @@ private fun LazyListScope.entryInfoBlock(
     isTabletUi: Boolean,
     appBarPadding: Dp,
     onAddToLibrary: () -> Unit,
+    descriptionImages: Boolean,
 ) {
     val gallery = state.capabilities.mangaGallery
     entryInfoItems(
@@ -636,6 +669,7 @@ private fun LazyListScope.entryInfoBlock(
         onFilterLibraryByTag = nav.onFilterLibraryByTag,
         onCopyTagToClipboard = web.copyTag,
         onEditNotes = nav.onEditNotes,
+        descriptionImages = descriptionImages,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).
         searchMetadataChips = gallery?.let { SearchMetadataChips(it.metadata, it.sourceId, it.rawGenre, it.tagQuery) },
         // Per-source gallery-info card above the description, once the metadata object has loaded.
@@ -745,6 +779,7 @@ private fun LazyListScope.entryChapterItems(
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     onOpenChapter: (Long) -> Unit,
+    shownChapterIds: () -> List<Long>,
 ) {
     // The row lambdas capture these and the typed chapter below, never the whole state, so a row whose
     // own values did not change skips recomposing when another row changes.
@@ -804,11 +839,15 @@ private fun LazyListScope.entryChapterItems(
                     chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(offersDownload),
                     chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(offersDownload),
                     onLongClick = {
-                        behavior.toggleSelection(chapter.id, true)
+                        behavior.toggleSelection(chapter.id, true, shownChapterIds())
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     },
                     onClick = {
-                        if (selectionMode) behavior.toggleSelection(chapter.id, false) else onOpenChapter(chapter.id)
+                        if (selectionMode) {
+                            behavior.toggleSelection(chapter.id, false, shownChapterIds())
+                        } else {
+                            onOpenChapter(chapter.id)
+                        }
                     },
                     onDownloadClick = if (chaptersDownloadable) {
                         { behavior.onChapterDownloadAction(chapter.id, it) }

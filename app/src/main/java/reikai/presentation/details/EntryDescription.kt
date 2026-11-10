@@ -37,7 +37,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.LinkAnnotation
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.withLink
@@ -55,7 +54,6 @@ import eu.kanade.presentation.manga.components.NamespaceTags
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.presentation.manga.components.getMarkdownLinkStyle
 import eu.kanade.tachiyomi.R
-import mihon.app.di.appGraph
 import org.intellij.markdown.MarkdownElementTypes
 import org.intellij.markdown.MarkdownTokenTypes
 import org.intellij.markdown.ast.findChildOfType
@@ -85,6 +83,8 @@ fun ExpandableEntryDescription(
     onEditNotes: () -> Unit,
     // Global search across sources for the tapped tag (Komikku's tag menu).
     onGlobalSearch: (String) -> Unit,
+    // The description's images, a setting the caller reads.
+    loadImages: Boolean,
     // Namespaced, color-weighted tag chips for adult-gallery metadata sources; null = flat genre tags.
     searchMetadataChips: SearchMetadataChips? = null,
     modifier: Modifier = Modifier,
@@ -100,6 +100,7 @@ fun ExpandableEntryDescription(
             description = desc,
             expanded = expanded,
             notes = notes,
+            loadImages = loadImages,
             onEditNotesClicked = onEditNotes,
             modifier = Modifier
                 .padding(top = 8.dp)
@@ -256,12 +257,10 @@ private fun EntrySummary(
     description: String,
     notes: String,
     expanded: Boolean,
+    loadImages: Boolean,
     onEditNotesClicked: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
-    val preferences = remember { context.appGraph.uiPreferences }
-    val loadImages = remember { preferences.imagesInDescription.get() }
     val animProgress by animateFloatAsState(
         targetValue = if (expanded) 1f else 0f,
         label = "summary",

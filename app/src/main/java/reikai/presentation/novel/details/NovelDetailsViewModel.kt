@@ -1307,26 +1307,29 @@ class NovelDetailsViewModel(
     fun showCoverDialog() = showDialog(NovelDetailsDialog.FullCover)
 
     /** A rebuilt chapter list drops whatever it no longer holds, the range anchor included, so a write
-     *  starts from the selection retained to the rows the page shows. */
+     *  starts from the selection retained to the rows the page shows: [shown], which the screen's own
+     *  filters (Only copies, a volume) narrow below this model's list. */
     private inline fun updateSelection(
-        crossinline transform: (SelectionState<Long>, List<Long>) -> SelectionState<Long>,
+        shown: List<Long>,
+        crossinline transform: (SelectionState<Long>) -> SelectionState<Long>,
     ) {
-        val shown = (state.value as? NovelDetailsState.Loaded)?.chapters?.map { it.id } ?: return
-        chapterSelection.update { transform(EntrySelection.retain(it, shown), shown) }
+        chapterSelection.update { transform(EntrySelection.retain(it, shown)) }
     }
 
-    fun toggleSelection(chapterId: Long, fromLongPress: Boolean) = updateSelection { selection, shown ->
-        if (fromLongPress) {
-            EntrySelection.rangeOrToggle(selection, chapterId, shown)
-        } else {
-            EntrySelection.toggle(selection, chapterId)
+    fun toggleSelection(chapterId: Long, fromLongPress: Boolean, shown: List<Long>) =
+        updateSelection(shown) { selection ->
+            if (fromLongPress) {
+                EntrySelection.rangeOrToggle(selection, chapterId, shown)
+            } else {
+                EntrySelection.toggle(selection, chapterId)
+            }
         }
-    }
 
-    fun selectAll() = updateSelection { selection, shown -> EntrySelection.selectAll(selection, shown) }
+    fun selectAll(shown: List<Long>) = updateSelection(shown) { EntrySelection.selectAll(it, shown) }
 
-    fun toggleBlock(chapterIds: List<Long>) = updateSelection { selection, _ ->
-        EntrySelection.toggleBlock(selection, chapterIds)
+    fun toggleBlock(chapterIds: List<Long>) {
+        val listed = (state.value as? NovelDetailsState.Loaded)?.chapters?.map { it.id } ?: return
+        updateSelection(listed) { EntrySelection.toggleBlock(it, chapterIds) }
     }
 
     fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
@@ -1334,7 +1337,7 @@ class NovelDetailsViewModel(
         setRead(loaded.chapters.filter { it.id in chapterIds }, read)
     }
 
-    fun invertSelection() = updateSelection { selection, shown -> EntrySelection.invert(selection, shown) }
+    fun invertSelection(shown: List<Long>) = updateSelection(shown) { EntrySelection.invert(it, shown) }
 
     fun clearSelection() {
         chapterSelection.value = EntrySelection.clear()
