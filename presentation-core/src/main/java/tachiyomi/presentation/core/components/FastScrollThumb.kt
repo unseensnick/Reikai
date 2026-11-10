@@ -15,8 +15,8 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -35,7 +35,7 @@ val FastScrollThumbLength = 48.dp
  */
 @Composable
 fun FastScrollThumb(
-    alpha: Float,
+    alpha: () -> Float,
     color: Color,
     endContentPadding: Dp,
     modifier: Modifier = Modifier,
@@ -45,7 +45,8 @@ fun FastScrollThumb(
             .height(FastScrollThumbLength)
             .padding(end = endContentPadding)
             .width(ThumbTouchThickness)
-            .alpha(alpha),
+            // Read while drawing, so the fade does not recompose the thumb every frame
+            .graphicsLayer { this.alpha = alpha() },
         contentAlignment = Alignment.CenterEnd,
     ) {
         Box(

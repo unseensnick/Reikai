@@ -159,7 +159,7 @@ fun ReikaiFastScrollLazyVerticalGrid(
             val isThumbVisible = alpha.value > 0f
 
             FastScrollThumb(
-                alpha = alpha.value,
+                alpha = { alpha.value },
                 color = thumbColor,
                 endContentPadding = endContentPadding,
                 modifier = Modifier

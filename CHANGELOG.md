@@ -77,6 +77,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **The fast scroll thumb on a series' chapter list now moves evenly past the tall header (from Mihon).**
 - **Tapping a cover in its full view now closes it with the high quality renderer on.**
 - **A tag typed in Edit info no longer doubles one that differs only in capitals.**
 - **Searching a novel's downloaded chapters now finds a word written like a tag in plain-text chapters.** The word count counts it too.
