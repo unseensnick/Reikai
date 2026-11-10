@@ -28,7 +28,7 @@ Up to four installer options are available (in <nav to="advanced">):
 Yes. **Content shown** at the top of <nav to="appearance"> takes **All**, **Manga** or **Novels**, and is also offered when you first set up the app. Set to one type, the app shows only that type everywhere: the library, browsing and search, the widget, extensions and the settings for it. The chips that switch between manga and novels, and the labels saying which a series is, go away too. Library updates skip the hidden type. Nothing is deleted, so switching back to **All** brings everything back as it was.
 
 ## Where are the buttons that jump through a series' chapter list?
-On a series' page, the top bar has three buttons: **Scroll to top**, **Scroll to next unread** and **Scroll to bottom**. **Scroll to next unread** goes to the chapter the **Start** / **Resume** button would open. To keep the top bar tidier, turn on **Chapter list scroll actions in menu** in <nav to="appearance">, which moves the three into the <nav to="overflow"> menu instead.
+On a series' page, the top bar has three buttons: **Scroll to top** (an up arrow), **Scroll to next unread** (a book) and **Scroll to bottom** (a down arrow). **Scroll to next unread** goes to the chapter the **Start** / **Resume** button would open. To keep the top bar tidier, turn on **Chapter list scroll actions in menu** in <nav to="appearance">, which moves the three into the <nav to="overflow"> menu instead.
 
 ## Can I move the Start/Resume button to the left?
 Yes. Drag the button sideways on a series' page and let go: it stays on the half of the screen you dropped it on, for every series. You can also pick **Left** or **Right** under **Resume button position** in <nav to="appearance">.
