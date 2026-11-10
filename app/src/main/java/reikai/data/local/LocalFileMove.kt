@@ -44,8 +44,12 @@ private fun copyChecked(source: UniFile, dir: UniFile, name: String): UniFile {
     try {
         if (source.isDirectory) {
             // A hidden file is a marker such as .nomedia, which storage may not let a copy recreate as it was.
-            source.listFiles().orEmpty().filterNot { it.name.orEmpty().startsWith('.') }
-                .forEach { copyChecked(it, target, it.name.orEmpty()) }
+            // A listing that fails would copy an empty folder, and the move would then delete the full one.
+            val entries = checkNotNull(source.listFiles()) { "Could not list $name" }
+                .filterNot { it.name.orEmpty().startsWith('.') }
+            entries.forEach { copyChecked(it, target, it.name.orEmpty()) }
+            val copied = target.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
+            check(entries.all { it.name in copied }) { "$name was copied short" }
         } else {
             source.openInputStream().use { input -> target.openOutputStream().use { input.copyTo(it) } }
             check(target.length() == source.length()) { "$name was copied short" }

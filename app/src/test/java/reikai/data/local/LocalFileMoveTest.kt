@@ -28,6 +28,18 @@ class LocalFileMoveTest {
     private fun uni(file: File) = UniFile.fromFile(file)!!
 
     @Test
+    fun `a folder whose listing fails is not moved`() = runTest {
+        val unreadable = mockk<UniFile>(relaxed = true) {
+            every { isDirectory } returns true
+            every { name } returns "Vol 1"
+            every { listFiles() } returns null
+        }
+
+        moveLocalFiles(listOf(FileCopy(unreadable, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
+            .shouldBeInstanceOf<LocalMoveResult.Failed>()
+    }
+
+    @Test
     fun `a replacement that cannot take the name leaves the old file where it was`() {
         val dir = series("S", "Vol 1.epub" to "old")
         val replacement = mockk<UniFile> { every { renameTo(any()) } returns false }
