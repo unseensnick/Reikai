@@ -16,6 +16,8 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.dedupe.DownloadFolderMerge
+import reikai.data.local.freeNames
+import reikai.data.local.replaceFile
 import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.movesDownloadFolder
 import reikai.domain.download.renameDownloadFolder
@@ -166,7 +168,8 @@ class NovelDownloadProvider(
 
     /**
      * Persist a chapter's HTML, creating parent dirs. Writes to a temp file then renames, so a scan
-     * never sees a partial file. False when no storage dir is configured or the rename fails.
+     * never sees a partial file; a re-download's earlier file steps aside until the new one has its name, so
+     * a failed rename keeps it. False when no storage dir is configured or the rename fails.
      */
     fun writeChapter(
         novel: Novel,
@@ -179,9 +182,8 @@ class NovelDownloadProvider(
         dir.findFile(tmpName)?.delete()
         val tmp = dir.createFile(tmpName) ?: return false
         tmp.openOutputStream().bufferedWriter().use { it.write(html) }
-        // Drop any prior final file so a re-download's rename doesn't fail on an existing target.
-        dir.findFile(finalName)?.delete()
-        return tmp.renameTo(finalName)
+        val earlier = dir.findFile(finalName) ?: return tmp.renameTo(finalName)
+        return replaceFile(earlier, tmp, finalName, freeNames("$finalName.old").first { dir.findFile(it) == null })
     }
 
     /** Deletes [chapters]' files, all [novel]'s, each the first of its names found, as Mihon's findChapterDirs picks. */

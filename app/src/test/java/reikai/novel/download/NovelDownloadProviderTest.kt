@@ -120,6 +120,15 @@ class NovelDownloadProviderTest {
     )
 
     @Test
+    fun `a chapter downloaded again replaces its earlier file and leaves nothing beside it`() {
+        provider.writeChapter(novel, chapter, "<p>old</p>")
+
+        provider.writeChapter(novel, chapter, "<p>new</p>")
+
+        (provider.readChapter(novel, chapter) to File(root, "src/Old Title").list()!!.size) shouldBe ("<p>new</p>" to 1)
+    }
+
+    @Test
     fun `a renamed novel keeps its downloaded chapters`() {
         provider.writeChapter(novel, chapter, "<p>text</p>")
 
