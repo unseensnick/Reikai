@@ -44,35 +44,35 @@ class LocalFilesOnSafTest {
 
     @Test
     fun `a whole listing is trusted`() {
-        picked(series).listFilesOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
+        picked(series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
     }
 
     @Test
     fun `a failed child query is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.Throw
 
-        picked(series).listFilesOrNull(context) shouldBe null
+        picked(series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a short child listing is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.Short(1)
 
-        picked(series).listFilesOrNull(context) shouldBe null
+        picked(series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a null cursor is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.NullCursor
 
-        picked(series).listFilesOrNull(context) shouldBe null
+        picked(series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a folder still loading is not trusted`() {
         FakeSafProvider.childListingFaults += listOf(ChildListingFault.Loading, ChildListingFault.Loading)
 
-        picked(series).listFilesOrNull(context) shouldBe null
+        picked(series).listOrNull(context) shouldBe null
     }
 
     @Test

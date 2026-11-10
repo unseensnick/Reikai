@@ -1,11 +1,11 @@
 package reikai.storage
 
-import android.content.ContentResolver
 import android.content.Context
 import android.media.MediaScannerConnection
 import android.net.Uri
+import android.provider.DocumentsContract
+import android.text.TextUtils
 import com.hippo.unifile.UniFile
-import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.just
@@ -16,54 +16,72 @@ import io.mockk.unmockkStatic
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import java.io.ByteArrayOutputStream
+import org.junit.jupiter.api.io.TempDir
+import java.io.File
 
-/** A local series' cover, as both local sources write it. */
+/** A local series' cover, as both local sources write it, over a real folder. */
 class WriteLocalCoverTest {
 
-    private val written = ByteArrayOutputStream()
-    private val created = mutableListOf<String>()
-    private val coverUri = mockk<Uri> { every { path } returns "/series/cover.jpg" }
+    @TempDir
+    lateinit var folder: File
 
-    // A cover opened for writing any other way than from empty ("wt") is not stubbed, so it fails the write.
-    private val cover = mockk<UniFile> { every { uri } returns coverUri }
-    private val context = mockk<Context> {
-        every { contentResolver } returns mockk<ContentResolver> {
-            every { openOutputStream(coverUri, "wt") } returns written
-        }
-    }
-    private val folder = mockk<UniFile> {
-        every { listFiles() } returns emptyArray()
-        every { exists() } returns true
-        every { uri } returns coverUri
-        every { findFile(any()) } returns null
-        every { createFile(any()) } answers {
-            created += firstArg<String>()
-            cover
-        }
-    }
+    private val context = mockk<Context>()
 
+    // unifile's file-backed implementation and the gateway ask android.jar statics the JVM test jar throws on.
     @BeforeEach
     fun setUp() {
-        mockkStatic(MediaScannerConnection::class)
+        mockkStatic(MediaScannerConnection::class, TextUtils::class, Uri::class, DocumentsContract::class)
         every { MediaScannerConnection.scanFile(any(), any(), any(), any()) } just runs
+        every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
+        every { Uri.fromFile(any()) } returns mockk(relaxed = true)
+        every { DocumentsContract.isTreeUri(any()) } returns false
     }
 
     @AfterEach
-    fun tearDown() = unmockkStatic(MediaScannerConnection::class)
+    fun tearDown() = unmockkStatic(
+        MediaScannerConnection::class,
+        TextUtils::class,
+        Uri::class,
+        DocumentsContract::class,
+    )
 
-    /** A document provider takes plain "w" as write in place, which leaves a bigger old cover's tail. */
+    private fun write(bytes: ByteArray) = writeLocalCover(context, UniFile.fromFile(folder)!!, bytes.inputStream())
+
     @Test
-    fun `a cover is written from empty`() {
-        writeLocalCover(context, folder, byteArrayOf(1, 2, 3).inputStream())
+    fun `a new cover is written as cover_jpg`() {
+        write(byteArrayOf(1, 2, 3))
 
-        written.toByteArray().toList() shouldBe listOf<Byte>(1, 2, 3)
+        File(folder, "cover.jpg").readBytes().toList() shouldBe listOf<Byte>(1, 2, 3)
+    }
+
+    /** A document provider takes plain "w" as write in place, which left a bigger old cover's tail. */
+    @Test
+    fun `a smaller cover leaves none of the old one behind`() {
+        write(ByteArray(64) { 7 })
+
+        write(byteArrayOf(1))
+
+        (File(folder, "cover.jpg").readBytes().toList() to folder.list()!!.sorted()) shouldBe
+            (listOf<Byte>(1) to listOf(".nomedia", "cover.jpg"))
+    }
+
+    @Test
+    fun `a failed write keeps the cover the series had`() {
+        write(ByteArray(3) { 7 })
+        val failing = object : java.io.InputStream() {
+            override fun read(): Int = throw java.io.IOException("gone")
+        }
+
+        runCatching { writeLocalCover(context, UniFile.fromFile(folder)!!, failing) }
+
+        (File(folder, "cover.jpg").length() to folder.list()!!.sorted()) shouldBe
+            (3L to listOf(".nomedia", "cover.jpg"))
     }
 
     @Test
     fun `the series folder is kept out of the gallery`() {
-        writeLocalCover(context, folder, byteArrayOf(1).inputStream())
+        write(byteArrayOf(1))
 
-        created shouldContain ".nomedia"
+        File(folder, ".nomedia").exists() shouldBe true
     }
 }

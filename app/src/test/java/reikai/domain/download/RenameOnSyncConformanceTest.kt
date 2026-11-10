@@ -1,7 +1,6 @@
 package reikai.domain.download
 
 import android.app.NotificationManager
-import android.text.TextUtils
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
@@ -14,8 +13,6 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
@@ -36,7 +33,9 @@ import reikai.novel.download.NovelDownloadManager
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.host.ChapterItem
 import reikai.util.realTimeSourceContacts
+import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
+import reikai.util.unstubUniFileStatics
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -64,9 +63,7 @@ class RenameOnSyncConformanceTest {
 
     @BeforeEach
     fun setUp() = runTest {
-        // UniFile's file-backed implementation asks android.text.TextUtils, which the JVM test jar stubs out.
-        mockkStatic(TextUtils::class)
-        every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
+        stubUniFileStatics()
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
         database = DatabaseBindings.providesDatabase(driver)
@@ -75,7 +72,7 @@ class RenameOnSyncConformanceTest {
     @AfterEach
     fun tearDown() {
         driver.close()
-        unmockkStatic(TextUtils::class)
+        unstubUniFileStatics()
     }
 
     @ParameterizedTest
@@ -180,6 +177,7 @@ class RenameOnSyncConformanceTest {
                 val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
                 val provider = NovelDownloadProvider(
                     scope = testAppScope(),
+                    context = mockk(),
                     storageManager = mockk<StorageManager> {
                         every { getNovelDownloadsDirectory() } returns UniFile.fromFile(root)
                         every { changes } returns MutableSharedFlow()

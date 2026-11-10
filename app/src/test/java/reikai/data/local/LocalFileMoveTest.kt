@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.storage.replaceFile
 import java.io.File
 
 /** Moving a local series' files: copy and check, commit, and only then delete the originals. */
@@ -76,7 +77,10 @@ class LocalFileMoveTest {
     @Test
     fun `a replacement that cannot take the name leaves the old file where it was`() {
         val dir = series("S", "Vol 1.epub" to "old")
-        val replacement = mockk<UniFile> { every { renameTo(any()) } returns false }
+        val replacement = mockk<UniFile> {
+            every { name } returns "Vol 1.epub.part"
+            every { renameTo(any()) } returns false
+        }
 
         replaceFile(uni(File(dir, "Vol 1.epub")), replacement, "Vol 1.epub", "Vol 1.epub.old")
 

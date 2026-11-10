@@ -131,6 +131,7 @@ class DownloadCacheChangesConformanceTest {
                 storageManager = storageManager,
                 provider = NovelDownloadProvider(
                     scope = testAppScope(),
+                    context = mockk(),
                     storageManager = storageManager,
                     downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
                     libraryPreferences = libraryPreferences,

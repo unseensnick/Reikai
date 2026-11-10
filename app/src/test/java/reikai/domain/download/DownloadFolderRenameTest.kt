@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.storage.rename
 
 class DownloadFolderRenameTest {
 
@@ -53,7 +54,7 @@ class DownloadFolderRenameTest {
     fun `a change of letter case renames on a case-blind disk`() {
         val disk = CaseBlindSourceFolder("Old")
 
-        renameDownloadFolder(disk.folder.findFile("Old")!!, "OLD")
+        disk.folder.findFile("Old")!!.rename("OLD")
 
         disk.names() shouldBe listOf("OLD")
     }
@@ -62,8 +63,19 @@ class DownloadFolderRenameTest {
     fun `a new name renames the folder`() {
         val disk = CaseBlindSourceFolder("Old")
 
-        renameDownloadFolder(disk.folder.findFile("Old")!!, "New")
+        disk.folder.findFile("Old")!!.rename("New")
 
         disk.names() shouldBe listOf("New")
+    }
+
+    /** The provider lands a taken name on "name (1)" and reports success; the kernel reads the name it got. */
+    @Test
+    fun `a rename the disk dodges to a numbered name is put back and reported failed`() {
+        val disk = CaseBlindSourceFolder("Old")
+        disk.takenMeanwhile += "New"
+
+        val renamed = disk.folder.findFile("Old")!!.rename("New")
+
+        (renamed to disk.names()) shouldBe (false to listOf("Old"))
     }
 }

@@ -37,7 +37,7 @@ import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
 import reikai.storage.FolderUnreadableException
-import reikai.storage.listFilesOrFail
+import reikai.storage.list
 import reikai.storage.localCover
 import reikai.storage.writeLocalCover
 import tachiyomi.core.common.i18n.stringResource
@@ -205,7 +205,7 @@ class LocalNovelSource(
         return when {
             entry.isDirectory -> {
                 // A short listing would read as volumes deleted, and their chapters and read state with them.
-                val files = entry.listFilesOrFail(context)
+                val files = entry.list(context)
                 val volumes = files.filter { it.isFile && it.isEpub() }
                     .sortedWith { a, b -> a.name.orEmpty().compareToCaseInsensitiveNaturalOrder(b.name.orEmpty()) }
                 if (volumes.isEmpty()) null else Series(name, volumes, files.toList())
@@ -300,7 +300,7 @@ class LocalNovelSource(
     suspend fun writeCover(novelPath: String, stream: InputStream): String? = withIOContext {
         val folder = storageManager.getLocalNovelsDirectory()?.findFile(novelPath)?.takeIf { it.isDirectory }
             ?: return@withIOContext null
-        val written = writeLocalCover(context, folder, stream) ?: return@withIOContext null
+        val written = writeLocalCover(context, folder, stream)
         // The folder cover now wins, so the book covers copied for this series are never read again.
         dropCoverCopies(novelPath)
         written.uri.toString()

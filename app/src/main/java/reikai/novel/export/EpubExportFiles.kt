@@ -4,9 +4,8 @@ import android.content.Context
 import android.graphics.Bitmap
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import reikai.data.local.freeNames
-import reikai.data.local.replaceFile
-import reikai.util.openTruncatingOutputStream
+import reikai.storage.openTruncatingOutputStream
+import reikai.storage.replace
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.IOException
@@ -47,25 +46,11 @@ internal suspend fun UniFile.writeBookOver(context: Context, write: suspend (Out
 }
 
 /**
- * Writes the book as [name] in this folder through a `.tmp` file renamed over the earlier copy once it is
- * whole, as the manga downloader names its pages, so a failed export again leaves the earlier one readable.
- * The earlier copy steps aside rather than going first, so a refused rename keeps it too.
+ * Writes the book as [name] in this folder through [replace]: an in-flight file that takes the name once whole,
+ * as the manga downloader names its pages, so a failed export again leaves the earlier one readable.
  */
 internal suspend fun UniFile.writeBookNamed(context: Context, name: String, write: suspend (OutputStream) -> Unit) {
-    val partName = "$name.tmp"
-    findFile(partName)?.delete()
-    val part = createFile(partName) ?: throw IOException("No file")
-    part.writeOrDelete(context, write)
-    val earlier = findFile(name)
-    val named = if (earlier == null) {
-        part.renameTo(name)
-    } else {
-        replaceFile(earlier, part, name, freeNames("$name.old").first { findFile(it) == null })
-    }
-    if (!named) {
-        part.delete()
-        throw IOException("Could not name $name")
-    }
+    replace(context, name) { write(it) }
 }
 
 /**

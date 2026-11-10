@@ -44,8 +44,10 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.source.local.localVolumeChapter
 import reikai.storage.FolderUnreadableException
-import reikai.storage.listFilesOrFail
-import reikai.storage.listFilesOrNull
+import reikai.storage.deleteIfEmpty
+import reikai.storage.deleteTree
+import reikai.storage.freeNames
+import reikai.storage.list
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.domain.chapter.repository.ChapterRepository
@@ -177,7 +179,7 @@ class CombineLocalVolumes(
     private suspend fun combineManga(kept: CombinableSeries, others: List<CombinableSeries>): LocalVolumeMove {
         val base = localFiles.getBaseDirectory() ?: return failed(missing(kept))
         val keptDir = localFiles.getMangaDirectory(kept.folder) ?: return failed(missing(kept))
-        val taken = keptDir.listFilesOrFail(context).mapNotNull { it.name }.toMutableSet()
+        val taken = keptDir.list(context).mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<OwnerMoves>()
         // The kept series' loose chapters go into a volume folder of their own, or its volumes would not all be folders.
@@ -246,7 +248,7 @@ class CombineLocalVolumes(
         val keptEntry = root.findFile(kept.folder) ?: return failed(missing(kept))
         // A loose book becomes a folder named after it, which the kept series' address then names.
         val folder = if (keptEntry.isDirectory) kept.folder else kept.folder.removeSuffix(EPUB)
-        val taken = keptEntry.takeIf { it.isDirectory }?.listFilesOrFail(context).orEmpty()
+        val taken = keptEntry.takeIf { it.isDirectory }?.list(context).orEmpty()
             .mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<OwnerMoves>()
@@ -261,7 +263,7 @@ class CombineLocalVolumes(
         for (other in others) {
             val entry = root.findFile(other.folder) ?: return failed(missing(other))
             val parent = if (entry.isDirectory) entry else root
-            val books = if (entry.isDirectory) entry.listFilesOrFail(context).filter { it.isEpub() } else listOf(entry)
+            val books = if (entry.isDirectory) entry.list(context).filter { it.isEpub() } else listOf(entry)
             val renamed = books.associate { book -> book.name.orEmpty() to freeName(book.name.orEmpty(), taken) }
             volumeRows.next(other.folder)
             renamed.forEach { (from, to) -> volumeRows.move(from, to) }
@@ -407,7 +409,7 @@ class CombineLocalVolumes(
             },
             finishing = {
                 removal.dropCovers(tookOut.keys.toList())
-                leftovers().filter { it.listFilesOrNull(context)?.holdsOnlyDetails() == true }.forEach { it.delete() }
+                leftovers().forEach { it.deleteIfEmpty(context, onlyMarkers = { file -> file.holdsOnlyDetails() }) }
             },
             appScope = appScope,
         )
@@ -535,7 +537,7 @@ class CombineLocalVolumes(
         if (series == null || folder == null) {
             return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
         }
-        val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteAll() == false }
+        val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteTree() == false }
         // Their saved order and names would otherwise wait at those names for whatever is put there next.
         chapterMoves.forgetVolumes(type, id, series.folder, keys.takeWhile { it != failed })
         relist(type, id)
@@ -687,7 +689,7 @@ class CombineLocalVolumes(
         // Trusted whole, since an Undo deletes whatever the moved folder holds beyond it.
         private val originalFiles = copy.source.takeIf {
             it.isDirectory
-        }?.listFilesOrFail(context).orEmpty().mapNotNull { it.name }.toSet()
+        }?.list(context).orEmpty().mapNotNull { it.name }.toSet()
 
         /** The moved file or folder where the move left it, or null when it is gone. */
         fun placed(): UniFile? = placedIn?.findFile(copy.name)
@@ -697,7 +699,7 @@ class CombineLocalVolumes(
             if (placed.isDirectory) {
                 placed.listFiles().orEmpty().filter {
                     it.name !in originalFiles
-                }.forEach { it.delete() }
+                }.forEach { it.deleteTree() }
             }
             return FileCopy(placed, origin, null, originalName)
         }
@@ -706,23 +708,20 @@ class CombineLocalVolumes(
         fun dropMadeFolder() {
             if (!makesFolder) return
             val folder = copy.folder?.let { copy.parent.findFile(it) } ?: return
-            if (folder.listFilesOrNull(context)?.all { it.name.orEmpty().startsWith('.') } == true) folder.delete()
+            folder.deleteIfEmpty(context)
         }
     }
 
     private companion object {
         fun UniFile.isEpub() = name.orEmpty().endsWith(EPUB, true)
 
-        /** Deletes this file, or this folder after everything in it, since a plain folder delete needs it empty. */
-        fun UniFile.deleteAll(): Boolean = listFiles().orEmpty().all { it.deleteAll() } && delete()
-
         /**
-         * Whether what is left in a series folder is only its cover and details, which went with its chapters:
-         * the local source writes a ComicInfo.xml into a series folder when it reads one from an archive.
+         * Whether a file left in a series folder is only its cover or details, which went with its chapters: the
+         * local source writes a ComicInfo.xml into a series folder when it reads one from an archive.
          */
-        fun List<UniFile>.holdsOnlyDetails() = all { file ->
-            val name = file.name.orEmpty()
-            !file.isDirectory && (
+        fun UniFile.holdsOnlyDetails(): Boolean {
+            val name = this.name.orEmpty()
+            return !isDirectory && (
                 name.startsWith("cover.", ignoreCase = true) || name.equals("details.json", ignoreCase = true) ||
                     name == COMIC_INFO_FILE || name.startsWith(".")
                 )

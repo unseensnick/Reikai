@@ -1,13 +1,10 @@
 package mihon.core.migration.migrations
 
-import android.text.TextUtils
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import mihon.core.migration.MigrationContext
@@ -19,7 +16,9 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.download.NovelDownloadProvider
 import reikai.presentation.recents.EmittingPreferenceStore
+import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
+import reikai.util.unstubUniFileStatics
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -33,17 +32,11 @@ class NovelDownloadSourceFolderMigrationTest {
     @TempDir
     lateinit var root: File
 
-    // UniFile's file-backed implementation asks android.text.TextUtils, which the JVM test jar stubs out.
     @BeforeEach
-    fun stubTextUtils() {
-        mockkStatic(TextUtils::class)
-        every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
-    }
+    fun stubStatics() = stubUniFileStatics()
 
     @AfterEach
-    fun restoreTextUtils() {
-        unmockkStatic(TextUtils::class)
-    }
+    fun restoreStatics() = unstubUniFileStatics()
 
     private val libraryPreferences = LibraryPreferences(EmittingPreferenceStore())
     private val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
@@ -58,6 +51,7 @@ class NovelDownloadSourceFolderMigrationTest {
     private val migration by lazy {
         val provider = NovelDownloadProvider(
             scope = testAppScope(),
+            context = mockk(),
             storageManager = mockk<StorageManager> {
                 every { getNovelDownloadsDirectory() } returns UniFile.fromFile(root)
                 every { changes } returns MutableSharedFlow()

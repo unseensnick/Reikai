@@ -1,5 +1,6 @@
 package mihon.core.migration.migrations
 
+import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesIntoSet
@@ -15,6 +16,8 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadProvider
+import reikai.storage.deleteFile
+import reikai.storage.deleteIfEmpty
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.storage.service.StorageManager
@@ -30,6 +33,7 @@ import tachiyomi.domain.storage.service.StorageManager
 @Inject
 @ContributesIntoSet(AppScope::class)
 class NovelDownloadRekeyMigration(
+    private val context: Context,
     private val storageManager: StorageManager,
     private val novelRepo: NovelRepository,
     private val chapterRepo: NovelChapterRepository,
@@ -67,8 +71,8 @@ class NovelDownloadRekeyMigration(
             }
         // A merged-away copy goes last, so a chapter the survivor has keeps the survivor's own download
         moves.sortedBy { it.merged }.forEach { move(it) }
-        // Prune the numeric dir once everything moved out.
-        novelDirs.forEach { if (it.listFiles().orEmpty().isEmpty()) it.delete() }
+        // Prune the numeric dir once a trusted listing shows everything moved out.
+        novelDirs.forEach { it.deleteIfEmpty(context) }
         true
     }
 
@@ -80,7 +84,7 @@ class NovelDownloadRekeyMigration(
             // Named with the hash, as every install this runs on names chapters: the setting saying so is written
             // by ChapterNameSuffixMigration, after this one, and without it two chapters of one name share a file.
             val name = provider.chapterFileName(move.chapter.name, move.chapter.url, enableChapterNameHash = true)
-            if (provider.writeChapter(move.novel, move.chapter, html, name)) move.file.delete()
+            if (provider.writeChapter(move.novel, move.chapter, html, name)) move.file.deleteFile()
         }.onFailure {
             logcat(LogPriority.WARN, it) {
                 "Novel download re-key failed: novel=${move.novel.id} chapter=${move.chapter.id}"

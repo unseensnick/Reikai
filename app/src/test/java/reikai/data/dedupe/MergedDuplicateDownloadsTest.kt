@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import org.junit.jupiter.api.AfterEach
+import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
@@ -37,7 +38,9 @@ import reikai.novel.download.FakeSharedPreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.download.NovelDownloadStore
+import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
+import reikai.util.unstubUniFileStatics
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.chapter.interactor.GetChapter
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -77,6 +80,7 @@ class MergedDuplicateDownloadsTest {
     private val novelProvider =
         NovelDownloadProvider(
             testAppScope(),
+            mockk(),
             storageManager,
             downloadProvider,
             libraryPreferences,
@@ -468,9 +472,13 @@ class MergedDuplicateDownloadsTest {
         every { DiskUtil.getAvailableStorageSpace(any<UniFile>()) } returns bytes
     }
 
+    @BeforeEach
+    fun stubStatics() = stubUniFileStatics()
+
     @AfterEach
     fun tearDown() {
         unmockkObject(DiskUtil)
+        unstubUniFileStatics()
     }
 
     /** How the fake storage writes: whole, throwing after the first byte, or silently a byte short. */
@@ -514,6 +522,7 @@ class MergedDuplicateDownloadsTest {
 
         val file: UniFile = mockk {
             every { this@mockk.name } answers { this@FakeDir.name }
+            every { uri } returns mockk()
             every { isDirectory } returns isDir
             every { isFile } returns !isDir
             every { exists() } answers { parent == null || parent.children[this@FakeDir.name] === this@FakeDir }

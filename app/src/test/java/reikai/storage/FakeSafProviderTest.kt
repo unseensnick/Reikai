@@ -11,7 +11,7 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.storage.FakeSafProvider.ChildListingFault
-import reikai.util.openTruncatingOutputStream
+import reikai.storage.openTruncatingOutputStream
 import java.io.File
 
 /** What unifile's picked-folder path does over a provider, healthy and under each listing fault. */

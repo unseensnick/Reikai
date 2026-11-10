@@ -197,6 +197,8 @@ class MangaEmptiedQueueHalf : EmptiedQueueHalf {
                 }
                 every { getMangaDirName(any()) } returns "New"
                 coEvery { findChapterDirs(any(), any(), any()) } returns (null to emptyList())
+                // No source folder to list: the trusted listing asks the platform, which this plain JVM test has not
+                coEvery { findSourceDir(any()) } returns null
             },
             cache = mockk(relaxed = true),
             getCategories = mockk(),

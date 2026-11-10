@@ -50,17 +50,17 @@ class ListedFilesTest {
 
     @Test
     fun `a listing the folder's count agrees with is its files`() {
-        folder.listFilesOrNull(counting(cursor(2))) shouldBe files.toList()
+        folder.listOrNull(counting(cursor(2))) shouldBe files.toList()
     }
 
     @Test
     fun `a listing shorter than the folder is not trusted`() {
-        folder.listFilesOrNull(counting(cursor(3))) shouldBe null
+        folder.listOrNull(counting(cursor(3))) shouldBe null
     }
 
     @Test
     fun `a folder the provider cannot count is not trusted`() {
-        folder.listFilesOrNull(counting(null)) shouldBe null
+        folder.listOrNull(counting(null)) shouldBe null
     }
 
     @Test
@@ -68,17 +68,17 @@ class ListedFilesTest {
         val context = mockk<Context> {
             every { contentResolver.query(childrenUri, any(), null, null, null) } throws SecurityException()
         }
-        folder.listFilesOrNull(context) shouldBe null
+        folder.listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a listing still loading is not trusted`() {
-        folder.listFilesOrNull(counting(cursor(2, loading = true))) shouldBe null
+        folder.listOrNull(counting(cursor(2, loading = true))) shouldBe null
     }
 
     @Test
     fun `a plain folder's listing is trusted as it is`() {
         every { DocumentsContract.isTreeUri(folderUri) } returns false
-        folder.listFilesOrNull(mockk()) shouldBe files.toList()
+        folder.listOrNull(mockk()) shouldBe files.toList()
     }
 }

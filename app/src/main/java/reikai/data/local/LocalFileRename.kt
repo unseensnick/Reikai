@@ -1,8 +1,6 @@
 package reikai.data.local
 
 import com.hippo.unifile.UniFile
-import eu.kanade.tachiyomi.data.download.Downloader
-import reikai.domain.download.renameDownloadFolder
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalFileJournal
@@ -10,6 +8,8 @@ import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localVolumeChapter
+import reikai.storage.IN_FLIGHT_SUFFIX
+import reikai.storage.rename
 
 /**
  * The disk half of Rename files, written to the [journal] before the first rename and kept up to date with
@@ -45,7 +45,7 @@ internal class JournaledRename(
         journalId = id
         this.plan = plan
         volumes.zip(files).forEachIndexed { index, (volume, file) ->
-            check(renameDownloadFolder(file, volume.to)) { "Could not rename ${volume.from}" }
+            check(file.rename(volume.to)) { "Could not rename ${volume.from}" }
             done += file to volume.from
             plan = plan.copy(
                 volumes = plan.volumes.mapIndexed { i, step -> if (i == index) step.took(file) else step },
@@ -53,14 +53,14 @@ internal class JournaledRename(
             journal.update(id, plan)
         }
         series?.let {
-            check(renameDownloadFolder(seriesFile, it.to)) { "Could not rename ${it.from}" }
+            check(seriesFile.rename(it.to)) { "Could not rename ${it.from}" }
             done += seriesFile to it.from
             journal.update(id, plan.copy(series = plan.series?.took(seriesFile)))
         }
     }
 
     suspend fun reverse() {
-        done.asReversed().forEach { (file, name) -> renameDownloadFolder(file, name) }
+        done.asReversed().forEach { (file, name) -> file.rename(name) }
         journalId?.let { journal.delete(it) }
     }
 
@@ -92,4 +92,4 @@ internal fun renamedChapterMoves(
 }.filter { it.fromUrl != it.toUrl }
 
 /** The name a case-only rename goes through, which a kill can leave a folder at. */
-internal fun String.inFlightName() = this + Downloader.TMP_DIR_SUFFIX
+internal fun String.inFlightName() = this + IN_FLIGHT_SUFFIX

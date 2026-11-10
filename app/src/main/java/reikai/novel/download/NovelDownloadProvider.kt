@@ -1,11 +1,11 @@
 package reikai.novel.download
 
+import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.download.DownloadProvider
-import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted
@@ -14,18 +14,24 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
+import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.dedupe.DownloadFolderMerge
-import reikai.data.local.freeNames
-import reikai.data.local.replaceFile
 import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.movesDownloadFolder
-import reikai.domain.download.renameDownloadFolder
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.source.isNovelAppSourceId
+import reikai.storage.deleteFile
+import reikai.storage.deleteIfEmpty
+import reikai.storage.deleteTree
+import reikai.storage.listOrNull
+import reikai.storage.rename
+import reikai.storage.replace
+import reikai.util.runCatchingCancellable
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 
@@ -40,6 +46,7 @@ import tachiyomi.domain.storage.service.StorageManager
 @SingleIn(AppScope::class)
 class NovelDownloadProvider(
     @AppCoroutineScope private val scope: CoroutineScope,
+    private val context: Context,
     private val storageManager: StorageManager,
     private val downloadProvider: DownloadProvider,
     private val libraryPreferences: LibraryPreferences,
@@ -93,7 +100,7 @@ class NovelDownloadProvider(
             val folder = root.findFile(folderName(from(source)))?.takeIf { it.isDirectory } ?: return@forEach
             // No other entry is named onto a source folder, so only a taken name keeps it in place
             if (folder.name == target || !movesDownloadFolder(folder, target, emptyList())) return@forEach
-            renameDownloadFolder(folder, target)
+            folder.rename(target)
         }
     }
 
@@ -110,12 +117,12 @@ class NovelDownloadProvider(
             if (name.equals(target, ignoreCase = true)) return@forEach
             val folder = root.findFile(name)?.takeIf { it.isDirectory } ?: return@forEach
             val into = root.findFile(target)?.takeIf { it.isDirectory } ?: return@forEach
-            DownloadFolderMerge.merge(from = folder, into = into)
+            DownloadFolderMerge.merge(context, from = folder, into = into)
             folder.listFiles().orEmpty().filter { it.isDirectory }.forEach { title ->
                 into.findFile(title.name ?: return@forEach)?.takeIf { it.isDirectory }
-                    ?.let { DownloadFolderMerge.merge(from = title, into = it) }
+                    ?.let { DownloadFolderMerge.merge(context, from = title, into = it) }
             }
-            if (folder.listFiles()?.isEmpty() == true) folder.delete()
+            folder.deleteIfEmpty(context)
         }
     }
 
@@ -167,9 +174,9 @@ class NovelDownloadProvider(
             ?.openInputStream()?.bufferedReader()?.use { it.readText() }
 
     /**
-     * Persist a chapter's HTML, creating parent dirs. Writes to a temp file then renames, so a scan
-     * never sees a partial file; a re-download's earlier file steps aside until the new one has its name, so
-     * a failed rename keeps it. False when no storage dir is configured or the rename fails.
+     * Persist a chapter's HTML, creating parent dirs, through [replace]: written beside the earlier file and
+     * swapped in once whole, so a scan never sees a partial file and a failed write or rename keeps the earlier
+     * one. False when no storage dir is configured or the file could not take its name.
      */
     fun writeChapter(
         novel: Novel,
@@ -178,42 +185,41 @@ class NovelDownloadProvider(
         finalName: String = chapterFileName(chapter),
     ): Boolean {
         val dir = novelDir(novel) ?: return false
-        val tmpName = finalName + Downloader.TMP_DIR_SUFFIX
-        dir.findFile(tmpName)?.delete()
-        val tmp = dir.createFile(tmpName) ?: return false
-        tmp.openOutputStream().bufferedWriter().use { it.write(html) }
-        val earlier = dir.findFile(finalName) ?: return tmp.renameTo(finalName)
-        return replaceFile(earlier, tmp, finalName, freeNames("$finalName.old").first { dir.findFile(it) == null })
+        return runCatchingCancellable {
+            dir.replace(context, finalName) { it.bufferedWriter().use { writer -> writer.write(html) } }
+        }
+            .onFailure { logcat(LogPriority.WARN, it) { "Could not write ${novel.title} / $finalName" } }
+            .isSuccess
     }
 
     /** Deletes [chapters]' files, all [novel]'s, each the first of its names found, as Mihon's findChapterDirs picks. */
     fun deleteChapters(novel: Novel, chapters: List<NovelChapter>) {
         val find = findNovelDir(novel)?.chapterFileLookup(chapters.size) ?: return
-        chapters.forEach { chapter -> validChapterFileNames(chapter).firstNotNullOfOrNull(find)?.delete() }
+        chapters.forEach { chapter -> validChapterFileNames(chapter).firstNotNullOfOrNull(find)?.deleteFile() }
     }
 
-    /** Deletes the novel's folder, then its source's folder once that is empty, as manga's does. */
+    /** Deletes the novel's folder, then its source's folder once a trusted listing shows it empty, as manga's does. */
     fun deleteNovel(novel: Novel) {
-        findNovelDir(novel)?.delete()
-        val sourceDir = downloadsDir?.findFile(sourceDirName(novel))
-        if (sourceDir?.listFiles()?.isEmpty() == true) sourceDir.delete()
+        findNovelDir(novel)?.deleteTree()
+        downloadsDir?.findFile(sourceDirName(novel))?.deleteIfEmpty(context)
     }
 
     /**
-     * Moves the novel's folder to [newTitle]'s name by [renameDownloadFolder]. False when there was nothing to move
-     * or the move failed.
+     * Moves the novel's folder to [newTitle]'s name by [rename]. False when there was nothing to move or the move
+     * failed.
      */
     fun renameNovel(novel: Novel, newTitle: String): Boolean {
         val dir = findNovelDir(novel) ?: return false
         val newName = novelDirName(newTitle)
         if (dir.name == newName) return false
-        return renameDownloadFolder(dir, newName)
+        return dir.rename(newName)
     }
 
     /** Free bytes on the volume novel downloads go to, or -1 when it cannot be read. */
     fun availableSpace(): Long = downloadsDir?.let(DiskUtil::getAvailableStorageSpace) ?: -1L
 
-    fun isNovelDirEmpty(novel: Novel): Boolean = findNovelDir(novel)?.listFiles()?.isEmpty() == true
+    /** Whether nothing is left in the novel's folder, by a trusted listing, since a failed one reads as empty too. */
+    fun isNovelDirEmpty(novel: Novel): Boolean = findNovelDir(novel)?.listOrNull(context)?.isEmpty() == true
 
     /**
      * Rename a downloaded chapter's file when its title changes, so the stable-name path follows the new
@@ -227,7 +233,7 @@ class NovelDownloadProvider(
         val oldFile = validChapterFileNames(oldChapter).firstNotNullOfOrNull { dir.findFile(it) } ?: return false
         val newName = chapterFileName(newChapter)
         if (oldFile.name == newName) return false
-        return oldFile.renameTo(newName)
+        return oldFile.rename(newName)
     }
 
     companion object {

@@ -2,8 +2,10 @@ package reikai.data.local
 
 import android.content.Context
 import com.hippo.unifile.UniFile
-import reikai.storage.listFilesOrFail
-import reikai.storage.listFilesOrNull
+import reikai.storage.copyVerified
+import reikai.storage.deleteFile
+import reikai.storage.deleteIfEmpty
+import reikai.storage.deleteTree
 import kotlin.coroutines.cancellation.CancellationException
 
 /** A file or folder of a local series, copied as [name] into [parent], or into its [folder] when one is named. */
@@ -29,13 +31,13 @@ suspend fun moveLocalFiles(context: Context, copies: List<FileCopy>, commit: sus
             val dir = copy.folder?.let { name ->
                 copy.parent.findFile(name) ?: checkNotNull(copy.parent.createDirectory(name)).also { made += it }
             } ?: copy.parent
-            val target = copyChecked(context, copy.source, dir, copy.name)
+            val target = dir.copyVerified(context, copy.source, copy.name)
             made += target
             placed += copy.source to target
         }
         commit()
     } catch (e: Throwable) {
-        made.forEach { it.delete() }
+        made.forEach { it.deleteTree() }
         if (e is CancellationException) throw e
         return LocalMoveResult.Failed(e)
     }
@@ -52,48 +54,8 @@ suspend fun moveLocalFiles(context: Context, copies: List<FileCopy>, commit: sus
  * listing can come back short without failing, and a whole-folder delete would then take what was never copied.
  */
 private fun deleteMoved(context: Context, source: UniFile, copy: UniFile): Boolean {
-    if (!source.isDirectory) return source.delete()
+    if (!source.isDirectory) return source.deleteFile()
     val copied = copy.listFiles().orEmpty().associateBy { it.name }
     source.listFiles().orEmpty().forEach { child -> copied[child.name]?.let { deleteMoved(context, child, it) } }
-    val left = source.listFilesOrNull(context) ?: return false
-    return left.all { it.name.orEmpty().startsWith('.') } && source.delete()
-}
-
-/** [source] copied into [dir] as [name], a folder with everything in it; a file checked by its length. */
-private fun copyChecked(context: Context, source: UniFile, dir: UniFile, name: String): UniFile {
-    check(dir.findFile(name) == null) { "$name is already in ${dir.name}" }
-    val target = if (source.isDirectory) dir.createDirectory(name) else dir.createFile(name)
-    checkNotNull(target) { "Could not create $name in ${dir.name}" }
-    try {
-        if (source.isDirectory) {
-            // A hidden file is a marker such as .nomedia, which storage may not let a copy recreate as it was.
-            // A listing that fails would copy an empty folder, and the move would then delete the full one.
-            val entries = source.listFilesOrFail(context).filterNot { it.name.orEmpty().startsWith('.') }
-            entries.forEach { copyChecked(context, it, target, it.name.orEmpty()) }
-            val copied = target.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
-            check(entries.all { it.name in copied }) { "$name was copied short" }
-        } else {
-            source.openInputStream().use { input -> target.openOutputStream().use { input.copyTo(it) } }
-            check(target.length() == source.length()) { "$name was copied short" }
-        }
-    } catch (e: Throwable) {
-        target.delete()
-        throw e
-    }
-    return target
-}
-
-/**
- * Puts [replacement] in [old]'s place as [name]: the old file steps aside as [aside] first and goes only once
- * the replacement holds the name, so a failed rename never leaves the series without either. Answers whether
- * it went through; when not, [old] is back under [name].
- */
-internal fun replaceFile(old: UniFile, replacement: UniFile, name: String, aside: String): Boolean {
-    if (!old.renameTo(aside)) return false
-    if (!replacement.renameTo(name)) {
-        old.renameTo(name)
-        return false
-    }
-    old.delete()
-    return true
+    return source.deleteIfEmpty(context)
 }

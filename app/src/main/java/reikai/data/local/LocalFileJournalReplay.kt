@@ -7,7 +7,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
-import reikai.domain.download.renameDownloadFolder
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
@@ -17,6 +16,8 @@ import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
 import reikai.domain.novel.NovelChapterRepository
+import reikai.storage.deleteFile
+import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import kotlin.coroutines.cancellation.CancellationException
@@ -79,7 +80,7 @@ class LocalFileJournalReplay(
             return
         }
         if (steps.none { it is Found.NotYet }) {
-            steps.forEach { if (it is Found.InFlight) check(it.file.renameTo(it.step.to)) }
+            steps.forEach { if (it is Found.InFlight) check(it.file.rename(it.step.to)) }
             val urls = when (type) {
                 ContentType.NOVELS -> novelChapterRepository.getByNovelId(plan.entryId).map { it.url }
                 else -> chapterRepository.getChapterByMangaId(plan.entryId).map { it.url }
@@ -90,7 +91,7 @@ class LocalFileJournalReplay(
             chapterMoves.rename(type, SeriesRename(plan.entryId, plan.folder, target, volumeNames), moves, id)
             return
         }
-        steps.asReversed().forEach { found -> found.file?.let { renameDownloadFolder(it, found.step.from) } }
+        steps.asReversed().forEach { found -> found.file?.let { it.rename(found.step.from) } }
         journal.delete(id)
     }
 
@@ -101,14 +102,14 @@ class LocalFileJournalReplay(
         val aside = folder.findFile(plan.aside)
         when {
             name != null -> {
-                part?.delete()
-                aside?.delete()
+                part?.deleteFile()
+                aside?.deleteFile()
             }
             part != null -> {
-                check(part.renameTo(plan.name)) { "Could not promote ${plan.part}" }
-                aside?.delete()
+                check(part.rename(plan.name)) { "Could not promote ${plan.part}" }
+                aside?.deleteFile()
             }
-            aside != null -> check(aside.renameTo(plan.name)) { "Could not put back ${plan.aside}" }
+            aside != null -> check(aside.rename(plan.name)) { "Could not put back ${plan.aside}" }
         }
         journal.delete(id)
     }

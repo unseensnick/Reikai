@@ -11,13 +11,13 @@ import reikai.domain.dedupe.MergedDuplicate
 import reikai.domain.dedupe.MergedDuplicateChapter
 import reikai.domain.dedupe.survivorIds
 import reikai.domain.download.QueuedChapter
-import reikai.domain.download.renameDownloadFolder
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
 import reikai.novel.download.NovelDownloadStore
+import reikai.storage.rename
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.interactor.GetChapter
@@ -33,7 +33,7 @@ import tachiyomi.domain.source.service.SourceManager
  */
 @Inject
 class MergedDuplicateDownloads(
-    context: Context,
+    private val context: Context,
     private val downloadProvider: DownloadProvider,
     private val downloadCache: DownloadCache,
     private val downloadStore: DownloadStore,
@@ -114,7 +114,7 @@ class MergedDuplicateDownloads(
     }
 
     /**
-     * Renames the copy's folder to the survivor's name, in place, by [renameDownloadFolder]. A survivor with a
+     * Renames the copy's folder to the survivor's name, in place, by `UniFile.rename`. A survivor with a
      * folder of its own has the copy's merged into it instead, by [DownloadFolderMerge].
      */
     private fun moveFolder(discarded: UniFile?, survivor: UniFile?, survivorName: String): FolderCarry {
@@ -126,8 +126,8 @@ class MergedDuplicateDownloads(
         } else {
             survivor
         }
-        if (own != null) return DownloadFolderMerge.merge(from = discarded, into = own)
-        val renamed = renameDownloadFolder(discarded, survivorName)
+        if (own != null) return DownloadFolderMerge.merge(context, from = discarded, into = own)
+        val renamed = discarded.rename(survivorName)
         return FolderCarry(finished = renamed, changed = renamed)
     }
 

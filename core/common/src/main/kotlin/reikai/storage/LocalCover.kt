@@ -3,7 +3,6 @@ package reikai.storage
 import android.content.Context
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.storage.DiskUtil
-import reikai.util.openTruncatingOutputStream
 import tachiyomi.core.common.storage.nameWithoutExtension
 import tachiyomi.core.common.util.system.ImageUtil
 import java.io.InputStream
@@ -17,18 +16,16 @@ fun Iterable<UniFile>.localCover(): UniFile? =
         .firstOrNull { ImageUtil.isImage(it.name) { it.openInputStream() } }
 
 /**
- * Writes [input] as the cover of the local series in [folder], over its [localCover] or as a new `cover.jpg`,
- * and keeps the folder out of the gallery. Written from empty, since a document provider writes plain "w" in
- * place and a smaller picture kept the old one's tail. The manga and novel local sources both write it here.
- * Null when no file could be made.
+ * Writes [input] as the cover of the local series in [folder], in place of its [localCover] or as a new
+ * `cover.jpg`, through [replace], so the user's own cover is never truncated in place and a failed write keeps it.
+ * Keeps the folder out of the gallery. The manga and novel local sources both write it here.
  */
-fun writeLocalCover(context: Context, folder: UniFile, input: InputStream): UniFile? = input.use { source ->
-    val target = folder.listFiles().orEmpty().asIterable().localCover()
-        ?: folder.createFile(DEFAULT_COVER_NAME)
-        ?: return null
-    target.openTruncatingOutputStream(context).use { source.copyTo(it) }
+fun writeLocalCover(context: Context, folder: UniFile, input: InputStream): UniFile = input.use { source ->
+    val listed = folder.list(context)
+    val name = listed.localCover()?.name ?: DEFAULT_COVER_NAME
+    val written = folder.replace(context, listed, name) { source.copyTo(it) }
     DiskUtil.createNoMediaFile(folder, context)
-    target
+    written
 }
 
 private const val DEFAULT_COVER_NAME = "cover.jpg"

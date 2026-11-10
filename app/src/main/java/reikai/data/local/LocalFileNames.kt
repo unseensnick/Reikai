@@ -3,6 +3,7 @@ package reikai.data.local
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.domain.library.ContentType
 import reikai.novel.export.epubFileName
+import reikai.storage.freeNames
 
 /**
  * A local series' names on disk, [from] each one now [to] what Rename files gives it. [taken] is the series
@@ -52,12 +53,5 @@ fun localFileNames(
 /** [name], or "name (2)" and up when [taken] holds it, taken for the next caller. */
 internal fun freeName(name: String, taken: MutableSet<String>): String =
     freeNames(name).first { candidate -> taken.none { it.equals(candidate, ignoreCase = true) } }.also { taken += it }
-
-/** [name], then "name (2)" and up, keeping a file's extension last. */
-internal fun freeNames(name: String): Sequence<String> {
-    val stem = name.substringBeforeLast('.', name)
-    val extension = name.removePrefix(stem)
-    return generateSequence(1) { it + 1 }.map { if (it == 1) name else "$stem ($it)$extension" }
-}
 
 internal const val EPUB = ".epub"

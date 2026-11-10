@@ -1,13 +1,10 @@
 package reikai.novel.download
 
-import android.text.TextUtils
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -22,7 +19,9 @@ import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
+import reikai.util.unstubUniFileStatics
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -45,17 +44,11 @@ class NovelDownloadCacheRemoveTest {
     @TempDir
     lateinit var cacheDir: File
 
-    // UniFile's file-backed implementation asks android.text.TextUtils, which the JVM test jar stubs out.
     @BeforeEach
-    fun stubTextUtils() {
-        mockkStatic(TextUtils::class)
-        every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
-    }
+    fun stubStatics() = stubUniFileStatics()
 
     @AfterEach
-    fun restoreTextUtils() {
-        unmockkStatic(TextUtils::class)
-    }
+    fun restoreStatics() = unstubUniFileStatics()
 
     private val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
     private val removed = (1L..3L).map(::chapter)
@@ -71,6 +64,7 @@ class NovelDownloadCacheRemoveTest {
     private val provider by lazy {
         NovelDownloadProvider(
             scope = testAppScope(),
+            context = mockk(),
             storageManager = storageManager,
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,

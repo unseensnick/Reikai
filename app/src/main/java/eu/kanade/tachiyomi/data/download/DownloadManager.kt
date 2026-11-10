@@ -22,6 +22,9 @@ import reikai.domain.download.deletableDownloads // RK
 import reikai.domain.download.movesDownloadFolder // RK
 import reikai.domain.download.removableDownloads // RK
 import reikai.domain.source.SourceTitlesRepository // RK
+import reikai.storage.deleteIfEmpty // RK
+import reikai.storage.listOrNull // RK
+import reikai.storage.rename // RK
 import reikai.util.inOrderOf // RK
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -296,7 +299,8 @@ class DownloadManager(
             cache.removeChapters(filteredChapters, manga)
 
             // Delete manga directory if empty
-            if (mangaDir?.listFiles()?.isEmpty() == true) {
+            // RK: by a trusted listing, since a picked folder's failed listing reads as empty too, as novels' does
+            if (mangaDir?.listOrNull(context)?.isEmpty() == true) {
                 deleteManga(manga, source, removeQueued = false)
             }
         }
@@ -326,9 +330,8 @@ class DownloadManager(
             cache.removeManga(manga)
 
             // Delete source directory if empty
-            val sourceDir = provider.findSourceDir(source)
-            if (sourceDir?.listFiles()?.isEmpty() == true) {
-                sourceDir.delete()
+            // RK: only once a trusted listing shows it empty, as novels' deleteNovel does
+            if (provider.findSourceDir(source)?.deleteIfEmpty(context) == true) {
                 cache.removeSource(source)
             }
         }
@@ -385,16 +388,8 @@ class DownloadManager(
 
         if (oldFolder.name == newName) return@withIOContext
 
-        val capitalizationChanged = oldFolder.name.equals(newName, ignoreCase = true)
-        if (capitalizationChanged) {
-            val tempName = newName + Downloader.TMP_DIR_SUFFIX
-            if (!oldFolder.renameTo(tempName)) {
-                logcat(LogPriority.ERROR) { "Failed to rename source download folder: ${oldFolder.name}" }
-                return@withIOContext
-            }
-        }
-
-        if (!oldFolder.renameTo(newName)) {
+        // RK: the shared rename, judged by the name it produced, as the novel source folders' is
+        if (!oldFolder.rename(newName)) {
             logcat(LogPriority.ERROR) { "Failed to rename source download folder: ${oldFolder.name}" }
         }
     }
@@ -419,16 +414,8 @@ class DownloadManager(
         // just to be safe, don't allow downloads for this manga while renaming it
         removeQueuedManga(manga) // RK
 
-        val capitalizationChanged = oldFolder.name.equals(newName, ignoreCase = true)
-        if (capitalizationChanged) {
-            val tempName = newName + Downloader.TMP_DIR_SUFFIX
-            if (!oldFolder.renameTo(tempName)) {
-                logcat(LogPriority.ERROR) { "Failed to rename manga download folder: ${oldFolder.name}" }
-                return@withIOContext
-            }
-        }
-
-        if (oldFolder.renameTo(newName)) {
+        // RK: the shared rename, judged by the name it produced, as renameNovel's is (TitleRenameFolderConformanceTest)
+        if (oldFolder.rename(newName)) {
             cache.renameManga(manga, oldFolder, newTitle)
         } else {
             logcat(LogPriority.ERROR) { "Failed to rename manga download folder: ${oldFolder.name}" }
@@ -465,7 +452,8 @@ class DownloadManager(
 
             if (oldDownload.name == newName) return@withIOContext
 
-            if (oldDownload.renameTo(newName)) {
+            // RK: judged by the name it produced, as the novel rename-on-sync is (RenameOnSyncConformanceTest)
+            if (oldDownload.rename(newName)) {
                 cache.removeChapter(oldChapter, manga)
                 cache.addChapter(newName, mangaDir, manga)
             } else {

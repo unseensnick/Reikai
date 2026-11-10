@@ -1,14 +1,11 @@
 package mihon.core.migration.migrations
 
-import android.text.TextUtils
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkStatic
-import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.runTest
 import mihon.core.migration.MigrationContext
@@ -26,7 +23,9 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadProvider
+import reikai.util.stubUniFileStatics
 import reikai.util.testAppScope
+import reikai.util.unstubUniFileStatics
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
@@ -42,23 +41,18 @@ class NovelDownloadRekeyMigrationTest {
     @TempDir
     lateinit var root: File
 
-    // UniFile's file-backed implementation asks android.text.TextUtils, which the JVM test jar stubs out.
     @BeforeEach
-    fun stubTextUtils() {
-        mockkStatic(TextUtils::class)
-        every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
-    }
+    fun stubStatics() = stubUniFileStatics()
 
     @AfterEach
-    fun restoreTextUtils() {
-        unmockkStatic(TextUtils::class)
-    }
+    fun restoreStatics() = unstubUniFileStatics()
 
     private val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
 
     private val provider by lazy {
         NovelDownloadProvider(
             scope = testAppScope(),
+            context = mockk(),
             storageManager = storageManager,
             downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
             libraryPreferences = libraryPreferences,
@@ -151,7 +145,7 @@ class NovelDownloadRekeyMigrationTest {
     }
 
     private suspend fun run(record: MergedDuplicateRepository) {
-        NovelDownloadRekeyMigration(storageManager, novels, chapters, provider, record)
+        NovelDownloadRekeyMigration(mockk(), storageManager, novels, chapters, provider, record)
             .invoke(MigrationContext(dryrun = false, previousVersion = 181))
     }
 

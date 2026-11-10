@@ -12,6 +12,9 @@ import io.mockk.mockk
 class CaseBlindSourceFolder(vararg names: String) {
     private val held = names.toMutableList()
 
+    /** Names another writer takes after the lookup, so a lookup misses them and a rename onto one is dodged. */
+    val takenMeanwhile = mutableSetOf<String>()
+
     val folder: UniFile = mockk {
         every { name } returns SOURCE
         every { findFile(any()) } answers
@@ -35,7 +38,7 @@ class CaseBlindSourceFolder(vararg names: String) {
                 val asked = firstArg<String>()
                 val target = generateSequence(0) { it + 1 }
                     .map { if (it == 0) asked else "$asked ($it)" }
-                    .first { candidate -> held.none { it.equals(candidate, ignoreCase = true) } }
+                    .first { candidate -> (held + takenMeanwhile).none { it.equals(candidate, ignoreCase = true) } }
                 held[held.indexOf(current)] = target
                 current = target
                 true

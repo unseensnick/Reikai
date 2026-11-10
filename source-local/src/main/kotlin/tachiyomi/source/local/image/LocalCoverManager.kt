@@ -34,7 +34,7 @@ class LocalCoverManager(
         }
 
         // RK: the write moved to writeLocalCover, which the local novel source writes through too
-        val targetFile = writeLocalCover(context, directory, inputStream) ?: return null
+        val targetFile = writeLocalCover(context, directory, inputStream)
 
         manga.thumbnail_url = targetFile.uri.toString()
         return targetFile

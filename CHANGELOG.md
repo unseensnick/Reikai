@@ -115,6 +115,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Novel download folders now carry each source's name, where extension sources showed only a long number.** Existing folders are renamed on update.
+- **A storage hiccup while deleting downloads no longer removes the series' or the source's other downloads.** The folder goes only once a listing read whole shows it empty, for manga and novels alike.
+- **A novel chapter downloaded again is written beside its old file and swapped in whole.** A failed download keeps the old file, and a smaller chapter leaves nothing of it behind.
 
 - **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**
 
@@ -181,6 +183,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **A novel chapter no longer hangs while loading on a find-and-replace rule whose pattern never finishes.**
+- **Adding a reader font over one of the same name no longer loses it when the copy fails or the folder cannot be read.**
 - **Auto-split no longer puts a blank line inside a novel chapter's list items, headings or quotes.**
 - **A novel chapter read aloud is now marked read and keeps your place, with Keep in view off too.** Reopening the chapter takes you to the paragraph being read.
 - **Read aloud no longer speaks brackets, quote marks, tildes, emoji or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.

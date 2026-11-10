@@ -34,7 +34,12 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.storage.listFilesOrNull
+import reikai.storage.createNew
+import reikai.storage.deleteFile
+import reikai.storage.deleteIfEmpty
+import reikai.storage.freeNames
+import reikai.storage.listOrNull
+import reikai.storage.replaceFile
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -233,7 +238,7 @@ class LocalImport(
                 var copied = 0
                 // Trusted whole: a book missing from a short listing would have its name given to a new file, and
                 // a provider hands back the existing file to write over.
-                val present = folder.listFilesOrNull(context)?.filter { it.isFile } ?: run {
+                val present = folder.listOrNull(context)?.filter { it.isFile } ?: run {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
@@ -253,14 +258,14 @@ class LocalImport(
                         else -> freeName(file.name, taken)
                     }
                     runCatching {
-                        copy(group.type, file, folder, name, replacing = duplicate?.takeIf { name == it.name })
+                        copy(group.type, file, folder, name, taken, replacing = duplicate?.takeIf { name == it.name })
                     }
                         .onSuccess { copied++ }
                         .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
                 }
                 // Nothing copied, every file skipped or failed, so the series was not imported to.
                 if (copied == 0) {
-                    if (joined == null && folder.listFilesOrNull(context)?.isEmpty() == true) folder.delete()
+                    if (joined == null) folder.deleteIfEmpty(context)
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {
@@ -324,10 +329,11 @@ class LocalImport(
         file: ImportFile,
         folder: UniFile,
         name: String,
+        taken: MutableSet<String>,
         replacing: UniFile? = null,
     ) {
-        val temporary = replacing?.let { freeNames("$name.part").first { folder.findFile(it) == null } }
-        val target = folder.createFile(temporary ?: name) ?: throw IOException("Could not create $name")
+        val temporary = replacing?.let { freeName("$name.part", taken) }
+        val target = folder.createNew(context, temporary ?: name)
         try {
             val input =
                 context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
@@ -335,11 +341,11 @@ class LocalImport(
             // A provider can end a stream early without failing; a short copy must never replace the whole one.
             if (file.size >= 0 && target.length() != file.size) throw IOException("${file.name} was copied short")
         } catch (e: Exception) {
-            target.delete()
+            target.deleteFile()
             throw e
         }
         if (replacing != null) {
-            val aside = freeNames("$name.old").first { folder.findFile(it) == null }
+            val aside = freeName("$name.old", taken)
             // Written down first: a kill between the old file stepping aside and the copy taking its name would
             // otherwise leave the book at neither, and the next refresh would delete its chapters' read state.
             val journaled = journal.insert(
@@ -356,7 +362,7 @@ class LocalImport(
             val replaced = replaceFile(replacing, target, name, aside)
             journal.delete(journaled)
             if (!replaced) {
-                target.delete()
+                target.deleteFile()
                 throw IOException("Could not replace $name")
             }
         }
