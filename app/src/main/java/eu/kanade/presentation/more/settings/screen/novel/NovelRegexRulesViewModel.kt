@@ -11,6 +11,8 @@ import reikai.novel.content.NovelRegexReplacement
 import reikai.novel.content.NovelRegexReplacements
 import reikai.novel.content.NovelRegexRules
 import reikai.novel.content.NovelStoredToggleList
+import reikai.novel.content.UserRegexRunner
+import kotlin.time.Duration.Companion.milliseconds
 
 @Inject
 @ViewModelKey
@@ -27,6 +29,13 @@ class NovelRegexRulesViewModel(
      * the reason, which is what the dialog shows instead of an output.
      */
     fun preview(rule: NovelRegexReplacement, input: String): Result<String> = runCatching {
-        NovelRegexReplacements.compile(rule).applyTo(input)
+        val compiled = NovelRegexReplacements.compile(rule)
+        // Asked in composition on every edit, so a runaway pattern gets a short budget, not the reader's.
+        UserRegexRunner.run(PREVIEW_BUDGET, isActive = { true }) { wrap -> compiled.applyTo(wrap(input)) }
+            ?: throw NovelRegexReplacements.TooSlowException()
+    }
+
+    private companion object {
+        val PREVIEW_BUDGET = 500.milliseconds
     }
 }

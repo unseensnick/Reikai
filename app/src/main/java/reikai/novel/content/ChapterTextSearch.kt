@@ -2,6 +2,7 @@ package reikai.novel.content
 
 import androidx.compose.runtime.Immutable
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
 
 /** A short excerpt around one match. [matchStart] and [matchEnd] index into [text]; [position] is 0 to 1. */
 @Immutable
@@ -25,26 +26,31 @@ object ChapterTextSearch {
     const val MAX_SNIPPETS_PER_CHAPTER = 3
     private const val MAX_SNIPPET_MATCH_LENGTH = 200
 
+    private val BUDGET = 5.seconds
+
     /**
-     * Counts every non-empty match of [regex] in [text] and keeps excerpts for the first few. Once
-     * [isActive] turns false the scan throws [CancellationException], even inside a slow match.
+     * Counts every non-empty match of [regex] in [text] and keeps excerpts for the first few, or null when
+     * the scan runs past its budget. Once [isActive] turns false it throws [CancellationException], even
+     * inside a slow match.
      */
     fun findMatches(
         text: String,
         regex: Regex,
         isActive: () -> Boolean = { true },
-    ): ChapterTextMatches {
+    ): ChapterTextMatches? {
         if (text.isEmpty()) return ChapterTextMatches(0, emptyList())
-        var count = 0
-        val snippets = mutableListOf<ChapterSearchSnippet>()
-        for (match in regex.findAll(CancellableCharSequence(text, isActive))) {
-            if (match.range.isEmpty()) continue
-            count++
-            if (snippets.size < MAX_SNIPPETS_PER_CHAPTER) {
-                snippets += snippetFor(text, match.range.first, match.range.last + 1)
+        return UserRegexRunner.run(BUDGET, isActive) { wrap ->
+            var count = 0
+            val snippets = mutableListOf<ChapterSearchSnippet>()
+            for (match in regex.findAll(wrap(text))) {
+                if (match.range.isEmpty()) continue
+                count++
+                if (snippets.size < MAX_SNIPPETS_PER_CHAPTER) {
+                    snippets += snippetFor(text, match.range.first, match.range.last + 1)
+                }
             }
+            ChapterTextMatches(count, snippets)
         }
-        return ChapterTextMatches(count, snippets)
     }
 
     private fun snippetFor(text: String, start: Int, end: Int): ChapterSearchSnippet {

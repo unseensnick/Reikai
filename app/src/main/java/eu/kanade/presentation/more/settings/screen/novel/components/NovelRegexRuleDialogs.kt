@@ -108,7 +108,17 @@ fun NovelRegexRuleEditDialog(
                     onValueChange = { pattern = it },
                     label = { Text(stringResource(MR.strings.novel_regex_find)) },
                     isError = patternError != null,
-                    supportingText = patternError?.let { { Text(it.message.orEmpty()) } },
+                    supportingText = patternError?.let { e ->
+                        {
+                            Text(
+                                if (e is NovelRegexReplacements.TooSlowException) {
+                                    stringResource(MR.strings.novel_regex_too_slow)
+                                } else {
+                                    e.message.orEmpty()
+                                },
+                            )
+                        }
+                    },
                     maxLines = 3,
                     modifier = Modifier
                         .fillMaxWidth()

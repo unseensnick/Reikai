@@ -1,5 +1,6 @@
 package reikai.presentation.novel.search
 
+import android.content.Context
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
@@ -20,6 +21,7 @@ import dev.zacsweers.metrox.viewmodel.assistedMetroViewModel
 import eu.kanade.presentation.util.Screen
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -30,7 +32,9 @@ import reikai.novel.content.ChapterSearchSnippet
 import reikai.novel.content.ChapterTextSearch
 import reikai.novel.content.NovelRegexReplacements
 import reikai.novel.download.NovelDownloadedTexts
+import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
+import tachiyomi.i18n.MR
 import java.util.concurrent.atomic.AtomicLong
 import java.util.regex.PatternSyntaxException
 
@@ -73,6 +77,7 @@ class NovelChapterSearchScreen(
         @Assisted private val novelId: Long,
         @Assisted private val sourceScoped: Boolean,
         private val downloadedTexts: NovelDownloadedTexts,
+        private val appContext: Context,
     ) : ViewModel() {
 
         val state: StateFlow<State>
@@ -143,6 +148,17 @@ class NovelChapterSearchScreen(
                 downloadedTexts.readEach(chapters) { chapter, text ->
                     val matches = text?.let {
                         ChapterTextSearch.findMatches(it, regex, isActive = { context.isActive })
+                    }
+                    // Too slow on one chapter is too slow on all, and each would leave a thread matching.
+                    if (text != null && matches == null) {
+                        updateFor(generation) {
+                            it.copy(
+                                regexError = appContext.stringResource(MR.strings.novel_regex_too_slow),
+                                isSearching = false,
+                            )
+                        }
+                        context.cancel()
+                        return@readEach
                     }
                     updateFor(generation) { s ->
                         s.copy(

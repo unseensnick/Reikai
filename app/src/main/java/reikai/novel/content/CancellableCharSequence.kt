@@ -3,9 +3,9 @@ package reikai.novel.content
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * The regex engine reads its input through [get], so checking [isActive] there lets a cancelled caller
- * escape a catastrophic pattern, which no coroutine cancellation interrupts on its own. A user's regex
- * reaches both the chapter search and the find-and-replace rules, so both read through this.
+ * Stops a JVM regex scan once [isActive] turns false, since that engine reads its input through [get].
+ * Android's does not (it copies the input and matches natively), so [UserRegexRunner] owns cancelling
+ * a user regex and uses this only to end its abandoned thread where the engine allows.
  */
 internal class CancellableCharSequence(
     private val delegate: CharSequence,

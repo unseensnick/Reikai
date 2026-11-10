@@ -841,6 +841,7 @@
     <string name="pref_novel_regex_rules">Find and replace</string>
     <string name="pref_novel_regex_rules_summary">Rewrite chapter text before it is shown</string>
     <string name="novel_regex_find">Find</string>
+    <string name="novel_regex_too_slow">This pattern takes too long to search</string>
     <string name="novel_regex_replace_with">Replace with</string>
     <string name="novel_regex_use_pattern">Find with a pattern</string>
     <string name="novel_regex_whole_words">Whole words only</string>

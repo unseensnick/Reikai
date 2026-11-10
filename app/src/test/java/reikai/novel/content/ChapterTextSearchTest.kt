@@ -17,7 +17,7 @@ class ChapterTextSearchTest {
     ) = ChapterTextSearch.findMatches(
         text,
         NovelRegexReplacements.findRegex(query, isRegex, wholeWord, caseSensitive),
-    ).count
+    )!!.count
 
     @Test
     fun `a plain query matches literally`() {
@@ -70,7 +70,7 @@ class ChapterTextSearchTest {
     @Test
     fun `a snippet carries its match bounds`() {
         val text = "x".repeat(100) + "needle" + "y".repeat(100)
-        val snippet = ChapterTextSearch.findMatches(text, Regex("needle")).snippets.single()
+        val snippet = ChapterTextSearch.findMatches(text, Regex("needle"))!!.snippets.single()
 
         snippet.text.substring(snippet.matchStart, snippet.matchEnd) shouldBe "needle"
     }
@@ -78,19 +78,19 @@ class ChapterTextSearchTest {
     @Test
     fun `a snippet is cut with ellipses at both ends`() {
         val text = "x".repeat(100) + "needle" + "y".repeat(100)
-        val snippet = ChapterTextSearch.findMatches(text, Regex("needle")).snippets.single()
+        val snippet = ChapterTextSearch.findMatches(text, Regex("needle"))!!.snippets.single()
 
         (snippet.text.first() to snippet.text.last()) shouldBe ('…' to '…')
     }
 
     @Test
     fun `every match is counted past the snippet cap`() {
-        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a")).count shouldBe 10
+        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a"))!!.count shouldBe 10
     }
 
     @Test
     fun `snippets stop at the cap`() {
-        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a")).snippets.size shouldBe
+        ChapterTextSearch.findMatches("a ".repeat(10), Regex("a"))!!.snippets.size shouldBe
             ChapterTextSearch.MAX_SNIPPETS_PER_CHAPTER
     }
 

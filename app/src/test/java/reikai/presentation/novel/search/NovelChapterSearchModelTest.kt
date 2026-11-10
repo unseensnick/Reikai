@@ -1,6 +1,7 @@
 package reikai.presentation.novel.search
 
 import io.kotest.matchers.shouldBe
+import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -30,7 +31,8 @@ class NovelChapterSearchModelTest {
 
     // The model reads on the IO dispatcher, so each step suspends until the state it waits for arrives.
     private suspend fun searched(query: String, options: SearchOptions = SearchOptions()): State {
-        val model = Model(1L, sourceScoped = false, NovelDownloadedTextsFixture.texts(chapters, stored))
+        val model =
+            Model(1L, sourceScoped = false, NovelDownloadedTextsFixture.texts(chapters, stored), mockk(relaxed = true))
         model.state.first { it.chapters != null }
         model.updateQuery(query)
         model.updateOptions(options)

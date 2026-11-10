@@ -4,7 +4,9 @@ import logcat.LogPriority
 import tachiyomi.core.common.util.system.logcat
 import java.util.Collections
 import java.util.LinkedHashMap
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration.Companion.seconds
 
 object NovelRegexReplacements {
 
@@ -20,6 +22,9 @@ object NovelRegexReplacements {
 
     /** The pattern compiled but its replacement cannot be read, so the editor marks the Replace field. */
     class InvalidReplacementException(cause: Exception) : IllegalArgumentException(cause.message, cause)
+
+    /** The pattern ran past its time budget, which the editor says instead of an output. */
+    class TooSlowException : IllegalStateException()
 
     // Compiling a rule set costs more than running it and the same set is re-applied to every
     // chapter, so the compiled form is cached against the raw JSON. Access-ordered and capped, so
@@ -58,7 +63,15 @@ object NovelRegexReplacements {
         return Regex(bounded, options)
     }
 
-    /** Throws [CancellationException] once [isActive] turns false, even inside a slow match. */
+    private val RULE_BUDGET = 2.seconds
+
+    /** Patterns that ran past [RULE_BUDGET] once, skipped from then on. */
+    private val tooSlow: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    /**
+     * Throws [CancellationException] once [isActive] turns false, even inside a slow match. A rule that
+     * runs past [RULE_BUDGET] leaves the text as it found it and is skipped from then on.
+     */
     fun apply(content: String, rulesJson: String, isActive: () -> Boolean = { true }): String {
         if (rulesJson.isBlank() || rulesJson == "[]") return content
 
@@ -78,8 +91,17 @@ object NovelRegexReplacements {
 
         var result = content
         for (rule in compiled) {
+            if (rule.regex.pattern in tooSlow) continue
             try {
-                result = rule.applyTo(CancellableCharSequence(result, isActive))
+                val input = result
+                val replaced = UserRegexRunner.run(RULE_BUDGET, isActive) { wrap -> rule.applyTo(wrap(input)) }
+                if (replaced == null) {
+                    // Its thread may still be matching, so the rule is not run again this session.
+                    tooSlow += rule.regex.pattern
+                    logcat(LogPriority.WARN) { "Regex rule /${rule.regex.pattern}/ ran past $RULE_BUDGET, now skipped" }
+                } else {
+                    result = replaced
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {

@@ -233,6 +233,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A chapter that fails to load while offline now says there is no Internet connection, for manga and novels.**
 - **The novel reader no longer offers WebView, Open in browser or Share for a local novel.**
 - **The novel reader no longer saves progress on every scroll frame near a chapter's end.**
+- **A novel find-and-replace rule or chapter text search that runs too long no longer stalls the chapter or the search.** A slow rule is skipped, and a slow search says so.
 
 ### Statistics
 
