@@ -180,6 +180,12 @@
     <string name="action_correct_chapter_number">Correct chapter number</string>
     <string name="chapter_number_source">The source says %1$s</string>
     <string name="chapter_number_hint">Chapter number may be wrong</string>
+    <!-- RK: details chapter list jumps and the Start/Resume button's side -->
+    <string name="action_scroll_to_bottom">Scroll to bottom</string>
+    <string name="action_scroll_to_next_unread">Scroll to next unread</string>
+    <string name="no_unread_chapter_in_list">No unread chapter in the list</string>
+    <string name="pref_details_scroll_actions_in_menu">Chapter list scroll actions in menu</string>
+    <string name="pref_read_button_side">Resume button position</string>
     <!-- RK: pref-based merge (manage grouped sources) -->
     <string name="action_manage_sources">Manage sources</string>
     <string name="action_metadata_viewer">Gallery info</string>

@@ -29,6 +29,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import reikai.domain.details.ReadButtonSide
 import tachiyomi.presentation.core.components.TwoPanelBox
 import tachiyomi.presentation.core.components.VerticalFastScroller
 import tachiyomi.presentation.core.components.material.PullRefresh
@@ -51,6 +52,8 @@ fun EntryDetailsTwoPaneScaffold(
     fabVisible: Boolean,
     fabIsResume: Boolean,
     onFabClick: () -> Unit,
+    fabSide: ReadButtonSide,
+    onFabDocked: (ReadButtonSide) -> Unit,
     topBar: @Composable (modifier: Modifier) -> Unit,
     bottomActionMenu: @Composable (modifier: Modifier) -> Unit,
     startContent: LazyListScope.(appBarPadding: Dp) -> Unit,
@@ -75,8 +78,10 @@ fun EntryDetailsTwoPaneScaffold(
                 visible = fabVisible,
                 isResume = fabIsResume,
                 onClick = onFabClick,
+                onDocked = onFabDocked,
             )
         },
+        floatingActionButtonPosition = fabSide.fabPosition(),
     ) { contentPadding ->
         PullRefresh(
             refreshing = isRefreshing,

@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
+import reikai.domain.details.ReadButtonSide
 import tachiyomi.presentation.core.components.VerticalFastScroller
 import tachiyomi.presentation.core.components.material.PullRefresh
 import tachiyomi.presentation.core.components.material.Scaffold
@@ -40,6 +41,8 @@ fun EntryDetailsScaffold(
     fabVisible: Boolean,
     fabIsResume: Boolean,
     onFabClick: () -> Unit,
+    fabSide: ReadButtonSide,
+    onFabDocked: (ReadButtonSide) -> Unit,
     topBar: @Composable (titleAlpha: () -> Float, backgroundAlpha: () -> Float) -> Unit,
     bottomActionMenu: @Composable () -> Unit,
     content: LazyListScope.(appBarPadding: Dp) -> Unit,
@@ -72,8 +75,10 @@ fun EntryDetailsScaffold(
                 visible = fabVisible,
                 isResume = fabIsResume,
                 onClick = onFabClick,
+                onDocked = onFabDocked,
             )
         },
+        floatingActionButtonPosition = fabSide.fabPosition(),
     ) { contentPadding ->
         val topPadding = contentPadding.calculateTopPadding()
         PullRefresh(

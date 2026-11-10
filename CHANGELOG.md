@@ -66,6 +66,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Details can jump to the top, the next unread chapter or the bottom of the chapter list (ported from Tsundoku).** Settings -> Appearance -> Chapter list scroll actions in menu moves them off the top bar.
+- **The Start/Resume button on details can sit on the left (ported from Komikku).** Drag it sideways, or pick a side in Settings -> Appearance -> Resume button position.
 - **Edit info tags can be dragged into a new order (ported from TachiyomiSY).** Hold a tag near the top or bottom edge to scroll the form.
 - **Edit info on a merged series can collate every source's tags (ported from TachiyomiSY).**
 - **Settings -> Advanced -> Show duplicate chapters the reader skips marks each copy on a series' chapter list.** Tap the count under the chapter header to list only the copies.

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
@@ -49,6 +50,7 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
 import reikai.domain.chapter.CopyMark
+import reikai.domain.details.ReadButtonSide
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
@@ -65,6 +67,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 
 /** Dim level for a hidden chapter row shown via "Show hidden chapters". */
 private const val HIDDEN_CHAPTER_ALPHA = 0.4f
@@ -181,6 +184,13 @@ fun EntryDetailsContent(
             }
         }.takeIf { ownLocal },
     )
+    // Read here once for both types, as the description's image setting is.
+    val uiPreferences = remember { context.appGraph.uiPreferences }
+    val chrome = DetailsChrome(
+        jumpsInMenu = uiPreferences.detailsScrollActionsInMenu.collectAsState().value,
+        readButtonSide = uiPreferences.readButtonSide.collectAsState().value,
+        onReadButtonDocked = uiPreferences.readButtonSide::set,
+    )
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
     var renameTitle by remember { mutableStateOf<String?>(null) }
     if (ownLocal) {
@@ -201,6 +211,7 @@ fun EntryDetailsContent(
             libraryNav,
             web,
             extras,
+            chrome,
         )
     } else {
         EntryDetailsSmallContent(
@@ -212,6 +223,7 @@ fun EntryDetailsContent(
             libraryNav,
             web,
             extras,
+            chrome,
         )
     }
     if (reorderingVolumes && volumes != null) {
@@ -330,6 +342,14 @@ private data class ChapterListExtras(
     val onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)?,
 )
 
+/** Where the details chrome sits: the scroll actions' place and the Start/Resume button's side. */
+@Immutable
+private data class DetailsChrome(
+    val jumpsInMenu: Boolean,
+    val readButtonSide: ReadButtonSide,
+    val onReadButtonDocked: (ReadButtonSide) -> Unit,
+)
+
 private enum class VolumeDialog { AddToSeries, SplitOut, RenameFiles }
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
@@ -365,8 +385,10 @@ private fun EntryDetailsSmallContent(
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
     extras: ChapterListExtras,
+    chrome: DetailsChrome,
 ) {
     val listState = rememberLazyListState()
+    val jumps = rememberEntryChapterJumps(listState, state)
     val haptic = LocalHapticFeedback.current
     val onAddToLibrary = {
         behavior.toggleFavorite()
@@ -383,8 +405,10 @@ private fun EntryDetailsSmallContent(
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
+        fabSide = chrome.readButtonSide,
+        onFabDocked = chrome.onReadButtonDocked,
         topBar = { titleAlpha, backgroundAlpha ->
-            EntryDetailsToolbar(state, behavior, nav, web, extras, titleAlpha, backgroundAlpha)
+            EntryDetailsToolbar(state, behavior, nav, web, extras, jumps, chrome, titleAlpha, backgroundAlpha)
         },
         bottomActionMenu = { EntryDetailsSelectionBar(state, behavior, fillFraction = 1f) },
     ) { appBarPadding ->
@@ -425,8 +449,10 @@ private fun EntryDetailsLargeContent(
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
     extras: ChapterListExtras,
+    chrome: DetailsChrome,
 ) {
     val chapterListState = rememberLazyListState()
+    val jumps = rememberEntryChapterJumps(chapterListState, state)
     val haptic = LocalHapticFeedback.current
     val onAddToLibrary = {
         behavior.toggleFavorite()
@@ -443,8 +469,10 @@ private fun EntryDetailsLargeContent(
         fabVisible = state.resumeChapterId != null && !state.selectionMode,
         fabIsResume = state.hasStarted,
         onFabClick = { state.resumeChapterId?.let(nav.onOpenChapter) },
+        fabSide = chrome.readButtonSide,
+        onFabDocked = chrome.onReadButtonDocked,
         topBar = { modifier ->
-            EntryDetailsToolbar(state, behavior, nav, web, extras, { 1f }, { 1f }, modifier)
+            EntryDetailsToolbar(state, behavior, nav, web, extras, jumps, chrome, { 1f }, { 1f }, modifier)
         },
         bottomActionMenu = { modifier -> EntryDetailsSelectionBar(state, behavior, fillFraction = 0.5f, modifier) },
         startContent = { appBarPadding ->
@@ -485,6 +513,8 @@ private fun EntryDetailsToolbar(
     nav: EntryDetailsNavigation,
     web: EntryWebActions,
     extras: ChapterListExtras,
+    jumps: ChapterJumps,
+    chrome: DetailsChrome,
     titleAlphaProvider: () -> Float,
     backgroundAlphaProvider: () -> Float,
     modifier: Modifier = Modifier,
@@ -530,6 +560,8 @@ private fun EntryDetailsToolbar(
         onClickRenameFiles = extras.onRenameFiles,
         onClickDeleteVolumes = extras.onDeleteVolumes?.let { delete -> { delete(null) } },
         onClickRecommendations = nav.onRecommendations,
+        jumps = jumps,
+        jumpsInMenu = chrome.jumpsInMenu,
         onHide = behavior::hideSelected,
         onUnhide = behavior::unhideSelected,
         onToggleShowHidden = behavior::toggleShowHidden,
@@ -803,6 +835,15 @@ private fun LazyListScope.entryChapterItems(
                 )
             }
         }
+    }
+}
+
+/** The jumps over this screen's chapter rows, toasting when the Start/Resume chapter is not among them. */
+@Composable
+private fun rememberEntryChapterJumps(listState: LazyListState, state: EntryDetailsScreenState.Loaded): ChapterJumps {
+    val context = LocalContext.current
+    return rememberChapterJumps(listState, state.chapters.items, state.resumeChapterId) {
+        context.toast(MR.strings.no_unread_chapter_in_list)
     }
 }
 

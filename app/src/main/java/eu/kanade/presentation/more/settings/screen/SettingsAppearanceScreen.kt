@@ -29,6 +29,7 @@ import kotlinx.datetime.toJavaLocalDateTime
 import kotlinx.datetime.toLocalDateTime
 import mihon.app.di.appGraph
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
+import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
@@ -203,6 +204,17 @@ object SettingsAppearanceScreen : SearchableSettings {
                     preference = uiPreferences.imagesInDescription,
                     title = stringResource(MR.strings.pref_display_images_description),
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = uiPreferences.detailsScrollActionsInMenu,
+                    title = stringResource(MR.strings.pref_details_scroll_actions_in_menu),
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.readButtonSide,
+                    entries = ReadButtonSide.entries.associateWith { stringResource(it.titleRes) },
+                    title = stringResource(MR.strings.pref_read_button_side),
+                ),
+                // RK <--
                 // RK --> Updates and History as one Recents tab. Turning it on hands the combined
                 // surface the filter Updates was using, once, so the feed does not quietly widen.
                 Preference.PreferenceItem.SwitchPreference(

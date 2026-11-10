@@ -12,6 +12,7 @@ import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.tachiyomi.util.system.DeviceUtil
 import eu.kanade.tachiyomi.util.system.isDynamicColorAvailable
 import logcat.LogPriority
+import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -55,6 +56,13 @@ class UiPreferences(
     val combinedRecentsTab: Preference<Boolean> = preferenceStore.getBoolean("pref_combined_recents_tab", false)
 
     val statsShortcut: Preference<StatsShortcut> = preferenceStore.getEnum("pref_stats_shortcut", StatsShortcut.OFF)
+
+    // The details screen's scroll actions, as top bar icons until moved to the menu.
+    val detailsScrollActionsInMenu: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_details_scroll_actions_in_menu", false)
+
+    val readButtonSide: Preference<ReadButtonSide> =
+        preferenceStore.getEnum("pref_read_button_side", ReadButtonSide.RIGHT)
     // RK <--
 
     // RK --> cover-based theming

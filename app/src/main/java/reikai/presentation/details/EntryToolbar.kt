@@ -18,6 +18,9 @@ import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DownloadDropdownMenu
 import eu.kanade.presentation.manga.DownloadAction
 import mihon.icons.materialsymbols.MaterialSymbols
+import mihon.icons.materialsymbols.rounded.ArrowDownward
+import mihon.icons.materialsymbols.rounded.ArrowUpward
+import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -72,6 +75,9 @@ fun EntryToolbar(
     // Names the files on disk after the series and its volumes.
     onClickRenameFiles: (() -> Unit)? = null,
     onClickDeleteVolumes: (() -> Unit)? = null,
+    // Scroll to top / next unread / bottom, as icons or, with [jumpsInMenu], last in the overflow.
+    jumps: ChapterJumps? = null,
+    jumpsInMenu: Boolean = false,
 
     // For action mode
     // Correct chapter number, non-null only while exactly one chapter is selected.
@@ -200,6 +206,29 @@ fun EntryToolbar(
                             ),
                         )
                     }
+                    if (jumps != null && !jumpsInMenu) {
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_scroll_to_top),
+                                icon = MaterialSymbols.Rounded.ArrowUpward,
+                                onClick = jumps.toTop,
+                            ),
+                        )
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_scroll_to_next_unread),
+                                icon = MaterialSymbols.Rounded.Bookmark,
+                                onClick = jumps.toNextUnread,
+                            ),
+                        )
+                        add(
+                            AppBar.Action(
+                                title = stringResource(MR.strings.action_scroll_to_bottom),
+                                icon = MaterialSymbols.Rounded.ArrowDownward,
+                                onClick = jumps.toBottom,
+                            ),
+                        )
+                    }
                     add(
                         AppBar.Action(
                             title = stringResource(MR.strings.action_filter),
@@ -210,8 +239,8 @@ fun EntryToolbar(
                     )
                     // Overflow order (both types): Refresh, Edit categories, Edit info, Migrate, Manage
                     // sources, Notes, Share, Gallery info, Search downloaded chapters, Word count, Open
-                    // folder, Clear downloads, Source settings, Show/Hide hidden. Each is gated on its
-                    // callback.
+                    // folder, Clear downloads, Source settings, Show/Hide hidden, then the scroll actions
+                    // when they sit here. Each is gated on its callback.
                     add(
                         AppBar.OverflowAction(
                             title = stringResource(MR.strings.action_webview_refresh),
@@ -377,6 +406,26 @@ fun EntryToolbar(
                                     stringResource(MR.strings.action_show_hidden_chapters)
                                 },
                                 onClick = onToggleShowHidden,
+                            ),
+                        )
+                    }
+                    if (jumps != null && jumpsInMenu) {
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_scroll_to_top),
+                                onClick = jumps.toTop,
+                            ),
+                        )
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_scroll_to_next_unread),
+                                onClick = jumps.toNextUnread,
+                            ),
+                        )
+                        add(
+                            AppBar.OverflowAction(
+                                title = stringResource(MR.strings.action_scroll_to_bottom),
+                                onClick = jumps.toBottom,
                             ),
                         )
                     }
