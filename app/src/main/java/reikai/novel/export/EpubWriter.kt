@@ -90,8 +90,9 @@ class EpubWriter(private val includePictures: Boolean = true) {
         )
         val body = Jsoup.parseBodyFragment(safe).body()
         // What a book needs gone beyond that: controls with nothing to drive them, styling the book's own
-        // sheet replaces, and prefixed attributes, whose undeclared namespace makes the XHTML invalid.
-        body.select("input, button, style, link").remove()
+        // sheet replaces, and prefixed attributes, whose undeclared namespace makes the XHTML invalid. A
+        // control can be a jump's target, so its id stays.
+        body.select("input, button, style, link").forEach { it.keepingId().remove() }
         // A jump to a place in this chapter still works in the book, found as both readers find it; a target
         // named by `name` or xml:id gets the id a book's reader looks for. Any other relative link pointed at
         // the source's site and leads nowhere here, so it keeps only its text.

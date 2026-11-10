@@ -284,6 +284,12 @@ class EpubWriterTest {
     }
 
     @Test
+    fun `a target that is a dropped control keeps its id`() = runTest {
+        firstChapter("<p><a href=\"#back\">up</a></p><p><button id=\"back\">Back</button></p>") shouldContain
+            "id=\"back\""
+    }
+
+    @Test
     fun `a percent-encoded jump to a place in the chapter stays a link`() = runTest {
         firstChapter("<p><a href=\"#note%20one\">1</a></p><p id=\"note one\">note</p>") shouldContain
             "href=\"#note%20one\""
