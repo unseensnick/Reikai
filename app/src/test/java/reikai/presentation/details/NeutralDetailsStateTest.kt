@@ -14,7 +14,7 @@ import org.junit.jupiter.api.extension.RegisterExtension
 import reikai.presentation.MainDispatcherExtension
 import kotlin.time.Duration.Companion.seconds
 
-/** The details adapters' shared state pipeline: seeded without a Loading frame, and stopped with its screen. */
+/** The details adapters' shared state pipeline: never mapped where it is asked for, and stopped with its screen. */
 class NeutralDetailsStateTest {
 
     @JvmField
@@ -27,13 +27,24 @@ class NeutralDetailsStateTest {
 
     private fun neutral(value: Int): EntryDetailsScreenState = EntryDetailsScreenState.Failed("state $value")
 
+    private fun mappedOnTheSpot(value: Int): EntryDetailsScreenState = error("mapped where it was asked for")
+
     // The mapper runs on Dispatchers.Default, off the test clock, so waits run in real time.
     private suspend fun <T> settle(block: suspend () -> T): T =
         withContext(Dispatchers.Default) { withTimeout(5.seconds) { block() } }
 
+    /** The mapping walks every chapter row, and asking for the state happens on Main, in composition. */
     @Test
-    fun `the neutral state is seeded with the mapped current value before anyone collects`() {
-        model.neutralDetailsState(source, ::neutral).value shouldBe neutral(1)
+    fun `a first open starts from Loading rather than mapping the model on the spot`() {
+        model.neutralDetailsState(source, ::mappedOnTheSpot).value shouldBe EntryDetailsScreenState.Loading
+    }
+
+    /** An adapter is rebuilt on every re-entry to the screen, which must not flash Loading. */
+    @Test
+    fun `an adapter rebuilt over the same model starts from the last mapped state`() = runTest {
+        settle { model.neutralDetailsState(source, ::neutral).first { it == neutral(1) } }
+
+        model.neutralDetailsState(source, ::mappedOnTheSpot).value shouldBe neutral(1)
     }
 
     @Test

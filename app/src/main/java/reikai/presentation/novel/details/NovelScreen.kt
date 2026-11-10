@@ -232,7 +232,7 @@ class NovelScreen(
                                 .takeIf { s.sourceHasSettings },
                         ),
                     )
-                }
+                } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
 
                 EntryDetailsDialogHost(
                     s.toSharedDetailsDialog(viewModel.isUpdateIntervalEnabled),

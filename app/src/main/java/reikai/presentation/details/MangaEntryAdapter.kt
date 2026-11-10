@@ -44,6 +44,8 @@ class MangaEntryAdapter(
     override val volumePicking: VolumePicking,
 ) : EntryDetailsBehavior {
 
+    private val duplicatesMemo = DuplicateMarksMemo<Chapter>()
+
     override val state: StateFlow<EntryDetailsScreenState> =
         model.neutralDetailsState(model.state, duplicateMarking.marks) { state, marks -> state.toNeutral(marks) }
 
@@ -97,15 +99,18 @@ class MangaEntryAdapter(
                 undatedChapterDate = UndatedChapterDate.NotApplicable,
                 // The arguments the reader's skip-duplicate rule takes (ReaderViewModel.navigable)
                 duplicates = marks?.let {
-                    chapters.map { item -> item.chapter }.duplicateMarks(
-                        it,
-                        numberOf = { it.chapterNumber },
-                        nameOf = { it.name },
-                        originOf = { it.scanlator },
-                        ownerOf = { it.mangaId },
-                        urlOf = { it.url },
-                        idOf = { it.id },
-                    )
+                    val rows = chapters.map { item -> item.chapter }
+                    duplicatesMemo.get(rows, it) {
+                        rows.duplicateMarks(
+                            it,
+                            numberOf = { it.chapterNumber },
+                            nameOf = { it.name },
+                            originOf = { it.scanlator },
+                            ownerOf = { it.mangaId },
+                            urlOf = { it.url },
+                            idOf = { it.id },
+                        )
+                    }
                 },
             ),
             capabilities = EntryCapabilities(

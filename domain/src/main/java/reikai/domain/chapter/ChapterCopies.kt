@@ -86,6 +86,7 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
         val markers = setOf("c", "ch", "chap", "chapter", "ep", "episode")
         val stopWords = setOf("the", "a", "an", "of")
         val lastWord = Regex("""(\p{L}+)[\s.]*$""")
+        val rangeEnd = Regex("""^-([0-9]+)""")
         val foreignWord = Regex(
             """(?:第|(?<!\p{L})(?:глава|гл\.?|capítulo|capitulo|cap\.?|chapitre|kapitel|bölüm|chương|bab|rozdział|capitolo|hoofdstuk|episódio|episodio|эпизод)|화|話|话|章)\s*$""",
         )
@@ -104,7 +105,7 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
 
         // "Chapter 16-20" is a span of chapters, which the recognizer reads as 16.2.
         fun isRange(text: String, at: MatchResult, whole: Long): Boolean =
-            Regex("""^-([0-9]+)""").find(text.substring(at.range.last + 1))
+            rangeEnd.find(text.substring(at.range.last + 1))
                 ?.groupValues?.get(1)?.toLongOrNull()?.let { it > whole } == true
 
         fun isMarkerTypo(word: String): Boolean = word.length >= 5 && editDistance(word, "chapter") <= 2

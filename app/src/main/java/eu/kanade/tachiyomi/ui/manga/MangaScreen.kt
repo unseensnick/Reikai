@@ -232,7 +232,7 @@ class MangaScreen(
                         }.takeIf { successState.shownSource.getMainSource<MetadataSource<*, *>>() != null },
                     ),
                 )
-            }
+            } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
         } // RK: end cover-based theme wrap
         // RK <--
 
