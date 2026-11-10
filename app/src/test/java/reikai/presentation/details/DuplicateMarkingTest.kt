@@ -35,4 +35,19 @@ class DuplicateMarkingTest {
 
         repository.marks(ContentType.MANGA).subscriptionCount.value shouldBe 0
     }
+
+    /** Copies never cross entries, so one chapter from each of two merged sources marks nothing. */
+    @Test
+    fun `one chapter from each source of a merge cannot be marked as copies`() {
+        noDuplicateMarking().canMarkAsCopies(
+            listOf(MarkableChapter(ownerId = 1L, url = "/a"), MarkableChapter(ownerId = 2L, url = "/b")),
+        ) shouldBe false
+    }
+
+    @Test
+    fun `two chapters of one source can be marked as copies`() {
+        noDuplicateMarking().canMarkAsCopies(
+            listOf(MarkableChapter(ownerId = 1L, url = "/a"), MarkableChapter(ownerId = 1L, url = "/b")),
+        ) shouldBe true
+    }
 }

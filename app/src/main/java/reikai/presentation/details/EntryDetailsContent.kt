@@ -600,7 +600,9 @@ private fun EntryDetailsToolbar(
                 neverSkip = onSelected(DuplicateMarking::neverSkip).takeIf {
                     selectedMarks.any { it != CopyMark.NeverSkip }
                 },
-                markAsCopies = onSelected(DuplicateMarking::markAsCopies).takeIf { state.selection.size > 1 },
+                markAsCopies = onSelected(DuplicateMarking::markAsCopies).takeIf {
+                    state.selection.size > 1 && behavior.duplicateMarking.canMarkAsCopies(behavior.selectedMarkable())
+                },
                 clear = onSelected(DuplicateMarking::clear).takeIf { selectedMarks.any { it != null } },
             )
         },

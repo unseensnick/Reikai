@@ -57,8 +57,14 @@ class DuplicateMarking(
     /** One group per owner, since copies never cross entries; an owner with one chapter selected is left. */
     fun markAsCopies(chapters: List<MarkableChapter>) {
         val key = System.currentTimeMillis()
-        set(chapters.groupBy { it.ownerId }.values.filter { it.size > 1 }.flatten()) { CopyMark.Group(key) }
+        set(groupable(chapters)) { CopyMark.Group(key) }
     }
+
+    /** Whether [markAsCopies] would mark anything, so the action is never offered as a no-op. */
+    fun canMarkAsCopies(chapters: List<MarkableChapter>) = groupable(chapters).isNotEmpty()
+
+    private fun groupable(chapters: List<MarkableChapter>) =
+        chapters.groupBy { it.ownerId }.values.filter { it.size > 1 }.flatten()
 
     fun clear(chapters: List<MarkableChapter>) {
         appScope.launchIO {
