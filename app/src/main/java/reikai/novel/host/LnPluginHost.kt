@@ -360,6 +360,8 @@ class LnPluginHost(
         } else {
             bridge.setStorage(pluginId, "storage:$key", buildJsonObject { put("value", value) }.toString())
         }
+        // Many plugins read their settings while constructed, as they do the site storage below.
+        pluginSlots[pluginId]?.rebuild = true
     }
 
     /**

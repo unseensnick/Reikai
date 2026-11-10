@@ -451,6 +451,27 @@ class HeadlessJsIntegrationTest {
         assertEquals("signed-in", host.parseChapter("web-storage-test", "/c"))
     }
 
+    /** The same for a setting the settings sheet saves, which komga reads into its site while constructed. */
+    @Test
+    fun aSavedSettingReachesAPluginThatReadsItAtConstruction() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val plugin = """
+            var storage = require('@libs/storage').storage;
+            module.exports.default = {
+              id: 'setting-construction-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              url: storage.get('url'),
+              parseChapter: async function () { return String(this.url); },
+            };
+        """.trimIndent()
+        host.load(plugin)
+        host.setSetting("setting-construction-test", "url", JsonPrimitive("https://old.example"))
+        host.parseChapter("setting-construction-test", "/c")
+
+        host.setSetting("setting-construction-test", "url", JsonPrimitive("https://new.example"))
+
+        assertEquals("https://new.example", host.parseChapter("setting-construction-test", "/c"))
+    }
+
     /** Plugin code runs in the runtime's global scope, so the id-taking storage bridge must not be on it. */
     @Test
     fun aPluginCannotReadAnotherPluginsStorage() = runBlocking {
