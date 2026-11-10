@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.ValueSource
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
 import java.net.InetSocketAddress
+import java.util.concurrent.atomic.AtomicInteger
 
 /** A server only gets a request it can send as asked: Byparr turns a POST into a GET of the same url. */
 class FlareSolverrCarriesTest {
@@ -77,7 +78,36 @@ class FlareSolverrCarriesTest {
             }
             start()
         }
+        var clock = 0L
         val booting = FlareSolverrClient(
+            mockk(relaxed = true),
+            NetworkPreferences(InMemoryPreferenceStore(), false).apply {
+                flareSolverrUrl.set("http://127.0.0.1:${server.address.port}")
+            },
+        ).apply { now = { clock } }
+        val post = Request.Builder().url("https://example.org/search").post(FormBody.Builder().add("q", "x").build())
+        try {
+            booting.carries(post.build())
+            clock += 30_000L
+
+            booting.carries(post.build()) shouldBe true
+        } finally {
+            server.stop(0)
+        }
+    }
+
+    @Test
+    fun `a server that gives no answer is probed once while it waits, not on every POST`() {
+        val probes = AtomicInteger()
+        val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0).apply {
+            createContext("/") { exchange ->
+                probes.incrementAndGet()
+                exchange.sendResponseHeaders(503, -1)
+                exchange.close()
+            }
+            start()
+        }
+        val down = FlareSolverrClient(
             mockk(relaxed = true),
             NetworkPreferences(InMemoryPreferenceStore(), false).apply {
                 flareSolverrUrl.set("http://127.0.0.1:${server.address.port}")
@@ -85,9 +115,10 @@ class FlareSolverrCarriesTest {
         )
         val post = Request.Builder().url("https://example.org/search").post(FormBody.Builder().add("q", "x").build())
         try {
-            booting.carries(post.build())
+            down.carries(post.build())
+            down.carries(post.build())
 
-            booting.carries(post.build()) shouldBe true
+            probes.get() shouldBe 1
         } finally {
             server.stop(0)
         }

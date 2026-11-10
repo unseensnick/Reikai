@@ -46,6 +46,9 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 
+// How long a banner probe the server gave no answer to stands before the next one is sent.
+private const val BANNER_RETRY_MS = 30_000L
+
 /**
  * Resolves Cloudflare challenges via a self-hosted FlareSolverr proxy.
  *
@@ -116,8 +119,16 @@ class FlareSolverrClient(
     @Volatile private var sessionlessUnder: String? = null
 
     // What the banner said, for the address and login it was read under. Only an answer the server gave
-    // is kept: a probe that failed asks again next time, or one outage would keep POSTs off it until restart.
+    // is kept: a probe that failed asks again after BANNER_RETRY_MS, or one outage would keep POSTs off it
+    // until restart.
     @Volatile private var bannerUnder: Pair<String, Boolean>? = null
+
+    // When a probe last got no answer, under the address and login it was sent to, so a server that is down
+    // costs one probe per BANNER_RETRY_MS rather than one per POST to a pinned host.
+    @Volatile private var bannerUnansweredAt: Pair<String, Long>? = null
+
+    // The clock the probe wait reads; a test sets it.
+    internal var now: () -> Long = System::currentTimeMillis
 
     private fun currentLogin(): String = flareSolverrAuthHeader(
         networkPreferences.flareSolverrUsername.get().trim(),
@@ -162,7 +173,10 @@ class FlareSolverrClient(
     private fun flareSolverrBannerKept(flareSolverrUrl: String): Boolean? {
         val under = serverKey(flareSolverrUrl)
         bannerUnder?.takeIf { it.first == under }?.let { return it.second }
-        return flareSolverrBanner(flareSolverrUrl)?.also { bannerUnder = under to it }
+        if (bannerUnansweredAt?.let { it.first == under && now() - it.second < BANNER_RETRY_MS } == true) return null
+        val banner = flareSolverrBanner(flareSolverrUrl)
+        if (banner == null) bannerUnansweredAt = under to now() else bannerUnder = under to banner
+        return banner
     }
 
     /**
@@ -270,7 +284,7 @@ class FlareSolverrClient(
      * Returns the shared FlareSolverr session id, or null when the server is sessionless (Byparr) or
      * sessions.create otherwise fails. A null result means "send requests without a session"; the
      * solve still proceeds, just without the warm-cookie reuse a FlareSolverr session would give.
-     * Only a banner that says "not FlareSolverr" is kept; a probe or a create that failed asks again next solve.
+     * Only a banner that says "not FlareSolverr" is kept; a create that failed asks again next solve, a probe after BANNER_RETRY_MS.
      */
     private fun ensureFlareSolverrSession(flareSolverrUrl: String): String? {
         if (!fsSessionsSupported && sessionlessUnder != serverKey(flareSolverrUrl)) fsSessionsSupported = true

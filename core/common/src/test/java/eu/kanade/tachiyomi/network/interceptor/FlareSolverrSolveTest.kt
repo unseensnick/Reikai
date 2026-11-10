@@ -70,10 +70,13 @@ class FlareSolverrSolveTest {
     }
 
     @Test
-    fun `a banner probe the server failed leaves only that solve without a session`() {
+    fun `a banner probe the server failed leaves only the solves during its wait without a session`() {
+        var clock = 0L
+        client.now = { clock }
         // A proxy answers 502 while the solver behind it boots.
         banners += 502
         resolve().close()
+        clock += 30_000L
 
         resolve().close()
 
