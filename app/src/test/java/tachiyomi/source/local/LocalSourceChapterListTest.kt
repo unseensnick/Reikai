@@ -7,6 +7,8 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
+import nl.adaptivity.xmlutil.serialization.XML
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -28,7 +30,7 @@ class LocalSourceChapterListTest {
     private val fileSystem = LocalSourceFileSystem(
         mockk<StorageManager> { every { getLocalSourceDirectory() } returns UniFile.fromFile(root) },
     )
-    private val source = LocalSource(context, fileSystem, mockk(relaxed = true), NoLocalVolumes)
+    private val source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes)
 
     @After
     fun tearDown() {
