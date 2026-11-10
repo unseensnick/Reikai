@@ -26,6 +26,7 @@ import exh.source.ExhPreferences
 import exh.source.eHentaiSourceIds
 import exh.source.getMainSource
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -36,6 +37,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -168,6 +170,8 @@ open class BrowseSourceViewModel(
                     getManga.subscribe(manga.url, manga.source)
                         .map { it ?: manga }
                         .combineMetadata(metadata)
+                        // Raising a row's metadata decodes its JSON, per row and again on every metadata write.
+                        .flowOn(Dispatchers.Default)
                         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5.seconds), manga to metadata)
                 }
                     .filter { !hideInLibraryItems || !it.value.first.favorite }
