@@ -14,9 +14,14 @@ import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.backup.RestoredChapterHistory
+import reikai.domain.chapter.ChapterCopyMark
+import reikai.domain.chapter.ChapterCopyMarkRepository
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.backedUpCopyMarks
+import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
@@ -50,6 +55,16 @@ class BackupDatesConformanceTest {
         type.restore(type.backUp(UNKNOWN)) shouldBe UNKNOWN.copy(readAtOnWire = 0L)
     }
 
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter's duplicate mark survives a backup and a restore`(type: Type) = runTest {
+        val marks = InMemoryChapterCopyMarks().apply {
+            set(type.contentType, listOf(ChapterCopyMark(ID, CHAPTER_URL, CopyMark.NeverSkip)))
+        }
+
+        type.restoredMarks(type.backUp(KNOWN, marks)) shouldBe mapOf(CHAPTER_URL to CopyMark.NeverSkip)
+    }
+
     /** The dates a backup carries; [readAtOnWire] is the history time as written, which a restore merges. */
     data class Dates(
         val favoriteAt: Instant?,
@@ -62,9 +77,9 @@ class BackupDatesConformanceTest {
         val readAtOnWire: Long? = null,
     )
 
-    enum class Type {
-        MANGA {
-            override suspend fun backUp(dates: Dates): ByteArray {
+    enum class Type(val contentType: ContentType) {
+        MANGA(ContentType.MANGA) {
+            override suspend fun backUp(dates: Dates, marks: ChapterCopyMarkRepository): ByteArray {
                 val manga = Manga.create().copy(
                     id = ID,
                     source = 1L,
@@ -106,7 +121,7 @@ class BackupDatesConformanceTest {
                     getManga = mockk(relaxed = true),
                     mergeGroupRepository = mockk(relaxed = true),
                     chapterNumberOverrides = NoChapterNumberOverrides,
-                    copyMarks = InMemoryChapterCopyMarks(),
+                    copyMarks = marks,
                     localVolumes = NoLocalVolumes,
                     readingLog = NoReadingLog,
                 )
@@ -132,9 +147,12 @@ class BackupDatesConformanceTest {
                     readAtOnWire = backup.history.single().lastRead,
                 )
             }
+
+            override fun restoredMarks(wire: ByteArray) = ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire)
+                .let { backedUpCopyMarks(it.chapters, { chapter -> chapter.url }, { chapter -> chapter.copyMark }) }
         },
-        NOVEL {
-            override suspend fun backUp(dates: Dates): ByteArray {
+        NOVEL(ContentType.NOVELS) {
+            override suspend fun backUp(dates: Dates, marks: ChapterCopyMarkRepository): ByteArray {
                 val novel = Novel.create().copy(
                     id = ID,
                     source = "s",
@@ -171,7 +189,7 @@ class BackupDatesConformanceTest {
                     },
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
-                    copyMarks = InMemoryChapterCopyMarks(),
+                    copyMarks = marks,
                     localVolumes = NoLocalVolumes,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
@@ -200,12 +218,21 @@ class BackupDatesConformanceTest {
                     readAtOnWire = backup.history.single().lastRead,
                 )
             }
+
+            override fun restoredMarks(wire: ByteArray) = ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), wire)
+                .let { backedUpCopyMarks(it.chapters, { chapter -> chapter.url }, { chapter -> chapter.copyMark }) }
         },
         ;
 
-        abstract suspend fun backUp(dates: Dates): ByteArray
+        abstract suspend fun backUp(
+            dates: Dates,
+            marks: ChapterCopyMarkRepository = InMemoryChapterCopyMarks(),
+        ): ByteArray
 
         abstract fun restore(wire: ByteArray): Dates
+
+        /** The duplicate marks the restorer reads off the wire, through the kernel both restorers call. */
+        abstract fun restoredMarks(wire: ByteArray): Map<String, CopyMark>
     }
 
     private companion object {
