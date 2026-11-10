@@ -18,6 +18,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -31,8 +32,11 @@ import androidx.compose.ui.util.fastForEach
 import androidx.compose.ui.util.fastMap
 import androidx.compose.ui.util.fastMaxBy
 import dev.icerock.moko.resources.StringResource
+import reikai.data.task.BannerTask
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
+import java.math.RoundingMode
+import java.text.NumberFormat
 
 val DownloadedOnlyBannerBackgroundColor
     @Composable get() = MaterialTheme.colorScheme.tertiary
@@ -63,20 +67,30 @@ fun AppStateBanners(
     downloadedOnlyMode: Boolean,
     incognitoMode: Boolean,
     indexing: Boolean,
+    task: BannerTask?, // RK: a running library update or restore, on the indexing banner (from Komikku)
     modifier: Modifier = Modifier,
 ) {
     val density = LocalDensity.current
     val mainInsets = WindowInsets.statusBars
     val mainInsetsTop = mainInsets.getTop(density)
+    // RK --> the ended task keeps its text while the banner shrinks, unless indexing took the banner over
+    var lastTask by remember { mutableStateOf(task) }
+    SideEffect { if (task != null) lastTask = task }
+    val shownTask = task ?: lastTask.takeUnless { indexing }
+    // RK <--
     SubcomposeLayout(modifier = modifier) { constraints ->
         val indexingPlaceable = subcompose(0) {
             AnimatedVisibility(
-                visible = indexing,
+                visible = indexing || task != null, // RK
                 enter = expandVertically(),
                 exit = shrinkVertically(),
             ) {
                 IndexingDownloadBanner(
                     modifier = Modifier.windowInsetsPadding(mainInsets),
+                    // RK -->
+                    text = shownTask?.let { taskBannerText(it) }
+                        ?: stringResource(MR.strings.download_notifier_cache_renewal),
+                    // RK <--
                 )
             }
         }.fastMap { it.measure(constraints) }
@@ -154,8 +168,29 @@ private fun IncognitoModeBanner(modifier: Modifier = Modifier) {
     )
 }
 
+// RK -->
+private val percentFormatter = NumberFormat.getPercentInstance().apply {
+    roundingMode = RoundingMode.DOWN
+    maximumFractionDigits = 0
+}
+
 @Composable
-private fun IndexingDownloadBanner(modifier: Modifier = Modifier) {
+private fun taskBannerText(task: BannerTask): String {
+    val percent = task.progress?.let { percentFormatter.format(it) }
+    return when (task) {
+        is BannerTask.Updating -> percent?.let { stringResource(MR.strings.notification_updating_progress, it) }
+            ?: stringResource(MR.strings.updating_library)
+        is BannerTask.Restoring -> percent?.let { stringResource(MR.strings.restoring_backup_progress, it) }
+            ?: stringResource(MR.strings.restoring_backup)
+    }
+}
+// RK <--
+
+@Composable
+private fun IndexingDownloadBanner(
+    modifier: Modifier = Modifier,
+    text: String, // RK
+) {
     val density = LocalDensity.current
     Row(
         modifier = Modifier
@@ -173,7 +208,7 @@ private fun IndexingDownloadBanner(modifier: Modifier = Modifier) {
         )
         Spacer(modifier = Modifier.width(8.dp))
         Text(
-            text = stringResource(MR.strings.download_notifier_cache_renewal),
+            text = text, // RK
             color = MaterialTheme.colorScheme.onSecondary,
             textAlign = TextAlign.Center,
             style = MaterialTheme.typography.labelMedium,

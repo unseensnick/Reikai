@@ -26,6 +26,8 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.backup.ApprovedRepos
+import reikai.data.task.AppTask
+import reikai.data.task.AppTaskProgress
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -39,6 +41,8 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
     @Inject private lateinit var backupRestorerFactory: BackupRestorer.Factory
 
     @Inject private lateinit var notifier: BackupNotifier
+
+    @Inject private lateinit var appTaskProgress: AppTaskProgress // RK
 
     override suspend fun doWork(): Result {
         Migrator.await() // RK: a WorkManager start has no MainActivity to wait for the migrations first
@@ -59,8 +63,11 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
         setForegroundSafely()
 
         return try {
-            withIOContext {
-                backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options, trusted) // RK
+            // RK: shown on the app-state banner while it runs, and restores what the user trusted
+            appTaskProgress.during(AppTask.RESTORE) {
+                withIOContext {
+                    backupRestorerFactory.create(notifier = notifier, isSync = isSync).restore(uri, options, trusted)
+                }
             }
             Result.success()
             // RK: Throwable, as BackupCreateWorker catches: an Error skipped the Exception catch and the

@@ -21,6 +21,7 @@ import reikai.data.novel.update.NovelUpdateWorker
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.task.TaskBannerPreferences
 import reikai.presentation.library.preferredsources.PreferredSourcesScreen
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.settings.categoryFilterPreference
@@ -51,6 +52,7 @@ object SettingsLibraryScreen : SearchableSettings {
         val novelPreferences = remember { context.appGraph.novelPreferences } // RK
         // RK: master merging switch, hosted in the Sources group below
         val reikaiLibraryPreferences = remember { context.appGraph.reikaiLibraryPreferences }
+        val taskBannerPreferences = remember { context.appGraph.taskBannerPreferences } // RK
         // RK: novel categories for the novel update-categories filter
         val getNovelCategories = remember { context.appGraph.getNovelCategories }
         // RK --> in the category sort order, as every other category picker lists them
@@ -73,7 +75,7 @@ object SettingsLibraryScreen : SearchableSettings {
             getGlobalUpdateGroup(allCategories, libraryPreferences, reikaiLibraryPreferences), // RK: update errors
             // RK: background light-novel chapter updates
             getNovelUpdateGroup(novelPreferences, novelCategories, reikaiLibraryPreferences),
-            getBehaviorGroup(libraryPreferences, novelPreferences),
+            getBehaviorGroup(libraryPreferences, novelPreferences, taskBannerPreferences), // RK
             // RK: merge-group preferred-source ranking
             getSourcesGroup(LocalNavigator.currentOrThrow, reikaiLibraryPreferences),
         )
@@ -297,6 +299,7 @@ object SettingsLibraryScreen : SearchableSettings {
         // RK: novels' own missing-chapter toggle sits here too, so the pair reads as one setting per
         // content type rather than a row that looks duplicated.
         novelPreferences: NovelPreferences,
+        taskBannerPreferences: TaskBannerPreferences, // RK
     ): Preference.PreferenceGroup {
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_behavior),
@@ -305,6 +308,11 @@ object SettingsLibraryScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = libraryPreferences.newShowUpdatesCount,
                     title = stringResource(MR.strings.pref_library_update_show_tab_badge),
+                ),
+                // RK: one banner for the manga and novel updates, so here for the same reason
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = taskBannerPreferences.showUpdating,
+                    title = stringResource(MR.strings.pref_show_updating_banner),
                 ),
                 Preference.PreferenceItem.ListPreference(
                     preference = libraryPreferences.swipeToStartAction,

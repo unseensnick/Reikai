@@ -39,6 +39,7 @@ import reikai.domain.recommendation.taste.RefreshTrackerLibrary
 import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 import reikai.domain.source.ReikaiSourcePreferences
+import reikai.domain.task.TaskBannerPreferences
 import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadWorker
@@ -119,6 +120,7 @@ interface ReikaiGraph {
     val kitsuEntryIdCopies: KitsuEntryIdCopies // Kitsu heals every copy of a Yokai-restored row
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
+    val taskBannerPreferences: TaskBannerPreferences // the Library and Data settings host its two switches
     val chapterCopyMarks: ChapterCopyMarkRepository
     val volumePicks: VolumePickRepository
     val localVolumes: LocalVolumeRepository

@@ -187,6 +187,7 @@ object SettingsDataScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
 
         val lastAutoBackup by backupPreferences.lastAutoBackupTimestamp.collectAsState()
+        val taskBannerPreferences = remember { context.appGraph.taskBannerPreferences } // RK
 
         // RK: push the restore-options screen from a LaunchedEffect, not directly inside the
         // activity-result callback. That callback fires as the activity resumes from the file picker,
@@ -289,6 +290,12 @@ object SettingsDataScreen : SearchableSettings {
                     stringResource(MR.strings.backup_info) + "\n\n" +
                         stringResource(MR.strings.last_auto_backup_info, relativeTimeSpanString(lastAutoBackup)),
                 ),
+                // RK -->
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = taskBannerPreferences.showRestoring,
+                    title = stringResource(MR.strings.pref_show_restoring_banner),
+                ),
+                // RK <--
             ),
         )
     }

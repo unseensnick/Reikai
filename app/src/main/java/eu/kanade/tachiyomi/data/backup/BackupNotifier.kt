@@ -14,6 +14,8 @@ import eu.kanade.tachiyomi.util.system.cancelNotification
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import eu.kanade.tachiyomi.util.system.notify
 import reikai.data.notification.shownEntryName
+import reikai.data.task.AppTask
+import reikai.data.task.AppTaskProgress
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
@@ -26,6 +28,7 @@ import mihon.icons.materialsymbols.R as MaterialSymbolsR
 class BackupNotifier(
     private val context: Context,
     private val preferences: SecurityPreferences,
+    private val appTaskProgress: AppTaskProgress, // RK: the app-state banner's restore percent
 ) {
 
     private val progressNotificationBuilder = context.notificationBuilder(
@@ -129,6 +132,7 @@ class BackupNotifier(
         }
 
         builder.show(Notifications.ID_RESTORE_PROGRESS)
+        appTaskProgress.report(AppTask.RESTORE, progress, maxAmount) // RK
 
         return builder
     }

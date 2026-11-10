@@ -9,6 +9,8 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import reikai.data.task.AppTask
+import reikai.data.task.AppTaskProgress
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.manga.MangaMergeManager
@@ -22,7 +24,10 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.atomic.AtomicInteger
 
-/** [runLibraryUpdate] over the graph's merge stitch and the shared Updates badge, for one [ContentType]. */
+/**
+ * [runLibraryUpdate] over the graph's merge stitch and the shared Updates badge, for one [ContentType], shown
+ * on the app-state banner for as long as it runs.
+ */
 @Inject
 class LibraryUpdateRun(
     private val reconcileMergedChapters: ReconcileMergedChapters,
@@ -30,6 +35,7 @@ class LibraryUpdateRun(
     private val novelMergeManager: NovelMergeManager,
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val libraryPreferences: LibraryPreferences,
+    private val appTaskProgress: AppTaskProgress,
 ) {
     suspend operator fun <E, C> invoke(
         contentType: ContentType,
@@ -38,27 +44,24 @@ class LibraryUpdateRun(
         announce: suspend (List<Pair<E, List<C>>>) -> Unit,
         queueDownloads: suspend (List<Pair<E, List<C>>>) -> Unit,
         run: suspend (UpdateRunLedger<E, C>) -> Unit,
-    ) = runLibraryUpdate(
-        afterPass = { reconcileMergedChapters.afterPass(it) },
-        entryId = entryId,
-        chapterId = chapterId,
-        memberships = {
-            (
-                if (contentType ==
-                    ContentType.NOVELS
-                ) {
-                    novelMergeManager
-                } else {
-                    mangaMergeManager
-                }
-                ).memberships()
-        },
-        stitchOf = { mergedChapterUnitRepository.getStitch(contentType, it) },
-        announce = announce,
-        countArrivals = libraryPreferences::addNewUpdates,
-        queueDownloads = queueDownloads,
-        run = run,
-    )
+    ) {
+        val task = if (contentType == ContentType.NOVELS) AppTask.NOVEL_UPDATE else AppTask.MANGA_UPDATE
+        val mergeManager = if (contentType == ContentType.NOVELS) novelMergeManager else mangaMergeManager
+        appTaskProgress.during(task) {
+            runLibraryUpdate(
+                afterPass = { reconcileMergedChapters.afterPass(it) },
+                entryId = entryId,
+                chapterId = chapterId,
+                memberships = { mergeManager.memberships() },
+                stitchOf = { mergedChapterUnitRepository.getStitch(contentType, it) },
+                announce = announce,
+                countArrivals = libraryPreferences::addNewUpdates,
+                queueDownloads = queueDownloads,
+                report = { done, total -> appTaskProgress.report(task, done, total) },
+                run = run,
+            )
+        }
+    }
 }
 
 /**
@@ -70,7 +73,7 @@ fun LibraryPreferences.addNewUpdates(count: Int) {
 }
 
 /** What an update run gathered, entry by entry. The manga job fills it from five coroutines at once. */
-class UpdateRunLedger<E, C> {
+class UpdateRunLedger<E, C>(private val report: (done: Int, total: Int) -> Unit) {
     internal val arrivals = CopyOnWriteArrayList<Pair<E, List<C>>>()
     internal val downloads = CopyOnWriteArrayList<Pair<E, List<C>>>()
 
@@ -79,6 +82,9 @@ class UpdateRunLedger<E, C> {
         if (newChapters.isNotEmpty()) arrivals += entry to newChapters
         if (toDownload.isNotEmpty()) downloads += entry to toDownload
     }
+
+    /** [done] of the run's [total] entries are checked, for the app-state banner's percent. */
+    fun progressed(done: Int, total: Int) = report(done, total)
 }
 
 /**
@@ -145,9 +151,10 @@ suspend fun <E, C> runLibraryUpdate(
     announce: suspend (List<Pair<E, List<C>>>) -> Unit,
     countArrivals: (Int) -> Unit,
     queueDownloads: suspend (List<Pair<E, List<C>>>) -> Unit,
+    report: (done: Int, total: Int) -> Unit,
     run: suspend (UpdateRunLedger<E, C>) -> Unit,
 ) {
-    val ledger = UpdateRunLedger<E, C>()
+    val ledger = UpdateRunLedger<E, C>(report)
     var counted: Int? = null
     var downloads: List<Pair<E, List<C>>> = ledger.downloads
     try {

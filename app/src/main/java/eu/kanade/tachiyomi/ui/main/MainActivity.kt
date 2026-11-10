@@ -104,10 +104,13 @@ import mihon.core.migration.Migrator
 import mihon.data.cache.ChapterCache
 import mihon.domain.database.repository.DatabaseRepository
 import mihon.icons.materialsymbols.automirroredrounded.OpenInNew
+import reikai.data.task.AppTaskProgress
+import reikai.data.task.banner
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelRepository
 import reikai.domain.source.SourceKey
+import reikai.domain.task.TaskBannerPreferences
 import reikai.novel.download.NovelDownloadCache
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.closesWhenIncognitoEnds
@@ -152,6 +155,12 @@ class MainActivity : BaseActivity() {
 
     // RK: the novel index's first scan shows the same indexing banner
     @Inject private lateinit var novelDownloadCache: NovelDownloadCache
+
+    // RK -->
+    @Inject private lateinit var appTaskProgress: AppTaskProgress
+
+    @Inject private lateinit var taskBannerPreferences: TaskBannerPreferences
+    // RK <--
 
     // RK: a novel shortcut opens only a novel saved here
     @Inject private lateinit var novelRepository: NovelRepository
@@ -231,10 +240,18 @@ class MainActivity : BaseActivity() {
             val mangaIndexing by downloadCache.isInitializing.collectAsState()
             val novelIndexing by novelDownloadCache.isInitializing.collectAsState() // RK
             val indexing = mangaIndexing || novelIndexing // RK
+            // RK --> a running library update or restore, which the indexing banner shows
+            val task by remember {
+                appTaskProgress.banner(
+                    taskBannerPreferences.showUpdating.changes(),
+                    taskBannerPreferences.showRestoring.changes(),
+                )
+            }.collectAsState(initial = null)
+            // RK <--
 
             val isSystemInDarkTheme = isSystemInDarkTheme()
             val statusBarBackgroundColor = when {
-                indexing -> IndexingBannerBackgroundColor
+                indexing || task != null -> IndexingBannerBackgroundColor // RK
                 downloadOnly -> DownloadedOnlyBannerBackgroundColor
                 incognito -> IncognitoModeBannerBackgroundColor
                 else -> MaterialTheme.colorScheme.surface
@@ -280,6 +297,7 @@ class MainActivity : BaseActivity() {
                             downloadedOnlyMode = downloadOnly,
                             incognitoMode = incognito,
                             indexing = indexing,
+                            task = task, // RK
                             modifier = Modifier.windowInsetsPadding(scaffoldInsets),
                         )
                     },

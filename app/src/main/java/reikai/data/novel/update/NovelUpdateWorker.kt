@@ -186,7 +186,10 @@ class NovelUpdateWorker(
         if (favorites.isEmpty()) return
 
         val failed = CopyOnWriteArrayList<UpdateErrorEntry>()
-        val updates = UpdateProgressList(favorites.size, notifier::showProgress)
+        val updates = UpdateProgressList<Novel>(favorites.size) { updating, done, total ->
+            notifier.showProgress(updating, done, total)
+            ledger.progressed(done, total)
+        }
         updateBySource(favorites, sourceOf = Novel::source, sourceContacts) { novel ->
             val outcome = checkUpdateEntry(
                 stillInLibrary = { novelRepo.getById(novel.id)?.favorite == true },

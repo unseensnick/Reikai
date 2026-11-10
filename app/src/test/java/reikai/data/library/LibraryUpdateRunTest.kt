@@ -14,6 +14,9 @@ import kotlinx.coroutines.yield
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.task.AppTaskProgress
+import reikai.data.task.BannerTask
+import reikai.data.task.bannerTask
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.merge.ChapterUnit
@@ -133,6 +136,7 @@ class LibraryUpdateRunTest {
             yield()
             downloads.flatMapTo(queued) { (_, chapters) -> chapters.map { it.id } }
         },
+        report = { _, _ -> },
         run = run,
     )
 
@@ -239,6 +243,7 @@ class LibraryUpdateRunTest {
                 coEvery { getStitch(type, any()) } returns stitch
             },
             LibraryPreferences(InMemoryPreferenceStore()),
+            AppTaskProgress(),
         )
 
         run<Entry, Row>(
@@ -250,6 +255,57 @@ class LibraryUpdateRunTest {
         ) { it.arrived(second, listOf(Row(20)), emptyList()) }
 
         announced shouldBe emptyList()
+    }
+
+    /** Both jobs run through [LibraryUpdateRun], so each shows as the one library update banner. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a run's progress reaches the app-state banner while it runs`(type: ContentType) = runTest {
+        val tasks = AppTaskProgress()
+        var shown: BannerTask? = null
+
+        bannerRun(type, tasks)<Entry, Row>(
+            type,
+            entryId = { it.id },
+            chapterId = { it.id },
+            announce = {},
+            queueDownloads = {},
+        ) {
+            it.progressed(1, 4)
+            shown = bannerTask(tasks.running.value, showUpdating = true, showRestoring = true)
+        }
+
+        shown shouldBe BannerTask.Updating(0.25f)
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a run that fails leaves the app-state banner`(type: ContentType) = runTest {
+        val tasks = AppTaskProgress()
+
+        shouldThrow<IOException> {
+            bannerRun(type, tasks)<Entry, Row>(
+                type,
+                entryId = { it.id },
+                chapterId = { it.id },
+                announce = {},
+                queueDownloads = {},
+            ) { throw IOException("down") }
+        }
+
+        tasks.running.value shouldBe emptyMap()
+    }
+
+    private fun bannerRun(type: ContentType, tasks: AppTaskProgress): LibraryUpdateRun {
+        val managers = TestMergeManagers(mapOf(type to emptyMap()), mergingOn = true)
+        return LibraryUpdateRun(
+            ReconcileMergedChapters(mockk(), stitchers = emptySet()),
+            managers.manga,
+            managers.novel,
+            mockk<MergedChapterUnitRepository>(),
+            LibraryPreferences(InMemoryPreferenceStore()),
+            tasks,
+        )
     }
 
     @Test
@@ -278,6 +334,7 @@ class LibraryUpdateRunTest {
             managers.novel,
             mockk<MergedChapterUnitRepository> { coEvery { getStitch(any(), any()) } returns stitch },
             LibraryPreferences(InMemoryPreferenceStore()),
+            AppTaskProgress(),
         )
 
         run<Entry, Row>(

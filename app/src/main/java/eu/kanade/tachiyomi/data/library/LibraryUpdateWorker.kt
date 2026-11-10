@@ -268,7 +268,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
             val manga = libraryManga.manga
             val outcome = checkUpdateEntry(
                 stillInLibrary = { getManga.await(manga.id)?.favorite == true },
-                progress = { withUpdateNotification(currentlyUpdatingManga, progressCount, manga, it) },
+                progress = { withUpdateNotification(currentlyUpdatingManga, progressCount, manga, ledger, it) },
                 trackErrors = trackErrors,
                 clearError = { deleteLibraryUpdateErrors.byMangaIds(listOf(manga.id)) },
                 recordError = { upsertLibraryUpdateError.await(manga.id, it) },
@@ -343,6 +343,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
         updatingManga: CopyOnWriteArrayList<Manga>,
         completed: AtomicInt,
         manga: Manga,
+        ledger: UpdateRunLedger<Manga, Chapter>, // RK: the app-state banner's percent
         block: suspend () -> Unit,
     ) = coroutineScope {
         ensureActive()
@@ -353,6 +354,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
             completed.load(),
             mangaToUpdate.size,
         )
+        ledger.progressed(completed.load(), mangaToUpdate.size) // RK
 
         block()
 
@@ -365,6 +367,7 @@ class LibraryUpdateWorker(private val context: Context, workerParams: WorkerPara
             completed.load(),
             mangaToUpdate.size,
         )
+        ledger.progressed(completed.load(), mangaToUpdate.size) // RK
     }
 
     // RK: writeErrorFile moved to reikai.data.updateerror.UpdateErrorLog, which every update job writes
