@@ -8,6 +8,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.material3.Text
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.test.click
@@ -33,7 +36,9 @@ class ManualOrderTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private val rows = listOf(row(1, "A"), row(2, "B"), row(3, "C"))
+    // The library's rows, which it sends again as a new list after a drop is stored or anything else changes.
+    private var rows by mutableStateOf(listOf(row(1, "A"), row(2, "B"), row(3, "C")))
+    private var storesDrops = false
     private val taps = mutableListOf<String>()
     private val longPresses = mutableListOf<String>()
     private var dropped: List<String>? = null
@@ -50,7 +55,14 @@ class ManualOrderTest {
                         section = PAGE_SECTION,
                         rows = rows,
                         contentType = "cell",
-                        drag = if (draggable) ManualOrderDrag { order, _ -> dropped = order.map(::titleOf) } else null,
+                        drag = if (draggable) {
+                            ManualOrderDrag { order, _ ->
+                                dropped = order.map(::titleOf)
+                                if (storesDrops) rows = order.toList()
+                            }
+                        } else {
+                            null
+                        },
                         manualOrder = manualOrder,
                         reorder = reorder,
                         onLongClick = { longPresses += titleOf(it) },
@@ -144,6 +156,19 @@ class ManualOrderTest {
     }
 
     @Test
+    fun `a second drag after a stored drop stores the order it shows`() {
+        storesDrops = true
+        show()
+        dragOnto("A", "C")
+        compose.waitForIdle()
+
+        dragOnto("A", "C")
+        compose.waitForIdle()
+
+        dropped shouldBe listOf("B", "A", "C")
+    }
+
+    @Test
     fun `a tile outside a manual category keeps its own long press`() {
         show(draggable = false)
 
@@ -157,6 +182,18 @@ class ManualOrderTest {
     }
 
     private fun titleOf(item: LibraryItem) = item.libraryManga.manga.title
+
+    private fun centerOf(title: String) = compose.onNodeWithText(title).fetchSemanticsNode().boundsInRoot.center
+
+    private fun dragOnto(title: String, onto: String) {
+        val step = centerOf(onto) - centerOf(title)
+        compose.onNodeWithText(title).performTouchInput {
+            down(center)
+            advanceEventTime(LONG_PRESS_MS)
+            repeat(STEPS) { moveBy(Offset(step.x / STEPS, step.y / STEPS)) }
+            up()
+        }
+    }
 
     private fun row(id: Long, title: String) = LibraryItem(
         libraryManga = LibraryManga(

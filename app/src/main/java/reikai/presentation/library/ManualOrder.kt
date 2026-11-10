@@ -47,6 +47,10 @@ class ManualOrder internal constructor(private val haptic: HapticFeedback) {
 
     private val orders = mutableStateMapOf<Any, Pair<List<LibraryItem>, List<LibraryItem>>>()
     private val owners = HashMap<Any, Any>()
+
+    // The rows each section last drew with. A tile's gesture outlives the composition that started it, so the
+    // rows it captured can be ones the library has since replaced.
+    private val latest = HashMap<Any, List<LibraryItem>>()
     private var moved: LibraryItem? = null
     private var downAt = Offset.Zero
     private var travel = 0f
@@ -58,6 +62,7 @@ class ManualOrder internal constructor(private val haptic: HapticFeedback) {
     /** [section]'s rows in the order shown now, registering each tile's key as belonging to [section]. */
     fun orderOf(section: Any, rows: List<LibraryItem>): List<LibraryItem> {
         rows.forEach { owners[manualOrderKey(section, it)] = section }
+        latest[section] = rows
         return orders[section]?.takeIf { it.first === rows }?.second ?: rows
     }
 
@@ -94,18 +99,13 @@ class ManualOrder internal constructor(private val haptic: HapticFeedback) {
      * A long press released near where it started selects, as a long press does elsewhere; one that travelled
      * further was a drag, even if nothing swapped (a release in the system gesture strip ends one that way).
      */
-    internal fun released(
-        section: Any,
-        rows: List<LibraryItem>,
-        slop: Float,
-        drag: ManualOrderDrag,
-        select: () -> Unit,
-    ) {
+    internal fun released(section: Any, slop: Float, drag: ManualOrderDrag, select: () -> Unit) {
         val item = moved
         moved = null
+        val rows = latest[section]
         when {
             travel < slop -> select()
-            item != null -> drag.onDrop(orderOf(section, rows), item)
+            item != null && rows != null -> drag.onDrop(orderOf(section, rows), item)
         }
     }
 }
@@ -163,7 +163,7 @@ fun LazyGridScope.libraryCells(
             return@items
         }
         ReorderableItem(reorder, key = manualOrderKey(section, item)) { isDragging ->
-            ManualOrderTile(manualOrder, section, rows, drag, isDragging, { onLongClick(item) }) {
+            ManualOrderTile(manualOrder, section, drag, isDragging, { onLongClick(item) }) {
                 cell(item, null) { !manualOrder.swallowsTap }
             }
         }
@@ -189,7 +189,7 @@ fun LazyListScope.libraryRows(
             return@items
         }
         ReorderableItem(reorder, key = manualOrderKey(section, item)) { isDragging ->
-            ManualOrderTile(manualOrder, section, rows, drag, isDragging, { onLongClick(item) }) {
+            ManualOrderTile(manualOrder, section, drag, isDragging, { onLongClick(item) }) {
                 cell(item, null) { !manualOrder.swallowsTap }
             }
         }
@@ -200,7 +200,6 @@ fun LazyListScope.libraryRows(
 private fun ReorderableCollectionItemScope.ManualOrderTile(
     manualOrder: ManualOrder,
     section: Any,
-    rows: List<LibraryItem>,
     drag: ManualOrderDrag,
     isDragging: Boolean,
     select: () -> Unit,
@@ -230,7 +229,7 @@ private fun ReorderableCollectionItemScope.ManualOrderTile(
             }
             .longPressDraggableHandle(
                 onDragStarted = { manualOrder.longPressed() },
-                onDragStopped = { manualOrder.released(section, rows, slop, drag, select) },
+                onDragStopped = { manualOrder.released(section, slop, drag, select) },
             ),
     ) {
         content()
