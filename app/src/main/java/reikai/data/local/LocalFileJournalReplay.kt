@@ -7,6 +7,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.download.renameDownloadFolder
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
@@ -38,6 +39,7 @@ class LocalFileJournalReplay(
     private val chapterMoves: LocalChapterMoveRepository,
     private val chapterRepository: ChapterRepository,
     private val novelChapterRepository: NovelChapterRepository,
+    private val tombstones: ChapterTombstoneRepository,
 ) {
 
     suspend fun replay() {
@@ -83,7 +85,7 @@ class LocalFileJournalReplay(
             val urls = when (type) {
                 ContentType.NOVELS -> novelChapterRepository.getByNovelId(plan.entryId).map { it.url }
                 else -> chapterRepository.getChapterByMangaId(plan.entryId).map { it.url }
-            }
+            } + tombstones.byOwner(type, plan.entryId).map { it.url }
             val target = plan.series?.to ?: plan.folder
             val volumeNames = plan.volumes.associate { it.from to it.to }
             val moves = renamedChapterMoves(type, urls, plan.folder, target, volumeNames)

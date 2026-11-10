@@ -18,6 +18,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -98,6 +99,7 @@ class GroupMemberBackupConformanceTest {
         )
         return if (type == ContentType.MANGA) {
             val creator = MangaBackupCreator(
+                tombstones = NoChapterTombstoneRepository,
                 manualOrder = FakeLibraryManualOrderRepository(),
                 mangaRepository = MangaRepositoryImpl(database),
                 chapterRepository = mockk(),
@@ -128,6 +130,7 @@ class GroupMemberBackupConformanceTest {
         } else {
             val novels = NovelRepositoryImpl(database)
             val creator = NovelBackupCreator(
+                tombstones = NoChapterTombstoneRepository,
                 manualOrder = FakeLibraryManualOrderRepository(),
                 novelRepository = novels,
                 novelChapterRepository = mockk(),

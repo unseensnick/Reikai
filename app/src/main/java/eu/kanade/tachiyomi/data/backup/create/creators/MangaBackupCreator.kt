@@ -21,6 +21,7 @@ import reikai.data.backup.writeCustomInfo
 import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
@@ -66,6 +67,8 @@ class MangaBackupCreator(
     private val readingLog: ReadingLogRepository,
     // RK: each entry's places in Manual library orders, carried with its categories.
     private val manualOrder: LibraryManualOrderRepository,
+    // RK: a local series' removed chapters' kept reading state, carried with its chapters.
+    private val tombstones: ChapterTombstoneRepository,
 ) : BackupEntryParts<Manga, BackupManga> { // RK
 
     // RK: history keys by chapter url, so it reuses the chapters part's read of the same chunk, as upstream reads once
@@ -115,6 +118,10 @@ class MangaBackupCreator(
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
         val marksByMangaId = copyMarks.loadedMarks(ContentType.MANGA) // RK
         val volumesBySeries = localVolumes.loadedVolumes(ContentType.MANGA) // RK
+        // RK: by its own rows, since a local series whose every chapter is gone has kept states and no chapter rows
+        batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
+            backup.chapterTombstones = kept.map { it.toBackup() }
+        }
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK

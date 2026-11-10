@@ -23,6 +23,7 @@ import reikai.domain.backup.restoredFavoriteAt
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ManualOrderPosition
@@ -57,6 +58,7 @@ class RestoreRepositoryImpl(
     private val readingLog: ReadingLogRepository,
     private val manualOrder: LibraryManualOrderRepository,
     private val copyMarks: ChapterCopyMarkRepository,
+    private val tombstones: ChapterTombstoneRepository,
     // RK <--
 ) : RestoreRepository {
 
@@ -94,6 +96,8 @@ class RestoreRepositoryImpl(
         restoreTracking(manga, entry.tracks)
         restoreHistory(manga, entry.history)
         readingLog.restore(ContentType.MANGA, manga.id, entry.readingSessions) // RK
+        // RK: after the chapters and their history, so a tombstone meets the row it belongs to
+        tombstones.restore(ContentType.MANGA, manga.id, entry.chapterTombstones)
         restoreExcludedScanlators(manga, entry.excludedScanlators)
         // RK --> an entry without either leaves the device's own alone, as the forks do
         entry.searchMetadata?.let { mangaMetadataRepository.insertFlatMetadata(it.forManga(manga.id)) }

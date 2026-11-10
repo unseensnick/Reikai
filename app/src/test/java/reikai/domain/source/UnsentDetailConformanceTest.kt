@@ -13,6 +13,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.refreshNovelFromSource
@@ -184,9 +185,7 @@ class NovelRefreshHalf : RefreshHalf {
             NovelChapterRepositoryImpl(database),
             novels,
             LibraryPreferences(InMemoryPreferenceStore()),
-            NoChapterNumberOverrides,
-            InMemoryChapterCopyMarks(),
-            NoChapterTombstones,
+            NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
             coverCache = mockk(relaxed = true),
             novelDownloadManager = mockk(relaxed = true),
         )

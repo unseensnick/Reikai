@@ -17,6 +17,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -84,6 +85,8 @@ class NovelRestorerChapterReadsTest {
     }
 
     private suspend fun restore() = NovelRestorer(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = chapters,

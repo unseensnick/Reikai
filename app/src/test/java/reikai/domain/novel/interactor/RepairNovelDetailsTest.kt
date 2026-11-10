@@ -13,6 +13,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
@@ -190,9 +191,11 @@ class RepairNovelDetailsTest {
                 repository = mockk(relaxed = true),
                 stitchers = emptySet(),
             ),
-            chapterNumberOverrides = NoChapterNumberOverrides,
-            chapterCopyMarks = InMemoryChapterCopyMarks(),
-            localTombstones = NoChapterTombstones,
+            syncRules = NovelChapterSyncRules(
+                NoChapterNumberOverrides,
+                InMemoryChapterCopyMarks(),
+                NoChapterTombstones,
+            ),
         )
 
         repair.await()

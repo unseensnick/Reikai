@@ -38,6 +38,7 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
@@ -484,9 +485,7 @@ class NovelReaderViewModelHarness private constructor(
             ),
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
-            chapterNumberOverrides = numberOverrides,
-            chapterCopyMarks = copyMarks,
-            localTombstones = NoChapterTombstones,
+            syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, NoChapterTombstones),
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },

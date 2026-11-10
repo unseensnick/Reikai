@@ -92,6 +92,7 @@ class MangaRestorer(
                 manualOrder = backupManga.restoredManualOrder { order ->
                     backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }
                 },
+                chapterTombstones = backupManga.chapterTombstones.map { it.toChapterTombstone() },
                 // RK <--
             )
         }

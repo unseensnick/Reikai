@@ -15,6 +15,7 @@ import mihon.core.common.extensions.toEpochMillisOrZero
 import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
@@ -117,9 +118,7 @@ class NovelChapterSyncTest {
                     sequenceOf(InMemoryPreference("mark_duplicate_read_chapter_read", markDuplicates, emptySet())),
                 ),
             ),
-            NoChapterNumberOverrides,
-            InMemoryChapterCopyMarks(),
-            NoChapterTombstones,
+            NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted, changed)

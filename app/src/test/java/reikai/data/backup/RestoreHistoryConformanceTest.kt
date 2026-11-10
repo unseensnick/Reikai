@@ -26,6 +26,7 @@ import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -195,6 +196,7 @@ class RestoreHistoryConformanceTest {
 
             override suspend fun restore(database: Database, copies: List<Copy>, sessions: List<BackupReadingSession>) {
                 NovelRestorer(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = NovelRepositoryImpl(database),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),

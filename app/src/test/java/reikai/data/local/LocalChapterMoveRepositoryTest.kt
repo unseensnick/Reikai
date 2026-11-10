@@ -9,6 +9,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalFileJournalPlan
@@ -60,7 +61,7 @@ class LocalChapterMoveRepositoryTest {
     fun `the chapter moves to the other series, still read, with its number correction`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
 
-        LocalChapterMoveRepositoryImpl(database).move(type.contentType, null, listOf(MOVE), emptyList())
+        repository().move(type.contentType, null, listOf(MOVE), emptyList())
 
         listOf(one(type.chapterQuery), one(type.overrideQuery)) shouldBe listOf("1|A/B/c1|1", "1|A/B/c1")
     }
@@ -70,7 +71,7 @@ class LocalChapterMoveRepositoryTest {
         Type.MANGA.seed.forEach { exec(it) }
         exec("INSERT INTO history(manga_id, chapter_id, read_at, read_duration) VALUES (2, 10, 0, 0)")
 
-        LocalChapterMoveRepositoryImpl(database).move(ContentType.MANGA, null, listOf(MOVE), emptyList())
+        repository().move(ContentType.MANGA, null, listOf(MOVE), emptyList())
 
         one("SELECT manga_id FROM history WHERE chapter_id = 10") shouldBe "1"
     }
@@ -86,7 +87,7 @@ class LocalChapterMoveRepositoryTest {
             )
             exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
 
-            LocalChapterMoveRepositoryImpl(database).rename(
+            repository().rename(
                 type.contentType,
                 SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
                 listOf(ChapterMove("B/c1", "Bee/c1")),
@@ -106,7 +107,7 @@ class LocalChapterMoveRepositoryTest {
             "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
         )
 
-        LocalChapterMoveRepositoryImpl(database).move(
+        repository().move(
             ContentType.MANGA,
             null,
             emptyList(),
@@ -126,7 +127,7 @@ class LocalChapterMoveRepositoryTest {
             "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
         )
 
-        LocalChapterMoveRepositoryImpl(database).move(
+        repository().move(
             ContentType.MANGA,
             null,
             emptyList(),
@@ -145,7 +146,7 @@ class LocalChapterMoveRepositoryTest {
         exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'A/B/c1'"))
 
         runCatching {
-            LocalChapterMoveRepositoryImpl(database).move(
+            repository().move(
                 type.contentType,
                 SeriesAddress(2, "Bee"),
                 listOf(MOVE),
@@ -169,7 +170,7 @@ class LocalChapterMoveRepositoryTest {
             )
         }
 
-        LocalChapterMoveRepositoryImpl(database).rename(
+        repository().rename(
             type.contentType,
             SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
             emptyList(),
@@ -184,7 +185,7 @@ class LocalChapterMoveRepositoryTest {
         type.seed.forEach { exec(it) }
         val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
 
-        LocalChapterMoveRepositoryImpl(database).rename(type.contentType, RENAME, emptyList(), journalId)
+        repository().rename(type.contentType, RENAME, emptyList(), journalId)
 
         rows("SELECT _id FROM local_file_journal") shouldBe emptyList()
     }
@@ -198,7 +199,7 @@ class LocalChapterMoveRepositoryTest {
         val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
 
         runCatching {
-            LocalChapterMoveRepositoryImpl(database)
+            LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
                 .rename(type.contentType, RENAME, listOf(ChapterMove("B/c1", "Bee/c1")), journalId)
         }
 
@@ -213,11 +214,82 @@ class LocalChapterMoveRepositoryTest {
         exec("INSERT INTO local_volume(content_type, series, volume_key, position) VALUES ($dbType, 'B', 'v2', 1)")
         exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
 
-        LocalChapterMoveRepositoryImpl(database).forgetVolumes(type.contentType, 2, "B", listOf("v1"))
+        repository().forgetVolumes(type.contentType, 2, "B", mapOf("v1" to "B/v1/"))
 
         rows("SELECT volume_key FROM local_volume") + rows("SELECT volume_key FROM local_volume_pick") shouldBe
             listOf("v2")
     }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `deleted volumes take their chapter rows and kept reading state with them, other volumes' kept`(type: Type) =
+        runTest {
+            type.seed.forEach { exec(it) }
+            // The seeded chapter is B/c1; a chapter of volume v1 beside it, and tombstones of both volumes.
+            exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'B/v1/c2'"))
+            exec(type.tombstone(2, "B/v1/c3"))
+            exec(type.tombstone(2, "B/v10/c4"))
+
+            repository().forgetVolumes(type.contentType, 2, "B", mapOf("v1" to "B/v1/"))
+
+            rows(type.chapterUrls) + rows(type.tombstoneUrls) shouldBe listOf("B/c1", "B/v10/c4")
+        }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a moved chapter's kept reading state moves with it`(type: Type) = runTest {
+        // The chapter's file is gone, so it has no row, only its kept state at the old address.
+        type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
+        exec(type.tombstone(2, "B/c1", read = 1))
+
+        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+
+        rows(type.tombstoneUrls) shouldBe listOf("A/B/c1")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a kept state landing where a row already is folds onto the row and is spent`(type: Type) = runTest {
+        // The row is at the destination already, unread, and the old address holds only the kept state, as a
+        // refresh that slipped in between the files and the rows leaves them.
+        type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
+        exec(
+            type.seed.first { "'B/c1', 'C'" in it }
+                .replace("(10, 2, 'B/c1'", "(11, 1, 'A/B/c1'")
+                .replace("'C', NULL, 1,", "'C', NULL, 0,")
+                .replace("'C', 1, 0,", "'C', 0, 0,"),
+        )
+        exec(type.tombstone(2, "B/c1", read = 1))
+
+        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+
+        listOf(one(type.readAt("A/B/c1")), rows(type.tombstoneUrls).size.toString()) shouldBe listOf("1", "0")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a kept state landing on another folds onto it`(type: Type) = runTest {
+        type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
+        exec(type.tombstone(2, "B/c1", read = 1, progress = 3))
+        exec(type.tombstone(1, "A/B/c1", read = 0, progress = 9))
+
+        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+
+        rows(type.tombstoneState) shouldBe listOf("1|A/B/c1|1|9")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a renamed series takes its kept reading state along`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        exec(type.tombstone(2, "B/c9"))
+
+        repository().rename(type.contentType, RENAME, listOf(ChapterMove("B/c9", "Bee/c9")))
+
+        rows(type.tombstoneUrls) shouldBe listOf("Bee/c9")
+    }
+
+    private fun repository() = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
 
     private companion object {
         val MOVE = OwnerMoves(2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
@@ -263,5 +335,41 @@ class LocalChapterMoveRepositoryTest {
             "SELECT novel_id || '|' || url FROM novel_chapter_number_override",
             "SELECT url FROM novels WHERE _id = 2",
         ),
+        ;
+
+        /** A kept state at [url] of owner [owner], as a refresh leaves it. */
+        fun tombstone(owner: Long, url: String, read: Int = 0, progress: Int = 0) = if (contentType ==
+            ContentType.NOVELS
+        ) {
+            "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, last_text_progress, " +
+                "date_fetch, removed_at) VALUES ($owner, '$url', 1.0, $read, 0, $progress, 0, 0)"
+        } else {
+            "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
+                "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1.0, $read, 0, $progress, 0, 0, 0)"
+        }
+
+        val chapterUrls get() = if (contentType == ContentType.NOVELS) {
+            "SELECT url FROM novel_chapters ORDER BY url"
+        } else {
+            "SELECT remote_url FROM chapter ORDER BY remote_url"
+        }
+
+        val tombstoneUrls get() = if (contentType == ContentType.NOVELS) {
+            "SELECT url FROM novel_chapter_tombstone ORDER BY url"
+        } else {
+            "SELECT url FROM manga_chapter_tombstone ORDER BY url"
+        }
+
+        val tombstoneState get() = if (contentType == ContentType.NOVELS) {
+            "SELECT novel_id || '|' || url || '|' || read || '|' || last_text_progress FROM novel_chapter_tombstone"
+        } else {
+            "SELECT manga_id || '|' || url || '|' || read || '|' || last_page_read FROM manga_chapter_tombstone"
+        }
+
+        fun readAt(url: String) = if (contentType == ContentType.NOVELS) {
+            "SELECT read FROM novel_chapters WHERE url = '$url'"
+        } else {
+            "SELECT user_read FROM chapter WHERE remote_url = '$url'"
+        }
     }
 }

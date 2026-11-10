@@ -2,6 +2,7 @@ package reikai.domain.source
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.sentName
@@ -36,9 +37,7 @@ class ResolveNovelLink(
     private val novelRepository: NovelRepository,
     private val novelChapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
-    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
-    private val chapterCopyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
     private val coverCache: CoverCache,
     // Built only by a chapter link's refresh, since building it reads the saved queue
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -51,9 +50,7 @@ class ResolveNovelLink(
         novelRepository: NovelRepository,
         novelChapterRepository: NovelChapterRepository,
         libraryPreferences: LibraryPreferences,
-        chapterNumberOverrides: ChapterNumberOverrideRepository,
-        chapterCopyMarks: ChapterCopyMarkRepository,
-        localTombstones: LocalChapterTombstones,
+        syncRules: NovelChapterSyncRules,
         coverCache: CoverCache,
         novelDownloadManager: () -> NovelDownloadManager,
     ) : this(
@@ -64,9 +61,7 @@ class ResolveNovelLink(
         novelRepository,
         novelChapterRepository,
         libraryPreferences,
-        chapterNumberOverrides,
-        chapterCopyMarks,
-        localTombstones,
+        syncRules,
         coverCache,
         novelDownloadManager,
     )
@@ -109,9 +104,7 @@ class ResolveNovelLink(
             novelRepository,
             novelChapterRepository,
             libraryPreferences,
-            chapterNumberOverrides,
-            chapterCopyMarks,
-            localTombstones,
+            syncRules,
         ) ?: return null
         return NovelLinkTarget.Novel(source.id, path)
     }
@@ -139,9 +132,7 @@ class ResolveNovelLink(
                     novelChapterRepository,
                     novelRepository,
                     libraryPreferences,
-                    chapterNumberOverrides,
-                    chapterCopyMarks,
-                    localTombstones,
+                    syncRules,
                     coverCache,
                     novelDownloadManager(),
                 )
@@ -157,8 +148,6 @@ class ResolveNovelLink(
             novelRepository,
             novelChapterRepository,
             libraryPreferences,
-            chapterNumberOverrides,
-            chapterCopyMarks,
-            localTombstones,
+            syncRules,
         )
 }

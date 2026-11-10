@@ -18,6 +18,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -104,6 +105,8 @@ class NovelPaceBackupTest {
         .map { it.url to (it.words to it.listenedMs) }
 
     private fun creator() = NovelBackupCreator(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),
         novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -122,6 +125,8 @@ class NovelPaceBackupTest {
     )
 
     private fun restorer() = NovelRestorer(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),

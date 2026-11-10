@@ -4,6 +4,7 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.CancellationException
 import logcat.LogPriority
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.backup.mergedHistory
 import reikai.domain.category.GetNovelCategories
@@ -60,9 +61,7 @@ class MigrateNovelUseCase(
     private val sourceManager: NovelSourceManager,
     private val novelRepository: NovelRepository,
     private val libraryPreferences: LibraryPreferences,
-    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
-    private val chapterCopyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
     // So the favorite swap and the merge-group rewrite can share one transaction; see below.
     private val transactions: Transactions,
     private val sourceTracker: SourceTrackerDispatcher,
@@ -110,9 +109,7 @@ class MigrateNovelUseCase(
                     novelChapterRepository,
                     novelRepository,
                     libraryPreferences,
-                    chapterNumberOverrides,
-                    chapterCopyMarks,
-                    localTombstones,
+                    syncRules,
                     coverCache,
                     novelDownloadManager,
                 )

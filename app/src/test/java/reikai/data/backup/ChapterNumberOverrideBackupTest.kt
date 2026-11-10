@@ -27,6 +27,7 @@ import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.ChapterNumberOverride
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -141,6 +142,7 @@ class ChapterNumberOverrideBackupTest {
             override suspend fun backedUp(database: Database, overrides: ChapterNumberOverrideRepositoryImpl) =
                 BackupManga(source = 1L, url = "u").also { backup ->
                     MangaBackupCreator(
+                        tombstones = NoChapterTombstoneRepository,
                         manualOrder = FakeLibraryManualOrderRepository(),
                         mangaRepository = mockk(),
                         chapterRepository = ChapterRepositoryImpl(database),
@@ -187,6 +189,7 @@ class ChapterNumberOverrideBackupTest {
             override suspend fun backedUp(database: Database, overrides: ChapterNumberOverrideRepositoryImpl) =
                 BackupNovel(source = "src", url = "u").also { backup ->
                     NovelBackupCreator(
+                        tombstones = NoChapterTombstoneRepository,
                         manualOrder = FakeLibraryManualOrderRepository(),
                         novelRepository = mockk(),
                         novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -207,6 +210,7 @@ class ChapterNumberOverrideBackupTest {
 
             override suspend fun restore(database: Database) {
                 NovelRestorer(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = NovelRepositoryImpl(database),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),

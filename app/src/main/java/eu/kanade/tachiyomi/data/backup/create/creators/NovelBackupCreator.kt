@@ -28,6 +28,7 @@ import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
@@ -66,6 +67,7 @@ class NovelBackupCreator(
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
     private val manualOrder: LibraryManualOrderRepository,
+    private val tombstones: ChapterTombstoneRepository,
 ) : BackupEntryParts<Novel, BackupNovel> {
 
     // The chapters part reads the word counts and history the read-aloud times, from the same chunk-wide row.
@@ -109,6 +111,10 @@ class NovelBackupCreator(
         val marksByNovelId = copyMarks.loadedMarks(ContentType.NOVELS)
         val volumesBySeries = localVolumes.loadedVolumes(ContentType.NOVELS)
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
+        // By its own rows, since a local series whose every chapter is gone has kept states and no chapter rows.
+        batch.writeRows(tombstones.getByOwners(ContentType.NOVELS, novelIds), Novel::id) { _, backup, kept ->
+            backup.chapterTombstones = kept.map { it.toBackup() }
+        }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
             val marks = marksByNovelId[entry.id].orEmpty()

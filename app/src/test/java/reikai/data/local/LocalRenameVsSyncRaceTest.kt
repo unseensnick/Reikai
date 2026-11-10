@@ -188,7 +188,7 @@ class LocalRenameVsSyncRaceTest {
         )
         renaming.renameOnDisk()
         val urls = ChapterRepositoryImpl(database).getChapterByMangaId(OWNER).map { it.url }
-        LocalChapterMoveRepositoryImpl(database).rename(
+        LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)).rename(
             ContentType.MANGA,
             SeriesRename(OWNER, "Series", "Series", mapOf(from to to)),
             renamedChapterMoves(ContentType.MANGA, urls, "Series", "Series", mapOf(from to to)),

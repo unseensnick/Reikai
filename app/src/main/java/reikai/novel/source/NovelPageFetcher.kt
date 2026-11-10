@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import logcat.LogPriority
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.predictNovelFetchInterval
 import reikai.data.novel.storeRefreshedNovel
 import reikai.data.novel.syncChaptersWithNovelSource
@@ -36,9 +37,7 @@ class NovelPageFetcher(
     private val chapterRepo: NovelChapterRepository,
     private val sourceManager: NovelSourceManager,
     private val libraryPreferences: LibraryPreferences,
-    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
-    private val chapterCopyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
     private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -76,9 +75,7 @@ class NovelPageFetcher(
             chapterRepo,
             novelRepo,
             libraryPreferences,
-            chapterNumberOverrides,
-            chapterCopyMarks,
-            localTombstones,
+            syncRules,
             novelDownloadManager = novelDownloadManager(),
         )
         predictNovelFetchInterval(

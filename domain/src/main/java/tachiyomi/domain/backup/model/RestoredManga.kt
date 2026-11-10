@@ -2,6 +2,7 @@ package tachiyomi.domain.backup.model
 
 import exh.metadata.metadata.base.FlatMetadata
 import reikai.domain.chapter.ChapterNumberOverride
+import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.CopyMark
 import reikai.domain.readinglog.UrlReadingSession
 import tachiyomi.domain.chapter.model.Chapter
@@ -29,6 +30,8 @@ data class RestoredManga(
     val readingSessions: List<UrlReadingSession> = emptyList(),
     // The entry's places in Manual library orders, as this device's (category id, position).
     val manualOrder: List<Pair<Long, Long>> = emptyList(),
+    // A local series' removed chapters' kept reading state, keyed by url, which land after the chapters do.
+    val chapterTombstones: List<ChapterTombstone> = emptyList(),
     // RK <--
 )
 

@@ -13,9 +13,11 @@ import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
@@ -101,9 +103,8 @@ class CombineLocalVolumes(
     private val storageManager: StorageManager,
     private val novelSources: NovelSourceManager,
     private val libraryPreferences: LibraryPreferences,
-    private val numberOverrides: ChapterNumberOverrideRepository,
-    private val copyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
+    private val tombstones: ChapterTombstoneRepository,
     private val coverCache: CoverCache,
     private val novelDownloadManager: () -> NovelDownloadManager,
     private val removeNovels: RemoveNovelsFromLibrary,
@@ -451,9 +452,7 @@ class CombineLocalVolumes(
                 novelChapterRepository,
                 novelRepository,
                 libraryPreferences,
-                numberOverrides,
-                copyMarks,
-                localTombstones,
+                syncRules,
                 coverCache,
                 novelDownloadManager = novelDownloadManager(),
                 manualFetch = true,
@@ -536,11 +535,22 @@ class CombineLocalVolumes(
             return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
         }
         val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteAll() == false }
-        // Their saved order and names would otherwise wait at those names for whatever is put there next.
-        chapterMoves.forgetVolumes(type, id, series.folder, keys.takeWhile { it != failed })
+        // Their rows, saved order and names would otherwise wait at those names for whatever is put there next.
+        chapterMoves.forgetVolumes(
+            type,
+            id,
+            series.folder,
+            keys.takeWhile { it != failed }.associateWith { volumeChapterPrefix(type, series.folder, it) },
+        )
         relist(type, id)
         failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
             ?: LocalMoveResult.Moved(emptyList())
+    }
+
+    /** What every chapter address of volume [key] (a manga's folder, a novel's book) in [series] starts with. */
+    private fun volumeChapterPrefix(type: ContentType, series: String, key: String): String = when (type) {
+        ContentType.NOVELS -> LocalNovelSource.volumePathPrefix(series, key)
+        else -> "$series/$key/"
     }
 
     private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async { work() }.await()
@@ -598,11 +608,12 @@ class CombineLocalVolumes(
                 !it.to.equals(it.from, true) && seriesFile.findFile(it.to) != null
             }?.let { return@withSeries taken(it.to) }
             val volumeNames = volumes.associate { it.from to it.to }
+            // A tombstone's address follows the rename as a row's does, so a chapter that comes back finds it.
             val urls = if (type == ContentType.NOVELS) {
                 novelChapterRepository.getByNovelId(series.id).map { it.url }
             } else {
                 chapterRepository.getChapterByMangaId(series.id).map { it.url }
-            }
+            } + tombstones.byOwner(type, series.id).map { it.url }
             val chapters = renamedChapterMoves(type, urls, series.folder, target, volumeNames)
             val renaming =
                 JournaledRename(

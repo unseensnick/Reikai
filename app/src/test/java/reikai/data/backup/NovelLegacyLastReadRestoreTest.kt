@@ -18,6 +18,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.mapLibraryNovel
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -78,6 +79,8 @@ class NovelLegacyLastReadRestoreTest {
             ?.toEpochMilliseconds()
 
     private fun restorer() = NovelRestorer(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),

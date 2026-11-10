@@ -19,6 +19,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.library.ContentType
@@ -233,9 +234,11 @@ class ChapterSyncConformanceTest {
                     NovelChapterRepositoryImpl(database),
                     NovelRepositoryImpl(database),
                     libraryPreferences(markDuplicates),
-                    ChapterNumberOverrideRepositoryImpl(database),
-                    copyMarks,
-                    NoChapterTombstones,
+                    NovelChapterSyncRules(
+                        ChapterNumberOverrideRepositoryImpl(database),
+                        copyMarks,
+                        NoChapterTombstones,
+                    ),
                 )
                 return Synced(result.foundRelease, result.newChapters.map { it.url })
             }

@@ -15,7 +15,10 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.Robolectric
+import reikai.data.novel.NovelChapterSyncRules
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
@@ -41,6 +44,14 @@ class LocalImportTest(private val type: ContentType) {
 
     private var storageRoot: UniFile = UniFile.fromFile(root)!!
 
+    /** The prefixes each in-app replace told the tombstones to forget, under which owner. */
+    private val forgotten = mutableListOf<Pair<Long, List<String>>>()
+    private val tombstones = object : ChapterTombstoneRepository by NoChapterTombstoneRepository {
+        override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>) {
+            forgotten += ownerId to urlPrefixes
+        }
+    }
+
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
         context = context,
@@ -55,10 +66,10 @@ class LocalImportTest(private val type: ContentType) {
         },
         novelChapterRepository = mockk(),
         libraryPreferences = mockk(),
-        chapterNumberOverrides = mockk(),
-        chapterCopyMarks = InMemoryChapterCopyMarks(),
+        syncRules = NovelChapterSyncRules(mockk(), InMemoryChapterCopyMarks(), NoChapterTombstones),
         journal = mockk(relaxed = true),
-        localTombstones = NoChapterTombstones,
+        tombstones = tombstones,
+        getMangaByUrlAndSourceId = mockk { coEvery { await(any(), any()) } returns Manga.create().copy(id = 7L) },
         novelAdder = mockk<NovelLibraryAdder> { coEvery { addToBatch(any(), any(), any()) } returns AddOutcome.Failed },
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {
@@ -175,6 +186,38 @@ class LocalImportTest(private val type: ContentType) {
 
         (File(root, "Foo").list()!!.toList() to File(root, "Foo/Old.cbz").readText()) shouldBe
             (listOf("Old.cbz") to "abc")
+    }
+
+    @Test
+    fun `a newer copy the user chose to replace drops the old book's kept reading state`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/Old.cbz").writeText("old version")
+        val group = localImport.inspect(group("Foo")).copy(
+            newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"),
+            onNewerCopy = DuplicateChoice.Replace,
+        )
+
+        localImport.import(listOf(group), addToLibrary = false, categoryIds = emptyList())
+
+        val prefix = if (type ==
+            ContentType.NOVELS
+        ) {
+            LocalNovelSource.volumePathPrefix("Foo", "Old.cbz")
+        } else {
+            "Foo/Old.cbz"
+        }
+        forgotten shouldBe listOf(7L to listOf(prefix))
+    }
+
+    @Test
+    fun `a duplicate replaced by the same file keeps the book's reading state`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+
+        forgotten shouldBe emptyList()
     }
 
     @Test

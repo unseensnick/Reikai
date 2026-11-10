@@ -35,6 +35,7 @@ import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
@@ -76,6 +77,7 @@ class NovelRestorer(
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
+    private val tombstones: ChapterTombstoneRepository,
 ) {
 
     private val timeZone = TimeZone.currentSystemDefault()
@@ -133,6 +135,8 @@ class NovelRestorer(
         restoreTracks(novelId, backupNovel.tracking)
         restoreHistory(chapters, backupNovel.history)
         readingLog.restore(ContentType.NOVELS, novelId, backupNovel.readingSessions.map { it.toUrlReadingSession() })
+        // After the chapters and their history, so a tombstone meets the row it belongs to, as manga's does.
+        tombstones.restore(ContentType.NOVELS, novelId, backupNovel.chapterTombstones.map { it.toChapterTombstone() })
         // An old backup carries the Last read stamp without history; after the history above, so a
         // backup that has history keeps it as is.
         backupNovel.lastReadAt?.toInstantOrNull()?.let { lastRead ->
