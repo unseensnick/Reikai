@@ -33,6 +33,7 @@ import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localVolumeChapter
+import reikai.source.local.volumeExtras
 import reikai.storage.listFilesOrNull
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
@@ -425,11 +426,7 @@ class LocalSource(
         return pictures.firstOrNull { it.isNamedCover() } ?: pictures.singleOrNull()
     }
 
-    private fun List<UniFile>.extraPictures(): List<UniFile> {
-        val pictures = filter { it.isPicture() }
-        val cover = pictures.firstOrNull { it.isNamedCover() } ?: pictures.singleOrNull()
-        return pictures - setOfNotNull(cover)
-    }
+    private fun List<UniFile>.extraPictures(): List<UniFile> = volumeExtras(filter { it.isPicture() })
 
     // By name alone, as a picture-named folder is never a chapter: each isDirectory is a query on a picked folder.
     private fun UniFile.isPicture() = ImageUtil.isImage(name)

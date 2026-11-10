@@ -8,7 +8,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import reikai.source.local.isVolumeCover
+import reikai.source.local.volumeExtras
 import java.io.File
 
 /** A local volume's Extras chapter opens the volume folder, whose cover is the volume's, not a page. */
@@ -23,6 +23,6 @@ class DirectoryPageLoaderTest {
         val volume = tmp.newFolder("Vol 1")
         listOf("cover.jpg", "p1.jpg", "p2.jpg").forEach { File(volume, it).writeBytes(byteArrayOf(1)) }
 
-        DirectoryPageLoader(UniFile.fromFile(volume)!!, skips = ::isVolumeCover).getPages().size shouldBe 2
+        DirectoryPageLoader(UniFile.fromFile(volume)!!, pages = ::volumeExtras).getPages().size shouldBe 2
     }
 }
