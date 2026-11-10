@@ -100,9 +100,54 @@ class FakeSafProviderTest {
         (renamed to file.name to series.list()!!.sorted()) shouldBe (true to "z.cbz" to listOf("b.cbz", "z.cbz"))
     }
 
+    /** The device provider renames onto a free "name (1).ext" rather than failing, and unifile reports success. */
     @Test
-    fun `a rename onto a taken name is refused`() {
-        seriesDir().findFile("a.cbz")!!.renameTo("b.cbz") shouldBe false
+    fun `a rename onto a taken name lands on a numbered name and reports success`() {
+        val file = seriesDir().findFile("a.cbz")!!
+
+        val renamed = file.renameTo("b.cbz")
+
+        (renamed to file.name to series.list()!!.sorted()) shouldBe
+            (true to "b (1).cbz" to listOf("b (1).cbz", "b.cbz"))
+    }
+
+    /** unifile swallows a failed document query, so a file whose query fails reads as absent, with no length. */
+    @Test
+    fun `a failed document query makes exists and length lie`() {
+        val file = seriesDir().findFile("b.cbz")!!
+        FakeSafProvider.failingDocuments += File(series, "b.cbz")
+
+        (file.exists() to file.length()) shouldBe (false to -1L)
+    }
+
+    @Test
+    fun `a failed document query leaves the folder's listing whole`() {
+        FakeSafProvider.failingDocuments += File(series, "b.cbz")
+
+        seriesDir().listFiles()!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
+    }
+
+    /** Some providers answer a taken name with the existing document instead of a numbered one. */
+    @Test
+    fun `a provider that hands back the existing document on create does so past a failed listing`() {
+        FakeSafProvider.install(context, tmp.root, FakeSafProvider.OTHER)
+        FakeSafProvider.createReturnsExisting = true
+        val dir = picked(FakeSafProvider.OTHER).findFile("Series")!!
+        FakeSafProvider.childListingFaults += ChildListingFault.Throw
+
+        val made = dir.createFile("a.cbz")!!
+
+        (made.length() to series.list()!!.sorted()) shouldBe (3L to listOf("a.cbz", "b.cbz"))
+    }
+
+    @Test
+    fun `the provider counts its queries`() {
+        val dir = seriesDir()
+        val before = FakeSafProvider.queryCount
+
+        dir.listFiles()
+
+        FakeSafProvider.queryCount - before shouldBe 2
     }
 
     @Test

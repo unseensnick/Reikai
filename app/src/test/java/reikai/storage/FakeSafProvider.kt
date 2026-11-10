@@ -24,9 +24,9 @@ import java.io.FileNotFoundException
 
 /**
  * A picked-folder (SAF) provider over a temp directory, shaped like the device's ExternalStorageProvider: document
- * ids are `primary:<path>`, a delete is recursive, a create with a taken name makes `name (1).ext`, a rename onto
- * a taken name fails, and a file opens in the mode asked for, so "w" writes in place and "wt" truncates.
- * [install] registers it with Robolectric; [childListingFaults] queues what the next child queries do.
+ * ids are `primary:<path>`, a delete is recursive, a create or a rename onto a taken name lands on `name (1).ext`
+ * and succeeds, and a file opens in the mode asked for, so "w" writes in place and "wt" truncates. [install]
+ * registers it with Robolectric; the companion's faults and hooks say what the next queries and writes do.
  * It is a plain provider wrapping the [Documents] one only because Robolectric's resolver hands a plain query to
  * the final pre-O `query`, which `DocumentsProvider` rejects; everything else is `DocumentsProvider`'s dispatch.
  */
@@ -64,12 +64,15 @@ class FakeSafProvider : ContentProvider() {
         selection: String?,
         selectionArgs: Array<out String>?,
         sortOrder: String?,
-    ): Cursor? = documents.query(
-        uri,
-        projection,
-        Bundle().apply { sortOrder?.let { putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, it) } },
-        null,
-    )
+    ): Cursor? {
+        queryCount++
+        return documents.query(
+            uri,
+            projection,
+            Bundle().apply { sortOrder?.let { putString(ContentResolver.QUERY_ARG_SQL_SORT_ORDER, it) } },
+            null,
+        )
+    }
 
     override fun getType(uri: Uri): String? = documents.getType(uri)
     override fun openFile(uri: Uri, mode: String): ParcelFileDescriptor? = documents.openFile(uri, mode)
@@ -84,8 +87,11 @@ class FakeSafProvider : ContentProvider() {
 
         override fun queryRoots(projection: Array<out String>?): Cursor = MatrixCursor(projection ?: ROOT_PROJECTION)
 
-        override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor =
-            MatrixCursor(projection ?: DOCUMENT_PROJECTION).apply { addFile(existing(documentId)) }
+        override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor {
+            val file = existing(documentId)
+            check(file !in failingDocuments) { "document query failed" }
+            return MatrixCursor(projection ?: DOCUMENT_PROJECTION).apply { addFile(file) }
+        }
 
         override fun queryChildDocuments(
             parentDocumentId: String,
@@ -119,7 +125,10 @@ class FakeSafProvider : ContentProvider() {
 
         override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
             val parent = existing(parentDocumentId)
+            beforeCreate?.invoke()
             val (name, ext) = splitFileName(mimeType, displayName)
+            val asked = File(parent, if (ext.isEmpty()) name else "$name.$ext")
+            if (createReturnsExisting && asked.exists()) return docIdFor(asked)
             val file = uniqueFile(parent, name, ext)
             val made = if (mimeType == Document.MIME_TYPE_DIR) file.mkdir() else file.createNewFile()
             check(made) { "could not create $displayName in $parentDocumentId" }
@@ -130,10 +139,16 @@ class FakeSafProvider : ContentProvider() {
             check(existing(documentId).deleteRecursively()) { "could not delete $documentId" }
         }
 
+        // FileSystemProvider.renameDocument: FileUtils.buildUniqueFile dodges a taken name with "name (1).ext".
         override fun renameDocument(documentId: String, displayName: String): String {
             val file = existing(documentId)
-            val after = File(file.parentFile, displayName)
-            check(!after.exists()) { "already exists: $displayName" }
+            beforeRename?.invoke()
+            val after = uniqueFile(
+                file.parentFile,
+                displayName.substringBeforeLast('.'),
+                displayName.substringAfterLast('.', ""),
+                self = file,
+            )
             check(file.renameTo(after)) { "could not rename $documentId" }
             return docIdFor(after)
         }
@@ -192,11 +207,14 @@ class FakeSafProvider : ContentProvider() {
             return name to ext.orEmpty()
         }
 
-        private fun uniqueFile(parent: File, name: String, ext: String): File {
+        // Android's disk is case-sensitive, so a name taken only by [self] in another letter case is free there; the
+        // host running the test may not be.
+        private fun uniqueFile(parent: File, name: String, ext: String, self: File? = null): File {
             fun build(stem: String) = File(parent, if (ext.isEmpty()) stem else "$stem.$ext")
+            fun taken(file: File) = file.exists() && file.canonicalFile != self?.canonicalFile
             var file = build(name)
             var n = 0
-            while (file.exists()) file = build("$name (${++n})")
+            while (taken(file)) file = build("$name (${++n})")
             return file
         }
     }
@@ -225,6 +243,19 @@ class FakeSafProvider : ContentProvider() {
         /** The one folder whose child queries take from [childListingFaults]; null means every folder's do. */
         var faultedFolder: File? = null
 
+        /** Documents whose own query fails, as one does when the provider's process dies mid-call. */
+        val failingDocuments = HashSet<File>()
+
+        /** Whether a create with a taken name answers with the existing document instead of a numbered one. */
+        var createReturnsExisting = false
+
+        /** Runs inside the next creates and renames, before the name is taken: another writer in the window. */
+        var beforeCreate: (() -> Unit)? = null
+        var beforeRename: (() -> Unit)? = null
+
+        /** Every query the provider has answered or refused since [install]. */
+        var queryCount = 0
+
         /** The directory standing in for the `primary` volume. */
         lateinit var volume: File
 
@@ -233,6 +264,11 @@ class FakeSafProvider : ContentProvider() {
             this.volume = volume
             childListingFaults.clear()
             faultedFolder = null
+            failingDocuments.clear()
+            createReturnsExisting = false
+            beforeCreate = null
+            beforeRename = null
+            queryCount = 0
             val info = ProviderInfo().apply {
                 name = FakeSafProvider::class.java.name
                 packageName = context.packageName
