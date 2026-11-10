@@ -12,6 +12,7 @@ import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -107,6 +108,21 @@ class EpubExportFilesTest {
         UniFile.fromFile(folder)!!.writeBookNamed(context, "Book.epub") { it.write("new".toByteArray()) }
 
         folder.list()!!.toList() to folder.resolve("Book.epub").readText() shouldBe (listOf("Book.epub") to "new")
+    }
+
+    @Test
+    fun `an export that cannot take the name leaves the earlier book`() = runTest {
+        val real = UniFile.fromFile(folder)!!
+        val stuck = spyk(real) {
+            every { createFile(any()) } answers {
+                spyk(real.createFile(firstArg())!!) { every { renameTo(any()) } returns false }
+            }
+        }
+
+        shouldThrow<IOException> { stuck.writeBookNamed(context, "Book.epub") { it.write("new".toByteArray()) } }
+
+        folder.list()!!.toList() to folder.resolve("Book.epub").readText() shouldBe
+            (listOf("Book.epub") to "the earlier book")
     }
 
     @Test
