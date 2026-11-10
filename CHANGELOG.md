@@ -231,6 +231,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **More links inside novel chapters now reach their target in the WebView reading mode, as they already did in the native one.**
 - **A chapter that fails to load while offline now says there is no Internet connection, for manga and novels.**
 - **The novel reader no longer offers WebView, Open in browser or Share for a local novel.**
+- **The novel reader no longer saves progress on every scroll frame near a chapter's end.**
 
 ### Statistics
 
@@ -273,6 +274,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Extension settings now use the app's own look (from Mihon).**
 - **Browse -> Filter now lists manga and novel languages and sources in one order, switched-off ones last.**
+- **Novel screens open sooner after a restart when many novel plugins are installed.**
 
 #### Fixed
 
@@ -305,6 +307,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
 - **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
+- **A novel plugin that keeps failing to load no longer holds up every novel screen.** It is retried at most once a minute, and Re-check extensions still retries it at once.
 
 ### Updates & History
 
