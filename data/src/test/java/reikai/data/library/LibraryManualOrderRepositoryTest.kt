@@ -50,6 +50,16 @@ class LibraryManualOrderRepositoryTest {
         repository.getCategory(CATEGORY) shouldBe listOf(place(ContentType.MANGA, 2, 0))
     }
 
+    @Test
+    fun `places a restore writes follow the device's own instead of tying with them`() = runTest {
+        repository.upsert(listOf(place(ContentType.MANGA, 1, 0), place(ContentType.MANGA, 2, 1)))
+
+        repository.yieldToRestore()
+        repository.upsert(listOf(place(ContentType.MANGA, 3, 0), place(ContentType.MANGA, 4, 1)))
+
+        repository.getCategory(CATEGORY).sortedBy { it.position }.map { it.entryId } shouldBe listOf(1L, 2L, 3L, 4L)
+    }
+
     /** A manga and a novel can share a row id, so each keeps its own place. */
     @Test
     fun `a manga and a novel with one id keep separate places`() = runTest {

@@ -30,6 +30,11 @@ class FakeLibraryManualOrderRepository : LibraryManualOrderRepository {
             positions.map { it.copy(categoryId = categoryId) }
     }
 
+    override suspend fun yieldToRestore() {
+        val shift = (positions.value.maxOfOrNull { it.position } ?: return) + 1
+        positions.value = positions.value.map { it.copy(position = it.position - shift) }
+    }
+
     override fun subscribeBases(): Flow<Map<Long, Long>> = bases.map { it }
 
     override suspend fun setBase(categoryId: Long, sortFlags: Long) {

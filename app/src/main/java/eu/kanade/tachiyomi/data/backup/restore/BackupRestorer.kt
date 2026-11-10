@@ -50,6 +50,7 @@ import reikai.data.backup.restoreBatch
 import reikai.domain.backup.KitsuBackupScoreScale
 import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
+import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.AlignGroupCategories
@@ -101,6 +102,7 @@ class BackupRestorer(
     private val alignGroupCategories: AlignGroupCategories,
     private val restoreExtensionInstaller: RestoreExtensionInstaller,
     private val restoreInstallSources: RestoreInstallSources,
+    private val manualOrder: LibraryManualOrderRepository,
     // RK <--
 ) {
 
@@ -164,6 +166,7 @@ class BackupRestorer(
         if (options.libraryEntries) {
             restoreSourceNames(summary.backupSources)
             novelSourceManager.rememberBackedUp(summary.novelSourceNames.mapValues { LnSourceIdentity(it.value) }) // RK
+            manualOrder.yieldToRestore() // RK: the backup's Manual places follow the device's own
             restoreAmount += summary.mangaCount + summary.novelCount
         }
         if (options.categories) {

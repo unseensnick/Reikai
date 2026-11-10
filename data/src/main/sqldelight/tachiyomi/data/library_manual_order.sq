@@ -37,6 +37,11 @@ insert:
 INSERT OR REPLACE INTO library_manual_order(content_type, entry_id, category_id, position)
 VALUES (:contentType, :entryId, :categoryId, :position);
 
+-- Every place moved below zero in its order, so a restore's places, written from zero, sort after them.
+yieldToRestore:
+UPDATE library_manual_order
+SET position = position - (SELECT MAX(position) + 1 FROM library_manual_order);
+
 deleteCategory:
 DELETE FROM library_manual_order
 WHERE category_id = :categoryId;

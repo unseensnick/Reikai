@@ -25,6 +25,12 @@ interface LibraryManualOrderRepository {
     /** Replaces [categoryId]'s whole order with [positions], in one transaction. */
     suspend fun replaceCategory(categoryId: Long, positions: List<ManualOrderPosition>)
 
+    /**
+     * Moves every stored place below zero, keeping each category's order, so the places a restore writes from
+     * zero follow the device's own instead of tying with them.
+     */
+    suspend fun yieldToRestore()
+
     /** Each Manual category's starting sort, as sort flags, by category id. */
     fun subscribeBases(): Flow<Map<Long, Long>>
 

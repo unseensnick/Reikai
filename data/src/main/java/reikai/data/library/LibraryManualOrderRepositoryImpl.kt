@@ -44,6 +44,10 @@ class LibraryManualOrderRepositoryImpl(
         }
     }
 
+    override suspend fun yieldToRestore() {
+        database.library_manual_orderQueries.yieldToRestore()
+    }
+
     private suspend fun insert(position: ManualOrderPosition, categoryId: Long) {
         database.library_manual_orderQueries.insert(
             contentType = position.contentType.toDbValue(),
