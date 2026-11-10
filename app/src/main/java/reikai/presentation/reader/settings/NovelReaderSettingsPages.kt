@@ -288,13 +288,15 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     val pageLayout by preferences.readerPageLayout().collectAsState()
     if (pageLayout.isPaged) ReaderFlashRows(ReaderFlash.novel(preferences))
 
-    NovelChapterTextRows(preferences)
+    // The renderer this novel draws with: its own choice, else the default.
+    val ownMode by pages.textSettings.renderingMode.collectAsState(null)
+    val defaultMode by preferences.readerRenderingMode().collectAsState()
+    NovelChapterTextRows(preferences, ownMode ?: defaultMode)
 }
 
 /** The rows of Settings -> Novel reader -> Chapter text that change what the page shows, in its order. */
 @Composable
-private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences) {
-    val renderingMode by preferences.readerRenderingMode().collectAsState()
+private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences, renderingMode: NovelRenderingMode) {
     val autoSplit by preferences.readerAutoSplitText().collectAsState()
     val sourceCssPriority by preferences.readerSourceCssPriority().collectAsState()
 
