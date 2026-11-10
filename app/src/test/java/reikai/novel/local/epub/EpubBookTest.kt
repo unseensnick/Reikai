@@ -15,6 +15,18 @@ class EpubBookTest {
     private fun book(vararg files: Pair<String, String>) = EpubBook.parse(epub(files.toMap()))
 
     @Test
+    fun `a book's identifier is the one its package names as unique`() {
+        val opf = opf(
+            listOf("a" to "a.xhtml"),
+            metadata = """<dc:title>Book</dc:title><dc:identifier>isbn-1</dc:identifier>""" +
+                """<dc:identifier id="uid">urn:uuid:42</dc:identifier>""",
+        ).replace("<package ", "<package unique-identifier=\"uid\" ")
+
+        book("OEBPS/content.opf" to opf, "OEBPS/a.xhtml" to xhtml("<p>a</p>")).metadata.identifier shouldBe
+            "urn:uuid:42"
+    }
+
+    @Test
     fun `a library subject heading reads as its topic`() {
         subjectTopic("Russia -- History -- Alexander I, 1801-1825 -- Fiction") shouldBe "Russia"
     }

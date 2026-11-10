@@ -156,6 +156,27 @@ class LocalImportTest(private val type: ContentType) {
     }
 
     @Test
+    fun `a newer copy the user chose to replace takes the old book's name and place`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/Old.cbz").writeText("old version")
+        val group = localImport.inspect(group("Foo")).copy(
+            newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"),
+            onNewerCopy = DuplicateChoice.Replace,
+        )
+
+        localImport.import(listOf(group), addToLibrary = false, categoryIds = emptyList())
+
+        (File(root, "Foo").list()!!.toList() to File(root, "Foo/Old.cbz").readText()) shouldBe
+            (listOf("Old.cbz") to "abc")
+    }
+
+    @Test
+    fun `an import waits on the user while a newer copy is unanswered`() {
+        group("Foo").copy(existing = "Foo", newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"))
+            .asksAboutNewerCopies shouldBe true
+    }
+
+    @Test
     fun `a file that arrives shorter than its size fails its copy`() = runTest {
         ImportDocuments.documents["1"] = ImportDocuments.Document("a.cbz", 3L, null, "ab".toByteArray())
 

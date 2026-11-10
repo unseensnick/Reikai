@@ -87,6 +87,8 @@ class LocalImportViewModel(
 
     fun setDuplicateChoice(key: String, choice: DuplicateChoice) = updateGroup(key) { it.copy(onDuplicate = choice) }
 
+    fun setNewerCopyChoice(key: String, choice: DuplicateChoice) = updateGroup(key) { it.copy(onNewerCopy = choice) }
+
     /**
      * The local series of [type] in the library a group can be added to. A loose book is left out, since it is a file and
      * not a folder to copy into; Add volumes on its details screen takes others in.
@@ -122,7 +124,14 @@ class LocalImportViewModel(
         viewModelScope.launchIO {
             val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
             val found = localImport.inspect(group, if (auto) null else target ?: group.existing)
-            updateGroup(key) { it.copy(existing = found.existing, duplicates = found.duplicates) }
+            updateGroup(key) {
+                it.copy(
+                    existing = found.existing,
+                    duplicates = found.duplicates,
+                    newerCopies = found.newerCopies,
+                    onNewerCopy = found.onNewerCopy,
+                )
+            }
         }
     }
 
@@ -143,7 +152,9 @@ class LocalImportViewModel(
      * off at once, since the category read leaves room for a second tap to start a second copy.
      */
     fun startImport() {
-        val groups = state.value.groups.takeIf { it.isNotEmpty() && !state.value.isImporting } ?: return
+        val groups = state.value.groups
+            .takeIf { it.isNotEmpty() && !state.value.isImporting && it.none(ImportGroup::asksAboutNewerCopies) }
+            ?: return
         state.update { it.copy(pending = emptyMap(), isImporting = true) }
         viewModelScope.launchIO {
             val categories = mutableMapOf<ContentType, List<Long>>()

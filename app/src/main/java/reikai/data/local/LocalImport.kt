@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.lang.compareToCaseInsensitiveNaturalOrder
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import mihon.core.archive.ArchiveReader
+import mihon.core.archive.archiveReader
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.novel.insertOpenedNovel
@@ -47,7 +48,14 @@ import java.io.IOException
  * One file the user picked, as the system names it; [size] is -1 when the provider does not say. [seriesIndex]
  * is the volume number a book states, which names its copy.
  */
-data class ImportFile(val uri: Uri, val name: String, val size: Long, val seriesIndex: Double? = null)
+data class ImportFile(
+    val uri: Uri,
+    val name: String,
+    val size: Long,
+    val seriesIndex: Double? = null,
+    /** Which book this is whatever its version ([bookIdentity]), null for a comic or a book naming none. */
+    val identity: String? = null,
+)
 
 /** What an import does with a file the series it joins already holds. */
 enum class DuplicateChoice { Replace, KeepBoth, Skip }
@@ -57,7 +65,8 @@ enum class DuplicateChoice { Replace, KeepBoth, Skip }
  * [type] it imports as, and [cover] for the preview. [canBeEitherType] marks an EPUB, which can be a novel
  * or, laid out as fixed pages, a comic. [existing] is the folder of a series already there that it joins,
  * unless the user made it [separate]; [duplicates] are its files that folder already holds, which
- * [onDuplicate] decides about. Nothing joins or replaces without the preview showing it.
+ * [onDuplicate] decides about; [newerCopies] are other versions of books there (by name), for [onNewerCopy].
+ * Nothing joins or replaces without the preview showing it.
  */
 data class ImportGroup(
     val key: String,
@@ -71,10 +80,31 @@ data class ImportGroup(
     val separate: Boolean = false,
     val duplicates: Set<Uri> = emptySet(),
     val onDuplicate: DuplicateChoice = DuplicateChoice.KeepBoth,
+    val newerCopies: Map<Uri, String> = emptyMap(),
+    val onNewerCopy: DuplicateChoice? = null,
 ) {
     /** The folder of the series this group goes into, when it joins one already there. */
     val joins: String? get() = existing?.takeUnless { separate }
+
+    /** Whether the import waits on the user to say what to do with a newer copy of a book already there. */
+    val asksAboutNewerCopies: Boolean get() = joins != null && newerCopies.isNotEmpty() && onNewerCopy == null
 }
+
+/**
+ * Which book an EPUB is, whatever its version: its identifier and the place it gives itself in a series, since
+ * one novel exported in runs gives every run the same identifier.
+ */
+internal fun bookIdentity(identifier: String?, seriesIndex: Double?): String? =
+    identifier?.let { "$it#${seriesIndex ?: ""}" }
+
+/**
+ * Each of [files] that is another version of a book the folder holds, by that book's name: the same identity at
+ * a different size, an exact copy being one of [duplicates] already. [held] is the folder's books by identity.
+ */
+internal fun newerCopiesOf(files: List<ImportFile>, held: Map<String, String>, duplicates: Set<Uri>): Map<Uri, String> =
+    files.filter { it.uri !in duplicates }
+        .mapNotNull { file -> file.identity?.let(held::get)?.let { file.uri to it } }
+        .toMap()
 
 /** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
 data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
@@ -129,7 +159,7 @@ class LocalImport(
     /**
      * [group] with the series already there that it joins: [target]'s folder when the user picked one, else
      * the folder its title matches the way a batch groups its files. Its files that folder already holds, by
-     * size, are its duplicates.
+     * size, are its duplicates, and its books that are another version of one there are its newer copies.
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = rootOf(group.type) ?: return@withIOContext group
@@ -142,12 +172,28 @@ class LocalImport(
                     groupKey(it.name.orEmpty()) == groupKey(group.title)
             }
         }
-        val sizes = folder?.listFiles().orEmpty().filter { it.isFile }.map { it.length() }.toSet()
+        val present = folder?.listFiles().orEmpty().filter { it.isFile }
+        val sizes = present.map { it.length() }.toSet()
+        val duplicates = group.files.filter { it.size > 0 && it.size in sizes }.map { it.uri }.toSet()
+        val held = if (group.files.any { it.identity != null }) heldBooks(present) else emptyMap()
         group.copy(
             existing = folder?.name,
-            duplicates = group.files.filter { it.size > 0 && it.size in sizes }.map { it.uri }.toSet(),
+            duplicates = duplicates,
+            newerCopies = newerCopiesOf(group.files, held, duplicates),
+            onNewerCopy = group.onNewerCopy.takeIf { folder?.name == group.existing },
         )
     }
+
+    /** The folder's books by [bookIdentity], each read from its package; one that will not open is left out. */
+    private fun heldBooks(present: List<UniFile>): Map<String, String> = present
+        .filter { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
+        .mapNotNull { file ->
+            val meta = runCatching {
+                file.archiveReader(context).use { EpubBook.parse(EpubArchive(it::readEntries)).metadata }
+            }.getOrNull()
+            meta?.let { bookIdentity(it.identifier, it.seriesIndex) }?.let { it to file.name.orEmpty() }
+        }
+        .toMap()
 
     private fun rootOf(type: ContentType) = when (type) {
         ContentType.NOVELS -> storageManager.getLocalNovelsDirectory()
@@ -183,10 +229,13 @@ class LocalImport(
                 val taken = present.mapNotNull { it.name }.toMutableSet()
                 var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
                 group.files.forEach { file ->
-                    val duplicate = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
-                    if (duplicate != null && group.onDuplicate == DuplicateChoice.Skip) return@forEach
+                    val exact = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
+                    val older = group.newerCopies[file.uri]?.let { name -> present.firstOrNull { it.name == name } }
+                    val duplicate = exact ?: older
+                    val choice = if (exact == null && older != null) group.onNewerCopy else group.onDuplicate
+                    if (duplicate != null && choice == DuplicateChoice.Skip) return@forEach
                     val name = when {
-                        duplicate != null && group.onDuplicate == DuplicateChoice.Replace -> duplicate.name.orEmpty()
+                        duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
                         // A book takes the series and its volume, as Rename files names it; a comic keeps its name,
                         // which names its chapter.
                         group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
@@ -316,7 +365,10 @@ class LocalImport(
                 val book = EpubBook.parse(archive)
                 val meta = book.metadata
                 ReadFile(
-                    file = named.copy(seriesIndex = meta.seriesIndex.takeUnless { meta.isReikaiExport }),
+                    file = named.copy(
+                        seriesIndex = meta.seriesIndex.takeUnless { meta.isReikaiExport },
+                        identity = bookIdentity(meta.identifier, meta.seriesIndex),
+                    ),
                     type = if (book.isFixedLayout) ContentType.MANGA else ContentType.NOVELS,
                     series = meta.series ?: meta.title ?: stem,
                     seriesIndex = meta.seriesIndex,

@@ -30,6 +30,8 @@ data class EpubMetadata(
     val status: String?,
     /** Written by Reikai's own export, whose contents list each chapter as it was stored. */
     val isReikaiExport: Boolean,
+    /** The package's own identifier, which a newer download of the same book keeps. */
+    val identifier: String? = null,
 )
 
 /**
@@ -78,7 +80,7 @@ class EpubBook(
                 ?: ncxItem?.let { readNcx(archive, pathOf(it)) }.orEmpty()
 
             return EpubBook(
-                metadata = readMetadata(opf),
+                metadata = readMetadata(opf, opf.firstLocal("package")?.attr("unique-identifier").orEmpty()),
                 spine = spine,
                 toc = toc.filter { it.path in spine },
                 coverPath = coverOf(opf, items, manifest)?.let(::pathOf),
@@ -89,7 +91,7 @@ class EpubBook(
             )
         }
 
-        private fun readMetadata(opf: Document): EpubMetadata {
+        private fun readMetadata(opf: Document, uniqueId: String): EpubMetadata {
             val metadata = opf.firstLocal("metadata")
             fun dc(name: String) = metadata?.local(name).orEmpty().map { it.text().trim() }.filter { it.isNotEmpty() }
             val metas = metadata?.local("meta").orEmpty()
@@ -109,6 +111,11 @@ class EpubBook(
                 artist = illustrators(metadata, metas).takeIf { it.isNotEmpty() }?.joinToString(", "),
                 status = metas.firstOrNull { it.attr("property") == "reikai:status" }?.text()?.trim()?.ifEmpty { null },
                 isReikaiExport = dc("identifier").any { it.startsWith(REIKAI_IDENTIFIER_PREFIX) },
+                identifier = metadata?.local("identifier")
+                    ?.let { ids ->
+                        ids.firstOrNull { uniqueId.isNotEmpty() && it.id() == uniqueId } ?: ids.firstOrNull()
+                    }
+                    ?.text()?.trim()?.ifEmpty { null },
             )
         }
 

@@ -146,6 +146,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                     ImportBar(
                         addToLibrary = state.addToLibrary,
                         isImporting = state.isImporting,
+                        isAnswered = state.groups.none { it.asksAboutNewerCopies },
                         onAddToLibrary = viewModel::setAddToLibrary,
                         onImport = viewModel::startImport,
                     )
@@ -163,6 +164,7 @@ class LocalImportScreen(private val initialUris: List<String> = emptyList()) : S
                     onRemove = viewModel::remove,
                     onSeparate = viewModel::setSeparate,
                     onDuplicateChoice = viewModel::setDuplicateChoice,
+                    onNewerCopyChoice = viewModel::setNewerCopyChoice,
                     onAddTo = { adding = it },
                     onOpen = { series ->
                         when {
@@ -247,6 +249,7 @@ internal fun ImportList(
     onOpen: (reikai.data.local.ImportedSeries) -> Unit,
     onSeparate: (String, Boolean) -> Unit = { _, _ -> },
     onDuplicateChoice: (String, DuplicateChoice) -> Unit = { _, _ -> },
+    onNewerCopyChoice: (String, DuplicateChoice) -> Unit = { _, _ -> },
     onAddTo: (ImportGroup) -> Unit = {},
 ) {
     LazyColumn(
@@ -292,6 +295,7 @@ internal fun ImportList(
                 onRemove = { onRemove(group.key) },
                 onSeparate = { onSeparate(group.key, it) },
                 onDuplicateChoice = { onDuplicateChoice(group.key, it) },
+                onNewerCopyChoice = { onNewerCopyChoice(group.key, it) },
                 onAddTo = { onAddTo(group) },
             )
         }
@@ -341,6 +345,7 @@ internal fun GroupCard(
     onRemove: () -> Unit,
     onSeparate: (Boolean) -> Unit = {},
     onDuplicateChoice: (DuplicateChoice) -> Unit = {},
+    onNewerCopyChoice: (DuplicateChoice) -> Unit = {},
     onAddTo: () -> Unit = {},
 ) {
     ElevatedCard(
@@ -417,7 +422,26 @@ internal fun GroupCard(
             }
         }
         if (group.joins != null && group.duplicates.isNotEmpty()) {
-            DuplicateChoices(group, enabled, onDuplicateChoice)
+            DuplicateChoices(
+                pluralStringResource(MR.plurals.local_import_duplicates, group.duplicates.size, group.duplicates.size),
+                group.onDuplicate,
+                enabled,
+                onDuplicateChoice,
+            )
+        }
+        // Asked, with nothing picked for the user: a newer copy replaced keeps the old one's read progress, and
+        // one kept beside it lists every chapter twice.
+        if (group.joins != null && group.newerCopies.isNotEmpty()) {
+            DuplicateChoices(
+                pluralStringResource(
+                    MR.plurals.local_import_newer_copies,
+                    group.newerCopies.size,
+                    group.newerCopies.size,
+                ),
+                group.onNewerCopy,
+                enabled,
+                onNewerCopyChoice,
+            )
         }
         if (group.files.size > 1) {
             Column(
@@ -469,23 +493,24 @@ private fun JoinLine(group: ImportGroup, enabled: Boolean, onSeparate: (Boolean)
     }
 }
 
-/** The group's files the series it joins already holds, and whether to replace, keep both or skip them. */
+/** Files the series it joins already holds in some form, as [notice] says, and whether to replace, keep both or skip them. */
 @Composable
-private fun DuplicateChoices(group: ImportGroup, enabled: Boolean, onChoice: (DuplicateChoice) -> Unit) {
+private fun DuplicateChoices(
+    notice: String,
+    selected: DuplicateChoice?,
+    enabled: Boolean,
+    onChoice: (DuplicateChoice) -> Unit,
+) {
     Column(Modifier.padding(start = MaterialTheme.padding.medium, end = MaterialTheme.padding.medium)) {
         Text(
-            text = pluralStringResource(
-                MR.plurals.local_import_duplicates,
-                group.duplicates.size,
-                group.duplicates.size,
-            ),
+            text = notice,
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.error,
         )
         FlowRow(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
             DuplicateChoice.entries.forEach { choice ->
                 FilterChip(
-                    selected = group.onDuplicate == choice,
+                    selected = selected == choice,
                     onClick = { onChoice(choice) },
                     enabled = enabled,
                     label = { Text(stringResource(choice.label())) },
@@ -558,6 +583,7 @@ private fun PickerRow(title: String, onClick: () -> Unit) {
 private fun ImportBar(
     addToLibrary: Boolean,
     isImporting: Boolean,
+    isAnswered: Boolean,
     onAddToLibrary: (Boolean) -> Unit,
     onImport: () -> Unit,
 ) {
@@ -577,7 +603,9 @@ private fun ImportBar(
                 enabled = !isImporting,
                 onCheckedChanged = onAddToLibrary,
             )
-            Button(onClick = onImport, enabled = !isImporting) { Text(stringResource(MR.strings.local_import_start)) }
+            Button(onClick = onImport, enabled = !isImporting && isAnswered) {
+                Text(stringResource(MR.strings.local_import_start))
+            }
         }
     }
 }
