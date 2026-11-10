@@ -80,7 +80,7 @@ class LnPluginInstaller(
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
 
     // When each failed URL last failed. Every novel screen waits on the pass, so a plugin that keeps failing
-    // is retried at most once per RETRY_FAILED_AFTER_MS rather than on every open; loadInstalled ignores it.
+    // is retried at most once per RETRY_FAILED_AFTER_MS rather than on every open; loadInstalled and retryLoad ignore it.
     private val failedAt = ConcurrentHashMap<String, Long>()
 
     // The clock the retry wait reads; a test sets it.
@@ -111,6 +111,14 @@ class LnPluginInstaller(
     suspend fun awaitFirstLoad() {
         if (firstLoadDone) return
         loadMutex.withLock { if (!firstLoadDone) loadPendingLocked() }
+    }
+
+    /**
+     * A Retry the user pressed on [pluginId]'s failed load: reads that plugin's URLs now, past the wait an
+     * automatic pass keeps, and leaves every other plugin to [ensureLoaded].
+     */
+    suspend fun retryLoad(pluginId: String) {
+        loadMutex.withLock { loadUrlsLocked(urlsOf(pluginId) - loadedUrls) }
     }
 
     // Not marked done when cancelled, so a screen closed mid-load leaves the next lookup to load.

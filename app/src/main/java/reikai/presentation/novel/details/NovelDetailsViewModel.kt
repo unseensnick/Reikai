@@ -480,13 +480,13 @@ class NovelDetailsViewModel(
     /** Loads a plugin that threw while loading again, through the screen's loading state. */
     fun retryLoad() {
         failure.value = null
-        resolveSource()
+        resolveSource { installer.retryLoad(sourceId) }
     }
 
     /** Looks the opened novel's plugin up, then makes the first fetch when nothing is stored to show. */
-    private fun resolveSource() {
+    private fun resolveSource(load: suspend () -> Unit = installer::ensureLoaded) {
         viewModelScope.launchIO {
-            runCatchingCancellable { installer.ensureLoaded() }
+            runCatchingCancellable { load() }
             val lookup = sourceManager.get(sourceId)?.let(SourceLookup::Resolved) ?: SourceLookup.Missing
             anchorSource.value = lookup
             firstFetch(lookup)

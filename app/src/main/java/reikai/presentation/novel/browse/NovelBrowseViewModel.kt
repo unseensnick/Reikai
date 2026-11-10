@@ -142,8 +142,8 @@ class NovelBrowseViewModel(
 
     /** Resolve the plugin and seed the first listing. Opened from global search with a query, it
      *  jumps straight to those results instead. */
-    private suspend fun loadSource() {
-        runCatchingCancellable { installer.ensureLoaded() }
+    private suspend fun loadSource(load: suspend () -> Unit = installer::ensureLoaded) {
+        runCatchingCancellable { load() }
         val source = manager.get(sourceId)
         if (source == null) {
             val failure = installer.failures.value.values.firstOrNull { it.pluginId == sourceId }
@@ -171,7 +171,7 @@ class NovelBrowseViewModel(
     /** Load a plugin that threw while loading again, through the screen's loading state. */
     fun retryLoad() {
         state.update { it.copy(missingSourceLabel = null, loadFailure = null) }
-        viewModelScope.launchIO { loadSource() }
+        viewModelScope.launchIO { loadSource { installer.retryLoad(sourceId) } }
     }
 
     /** Switch the Popular / Latest listing, clearing any active search and filters, and page from the start. */
