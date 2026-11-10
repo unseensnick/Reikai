@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
+import reikai.domain.chapter.LastAnswer
 import reikai.domain.chapter.duplicateCopyCounts
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.Preference
@@ -70,22 +71,8 @@ class DuplicateMarking(
     }
 }
 
-/**
- * The last [duplicateMarks] answer for one screen. A selection tap or a download tick re-maps the same
- * chapters and marks, and the rule runs several regex passes per same-numbered chapter, as
- * ChapterNumberHint.Memo spares its own walk.
- */
-internal class DuplicateMarksMemo<T> {
-    private var last: Triple<List<T>, CopyMarks, DuplicateMarks>? = null
-
-    @Synchronized
-    fun get(chapters: List<T>, marks: CopyMarks, compute: () -> DuplicateMarks): DuplicateMarks {
-        last?.let { (lastChapters, lastMarks, answer) ->
-            if (lastChapters == chapters && lastMarks == marks) return answer
-        }
-        return compute().also { last = Triple(chapters, marks, it) }
-    }
-}
+/** The last [duplicateMarks] answer for one screen, since the rule runs several regex passes per chapter. */
+internal class DuplicateMarksMemo<T> : LastAnswer<List<T>, CopyMarks, DuplicateMarks>()
 
 /** [DuplicateMarks] over [this] by the arguments both readers pass the rule, so it marks what they skip. */
 internal fun <T> List<T>.duplicateMarks(

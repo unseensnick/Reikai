@@ -16,19 +16,8 @@ object ChapterNumberHint {
     /** [suggestion] is the whole number that fits between the row's neighbours, null when none does. */
     data class Hint(val suggestion: Double?)
 
-    /**
-     * The last answer for one screen's rows. A download tick re-renders the chapter list over the same rows
-     * and hidden set, so it reuses the answer instead of walking every chapter again.
-     */
-    class Memo<T> {
-        private var last: Triple<List<T>, Set<String>, Map<Long, Hint>>? = null
-
-        @Synchronized
-        fun get(rows: List<T>, hidden: Set<String>, compute: () -> Map<Long, Hint>): Map<Long, Hint> {
-            last?.let { (lastRows, lastHidden, hints) -> if (lastRows == rows && lastHidden == hidden) return hints }
-            return compute().also { last = Triple(rows, hidden, it) }
-        }
-    }
+    /** The last hints for one screen's rows and hidden set. */
+    class Memo<T> : LastAnswer<List<T>, Set<String>, Map<Long, Hint>>()
 
     /**
      * Hints for [rows] by [id]. Each owner is judged on its own list in [sourceOrder], either direction: a

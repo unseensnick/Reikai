@@ -19,6 +19,7 @@ import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
+import reikai.novel.export.epubFileName
 import reikai.novel.host.NovelItem
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
@@ -239,7 +240,7 @@ class LocalImport(
     /** "<series> - Vol. N.epub", N the book's own number or else its place in the series. */
     private fun bookName(series: String, file: ImportFile, place: Int): String {
         val number = formatChapterNumber(file.seriesIndex ?: place.toDouble())
-        return DiskUtil.buildValidFilename("$series - ${context.stringResource(MR.strings.volume_label, number)}$EPUB")
+        return epubFileName("$series - ${context.stringResource(MR.strings.volume_label, number)}")
     }
 
     /**

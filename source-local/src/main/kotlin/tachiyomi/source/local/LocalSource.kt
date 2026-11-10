@@ -31,6 +31,7 @@ import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
+import reikai.source.local.localVolumeChapter
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -389,7 +390,7 @@ class LocalSource(
     // In the order the user gave them, each led by its Extras, still newest first like the rest of the list.
     private fun List<SChapter>.inUserVolumeOrder(series: String): List<SChapter> {
         val saved = userVolumes.volumes(ContentType.MANGA).value[series]
-        return asReversed().groupBy { it.url.split('/').takeIf { parts -> parts.size == 3 }?.get(1).orEmpty() }
+        return asReversed().groupBy { localVolumeChapter(it.url)?.volume.orEmpty() }
             .entries.toList().inUserOrder({ it.key }, saved)
             .flatMap { (_, chapters) -> chapters.sortedByDescending { it.url.endsWith('/') } }.asReversed()
     }

@@ -36,6 +36,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.source.local.localVolumeChapter
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
@@ -164,9 +165,10 @@ class CombineLocalVolumes(
             val dir = localFiles.getMangaDirectory(other.folder) ?: return failed(missing(other))
             val chapters = chapterRepository.getChapterByMangaId(other.id)
             volumeRows.next(other.folder)
-            val moves = if (chapters.any { it.url.count { c -> c == '/' } == 2 }) {
+            val inVolumes = chapters.mapNotNull { localVolumeChapter(it.url) }
+            val moves = if (inVolumes.isNotEmpty()) {
                 // Already split into volumes: each volume folder joins as it is.
-                chapters.groupBy { it.url.split('/')[1] }.flatMap { (volume, inVolume) ->
+                inVolumes.groupBy { it.volume }.flatMap { (volume, inVolume) ->
                     val name = freeName(volume, taken)
                     volumeRows.move(volume, name)
                     placements +=
@@ -174,7 +176,7 @@ class CombineLocalVolumes(
                             FileCopy(dir.findFile(volume) ?: return failed(missing(other)), keptDir, null, name),
                             dir,
                         )
-                    inVolume.map { ChapterMove(it.url, "${kept.folder}/$name/${it.url.split('/')[2]}") }
+                    inVolume.map { ChapterMove(it.url, it.copy(series = kept.folder, volume = name).url) }
                 }
             } else {
                 val name = freeName(other.folder, taken)
@@ -241,15 +243,13 @@ class CombineLocalVolumes(
         val volumes = keys.map { seriesDir.findFile(it) ?: return failed(missing(series)) }
         if (base.findFile(folder) != null) return failed(taken(folder))
         val chapters = chapterRepository.getChapterByMangaId(series.id)
-            .mapNotNull { chapter -> chapter.url.split('/').takeIf { it.size == 3 && it[1] in keys } }
+            .mapNotNull { chapter -> localVolumeChapter(chapter.url)?.takeIf { it.volume in keys } }
         // One volume becomes the series folder itself; several keep their folders inside a new one.
         val single = keys.size == 1
         val moves = chapters
             // An Extras chapter is the volume folder itself, which a series of one volume has no place for.
-            .filterNot { single && it[2].isEmpty() }
-            .map { (seriesName, volume, file) ->
-                ChapterMove("$seriesName/$volume/$file", if (single) "$folder/$file" else "$folder/$volume/$file")
-            }
+            .filterNot { single && it.file.isEmpty() }
+            .map { ChapterMove(it.url, if (single) "$folder/${it.file}" else it.copy(series = folder).url) }
         val created = networkToLocalManga(
             SManga.create().apply {
                 url = folder
@@ -508,9 +508,12 @@ class CombineLocalVolumes(
             }
         } else {
             chapterRepository.getChapterByMangaId(series.id).map { chapter ->
-                val parts = chapter.url.split('/')
-                val rest = if (parts.size == 3) listOf(volumeNames[parts[1]] ?: parts[1], parts[2]) else parts.drop(1)
-                ChapterMove(chapter.url, (listOf(target) + rest).joinToString("/"))
+                val inVolume = localVolumeChapter(chapter.url)
+                val moved = inVolume?.copy(
+                    series = target,
+                    volume = volumeNames[inVolume.volume] ?: inVolume.volume,
+                )?.url
+                ChapterMove(chapter.url, moved ?: (listOf(target) + chapter.url.split('/').drop(1)).joinToString("/"))
             }
         }.filter { it.fromUrl != it.toUrl }
         val done = mutableListOf<Pair<UniFile, String>>()

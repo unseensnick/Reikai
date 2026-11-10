@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.download
 
-import android.content.ContentResolver
 import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.AppScope
@@ -15,6 +14,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
+import reikai.domain.download.filesByName
+import reikai.domain.download.listsForLookups
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
 import tachiyomi.core.common.util.lang.withIOContext
@@ -156,24 +157,23 @@ class DownloadProvider(
         findChapterDirs(chapters, mangaDir).keys
     }
 
+    // RK --> the listing rule and its threshold are shared with the novel provider, in ChapterFileLookup.kt
+
     /**
      * Returns the download directory of each chapter that has one, keyed by chapter id.
      *
      * A chapter is looked for under every name it may have been downloaded with, with the chapters looked up in
-     * parallel. On a storage access framework directory each lookup is a content resolver query, so from
-     * [LIST_CHAPTER_DIRS_MIN_CHAPTERS] chapters on the directory is listed once instead and the names are matched
-     * against the listing, ignoring case as the lookups do. Plain file directories are always looked up by name, as
-     * their listing can leave out files another app created.
+     * parallel. On a storage access framework directory each lookup is a content resolver query, so from the
+     * [listsForLookups] threshold on it is listed once and matched ignoring case, as the lookups match. Plain file
+     * directories are always looked up by name, as their listing can leave out files another app created.
      *
      * @param chapters the chapters to query.
      * @param mangaDir the download directory of the chapters' manga.
      */
     private suspend fun findChapterDirs(chapters: List<Chapter>, mangaDir: UniFile): Map<Long, UniFile> {
-        val isDocumentTree = mangaDir.uri.scheme == ContentResolver.SCHEME_CONTENT
-        if (isDocumentTree && chapters.size >= LIST_CHAPTER_DIRS_MIN_CHAPTERS) {
-            val chapterDirs = mangaDir.listFiles().orEmpty()
-                .filter { it.name != null }
-                .associateByTo(sortedMapOf(String.CASE_INSENSITIVE_ORDER)) { it.name!! }
+        if (mangaDir.listsForLookups(chapters.size)) {
+            val chapterDirs = mangaDir.filesByName()
+            // RK <--
             return chapters
                 .mapNotNull { chapter -> chapter.findDir { chapterDirs[it] }?.let { chapter.id to it } }
                 .toMap()
@@ -322,7 +322,7 @@ class DownloadProvider(
     // RK <--
 }
 
-private const val LIST_CHAPTER_DIRS_MIN_CHAPTERS = 50
+// RK: LIST_CHAPTER_DIRS_MIN_CHAPTERS moved to ChapterFileLookup.kt as LIST_MIN_LOOKUPS, shared with novels.
 
 private const val CHAPTER_DIR_LOOKUP_PARALLELISM = 8
 

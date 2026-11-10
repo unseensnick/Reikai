@@ -27,6 +27,12 @@ class LocalFileNamesTest {
     }
 
     @Test
+    fun `a book named past the length limit keeps its extension`() {
+        localFileNames(ContentType.NOVELS, "a", "T".repeat(400), listOf("a.epub" to "Vol. 1")).volumes.single().to
+            .endsWith(".epub") shouldBe true
+    }
+
+    @Test
     fun `a loose book is the series and takes the title`() {
         localFileNames(ContentType.NOVELS, "war3.epub", "War and Peace", emptyList()) shouldBe
             LocalFileNames(LocalFileNames.Rename("war3.epub", "War and Peace.epub"), emptyList())

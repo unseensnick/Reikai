@@ -7,6 +7,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.util.QuerySanitizer.sanitize
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
+import reikai.domain.library.tagKey
 import reikai.domain.recommendation.EnabledRecommendationStreams
 import reikai.domain.recommendation.RecommendationOrigin
 import reikai.domain.recommendation.RecommendationProviders
@@ -127,7 +128,7 @@ class TasteCandidateFetcher(
 internal fun selectContextualTags(profile: TasteProfile, currentGenres: List<String>, n: Int): List<String> {
     if (currentGenres.isEmpty() || profile.tagScores.isEmpty()) return emptyList()
     // Scored by the profile's aliased key, but searched by the genre's own name, which the source knows.
-    return currentGenres.toTagKeys().asSequence()
+    return currentGenres.map { it.lowercase().trim() }.filter { it.isNotEmpty() }.distinctBy(::tagKey).asSequence()
         .mapNotNull { genre ->
             profile.tagScores[profile.keysOf(listOf(genre)).single()]?.let { score -> genre to score }
         }

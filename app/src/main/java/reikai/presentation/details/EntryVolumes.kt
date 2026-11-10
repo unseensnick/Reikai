@@ -20,6 +20,7 @@ import reikai.domain.chapter.volumeRuns
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.localVolumeChapter
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
@@ -51,8 +52,8 @@ sealed interface VolumeLabel {
 /** A local manga chapter's volume: the folder between the series and the chapter in its address. */
 internal fun mangaChapterVolume(sourceId: Long, url: String, name: String): ChapterVolume? {
     if (sourceId != LocalSource.ID) return null
-    val (series, key) = url.split('/').takeIf { it.size == 3 } ?: return null
-    return ChapterVolume(series, key, labelOf(key), "$key - ")
+    val chapter = localVolumeChapter(url) ?: return null
+    return ChapterVolume(chapter.series, chapter.volume, labelOf(chapter.volume), "${chapter.volume} - ")
 }
 
 /** A local novel chapter's volume: the EPUB its address names, labelled as the source names the chapter. */

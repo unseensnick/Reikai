@@ -2,6 +2,7 @@ package reikai.data.local
 
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.domain.library.ContentType
+import reikai.novel.export.epubFileName
 
 /**
  * A local series' names on disk, [from] each one now [to] what Rename files gives it. [taken] is the series
@@ -31,12 +32,19 @@ fun localFileNames(
 ): LocalFileNames {
     val base = DiskUtil.buildValidFilename(title)
     val looseBook = type == ContentType.NOVELS && folder.endsWith(EPUB, ignoreCase = true)
-    val series = LocalFileNames.Rename(folder, if (looseBook) "$base$EPUB" else base)
+    val series = LocalFileNames.Rename(folder, if (looseBook) epubFileName(title) else base)
     if (looseBook) return LocalFileNames(series, emptyList())
     val taken = mutableSetOf<String>()
     val volumes = labels.map { (key, label) ->
-        val name = if (type == ContentType.NOVELS) "$title - $label$EPUB" else label
-        LocalFileNames.Rename(key, freeName(DiskUtil.buildValidFilename(name), taken))
+        // A book's name keeps room for its extension, so a long title is cut before ".epub", never through it.
+        val name = if (type ==
+            ContentType.NOVELS
+        ) {
+            epubFileName("$title - $label")
+        } else {
+            DiskUtil.buildValidFilename(label)
+        }
+        LocalFileNames.Rename(key, freeName(name, taken))
     }
     return LocalFileNames(series, volumes)
 }

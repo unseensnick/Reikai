@@ -35,7 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -84,6 +83,7 @@ import reikai.domain.library.saveTagFilter
 import reikai.domain.library.tagChoices
 import reikai.domain.library.tagKey
 import reikai.domain.library.tagKeys
+import reikai.presentation.components.NameDialog
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
@@ -278,12 +278,18 @@ private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFi
         )
     }
     if (naming) {
-        SaveTagFilterDialog(
-            onSave = {
+        NameDialog(
+            title = stringResource(MR.strings.tag_filter_save),
+            current = "",
+            confirmText = stringResource(MR.strings.action_save),
+            onDismissRequest = { naming = false },
+            onConfirm = {
                 preferences.saveTagFilter(it)
                 naming = false
             },
-            onDismiss = { naming = false },
+            dismissButton = {
+                TextButton(onClick = { naming = false }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
         )
     }
     if (saved.isEmpty() && !filter.isActive) return
@@ -377,31 +383,6 @@ private fun TagAliasDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) }
-        },
-    )
-}
-
-@Composable
-private fun SaveTagFilterDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
-    var name by rememberSaveable { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(MR.strings.tag_filter_save)) },
-        text = {
-            OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text(stringResource(MR.strings.name)) },
-                singleLine = true,
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) }
-        },
-        confirmButton = {
-            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) {
-                Text(stringResource(MR.strings.action_save))
-            }
         },
     )
 }
