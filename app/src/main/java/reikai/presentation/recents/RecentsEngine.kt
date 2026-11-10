@@ -26,7 +26,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.WhileSubscribed
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.flatMapLatest
@@ -65,7 +64,6 @@ import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import java.util.concurrent.atomic.AtomicLong
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -117,6 +115,9 @@ class RecentsEngine(
 
         /** The first input passes at once, since the assembly waits on it; later ones wait for this much quiet. */
         private val TARGET_INPUTS_QUIET = 500.milliseconds
+
+        /** The longest a steady run of inputs holds a clear back, so rows do not name stale targets for minutes. */
+        private val TARGET_INPUTS_LONGEST = 5.seconds
     }
 
     init {
@@ -190,16 +191,12 @@ class RecentsEngine(
             // now be read, re-sorted or hidden. Not on a lane emission, which a download tick causes too,
             // and not on a keystroke. A write re-sends the same lanes, which the distinct check drops, so
             // it costs no assembly pass. A library update writes once per entry, and each clear sends every
-            // drawn row back to loading its whole chapter list, so a burst clears once it goes quiet.
+            // drawn row back to loading its whole chapter list, so a burst clears once it goes quiet, or every
+            // few seconds while it lasts.
             combine(
                 combine(providers.map(::collectedLanes)) { it.toList() },
-                flow {
-                    var quiet = Duration.ZERO
-                    emitAll(
-                        merge(*providers.map { it.targetInputs }.toTypedArray())
-                            .debounce { quiet.also { quiet = TARGET_INPUTS_QUIET } },
-                    )
-                }
+                merge(*providers.map { it.targetInputs }.toTypedArray())
+                    .settled(TARGET_INPUTS_QUIET, TARGET_INPUTS_LONGEST)
                     .onEach { clearTargets() },
             ) { lanes, _ -> lanes }
                 .distinctUntilChanged(),

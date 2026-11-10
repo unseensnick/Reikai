@@ -8,8 +8,11 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * What clears the continue-reading memo: the tables a target is resolved from, and the preferences the
@@ -45,5 +48,38 @@ class RecentsTargetInputsTest {
         writes.emit(Unit)
 
         fired() shouldBe 2
+    }
+
+    @Test
+    fun `inputs that never go quiet still clear within the longest wait`() = runTest {
+        val writes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val fired = countEmissions(writes.settled(QUIET, LONGEST))
+
+        repeat(15) {
+            writes.emit(Unit)
+            advanceTimeBy(400.milliseconds)
+        }
+
+        fired() shouldBe 2
+    }
+
+    @Test
+    fun `a burst clears once it goes quiet`() = runTest {
+        val writes = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+        val fired = countEmissions(writes.settled(QUIET, LONGEST))
+        writes.emit(Unit)
+
+        repeat(3) {
+            advanceTimeBy(100.milliseconds)
+            writes.emit(Unit)
+        }
+        advanceTimeBy(QUIET + 1.milliseconds)
+
+        fired() shouldBe 2
+    }
+
+    private companion object {
+        val QUIET = 500.milliseconds
+        val LONGEST = 5.seconds
     }
 }

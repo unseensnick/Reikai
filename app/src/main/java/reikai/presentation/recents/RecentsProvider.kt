@@ -2,12 +2,16 @@ package reikai.presentation.recents
 
 import android.content.Intent
 import cafe.adriel.voyager.core.screen.Screen
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.channelFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.onStart
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import reikai.domain.category.RecentsCategoryFilter
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.EntryId
@@ -17,6 +21,7 @@ import reikai.domain.merge.MergeManager
 import reikai.domain.recents.RECENTS_FEED_LIMIT
 import reikai.domain.recents.recentsFeedCutoff
 import tachiyomi.core.common.preference.Preference
+import kotlin.time.Duration
 import kotlin.time.Instant
 
 /**
@@ -50,6 +55,36 @@ internal fun MergeManager.membershipFlow(
  */
 internal fun recentsTargetInputs(writes: Flow<Unit>, vararg reads: Preference<*>): Flow<Unit> =
     merge(writes, *reads.map { read -> read.changes().map { } }.toTypedArray())
+
+/**
+ * These signals passed on at once the first time, since an assembly waits on it, then once they have been
+ * quiet for [quiet], or after [longest] of steady ones, so a library update writing for minutes still clears
+ * the memo as it goes rather than only when it ends.
+ */
+internal fun Flow<Unit>.settled(quiet: Duration, longest: Duration): Flow<Unit> = channelFlow {
+    val inputs = Channel<Unit>(Channel.CONFLATED)
+    launch {
+        collect { inputs.send(it) }
+        inputs.close()
+    }
+    if (inputs.receiveCatching().isClosed) return@channelFlow
+    send(Unit)
+    while (!inputs.receiveCatching().isClosed) {
+        var closed = false
+        // A signal a timeout cut off is covered by the one sent as the wait ends.
+        withTimeoutOrNull(longest) {
+            while (true) {
+                val next = withTimeoutOrNull(quiet) { inputs.receiveCatching() } ?: return@withTimeoutOrNull
+                if (next.isClosed) {
+                    closed = true
+                    return@withTimeoutOrNull
+                }
+            }
+        }
+        send(Unit)
+        if (closed) return@channelFlow
+    }
+}
 
 /**
  * The newly-added lane both adapters build: [subscribe] asked under the surface's [categories], bounded
