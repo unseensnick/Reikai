@@ -43,6 +43,7 @@ import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
 import reikai.data.backup.RestoreExtensionInstaller
 import reikai.data.backup.RestoreInstallSources
+import reikai.data.backup.backedUpNovelSources
 import reikai.data.backup.mangaTrackScores
 import reikai.data.backup.novelTrackScores
 import reikai.data.backup.rescaleKitsu
@@ -57,7 +58,6 @@ import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
-import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.model.withDisplayBitFromSort
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.source.NovelSourceManager
@@ -165,7 +165,10 @@ class BackupRestorer(
 
         if (options.libraryEntries) {
             restoreSourceNames(summary.backupSources)
-            novelSourceManager.rememberBackedUp(summary.novelSourceNames.mapValues { LnSourceIdentity(it.value) }) // RK
+            // RK: whole records, so the App settings carry after it is not refused as a source already known
+            novelSourceManager.rememberBackedUp(
+                backedUpNovelSources(summary.novelSourceNames, summary.backupPreferences),
+            )
             manualOrder.yieldToRestore() // RK: the backup's Manual places follow the device's own
             restoreAmount += summary.mangaCount + summary.novelCount
         }

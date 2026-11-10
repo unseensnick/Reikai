@@ -66,7 +66,7 @@ class NovelPreferences(
      * restore adds the name the backup recorded for a source it lacks; one never seen falls back to its raw id.
      */
     fun seenNovelSources() = preferenceStore.getObjectFromString(
-        key = "ln_seen_novel_sources",
+        key = SEEN_NOVEL_SOURCES_KEY,
         defaultValue = emptyMap(),
         serializer = { metadataJson.encodeToString(seenSourcesMapSerializer, it) },
         deserializer = { decodeSeenNovelSources(it) },
@@ -703,6 +703,8 @@ class NovelPreferences(
 
         fun decodeSeenNovelSources(stored: String): Map<String, LnSourceIdentity> =
             runCatching { metadataJson.decodeFromString(seenSourcesMapSerializer, stored) }.getOrElse { emptyMap() }
+
+        const val SEEN_NOVEL_SOURCES_KEY = "ln_seen_novel_sources"
 
         const val CSS_SNIPPETS_KEY = "ln_reader_css_snippets"
 

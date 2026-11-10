@@ -21,6 +21,7 @@ import reikai.domain.novel.DEAD_READER_PADDING_KEY
 import reikai.domain.novel.DEAD_READER_TAP_TO_SCROLL_KEY
 import reikai.domain.novel.DEAD_READER_TTS_BUTTON_KEYS
 import reikai.domain.novel.DEAD_READER_TTS_ENABLED_KEY
+import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.carryShowNsfwSource
@@ -159,4 +160,20 @@ class AppPreferenceCarry(
             ReikaiSourcePreferences.DEAD_UPDATES_FILTER_NOVEL_CATEGORY_SET_PREFIX,
         )
     }
+}
+
+/**
+ * The novel-source records a backup carries, for a restore of library entries: each name at its field 717,
+ * widened to the whole record its App settings kept for that source (icon, language, site, image headers).
+ * Stored first, a bare name would make the fuller record, which only fills a gap, find no gap to fill.
+ */
+fun backedUpNovelSources(
+    names: Map<String, String>,
+    preferences: List<BackupPreference>,
+): Map<String, LnSourceIdentity> {
+    val records = preferences.firstOrNull { it.key == NovelPreferences.SEEN_NOVEL_SOURCES_KEY }
+        ?.let { (it.value as? StringPreferenceValue)?.value }
+        ?.let(NovelPreferences::decodeSeenNovelSources)
+        .orEmpty()
+    return names.mapValues { (id, name) -> records[id] ?: LnSourceIdentity(name) }
 }
