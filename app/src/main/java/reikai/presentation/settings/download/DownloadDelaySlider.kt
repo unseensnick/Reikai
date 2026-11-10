@@ -58,7 +58,7 @@ fun rateLabel(delayMs: Long): String = DownloadPacing.chaptersPerMinute(delayMs)
 /** A delay as Settings shows it: "Off", "0.5 s", "2 s". */
 @Composable
 fun downloadDelayLabel(delayMs: Long): String {
-    if (delayMs <= 0L) return stringResource(MR.strings.pref_download_delay_off)
+    if (delayMs <= 0L) return stringResource(MR.strings.off)
     val seconds = if (delayMs % 1_000L == 0L) "${delayMs / 1_000L}" else "${delayMs / 1_000.0}"
     return stringResource(MR.strings.download_delay_seconds, seconds)
 }

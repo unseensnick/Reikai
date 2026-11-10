@@ -81,7 +81,7 @@ typealias StatsCard = @Composable ColumnScope.(fill: Modifier) -> Unit
 
 /** Reading this week, one of the chart cards. */
 fun statsReadingCard(charts: StatsCharts, onOpenReading: () -> Unit): StatsCard = { fill ->
-    StatsCardHeader(StatsCardKind.READING.title, MR.strings.stats_open, onOpenReading)
+    StatsCardHeader(StatsCardKind.READING.title, MR.strings.local_import_open, onOpenReading)
     SectionCard(modifier = fill, verticalArrangement = Arrangement.Center) {
         StatsReadingWeek(charts)
     }

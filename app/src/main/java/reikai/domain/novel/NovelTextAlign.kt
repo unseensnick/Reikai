@@ -9,10 +9,10 @@ import tachiyomi.i18n.MR
  * backup) reads as [LEFT], so nothing but these four reaches the page's style block.
  */
 enum class NovelTextAlign(val value: String, val titleRes: StringResource) {
-    LEFT("left", MR.strings.pref_novel_text_align_left),
-    CENTER("center", MR.strings.pref_novel_text_align_center),
+    LEFT("left", MR.strings.zoom_start_left),
+    CENTER("center", MR.strings.zoom_start_center),
     JUSTIFY("justify", MR.strings.pref_novel_text_align_justify),
-    RIGHT("right", MR.strings.pref_novel_text_align_right),
+    RIGHT("right", MR.strings.zoom_start_right),
     ;
 
     companion object {

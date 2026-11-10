@@ -115,6 +115,6 @@ private val StatsSort.label: StringResource
     get() = when (this) {
         StatsSort.COUNT -> MR.strings.stats_sort_count
         StatsSort.READ -> MR.strings.stats_sort_read
-        StatsSort.SCORE -> MR.strings.stats_sort_score
+        StatsSort.SCORE -> MR.strings.label_mean_score
         StatsSort.TIME -> MR.strings.stats_group_reading_time
     }

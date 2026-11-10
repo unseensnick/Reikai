@@ -9,7 +9,7 @@ import tachiyomi.i18n.MR
  * A to Z and Z to A keep the system category on top; dynamic groups only honour the reversal.
  */
 enum class CategorySortOrder(val stored: Int, val titleRes: StringResource) {
-    MANUAL(0, MR.strings.category_sort_off),
+    MANUAL(0, MR.strings.off),
     A_TO_Z(1, MR.strings.category_sort_a_to_z),
     Z_TO_A(2, MR.strings.category_sort_z_to_a),
     ;

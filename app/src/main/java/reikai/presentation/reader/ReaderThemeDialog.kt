@@ -51,7 +51,7 @@ fun ReaderThemeDialog(
             ) {
                 RadioButton(selected = followSystemTheme, onClick = null)
                 Text(
-                    stringResource(MR.strings.pref_novel_theme_follow_system),
+                    stringResource(MR.strings.follow_system),
                     style = MaterialTheme.typography.bodyLarge,
                 )
             }

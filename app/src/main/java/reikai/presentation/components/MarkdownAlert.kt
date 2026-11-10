@@ -51,7 +51,7 @@ enum class GitHubAlertType(
     NOTE(MR.strings.markdown_alert_note, Color(0xFF0969DA), Color(0xFF4493F8)),
     TIP(MR.strings.markdown_alert_tip, Color(0xFF1A7F37), Color(0xFF3FB950)),
     IMPORTANT(MR.strings.markdown_alert_important, Color(0xFF8250DF), Color(0xFFAB7DF8)),
-    WARNING(MR.strings.markdown_alert_warning, Color(0xFF9A6700), Color(0xFFD29922)),
+    WARNING(MR.strings.label_warning, Color(0xFF9A6700), Color(0xFFD29922)),
     CAUTION(MR.strings.markdown_alert_caution, Color(0xFFCF222E), Color(0xFFF85149)),
     ;
 

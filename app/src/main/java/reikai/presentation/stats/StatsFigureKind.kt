@@ -38,7 +38,7 @@ enum class StatsFigureKind(
         "total_chapters",
         MaterialSymbols.Rounded.Book,
         MR.strings.label_total_chapters,
-        MR.strings.stats_figure_total_chapters,
+        MR.strings.action_sort_total,
     ),
     READ_CHAPTERS(
         "read_chapters",

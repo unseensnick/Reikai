@@ -16,7 +16,7 @@ enum class NovelTapLayout(val titleRes: StringResource) {
     KINDLISH(MR.strings.kindlish_nav),
     EDGE(MR.strings.edge_nav),
     RIGHT_AND_LEFT(MR.strings.right_and_left_nav),
-    CENTER(MR.strings.nav_center),
+    CENTER(MR.strings.zoom_start_center),
     CENTER_LARGE(MR.strings.nav_center_large),
     BOTTOM(MR.strings.nav_bottom),
     ;

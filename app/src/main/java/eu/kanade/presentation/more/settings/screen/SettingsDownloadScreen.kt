@@ -121,7 +121,7 @@ object SettingsDownloadScreen : SearchableSettings {
     private fun indexRenewItem(preference: PreferenceData<Int>) = Preference.PreferenceItem.ListPreference(
         preference = preference,
         entries = mapOf(
-            DownloadIndexRules.MANUAL to stringResource(MR.strings.pref_download_index_renew_manual),
+            DownloadIndexRules.MANUAL to stringResource(MR.strings.action_sort_manual),
             1 to stringResource(MR.strings.pref_download_index_renew_1hour),
             2 to stringResource(MR.strings.pref_download_index_renew_2hour),
             6 to stringResource(MR.strings.update_6hour),

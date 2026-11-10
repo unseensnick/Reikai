@@ -344,9 +344,9 @@ val StatsDimension.title: StringResource
         StatsDimension.STATUS -> MR.strings.stats_publishing_status
         StatsDimension.SCORE -> MR.strings.stats_scores
         StatsDimension.LENGTH -> MR.strings.stats_group_length
-        StatsDimension.TRACKER -> MR.strings.stats_group_tracker
-        StatsDimension.SOURCE -> MR.strings.stats_group_source
-        StatsDimension.CATEGORY -> MR.strings.stats_group_category
+        StatsDimension.TRACKER -> MR.strings.label_tracker_section
+        StatsDimension.SOURCE -> MR.strings.label_sources
+        StatsDimension.CATEGORY -> MR.strings.categories
         StatsDimension.TAG -> MR.strings.stats_group_tag
         StatsDimension.LANGUAGE -> MR.strings.stats_group_language
         StatsDimension.START_YEAR -> MR.strings.stats_group_start_year

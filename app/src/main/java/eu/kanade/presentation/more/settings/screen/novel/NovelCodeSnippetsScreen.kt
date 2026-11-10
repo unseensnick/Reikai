@@ -113,7 +113,7 @@ private fun SnippetEditDialog(
                 OutlinedTextField(
                     value = title,
                     onValueChange = { title = it },
-                    label = { Text(stringResource(MR.strings.novel_regex_rule_name)) },
+                    label = { Text(stringResource(MR.strings.name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )

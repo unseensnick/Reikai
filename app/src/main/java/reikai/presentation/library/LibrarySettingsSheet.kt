@@ -210,7 +210,7 @@ private fun ColumnScope.SortPage(
 private val groupModes = listOf(
     LibraryGroup.BY_DEFAULT to MR.strings.group_by_default,
     LibraryGroup.BY_TAG to MR.strings.group_by_tag,
-    LibraryGroup.BY_SOURCE to MR.strings.group_by_source,
+    LibraryGroup.BY_SOURCE to MR.strings.sort_by_source,
     LibraryGroup.BY_STATUS to MR.strings.group_by_status,
     LibraryGroup.BY_TRACK_STATUS to MR.strings.group_by_tracking_status,
     LibraryGroup.BY_AUTHOR to MR.strings.group_by_author,

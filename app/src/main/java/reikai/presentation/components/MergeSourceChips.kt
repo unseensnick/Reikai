@@ -51,7 +51,7 @@ fun MergeSourceChips(
         FilterChip(
             selected = selectedId == null,
             onClick = { onSelect(null) },
-            label = { Text(stringResource(MR.strings.merge_sources_all)) },
+            label = { Text(stringResource(MR.strings.all)) },
         )
         sources.forEach { source ->
             FilterChip(

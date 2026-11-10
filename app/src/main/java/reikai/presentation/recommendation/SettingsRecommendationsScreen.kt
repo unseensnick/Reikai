@@ -93,7 +93,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
                 visible = relatedEnabled && includeTrackers,
             )
         return Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_recommendation_sources),
+            title = stringResource(MR.strings.label_sources),
             preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.enableRelatedMangas,
@@ -120,7 +120,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
         val scope = rememberCoroutineScope()
         val repository = remember { context.appGraph.tasteLibraryRepository }
         val fetchers = remember { context.appGraph.trackerLibraryFetchers }
-        val neverLabel = stringResource(MR.strings.pref_last_refresh_never)
+        val neverLabel = stringResource(MR.strings.relative_time_span_never)
         // Re-read whenever the manual pull starts or ends, so the summary updates as it lands. withIOContext
         // because a produceState body runs on Main, and this is one DB read per tracker.
         val lastRefreshSummary by produceState("", neverLabel) {
@@ -229,7 +229,7 @@ object SettingsRecommendationsScreen : SearchableSettings {
     @Composable
     private fun filtersGroup(prefs: ReikaiRecommendationPreferences): Preference.PreferenceGroup =
         Preference.PreferenceGroup(
-            title = stringResource(MR.strings.pref_recommendation_filters),
+            title = stringResource(MR.strings.reader_settings_filters),
             preferenceItems = listOf(
                 Preference.PreferenceItem.SwitchPreference(
                     preference = prefs.hideInLibraryRecommendations,

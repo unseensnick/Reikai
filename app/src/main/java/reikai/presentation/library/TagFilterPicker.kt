@@ -105,7 +105,7 @@ fun ColumnScope.TagsFilterRow(tagFilter: LibraryTagFilter) {
             .padding(horizontal = SettingsItemsPaddings.Horizontal),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Text(text = stringResource(MR.strings.tag_filter_title), style = MaterialTheme.typography.bodyMedium)
+        Text(text = stringResource(MR.strings.stats_group_tag), style = MaterialTheme.typography.bodyMedium)
         Spacer(modifier = Modifier.weight(1f))
         if (filter.include.isNotEmpty() || filter.exclude.isNotEmpty()) {
             Text(
@@ -177,7 +177,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
         onDismissRequest = onDismiss,
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(MR.strings.tag_filter_title), modifier = Modifier.weight(1f))
+                Text(stringResource(MR.strings.stats_group_tag), modifier = Modifier.weight(1f))
                 Text(
                     text = matching?.let {
                         stringResource(
@@ -200,7 +200,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
                         Icon(
                             imageVector = MaterialSymbols.Rounded.run { if (byName) SortByAlpha else Numbers },
                             contentDescription = stringResource(
-                                if (byName) MR.strings.tag_filter_sort_name else MR.strings.tag_filter_sort_count,
+                                if (byName) MR.strings.category_sort_a_to_z else MR.strings.tag_filter_sort_count,
                             ),
                         )
                     }

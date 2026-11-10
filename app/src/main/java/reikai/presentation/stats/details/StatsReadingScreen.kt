@@ -173,7 +173,7 @@ private val PERIOD_LABELS: List<Pair<ReadingPeriod, StringResource>> = listOf(
     ReadingPeriod.WEEK to MR.strings.stats_period_week,
     ReadingPeriod.MONTH to MR.strings.stats_period_month,
     ReadingPeriod.YEAR to MR.strings.stats_period_year,
-    ReadingPeriod.CUSTOM to MR.strings.stats_period_custom,
+    ReadingPeriod.CUSTOM to MR.strings.color_custom,
 )
 
 @Composable

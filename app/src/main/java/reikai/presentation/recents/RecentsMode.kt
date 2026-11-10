@@ -52,7 +52,7 @@ enum class RecentsMode {
 
     val labelRes: StringResource
         get() = when (this) {
-            FEED -> MR.strings.recents_mode_feed
+            FEED -> MR.strings.label_feed
             DIGEST -> MR.strings.recents_mode_grouped
             UPDATES -> MR.strings.label_recent_updates
             HISTORY -> MR.strings.history

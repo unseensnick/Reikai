@@ -16,15 +16,15 @@ object TtsHighlightColors {
 
     val highlight = listOf(
         TtsColorPreset(DEFAULT_HIGHLIGHT, MR.strings.tts_color_amber),
-        TtsColorPreset(0xFFA5D6A7.toInt(), MR.strings.tts_color_green),
-        TtsColorPreset(0xFF90CAF9.toInt(), MR.strings.tts_color_blue),
+        TtsColorPreset(0xFFA5D6A7.toInt(), MR.strings.color_filter_g_value),
+        TtsColorPreset(0xFF90CAF9.toInt(), MR.strings.color_filter_b_value),
         TtsColorPreset(0xFFF48FB1.toInt(), MR.strings.tts_color_pink),
         TtsColorPreset(0xFFCE93D8.toInt(), MR.strings.tts_color_purple),
-        TtsColorPreset(0xFFBDBDBD.toInt(), MR.strings.tts_color_gray),
+        TtsColorPreset(0xFFBDBDBD.toInt(), MR.strings.gray_background),
     )
 
     val text = listOf(
-        TtsColorPreset(DEFAULT_TEXT, MR.strings.tts_color_dark),
-        TtsColorPreset(0xFFFAFAFA.toInt(), MR.strings.tts_color_light),
+        TtsColorPreset(DEFAULT_TEXT, MR.strings.theme_dark),
+        TtsColorPreset(0xFFFAFAFA.toInt(), MR.strings.theme_light),
     )
 }

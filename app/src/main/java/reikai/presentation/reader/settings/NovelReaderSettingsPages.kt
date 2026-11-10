@@ -243,7 +243,7 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
     HeadingItem(MR.strings.pref_category_theme)
     // A radio, not a checkbox: following the system is left by picking a swatch, never by unticking it.
     RadioItem(
-        label = stringResource(MR.strings.pref_novel_theme_follow_system),
+        label = stringResource(MR.strings.follow_system),
         selected = followSystem,
         onClick = pages.textSettings::followSystemTheme,
     )
@@ -258,7 +258,7 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         ),
     )
     // Either colour picked by hand is the custom theme; the other keeps what the page shows now.
-    PageColorRow(MR.strings.pref_novel_background_color, readerBackgroundColorInt(shown.background)) {
+    PageColorRow(MR.strings.pref_reader_theme, readerBackgroundColorInt(shown.background)) {
         pages.textSettings.setThemeColors(it, shown.textColor)
     }
     PageColorRow(MR.strings.pref_novel_text_color, readerTextColorInt(shown.textColor)) {
@@ -532,7 +532,7 @@ private fun FontItem(label: String, summary: String?, selected: Boolean, onClick
 private fun FontRow(pref: Preference<String>, installedFonts: suspend () -> List<NovelFont>) {
     val family by pref.collectAsState()
     var picking by remember { mutableStateOf(false) }
-    val defaultLabel = stringResource(MR.strings.pref_novel_font_default)
+    val defaultLabel = stringResource(MR.strings.label_default)
 
     PickerRow(MR.strings.pref_novel_font, readerFontLabel(family, defaultLabel)) { picking = true }
 
@@ -624,7 +624,7 @@ internal fun ColumnScope.NovelReadAloudPage(preferences: NovelPreferences) {
         TtsColorRow(
             preferences.readerTtsHighlightTextColor(),
             TtsHighlightColors.text,
-            MR.strings.pref_tts_highlight_text_color,
+            MR.strings.pref_novel_text_color,
         )
     }
 }

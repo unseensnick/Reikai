@@ -267,9 +267,9 @@ private fun ReorderableCollectionItemScope.EntryDownloadCard(
 private fun EntryDownloadStatusChip(status: EntryDownloadCardStatus) {
     val (label, color) = when (status) {
         EntryDownloadCardStatus.DOWNLOADING ->
-            stringResource(MR.strings.download_card_status_downloading) to MaterialTheme.colorScheme.primary
+            stringResource(MR.strings.ext_downloading) to MaterialTheme.colorScheme.primary
         EntryDownloadCardStatus.ERROR ->
-            stringResource(MR.strings.download_card_status_error) to MaterialTheme.colorScheme.error
+            stringResource(MR.strings.chapter_error) to MaterialTheme.colorScheme.error
         EntryDownloadCardStatus.QUEUED ->
             stringResource(MR.strings.download_card_status_queued) to MaterialTheme.colorScheme.onSurfaceVariant
     }

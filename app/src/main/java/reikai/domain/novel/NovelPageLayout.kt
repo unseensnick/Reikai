@@ -8,7 +8,7 @@ import tachiyomi.i18n.MR
  * One value, so a direction with no pages to turn cannot be stored. Persisted by name through `getEnum`.
  */
 enum class NovelPageLayout(val titleRes: StringResource) {
-    SCROLL(MR.strings.novel_page_layout_scroll),
+    SCROLL(MR.strings.pref_category_scrolling),
     PAGED_LTR(MR.strings.left_to_right_viewer),
     PAGED_RTL(MR.strings.right_to_left_viewer),
     ;

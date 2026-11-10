@@ -188,7 +188,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 colorRow(
                     preference = novelPreferences.readerTtsHighlightTextColor(),
                     presets = TtsHighlightColors.text,
-                    titleRes = MR.strings.pref_tts_highlight_text_color,
+                    titleRes = MR.strings.pref_novel_text_color,
                 ).takeIf { highlight && highlightStyle == TtsHighlightStyle.BACKGROUND },
             ),
         )
@@ -240,7 +240,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
         val fontFamily by novelPreferences.readerFontFamily().collectAsState()
         // Named from whichever list it came from, since the preference holds a key or a file name and
         // neither reads as the font it selects.
-        val defaultFontLabel = stringResource(MR.strings.pref_novel_font_default)
+        val defaultFontLabel = stringResource(MR.strings.label_default)
         val fontLabel = remember(fontFamily, defaultFontLabel) { readerFontLabel(fontFamily, defaultFontLabel) }
 
         return Preference.PreferenceGroup(
@@ -496,7 +496,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
     private fun getTapGroup(novelPreferences: NovelPreferences, paged: Boolean): Preference.PreferenceGroup {
         val tapLayout by novelPreferences.readerTapLayout(paged).collectAsState()
         return Preference.PreferenceGroup(
-            title = stringResource(if (paged) MR.strings.pager_viewer else MR.strings.novel_page_layout_scroll),
+            title = stringResource(if (paged) MR.strings.pager_viewer else MR.strings.pref_category_scrolling),
             preferenceItems = listOfNotNull(
                 Preference.PreferenceItem.ListPreference(
                     preference = novelPreferences.readerTapLayout(paged),

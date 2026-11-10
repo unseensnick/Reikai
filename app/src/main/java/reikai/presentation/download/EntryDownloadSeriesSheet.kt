@@ -134,7 +134,7 @@ private fun EntryDownloadChapterRow(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
                 QueuedChapterStatus.ERROR -> Text(
-                    text = chapter.failure ?: stringResource(MR.strings.download_card_status_error),
+                    text = chapter.failure ?: stringResource(MR.strings.chapter_error),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                     maxLines = 3,

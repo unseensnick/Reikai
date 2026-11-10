@@ -123,7 +123,7 @@ class NovelFontsScreen : Screen() {
                 item { SectionHeader(stringResource(MR.strings.novel_font_section_built_in)) }
                 items(builtInReaderFonts, key = { "b:${it.family}" }) { font ->
                     FontRow(
-                        label = readerFontLabel(font.family, stringResource(MR.strings.pref_novel_font_default)),
+                        label = readerFontLabel(font.family, stringResource(MR.strings.label_default)),
                         subtitle = readerFontSummary(font.family)?.let { stringResource(it) },
                         preview = assetPreview(context, font.family),
                         selected = state.selected == font.family,
@@ -287,7 +287,7 @@ private fun AddFontSheet(onDismissRequest: () -> Unit, onImport: () -> Unit, onB
             )
             SheetAction(
                 icon = MaterialSymbols.Rounded.Download,
-                title = stringResource(MR.strings.novel_font_download),
+                title = stringResource(MR.strings.action_download),
                 subtitle = stringResource(MR.strings.novel_font_download_summary),
                 onClick = onBrowse,
             )
@@ -352,7 +352,7 @@ private fun BrowseGoogleFontsDialog(
                 enabled = query.isNotBlank(),
                 onClick = { onDownload(query.trim()) },
             ) {
-                Text(text = stringResource(MR.strings.novel_font_download))
+                Text(text = stringResource(MR.strings.action_download))
             }
         },
         dismissButton = {

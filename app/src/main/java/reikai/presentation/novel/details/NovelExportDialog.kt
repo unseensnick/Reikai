@@ -76,7 +76,7 @@ fun NovelExportDialog(
                         Text(stringResource(MR.strings.export_epub_pictures), modifier = Modifier.weight(1f))
                         Switch(checked = pictures, onCheckedChange = { pictures = it })
                     }
-                    Text(stringResource(MR.strings.export_epub_range), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(MR.strings.chapters), style = MaterialTheme.typography.titleSmall)
                     Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
                         FilterChip(
                             selected = wholeBook,
@@ -108,7 +108,7 @@ fun NovelExportDialog(
                 onClick = { saver.launch(epubFileName(fileName)) },
                 enabled = onDevice != null && onDevice > 0 && rangeValid,
             ) {
-                Text(stringResource(MR.strings.export_epub_start))
+                Text(stringResource(MR.strings.export))
             }
         },
         dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },

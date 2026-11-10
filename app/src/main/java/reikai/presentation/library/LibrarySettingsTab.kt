@@ -17,11 +17,11 @@ enum class LibrarySettingsTab(val titleRes: StringResource) {
  * holds, which does nothing, as an unknown stored value always has.
  */
 enum class HopperLongPressAction(val code: Int, val labelRes: StringResource) {
-    SEARCH(0, MR.strings.hopper_action_search),
+    SEARCH(0, MR.strings.action_search),
     EXPAND_COLLAPSE(1, MR.strings.hopper_action_expand_collapse),
-    DISPLAY(2, MR.strings.hopper_action_display),
+    DISPLAY(2, MR.strings.action_display),
     GROUP(3, MR.strings.group),
-    RANDOM(4, MR.strings.hopper_action_random),
+    RANDOM(4, MR.strings.action_sort_random),
     RANDOM_GLOBAL(5, MR.strings.hopper_action_random_global),
     ;
 

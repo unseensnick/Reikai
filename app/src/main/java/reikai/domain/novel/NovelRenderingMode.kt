@@ -16,7 +16,7 @@ enum class NovelRenderingMode(val titleRes: StringResource, val rendersMarkup: B
     NATIVE(MR.strings.pref_novel_rendering_mode_native, rendersMarkup = false),
 
     /** The shared reader host rendering Reikai's own web document. */
-    WEBVIEW(MR.strings.pref_novel_rendering_mode_webview, rendersMarkup = true),
+    WEBVIEW(MR.strings.action_web_view, rendersMarkup = true),
     ;
 
     companion object {
