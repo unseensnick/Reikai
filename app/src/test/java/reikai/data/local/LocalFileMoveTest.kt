@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -37,6 +38,18 @@ class LocalFileMoveTest {
 
         moveLocalFiles(listOf(FileCopy(unreadable, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
             .shouldBeInstanceOf<LocalMoveResult.Failed>()
+    }
+
+    @Test
+    fun `a move whose folder listing came back short deletes only what it copied`() = runTest {
+        val from = series("B", "Vol 1/a.cbz" to "a", "Vol 1/b.cbz" to "b")
+        val volume = uni(File(from, "Vol 1"))
+        val listed = volume.listFiles()!!.filter { it.name == "a.cbz" }.toTypedArray()
+        val short = spyk(volume) { every { listFiles() } returns listed }
+
+        moveLocalFiles(listOf(FileCopy(short, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
+
+        File(from, "Vol 1/b.cbz").readText() shouldBe "b"
     }
 
     @Test

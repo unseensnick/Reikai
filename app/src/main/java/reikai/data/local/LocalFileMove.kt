@@ -20,12 +20,15 @@ sealed interface LocalMoveResult {
  */
 suspend fun moveLocalFiles(copies: List<FileCopy>, commit: suspend () -> Unit): LocalMoveResult {
     val made = mutableListOf<UniFile>()
+    val placed = mutableListOf<Pair<UniFile, UniFile>>()
     try {
         copies.forEach { copy ->
             val dir = copy.folder?.let { name ->
                 copy.parent.findFile(name) ?: checkNotNull(copy.parent.createDirectory(name)).also { made += it }
             } ?: copy.parent
-            made += copyChecked(copy.source, dir, copy.name)
+            val target = copyChecked(copy.source, dir, copy.name)
+            made += target
+            placed += copy.source to target
         }
         commit()
     } catch (e: Throwable) {
@@ -33,7 +36,24 @@ suspend fun moveLocalFiles(copies: List<FileCopy>, commit: suspend () -> Unit): 
         if (e is CancellationException) throw e
         return LocalMoveResult.Failed(e)
     }
-    return LocalMoveResult.Moved(copies.filterNot { it.source.delete() }.map { it.source.name.orEmpty() })
+    return LocalMoveResult.Moved(
+        placed.filterNot { (source, copy) ->
+            deleteMoved(source, copy)
+        }.map { it.first.name.orEmpty() },
+    )
+}
+
+/**
+ * Deletes [source] now that [copy] holds it: a folder child by child, only those the copy has, and the folder
+ * itself only once a fresh listing finds nothing left but hidden markers. A picked folder's listing can come
+ * back short without failing, and a whole-folder delete would then take what was never copied.
+ */
+private fun deleteMoved(source: UniFile, copy: UniFile): Boolean {
+    if (!source.isDirectory) return source.delete()
+    val copied = copy.listFiles().orEmpty().associateBy { it.name }
+    source.listFiles().orEmpty().forEach { child -> copied[child.name]?.let { deleteMoved(child, it) } }
+    val left = source.listFiles() ?: return false
+    return left.all { it.name.orEmpty().startsWith('.') } && source.delete()
 }
 
 /** [source] copied into [dir] as [name], a folder with everything in it; a file checked by its length. */
