@@ -101,7 +101,7 @@ class LocalSource(
 
         var mangaDirs = fileSystem.getFilesInBaseDirectory()
             // Filter out files that are hidden and is not a folder
-            .filter { it.isDirectory && !it.name.orEmpty().startsWith('.') }
+            .filter { it.isDirectory && !it.name.orEmpty().startsWith('.') && it.name !in SYSTEM_FOLDERS } // RK
             .distinctBy { it.name }
             .filter {
                 if (lastModifiedLimit == 0L && query.isBlank()) {
@@ -427,17 +427,19 @@ class LocalSource(
         return pictures - setOfNotNull(cover)
     }
 
-    private fun UniFile.isPicture() = !isDirectory && ImageUtil.isImage(name)
+    // By name alone, as a picture-named folder is never a chapter: each isDirectory is a query on a picked folder.
+    private fun UniFile.isPicture() = ImageUtil.isImage(name)
 
     private fun UniFile.isNamedCover() = name.orEmpty().substringBeforeLast('.').lowercase() in setOf("cover", "folder")
     // RK <--
 
     // RK: a chapter's own file or folder, in a series folder or a volume folder; never a folder a system keeps
+    // The name checks run first: on a picked folder each isDirectory is a query, and a chapter holds many pages.
     private fun isChapterFile(file: UniFile): Boolean =
         !file.name.orEmpty().startsWith('.') &&
             (
-                (file.isDirectory && file.name !in SYSTEM_FOLDERS) ||
-                    Archive.isSupported(file) || file.extension.equals("epub", true)
+                !file.isFolderName() ||
+                    (!ImageUtil.isImage(file.name) && file.name !in SYSTEM_FOLDERS && file.isDirectory)
                 )
 
     // RK: an archive or a book, by its name alone, so no folder query is spent on one
