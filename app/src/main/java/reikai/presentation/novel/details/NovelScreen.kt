@@ -332,6 +332,7 @@ private fun Screen.NovelDetailsDialogs(state: NovelDetailsState.Loaded, viewMode
 // stay in NovelDetailsDialogs.
 private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
+        is NovelDetailsDialog.RelinkSeries -> EntryDetailsDialog.RelinkSeries(d.title, d.candidates)
         NovelDetailsDialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
             interval = intervalNovel.fetchInterval,
             nextUpdate = intervalNovel.expectedNextUpdate(),

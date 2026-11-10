@@ -156,6 +156,7 @@ internal fun mangaDetailsModel(
         editChapterNumber = editChapterNumber,
         chapterSettings = MangaChapterSettings(mangas),
         sourceContacts = sourceContacts,
+        localSeriesRelink = mockk(),
     )
 }
 

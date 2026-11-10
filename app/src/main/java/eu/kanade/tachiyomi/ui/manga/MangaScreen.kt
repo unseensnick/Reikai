@@ -390,6 +390,7 @@ internal fun Manga.toEntryEditInfoUi() = EntryEditInfoUi(
 // the per-type ones (change-category, duplicate, chapter-settings, migrate, fetch-interval, ...) stay above.
 private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalEnabled: Boolean): EntryDetailsDialog? =
     when (val d = dialog) {
+        is MangaViewModel.Dialog.RelinkSeries -> EntryDetailsDialog.RelinkSeries(d.title, d.candidates) // RK
         is MangaViewModel.Dialog.SetFetchInterval -> EntryDetailsDialog.SetFetchInterval(
             interval = d.manga.fetchInterval,
             nextUpdate = d.manga.expectedNextUpdate,

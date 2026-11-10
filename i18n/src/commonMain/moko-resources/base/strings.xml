@@ -332,6 +332,10 @@
     <string name="rename_files_taken">%1$s is already taken, so the name below is used. A name you choose also becomes the title</string>
     <string name="rename_files_choose_name">Choose another name</string>
     <string name="local_files_renamed">Files renamed</string>
+    <string name="local_series_missing_title">Folder not found</string>
+    <string name="local_series_missing_message">%1$s\'s folder is gone from the local folder. Link it to the folder that holds its files now</string>
+    <string name="action_link_folder">Link</string>
+    <string name="local_series_link_failed">Couldn\'t link the folder</string>
     <string name="action_rename">Rename</string>
     <string name="undo_volumes_failed">Couldn't undo the move; the volumes stay where they are</string>
     <string name="action_combine">Combine</string>

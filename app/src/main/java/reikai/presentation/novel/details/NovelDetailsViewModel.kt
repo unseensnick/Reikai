@@ -55,6 +55,8 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalMoveResult
+import reikai.data.local.LocalSeriesRelink
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
@@ -235,6 +237,7 @@ class NovelDetailsViewModel(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
     private val localTombstones: LocalChapterTombstones,
+    private val localSeriesRelink: LocalSeriesRelink,
     private val editChapterNumber: EditChapterNumber,
     private val context: Context,
     // Non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
@@ -1075,6 +1078,18 @@ class NovelDetailsViewModel(
                     forceRefreshViewedPage(loaded, updatedAnchor, viewedAnchor)
                 }
                 firstError?.let { e ->
+                    // A local series whose folder is gone may have been renamed outside the app, so the folders
+                    // holding its files are offered in place of the failure, as the manga details do.
+                    val anchor = loaded.novel
+                    val candidates = if (LocalNovelSource.isLocal(anchor.source)) {
+                        localSeriesRelink.candidates(ContentType.NOVELS, anchor.id)
+                    } else {
+                        null
+                    }
+                    if (!candidates.isNullOrEmpty()) {
+                        showDialog(NovelDetailsDialog.RelinkSeries(anchor.title, candidates))
+                        return@let
+                    }
                     val message = with(context) { e.refreshFailureMessage() }
                     viewModelScope.launchUI { snackbarHostState.showSnackbar(message) }
                 }
@@ -1300,6 +1315,22 @@ class NovelDetailsViewModel(
     fun showChapterSettingsDialog() = showDialog(NovelDetailsDialog.ChapterSettings)
 
     fun showSetFetchIntervalDialog() = showDialog(NovelDetailsDialog.SetFetchInterval)
+
+    /** Links the series to the folder the user picked, on the app scope so a closed page does not cut the write
+     *  off, then refreshes it there; the manga details do the same. */
+    fun relinkSeries(folder: String) {
+        val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
+        appScope.launch {
+            val result = localSeriesRelink.relink(ContentType.NOVELS, novel.id, folder)
+            if (result is LocalMoveResult.Moved) {
+                refresh()
+            } else {
+                viewModelScope.launchUI {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
+                }
+            }
+        }
+    }
 
     /** Whether the interval can be chosen, which manga ties to the release-period restriction being on.
      *  Read once, as manga's is, rather than on every recomposition that builds the dialog. */
@@ -1887,6 +1918,9 @@ sealed interface NovelDetailsDialog {
 
     data object ChapterSettings : NovelDetailsDialog
     data object SetFetchInterval : NovelDetailsDialog
+
+    /** A local series whose folder is gone, and the folders holding its files it may be linked to. */
+    data class RelinkSeries(val title: String, val candidates: List<String>) : NovelDetailsDialog
     data object PageSelector : NovelDetailsDialog
     data class SourceSettings(val source: NovelSource) : NovelDetailsDialog
 

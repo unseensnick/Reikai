@@ -487,6 +487,7 @@ class NovelReaderViewModelHarness private constructor(
             chapterNumberOverrides = numberOverrides,
             chapterCopyMarks = copyMarks,
             localTombstones = NoChapterTombstones,
+            localSeriesRelink = mockk(),
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },

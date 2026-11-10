@@ -346,6 +346,10 @@ class MangaEntryAdapter(
         model.setFetchInterval(manga, days)
     }
 
+    override fun relinkSeries(folder: String) {
+        model.relinkSeries(folder)
+    }
+
     override fun showManageSourcesDialog() {
         model.showManageSourcesDialog()
     }
