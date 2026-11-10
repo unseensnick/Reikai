@@ -217,6 +217,8 @@ class LocalSource(
                 // Copy ComicInfo.xml from chapter archive to top level if found
                 noXmlFile == null -> {
                     val chapterArchives = mangaDirFiles.filter(Archive::isSupported)
+                        // RK: a series kept only in volume folders has its chapter archives one level down
+                        .ifEmpty { mangaDirFiles.filter(::isChapterFile).flatMap { it.volumeArchives() } }
 
                     val copiedFile = copyComicInfoFileFromChapters(chapterArchives, mangaDir)
                     if (copiedFile != null) {
@@ -441,6 +443,10 @@ class LocalSource(
                 !file.isFolderName() ||
                     (!ImageUtil.isImage(file.name) && file.name !in SYSTEM_FOLDERS && file.isDirectory)
                 )
+
+    // RK: a volume folder's chapter archives, read for the series' details when it has none of its own
+    private fun UniFile.volumeArchives(): List<UniFile> =
+        if (isFolderName()) listFiles().orEmpty().filter(Archive::isSupported) else emptyList()
 
     // RK: an archive or a book, by its name alone, so no folder query is spent on one
     private fun UniFile.isFolderName() = !Archive.isSupported(this) && !extension.equals("epub", true)
