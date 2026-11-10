@@ -33,6 +33,7 @@ class EpubExportFilesTest {
     private val file = mockk<UniFile> {
         every { uri } returns Uri.parse("content://$AUTHORITY/Book.epub")
         every { delete() } answers { book.delete() }
+        every { length() } answers { book.length() }
     }
 
     @Before
@@ -43,9 +44,32 @@ class EpubExportFilesTest {
 
     @Test
     fun `a shorter book over an existing file leaves none of the old one behind`() = runTest {
-        file.writeOrDelete(context) { it.write("new".toByteArray()) }
+        file.writeBookOver(context) { it.write("new".toByteArray()) }
 
         book.readText() shouldBe "new"
+    }
+
+    @Test
+    fun `a failed export over a picked file leaves that file as it was`() = runTest {
+        shouldThrow<IOException> { file.writeBookOver(context) { throw IOException("Missing chapter") } }
+
+        book.readText() shouldBe "an older and much longer book"
+    }
+
+    @Test
+    fun `a failed export into a newly created file leaves no file`() = runTest {
+        book.writeText("")
+
+        shouldThrow<IOException> { file.writeBookOver(context) { throw IOException("Missing chapter") } }
+
+        book.exists() shouldBe false
+    }
+
+    @Test
+    fun `an export leaves no copy in the cache`() = runTest {
+        file.writeBookOver(context) { it.write("new".toByteArray()) }
+
+        context.cacheDir.list()!!.filter { it.endsWith(".part") } shouldBe emptyList()
     }
 
     @Test

@@ -6,6 +6,7 @@ import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.util.openTruncatingOutputStream
 import java.io.ByteArrayOutputStream
+import java.io.File
 import java.io.IOException
 import java.io.OutputStream
 
@@ -19,6 +20,27 @@ internal suspend fun UniFile.writeOrDelete(context: Context, write: suspend (Out
     } catch (e: Throwable) {
         delete()
         throw e
+    }
+}
+
+/**
+ * Writes the book over [this], a file the picker named, only once it is whole in the cache: a document cannot
+ * be renamed over, and truncating it first would lose the file the reader chose to replace when an export
+ * fails. A failure before the copy deletes [this] only when it was empty, so newly created.
+ */
+internal suspend fun UniFile.writeBookOver(context: Context, write: suspend (OutputStream) -> Unit) {
+    val wasEmpty = length() == 0L
+    val whole = File.createTempFile("export", ".epub.part", context.cacheDir)
+    try {
+        try {
+            whole.outputStream().use { write(it) }
+        } catch (e: Throwable) {
+            if (wasEmpty) delete()
+            throw e
+        }
+        writeOrDelete(context) { out -> whole.inputStream().use { it.copyTo(out) } }
+    } finally {
+        whole.delete()
     }
 }
 

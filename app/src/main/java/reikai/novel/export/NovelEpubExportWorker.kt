@@ -226,7 +226,7 @@ class NovelEpubExportWorker(
             folder.writeBookNamed(context, fileName, write)
         } else {
             // A file the picker named, which the reader chose to create or to replace.
-            (UniFile.fromUri(context, target) ?: throw IOException("No file")).writeOrDelete(context, write)
+            (UniFile.fromUri(context, target) ?: throw IOException("No file")).writeBookOver(context, write)
         }
         return true
     }
