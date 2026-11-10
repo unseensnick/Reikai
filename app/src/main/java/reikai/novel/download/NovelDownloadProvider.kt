@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.dedupe.DownloadFolderMerge
 import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.movesDownloadFolder
 import reikai.domain.download.renameDownloadFolder
@@ -91,6 +92,28 @@ class NovelDownloadProvider(
             // No other entry is named onto a source folder, so only a taken name keeps it in place
             if (folder.name == target || !movesDownloadFolder(folder, target, emptyList())) return@forEach
             renameDownloadFolder(folder, target)
+        }
+    }
+
+    /**
+     * Merges each of [sources]' folders at [from]'s label into the folder at [to]'s, where [renameSourceFolders] left
+     * it because that name was taken: two catalogues of one name and language share one folder, as manga's do. A
+     * title both hold gets the chapters it lacks, and a chapter both hold stays in both.
+     */
+    fun mergeSourceFolders(sources: Collection<String>, from: (String) -> String, to: (String) -> String) {
+        val root = downloadsDir ?: return
+        sources.forEach { source ->
+            val target = folderName(to(source))
+            val name = folderName(from(source))
+            if (name.equals(target, ignoreCase = true)) return@forEach
+            val folder = root.findFile(name)?.takeIf { it.isDirectory } ?: return@forEach
+            val into = root.findFile(target)?.takeIf { it.isDirectory } ?: return@forEach
+            DownloadFolderMerge.merge(from = folder, into = into)
+            folder.listFiles().orEmpty().filter { it.isDirectory }.forEach { title ->
+                into.findFile(title.name ?: return@forEach)?.takeIf { it.isDirectory }
+                    ?.let { DownloadFolderMerge.merge(from = title, into = it) }
+            }
+            if (folder.listFiles()?.isEmpty() == true) folder.delete()
         }
     }
 
