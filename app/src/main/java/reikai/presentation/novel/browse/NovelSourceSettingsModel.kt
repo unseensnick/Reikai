@@ -22,13 +22,20 @@ class NovelSourceSettingsModel : ViewModel() {
     val draft: StateFlow<Map<String, JsonElement>?>
         field = MutableStateFlow<Map<String, JsonElement>?>(null)
 
+    // The draft as loaded, so a save writes only what the user changed: a default written to storage
+    // would outlive a plugin update that changes it, as LNReader writes only the changed field.
+    @Volatile
+    private var loaded: Map<String, JsonElement> = emptyMap()
+
     fun load(settings: NovelSettings.LnSchema) {
         clear()
         viewModelScope.launchIO {
-            draft.value = settings.schema.mapNotNull { (key, schema) ->
+            val values = settings.schema.mapNotNull { (key, schema) ->
                 val declared = schema as? JsonObject ?: return@mapNotNull null
                 (settings.get(key) ?: declared["value"])?.let { key to it }
             }.toMap()
+            loaded = values
+            draft.value = values
         }
     }
 
@@ -41,9 +48,9 @@ class NovelSourceSettingsModel : ViewModel() {
     }
 
     fun save(settings: NovelSettings.LnSchema, onSaved: () -> Unit) {
-        val values = draft.value.orEmpty()
+        val changed = draft.value.orEmpty().filter { (key, value) -> loaded[key] != value }
         viewModelScope.launchIO {
-            values.forEach { (key, value) -> settings.set(key, value) }
+            changed.forEach { (key, value) -> settings.set(key, value) }
             withUIContext { onSaved() }
         }
     }

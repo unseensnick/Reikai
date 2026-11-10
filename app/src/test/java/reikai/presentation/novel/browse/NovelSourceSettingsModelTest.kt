@@ -47,16 +47,29 @@ class NovelSourceSettingsModelTest {
     fun tearDown() = Dispatchers.resetMain()
 
     @Test
-    fun `saving writes every drafted value`() = runTest {
+    fun `saving writes the changed value and leaves an untouched default unstored`() = runTest {
         model.load(settings)
         model.loaded()
         model.change("user", JsonPrimitive("me"))
-        val saved = CompletableDeferred<Unit>()
 
-        model.save(settings) { saved.complete(Unit) }
-        withContext(Dispatchers.Default) { withTimeout(5_000) { saved.await() } }
+        model.saved()
 
-        stored shouldBe mapOf("user" to JsonPrimitive("me"), "adult" to JsonPrimitive(false))
+        // A stored default would outlive a plugin update that changes it.
+        stored shouldBe mapOf("user" to JsonPrimitive("me"))
+    }
+
+    @Test
+    fun `saving a setting changed back to its stored value writes nothing`() = runTest {
+        stored["user"] = JsonPrimitive("saved")
+        model.load(settings)
+        model.loaded()
+        model.change("user", JsonPrimitive("other"))
+        model.change("user", JsonPrimitive("saved"))
+        stored.clear()
+
+        model.saved()
+
+        stored shouldBe emptyMap()
     }
 
     @Test
@@ -69,6 +82,12 @@ class NovelSourceSettingsModelTest {
         model.load(settings)
 
         model.loaded()["user"] shouldBe JsonPrimitive("saved")
+    }
+
+    private suspend fun NovelSourceSettingsModel.saved() {
+        val saved = CompletableDeferred<Unit>()
+        save(settings) { saved.complete(Unit) }
+        withContext(Dispatchers.Default) { withTimeout(5_000) { saved.await() } }
     }
 
     private suspend fun NovelSourceSettingsModel.loaded() =
