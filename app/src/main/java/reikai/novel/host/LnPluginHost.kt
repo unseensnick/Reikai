@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -46,6 +47,7 @@ import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
+import java.io.Closeable
 import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
@@ -231,14 +233,16 @@ class LnPluginHost(
         lang: String? = null,
         expectedId: String? = null,
         trustedId: String? = expectedId,
-    ): LnPluginInfo = withPluginTimeout(LOAD_TIMEOUT_MS, "inspectPlugin") {
+    ): LnPluginInfo {
         val info = cachedInfo(source, expectedId, trustedId) {
-            inspectPermits.withPermit { readInfo(source, expectedId, trustedId) }
+            inspectPermits.withPermitAndTimeout(LOAD_TIMEOUT_MS, "inspectPlugin") {
+                readInfo(source, expectedId, trustedId)
+            }
         }
         if (expectedId != null && info.id != expectedId) {
             throw LnPluginException("now declares the id ${info.id}, installed as $expectedId")
         }
-        info.copy(
+        return info.copy(
             iconUrl = iconUrl?.ifEmpty { null },
             lang = lang?.ifEmpty { null } ?: info.lang,
             supportsLatest = derivesLatestSupport(source),
@@ -391,12 +395,13 @@ class LnPluginHost(
     /** Close a slot's engine and retire its thread. Caller must hold the slot's mutex. */
     private suspend fun closeLocked(slot: EngineSlot) {
         val q = slot.qjs
+        val dispatcher = slot.dispatcher
+        val executor = slot.executor
+        // Cleared first, so a cancellation retireEngine rethrows cannot leave the slot on a retired thread.
         slot.qjs = null
-        // Close on the engine thread (close() may pump native state), then retire the executor.
-        if (q != null) slot.dispatcher?.let { disp -> withContext(disp) { runCatching { q.close() } } }
-        slot.executor?.shutdown()
         slot.executor = null
         slot.dispatcher = null
+        retireEngine(q, dispatcher, executor)
     }
 
     /** Closes engines nobody has used for [IDLE_CLOSE_MS], so an idle plugin holds no native engine or
@@ -617,3 +622,28 @@ internal suspend fun <T : Any> withPluginTimeout(
     what: String,
     block: suspend CoroutineScope.() -> T,
 ): T = withTimeoutOrNull(timeoutMs, block) ?: throw LnPluginException("$what timed out after ${timeoutMs / 1000}s")
+
+/**
+ * [block] under one of these permits, timed from when it holds one: a bulk load queues every plugin at
+ * once, so a timeout around the wait spent a queued read's budget behind the reads ahead of it.
+ */
+internal suspend fun <T : Any> Semaphore.withPermitAndTimeout(
+    timeoutMs: Long,
+    what: String,
+    block: suspend CoroutineScope.() -> T,
+): T = withPermit { withPluginTimeout(timeoutMs, what, block) }
+
+/**
+ * Closes [engine] on [dispatcher], its confinement thread (close() may pump native state), then retires
+ * [executor]. A timed-out or cancelled call reaches this already cancelled, where a plain withContext throws
+ * on entry and one returning to the caller throws there, either leaving the engine or its non-daemon thread live.
+ */
+internal suspend fun retireEngine(engine: Closeable?, dispatcher: CoroutineDispatcher?, executor: ExecutorService?) {
+    try {
+        if (engine != null && dispatcher != null) {
+            withContext(NonCancellable + dispatcher) { runCatching { engine.close() } }
+        }
+    } finally {
+        executor?.shutdown()
+    }
+}
