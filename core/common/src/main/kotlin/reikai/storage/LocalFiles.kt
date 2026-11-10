@@ -97,6 +97,37 @@ internal fun UniFile.createFresh(context: Context, listed: List<UniFile>, name: 
 }
 
 /**
+ * A new file [name] in this folder with what [write] puts in it, by [createNew], and checked against
+ * [expectedLength] when the caller knows it, since a provider can end a stream early without failing. A write
+ * that fails or comes up short deletes the file and throws, so no half-written file is left under a real name.
+ */
+inline fun UniFile.writeNew(
+    context: Context,
+    name: String,
+    expectedLength: Long? = null,
+    write: (OutputStream) -> Unit,
+): UniFile = writeNew(context, list(context), name, expectedLength, write)
+
+@PublishedApi
+internal inline fun UniFile.writeNew(
+    context: Context,
+    listed: List<UniFile>,
+    name: String,
+    expectedLength: Long?,
+    write: (OutputStream) -> Unit,
+): UniFile {
+    val made = createFresh(context, listed, name, directory = false)
+    try {
+        made.openOutputStream().use(write)
+        if (expectedLength != null && made.length() != expectedLength) throw IOException("$name was written short")
+    } catch (e: Throwable) {
+        made.deleteFile()
+        throw e
+    }
+    return made
+}
+
+/**
  * Writes [name] in this folder beside the earlier file of that name (in any letter case) and in its place only
  * once whole: the write lands in a fresh, empty in-flight sibling, which then takes the name by [replaceFile], so
  * a failed write or a refused rename keeps the earlier file, and nothing is ever written over in place. An
@@ -116,13 +147,7 @@ internal inline fun UniFile.replace(
         listed.firstOrNull { it.name == name } ?: listed.firstOrNull { it.name.equals(name, ignoreCase = true) }
     val stale = listed.firstOrNull { it.name == name + IN_FLIGHT_SUFFIX }?.also { it.deleteFile() }
     val names = listed.mapNotNullTo(HashSet()) { it.name.takeIf { file -> file !== stale } }
-    val part = createFresh(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, directory = false)
-    try {
-        part.openOutputStream().use(write)
-    } catch (e: Throwable) {
-        part.deleteFile()
-        throw e
-    }
+    val part = writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, null, write)
     val placed = if (earlier == null) {
         part.rename(name)
     } else {

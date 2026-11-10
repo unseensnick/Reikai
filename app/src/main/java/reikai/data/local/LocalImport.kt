@@ -37,9 +37,10 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.createNew
 import reikai.storage.deleteFile
 import reikai.storage.deleteIfEmpty
-import reikai.storage.freeNames
+import reikai.storage.list
 import reikai.storage.listOrNull
 import reikai.storage.replaceFile
+import reikai.storage.writeNew
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -226,10 +227,14 @@ class LocalImport(
                 }
                 // A new series never lands in a folder already there, which the preview would have shown it joining.
                 val joined = group.joins?.let { root.findFile(it) }?.takeIf { it.isDirectory }
-                val folder = joined
-                    ?: root.createDirectory(
-                        freeNames(DiskUtil.buildValidFilename(group.title)).first { root.findFile(it) == null },
+                val folder = joined ?: runCatching {
+                    val rootNames = root.list(context).mapNotNullTo(HashSet()) { it.name }
+                    root.createNew(
+                        context,
+                        freeName(DiskUtil.buildValidFilename(group.title), rootNames),
+                        directory = true,
                     )
+                }.getOrNull()
                 val path = folder?.name
                 if (folder == null || path == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
@@ -333,16 +338,11 @@ class LocalImport(
         replacing: UniFile? = null,
     ) {
         val temporary = replacing?.let { freeName("$name.part", taken) }
-        val target = folder.createNew(context, temporary ?: name)
-        try {
+        // Checked against the picker's size: a short copy must never replace the whole one.
+        val target = folder.writeNew(context, temporary ?: name, file.size.takeIf { it >= 0 }) { out ->
             val input =
                 context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
-            input.use { source -> target.openOutputStream().use { source.copyTo(it) } }
-            // A provider can end a stream early without failing; a short copy must never replace the whole one.
-            if (file.size >= 0 && target.length() != file.size) throw IOException("${file.name} was copied short")
-        } catch (e: Exception) {
-            target.deleteFile()
-            throw e
+            input.use { it.copyTo(out) }
         }
         if (replacing != null) {
             val aside = freeName("$name.old", taken)
