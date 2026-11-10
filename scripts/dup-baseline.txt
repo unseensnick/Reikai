@@ -24,6 +24,8 @@
 # - MangaViewModel / NovelDetailsViewModel / NovelLibraryViewModel / NovelReaderViewModel /
 #   MigrateNovelUseCase: DI
 #   constructor lists and the details engine twin behind the shared details contract.
+# - CombineLocalVolumes / NovelDetailsViewModel: a DI constructor list, over the token threshold once
+#   the series lock and the file journal joined it.
 # - MigrateMangaUseCase / MigrateNovelUseCase: engine twins, pinned by MigrateEngineConformanceTest.
 # - Update-error interactors and repositories: engine twins over separate tables, pinned by
 #   UpdateErrorConformanceTest.
@@ -66,6 +68,7 @@ app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f8fd4931f292a0fc
 app/src/main/java/exh/util/MangaType.kt	app/src/main/java/reikai/util/MangaLewd.kt	f95131f6c1c7530a
 app/src/main/java/mihon/domain/migration/usecases/MigrateMangaUseCase.kt	app/src/main/java/reikai/domain/novel/interactor/MigrateNovelUseCase.kt	9ea2311ff0388e98
+app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/novel/details/NovelDetailsViewModel.kt	7f653575be43535e
 app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	app/src/main/java/reikai/presentation/stats/StatsLibrary.kt	0cc11220938e45ab
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/data/track/TrackerRefreshWorker.kt	2ec218252f58acee
 app/src/main/java/reikai/data/novel/update/NovelUpdateWorker.kt	app/src/main/java/reikai/novel/export/NovelEpubExportWorker.kt	a22d3ead731f9d1c

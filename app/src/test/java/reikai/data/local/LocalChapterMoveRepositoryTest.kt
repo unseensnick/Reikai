@@ -11,6 +11,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
+import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.OwnerMoves
 import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
@@ -179,6 +180,33 @@ class LocalChapterMoveRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
+    fun `a rename takes its journal row with it`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
+
+        LocalChapterMoveRepositoryImpl(database).rename(type.contentType, RENAME, emptyList(), journalId)
+
+        rows("SELECT _id FROM local_file_journal") shouldBe emptyList()
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a rename that fails leaves its journal row for the replay`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        // A chapter already at the address the rename takes, which the owner's unique address refuses.
+        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'Bee/c1'"))
+        val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
+
+        runCatching {
+            LocalChapterMoveRepositoryImpl(database)
+                .rename(type.contentType, RENAME, listOf(ChapterMove("B/c1", "Bee/c1")), journalId)
+        }
+
+        rows("SELECT _id FROM local_file_journal") shouldBe listOf(journalId.toString())
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
     fun `deleted volumes forget their saved order and the chip left on them`(type: Type) = runTest {
         val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
         exec("INSERT INTO local_volume(content_type, series, volume_key, position) VALUES ($dbType, 'B', 'v1', 0)")
@@ -193,6 +221,8 @@ class LocalChapterMoveRepositoryTest {
 
     private companion object {
         val MOVE = OwnerMoves(2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
+        val RENAME = SeriesRename(2, "B", "Bee", emptyMap())
+        val REPLACE_PLAN = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
     }
 
     enum class Type(

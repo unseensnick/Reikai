@@ -42,7 +42,8 @@ interface LocalChapterMoveRepository {
     /**
      * Writes [rename] in one transaction: the series' address, its [chapters]' addresses with what is keyed by
      * them, and its volumes' saved order, labels and picked chip, which are keyed by folder and file names.
-     * Saved rows already at the new names are ones whose files are gone, and are replaced.
+     * Saved rows already at the new names are ones whose files are gone, and are replaced. The rename's
+     * [LocalFileJournal] row, [journalId], goes in the same transaction, so a kill leaves either both or neither.
      */
-    suspend fun rename(type: ContentType, rename: SeriesRename, chapters: List<ChapterMove>)
+    suspend fun rename(type: ContentType, rename: SeriesRename, chapters: List<ChapterMove>, journalId: Long? = null)
 }

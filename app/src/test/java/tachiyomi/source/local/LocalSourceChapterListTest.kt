@@ -16,6 +16,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.local.LocalSeriesLocks
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
@@ -32,12 +33,15 @@ class LocalSourceChapterListTest {
     private val fileSystem = LocalSourceFileSystem(
         mockk<StorageManager> { every { getLocalSourceDirectory() } returns UniFile.fromFile(root) },
     )
-    private val source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes)
+    private val source =
+        LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, openLocks())
 
     @After
     fun tearDown() {
         root.deleteRecursively()
     }
+
+    private fun openLocks() = LocalSeriesLocks().apply { open() }
 
     private suspend fun chapterUrls(series: String) = source.getMangaUpdate(
         SManga.create().apply {
@@ -91,6 +95,7 @@ class LocalSourceChapterListTest {
             Json,
             XML.v1 {},
             NoLocalVolumes,
+            openLocks(),
         )
         val saga = SManga.create().apply {
             url = "Saga"

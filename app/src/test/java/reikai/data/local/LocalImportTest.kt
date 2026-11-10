@@ -56,6 +56,7 @@ class LocalImportTest(private val type: ContentType) {
         libraryPreferences = mockk(),
         chapterNumberOverrides = mockk(),
         chapterCopyMarks = InMemoryChapterCopyMarks(),
+        journal = mockk(relaxed = true),
         novelAdder = mockk<NovelLibraryAdder> { coEvery { addToBatch(any(), any(), any()) } returns AddOutcome.Failed },
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {

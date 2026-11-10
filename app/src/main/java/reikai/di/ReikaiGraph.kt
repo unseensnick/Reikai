@@ -17,6 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import mihon.core.metro.AppCoroutineScope
 import mihon.core.migration.migrations.MergedDuplicateCarryMigration
 import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalFileJournalReplay
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
@@ -166,4 +167,7 @@ interface ReikaiGraph {
 
     // App retries, at each launch, a download folder merge the upgrade's dedupe left unfinished
     val mergedDuplicateCarryMigration: MergedDuplicateCarryMigration
+
+    // App repairs, at each launch, a local file rename or replace a kill cut off between its disk and row steps
+    val localFileJournalReplay: LocalFileJournalReplay
 }

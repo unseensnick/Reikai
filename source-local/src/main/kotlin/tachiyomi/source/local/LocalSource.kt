@@ -31,6 +31,7 @@ import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalSeriesLocks
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localVolumeChapter
 import reikai.source.local.volumeExtras
@@ -72,6 +73,7 @@ class LocalSource(
     private val json: Json,
     private val xml: XML,
     private val userVolumes: LocalVolumeRepository, // RK
+    private val seriesLocks: LocalSeriesLocks, // RK
 ) : Source, UnmeteredSource {
 
     @Suppress("PrivatePropertyName")
@@ -300,6 +302,13 @@ class LocalSource(
 
     // Chapters
     private suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
+        // RK --> under the series' lock, which Rename files holds from its disk step to its row step, so the
+        // listing cannot read the renamed files against rows at the old addresses and have the sync delete them
+        seriesLocks.withSeries(ContentType.MANGA, manga.url) { listChapters(manga) }
+    }
+
+    private suspend fun listChapters(manga: SManga): List<SChapter> {
+        // RK <--
         // RK: a folder that cannot be listed fails the refresh, as a local novel's does, since an empty list
         // deletes every chapter row of the series and its read state with it
         val chapters = listedOrFail(fileSystem.getMangaDirectory(manga.url), manga.url)
@@ -377,7 +386,7 @@ class LocalSource(
             }
         }
 
-        chapters
+        return chapters // RK: listChapters returns what getChapterList's withIOContext gave
     }
 
     // Filters

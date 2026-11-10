@@ -18,13 +18,14 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.download.renameDownloadFolder
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.SetEntryTitle
 import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
+import reikai.domain.local.LocalFileJournal
+import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.OwnerMoves
 import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
@@ -110,6 +111,8 @@ class CombineLocalVolumes(
     private val novelAdder: NovelLibraryAdder,
     private val setEntryTitle: SetEntryTitle,
     private val localVolumes: LocalVolumeRepository,
+    private val journal: LocalFileJournal,
+    private val seriesLocks: LocalSeriesLocks,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
 
@@ -575,56 +578,56 @@ class CombineLocalVolumes(
         LocalVolumeMove(result, undoing, {}, appScope)
     }
 
-    private suspend fun rename(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalMoveResult {
-        val parent = parent(type) ?: return missing(series)
-        val seriesFile = parent.findFile(series.folder) ?: return missing(series)
-        val target = names.series.to
-        if (names.series.changes && !target.equals(series.folder, true) &&
-            parent.findFile(target) != null
-        ) {
-            return taken(target)
+    // Under the series' lock from the first disk rename to the row step, so no listing reads between them; a
+    // relist comes after, since the lock is not reentrant.
+    private suspend fun rename(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalMoveResult =
+        seriesLocks.withSeries(type, series.folder) {
+            val parent = parent(type) ?: return@withSeries missing(series)
+            val seriesFile = parent.findFile(series.folder) ?: return@withSeries missing(series)
+            val target = names.series.to
+            if (names.series.changes && !target.equals(series.folder, true) &&
+                parent.findFile(target) != null
+            ) {
+                return@withSeries taken(target)
+            }
+            val volumes = names.volumes.filter { it.changes }
+            volumes.firstOrNull {
+                !it.to.equals(it.from, true) && seriesFile.findFile(it.to) != null
+            }?.let { return@withSeries taken(it.to) }
+            val volumeNames = volumes.associate { it.from to it.to }
+            val urls = if (type == ContentType.NOVELS) {
+                novelChapterRepository.getByNovelId(series.id).map { it.url }
+            } else {
+                chapterRepository.getChapterByMangaId(series.id).map { it.url }
+            }
+            val chapters = renamedChapterMoves(type, urls, series.folder, target, volumeNames)
+            val renaming =
+                JournaledRename(
+                    journal,
+                    type,
+                    series.id,
+                    parent,
+                    seriesFile,
+                    names.series.takeIf {
+                        it.changes
+                    },
+                    volumes,
+                )
+            try {
+                renaming.renameOnDisk()
+                chapterMoves.rename(
+                    type,
+                    SeriesRename(series.id, series.folder, target, volumeNames),
+                    chapters,
+                    renaming.journalId,
+                )
+                LocalMoveResult.Moved(emptyList())
+            } catch (e: Throwable) {
+                renaming.reverse()
+                if (e is CancellationException) throw e
+                LocalMoveResult.Failed(e)
+            }
         }
-        val volumes = names.volumes.filter { it.changes }
-        volumes.firstOrNull {
-            !it.to.equals(it.from, true) && seriesFile.findFile(it.to) != null
-        }?.let { return taken(it.to) }
-        val volumeNames = volumes.associate { it.from to it.to }
-        val chapters = if (type == ContentType.NOVELS) {
-            novelChapterRepository.getByNovelId(series.id).mapNotNull { chapter ->
-                val (_, volume, key) = LocalNovelSource.parseChapterPath(chapter.url) ?: return@mapNotNull null
-                // A loose book's one volume is the series' own file.
-                val renamed = volumeNames[volume] ?: if (volume == series.folder) target else volume
-                ChapterMove(chapter.url, LocalNovelSource.chapterPath(target, renamed, key))
-            }
-        } else {
-            chapterRepository.getChapterByMangaId(series.id).map { chapter ->
-                val inVolume = localVolumeChapter(chapter.url)
-                val moved = inVolume?.copy(
-                    series = target,
-                    volume = volumeNames[inVolume.volume] ?: inVolume.volume,
-                )?.url
-                ChapterMove(chapter.url, moved ?: (listOf(target) + chapter.url.split('/').drop(1)).joinToString("/"))
-            }
-        }.filter { it.fromUrl != it.toUrl }
-        val done = mutableListOf<Pair<UniFile, String>>()
-        return try {
-            volumes.forEach { volume ->
-                val file = checkNotNull(seriesFile.findFile(volume.from)) { "${volume.from} is gone" }
-                check(renameDownloadFolder(file, volume.to)) { "Could not rename ${volume.from}" }
-                done += file to volume.from
-            }
-            if (names.series.changes) {
-                check(renameDownloadFolder(seriesFile, target)) { "Could not rename ${series.folder}" }
-                done += seriesFile to series.folder
-            }
-            chapterMoves.rename(type, SeriesRename(series.id, series.folder, target, volumeNames), chapters)
-            LocalMoveResult.Moved(emptyList())
-        } catch (e: Throwable) {
-            done.asReversed().forEach { (file, name) -> renameDownloadFolder(file, name) }
-            if (e is CancellationException) throw e
-            LocalMoveResult.Failed(e)
-        }
-    }
 
     private fun failed(result: LocalMoveResult) = LocalVolumeMove(result, { result }, {}, appScope)
 

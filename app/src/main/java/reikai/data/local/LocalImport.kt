@@ -19,6 +19,8 @@ import reikai.data.novel.insertOpenedNovel
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalFileJournal
+import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.export.epubFileName
@@ -139,6 +141,7 @@ class LocalImport(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val journal: LocalFileJournal,
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
@@ -247,7 +250,9 @@ class LocalImport(
                         group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
                         else -> freeName(file.name, taken)
                     }
-                    runCatching { copy(file, folder, name, replacing = duplicate?.takeIf { name == it.name }) }
+                    runCatching {
+                        copy(group.type, file, folder, name, replacing = duplicate?.takeIf { name == it.name })
+                    }
                         .onSuccess { copied++ }
                         .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
                 }
@@ -311,7 +316,13 @@ class LocalImport(
      * Copies [file] into [folder] as [name]. Over [replacing], the copy is made beside it first and takes its
      * name only once whole, so a failed copy leaves the old file, and its chapters' read state, as it was.
      */
-    private fun copy(file: ImportFile, folder: UniFile, name: String, replacing: UniFile? = null) {
+    private suspend fun copy(
+        type: ContentType,
+        file: ImportFile,
+        folder: UniFile,
+        name: String,
+        replacing: UniFile? = null,
+    ) {
         val temporary = replacing?.let { freeNames("$name.part").first { folder.findFile(it) == null } }
         val target = folder.createFile(temporary ?: name) ?: throw IOException("Could not create $name")
         try {
@@ -326,7 +337,22 @@ class LocalImport(
         }
         if (replacing != null) {
             val aside = freeNames("$name.old").first { folder.findFile(it) == null }
-            if (!replaceFile(replacing, target, name, aside)) {
+            // Written down first: a kill between the old file stepping aside and the copy taking its name would
+            // otherwise leave the book at neither, and the next refresh would delete its chapters' read state.
+            val journaled = journal.insert(
+                type,
+                LocalFileJournalPlan.Replace(
+                    folder = folder.uri.toString(),
+                    name = name,
+                    aside = aside,
+                    part = target.name.orEmpty(),
+                    old = replacing.uri.toString(),
+                    partUri = target.uri.toString(),
+                ),
+            )
+            val replaced = replaceFile(replacing, target, name, aside)
+            journal.delete(journaled)
+            if (!replaced) {
                 target.delete()
                 throw IOException("Could not replace $name")
             }

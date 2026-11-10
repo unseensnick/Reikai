@@ -1,0 +1,22 @@
+-- A local file operation in flight whose disk step and row step cannot share a transaction (Rename files,
+-- import Replace): written before the disk step, deleted with the row step, replayed at start. The plan is
+-- a LocalFileJournalPlan as JSON.
+CREATE TABLE local_file_journal(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    content_type INTEGER NOT NULL,
+    plan TEXT NOT NULL
+);
+
+insert:
+INSERT INTO local_file_journal(content_type, plan)
+VALUES (:contentType, :plan)
+RETURNING _id;
+
+update:
+UPDATE local_file_journal SET plan = :plan WHERE _id = :id;
+
+delete:
+DELETE FROM local_file_journal WHERE _id = :id;
+
+getAll:
+SELECT _id, content_type, plan FROM local_file_journal ORDER BY _id;

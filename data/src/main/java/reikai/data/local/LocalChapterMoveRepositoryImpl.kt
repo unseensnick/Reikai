@@ -50,9 +50,15 @@ class LocalChapterMoveRepositoryImpl(
         }
     }
 
-    override suspend fun rename(type: ContentType, rename: SeriesRename, chapters: List<ChapterMove>) {
+    override suspend fun rename(
+        type: ContentType,
+        rename: SeriesRename,
+        chapters: List<ChapterMove>,
+        journalId: Long?,
+    ) {
         val dbType = type.toDbValue()
         database.transaction {
+            journalId?.let { database.local_file_journalQueries.delete(it) }
             setAddress(type, rename.id, rename.toSeries)
             chapters.forEach { moveChapter(type, rename.id, rename.id, it) }
             rename.volumes.forEach { (from, to) ->

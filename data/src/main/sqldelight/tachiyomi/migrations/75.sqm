@@ -1,0 +1,6 @@
+-- A local file operation in flight, replayed at start (local_file_journal.sq). Empty on upgrade.
+CREATE TABLE local_file_journal(
+    _id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    content_type INTEGER NOT NULL,
+    plan TEXT NOT NULL
+);

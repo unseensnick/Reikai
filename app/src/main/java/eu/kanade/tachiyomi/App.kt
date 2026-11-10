@@ -277,6 +277,7 @@ class App :
         // RK: the upgrade's dedupe leaves download folders to merge by copy, done after migrations, off the main thread
         scope.launchIO {
             Migrator.await()
+            graph.localFileJournalReplay.replay() // RK: every local listing waits for it, so it runs first
             graph.mergedDuplicateCarryMigration.carryFolders()
         }
     }

@@ -17,6 +17,7 @@ import reikai.data.novel.NovelStatusCode
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.source.CatalogueEnd
 import reikai.novel.download.inlinedImageAddress
@@ -64,6 +65,7 @@ class LocalNovelSource(
     private val json: Json,
     private val languages: LocalNovelLanguageRepository,
     private val userVolumes: LocalVolumeRepository,
+    private val seriesLocks: LocalSeriesLocks,
 ) : NovelSource {
 
     override val id: String = ID
@@ -102,7 +104,13 @@ class LocalNovelSource(
         NovelItemsPage(items, CatalogueEnd.Reported(false))
     }
 
+    // Under the series' lock, which Rename files holds from its disk step to its row step, so the listing cannot
+    // read the renamed files against rows at the old addresses and have the sync delete them.
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
+        seriesLocks.withSeries(ContentType.NOVELS, novelPath) { parseSeries(novelPath) }
+    }
+
+    private suspend fun parseSeries(novelPath: String): SourceNovel {
         val series = seriesAt(novelPath) ?: throw LocalNovelMissingException(novelPath)
         val readable = readableVolumes(series.volumes.map { file -> file to runCatching { open(file) } }) {
             LocalNovelMissingException(novelPath)
@@ -131,7 +139,7 @@ class LocalNovelSource(
                 chapterNumber = chapter.number,
             )
         }
-        SourceNovel(
+        return SourceNovel(
             path = series.path,
             name = details?.title ?: series.title(first.book),
             cover = series.coverAddress(firstFile, first.book),
