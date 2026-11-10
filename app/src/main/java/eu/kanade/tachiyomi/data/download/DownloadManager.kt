@@ -338,14 +338,14 @@ class DownloadManager(
     // resume, so clear and stop: DownloadWorker waits out a network pause until stop() clears it
     private suspend fun removeFromDownloadQueue(chapters: List<Chapter>) {
         val wasRunning = downloader.isRunning
+        // dequeue waits for the saved queue to land, so the empty check below cannot wipe it from storage
         downloader.dequeue(chapters)
-        // Before the saved queue has landed the live one looks empty, and the clear would wipe it from storage
-        downloader.awaitQueueRestored()
         if (!wasRunning && queueState.value.isEmpty()) clearQueue()
     }
 
     // A whole manga leaves the queue by the rule above, so emptying a paused queue ends it too
     private suspend fun removeQueuedManga(manga: Manga) {
+        downloader.awaitQueueRestored() // before the saved queue lands the series' chapters are not in it
         val queued = queueState.value.filter { it.manga.id == manga.id }.map { it.chapter }
         if (queued.isNotEmpty()) removeFromDownloadQueue(queued)
     }

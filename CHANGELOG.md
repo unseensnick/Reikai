@@ -115,7 +115,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**
 
-- **A novel chapter cancelled or deleted just after the app starts no longer comes back into the queue.**
+- **A manga or novel chapter cancelled or deleted just after the app starts no longer comes back into the queue.**
 
 - **Pausing novel downloads now stops fetching the current chapter's pictures straight away.**
 

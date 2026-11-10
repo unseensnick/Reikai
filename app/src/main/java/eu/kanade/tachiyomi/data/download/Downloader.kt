@@ -936,6 +936,8 @@ class Downloader(
      * Removes [chapters] from the queue, keeping the state of the downloads that stay.
      */
     suspend fun dequeue(chapters: List<Chapter>) = editQueue {
+        // RK: only a live download's saved row is removed, so one still waiting in the restore came back
+        queueRestored.await()
         removeFromQueue(chapters)
     }
 

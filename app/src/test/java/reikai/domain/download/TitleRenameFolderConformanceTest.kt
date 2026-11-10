@@ -10,8 +10,10 @@ import eu.kanade.tachiyomi.data.download.DownloadProvider
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.mockkStatic
+import io.mockk.runs
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -116,7 +118,10 @@ class MangaTitleRenameHalf : TitleRenameHalf {
             downloadPreferences = mockk(),
             getManga = mockk(),
             getChapter = mockk(),
-            downloader = mockk { every { queueState } returns MutableStateFlow(emptyList()) },
+            downloader = mockk {
+                every { queueState } returns MutableStateFlow(emptyList())
+                coEvery { awaitQueueRestored() } just runs
+            },
             pendingDeleter = mockk(),
             sourceTitles = mockk { coEvery { otherMangaTitles(1L, 1L) } returns otherTitles },
         )

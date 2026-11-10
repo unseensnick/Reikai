@@ -11,6 +11,7 @@ import io.mockk.mockk
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -111,6 +112,22 @@ class DownloaderQueueRestoreTest {
         testScheduler.advanceUntilIdle()
 
         downloader.queueState.value shouldBe emptyList()
+    }
+
+    @Test
+    fun `a chapter removed while the saved queue loads stays out`() = runTest {
+        store.addAll(listOf(Download(source, manga, chapter(3L)), Download(source, manga, chapter(4L))))
+        gateChapterLoad = true
+        val downloader = downloader()
+        testScheduler.advanceUntilIdle()
+
+        val dequeue = async { downloader.dequeue(listOf(chapter(3L))) }
+        testScheduler.advanceUntilIdle()
+        chapterGate.complete(Unit)
+        dequeue.await()
+        testScheduler.advanceUntilIdle()
+
+        downloader.queueState.value.map { it.chapter.id } shouldBe listOf(4L)
     }
 
     private fun TestScope.downloader(): Downloader {
