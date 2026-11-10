@@ -17,10 +17,11 @@ import eu.kanade.presentation.components.AppBarActions
 import eu.kanade.presentation.components.AppBarTitle
 import eu.kanade.presentation.components.DownloadDropdownMenu
 import eu.kanade.presentation.manga.DownloadAction
+import mihon.icons.custommaterialsymbols.CustomMaterialSymbols
+import mihon.icons.custommaterialsymbols.rounded.BookSmall
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.ArrowDownward
 import mihon.icons.materialsymbols.rounded.ArrowUpward
-import mihon.icons.materialsymbols.rounded.Bookmark
 import mihon.icons.materialsymbols.rounded.Download
 import mihon.icons.materialsymbols.rounded.FilterList
 import mihon.icons.materialsymbols.rounded.FlipToBack
@@ -217,7 +218,7 @@ fun EntryToolbar(
                         add(
                             AppBar.Action(
                                 title = stringResource(MR.strings.action_scroll_to_next_unread),
-                                icon = MaterialSymbols.Rounded.Bookmark,
+                                icon = CustomMaterialSymbols.Rounded.BookSmall,
                                 onClick = jumps.toNextUnread,
                             ),
                         )
