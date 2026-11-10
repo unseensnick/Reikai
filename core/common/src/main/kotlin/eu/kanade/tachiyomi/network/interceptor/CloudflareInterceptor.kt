@@ -275,12 +275,19 @@ class CloudflareInterceptor(
     private fun served(chain: Interceptor.Chain, response: Response): Response {
         val hop = webViewFetchChallengedHop(response) ?: return response
         response.close()
-        clearClearance(hop.url)
-        try {
-            resolveWithWebView(hop, hop.url, clearance(hop.url))
-        } catch (_: CloudflareBypassException) {
-            // Open in WebView then opens the page that is challenged, not the site that sent it there.
-            throw CloudflareBypassException(hop.url)
+        val challenged = clearance(hop.url)
+        // Under the hop's own host lock, as a direct request's solve is, or requests sent there together
+        // each ran a WebView and cleared the clearance the other earned. A cross-site lock cycle would
+        // need two sites redirecting into each other, which no browser follows.
+        hostLocks.computeIfAbsent(hop.url.host) { ReentrantReadWriteLock() }.write {
+            if (isCleared(hop.url, challenged)) return@write
+            clearClearance(hop.url)
+            try {
+                resolveWithWebView(hop, hop.url, clearance(hop.url))
+            } catch (_: CloudflareBypassException) {
+                // Open in WebView then opens the page that is challenged, not the site that sent it there.
+                throw CloudflareBypassException(hop.url)
+            }
         }
         return chain.proceed(hop)
     }

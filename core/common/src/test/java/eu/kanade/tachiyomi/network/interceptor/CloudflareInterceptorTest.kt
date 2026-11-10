@@ -307,8 +307,8 @@ class CloudflareInterceptorTest {
         served.get() shouldBe 3
     }
 
-    @Test
-    fun `a challenge served after a redirect to another site is solved once`() {
+    // A jar holding a clearance per host, so one site's solve leaves another's challenged.
+    private fun clearancesPerHost(): ConcurrentHashMap<String, String> {
         val clearances = ConcurrentHashMap<String, String>()
         val jar = mockk<AndroidCookieJar>()
         every { jar.get(any()) } answers {
@@ -323,6 +323,40 @@ class CloudflareInterceptorTest {
         }
         CloudflareInterceptor::class.java.getDeclaredField("cookieManager").apply { isAccessible = true }
             .set(interceptor, jar)
+        return clearances
+    }
+
+    @Test
+    fun `a challenge a WebView fetch was redirected into is solved once`() {
+        val clearances = clearancesPerHost()
+        val fetched = CountDownLatch(4)
+        // The mirror's pages are fetched in the WebView, which lands on the main site, challenged until cleared.
+        val fetcher = mockk<WebViewFetcher> {
+            every { serves(any()) } returns true
+            every { fetch(any(), any()) } answers {
+                val landed = secondArg<Request>().newBuilder().url("https://main.example/").build()
+                fetched.countDown()
+                WebViewFetcher.Outcome.Served(if (clearances["main.example"] == null) server(landed) else ok(landed))
+            }
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(interceptor, fetcher)
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            solves.incrementAndGet()
+            fetched.await(1, TimeUnit.SECONDS)
+            clearances["main.example"] = "solved"
+            Unit
+        }
+        val respond = { request: Request -> if (request.url.host == "main.example") ok(request) else server(request) }
+
+        runAll(4) { interceptor.intercept(chain("https://mirror.example/page/$it", respond)).close() }
+
+        solves.get() shouldBe 1
+    }
+
+    @Test
+    fun `a challenge served after a redirect to another site is solved once`() {
+        val clearances = clearancesPerHost()
         // The mirror redirects every request to the main site, which challenges until it is cleared.
         val (challenged, redirecting) = allChallenged(4) { request ->
             val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
