@@ -21,7 +21,7 @@ class LocalNovelChapterPathTest {
         fun addresses() = listOf(
             Arguments.of("Saga: One", "01 - Book.epub", EpubChapterKey("OEBPS/a.xhtml")),
             Arguments.of("Saga", "Book.epub", EpubChapterKey("OEBPS/a b+c.xhtml", fragment = "id::with:colons")),
-            Arguments.of("Saga", "Book.epub", EpubChapterKey("a.xhtml", heading = 2)),
+            Arguments.of("Saga", "Book.epub", EpubChapterKey("a.xhtml", heading = "1:Act: Two")),
             Arguments.of("A::B", "Book.epub", EpubChapterKey("a.xhtml")),
             Arguments.of("Saga", "x::y.epub", EpubChapterKey("a::b.xhtml")),
         )

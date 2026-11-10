@@ -470,9 +470,7 @@ class LocalNovelSource(
             val (series, volume, file, at) = parts
             val key = when {
                 at.startsWith("f:") -> EpubChapterKey(file, fragment = at.removePrefix("f:"))
-                at.startsWith(
-                    "h:",
-                ) -> EpubChapterKey(file, heading = at.removePrefix("h:").toIntOrNull() ?: return null)
+                at.startsWith("h:") -> EpubChapterKey(file, heading = at.removePrefix("h:"))
                 at == "t" -> EpubChapterKey(file)
                 else -> return null
             }

@@ -199,6 +199,31 @@ class EpubChaptersTest {
         chapterTexts(book).withoutFill() shouldBe names.map { it to "$it $it one" }
     }
 
+    private fun headingKeys(vararg names: String): List<Pair<String, EpubChapterKey>> {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml")),
+                "OEBPS/a.xhtml" to xhtml(names.joinToString("") { "<h2>$it</h2><p>$fill</p>" }),
+            ),
+        )
+        return EpubChapters.list(EpubBook.parse(book), book).map { it.title to it.key }
+    }
+
+    @Test
+    fun `a heading added to a single file book moves no other chapter's key`() {
+        val before = headingKeys("One", "Two", "Three", "Four")
+        val after = headingKeys("One", "Two", "New", "Three", "Four")
+
+        after.filter { it.first != "New" } shouldBe before
+    }
+
+    @Test
+    fun `two headings of one name in a single file book keep apart`() {
+        val keys = headingKeys("Interlude", "One", "Interlude").map { it.second }
+
+        keys.distinct().size shouldBe 3
+    }
+
     private val illustrated = epub(
         mapOf(
             "OEBPS/content.opf" to opf(listOf("a" to "text/a.xhtml"), nav = "nav.xhtml"),

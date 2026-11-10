@@ -19,10 +19,11 @@ data class EpubCut(val spineIndex: Int, val fragment: String? = null, val headin
 
 /**
  * What a chapter is known by from one version of its book to the next: the file and anchor its contents
- * entry points at, or the heading it is cut at, never its place in the spine, so a file added to the book
- * moves no later chapter.
+ * entry points at, or the [heading] it is cut at by that heading's text and how many cut headings before it
+ * share the text, never a place in the spine or among the headings, so a chapter added to the book moves no
+ * other chapter. [heading] is opaque: [EpubCut.heading] is what slices the file.
  */
-data class EpubChapterKey(val path: String, val fragment: String? = null, val heading: Int? = null)
+data class EpubChapterKey(val path: String, val fragment: String? = null, val heading: String? = null)
 
 data class EpubChapterRef(val title: String, val start: EpubCut, val key: EpubChapterKey)
 
@@ -71,11 +72,14 @@ object EpubChapters {
             if (!document.hasText()) return@flatMapIndexed emptyList()
             val headings = topHeadings(document.body())
             if (book.spine.size == 1 && headings.size > 1) {
+                val seen = mutableMapOf<String, Int>()
                 headings.mapIndexed { n, heading ->
+                    val text = heading.text().replace(WHITESPACE, " ").trim()
+                    val occurrence = seen.getOrDefault(text, 0).also { seen[text] = it + 1 }
                     EpubChapterRef(
                         heading.text().trim(),
                         EpubCut(index, heading = n),
-                        EpubChapterKey(path, heading = n),
+                        EpubChapterKey(path, heading = "$occurrence:$text"),
                     )
                 }
             } else {
@@ -342,6 +346,7 @@ object EpubChapters {
     private val NUMBERED_START =
         Regex("""^\s*(?:chapter|book|part|volume|vol|canto|section|arc|episode|ch)\b""", RegexOption.IGNORE_CASE)
     private const val PATH_ATTR = "data-epub-path"
+    private val WHITESPACE = Regex("""\s+""")
     private val CSS_URL = Regex("""url\(\s*(['"]?)([^'")]+)\1\s*\)""")
 
     // Every brace escaped: Android's ICU engine rejects a bare `}` that Java's own accepts.
