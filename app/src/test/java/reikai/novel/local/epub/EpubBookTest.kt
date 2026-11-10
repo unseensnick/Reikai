@@ -15,6 +15,21 @@ class EpubBookTest {
     private fun book(vararg files: Pair<String, String>) = EpubBook.parse(epub(files.toMap()))
 
     @Test
+    fun `a library subject heading reads as its topic`() {
+        subjectTopic("Russia -- History -- Alexander I, 1801-1825 -- Fiction") shouldBe "Russia"
+    }
+
+    @Test
+    fun `a subject with a date range after a comma keeps the name before it`() {
+        subjectTopic("Napoleonic Wars, 1800-1815 -- Campaigns -- Russia -- Fiction") shouldBe "Napoleonic Wars"
+    }
+
+    @Test
+    fun `a plain subject is kept as it is`() {
+        subjectTopic(" Slice of Life ") shouldBe "Slice of Life"
+    }
+
+    @Test
     fun `an archive with only the default package and pictures is an EPUB`() {
         EpubBook.looksLikeEpub(listOf("OEBPS/content.opf", "OEBPS/a.jpg")) shouldBe true
     }
@@ -66,6 +81,22 @@ class EpubBookTest {
             "OEBPS/nav.xhtml" to nav("Part" to "a.xhtml#p", ">Chapter" to "a.xhtml#c"),
             "OEBPS/a.xhtml" to xhtml("<p>x</p>"),
         ).toc.map { it.title to it.depth } shouldBe listOf("Part" to 0, "Chapter" to 1)
+    }
+
+    @Test
+    fun `a book's subject headings become one tag per topic`() {
+        val meta = book(
+            "OEBPS/content.opf" to opf(
+                listOf("a" to "a.xhtml"),
+                metadata = """<dc:title>W</dc:title><dc:subject>Historical fiction</dc:subject>
+                    <dc:subject>Napoleonic Wars, 1800-1815 -- Campaigns -- Russia -- Fiction</dc:subject>
+                    <dc:subject>Russia -- History -- Alexander I, 1801-1825 -- Fiction</dc:subject>
+                    <dc:subject>Russia -- Fiction</dc:subject>""",
+            ),
+            "OEBPS/a.xhtml" to xhtml("<p>x</p>"),
+        ).metadata
+
+        meta.genres shouldBe listOf("Historical fiction", "Napoleonic Wars", "Russia")
     }
 
     @Test

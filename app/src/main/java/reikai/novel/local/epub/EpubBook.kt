@@ -101,7 +101,7 @@ class EpubBook(
                 title = dc("title").firstOrNull(),
                 author = dc("creator").takeIf { it.isNotEmpty() }?.joinToString(", "),
                 description = dc("description").firstOrNull()?.let(::descriptionText)?.ifBlank { null },
-                genres = dc("subject"),
+                genres = dc("subject").map(::subjectTopic).filter { it.isNotEmpty() }.distinctBy { it.lowercase() },
                 language = dc("language").firstOrNull(),
                 series = (collection?.text()?.trim()?.ifEmpty { null } ?: named("calibre:series"))?.ifEmpty { null },
                 seriesIndex = (collectionIndex ?: named("calibre:series_index"))?.trim()?.toDoubleOrNull(),
@@ -254,3 +254,11 @@ internal fun resolve(base: String, href: String): String {
 }
 
 private fun decode(value: String): String = decodePercentKeepingPlus(value) ?: value
+
+/**
+ * A `dc:subject` as one tag. Library-catalogued books (Project Gutenberg's among them) give subject headings
+ * such as "Russia -- History -- Alexander I, 1801-1825 -- Fiction", whose commas the comma-joined genre list
+ * would split into fragments, so a heading keeps only its topic: "Russia". Plain tags pass through.
+ */
+internal fun subjectTopic(subject: String): String =
+    subject.substringBefore(" -- ").substringBefore(",").trim()
