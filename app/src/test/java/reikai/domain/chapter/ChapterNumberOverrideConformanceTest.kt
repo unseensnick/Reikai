@@ -141,6 +141,7 @@ class ChapterNumberOverrideConformanceTest {
                     libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = InMemoryChapterCopyMarks(),
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     chapters.map { (url, number) ->
                         SChapter.create().apply {
@@ -193,6 +194,7 @@ class ChapterNumberOverrideConformanceTest {
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
                     InMemoryChapterCopyMarks(),
+                    NoChapterTombstones,
                 ).changed
 
             override suspend fun number(database: Database, url: String) =

@@ -18,6 +18,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelChapterRepository
@@ -408,6 +409,7 @@ object NovelProbe : Probe {
             installer = mockk(relaxed = true),
             chapterNumberOverrides = NoChapterNumberOverrides,
             chapterCopyMarks = InMemoryChapterCopyMarks(),
+            localTombstones = NoChapterTombstones,
         )
     }
 

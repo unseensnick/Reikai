@@ -16,6 +16,7 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.entry.EntryId
@@ -102,6 +103,7 @@ class CombineLocalVolumes(
     private val libraryPreferences: LibraryPreferences,
     private val numberOverrides: ChapterNumberOverrideRepository,
     private val copyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val coverCache: CoverCache,
     private val novelDownloadManager: () -> NovelDownloadManager,
     private val removeNovels: RemoveNovelsFromLibrary,
@@ -451,6 +453,7 @@ class CombineLocalVolumes(
                 libraryPreferences,
                 numberOverrides,
                 copyMarks,
+                localTombstones,
                 coverCache,
                 novelDownloadManager = novelDownloadManager(),
                 manualFetch = true,

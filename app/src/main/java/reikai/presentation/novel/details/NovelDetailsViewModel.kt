@@ -70,6 +70,7 @@ import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.EditChapterNumber
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.hiddenChapterKey
 import reikai.domain.download.SourceContacts
@@ -233,6 +234,7 @@ class NovelDetailsViewModel(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val editChapterNumber: EditChapterNumber,
     private val context: Context,
     // Non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
@@ -875,6 +877,7 @@ class NovelDetailsViewModel(
                 libraryPreferences,
                 chapterNumberOverrides,
                 chapterCopyMarks,
+                localTombstones,
                 downloadManager,
             )
         } else {
@@ -889,6 +892,7 @@ class NovelDetailsViewModel(
                 libraryPreferences,
                 chapterNumberOverrides,
                 chapterCopyMarks,
+                localTombstones,
                 downloadManager,
             )
         }
@@ -914,6 +918,7 @@ class NovelDetailsViewModel(
                         libraryPreferences,
                         chapterNumberOverrides,
                         chapterCopyMarks,
+                        localTombstones,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
                     )
@@ -1093,6 +1098,7 @@ class NovelDetailsViewModel(
                 libraryPreferences,
                 chapterNumberOverrides,
                 chapterCopyMarks,
+                localTombstones,
                 coverCache,
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
@@ -1115,6 +1121,7 @@ class NovelDetailsViewModel(
                         libraryPreferences,
                         chapterNumberOverrides,
                         chapterCopyMarks,
+                        localTombstones,
                         page = key,
                         novelDownloadManager = downloadManager,
                     )

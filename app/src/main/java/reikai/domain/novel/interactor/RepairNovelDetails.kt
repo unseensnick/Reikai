@@ -7,6 +7,7 @@ import reikai.data.novel.StoredDetails
 import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -34,6 +35,7 @@ class RepairNovelDetails(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val coverCache: CoverCache,
     private val reconcileMergedChapters: ReconcileMergedChapters,
 ) {
@@ -59,6 +61,7 @@ class RepairNovelDetails(
                         libraryPreferences,
                         chapterNumberOverrides,
                         chapterCopyMarks,
+                        localTombstones,
                         coverCache,
                         novelDownloadManager = downloadManager(),
                         // The parse tells the victim from its donor. A user's own edits live in

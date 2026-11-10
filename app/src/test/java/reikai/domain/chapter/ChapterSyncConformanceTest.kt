@@ -186,6 +186,7 @@ class ChapterSyncConformanceTest {
                     libraryPreferences = libraryPreferences(markDuplicates),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = copyMarks,
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     chapters.map { listed ->
                         SChapter.create().apply {
@@ -234,6 +235,7 @@ class ChapterSyncConformanceTest {
                     libraryPreferences(markDuplicates),
                     ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks,
+                    NoChapterTombstones,
                 )
                 return Synced(result.foundRelease, result.newChapters.map { it.url })
             }

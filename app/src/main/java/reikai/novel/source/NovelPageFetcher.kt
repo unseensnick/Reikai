@@ -14,6 +14,7 @@ import reikai.data.novel.toNovel
 import reikai.data.novel.withoutPageCount
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.download.NovelChapterSaver
@@ -37,6 +38,7 @@ class NovelPageFetcher(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val coverCache: CoverCache,
     private val saver: NovelChapterSaver,
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -76,6 +78,7 @@ class NovelPageFetcher(
             libraryPreferences,
             chapterNumberOverrides,
             chapterCopyMarks,
+            localTombstones,
             novelDownloadManager = novelDownloadManager(),
         )
         predictNovelFetchInterval(

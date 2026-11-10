@@ -9,6 +9,7 @@ import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.SourceNovel
 import reikai.novel.source.NovelExtensionFormat
@@ -34,6 +35,7 @@ class NovelPageWalkTest {
                 libraryPreferences = mockk(),
                 numberOverrides = NoChapterNumberOverrides,
                 copyMarks = InMemoryChapterCopyMarks(),
+                tombstones = NoChapterTombstones,
             )
         }
 

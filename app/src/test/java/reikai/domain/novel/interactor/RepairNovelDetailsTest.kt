@@ -16,6 +16,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.ChapterItem
@@ -191,6 +192,7 @@ class RepairNovelDetailsTest {
             ),
             chapterNumberOverrides = NoChapterNumberOverrides,
             chapterCopyMarks = InMemoryChapterCopyMarks(),
+            localTombstones = NoChapterTombstones,
         )
 
         repair.await()

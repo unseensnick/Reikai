@@ -472,6 +472,10 @@ class LocalNovelSource(
             return encoded(listOf(series, volume, key.path, at))
         }
 
+        /** What every chapter address of book [volume] in the series at [series] starts with. */
+        internal fun volumePathPrefix(series: String, volume: String): String =
+            encoded(listOf(series, volume)) + PATH_SEPARATOR
+
         internal fun parseChapterPath(path: String): Triple<String, String, EpubChapterKey>? {
             val parts = decoded(path) ?: return null
             if (parts.size != 4) return null

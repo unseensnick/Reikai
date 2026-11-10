@@ -19,6 +19,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.novel.download.NovelDownloadManager
@@ -83,6 +84,7 @@ class ResolveNovelLinkTest {
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         chapterNumberOverrides = NoChapterNumberOverrides,
         chapterCopyMarks = InMemoryChapterCopyMarks(),
+        localTombstones = NoChapterTombstones,
         coverCache = coverCache,
         novelDownloadManager = { downloads },
     )

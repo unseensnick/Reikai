@@ -11,6 +11,7 @@ import reikai.data.novel.toNovel
 import reikai.data.novel.toSourceChapters
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
@@ -60,6 +61,7 @@ class NovelMigrationFlowAdapter(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val coverCache: CoverCache,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
@@ -257,6 +259,7 @@ class NovelMigrationFlowAdapter(
                     libraryPreferences,
                     chapterNumberOverrides,
                     chapterCopyMarks,
+                    localTombstones,
                     coverCache,
                     novelDownloadManager = downloadManager,
                 )

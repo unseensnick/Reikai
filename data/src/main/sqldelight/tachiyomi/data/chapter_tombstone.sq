@@ -1,0 +1,153 @@
+import kotlin.Boolean;
+import kotlin.Int;
+import kotlin.time.Instant;
+
+-- The reading state of a local chapter a refresh removed, one table per content type, keyed by the
+-- chapter's owner and url like chapter_copy_mark, so the chapter comes back whole when its file does.
+-- sessions is a JSON array of [ended_at, duration] pairs, built with group_concat since the dialect
+-- knows no json_group_array; a null history_* or words means the chapter had no such row. Retention
+-- is the owner's own lifetime: the owner's cascade is the only delete.
+CREATE TABLE manga_chapter_tombstone(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    chapter_number REAL NOT NULL,
+    read INTEGER AS Boolean NOT NULL,
+    bookmark INTEGER AS Boolean NOT NULL,
+    last_page_read INTEGER AS Int NOT NULL,
+    page_count INTEGER AS Int NOT NULL,
+    date_fetch INTEGER AS Instant NOT NULL,
+    history_read_at INTEGER AS Instant,
+    history_read_duration INTEGER,
+    sessions TEXT NOT NULL,
+    removed_at INTEGER NOT NULL,
+    PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_tombstone(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    chapter_number REAL NOT NULL,
+    read INTEGER AS Boolean NOT NULL,
+    bookmark INTEGER AS Boolean NOT NULL,
+    last_text_progress INTEGER NOT NULL,
+    words INTEGER,
+    listened_ms INTEGER,
+    date_fetch INTEGER AS Instant NOT NULL,
+    history_last_read INTEGER AS Instant,
+    history_time_read INTEGER,
+    sessions TEXT NOT NULL,
+    removed_at INTEGER NOT NULL,
+    PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+-- One statement per sync, in the transaction that deletes the rows: the row's own state, its history
+-- row and its sessions, which the delete would cascade away.
+captureManga:
+INSERT OR REPLACE INTO manga_chapter_tombstone(
+    manga_id, url, chapter_number, read, bookmark, last_page_read, page_count, date_fetch,
+    history_read_at, history_read_duration, sessions, removed_at
+)
+SELECT C.manga_id, C.remote_url, C.remote_chapter_number, C.user_read, C.user_bookmark,
+    C.user_last_page_read, C.page_count, C.state_date_fetch, H.read_at, H.read_duration,
+    '[' || coalesce(
+        (SELECT group_concat('[' || S.ended_at || ',' || S.duration || ']', ',') FROM reading_session S WHERE S.chapter_id = C.id),
+        ''
+    ) || ']',
+    :removedAt
+FROM chapter C
+LEFT JOIN history H ON H.chapter_id = C.id
+WHERE C.id IN :ids;
+
+captureNovel:
+INSERT OR REPLACE INTO novel_chapter_tombstone(
+    novel_id, url, chapter_number, read, bookmark, last_text_progress, words, listened_ms, date_fetch,
+    history_last_read, history_time_read, sessions, removed_at
+)
+SELECT C.novel_id, C.url, C.chapter_number, C.read, C.bookmark, C.last_text_progress, W.words, W.listened_ms,
+    C.date_fetch, H.last_read, H.time_read,
+    '[' || coalesce(
+        (SELECT group_concat('[' || S.ended_at || ',' || S.duration || ']', ',') FROM novel_reading_session S WHERE S.chapter_id = C._id),
+        ''
+    ) || ']',
+    :removedAt
+FROM novel_chapters C
+LEFT JOIN novel_history H ON H.chapter_id = C._id
+LEFT JOIN novel_chapter_words W ON W.chapter_id = C._id
+WHERE C._id IN :ids;
+
+-- What an arriving chapter is matched against: the owner's tombstones by url and number.
+mangaByOwner:
+SELECT url, chapter_number
+FROM manga_chapter_tombstone
+WHERE manga_id = :ownerId;
+
+novelByOwner:
+SELECT url, chapter_number
+FROM novel_chapter_tombstone
+WHERE novel_id = :ownerId;
+
+-- The tombstone at :tombstoneUrl onto the chapter just stored at :url, in the transaction that stored it.
+reviveManga:
+UPDATE chapter
+SET user_read = T.read,
+    user_bookmark = T.bookmark,
+    user_last_page_read = T.last_page_read,
+    page_count = T.page_count,
+    state_date_fetch = T.date_fetch
+FROM manga_chapter_tombstone T
+WHERE T.manga_id = :ownerId AND T.url = :tombstoneUrl
+AND chapter.manga_id = :ownerId AND chapter.remote_url = :url;
+
+reviveMangaHistory:
+INSERT INTO history(manga_id, chapter_id, read_at, read_duration)
+SELECT C.manga_id, C.id, T.history_read_at, coalesce(T.history_read_duration, 0)
+FROM manga_chapter_tombstone T
+INNER JOIN chapter C ON C.manga_id = T.manga_id AND C.remote_url = :url
+WHERE T.manga_id = :ownerId AND T.url = :tombstoneUrl AND T.history_read_duration IS NOT NULL;
+
+reviveNovel:
+UPDATE novel_chapters
+SET read = T.read,
+    bookmark = T.bookmark,
+    last_text_progress = T.last_text_progress,
+    date_fetch = T.date_fetch
+FROM novel_chapter_tombstone T
+WHERE T.novel_id = :ownerId AND T.url = :tombstoneUrl
+AND novel_chapters.novel_id = :ownerId AND novel_chapters.url = :url;
+
+reviveNovelHistory:
+INSERT INTO novel_history(chapter_id, last_read, time_read)
+SELECT C._id, T.history_last_read, coalesce(T.history_time_read, 0)
+FROM novel_chapter_tombstone T
+INNER JOIN novel_chapters C ON C.novel_id = T.novel_id AND C.url = :url
+WHERE T.novel_id = :ownerId AND T.url = :tombstoneUrl AND T.history_time_read IS NOT NULL;
+
+reviveNovelWords:
+INSERT INTO novel_chapter_words(chapter_id, words, listened_ms)
+SELECT C._id, coalesce(T.words, 0), coalesce(T.listened_ms, 0)
+FROM novel_chapter_tombstone T
+INNER JOIN novel_chapters C ON C.novel_id = T.novel_id AND C.url = :url
+WHERE T.novel_id = :ownerId AND T.url = :tombstoneUrl AND T.words IS NOT NULL;
+
+mangaSessions:
+SELECT sessions
+FROM manga_chapter_tombstone
+WHERE manga_id = :ownerId AND url = :url;
+
+novelSessions:
+SELECT sessions
+FROM novel_chapter_tombstone
+WHERE novel_id = :ownerId AND url = :url;
+
+-- A tombstone revives once.
+consumeManga:
+DELETE FROM manga_chapter_tombstone
+WHERE manga_id = :ownerId AND url = :url;
+
+consumeNovel:
+DELETE FROM novel_chapter_tombstone
+WHERE novel_id = :ownerId AND url = :url;

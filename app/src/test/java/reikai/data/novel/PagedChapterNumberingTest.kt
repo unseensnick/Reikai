@@ -10,6 +10,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.library.ContentType
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -90,6 +91,7 @@ class PagedChapterNumberingTest {
             LibraryPreferences(InMemoryPreferenceStore()),
             overrides,
             InMemoryChapterCopyMarks(),
+            NoChapterTombstones,
             page = page,
         )
     }

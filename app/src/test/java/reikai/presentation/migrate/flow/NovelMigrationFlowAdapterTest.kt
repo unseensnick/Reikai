@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -68,6 +69,7 @@ class NovelMigrationFlowAdapterTest {
         installer = mockk(),
         chapterNumberOverrides = NoChapterNumberOverrides,
         chapterCopyMarks = InMemoryChapterCopyMarks(),
+        localTombstones = NoChapterTombstones,
     )
 
     private val adapter = adapter()

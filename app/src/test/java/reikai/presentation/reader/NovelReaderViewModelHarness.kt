@@ -43,6 +43,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.download.SourceContacts
@@ -485,6 +486,7 @@ class NovelReaderViewModelHarness private constructor(
             libraryPreferences = LibraryPreferences(store),
             chapterNumberOverrides = numberOverrides,
             chapterCopyMarks = copyMarks,
+            localTombstones = NoChapterTombstones,
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },

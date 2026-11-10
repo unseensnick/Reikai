@@ -20,6 +20,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.db.Transactions
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -1037,6 +1038,7 @@ class NovelEngine : MigrateEngine {
             novelHistoryRepository = history,
             chapterNumberOverrides = NoChapterNumberOverrides,
             chapterCopyMarks = InMemoryChapterCopyMarks(),
+            localTombstones = NoChapterTombstones,
             readingLog = rec.readingLog,
             readingPace = NoReadingPace,
         )

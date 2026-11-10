@@ -21,6 +21,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -110,6 +111,7 @@ class RemovedChapterQueueConformanceTest {
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = InMemoryChapterCopyMarks(),
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     urls.mapIndexed { i, url ->
                         SChapter.create().apply {
@@ -156,6 +158,7 @@ class RemovedChapterQueueConformanceTest {
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
                     InMemoryChapterCopyMarks(),
+                    NoChapterTombstones,
                     novelDownloadManager = downloads,
                 )
             }

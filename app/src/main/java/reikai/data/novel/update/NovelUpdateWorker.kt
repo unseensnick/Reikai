@@ -44,6 +44,7 @@ import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -109,6 +110,8 @@ class NovelUpdateWorker(
     @Inject private lateinit var chapterNumberOverrides: ChapterNumberOverrideRepository
 
     @Inject private lateinit var chapterCopyMarks: ChapterCopyMarkRepository
+
+    @Inject private lateinit var localTombstones: LocalChapterTombstones
 
     @Inject private lateinit var coverCache: CoverCache
 
@@ -236,6 +239,7 @@ class NovelUpdateWorker(
         libraryPreferences,
         chapterNumberOverrides,
         chapterCopyMarks,
+        localTombstones,
         coverCache,
         novelDownloadManager = downloadManager,
         fetchWindow = fetchWindow,

@@ -128,6 +128,7 @@ androidx-preference = { module = "androidx.preference:preference-ktx", version.r
 androidx-profileInstaller = { module = "androidx.profileinstaller:profileinstaller", version.ref = "androidx-profileInstaller" }
 androidx-recyclerView = { module = "androidx.recyclerview:recyclerview", version.ref = "androidx-recyclerView" }
 androidx-sqlite-bundled = { module = "androidx.sqlite:sqlite-bundled", version.ref = "androidx-sqlite" }
+androidx-sqlite-framework = { module = "androidx.sqlite:sqlite-framework", version.ref = "androidx-sqlite" }
 androidx-test-espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "androidx-test-espresso" }
 androidx-test-junit = { module = "androidx.test.ext:junit", version.ref = "androidx-test-junit" }
 androidx-test-uiautomator = { module = "androidx.test.uiautomator:uiautomator", version.ref = "androidx-test-uiautomator" }

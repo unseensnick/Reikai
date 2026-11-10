@@ -6,7 +6,9 @@ import reikai.domain.chapter.ArrivingChapter
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.CopyMark
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.StoredChapter
+import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.appliedTo
 import reikai.domain.chapter.chapterArrivals
 import reikai.domain.chapter.foundRelease
@@ -19,6 +21,7 @@ import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
+import reikai.novel.local.LocalNovelSource
 import tachiyomi.data.chapter.ChapterSanitizer
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -40,6 +43,7 @@ suspend fun syncChaptersWithNovelSource(
     libraryPreferences: LibraryPreferences,
     numberOverrides: ChapterNumberOverrideRepository,
     copyMarks: ChapterCopyMarkRepository,
+    tombstones: LocalChapterTombstones,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
@@ -84,6 +88,9 @@ suspend fun syncChaptersWithNovelSource(
     val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
     val sourceNumbers = overridden.chapters.associate { it.url to it.chapterNumber }
     val toDelete = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else emptyList()
+    // A local book's chapter whose file is still there fails the refresh, as a local manga's does.
+    val isLocal = LocalNovelSource.isLocal(novel.source)
+    tombstones.confirm(ContentType.NOVELS, isLocal, toDelete.map { it.toSyncedChapter() }, sourceUrls)
 
     val managedUrls = mutableSetOf<String>()
     for (sourceChapter in sourceChapters) {
@@ -149,7 +156,19 @@ suspend fun syncChaptersWithNovelSource(
         )
     }
 
-    val insertedChapters = novelChapterRepository.updateFromRemote(toDelete.map { it.id }, updatedToAdd, toChange)
+    // A local book keeps a removed chapter's reading state and gives it back when the chapter returns, in
+    // the write's own transaction; a chapter that came back is not new.
+    val revived = tombstones.around(
+        ContentType.NOVELS,
+        novelId,
+        isLocal,
+        removed = toDelete.map { it.toSyncedChapter() },
+        arriving = updatedToAdd.map { it.toSyncedChapter() },
+    ) {
+        novelChapterRepository.updateFromRemote(toDelete.map { it.id }, updatedToAdd, toChange)
+    }
+    val insertedChapters = revived.result
+    changedOrDuplicateReadUrls += revived.urls
 
     // novels.last_update tracks the last time the chapter list changed at all; only on a real change.
     novelRepository.update(NovelUpdate(novel.id) { lastUpdate = now })
@@ -172,7 +191,12 @@ suspend fun syncChaptersWithNovelSource(
     return NovelChapterSyncResult(
         insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls },
         changed = true,
-        foundRelease(hadChapters, arrivals),
+        foundRelease(
+            hadChapters,
+            toAdd.zip(arrivals).filter { (chapter, _) ->
+                chapter.url !in revived.urls
+            }.map { it.second },
+        ),
     )
 }
 
@@ -210,3 +234,5 @@ private fun numbered(novelTitle: String, chapters: List<NovelChapter>): List<Nov
 
 private fun NovelChapter.toStoredChapter(number: Double = chapterNumber, mark: CopyMark? = null) =
     StoredChapter(number, read, bookmark, dateFetch, name, scanlator, mark)
+
+private fun NovelChapter.toSyncedChapter() = SyncedChapter(id, url, chapterNumber)

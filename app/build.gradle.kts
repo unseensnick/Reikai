@@ -409,6 +409,9 @@ dependencies {
     // through :data, so the SQLDelight runtime those tests compile against is test-only here too.
     testImplementation(libs.sqldelight.sqliteDriver)
     testImplementation(libs.bundles.sqldelight)
+    // RK: the production SQLDelight driver over Robolectric's SQLite, for the tests that pin how its
+    // transactions nest (ChapterTombstoneTransactionTest); the bundled driver has no desktop natives here.
+    testImplementation(libs.androidx.sqlite.framework)
 
     // RK: screenshot comparison for the Compose UI tests, see docs/dev/testing.md
     testImplementation(libs.roborazzi)

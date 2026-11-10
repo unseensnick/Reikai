@@ -18,6 +18,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import reikai.domain.novel.NovelRepository
@@ -125,6 +126,7 @@ class NovelRefreshTest {
         preferences,
         NoChapterNumberOverrides,
         InMemoryChapterCopyMarks(),
+        NoChapterTombstones,
         coverCache,
         novelDownloadManager = downloadManager,
         manualFetch = manualFetch,
@@ -381,6 +383,7 @@ class NovelRefreshTest {
         libraryPreferences,
         NoChapterNumberOverrides,
         InMemoryChapterCopyMarks(),
+        NoChapterTombstones,
         page = page,
     )
 
@@ -422,6 +425,7 @@ class NovelRefreshTest {
             libraryPreferences,
             NoChapterNumberOverrides,
             InMemoryChapterCopyMarks(),
+            NoChapterTombstones,
         )!!
 
     @Test

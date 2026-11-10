@@ -107,6 +107,7 @@ class UploadDateSyncConformanceTest {
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = InMemoryChapterCopyMarks(),
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     listOf(
                         SChapter.create().apply {
@@ -160,6 +161,7 @@ class UploadDateSyncConformanceTest {
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
                     InMemoryChapterCopyMarks(),
+                    NoChapterTombstones,
                 )
             }
 

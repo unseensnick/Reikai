@@ -7,6 +7,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.sentName
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -37,6 +38,7 @@ class ResolveNovelLink(
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val chapterCopyMarks: ChapterCopyMarkRepository,
+    private val localTombstones: LocalChapterTombstones,
     private val coverCache: CoverCache,
     // Built only by a chapter link's refresh, since building it reads the saved queue
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -51,6 +53,7 @@ class ResolveNovelLink(
         libraryPreferences: LibraryPreferences,
         chapterNumberOverrides: ChapterNumberOverrideRepository,
         chapterCopyMarks: ChapterCopyMarkRepository,
+        localTombstones: LocalChapterTombstones,
         coverCache: CoverCache,
         novelDownloadManager: () -> NovelDownloadManager,
     ) : this(
@@ -63,6 +66,7 @@ class ResolveNovelLink(
         libraryPreferences,
         chapterNumberOverrides,
         chapterCopyMarks,
+        localTombstones,
         coverCache,
         novelDownloadManager,
     )
@@ -107,6 +111,7 @@ class ResolveNovelLink(
             libraryPreferences,
             chapterNumberOverrides,
             chapterCopyMarks,
+            localTombstones,
         ) ?: return null
         return NovelLinkTarget.Novel(source.id, path)
     }
@@ -136,6 +141,7 @@ class ResolveNovelLink(
                     libraryPreferences,
                     chapterNumberOverrides,
                     chapterCopyMarks,
+                    localTombstones,
                     coverCache,
                     novelDownloadManager(),
                 )
@@ -153,5 +159,6 @@ class ResolveNovelLink(
             libraryPreferences,
             chapterNumberOverrides,
             chapterCopyMarks,
+            localTombstones,
         )
 }

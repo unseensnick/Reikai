@@ -136,6 +136,7 @@ class ChapterNumberRecognitionConformanceTest {
                     libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = InMemoryChapterCopyMarks(),
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     chapters.map { (url, name) ->
                         SChapter.create().apply {
@@ -178,6 +179,7 @@ class ChapterNumberRecognitionConformanceTest {
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
                     InMemoryChapterCopyMarks(),
+                    NoChapterTombstones,
                 )
             }
 

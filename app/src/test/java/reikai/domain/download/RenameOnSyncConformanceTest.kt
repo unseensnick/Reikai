@@ -28,6 +28,7 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
@@ -144,6 +145,7 @@ class RenameOnSyncConformanceTest {
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     chapterCopyMarks = InMemoryChapterCopyMarks(),
+                    localTombstones = NoChapterTombstones,
                 ).await(
                     listOf(
                         SChapter.create().apply {
@@ -227,6 +229,7 @@ class RenameOnSyncConformanceTest {
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
                     InMemoryChapterCopyMarks(),
+                    NoChapterTombstones,
                     novelDownloadManager = downloads,
                 )
             }

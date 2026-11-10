@@ -17,6 +17,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -118,6 +119,7 @@ class NovelChapterSyncTest {
             ),
             NoChapterNumberOverrides,
             InMemoryChapterCopyMarks(),
+            NoChapterTombstones,
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted, changed)
