@@ -86,9 +86,13 @@ class VolumePicking(
     suspend fun series(entry: EntryId): CombinableSeries? =
         combine.series(entry.contentType, listOf(entry.rawId)).firstOrNull()
 
-    /** Adds [series] to [target] as its volumes. */
-    suspend fun addToSeries(type: ContentType, series: CombinableSeries, target: CombinableSeries): LocalVolumeMove =
-        combine.combine(type, target, listOf(series))
+    /** Moves [others] into [series] as its volumes. */
+    suspend fun addVolumes(
+        type: ContentType,
+        series: CombinableSeries,
+        others: List<CombinableSeries>,
+    ): LocalVolumeMove =
+        combine.combine(type, series, others)
 
     /** Takes [series]' volumes [keys] out into one series of their own named [title]. */
     suspend fun splitOut(type: ContentType, series: CombinableSeries, keys: List<String>, title: String) =

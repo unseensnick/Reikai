@@ -21,7 +21,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -36,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import eu.kanade.presentation.util.formatChapterNumber
@@ -332,28 +332,33 @@ private fun RenameVolumeDialog(current: String, onDismissRequest: () -> Unit, on
     )
 }
 
-/** Pick the local series this one joins as volumes; the list loads once it opens. */
+/**
+ * Pick the other local series that move into [title] as its volumes. It is offered on the series that
+ * receives them, where people look for it; the list loads once it opens.
+ */
 @Composable
-internal fun AddToSeriesDialog(
+internal fun AddVolumesDialog(
+    title: String,
     load: suspend () -> List<CombinableSeries>,
     onDismissRequest: () -> Unit,
-    onConfirm: (CombinableSeries) -> Unit,
+    onConfirm: (List<CombinableSeries>) -> Unit,
 ) {
     val series by produceState<List<CombinableSeries>?>(null) { value = load() }
-    var picked by remember { mutableStateOf<CombinableSeries?>(null) }
+    val picked = remember { mutableStateListOf<CombinableSeries>() }
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        title = { Text(stringResource(MR.strings.action_add_to_series)) },
+        title = { Text(stringResource(MR.strings.action_add_volumes)) },
         text = {
             Column {
-                Text(stringResource(MR.strings.add_to_series_summary))
+                Text(stringResource(MR.strings.add_volumes_summary, title))
                 LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 360.dp)) {
                     items(series.orEmpty(), key = { it.id }) { one ->
+                        val toggle = { if (!picked.remove(one)) picked += one }
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { picked = one },
+                            modifier = Modifier.fillMaxWidth().clickable(onClick = toggle).testTag("add:${one.id}"),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            RadioButton(selected = one == picked, onClick = { picked = one })
+                            Checkbox(checked = one in picked, onCheckedChange = { toggle() })
                             Text(one.title)
                         }
                     }
@@ -361,7 +366,7 @@ internal fun AddToSeriesDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { picked?.let(onConfirm) }, enabled = picked != null) {
+            TextButton(onClick = { onConfirm(picked.toList()) }, enabled = picked.isNotEmpty()) {
                 Text(stringResource(MR.strings.action_add))
             }
         },
@@ -406,7 +411,7 @@ internal fun SplitOutDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { edited = it },
-                    label = { Text(stringResource(MR.strings.split_out_series_name)) },
+                    label = { Text(stringResource(MR.strings.local_import_series_name)) },
                     singleLine = true,
                     enabled = picked.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),

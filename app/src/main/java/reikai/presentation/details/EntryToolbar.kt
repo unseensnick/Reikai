@@ -70,7 +70,7 @@ fun EntryToolbar(
     // Reorder and rename a local series' volumes, non-null only while its list is split by volume.
     onClickReorderVolumes: (() -> Unit)? = null,
     // Join another local series as its volumes, or take a volume out into a series of its own.
-    onClickAddToSeries: (() -> Unit)? = null,
+    onClickAddVolumes: (() -> Unit)? = null,
     onClickSplitOut: (() -> Unit)? = null,
     // Names the files on disk after the series and its volumes.
     onClickRenameFiles: (() -> Unit)? = null,
@@ -325,11 +325,11 @@ fun EntryToolbar(
                             ),
                         )
                     }
-                    if (onClickAddToSeries != null) {
+                    if (onClickAddVolumes != null) {
                         add(
                             AppBar.OverflowAction(
-                                title = stringResource(MR.strings.action_add_to_series),
-                                onClick = onClickAddToSeries,
+                                title = stringResource(MR.strings.action_add_volumes),
+                                onClick = onClickAddVolumes,
                             ),
                         )
                     }

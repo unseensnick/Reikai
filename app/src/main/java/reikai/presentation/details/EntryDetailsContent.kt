@@ -170,7 +170,7 @@ fun EntryDetailsContent(
         volumes = volumes,
         onPickVolume = { behavior.volumePicking.pick(state.entryId, it) },
         onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
-        onAddToSeries = { volumeDialog = VolumeDialog.AddToSeries }.takeIf { ownLocal },
+        onAddVolumes = { volumeDialog = VolumeDialog.AddVolumes }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
         onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal },
         onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: volumes?.chips?.map { it.key } }
@@ -240,27 +240,19 @@ fun EntryDetailsContent(
         )
     }
     when (volumeDialog) {
-        VolumeDialog.AddToSeries -> AddToSeriesDialog(
+        VolumeDialog.AddVolumes -> AddVolumesDialog(
+            title = state.details.header.title,
             load = { behavior.volumePicking.library(type).filterNot { it.id == state.entryId.rawId } },
             onDismissRequest = { volumeDialog = null },
-            onConfirm = { target ->
+            onConfirm = { others ->
                 volumeDialog = null
                 scope.launch {
                     val own = behavior.volumePicking.series(state.entryId) ?: return@launch
-                    val move = behavior.volumePicking.addToSeries(type, own, target)
+                    val move = behavior.volumePicking.addVolumes(type, own, others)
                     behavior.refresh()
-                    // This series is empty once it moved, so the screen stays only for the Undo.
-                    val message = context.stringResource(MR.strings.local_volumes_added, target.title)
-                    if (snackbarHostState.reportVolumeMove(
-                            context,
-                            move,
-                            message,
-                        )
-                    ) {
-                        nav.navigateUp()
-                    } else {
-                        behavior.refresh()
-                    }
+                    val message = context.stringResource(MR.strings.local_volumes_combined, own.title)
+                    snackbarHostState.reportVolumeMove(context, move, message)
+                    behavior.refresh()
                 }
             },
         )
@@ -334,7 +326,7 @@ private data class ChapterListExtras(
     val volumes: VolumeView?,
     val onPickVolume: (String?) -> Unit,
     val onReorderVolumes: (() -> Unit)?,
-    val onAddToSeries: (() -> Unit)?,
+    val onAddVolumes: (() -> Unit)?,
     val onSplitOut: (() -> Unit)?,
     val onRenameFiles: (() -> Unit)?,
     // Null keys offers every volume; the duplicate notice offers only the ones that clash.
@@ -350,7 +342,7 @@ private data class DetailsChrome(
     val onReadButtonDocked: (ReadButtonSide) -> Unit,
 )
 
-private enum class VolumeDialog { AddToSeries, SplitOut, RenameFiles }
+private enum class VolumeDialog { AddVolumes, SplitOut, RenameFiles }
 
 // Each set's copies kept together, in the list's own order, since a date sort can part them. A marked
 // chapter stays too, so a Never skip can be found and cleared.
@@ -555,7 +547,7 @@ private fun EntryDetailsToolbar(
         onClickWordCount = nav.onWordCount?.takeIf { state.textOnDevice },
         onClickExport = nav.onExport,
         onClickReorderVolumes = extras.onReorderVolumes,
-        onClickAddToSeries = extras.onAddToSeries,
+        onClickAddVolumes = extras.onAddVolumes,
         onClickSplitOut = extras.onSplitOut,
         onClickRenameFiles = extras.onRenameFiles,
         onClickDeleteVolumes = extras.onDeleteVolumes?.let { delete -> { delete(null) } },

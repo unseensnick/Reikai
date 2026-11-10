@@ -313,7 +313,8 @@
     <string name="local_volume_extras">Extras</string>
     <string name="action_reorder_volumes">Reorder volumes</string>
     <string name="action_add_to_series">Add to series</string>
-    <string name="add_to_series_summary">This series moves in as volumes of the one you pick, with its read progress, and leaves the library</string>
+    <string name="action_add_volumes">Add volumes</string>
+    <string name="add_volumes_summary">The series you tick move into %1$s as its volumes, with their read progress, and leave the library</string>
     <string name="action_split_out_volume">Split out volumes</string>
     <string name="action_split_out">Split out</string>
     <string name="split_out_volume_summary">The volumes you tick become one series of their own in the library, with their read progress</string>
@@ -323,7 +324,6 @@
     <string name="combine_volumes_summary">The others move in as its volumes, with their read progress, and leave the library</string>
     <string name="local_volumes_move_failed">Couldn't move the volumes; nothing was moved</string>
     <string name="local_volumes_combined">Combined into %1$s</string>
-    <string name="local_volumes_added">Added to %1$s</string>
     <string name="local_volume_split_out">Split out as %1$s</string>
     <string name="action_rename_files">Rename files</string>
     <string name="action_delete_volumes">Delete volumes</string>
