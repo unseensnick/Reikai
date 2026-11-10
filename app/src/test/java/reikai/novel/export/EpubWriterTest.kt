@@ -263,6 +263,27 @@ class EpubWriterTest {
     }
 
     @Test
+    fun `a target named by name that carries another id is linked by that id`() = runTest {
+        firstChapter("<p><a href=\"#fn1\">1</a></p><p><a name=\"fn1\" id=\"note-1\">note</a></p>") shouldContain
+            "href=\"#note-1\""
+    }
+
+    /** The target goes as a link to the source's site, and its id must outlive it. */
+    @Test
+    fun `a target that is itself a relative link keeps its id`() = runTest {
+        firstChapter("<p><a href=\"#fn2\">2</a></p><p><a href=\"page2.html\" id=\"fn2\">note</a></p>") shouldContain
+            "id=\"fn2\""
+    }
+
+    @Test
+    fun `a target that is a dropped web picture keeps its id`() = runTest {
+        firstChapter(
+            "<p><a href=\"#pic\">see</a></p><p><img id=\"pic\" src=\"https://example.com/p.png\"/></p>",
+        ) shouldContain
+            "id=\"pic\""
+    }
+
+    @Test
     fun `a percent-encoded jump to a place in the chapter stays a link`() = runTest {
         firstChapter("<p><a href=\"#note%20one\">1</a></p><p id=\"note one\">note</p>") shouldContain
             "href=\"#note%20one\""

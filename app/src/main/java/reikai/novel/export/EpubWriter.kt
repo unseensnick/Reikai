@@ -95,16 +95,21 @@ class EpubWriter(private val includePictures: Boolean = true) {
         // A jump to a place in this chapter still works in the book, found as both readers find it; a target
         // named by `name` or xml:id gets the id a book's reader looks for. Any other relative link pointed at
         // the source's site and leads nowhere here, so it keeps only its text.
-        for (link in body.select("a[href]")) {
+        // Every target is settled before any link goes, since a target can itself be a link that goes.
+        val dropped = body.select("a[href]").filter { link ->
             val href = link.attr("href")
-            if (href.startsWith("http")) continue
-            val target = href.takeIf { it.startsWith('#') }?.let { anchorTarget(body, it.substring(1)) }
-            if (target == null) {
-                link.unwrap()
-            } else if (!target.hasAttr("id")) {
+            if (href.startsWith("http")) return@filter false
+            val fragment = href.takeIf { it.startsWith('#') }?.substring(1)
+            val target = fragment?.let { anchorTarget(body, it) } ?: return@filter true
+            if (!target.hasAttr("id")) {
                 target.attr("id", target.attr("name").ifEmpty { target.attr("xml:id") })
+            } else if (target.id() != fragment && fragment in listOf(target.attr("name"), target.attr("xml:id"))) {
+                // Found by name while it carries another id, which is the one a book's reader follows.
+                link.attr("href", "#${target.id()}")
             }
+            false
         }
+        dropped.forEach { it.keepingId().unwrap() }
         for (element in body.getAllElements()) {
             element.attributes().asList()
                 .filter { it.key == "contenteditable" || ':' in it.key }
@@ -114,7 +119,7 @@ class EpubWriter(private val includePictures: Boolean = true) {
             val src = img.attr("src")
             val picture = if (includePictures) decodeDataAddress(src) else null
             if (picture == null) {
-                img.remove()
+                img.keepingId().remove()
                 continue
             }
             val hash = Hash.md5(picture.bytes)
@@ -321,3 +326,6 @@ $points
             "h1, h2, h3 { text-align: center; }\n"
     }
 }
+
+/** [this], its id left on an empty span in its place, so a link to it still lands once it is gone. */
+private fun Element.keepingId(): Element = apply { if (id().isNotEmpty()) before(Element("span").attr("id", id())) }
