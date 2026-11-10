@@ -305,7 +305,11 @@ class LocalSource(
             .flatMap { file ->
                 val path = "${manga.url}/${file.name}"
                 val listed = if (file.isDirectory) listedOrFail(file, path) else emptyList()
+                // A folder of pages holding folders of pictures (credits, a group's extras) is one chapter, as
+                // upstream reads it: a volume holds a chapter archive, or no pages of its own beside its cover.
                 val inside = listed.filter { isVolumeChapter(it, "$path/${it.name}") }
+                    .takeIf { chapters -> chapters.any { !it.isFolderName() } || listed.extraPictures().isEmpty() }
+                    .orEmpty()
                 // Pictures beside a volume's chapters, other than its cover, read as one Extras chapter: the
                 // folder itself, which the reader opens as a folder of pictures.
                 val extras = listOfNotNull(file.takeIf { inside.isNotEmpty() && listed.extraPictures().isNotEmpty() })
@@ -435,6 +439,9 @@ class LocalSource(
                 (file.isDirectory && file.name !in SYSTEM_FOLDERS) ||
                     Archive.isSupported(file) || file.extension.equals("epub", true)
                 )
+
+    // RK: an archive or a book, by its name alone, so no folder query is spent on one
+    private fun UniFile.isFolderName() = !Archive.isSupported(this) && !extension.equals("epub", true)
 
     // RK: a chapter inside a volume folder. A folder there counts only with a picture or an archive in it, or
     // a chapter of pictures holding any other folder would read as a volume and lose its own chapter row.

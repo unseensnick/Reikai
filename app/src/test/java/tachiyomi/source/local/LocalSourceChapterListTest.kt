@@ -53,6 +53,25 @@ class LocalSourceChapterListTest {
     }
 
     @Test
+    fun `a chapter of pages holding a folder of pictures stays one chapter`() = runTest {
+        File(root, "Saga/Ch 12/credits").mkdirs()
+        listOf("001.jpg", "002.jpg", "credits/c.jpg").forEach {
+            File(root, "Saga/Ch 12/$it").writeBytes(byteArrayOf(1))
+        }
+
+        chapterUrls("Saga") shouldBe listOf("Saga/Ch 12")
+    }
+
+    @Test
+    fun `a volume of chapter folders with only a cover beside them stays a volume`() = runTest {
+        listOf("cover.jpg", "Ch 1/001.jpg", "Ch 2/001.jpg").forEach {
+            File(root, "Saga/Vol 1/$it").apply { parentFile!!.mkdirs() }.writeBytes(byteArrayOf(1))
+        }
+
+        chapterUrls("Saga").sorted() shouldBe listOf("Saga/Vol 1/Ch 1", "Saga/Vol 1/Ch 2")
+    }
+
+    @Test
     fun `a series folder that lists no chapter file fails the refresh`() = runTest {
         File(root, "Empty").mkdirs()
 
