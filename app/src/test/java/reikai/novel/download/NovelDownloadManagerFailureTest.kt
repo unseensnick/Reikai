@@ -71,6 +71,7 @@ class NovelDownloadManagerFailureTest {
         every { getSystemService(NotificationManager::class.java) } returns mockk<NotificationManager>(relaxed = true)
     }
     private val sameName = chapter.copy(id = 11L, url = "u11")
+    private val queuedLater = chapter.copy(id = 12L, url = "u12")
     private val uninstalled = novel.copy(id = 2L, source = "gone")
     private val uninstalledChapter = chapter.copy(id = 20L, novelId = 2L, url = "u20")
     private val unloaded = novel.copy(id = 3L, source = "broken")
@@ -80,6 +81,7 @@ class NovelDownloadManagerFailureTest {
         coEvery { getById(11L) } returns sameName
         coEvery { getById(20L) } returns uninstalledChapter
         coEvery { getById(30L) } returns unloadedChapter
+        coEvery { getById(12L) } returns queuedLater
     }
     private val loadFailures = MutableStateFlow(
         mapOf(
@@ -170,6 +172,18 @@ class NovelDownloadManagerFailureTest {
         manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
 
         NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(10L)
+    }
+
+    /** The live queue keeps a retried chapter in place, so a restart must not move it last. */
+    @Test
+    fun `a failed chapter queued again keeps its place in the saved queue`() = runTest {
+        manager.downloadChapters(listOf(chapter))
+        manager.runQueue(onProgress = {}, onError = { _, _, _, _ -> })
+        manager.downloadChapters(listOf(queuedLater))
+
+        manager.downloadChapters(listOf(chapter))
+
+        NovelDownloadStore(context, chapterRepo).restore().map { it.chapterId } shouldBe listOf(10L, 12L)
     }
 
     @Test

@@ -30,9 +30,12 @@ class NovelDownloadStore(
     // the first save rather than at construction, which would read the file wherever the store is built.
     private var counter: Int? = null
 
+    /** A row already saved keeps its order, so a retried chapter is not moved to the end after a restart. */
     fun addAll(downloads: List<NovelDownload>) {
+        val saved = preferences.all.keys
         preferences.edit {
-            downloads.forEach { putString(it.chapterId.toString(), serialize(it)) }
+            downloads.filterNot { it.chapterId.toString() in saved }
+                .forEach { putString(it.chapterId.toString(), serialize(it)) }
         }
     }
 

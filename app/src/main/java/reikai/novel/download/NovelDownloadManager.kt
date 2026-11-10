@@ -181,8 +181,8 @@ class NovelDownloadManager(
             .map { ch -> NovelDownload(novelId = ch.novelId, chapterId = ch.id, url = ch.url) }
         if (targets.isEmpty()) return
         // Only what was not queued is saved, as Mihon's Downloader stores only its toAdd: saving a queued row
-        // again gives it a new order, so a restart would move it last. A failed row is saved again, since a
-        // source that was missing when it failed took it out of the saved queue.
+        // again gives it a new order, so a restart would move it last. A failed row is handed back too, for the
+        // one a missing source took out of the saved queue; the store keeps a row still saved as it is.
         var added = emptyList<NovelDownload>()
         _queueState.update { current ->
             val byId = current.associateByTo(LinkedHashMap()) { it.chapterId }
