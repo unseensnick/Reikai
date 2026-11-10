@@ -7,9 +7,11 @@ import androidx.compose.material3.SnackbarResult
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalMoveResult
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.MergeManager
 import reikai.presentation.components.reportVolumeMove
@@ -130,19 +132,23 @@ class EntryMergeActionHost(
         scope.launch {
             val anchor = anchorId()
             val contentType = removal.entryId(anchor).contentType
-            val snapshot = withIOContext {
-                mergeManager.captureGroup(anchor).also { mergeManager.removeFromGroup(related, related.toList()) }
-            }
-            val series = volumes.series(contentType, related.toList())
-            val kept = series.firstOrNull { it.id == anchor } ?: return@launch
-            val move = volumes.combine(contentType, kept, series - kept)
+            // Dissolving, combining and merging again after a failed combine run as one step on the app scope,
+            // so leaving the screen part way never leaves the merge dissolved with nothing combined.
+            val combined = appScope.async {
+                val series = volumes.series(contentType, related.toList())
+                val kept = series.firstOrNull { it.id == anchor } ?: return@async null
+                val snapshot = mergeManager.captureGroup(anchor)
+                mergeManager.removeFromGroup(related, related.toList())
+                val move = volumes.combine(contentType, kept, series - kept)
+                if (move.result is LocalMoveResult.Failed) mergeManager.restoreGroup(snapshot)
+                Triple(kept, snapshot, move)
+            }.await() ?: return@launch
+            val (kept, snapshot, move) = combined
             withIOContext { group.refresh(anchor) }
             val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
-            if (!snackbarHostState.reportVolumeMove(context, move, message)) {
-                withIOContext {
-                    mergeManager.restoreGroup(snapshot)
-                    group.refresh(anchor)
-                }
+            if (!snackbarHostState.reportVolumeMove(context, move, message) && move.result is LocalMoveResult.Moved) {
+                appScope.async { mergeManager.restoreGroup(snapshot) }.await()
+                withIOContext { group.refresh(anchor) }
             }
         }
     }

@@ -50,6 +50,19 @@ renameVolumePick:
 UPDATE local_volume_pick SET volume_key = :toKey
 WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :fromKey;
 
+-- A saved row at a name no file holds any more, which a move or rename onto that name replaces.
+forgetVolume:
+DELETE FROM local_volume
+WHERE content_type = :contentType AND series = :series AND volume_key = :volumeKey;
+
+forgetSeriesVolumes:
+DELETE FROM local_volume
+WHERE content_type = :contentType AND series = :series;
+
+forgetVolumePick:
+DELETE FROM local_volume_pick
+WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :volumeKey;
+
 moveVolume:
 UPDATE local_volume SET series = :toSeries, volume_key = :toKey, position = :position
 WHERE content_type = :contentType AND series = :fromSeries AND volume_key = :fromKey;

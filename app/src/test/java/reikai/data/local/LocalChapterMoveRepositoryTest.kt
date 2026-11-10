@@ -11,6 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
+import reikai.domain.local.OwnerMoves
+import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
@@ -41,12 +43,23 @@ class LocalChapterMoveRepositoryTest {
         0,
     ).await().orEmpty()
 
+    private suspend fun rows(sql: String): List<String> = driver.executeQuery(
+        null,
+        sql,
+        { cursor ->
+            QueryResult.Value(
+                buildList { while (cursor.next().value) add(cursor.getString(0).orEmpty()) },
+            )
+        },
+        0,
+    ).await()
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `the chapter moves to the other series, still read, with its number correction`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
 
-        LocalChapterMoveRepositoryImpl(database).move(type.contentType, 2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
+        LocalChapterMoveRepositoryImpl(database).move(type.contentType, null, listOf(MOVE), emptyList())
 
         listOf(one(type.chapterQuery), one(type.overrideQuery)) shouldBe listOf("1|A/B/c1|1", "1|A/B/c1")
     }
@@ -56,7 +69,7 @@ class LocalChapterMoveRepositoryTest {
         Type.MANGA.seed.forEach { exec(it) }
         exec("INSERT INTO history(manga_id, chapter_id, read_at, read_duration) VALUES (2, 10, 0, 0)")
 
-        LocalChapterMoveRepositoryImpl(database).move(ContentType.MANGA, 2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
+        LocalChapterMoveRepositoryImpl(database).move(ContentType.MANGA, null, listOf(MOVE), emptyList())
 
         one("SELECT manga_id FROM history WHERE chapter_id = 10") shouldBe "1"
     }
@@ -92,13 +105,94 @@ class LocalChapterMoveRepositoryTest {
             "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
         )
 
-        LocalChapterMoveRepositoryImpl(database).moveVolumes(
+        LocalChapterMoveRepositoryImpl(database).move(
             ContentType.MANGA,
+            null,
+            emptyList(),
             listOf(VolumeRowMove("B", "v1", "A", "v1 (2)", 3)),
         )
 
         one("SELECT series || '|' || volume_key || '|' || position || '|' || label FROM local_volume") shouldBe
             "A|v1 (2)|3|One"
+    }
+
+    @Test
+    fun `a volume moving onto the saved row of a deleted one replaces it`() = runTest {
+        exec(
+            "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'A', 'v1', 9, 'Old')",
+        )
+        exec(
+            "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
+        )
+
+        LocalChapterMoveRepositoryImpl(database).move(
+            ContentType.MANGA,
+            null,
+            emptyList(),
+            listOf(VolumeRowMove("B", "v1", "A", "v1", 1)),
+        )
+
+        rows("SELECT series || '|' || volume_key || '|' || position || '|' || label FROM local_volume") shouldBe
+            listOf("A|v1|1|One")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a move that fails part way writes nothing`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        // A chapter already at the address the move takes, which the owner's unique address refuses.
+        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'A/B/c1'"))
+
+        runCatching {
+            LocalChapterMoveRepositoryImpl(database).move(
+                type.contentType,
+                SeriesAddress(2, "Bee"),
+                listOf(MOVE),
+                emptyList(),
+            )
+        }
+
+        listOf(one(type.seriesQuery), one(type.chapterQuery)) shouldBe listOf("B", "2|B/c1|1")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a rename onto the saved rows of deleted files replaces them`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
+        listOf("('B', 'v1', 0, 'One')", "('B', 'Vol. 1', 9, 'Old')", "('Bee', 'v9', 9, 'Old')").forEach {
+            exec(
+                "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES ($dbType, ${it.drop(
+                    1,
+                )}",
+            )
+        }
+
+        LocalChapterMoveRepositoryImpl(database).rename(
+            type.contentType,
+            SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
+            emptyList(),
+        )
+
+        rows("SELECT series || '|' || volume_key || '|' || label FROM local_volume") shouldBe listOf("Bee|Vol. 1|One")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `deleted volumes forget their saved order and the chip left on them`(type: Type) = runTest {
+        val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
+        exec("INSERT INTO local_volume(content_type, series, volume_key, position) VALUES ($dbType, 'B', 'v1', 0)")
+        exec("INSERT INTO local_volume(content_type, series, volume_key, position) VALUES ($dbType, 'B', 'v2', 1)")
+        exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
+
+        LocalChapterMoveRepositoryImpl(database).forgetVolumes(type.contentType, 2, "B", listOf("v1"))
+
+        rows("SELECT volume_key FROM local_volume") + rows("SELECT volume_key FROM local_volume_pick") shouldBe
+            listOf("v2")
+    }
+
+    private companion object {
+        val MOVE = OwnerMoves(2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
     }
 
     enum class Type(

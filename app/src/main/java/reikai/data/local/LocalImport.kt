@@ -130,11 +130,15 @@ class LocalImport(
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = rootOf(group.type) ?: return@withIOContext group
-        val folder = target?.let { root.findFile(it) }
-            ?: root.listFiles().orEmpty().firstOrNull {
+        // Only a folder takes files in: a loose book of that name is a file.
+        val folder = if (target != null) {
+            root.findFile(target)?.takeIf { it.isDirectory }
+        } else {
+            root.listFiles().orEmpty().firstOrNull {
                 it.isDirectory &&
                     groupKey(it.name.orEmpty()) == groupKey(group.title)
             }
+        }
         val sizes = folder?.listFiles().orEmpty().filter { it.isFile }.map { it.length() }.toSet()
         group.copy(
             existing = folder?.name,
@@ -161,7 +165,8 @@ class LocalImport(
                     return@mapNotNull null
                 }
                 // A new series never lands in a folder already there, which the preview would have shown it joining.
-                val folder = group.joins?.let { root.findFile(it) }
+                val joined = group.joins?.let { root.findFile(it) }?.takeIf { it.isDirectory }
+                val folder = joined
                     ?: root.createDirectory(
                         freeNames(DiskUtil.buildValidFilename(group.title)).first { root.findFile(it) == null },
                     )
@@ -190,7 +195,7 @@ class LocalImport(
                 }
                 // Nothing copied, every file skipped or failed, so the series was not imported to.
                 if (copied == 0) {
-                    if (folder.listFiles().isNullOrEmpty()) folder.delete()
+                    if (joined == null && folder.listFiles().isNullOrEmpty()) folder.delete()
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {

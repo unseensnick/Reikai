@@ -153,6 +153,19 @@ class LocalImportTest(private val type: ContentType) {
         File(root, "Foo").list()!!.size shouldBe 2
     }
 
+    @Test
+    fun `a loose book picked to join is never deleted`() = runTest {
+        File(root, "Book.epub").writeText("book")
+
+        localImport.import(
+            listOf(localImport.inspect(group("Other"), target = "Book.epub")),
+            addToLibrary = false,
+            categoryIds = emptyList(),
+        )
+
+        File(root, "Book.epub").readText() shouldBe "book"
+    }
+
     private fun group(title: String) = ImportGroup(
         key = "$type:$title",
         type = type,

@@ -19,6 +19,7 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.DuplicateChoice
+import reikai.data.local.EPUB
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
@@ -86,8 +87,12 @@ class LocalImportViewModel(
 
     fun setDuplicateChoice(key: String, choice: DuplicateChoice) = updateGroup(key) { it.copy(onDuplicate = choice) }
 
-    /** The local series of [type] already in the library, which a group can be added to. */
-    suspend fun librarySeries(type: ContentType): List<CombinableSeries> = combineLocalVolumes.library(type)
+    /**
+     * The local series of [type] in the library a group can be added to. A loose book is left out, since it is a file and
+     * not a folder to copy into; Add volumes on its details screen takes others in.
+     */
+    suspend fun librarySeries(type: ContentType): List<CombinableSeries> =
+        combineLocalVolumes.library(type).filterNot { it.folder.endsWith(EPUB, ignoreCase = true) }
 
     /** Adds group [key]'s files to group [into] of this import, as more of its volumes. */
     fun addToGroup(key: String, into: String) {
@@ -121,8 +126,12 @@ class LocalImportViewModel(
         }
     }
 
-    fun setType(key: String, type: ContentType) = updateGroup(key) {
-        if (it.canBeEitherType) it.copy(type = type) else it
+    /** Group [key] as [type], and the series it joins found again in that type's folder. */
+    fun setType(key: String, type: ContentType) {
+        val group = state.value.groups.firstOrNull { it.key == key } ?: return
+        if (!group.canBeEitherType || group.type == type) return
+        updateGroup(key) { it.copy(type = type, existing = null, duplicates = emptySet()) }
+        reinspect(key, auto = true)
     }
 
     fun remove(key: String) = state.update { s -> s.copy(groups = s.groups.filterNot { it.key == key }) }

@@ -11,11 +11,14 @@ import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
@@ -44,9 +47,16 @@ class EntryMergeActionHostTest {
     private val snackbarResult = CompletableDeferred<SnackbarResult>()
     private val offered = CompletableDeferred<List<Long>>()
     private val restoredGroup = CompletableDeferred<GroupSnapshot>()
+    private val undoStarted = CompletableDeferred<Unit>()
+    private val undoGate = CompletableDeferred<Unit>().apply { complete(Unit) }
 
-    private val host = EntryMergeActionHost(
-        scope = scope,
+    private val host = host(scope)
+
+    private fun host(
+        screen: CoroutineScope,
+        undoGate: CompletableDeferred<Unit> = this.undoGate,
+    ) = EntryMergeActionHost(
+        scope = screen,
         appScope = scope,
         snackbarHostState = mockk<SnackbarHostState> {
             every { currentSnackbarData } returns null
@@ -73,7 +83,16 @@ class EntryMergeActionHostTest {
         offerToDeleteDownloads = { offered.complete(it) },
         volumes = mockk<CombineLocalVolumes> {
             coEvery { series(any(), any()) } returns listOf(1L, 2L, 3L).map { CombinableSeries(it, "S$it", "S$it") }
-            coEvery { combine(any(), any(), any()) } returns LocalVolumeMove(MOVED, { MOVED }, {}, scope)
+            coEvery { combine(any(), any(), any()) } returns LocalVolumeMove(
+                MOVED,
+                {
+                    undoStarted.complete(Unit)
+                    undoGate.await()
+                    MOVED
+                },
+                {},
+                scope,
+            )
         },
     )
 
@@ -148,6 +167,19 @@ class EntryMergeActionHostTest {
         snackbarResult.complete(SnackbarResult.ActionPerformed)
 
         restoredGroup.await() shouldBe GROUP
+    }
+
+    @Test
+    fun `a combine undone as its screen closes still merges the local series again`() = runTest {
+        val screen = CoroutineScope(SupervisorJob())
+        val gate = CompletableDeferred<Unit>()
+        host(screen, gate).combineAsVolumes()
+        snackbarResult.complete(SnackbarResult.ActionPerformed)
+        undoStarted.await()
+        screen.coroutineContext.job.cancel()
+        gate.complete(Unit)
+
+        withContext(Dispatchers.Default) { withTimeout(5_000) { restoredGroup.await() } } shouldBe GROUP
     }
 
     private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true)) {

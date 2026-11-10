@@ -2,6 +2,7 @@ package reikai.novel.local
 
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import org.junit.jupiter.api.Test
 import reikai.novel.local.epub.EpubException
 import java.io.IOException
@@ -27,6 +28,11 @@ class LocalNovelVolumesTest {
             listOf("a" to Result.failure(EpubException(EpubException.Kind.Protected)), "b" to Result.success(2)),
             missing,
         ) shouldBe listOf("b" to 2)
+    }
+
+    @Test
+    fun `two books of a series changed at the same time copy their covers apart`() {
+        LocalNovelSource.coverCopyName("S", "a.epub", 5) shouldNotBe LocalNovelSource.coverCopyName("S", "b.epub", 5)
     }
 
     @Test

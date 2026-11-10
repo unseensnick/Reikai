@@ -240,16 +240,18 @@ class LocalNovelSource(
      */
     private fun Series.coverAddress(file: UniFile, book: EpubBook): String? {
         files.localCover()?.let { return it.uri.toString() }
-        return copyCover(file, book, "${coverCopyPrefix(path)}${file.lastModified()}")
+        return copyCover(file, book, bookCoverName(path, file))
     }
 
     /** The cover of the book [volume] in the series at [seriesPath], for its volume header. */
     suspend fun volumeCover(seriesPath: String, volume: String): String? = withIOContext {
         val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
         val book = runCatching { book(file) }.getOrNull() ?: return@withIOContext null
-        // Under the series' prefix, so dropping the series' cover copies drops these too.
-        copyCover(file, book, "${coverCopyPrefix(seriesPath)}${Hash.md5(volume)}-${file.lastModified()}")
+        copyCover(file, book, bookCoverName(seriesPath, file))
     }
+
+    private fun bookCoverName(seriesPath: String, file: UniFile) =
+        coverCopyName(seriesPath, file.name.orEmpty(), file.lastModified())
 
     /** [book]'s cover copied out of [file] once, as [name], since a cover loader cannot read inside an EPUB. */
     private fun copyCover(file: UniFile, book: EpubBook, name: String): String? {
@@ -277,9 +279,6 @@ class LocalNovelSource(
         written.uri.toString()
     }
 
-    /** What the name of every book cover copied for the series at [path] starts with, whatever its version. */
-    private fun coverCopyPrefix(path: String) = "${Hash.md5(path)}-"
-
     private fun dropCoverCopies(path: String) {
         val prefix = coverCopyPrefix(path)
         File(context.filesDir, COVER_DIR).listFiles { copy -> copy.name.startsWith(prefix) }?.forEach(File::delete)
@@ -297,6 +296,16 @@ class LocalNovelSource(
 
     companion object {
         const val ID = "local"
+
+        /**
+         * The name book [book]'s cover is copied out as, named by the book so a reordered series shows its new
+         * first book's, and under the series' prefix, so dropping the series' cover copies drops it too.
+         */
+        internal fun coverCopyName(seriesPath: String, book: String, modified: Long) =
+            "${coverCopyPrefix(seriesPath)}${Hash.md5(book)}-$modified"
+
+        /** What the name of every book cover copied for the series at [path] starts with, whatever its version. */
+        private fun coverCopyPrefix(path: String) = "${Hash.md5(path)}-"
 
         private const val BOOK_CACHE_SIZE = 256
         private const val CHAPTER_CACHE_SIZE = 8

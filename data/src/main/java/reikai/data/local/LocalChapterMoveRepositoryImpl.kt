@@ -8,6 +8,8 @@ import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
+import reikai.domain.local.OwnerMoves
+import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
@@ -21,33 +23,52 @@ class LocalChapterMoveRepositoryImpl(
 
     private val queries = database.local_moveQueries
 
-    override suspend fun move(type: ContentType, fromOwner: Long, toOwner: Long, moves: List<ChapterMove>) {
+    override suspend fun move(
+        type: ContentType,
+        address: SeriesAddress?,
+        chapters: List<OwnerMoves>,
+        volumes: List<VolumeRowMove>,
+    ) {
+        val dbType = type.toDbValue()
         database.transaction {
-            moves.forEach { moveChapter(type, fromOwner, toOwner, it) }
+            address?.let { setAddress(type, it.id, it.url) }
+            chapters.forEach { owner -> owner.moves.forEach { moveChapter(type, owner.fromOwner, owner.toOwner, it) } }
+            volumes.forEach {
+                queries.forgetVolume(dbType, it.toSeries, it.toKey)
+                queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey)
+            }
         }
     }
 
-    override suspend fun moveVolumes(type: ContentType, moves: List<VolumeRowMove>) {
-        if (moves.isEmpty()) return
+    override suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, keys: List<String>) {
         val dbType = type.toDbValue()
         database.transaction {
-            moves.forEach { queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey) }
+            keys.forEach {
+                queries.forgetVolume(dbType, series, it)
+                queries.forgetVolumePick(dbType, entryId, it)
+            }
         }
     }
 
     override suspend fun rename(type: ContentType, rename: SeriesRename, chapters: List<ChapterMove>) {
         val dbType = type.toDbValue()
         database.transaction {
-            when (type) {
-                ContentType.NOVELS -> queries.renameNovel(rename.toSeries, rename.id)
-                else -> queries.renameManga(rename.toSeries, rename.id)
-            }
+            setAddress(type, rename.id, rename.toSeries)
             chapters.forEach { moveChapter(type, rename.id, rename.id, it) }
             rename.volumes.forEach { (from, to) ->
+                if (to != from) queries.forgetVolume(dbType, rename.fromSeries, to)
                 queries.renameVolume(to, dbType, rename.fromSeries, from)
                 queries.renameVolumePick(to, dbType, rename.id, from)
             }
+            if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
             queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
+        }
+    }
+
+    private suspend fun setAddress(type: ContentType, id: Long, url: String) {
+        when (type) {
+            ContentType.NOVELS -> queries.renameNovel(url, id)
+            else -> queries.renameManga(url, id)
         }
     }
 
