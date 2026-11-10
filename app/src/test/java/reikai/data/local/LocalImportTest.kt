@@ -156,6 +156,14 @@ class LocalImportTest(private val type: ContentType) {
     }
 
     @Test
+    fun `a file that arrives shorter than its size fails its copy`() = runTest {
+        ImportDocuments.documents["1"] = ImportDocuments.Document("a.cbz", 3L, null, "ab".toByteArray())
+
+        localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+            .problems.map { it.reason } shouldBe listOf(ImportProblem.Reason.CopyFailed)
+    }
+
+    @Test
     fun `a loose book picked to join is never deleted`() = runTest {
         File(root, "Book.epub").writeText("book")
 

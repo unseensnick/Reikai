@@ -30,6 +30,7 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.ImageUtil
@@ -201,7 +202,7 @@ class LocalImport(
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {
-                    runCatching { add(group.type, path, categoryIds) }
+                    runCatchingCancellable { add(group.type, path, categoryIds) }
                         .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
                         .getOrNull()
                 } else {
@@ -262,6 +263,8 @@ class LocalImport(
             val input =
                 context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
             input.use { source -> target.openOutputStream().use { source.copyTo(it) } }
+            // A provider can end a stream early without failing; a short copy must never replace the whole one.
+            if (file.size >= 0 && target.length() != file.size) throw IOException("${file.name} was copied short")
         } catch (e: Exception) {
             target.delete()
             throw e
