@@ -4,10 +4,6 @@ import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.core.stack.Stack
 import eu.kanade.tachiyomi.ui.home.HomeScreen
 import reikai.domain.library.ContentType
-import reikai.domain.library.ReikaiLibraryPreferences
-import reikai.domain.library.hideTag
-import reikai.domain.library.showOnlyTag
-import reikai.domain.library.tagKey
 import reikai.domain.source.SourceKey
 import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 
@@ -41,10 +37,8 @@ suspend fun Stack<Screen>.searchLibraryFromDetails(query: String, contentType: C
     (lastItemOrNull as? HomeScreen)?.search(query, contentType)
 }
 
-/** Sets the library's tag filter to show only [tag], or to hide it, then shows the library. */
-suspend fun Stack<Screen>.filterLibraryByTag(preferences: ReikaiLibraryPreferences, tag: String, show: Boolean) {
-    val key = tagKey(tag)
-    if (show) preferences.showOnlyTag(key) else preferences.hideTag(key)
+/** Walks back to the library tab, after a details page changed its filter. */
+suspend fun Stack<Screen>.showLibraryFromDetails() {
     popUntil { it is HomeScreen }
     (lastItemOrNull as? HomeScreen)?.openTab(HomeScreen.Tab.Library())
 }

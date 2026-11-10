@@ -43,6 +43,7 @@ import reikai.presentation.browse.catalogue.EntryCatalogueScreen
 import reikai.presentation.browse.components.EntryDuplicateDialog
 import reikai.presentation.browse.components.toDuplicateCard
 import reikai.presentation.browse.globalsearch.EntryGlobalSearchScreen
+import reikai.presentation.details.DetailsSettings
 import reikai.presentation.details.DuplicateMarking
 import reikai.presentation.details.EntryDetailsContent
 import reikai.presentation.details.EntryDetailsDialog
@@ -118,6 +119,9 @@ class NovelScreen(
                     graph.appCoroutineScope,
                 )
             NovelEntryAdapter(viewModel, coverViewModelFactory, duplicates, volumes)
+        }
+        val settings = remember(viewModel) {
+            context.appGraph.run { DetailsSettings(uiPreferences, reikaiLibraryPreferences, viewModel.viewModelScope) }
         }
         val neutralState by adapter.state.collectAsStateWithLifecycle()
 
@@ -231,6 +235,7 @@ class NovelScreen(
                             onOpenSourceSettings = viewModel::showSourceSettings
                                 .takeIf { s.sourceHasSettings },
                         ),
+                        settings = settings,
                     )
                 } ?: EntryDetailsSkeleton() // until the first off-Main mapping lands
 

@@ -45,7 +45,6 @@ import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
-import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
@@ -67,7 +66,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
-import tachiyomi.presentation.core.util.collectAsState
 
 /** Dim level for a hidden chapter row shown via "Show hidden chapters". */
 private const val HIDDEN_CHAPTER_ALPHA = 0.4f
@@ -138,15 +136,16 @@ fun EntryDetailsContent(
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
     nav: EntryDetailsNavigation,
+    settings: DetailsSettings,
 ) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
     val navigator = LocalNavigator.currentOrThrow
-    val libraryPreferences = remember { context.appGraph.reikaiLibraryPreferences }
     val libraryNav = nav.forState(state).copy(
         onFilterLibraryByTag = { tag, show ->
-            scope.launch { navigator.filterLibraryByTag(libraryPreferences, tag, show) }
+            settings.filterLibraryByTag(tag, show)
+            scope.launch { navigator.showLibraryFromDetails() }
         },
     )
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
@@ -184,12 +183,11 @@ fun EntryDetailsContent(
             }
         }.takeIf { ownLocal },
     )
-    // Read here once for both types, as the description's image setting is.
-    val uiPreferences = remember { context.appGraph.uiPreferences }
+    val placement by settings.chrome.collectAsState()
     val chrome = DetailsChrome(
-        jumpsInMenu = uiPreferences.detailsScrollActionsInMenu.collectAsState().value,
-        readButtonSide = uiPreferences.readButtonSide.collectAsState().value,
-        onReadButtonDocked = uiPreferences.readButtonSide::set,
+        jumpsInMenu = placement.jumpsInMenu,
+        readButtonSide = placement.readButtonSide,
+        onReadButtonDocked = settings::dockReadButton,
     )
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
     var renameTitle by remember { mutableStateOf<String?>(null) }
