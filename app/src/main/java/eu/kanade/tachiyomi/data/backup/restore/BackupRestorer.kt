@@ -228,8 +228,10 @@ class BackupRestorer(
 
     // RK --> once the rest is back: the backup repos the user trusted, then the apps and plugins it lacks
     private suspend fun restoreExtensions(summary: BackupSummary, options: RestoreOptions, trusted: ApprovedRepos) {
-        restoreIsolated("extension repos") {
-            restoreExtensionInstaller.addTrusted(trusted).forEach { errors.add(Date() to it) }
+        if (options.extensionStores) {
+            restoreIsolated("extension repos") {
+                restoreExtensionInstaller.addTrusted(trusted).forEach { errors.add(Date() to it) }
+            }
         }
         if (!options.extensions) return
         notifier.showRestoreProgress(

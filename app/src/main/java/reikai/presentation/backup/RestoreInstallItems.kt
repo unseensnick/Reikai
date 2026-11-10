@@ -18,13 +18,14 @@ import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * The Restore screen's install cards: what installs from the device's own repos, then each backup repo
- * this device lacks, with what it would install and a box to trust it. Trusting is also how a repo comes
- * back, so a repo is offered with Missing extensions off. With it off the device's repos install nothing, and
+ * this device lacks, with what it would install and a box to trust it, when [offerRepos] (Extension repos)
+ * is on. Trusting is also how a repo comes back, so a repo is offered with Missing extensions off. With it off the device's repos install nothing, and
  * their items are still named for the user to install by hand.
  */
 fun LazyListScope.restoreInstallItems(
     plan: RestoreInstallPlan,
     shouldInstall: Boolean,
+    offerRepos: Boolean,
     trusted: Set<String>,
     onTrust: (BackupRepo, Boolean) -> Unit,
 ) {
@@ -35,7 +36,7 @@ fun LazyListScope.restoreInstallItems(
             }
         }
     }
-    items(plan.repos, key = { "restore-repo-${it.url}" }) { repo ->
+    items(if (offerRepos) plan.repos else emptyList(), key = { "restore-repo-${it.url}" }) { repo ->
         SectionCard {
             Column(verticalArrangement = Arrangement.spacedBy(MaterialTheme.padding.small)) {
                 Text(repo.name, style = MaterialTheme.typography.titleMedium)

@@ -110,7 +110,13 @@ class RestoreBackupScreen(
 
                 // RK --> what the restore installs, and the backup's repos this device lacks, each to trust
                 if (state.canRestore) {
-                    restoreInstallItems(state.installs, state.options.extensions, state.trusted, viewModel::trust)
+                    restoreInstallItems(
+                        state.installs,
+                        state.options.extensions,
+                        state.options.extensionStores,
+                        state.trusted,
+                        viewModel::trust,
+                    )
                 }
                 // RK <--
 

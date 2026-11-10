@@ -20,7 +20,7 @@ class RestoreInstallItemsTest {
     @get:Rule
     val compose = createComposeRule()
 
-    private fun show(signingKey: String) = compose.setContent {
+    private fun show(signingKey: String, offerRepos: Boolean = true) = compose.setContent {
         ComposeTestHost {
             LazyColumn {
                 restoreInstallItems(
@@ -28,6 +28,7 @@ class RestoreInstallItemsTest {
                         repos = listOf(BackupRepo("https://store.example/index.min.json", "Store", false, signingKey)),
                     ),
                     shouldInstall = true,
+                    offerRepos = offerRepos,
                     trusted = emptySet(),
                     onTrust = { _, _ -> },
                 )
@@ -40,6 +41,13 @@ class RestoreInstallItemsTest {
         show(NO_SIGNING_KEY)
 
         compose.onNodeWithText("Signing key").assertDoesNotExist()
+    }
+
+    @Test
+    fun `with Extension repos off the backup's repos are not offered`() {
+        show("abc", offerRepos = false)
+
+        compose.onNodeWithText("Store").assertDoesNotExist()
     }
 
     @Test
