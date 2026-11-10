@@ -52,7 +52,7 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
 
     init {
         val lower = name.lowercase()
-        volume = ChapterRecognition.volume.find(lower)?.groupValues?.get(1)?.toDoubleOrNull()
+        volume = ChapterRecognition.volume.find(lower)?.groupValues?.get(1)?.toDoubleOrNull() ?: leadingVolume(lower)
         val text = ChapterRecognition.volume.replace(lower, " ")
         val whole = floor(number).toLong()
         // The stored number as the name writes it, decimals and a sub-chapter letter included.
@@ -95,6 +95,15 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
         val extraWord = Regex(
             """\b(?:extra|bonus|omake|special|side ?story|notice|announcement|interlude|afterword|hiatus)\b|番外|外传|외전""",
         )
+
+        // A bare number leading a name whose chapter word comes after it, as a local volume folder "01" leads
+        // "01 - Ch 001": that number is the volume, so chapters numbered again in each volume stay apart.
+        val leadingNumber = Regex("""^\s*([0-9]+(?:\.[0-9]+)?)\s*[-:._]?\s+""")
+        val chapterWordNumber = Regex("""\b(?:ch|chap|chapter|ep|episode)\.?\s*#?[0-9]""")
+
+        fun leadingVolume(name: String): Double? = leadingNumber.find(name)
+            ?.takeIf { chapterWordNumber.containsMatchIn(name.substring(it.range.last + 1)) }
+            ?.groupValues?.get(1)?.toDoubleOrNull()
 
         // After a chapter word, typos included ("Chaprer 19"), or leading the name.
         fun isChapterPosition(before: String): Boolean =

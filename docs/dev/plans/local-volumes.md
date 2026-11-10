@@ -6,7 +6,7 @@ A local series can hold several volumes and show them as one series: its chapter
 
 ## Why
 
-Merging separate local volumes is the only way to keep them together today, and a merge lines chapters up across its sources by number. Volumes reuse numbers and names ("Chapter 1", "Afterword"), so the merged All view hides some chapters and swaps others. Inside one series a chapter's address already names its volume's file and chapters are numbered across the whole series, so nothing collides; what is missing is the volume as something the user can see, order and act on.
+Merging separate local volumes is the only way to keep them together today, and a merge lines chapters up across its sources by number. Volumes reuse numbers and names ("Chapter 1", "Afterword"), so the merged All view hides some chapters and swaps others. Inside one series a chapter's address already names its volume's file, so no two rows collide; a novel's chapters are numbered across the whole series, while a manga's take the numbers their files give, which may start again in each volume, and the duplicate rule reads a bare number leading the name ("01 - Ch 001") as its volume, so those are never copies; what is missing is the volume as something the user can see, order and act on.
 
 ## Approach
 

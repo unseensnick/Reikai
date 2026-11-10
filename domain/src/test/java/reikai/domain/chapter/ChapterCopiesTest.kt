@@ -33,6 +33,14 @@ class ChapterCopiesTest {
         (numbered.map { it.number }.distinct().size to (sets.size == 1)) shouldBe (1 to case.copies)
     }
 
+    /** A local volume folder named by a bare number leads its chapters' names, which restart in each volume. */
+    @Test
+    fun `chapters of two volumes named by bare numbers are apart`() {
+        val chapters = listOf(Ch(1, "01 - Ch 001", null, 1.0), Ch(2, "03 - Ch 001", null, 1.0))
+
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
+    }
+
     @Test
     fun `each copy reports the size of its set, and a chapter with none is absent`() {
         val chapters = listOf(Ch(1, "Chapter 1", "A", 1.0), Ch(2, "Chapter 1", "B", 1.0), Ch(3, "Chapter 2", "A", 2.0))
