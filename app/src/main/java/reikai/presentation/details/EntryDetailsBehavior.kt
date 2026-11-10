@@ -7,12 +7,10 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.track.Tracker
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import reikai.domain.chapter.ChapterNumberEdit
@@ -33,28 +31,20 @@ sealed interface EntryDownloadProgress {
 }
 
 /**
- * [source] mapped to the neutral state, off the main thread since every chapter row is mapped. Never
- * seeded by mapping, which ran the whole list on Main in composition: the seed is the last value this
- * model's adapters mapped, so a re-entry (rotation, a screen popped back to) renders at once and only a
- * first open shows Loading. WhileSubscribed, not Eagerly: an adapter is rebuilt per composition entry
- * while this sharing coroutine lives in the model's scope, so an eager start left one orphaned mapper
- * running per re-entry.
+ * [source] and [duplicates] (which no model state carries) mapped to the neutral state, off the main
+ * thread since every chapter row is mapped. Never seeded by mapping, which ran the whole list on Main in
+ * composition: the seed is the last value this model's adapters mapped, so a re-entry (rotation, a screen
+ * popped back to) renders at once and only a first open shows Loading. WhileSubscribed, not Eagerly: an
+ * adapter is rebuilt per composition entry while this sharing coroutine lives in the model's scope, so an
+ * eager start left one orphaned mapper running per re-entry.
  */
-internal fun <S> ViewModel.neutralDetailsState(
-    source: StateFlow<S>,
-    toNeutral: (S) -> EntryDetailsScreenState,
-): StateFlow<EntryDetailsScreenState> = mappedOffMain(source.map(toNeutral))
-
-/** [neutralDetailsState] that also re-maps when [duplicates] changes, which no model state carries. */
 internal fun <S, D> ViewModel.neutralDetailsState(
     source: StateFlow<S>,
     duplicates: StateFlow<D>,
     toNeutral: (S, D) -> EntryDetailsScreenState,
-): StateFlow<EntryDetailsScreenState> = mappedOffMain(combine(source, duplicates, toNeutral))
-
-private fun ViewModel.mappedOffMain(mapped: Flow<EntryDetailsScreenState>): StateFlow<EntryDetailsScreenState> {
+): StateFlow<EntryDetailsScreenState> {
     val last = getCloseable(LastNeutralState.KEY) ?: LastNeutralState().also { addCloseable(LastNeutralState.KEY, it) }
-    return mapped
+    return combine(source, duplicates, toNeutral)
         .flowOn(Dispatchers.Default)
         .onEach { last.value = it }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(), last.value)
