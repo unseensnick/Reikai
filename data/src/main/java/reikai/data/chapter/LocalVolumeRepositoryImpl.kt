@@ -61,9 +61,10 @@ class LocalVolumeRepositoryImpl(
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {
         if (volumes.isEmpty()) return
         database.transaction {
+            // Only what the backup holds, so a field it lacks keeps the one set on this device.
             volumes.forEach {
-                queries.setPosition(type.toDbValue(), series, it.key, it.position)
-                queries.setLabel(type.toDbValue(), series, it.key, it.label)
+                it.position?.let { position -> queries.setPosition(type.toDbValue(), series, it.key, position) }
+                it.label?.let { label -> queries.setLabel(type.toDbValue(), series, it.key, label) }
             }
         }
     }
