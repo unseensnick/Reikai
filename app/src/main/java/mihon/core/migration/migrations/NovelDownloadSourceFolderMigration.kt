@@ -23,7 +23,7 @@ class NovelDownloadSourceFolderMigration(
     private val provider: NovelDownloadProvider,
     private val cache: NovelDownloadCache,
 ) : Migration {
-    override val version: Float = 207f
+    override val version: Float = 208f
 
     override suspend fun invoke(migrationContext: MigrationContext): Boolean = withIOContext {
         val sources = novelPreferences.seenNovelSources().get().keys
