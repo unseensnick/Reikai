@@ -27,6 +27,7 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.download.FakeSharedPreferences
@@ -142,6 +143,7 @@ class RenameOnSyncConformanceTest {
                     getExcludedScanlators = mockk(relaxed = true),
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    chapterCopyMarks = InMemoryChapterCopyMarks(),
                 ).await(
                     listOf(
                         SChapter.create().apply {
@@ -224,6 +226,7 @@ class RenameOnSyncConformanceTest {
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
+                    InMemoryChapterCopyMarks(),
                     novelDownloadManager = downloads,
                 )
             }

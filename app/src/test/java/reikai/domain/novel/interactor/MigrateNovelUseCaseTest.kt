@@ -8,6 +8,7 @@ import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.novel.NovelChapterRepository
@@ -56,6 +57,7 @@ class MigrateNovelUseCaseTest {
         sourceTracker = mockk(relaxed = true),
         novelHistoryRepository = mockk(relaxed = true) { coEvery { upsertAllNovelHistory(any()) } returns true },
         chapterNumberOverrides = NoChapterNumberOverrides,
+        chapterCopyMarks = InMemoryChapterCopyMarks(),
         readingLog = NoReadingLog,
         readingPace = readingPace,
     )

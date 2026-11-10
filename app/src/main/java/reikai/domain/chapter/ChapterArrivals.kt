@@ -3,7 +3,10 @@ package reikai.domain.chapter
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
-/** A chapter a sync is adding, with the state its source gave it; a null [dateUpload] means undated. */
+/**
+ * A chapter a sync is adding, with the state its source gave it; a null [dateUpload] means undated. [mark]
+ * is the user's copy mark on its url, which a re-listed chapter keeps.
+ */
 data class ArrivingChapter(
     val number: Double,
     val read: Boolean = false,
@@ -11,6 +14,7 @@ data class ArrivingChapter(
     val dateUpload: Instant? = null,
     val name: String = "Chapter $number",
     val scanlator: String? = null,
+    val mark: CopyMark? = null,
 )
 
 /** A chapter already stored, or one the sync is removing. [dateFetch] is read only for a removed one. */
@@ -21,6 +25,7 @@ data class StoredChapter(
     val dateFetch: Instant = Instant.fromEpochMilliseconds(0),
     val name: String = "Chapter $number",
     val scanlator: String? = null,
+    val mark: CopyMark? = null,
 )
 
 /**
@@ -46,12 +51,12 @@ fun foundRelease(hadChapters: Boolean, arrivals: List<Arrival>): Boolean =
     hadChapters && arrivals.any { !it.isRelisted }
 
 /**
- * Upstream `SyncChaptersWithSource`'s rules for the chapters a sync adds, which the manga and novel syncs
- * both call. Fetch dates count down from [now] in source order, and an undated chapter takes the latest
- * date listed before it, or [now]. With [markDuplicateAsRead], a copy of a stored read chapter, by
- * [chapterCopySets], arrives read, so [stored] carries the numbers this sync leaves them with. One
- * numbered like a [removed] one takes its state and its earliest fetch date, so a re-listed chapter is
- * not new. An unnumbered chapter (below zero) matches nothing.
+ * Upstream `SyncChaptersWithSource`'s rules for the chapters a sync adds, which both syncs call. Fetch
+ * dates count down from [now] in source order, and an undated chapter takes the latest date listed before
+ * it, or [now]. With [markDuplicateAsRead], a copy of a stored read chapter, by [chapterCopySets] with the
+ * user's marks, arrives read, so [stored] carries the numbers this sync leaves them with. One numbered
+ * like a [removed] one takes its state and earliest fetch date, so a re-listed chapter is not new. An
+ * unnumbered chapter (below zero) matches nothing.
  */
 fun chapterArrivals(
     added: List<ArrivingChapter>,
@@ -60,7 +65,10 @@ fun chapterArrivals(
     markDuplicateAsRead: Boolean,
     now: Instant,
 ): List<Arrival> {
-    val readByNumber = stored.filter { it.read && isRecognizedChapterNumber(it.number) }.groupBy { it.number }
+    val read = stored.filter { it.read }
+    val readByNumber = read.filter { isRecognizedChapterNumber(it.number) }.groupBy { it.number }
+    // A hand-made group joins its chapters whatever their numbers.
+    val readByGroup = read.filter { it.mark is CopyMark.Group }.groupBy { it.mark }
     val removedByNumber = removed.groupBy { it.number }
     // Keeps an older undated chapter from sorting above a newer dated one.
     var maxSeenUploadDate: Instant? = null
@@ -69,7 +77,8 @@ fun chapterArrivals(
             ?.also { maxSeenUploadDate = listOfNotNull(maxSeenUploadDate, it).max() }
             ?: maxSeenUploadDate
             ?: now
-        val duplicate = markDuplicateAsRead && readByNumber[chapter.number]?.let(chapter::isCopyOfAny) == true
+        val candidates = readByNumber[chapter.number].orEmpty() + readByGroup[chapter.mark].orEmpty()
+        val duplicate = markDuplicateAsRead && candidates.isNotEmpty() && chapter.isCopyOfAny(candidates)
         val twins = removedByNumber[chapter.number].takeIf { isRecognizedChapterNumber(chapter.number) }
         if (twins == null) {
             val dateFetch = now + (added.size - index).milliseconds
@@ -88,6 +97,11 @@ fun chapterArrivals(
 }
 
 private fun ArrivingChapter.isCopyOfAny(reads: List<StoredChapter>): Boolean =
-    (listOf(name to scanlator) + reads.map { it.name to it.scanlator })
-        .chapterCopySets({ number }, { it.first }, { it.second }, { 0L })
+    (
+        listOf(Written(number, name, scanlator, mark)) +
+            reads.distinct().map { Written(it.number, it.name, it.scanlator, it.mark) }
+        )
+        .chapterCopySets({ it.number }, { it.name }, { it.origin }, { 0L }, { it.mark })
         .first().size > 1
+
+private data class Written(val number: Double, val name: String, val origin: String?, val mark: CopyMark?)

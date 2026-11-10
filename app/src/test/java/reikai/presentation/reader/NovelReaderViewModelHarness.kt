@@ -480,6 +480,7 @@ class NovelReaderViewModelHarness private constructor(
             reikaiLibraryPreferences = reikaiLibraryPreferences,
             libraryPreferences = LibraryPreferences(store),
             chapterNumberOverrides = numberOverrides,
+            chapterCopyMarks = copyMarks,
             editChapterNumber = EditChapterNumber(numberOverrides, ReconcileMergedChapters(units, setOf(stitcher))),
             context = mockk(relaxed = true),
             getCustomNovelInfo = mockk(relaxed = true) { every { subscribe(any()) } returns flowOf(null) },

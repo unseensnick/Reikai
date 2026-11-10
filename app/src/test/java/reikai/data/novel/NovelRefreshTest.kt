@@ -16,6 +16,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
@@ -123,6 +124,7 @@ class NovelRefreshTest {
         novels,
         preferences,
         NoChapterNumberOverrides,
+        InMemoryChapterCopyMarks(),
         coverCache,
         novelDownloadManager = downloadManager,
         manualFetch = manualFetch,
@@ -378,6 +380,7 @@ class NovelRefreshTest {
         novels,
         libraryPreferences,
         NoChapterNumberOverrides,
+        InMemoryChapterCopyMarks(),
         page = page,
     )
 
@@ -418,6 +421,7 @@ class NovelRefreshTest {
             chapters,
             libraryPreferences,
             NoChapterNumberOverrides,
+            InMemoryChapterCopyMarks(),
         )!!
 
     @Test

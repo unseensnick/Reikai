@@ -12,6 +12,7 @@ import kotlinx.datetime.toInstant
 import kotlinx.datetime.toLocalDateTime
 import reikai.data.manga.toSourceChapters
 import reikai.domain.chapter.ArrivingChapter
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.appliedTo
@@ -40,6 +41,7 @@ class SyncChaptersWithSource(
     private val getExcludedScanlators: GetExcludedScanlators,
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository, // RK
+    private val chapterCopyMarks: ChapterCopyMarkRepository, // RK
 ) {
 
     /**
@@ -145,10 +147,24 @@ class SyncChaptersWithSource(
         // RK --> the arrival rules are a kernel the novel sync calls too
         val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
+        // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
+        val marks = if (markDuplicateAsRead) {
+            chapterCopyMarks.loadedMarks(ContentType.MANGA)[manga.id].orEmpty()
+        } else {
+            emptyMap()
+        }
         // Sources MUST return the chapters from most to less recent, which the fetch dates rely on.
         val arrivals = chapterArrivals(
             added = newChapters.map {
-                ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator)
+                ArrivingChapter(
+                    it.chapterNumber,
+                    it.read,
+                    it.bookmark,
+                    it.dateUpload,
+                    it.name,
+                    it.scanlator,
+                    marks[it.url],
+                )
             },
             stored = dbChapters.map {
                 StoredChapter(
@@ -156,6 +172,7 @@ class SyncChaptersWithSource(
                     it.read,
                     name = it.name,
                     scanlator = it.scanlator,
+                    mark = marks[it.url],
                 )
             },
             removed = removedChapters.map { StoredChapter(it.chapterNumber, it.read, it.bookmark, it.dateFetch) },

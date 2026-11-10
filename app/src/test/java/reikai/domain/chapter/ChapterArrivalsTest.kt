@@ -30,6 +30,28 @@ class ChapterArrivalsTest {
     }
 
     @Test
+    fun `a new chapter the user marked Never skip stays unread beside a read copy`() {
+        arrive(ArrivingChapter(5.0, mark = CopyMark.NeverSkip), stored = listOf(StoredChapter(5.0, read = true)))
+            .read shouldBe false
+    }
+
+    @Test
+    fun `a read chapter the user marked Never skip marks no copy of it read`() {
+        arrive(ArrivingChapter(5.0), stored = listOf(StoredChapter(5.0, read = true, mark = CopyMark.NeverSkip)))
+            .read shouldBe false
+    }
+
+    @Test
+    fun `a new chapter grouped by hand with a read one arrives read whatever its number`() {
+        val grouped = CopyMark.Group(1L)
+
+        arrive(
+            ArrivingChapter(7.0, name = "Side A", mark = grouped),
+            stored = listOf(StoredChapter(3.0, read = true, name = "Other", mark = grouped)),
+        ).read shouldBe true
+    }
+
+    @Test
     fun `a new chapter numbered like a read one stays unread with the setting off`() {
         arrive(ArrivingChapter(5.0), stored = listOf(StoredChapter(5.0, read = true)), markDuplicateAsRead = false)
             .read shouldBe false

@@ -14,6 +14,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.Novel
@@ -189,6 +190,7 @@ class RepairNovelDetailsTest {
                 stitchers = emptySet(),
             ),
             chapterNumberOverrides = NoChapterNumberOverrides,
+            chapterCopyMarks = InMemoryChapterCopyMarks(),
         )
 
         repair.await()

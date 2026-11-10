@@ -3,7 +3,9 @@ package reikai.data.novel
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.withContext
 import reikai.domain.chapter.ArrivingChapter
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.StoredChapter
 import reikai.domain.chapter.appliedTo
 import reikai.domain.chapter.chapterArrivals
@@ -37,6 +39,7 @@ suspend fun syncChaptersWithNovelSource(
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
     numberOverrides: ChapterNumberOverrideRepository,
+    copyMarks: ChapterCopyMarkRepository,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
@@ -122,12 +125,14 @@ suspend fun syncChaptersWithNovelSource(
     val now = Clock.System.now()
     val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
         .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_NEW)
+    // The user's copy marks bend the rule as they do in the reader; read only when the rule runs.
+    val marks = if (markDuplicateAsRead) copyMarks.loadedMarks(ContentType.NOVELS)[novelId].orEmpty() else emptyMap()
     // Sources list newest first, so the kernel counts fetch dates down from now in that order.
     val arrivals = chapterArrivals(
         added = toAdd.map {
-            ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator)
+            ArrivingChapter(it.chapterNumber, it.read, it.bookmark, it.dateUpload, it.name, it.scanlator, marks[it.url])
         },
-        stored = dbChapters.map { it.toStoredChapter(sourceNumbers[it.url] ?: it.chapterNumber) },
+        stored = dbChapters.map { it.toStoredChapter(sourceNumbers[it.url] ?: it.chapterNumber, marks[it.url]) },
         removed = toDelete.map { it.toStoredChapter() },
         markDuplicateAsRead = markDuplicateAsRead,
         now = now,
@@ -203,5 +208,5 @@ private fun numbered(novelTitle: String, chapters: List<NovelChapter>): List<Nov
         withNumber = { chapter, number -> chapter.copy(chapterNumber = number) },
     ).asReversed()
 
-private fun NovelChapter.toStoredChapter(number: Double = chapterNumber) =
-    StoredChapter(number, read, bookmark, dateFetch, name, scanlator)
+private fun NovelChapter.toStoredChapter(number: Double = chapterNumber, mark: CopyMark? = null) =
+    StoredChapter(number, read, bookmark, dateFetch, name, scanlator, mark)

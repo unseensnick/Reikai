@@ -140,6 +140,7 @@ class ChapterNumberOverrideConformanceTest {
                     getExcludedScanlators = mockk(relaxed = true),
                     libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    chapterCopyMarks = InMemoryChapterCopyMarks(),
                 ).await(
                     chapters.map { (url, number) ->
                         SChapter.create().apply {
@@ -191,6 +192,7 @@ class ChapterNumberOverrideConformanceTest {
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
+                    InMemoryChapterCopyMarks(),
                 ).changed
 
             override suspend fun number(database: Database, url: String) =

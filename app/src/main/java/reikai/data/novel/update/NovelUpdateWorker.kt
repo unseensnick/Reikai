@@ -42,6 +42,7 @@ import reikai.data.updateerror.UpdateErrorLog
 import reikai.data.updateerror.UpdateErrorSection
 import reikai.data.updateerror.updateFailureMessage
 import reikai.domain.category.isUpdateScope
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ContentType
@@ -106,6 +107,8 @@ class NovelUpdateWorker(
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
     @Inject private lateinit var chapterNumberOverrides: ChapterNumberOverrideRepository
+
+    @Inject private lateinit var chapterCopyMarks: ChapterCopyMarkRepository
 
     @Inject private lateinit var coverCache: CoverCache
 
@@ -232,6 +235,7 @@ class NovelUpdateWorker(
         novelRepo,
         libraryPreferences,
         chapterNumberOverrides,
+        chapterCopyMarks,
         coverCache,
         novelDownloadManager = downloadManager,
         fetchWindow = fetchWindow,

@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import mihon.domain.extension.model.ContentWarning
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.SourceNovel
@@ -32,6 +33,7 @@ class NovelPageWalkTest {
                 novelRepository = mockk(),
                 libraryPreferences = mockk(),
                 numberOverrides = NoChapterNumberOverrides,
+                copyMarks = InMemoryChapterCopyMarks(),
             )
         }
 

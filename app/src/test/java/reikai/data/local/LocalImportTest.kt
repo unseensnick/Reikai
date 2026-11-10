@@ -13,6 +13,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.Robolectric
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -50,6 +51,7 @@ class LocalImportTest(private val type: ContentType) {
         novelChapterRepository = mockk(),
         libraryPreferences = mockk(),
         chapterNumberOverrides = mockk(),
+        chapterCopyMarks = InMemoryChapterCopyMarks(),
         novelAdder = mockk<NovelLibraryAdder> { coEvery { addToBatch(any(), any(), any()) } returns AddOutcome.Failed },
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {

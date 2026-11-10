@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.library.ContentType
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -88,6 +89,7 @@ class PagedChapterNumberingTest {
             NovelRepositoryImpl(database),
             LibraryPreferences(InMemoryPreferenceStore()),
             overrides,
+            InMemoryChapterCopyMarks(),
             page = page,
         )
     }

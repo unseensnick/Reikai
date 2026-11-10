@@ -15,6 +15,7 @@ import mihon.core.common.extensions.toEpochMillisOrZero
 import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -116,6 +117,7 @@ class NovelChapterSyncTest {
                 ),
             ),
             NoChapterNumberOverrides,
+            InMemoryChapterCopyMarks(),
             novelDownloadManager = downloadManager,
         )
         return Synced(result, inserted, changed)

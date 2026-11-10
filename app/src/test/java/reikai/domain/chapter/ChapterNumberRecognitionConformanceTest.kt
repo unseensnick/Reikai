@@ -135,6 +135,7 @@ class ChapterNumberRecognitionConformanceTest {
                     getExcludedScanlators = mockk(relaxed = true),
                     libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    chapterCopyMarks = InMemoryChapterCopyMarks(),
                 ).await(
                     chapters.map { (url, name) ->
                         SChapter.create().apply {
@@ -176,6 +177,7 @@ class ChapterNumberRecognitionConformanceTest {
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
+                    InMemoryChapterCopyMarks(),
                 )
             }
 

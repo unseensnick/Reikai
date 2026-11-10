@@ -15,6 +15,7 @@ import mihon.core.archive.ArchiveReader
 import mihon.domain.manga.model.toDomainManga
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.novel.insertOpenedNovel
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelChapterRepository
@@ -105,6 +106,7 @@ class LocalImport(
     private val novelChapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val chapterCopyMarks: ChapterCopyMarkRepository,
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
@@ -221,6 +223,7 @@ class LocalImport(
                 novelChapterRepository,
                 libraryPreferences,
                 chapterNumberOverrides,
+                chapterCopyMarks,
             )
             val item = NovelItem(parsed.name ?: path, path, parsed.cover)
             if (novelAdder.addToBatch(item, LocalNovelSource.ID, categoryIds) == AddOutcome.Failed) {

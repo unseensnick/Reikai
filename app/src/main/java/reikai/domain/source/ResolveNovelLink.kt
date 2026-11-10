@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.cache.CoverCache
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.sentName
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -35,6 +36,7 @@ class ResolveNovelLink(
     private val novelChapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val chapterCopyMarks: ChapterCopyMarkRepository,
     private val coverCache: CoverCache,
     // Built only by a chapter link's refresh, since building it reads the saved queue
     private val novelDownloadManager: () -> NovelDownloadManager,
@@ -48,6 +50,7 @@ class ResolveNovelLink(
         novelChapterRepository: NovelChapterRepository,
         libraryPreferences: LibraryPreferences,
         chapterNumberOverrides: ChapterNumberOverrideRepository,
+        chapterCopyMarks: ChapterCopyMarkRepository,
         coverCache: CoverCache,
         novelDownloadManager: () -> NovelDownloadManager,
     ) : this(
@@ -59,6 +62,7 @@ class ResolveNovelLink(
         novelChapterRepository,
         libraryPreferences,
         chapterNumberOverrides,
+        chapterCopyMarks,
         coverCache,
         novelDownloadManager,
     )
@@ -102,6 +106,7 @@ class ResolveNovelLink(
             novelChapterRepository,
             libraryPreferences,
             chapterNumberOverrides,
+            chapterCopyMarks,
         ) ?: return null
         return NovelLinkTarget.Novel(source.id, path)
     }
@@ -130,6 +135,7 @@ class ResolveNovelLink(
                     novelRepository,
                     libraryPreferences,
                     chapterNumberOverrides,
+                    chapterCopyMarks,
                     coverCache,
                     novelDownloadManager(),
                 )
@@ -146,5 +152,6 @@ class ResolveNovelLink(
             novelChapterRepository,
             libraryPreferences,
             chapterNumberOverrides,
+            chapterCopyMarks,
         )
 }

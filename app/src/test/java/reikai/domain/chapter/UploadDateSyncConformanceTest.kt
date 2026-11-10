@@ -106,6 +106,7 @@ class UploadDateSyncConformanceTest {
                     getExcludedScanlators = mockk(relaxed = true),
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    chapterCopyMarks = InMemoryChapterCopyMarks(),
                 ).await(
                     listOf(
                         SChapter.create().apply {
@@ -158,6 +159,7 @@ class UploadDateSyncConformanceTest {
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
+                    InMemoryChapterCopyMarks(),
                 )
             }
 

@@ -64,6 +64,7 @@ import reikai.data.novel.syncOpenedChapters
 import reikai.data.novel.toNovel
 import reikai.data.novel.updateNovelFetchInterval
 import reikai.data.updateerror.refreshFailureMessage
+import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
 import reikai.domain.chapter.ChapterNumberOverrideRepository
@@ -231,6 +232,7 @@ class NovelDetailsViewModel(
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
+    private val chapterCopyMarks: ChapterCopyMarkRepository,
     private val editChapterNumber: EditChapterNumber,
     private val context: Context,
     // Non-destructive custom-info overlay (edits never touch the novels row, so Reset is clean).
@@ -872,6 +874,7 @@ class NovelDetailsViewModel(
                 chapterRepo,
                 libraryPreferences,
                 chapterNumberOverrides,
+                chapterCopyMarks,
                 downloadManager,
             )
         } else {
@@ -885,6 +888,7 @@ class NovelDetailsViewModel(
                 chapterRepo,
                 libraryPreferences,
                 chapterNumberOverrides,
+                chapterCopyMarks,
                 downloadManager,
             )
         }
@@ -909,6 +913,7 @@ class NovelDetailsViewModel(
                         novelRepo,
                         libraryPreferences,
                         chapterNumberOverrides,
+                        chapterCopyMarks,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
                     )
@@ -1087,6 +1092,7 @@ class NovelDetailsViewModel(
                 novelRepo,
                 libraryPreferences,
                 chapterNumberOverrides,
+                chapterCopyMarks,
                 coverCache,
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
@@ -1108,6 +1114,7 @@ class NovelDetailsViewModel(
                         novelRepo,
                         libraryPreferences,
                         chapterNumberOverrides,
+                        chapterCopyMarks,
                         page = key,
                         novelDownloadManager = downloadManager,
                     )

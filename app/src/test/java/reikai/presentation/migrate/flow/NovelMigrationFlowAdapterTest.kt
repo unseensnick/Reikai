@@ -7,6 +7,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelChapterRepository
@@ -66,6 +67,7 @@ class NovelMigrationFlowAdapterTest {
         mergeManager = mockk(),
         installer = mockk(),
         chapterNumberOverrides = NoChapterNumberOverrides,
+        chapterCopyMarks = InMemoryChapterCopyMarks(),
     )
 
     private val adapter = adapter()

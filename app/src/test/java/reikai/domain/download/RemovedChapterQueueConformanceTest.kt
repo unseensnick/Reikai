@@ -20,6 +20,7 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -108,6 +109,7 @@ class RemovedChapterQueueConformanceTest {
                     getExcludedScanlators = mockk(relaxed = true),
                     libraryPreferences = preferences,
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
+                    chapterCopyMarks = InMemoryChapterCopyMarks(),
                 ).await(
                     urls.mapIndexed { i, url ->
                         SChapter.create().apply {
@@ -153,6 +155,7 @@ class RemovedChapterQueueConformanceTest {
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
                     ChapterNumberOverrideRepositoryImpl(database),
+                    InMemoryChapterCopyMarks(),
                     novelDownloadManager = downloads,
                 )
             }

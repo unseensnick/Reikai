@@ -6,6 +6,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -40,6 +41,7 @@ class NovelPageFetcherTest {
             sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source },
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             chapterNumberOverrides = mockk(),
+            chapterCopyMarks = InMemoryChapterCopyMarks(),
             coverCache = mockk(relaxed = true),
             saver = mockk(),
             novelDownloadManager = { mockk(relaxed = true) },
