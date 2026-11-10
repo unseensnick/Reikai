@@ -118,7 +118,8 @@ object EpubChapters {
 
     /**
      * The HTML of [chapters]'s [index]th chapter: its body content with the book's stylesheets. Each `<img>`
-     * points at [pictureAddress] of its zip path, read only when the reader shows it, so no size is too big;
+     * of a book file points at [pictureAddress] of its zip path, read only when the reader shows it, so no
+     * size is too big, and an embedded `data:` one stays as it is;
      * a stylesheet picture is inlined through [inline] (handed a zip path, answering a `data:` address or null
      * to drop it), since neither renderer fetches what a stylesheet names.
      */
@@ -164,9 +165,9 @@ object EpubChapters {
         val bytes = archive.read(cssUrls.toSet())
 
         for (img in out.body().local("img")) {
-            val path = img.attr(PATH_ATTR)
+            val path = img.attr(PATH_ATTR).ifEmpty { continue }
             img.removeAttr(PATH_ATTR)
-            if (path.isEmpty()) img.remove() else img.attr("src", pictureAddress(path))
+            img.attr("src", pictureAddress(path))
         }
         val styleText = css.joinToString("\n") { (base, text) -> cleanCss(text, base, bytes, inline) }
         if (styleText.isNotBlank()) out.head().appendElement("style").appendChild(DataNode(styleText))
@@ -266,7 +267,8 @@ object EpubChapters {
 
     /**
      * Readies one file's body for the reader: an SVG that only frames a picture becomes that picture (the
-     * renderers drop SVG), each picture records its zip path, and links stay only where they still lead.
+     * renderers drop SVG), each picture of a book file records its zip path, and links stay only where they
+     * still lead.
      * Scripts are left to the reader's sanitizer, which honours keep-embedded-JS as for any source.
      */
     private fun prepare(body: Element, path: String, files: List<String>) {
@@ -279,9 +281,14 @@ object EpubChapters {
         }
         for (img in body.local("img")) {
             val src = img.attr("src").ifEmpty { img.attr("xlink:href") }
-            if (src.isEmpty() || src.startsWith("data:") || "://" in src) continue
-            img.attr(PATH_ATTR, resolve(base, src))
             img.removeAttr("srcset")
+            when {
+                // Both readers draw an embedded picture as it is.
+                src.startsWith("data:") -> img.attr("src", src)
+                // A local book reads nothing from the web, so a picture there is dropped with the broken ones.
+                src.isEmpty() || "://" in src -> img.remove()
+                else -> img.attr(PATH_ATTR, resolve(base, src))
+            }
         }
         for (link in body.local("a")) {
             val href = link.attr("href")

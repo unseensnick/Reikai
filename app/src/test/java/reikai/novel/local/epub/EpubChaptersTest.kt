@@ -253,6 +253,46 @@ class EpubChaptersTest {
         renderIllustrated() shouldContain """src="pic:OEBPS/images/cover art.jpg""""
     }
 
+    private val embedded = "data:image/png;base64,iVBORw0KGgo="
+
+    @ParameterizedTest
+    @ValueSource(
+        strings = [
+            """<img src="data:image/png;base64,iVBORw0KGgo="/>""",
+            """<svg xmlns:xlink="http://www.w3.org/1999/xlink"><image xlink:href="data:image/png;base64,iVBORw0KGgo="/></svg>""",
+        ],
+    )
+    fun `a picture embedded in the chapter keeps its address`(picture: String) {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("$picture<p>$fill</p>"),
+            ),
+        )
+        val parsed = EpubBook.parse(book)
+
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, { "pic:$it" }) { _, _ ->
+            null
+        } shouldContain """src="$embedded""""
+    }
+
+    @Test
+    fun `a picture on the web is dropped`() {
+        val book = epub(
+            mapOf(
+                "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
+                "OEBPS/nav.xhtml" to nav("One" to "a.xhtml"),
+                "OEBPS/a.xhtml" to xhtml("""<img src="https://example.com/a.png"/><p>$fill</p>"""),
+            ),
+        )
+        val parsed = EpubBook.parse(book)
+
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, { "pic:$it" }) { _, _ ->
+            null
+        } shouldNotContain "<img"
+    }
+
     // The reader's shared sanitizer is the one owner of this, as for every source's chapter. Only the
     // WebView mode can run anything; the native one draws text.
     @Test
