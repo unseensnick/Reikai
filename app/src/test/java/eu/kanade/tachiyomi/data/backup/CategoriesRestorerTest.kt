@@ -11,6 +11,7 @@ import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryContentType
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.category.model.NewCategory
@@ -28,10 +29,13 @@ class CategoriesRestorerTest {
     private val repository = mockk<CategoryRepository>()
     private val libraryPreferences = mockk<LibraryPreferences>(relaxed = true)
 
+    private val manualOrder = FakeLibraryManualOrderRepository()
+
     private val restorer = CategoriesRestorer(
         categoryRepository = repository,
         getCategories = GetCategories(repository),
         libraryPreferences = libraryPreferences,
+        manualOrder = manualOrder,
     )
 
     /** Restores [backup] over [device] and returns the rows the restorer inserted. */
@@ -101,6 +105,22 @@ class CategoriesRestorerTest {
             listOf(category(id = 3, name = "Fantasy", contentType = CategoryContentType.NOVEL)),
             listOf(BackupCategory(name = "Fantasy", contentType = CategoryContentType.MANGA)),
         ).single().contentType shouldBe CategoryContentType.MANGA
+    }
+
+    @Test
+    fun `a Manual category the restore creates starts from the sort it was backed up with`() = runTest {
+        val rows = mutableListOf<Category>()
+        coEvery { repository.getAll(any()) } answers { rows.toList() }
+        coEvery { repository.insertAll(any()) } answers {
+            firstArg<List<NewCategory>>().forEach {
+                rows +=
+                    category(id = 7, name = it.name, contentType = it.contentType)
+            }
+        }
+
+        restorer(listOf(BackupCategory(name = "Queue", manualBase = 42L)))
+
+        manualOrder.bases.value shouldBe mapOf(7L to 42L)
     }
 
     private fun category(id: Long, name: String, contentType: Long) = Category(

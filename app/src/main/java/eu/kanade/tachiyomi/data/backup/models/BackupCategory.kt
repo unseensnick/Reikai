@@ -23,6 +23,8 @@ class BackupCategory(
     // read, and novel categories rode in the separate BackupNovelCategory list. 8001 is the
     // fork-reserved block tsundoku uses for the same field.
     @ProtoNumber(8001) var contentType: Long = CategoryContentType.MANGA,
+    // RK: the sort a Manual category started from, which orders its unplaced series and Reset
+    @ProtoNumber(8002) var manualBase: Long? = null,
 ) {
     // RK: fold a Komikku backup's separate `hidden` into our flags bit; idempotent for Reikai backups
     // (whose bit is already set in flags).

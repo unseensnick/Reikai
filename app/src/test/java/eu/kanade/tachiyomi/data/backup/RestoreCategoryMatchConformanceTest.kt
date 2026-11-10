@@ -103,7 +103,12 @@ class RestoreCategoryMatchConformanceTest {
 
             override suspend fun insertedCategories(device: List<Category>, backup: List<String>): List<String> {
                 val repository = categoryRepository(device)
-                CategoriesRestorer(repository.first, GetCategories(repository.first), mockk(relaxed = true))(
+                CategoriesRestorer(
+                    repository.first,
+                    GetCategories(repository.first),
+                    mockk(relaxed = true),
+                    FakeLibraryManualOrderRepository(),
+                )(
                     backup.map { BackupCategory(name = it) },
                 )
                 return repository.second.captured.map { it.name }

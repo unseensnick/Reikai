@@ -13,6 +13,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.category.CATEGORY_HIDDEN_MASK
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
+import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.library.isSortOverridden
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.category.interactor.GetCategories
@@ -51,6 +52,7 @@ class CategorizedDisplayRestoreTest {
                     harness.categories,
                     GetCategories(harness.categories),
                     libraryPreferences,
+                    FakeLibraryManualOrderRepository(),
                 ),
                 novelRestorer = harness.novelCategoryRestorer(),
             )
