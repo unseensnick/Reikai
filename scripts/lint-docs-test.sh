@@ -127,6 +127,22 @@ check "ignores a file outside the scope"  0 kdoc '+// [NoSuchSymbolAnywhereXyz]\
 check "ignores a removed line"            0 kdoc '-// [NoSuchSymbolAnywhereXyz]\n'
 check "tree mode reports without failing" 0 bash "$lint" kdoc-links --tree
 
+echo "local-files"
+rawcall() { printf '%b' "+++ b/${2:-app/src/main/java/reikai/data/local/X.kt}\n@@ -1,0 +1,3 @@\n$1" | bash "$lint" local-files --stdin; }
+check "catches a raw delete"               1 rawcall '+    folder.delete()\n'
+check "catches a raw renameTo"             1 rawcall '+    if (!file.renameTo(name)) return false\n'
+check "catches a raw createFile"           1 rawcall '+    val f = dir.createFile(name) ?: return\n'
+check "catches a raw openOutputStream"     1 rawcall '+    target.openOutputStream().use { }\n'
+check "catches a raw call in the novel download package" 1 rawcall '+    dir.createDirectory(name)\n' 'app/src/main/java/reikai/novel/download/X.kt'
+check "passes a marked raw call"           0 rawcall '+    whole.delete() // raw: a java.io.File in the cache\n'
+check "passes a gateway primitive"         0 rawcall '+    folder.deleteIfEmpty(context)\n+    file.rename(name)\n'
+check "passes a read"                      0 rawcall '+    val f = dir.findFile(name)?.takeIf { it.exists() }\n'
+check "passes a call in a comment"         0 rawcall '+    // the old code called folder.delete() here\n'
+check "ignores the gateway itself"         0 rawcall '+    return delete()\n' 'core/common/src/main/kotlin/reikai/storage/LocalFiles.kt'
+check "ignores a file outside the scope"   0 rawcall '+    folder.delete()\n' 'app/src/main/java/reikai/presentation/X.kt'
+check "ignores a removed line"             0 rawcall '-    folder.delete()\n'
+check "tree mode reports without failing"  0 bash "$lint" local-files --tree
+
 echo "history-words"
 # A warning, so the assertion is on what it prints, not on its exit code.
 history() { printf '%b' "+++ b/$1\n@@ -1,0 +1,2 @@\n$2" | bash "$lint" history-words | grep -q '^history-words'; }

@@ -16,6 +16,7 @@
 #   lint-docs.sh manifest-rows <file>            every off-path row still describes reality
 #   lint-docs.sh key-files <file>...             every path a plan record's Key files names exists
 #   lint-docs.sh kdoc-links [--stdin|--tree]     a [Symbol] in a comment names live code
+#   lint-docs.sh local-files [--stdin|--tree]    a raw storage call outside the local-files gateway (draft)
 #   lint-docs.sh history-words                   comments narrating history, diff on stdin (warns)
 #   lint-docs.sh subsystem-docs [<file>...]      docs/dev/subsystems/ pages carry no history
 #
@@ -419,6 +420,54 @@ case "$cmd" in
       rm -f "$ids"
       if [ -n "$hits" ]; then
         report "a comment's [Symbol] names nothing in the code; point it at the live symbol, or drop the brackets if it names no symbol." "$hits"
+        exit 1
+      fi
+    fi
+    ;;
+
+  local-files)
+    # Reikai's own code changes a file in the user's storage only through the gateway in
+    # core/common/.../reikai/storage/LocalFiles.kt, whose primitives name their trust (a delete after a
+    # listing proven whole, a rename judged by the name it produced, a write beside the old file). A raw
+    # unifile mutator (delete, renameTo, createFile, createDirectory, openOutputStream) on a code line in a
+    # covered package is rejected unless the line's comment says "raw: <why>" (a java.io.File under the
+    # app's own files, a picked single document with no parent to swap a sibling in). Covered: the
+    # local-source, local-file, dedupe, download, export and font packages and the migrations; a file
+    # refs/mihon also has (an engine file) is left to its RK islands and skipped. --stdin reads a unified
+    # diff and fails; --tree scans the covered files and only reports. Not wired into the hook or CI:
+    # a draft awaiting the owner's approval.
+    mode="${1:---stdin}"
+    refs="${REFS_MIHON:-../refs/mihon}"
+    covered='^(core/common/src/main/kotlin/reikai/|source-local/src/main/|app/src/main/java/reikai/(data/local|data/dedupe|domain/download|novel/local|novel/export|novel/download|novel/font)/|app/src/main/java/mihon/core/migration/migrations/).*\.kt$'
+    gateway='core/common/src/main/kotlin/reikai/storage/LocalFiles.kt'
+    local_awk="$COMMENT_SPLIT"'
+      function boundary() {}
+      '"$DIFF_WALK"'
+      {
+        if (file !~ ENVIRON["COVERED"] || file == ENVIRON["GATEWAY"]) next
+        if ((ENVIRON["REFS"] "/" file) in mihon) next
+        c = code_of(line)
+        if (c ~ /\.(delete|renameTo|createFile|createDirectory|openOutputStream)[ \t]*\(/ && comment_of(line) !~ /raw:/)
+          print where ": " line
+      }'
+    mihon_awk='BEGIN { while ((getline p < ENVIRON["MIHON_LIST"]) > 0) mihon[p] = 1 }'
+    mihon_list=$(mktemp)
+    if [ -d "$refs" ]; then
+      git -C "$refs" ls-files -- '*.kt' | sed "s#^#$refs/#" > "$mihon_list"
+    fi
+    if [ "$mode" = "--tree" ]; then
+      hits=$(git ls-files -z -- '*.kt' | COVERED="$covered" GATEWAY="$gateway" REFS="$refs" MIHON_LIST="$mihon_list" \
+        xargs -0 awk -v tree=1 "$mihon_awk $local_awk" || true)
+      rm -f "$mihon_list"
+      if [ -n "$hits" ]; then
+        echo "local-files: $(printf '%s\n' "$hits" | wc -l | tr -d ' ') raw storage call(s) outside the gateway (report only; draft, not wired):"
+        printf '%s\n' "$hits"
+      fi
+    else
+      hits=$(COVERED="$covered" GATEWAY="$gateway" REFS="$refs" MIHON_LIST="$mihon_list" awk -v tree=0 "$mihon_awk $local_awk")
+      rm -f "$mihon_list"
+      if [ -n "$hits" ]; then
+        report "a raw storage call (delete, renameTo, createFile, createDirectory, openOutputStream) outside reikai/storage/LocalFiles.kt; call its primitive (deleteFile, deleteTree, deleteIfEmpty, rename, createNew, replace, copyVerified), or mark the line '// raw: <why>'." "$hits"
         exit 1
       fi
     fi

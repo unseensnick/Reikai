@@ -56,7 +56,7 @@ The two download roots stay separate: `downloads` and `novel_downloads`. A manga
 
 Without the hash, two chapters of one name share one file and the first saved keeps it, as Mihon's downloader keeps the first folder: `NovelChapterSaver` returns `NAME_TAKEN` and the download counts as done.
 
-A chapter renamed by its source is renamed on disk during the chapter sync (`NovelDownloadManager.renameChapter`, as `DownloadManager.renameChapter`). A title change moves only the entry's own series folder on both types: `movesDownloadFolder` leaves a folder another entry on the source is named onto (from `SourceTitlesRepository`, library and browsed rows alike) and one whose new name is taken. `renameDownloadFolder` does the novel move, through a temporary name for a case-only change.
+A chapter renamed by its source is renamed on disk during the chapter sync (`NovelDownloadManager.renameChapter`, as `DownloadManager.renameChapter`). A title change moves only the entry's own series folder on both types: `movesDownloadFolder` leaves a folder another entry on the source is named onto (from `SourceTitlesRepository`, library and browsed rows alike) and one whose new name is taken. Both moves go through `UniFile.rename` in `reikai/storage/LocalFiles.kt`, which hops through a temporary name for a case-only change and reports success only when the folder holds exactly the new name, since a provider dodges a taken name with "name (1)". A series or source folder emptied by a delete goes only once a listing trusted whole shows it empty (`listOrNull`, `deleteIfEmpty`), on both types: a picked folder's failed listing reads as empty.
 
 ### The download index
 
@@ -90,7 +90,8 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 - `app/src/main/java/reikai/domain/download/SourcePace.kt`: the back-off each source keeps for one run.
 - `app/src/main/java/reikai/domain/download/SourceContacts.kt`: when each source was last reached, by an update check or a download, and what is left of its delay.
 - `app/src/main/java/reikai/domain/download/SeriesCompletions.kt`, `app/src/main/java/reikai/domain/download/DownloadIndexRules.kt`, `app/src/main/java/reikai/domain/download/DownloadRetry.kt`, `app/src/main/java/reikai/domain/download/DownloadSpace.kt`, `app/src/main/java/reikai/domain/download/DownloadNetworkGate.kt`: the rules both engines call.
-- `app/src/main/java/reikai/domain/download/DownloadFolderRename.kt`: `movesDownloadFolder`, `renameDownloadFolder`.
+- `app/src/main/java/reikai/domain/download/DownloadFolderRename.kt`: `movesDownloadFolder`.
+- `core/common/src/main/kotlin/reikai/storage/LocalFiles.kt`: `rename`, `deleteIfEmpty`, `replace`, the storage gateway every local file change goes through.
 - `app/src/main/java/reikai/domain/download/RemovalExclusion.kt` (`removableDownloads`, `deletableDownloads`) and `app/src/main/java/reikai/domain/download/NovelRemovableDownloads.kt`.
 - `app/src/main/java/reikai/domain/download/ChapterDownloadActions.kt`, `app/src/main/java/reikai/domain/download/DownloadStateOf.kt`, `app/src/main/java/reikai/domain/download/QueuedDownloadChanges.kt`: a row's download control.
 - `app/src/main/java/reikai/data/notification/ShownEntryName.kt`: `downloadErrorTitle`.
