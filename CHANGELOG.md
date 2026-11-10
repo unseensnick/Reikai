@@ -279,6 +279,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
+- **A light-novel plugin's settings now take effect when you save them, without restarting the app.**
+- **Saving a light-novel plugin's settings no longer locks in its defaults, so a plugin update can change them.**
 - **While a light-novel plugin repo is down, Extensions keeps listing the plugin updates the Browse badge counts.** It uses what the repo last listed since the app opened.
 - **One broken item no longer fails a whole light-novel plugin listing or chapter list.** A nameless chapter is named by its place, as in LNReader.
 - **A novel chapter a plugin returns empty now shows the empty-chapter error, not the word "null".**
@@ -286,6 +288,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A novel from a plugin whose page count is unreadable now loads its details and chapters.**
 - **Light-novel plugin links with a stray % or non-UTF-8 escapes no longer fail the page.**
 - **After a light-novel plugin call times out, the next one no longer waits on it or reports its error.**
+- **A light-novel plugin load cut off by a timeout or a closed screen no longer leaves its engine and a thread running.**
 - **Updating a light-novel plugin while plugins load no longer leaves the old version running.**
 - **The light-novel plugin update check is no longer skipped after restoring a backup from another device.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
@@ -307,7 +310,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
 - **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
-- **A novel plugin that keeps failing to load no longer holds up every novel screen.** It is retried at most once a minute, and Re-check extensions still retries it at once.
+- **A novel plugin that keeps failing to load no longer holds up every novel screen.** It is retried at most once a minute, and Retry or Re-check extensions still retries it at once.
 
 ### Updates & History
 
