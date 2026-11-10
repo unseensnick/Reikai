@@ -3,9 +3,7 @@ package reikai.data.track
 import android.webkit.CookieManager
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.Tracker
-import eu.kanade.tachiyomi.data.track.novellist.NovelList
-import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdates
-import eu.kanade.tachiyomi.data.track.ranobedb.RanobeDb
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.network.NetworkHelper
 import io.kotest.matchers.collections.shouldExist
@@ -17,10 +15,8 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 
-class SignOutCase(private val label: String, val tracker: () -> Tracker) {
+class SignOutCase(private val label: String, val tracker: (TrackerManager) -> Tracker) {
     override fun toString() = label
 }
 
@@ -30,7 +26,7 @@ class SignOutCase(private val label: String, val tracker: () -> Tracker) {
  */
 class CookieLoginSignOutTest {
 
-    private lateinit var appScope: InjektScope
+    private lateinit var trackers: TrackerManager
     private val expired = mutableListOf<Pair<String, String>>()
 
     @BeforeEach
@@ -43,19 +39,26 @@ class CookieLoginSignOutTest {
         }
         every { CookieManager.getInstance() } returns manager
         val jar = AndroidCookieJar()
-        appScope = installTrackerTestGraph(mockk<NetworkHelper>(relaxed = true) { every { cookieJar } returns jar })
+        trackers =
+            trackerTestManager(
+                trackerTestDependencies(
+                    mockk<NetworkHelper>(relaxed = true) {
+                        every { cookieJar } returns
+                            jar
+                    },
+                ),
+            )
     }
 
     @AfterEach
     fun tearDown() {
-        Injekt = appScope
         unmockkStatic(CookieManager::class)
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("cases")
     fun `signing out expires the site's session cookie`(case: SignOutCase) {
-        val tracker = case.tracker()
+        val tracker = case.tracker(trackers)
         val site = (tracker as CookieLoginTracker).cookieDomain
         tracker.logout()
         expired.shouldExist { (url, cookie) -> url.startsWith(site) && cookie.startsWith("session=;") }
@@ -64,9 +67,9 @@ class CookieLoginSignOutTest {
     companion object {
         @JvmStatic
         fun cases() = listOf(
-            SignOutCase("RanobeDb") { RanobeDb(100) },
-            SignOutCase("NovelList") { NovelList(101) },
-            SignOutCase("NovelUpdates") { NovelUpdates(102) },
+            SignOutCase("RanobeDb") { it.ranobeDb },
+            SignOutCase("NovelList") { it.novelList },
+            SignOutCase("NovelUpdates") { it.novelUpdates },
         )
     }
 }

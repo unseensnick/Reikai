@@ -18,15 +18,14 @@ import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Duration.Companion.minutes
 
 class NovelListApi(
     interceptor: NovelListInterceptor,
     client: OkHttpClient,
+    private val json: Json,
     private val apiUrl: () -> String,
 ) {
-    private val json: Json by injectLazy()
 
     // Our own ceiling, not theirs: the service publishes no limit and returns no rate-limit headers,
     // and it runs on one small deployment, so a tracker's handful of calls stays well under this.

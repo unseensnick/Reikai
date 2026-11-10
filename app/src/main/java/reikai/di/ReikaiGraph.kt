@@ -28,10 +28,8 @@ import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.MangaPreferences
-import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
-import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.interactor.RepairNovelDetails
 import reikai.domain.novel.track.NovelDelayedTrackingUpdateWorker
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
@@ -40,7 +38,6 @@ import reikai.domain.recommendation.taste.TasteLibraryRepository
 import reikai.domain.recommendation.taste.TrackerLibraryFetcher
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.task.TaskBannerPreferences
-import reikai.domain.track.KitsuEntryIdCopies
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadWorker
 import reikai.novel.export.NovelEpubExportWorker
@@ -117,7 +114,6 @@ interface ReikaiGraph {
     val lnPluginUpdateChecker: LnPluginUpdateChecker
     val lnPluginUpdateNotifier: LnPluginUpdateNotifier // the plugin update job posts and clears its notice
     val refreshTrackerLibrary: RefreshTrackerLibrary
-    val kitsuEntryIdCopies: KitsuEntryIdCopies // Kitsu heals every copy of a Yokai-restored row
     val reikaiLibraryPreferences: ReikaiLibraryPreferences
     val reikaiSourcePreferences: ReikaiSourcePreferences
     val taskBannerPreferences: TaskBannerPreferences // the Library and Data settings host its two switches
@@ -132,7 +128,6 @@ interface ReikaiGraph {
     val novelDownloadCache: NovelDownloadCache // Settings invalidates both download indexes
     val mangaMergeManager: MangaMergeManager
     val novelMergeManager: NovelMergeManager
-    val novelChapterRepository: NovelChapterRepository // NovelUpdates finds the release a read links to
     val novelFontManager: NovelFontManager
     val migrationPickHandoff: MigrationPickHandoff
     val unifiedUpdatesWidgetManager: UnifiedUpdatesWidgetManager // the receiver reports widgets placed
@@ -155,7 +150,6 @@ interface ReikaiGraph {
     // shape: Injekt registered every one of these with addFactory, never addSingletonFactory.
     val getNovelCategories: GetNovelCategories
     val categoryRepository: CategoryRepository // Settings counts every category of both libraries
-    val getNovelTracks: GetNovelTracks // NovelUpdates reads the chapters its track reaches, per the sharing switch
 
     // The metadata trio backs source-api's MetadataSource contract, which installed extensions
     // implement, so these three are reached through Injekt rather than the graph.

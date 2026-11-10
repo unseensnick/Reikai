@@ -16,7 +16,6 @@ import okhttp3.OkHttpClient
 import org.jsoup.nodes.Document
 import reikai.data.track.TrackerSignedOutException
 import tachiyomi.core.common.util.lang.withIOContext
-import uy.kohesive.injekt.injectLazy
 import java.net.URLEncoder
 import kotlin.time.Duration.Companion.minutes
 
@@ -28,9 +27,7 @@ import kotlin.time.Duration.Companion.minutes
  * Every body read and parse runs on IO: the await resumes on the caller's dispatcher, and the settings
  * screen calls in from composition.
  */
-class NovelUpdatesApi(client: OkHttpClient) {
-
-    private val json: Json by injectLazy()
+class NovelUpdatesApi(client: OkHttpClient, private val json: Json) {
 
     // Ours, not theirs: the site publishes no limit, and a scraper is heavier on it than an API is.
     private val client = client.newBuilder()

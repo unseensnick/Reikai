@@ -58,13 +58,13 @@ class UnifiedViewMemberConformanceTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
         every { DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled } returns DebugToggles.ENABLE_EXH_ROOT_REDIRECT.default
         // A header naming one source reads the language preferences off Injekt, which no test registers. A
         // state published before the chips resolve names one, and a throw there stops the adapter's state.
         mockkStatic(SOURCE_EXTENSIONS_FILE)
-        every { any<Source>().getNameForMangaInfo() } returns "source"
+        every { any<Source>().getNameForMangaInfo(any()) } returns "source"
     }
 
     @AfterEach

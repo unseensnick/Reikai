@@ -49,7 +49,7 @@ class MangaMergeRefreshSourceTest {
     fun setUp() {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         mockkStatic("eu.kanade.domain.manga.model.MangaKt")
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
         every { DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled } returns DebugToggles.ENABLE_EXH_ROOT_REDIRECT.default
     }

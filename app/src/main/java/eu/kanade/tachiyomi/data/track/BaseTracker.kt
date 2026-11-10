@@ -17,7 +17,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import logcat.LogPriority
-import mihon.app.di.appGraph
 import okhttp3.OkHttpClient
 import reikai.data.track.MetadataAccess
 import reikai.domain.track.TrackFieldMutations
@@ -26,23 +25,20 @@ import reikai.presentation.track.trackerErrorMessage
 import tachiyomi.core.common.util.lang.withUIContext
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.interactor.UpsertTrack
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.get
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 abstract class BaseTracker(
     override val id: Long,
     override val name: String,
+    dependencies: TrackerDependencies,
 ) : Tracker {
 
-    protected val appGraph get() = Injekt.get<Context>().appGraph
+    val trackPreferences: TrackPreferences = dependencies.trackPreferences
+    val networkService: NetworkHelper by dependencies.networkHelper
 
-    val trackPreferences: TrackPreferences by lazy { appGraph.trackPreferences }
-    val networkService: NetworkHelper by lazy { appGraph.networkHelper }
-
-    private val context: Context by lazy { appGraph.context }
-    private val addTracks: AddTracks by lazy { appGraph.addTracks }
-    private val upsertTrack: UpsertTrack by lazy { appGraph.upsertTrack }
+    private val context: Context = dependencies.context
+    private val addTracks: AddTracks by dependencies.addTracks
+    private val upsertTrack: UpsertTrack by dependencies.upsertTrack
 
     override val client: OkHttpClient
         get() = networkService.client

@@ -92,7 +92,7 @@ class CoverCacheKeyTest {
         customCover(EntryId.Manga(7L))
         val manga = Manga.create().copy(id = 7L, thumbnailUrl = URL, coverLastModified = LAST_MODIFIED)
 
-        MangaKeyer().key(manga, options) shouldBe "$URL;1970-01-01T00:00:00.042Z"
+        MangaKeyer(coverCache).key(manga, options) shouldBe "$URL;1970-01-01T00:00:00.042Z"
     }
 
     @Test

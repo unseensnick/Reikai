@@ -7,6 +7,7 @@ import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
 import kotlinx.coroutines.test.runTest
+import mihon.app.di.AppBindings
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -55,7 +56,9 @@ class RanobeDbApiCookieTest {
             .build()
         val ranobeDb = mockk<RanobeDb> { every { restoreToken() } returns "token-of-this-account" }
 
-        runCatching { RanobeDbApi(RanobeDbInterceptor(ranobeDb), client).deleteSeriesListEntry(1L) }
+        runCatching {
+            RanobeDbApi(RanobeDbInterceptor(ranobeDb), client, AppBindings.providesJson()).deleteSeriesListEntry(1L)
+        }
         reached shouldBe listOf("host lookup")
     }
 }

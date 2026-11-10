@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.ranobedb
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.data.track.trackerTestManager
 import tachiyomi.domain.track.model.Track as DomainTrack
 
 /**
@@ -11,7 +12,7 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  */
 class RanobeDbScoreTest {
 
-    private val tracker = RanobeDb(102L)
+    private val tracker = trackerTestManager().ranobeDb
 
     private fun trackScoring(score: Double) = DomainTrack(
         id = 1L,

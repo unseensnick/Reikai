@@ -30,7 +30,6 @@ import okhttp3.Request
 import okhttp3.RequestBody
 import reikai.data.track.isMyAnimeListNovel
 import tachiyomi.core.common.util.lang.withIOContext
-import uy.kohesive.injekt.injectLazy
 import java.text.SimpleDateFormat
 import java.util.Locale
 import tachiyomi.domain.track.model.Track as DomainTrack
@@ -39,9 +38,8 @@ class MyAnimeListApi(
     private val trackerId: Long,
     private val client: OkHttpClient,
     interceptor: MyAnimeListInterceptor,
+    private val json: Json,
 ) {
-
-    private val json: Json by injectLazy()
 
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 

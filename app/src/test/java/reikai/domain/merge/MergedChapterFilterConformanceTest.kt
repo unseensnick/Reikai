@@ -45,7 +45,7 @@ class MergedChapterFilterConformanceTest {
     fun setUp() {
         // The downloaded filter reads a global preference through the app graph; it is not under test.
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
     }
 
     @AfterEach
@@ -97,7 +97,7 @@ class MergedChapterFilterConformanceTest {
                 isRead = flags.isRead(shown),
                 isBookmarked = flags.isBookmarked(shown),
             )
-            return listOf(item).applyFilters(manga).map { it.id }.toList()
+            return listOf(item).applyFilters(manga, downloadedOnly = false).map { it.id }.toList()
         }
 
         override fun toString() = "manga details"

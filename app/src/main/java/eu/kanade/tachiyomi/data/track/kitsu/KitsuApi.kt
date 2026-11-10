@@ -42,7 +42,6 @@ import reikai.data.track.trackerEntryOrThrow
 import reikai.domain.track.KitsuEntryLookup
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.injectLazy
 import kotlin.time.Instant
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -50,9 +49,8 @@ class KitsuApi(
     private val trackerId: Long,
     private val client: OkHttpClient,
     interceptor: KitsuInterceptor,
+    private val json: Json,
 ) {
-
-    private val json: Json by injectLazy()
 
     private val authClient = client.newBuilder().addInterceptor(interceptor).build()
 

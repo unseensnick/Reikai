@@ -10,10 +10,14 @@ import reikai.domain.entry.EntryId
 import tachiyomi.domain.manga.model.MangaCover
 import tachiyomi.domain.manga.model.Manga as DomainManga
 
-class MangaKeyer : Keyer<DomainManga> {
+class MangaKeyer(
+    private val coverCache: CoverCache,
+) : Keyer<DomainManga> {
     override fun key(data: DomainManga, options: Options): String {
         // RK --> one key rule for manga and novel covers (coverCacheKey); the strings are upstream's
-        val owner = libraryCustomCoverOwner(EntryId.Manga(data.id), data.favorite) { data.hasCustomCover() }
+        val owner = libraryCustomCoverOwner(EntryId.Manga(data.id), data.favorite) {
+            data.hasCustomCover(coverCache)
+        }
         return coverCacheKey(owner, data.thumbnailUrl, data.coverLastModified)
         // RK <--
     }

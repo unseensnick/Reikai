@@ -47,6 +47,7 @@ class LocalRowLanguageTest {
                         downloadCount = 0,
                         badgePrefs = BADGES,
                         sourceBadge = SourceBadge.Generic,
+                        metadataSourceName = null,
                     )
                 }
                 return MangaMergeCollapse.collapse(

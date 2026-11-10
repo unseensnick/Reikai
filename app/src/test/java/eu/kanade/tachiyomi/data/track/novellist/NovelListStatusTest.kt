@@ -4,6 +4,7 @@ import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.nulls.shouldNotBeNull
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.data.track.trackerTestManager
 
 /**
  * NovelList has no on-hold state. The reference fork maps on-hold onto "planned", which reads back
@@ -15,7 +16,7 @@ class NovelListStatusTest {
     /** The value every other tracker in the app uses for on-hold. */
     private val onHold = 3L
 
-    private val tracker = NovelList(101L)
+    private val tracker = trackerTestManager().novelList
 
     @Test
     fun `only the four states the service can store are offered`() {

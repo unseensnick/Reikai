@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.track.novellist
 
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.data.track.trackerTestManager
 import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
 
 /**
@@ -10,7 +11,7 @@ import eu.kanade.tachiyomi.data.database.models.Track as DbTrack
  */
 class NovelListReadPushTest {
 
-    private val tracker = NovelList(101L)
+    private val tracker = trackerTestManager().novelList
 
     private fun track(read: Double, total: Long) = DbTrack.create(101L).apply {
         status = NovelList.READING

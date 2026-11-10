@@ -206,9 +206,6 @@ class MigrateMangaUseCase(
             }
 
             // Update custom cover (recheck if custom cover exists)
-            // RK: pass the injected cache rather than letting hasCustomCover resolve its own from
-            // Injekt. Same singleton in production, but it was the one dependency this use case did
-            // not take by constructor, so the cover carry could not be tested at all.
             if (MigrationFlag.CUSTOM_COVER in flags && current.hasCustomCover(coverCache)) {
                 coverCache.getCustomCoverFile(current.id).inputStream().use {
                     coverCache.setCustomCoverToCache(target, it)

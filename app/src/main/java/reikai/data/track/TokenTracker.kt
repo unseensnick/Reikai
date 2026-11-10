@@ -2,13 +2,19 @@ package reikai.data.track
 
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
 
 /**
  * A tracker signed in with a pasted token or a captured session cookie, checked against the service's
  * own profile route before either is stored. A subclass answers where a credential goes and whose
  * profile it opens; a logout that holds more state overrides [logout] and calls through.
  */
-abstract class TokenTracker(id: Long, name: String) : BaseTracker(id, name), CookieLoginTracker {
+abstract class TokenTracker(
+    id: Long,
+    name: String,
+    dependencies: TrackerDependencies,
+) : BaseTracker(id, name, dependencies),
+    CookieLoginTracker {
 
     protected abstract fun useCredential(credential: String?)
 

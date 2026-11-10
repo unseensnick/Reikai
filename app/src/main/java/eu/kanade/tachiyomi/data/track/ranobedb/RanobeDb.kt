@@ -1,15 +1,21 @@
 package eu.kanade.tachiyomi.data.track.ranobedb
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.ReplacingWriteTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeries
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBSeriesListEntry
 import eu.kanade.tachiyomi.data.track.ranobedb.dto.RDBStaff
 import eu.kanade.tachiyomi.util.lang.toLocalDate
+import kotlinx.serialization.json.Json
 import reikai.data.track.MetadataAccess
 import reikai.data.track.NovelStatusTracker
 import reikai.data.track.NovelTrackerStatuses
@@ -25,8 +31,12 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * local row stays authoritative for status and score, and a write cannot preserve fields it does not
  * send. See docs/dev/subsystems/tracking.md.
  */
-class RanobeDb(id: Long) :
-    TokenTracker(id, "RanobeDB"),
+@Inject
+@SingleIn(AppScope::class)
+class RanobeDb(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+) : TokenTracker(TrackerManager.RANOBEDB, "RanobeDB", dependencies),
     DeletableTracker,
     ReplacingWriteTracker,
     NovelStatusTracker {
@@ -50,7 +60,7 @@ class RanobeDb(id: Long) :
 
     private val interceptor by lazy { RanobeDbInterceptor(this) }
 
-    private val api by lazy { RanobeDbApi(interceptor, client) }
+    private val api by lazy { RanobeDbApi(interceptor, client, json) }
 
     /**
      * The last body accepted for a series, so an identical one is not sent again. A repeat here is

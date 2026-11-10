@@ -41,7 +41,7 @@ class MangaReadingOrderTest {
     fun setUp() {
         // The downloaded filter reads a global preference through the app graph; it is not under test.
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
     }
 
     @AfterEach
@@ -66,12 +66,17 @@ class MangaReadingOrderTest {
         val chapters = group(read = setOf(BETA))
 
         ReadingOrder.nextToRead(chapters.inReadingOrder(manga)) { it.read } shouldBe
-            chapters.getNextUnread(manga, mockk())
+            chapters.getNextUnread(manga, downloadedOnly = false, mockk())
     }
 
     @Test
     fun `the library resumes a merged group by its chapter sort, not the stitch`() {
-        group().getNextUnread(mangaSortedBy(Manga.CHAPTER_SORTING_ALPHABET), mockk())?.id shouldBe ALPHA
+        group().getNextUnread(
+            mangaSortedBy(Manga.CHAPTER_SORTING_ALPHABET),
+            downloadedOnly = false,
+            mockk(),
+        )?.id shouldBe
+            ALPHA
     }
 
     @ParameterizedTest(name = "{0}, {1}")
@@ -143,12 +148,12 @@ class MangaReadingOrderTest {
                 ReadingOrder.nextToRead(chapters.inReadingOrder(manga)) { it.read }?.id
             },
             NextChapterCaller("library continue reading") { manga, chapters ->
-                chapters.getNextUnread(manga, mockk())?.id
+                chapters.getNextUnread(manga, downloadedOnly = false, mockk())?.id
             },
             NextChapterCaller("details resume") { manga, chapters ->
                 chapters.map {
                     ChapterList.Item(it, Download.State.NOT_DOWNLOADED, isRead = it.read, isBookmarked = it.bookmark)
-                }.getNextUnread(manga) { false }?.id
+                }.getNextUnread(manga, downloadedOnly = false) { false }?.id
             },
             NextChapterCaller("download next, one source") { manga, chapters ->
                 val chapterRepository = mockk<ChapterRepository> {

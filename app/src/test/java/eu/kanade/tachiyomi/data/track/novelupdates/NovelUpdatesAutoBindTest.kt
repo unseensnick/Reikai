@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.source.Source
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.data.track.trackerTestManager
 import reikai.domain.novel.model.Novel
 import reikai.domain.track.autobind.AutoBindEntry
 import reikai.novel.source.NovelSource
@@ -14,7 +14,7 @@ import tachiyomi.domain.manga.model.Manga
 /** Which added entries NovelUpdates binds on its own: a novel from any source reading its site. */
 class NovelUpdatesAutoBindTest {
 
-    private val tracker = NovelUpdates(TrackerManager.NOVELUPDATES)
+    private val tracker = trackerTestManager().novelUpdates
 
     private fun novelFrom(site: String) =
         AutoBindEntry.Novel(Novel.create(), mockk<NovelSource> { every { this@mockk.site } returns site })

@@ -1,26 +1,17 @@
 package reikai.data.track
 
-import eu.kanade.tachiyomi.data.track.ranobedb.RanobeDb
 import eu.kanade.tachiyomi.network.HttpException
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
 import reikai.presentation.recents.EmittingPreferenceStore
-import uy.kohesive.injekt.Injekt
 
 /** A pasted or captured credential is kept only once the service has answered to it. */
 class CheckedCredentialTest {
 
-    private val appScope = installTrackerTestGraph(preferences = EmittingPreferenceStore())
-    private val tracker = RanobeDb(100)
+    private val tracker = trackerTestManager(trackerTestDependencies(preferences = EmittingPreferenceStore())).ranobeDb
     private val sentWith = mutableListOf<String?>()
-
-    @AfterEach
-    fun tearDown() {
-        Injekt = appScope
-    }
 
     @Test
     fun `an accepted credential is stored under the account's name`() = runTest {

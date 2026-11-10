@@ -15,12 +15,8 @@ import eu.kanade.tachiyomi.data.track.novelupdates.NovelUpdates
 import eu.kanade.tachiyomi.data.track.ranobedb.RanobeDb
 import eu.kanade.tachiyomi.data.track.shikimori.Shikimori
 import io.kotest.matchers.shouldBe
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 
 class AccessCase(private val label: String, val tracker: () -> Tracker, val expected: MetadataAccess) {
     override fun toString() = label
@@ -29,7 +25,6 @@ class AccessCase(private val label: String, val tracker: () -> Tracker, val expe
 /**
  * Which trackers fill from tracker while signed out: those whose metadata call goes through a public
  * client. The rest fetch it on their login client, so a signed-out fill is refused before it runs.
- * Some trackers read their preferences through the app graph as they are built ([installTrackerTestGraph]).
  */
 class TrackerMetadataAccessTest {
 
@@ -40,35 +35,21 @@ class TrackerMetadataAccessTest {
     }
 
     companion object {
-        private lateinit var appScope: InjektScope
-
-        @JvmStatic
-        @BeforeAll
-        fun installGraph() {
-            appScope = installTrackerTestGraph()
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun restoreGraph() {
-            Injekt = appScope
-        }
-
         @JvmStatic
         fun cases() = listOf(
-            AccessCase("MangaUpdates", { MangaUpdates(7) }, MetadataAccess.Public),
-            AccessCase("MdList", { MdList(60) }, MetadataAccess.Public),
-            AccessCase("RanobeDb", { RanobeDb(100) }, MetadataAccess.Public),
-            AccessCase("NovelList", { NovelList(101) }, MetadataAccess.Public),
-            AccessCase("NovelUpdates", { NovelUpdates(102) }, MetadataAccess.Public),
-            AccessCase("Anilist", { Anilist(2) }, MetadataAccess.SignedIn),
-            AccessCase("Kitsu", { Kitsu(3) }, MetadataAccess.SignedIn),
-            AccessCase("Shikimori", { Shikimori(4) }, MetadataAccess.SignedIn),
-            AccessCase("MyAnimeList", { MyAnimeList(1) }, MetadataAccess.SignedIn),
-            AccessCase("Bangumi", { Bangumi(5) }, MetadataAccess.SignedIn),
-            AccessCase("MangaBaka", { MangaBaka(9) }, MetadataAccess.SignedIn),
-            AccessCase("Hikka", { Hikka(10) }, MetadataAccess.SignedIn),
-            AccessCase("Comick", { Comick(12) }, MetadataAccess.SignedIn),
+            AccessCase("MangaUpdates", { trackerTestManager().mangaUpdates }, MetadataAccess.Public),
+            AccessCase("MdList", { trackerTestManager().mdList }, MetadataAccess.Public),
+            AccessCase("RanobeDb", { trackerTestManager().ranobeDb }, MetadataAccess.Public),
+            AccessCase("NovelList", { trackerTestManager().novelList }, MetadataAccess.Public),
+            AccessCase("NovelUpdates", { trackerTestManager().novelUpdates }, MetadataAccess.Public),
+            AccessCase("Anilist", { trackerTestManager().aniList }, MetadataAccess.SignedIn),
+            AccessCase("Kitsu", { trackerTestManager().kitsu }, MetadataAccess.SignedIn),
+            AccessCase("Shikimori", { trackerTestManager().shikimori }, MetadataAccess.SignedIn),
+            AccessCase("MyAnimeList", { trackerTestManager().myAnimeList }, MetadataAccess.SignedIn),
+            AccessCase("Bangumi", { trackerTestManager().bangumi }, MetadataAccess.SignedIn),
+            AccessCase("MangaBaka", { trackerTestManager().mangaBaka }, MetadataAccess.SignedIn),
+            AccessCase("Hikka", { trackerTestManager().hikka }, MetadataAccess.SignedIn),
+            AccessCase("Comick", { trackerTestManager().comick }, MetadataAccess.SignedIn),
         )
     }
 }

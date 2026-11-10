@@ -18,10 +18,11 @@ import tachiyomi.source.local.isLocal
 // another source's is downloaded, since that is the copy the reader opens.
 fun List<Chapter>.applyFilters(
     manga: Manga,
+    downloadedOnly: Boolean,
     flags: GroupChapterFlags<Chapter>, // RK
 ): List<Chapter> {
     val unreadFilter = manga.unreadFilter
-    val downloadedFilter = manga.downloadedFilter
+    val downloadedFilter = manga.downloadedFilter(downloadedOnly)
     val bookmarkedFilter = manga.bookmarkedFilter
 
     // RK -->
@@ -36,10 +37,10 @@ fun List<Chapter>.applyFilters(
  * Applies the view filters to the list of chapters obtained from the database.
  * @return an observable of the list of chapters filtered and sorted.
  */
-fun List<ChapterList.Item>.applyFilters(manga: Manga): Sequence<ChapterList.Item> {
+fun List<ChapterList.Item>.applyFilters(manga: Manga, downloadedOnly: Boolean): Sequence<ChapterList.Item> {
     val isLocalManga = manga.isLocal()
     val unreadFilter = manga.unreadFilter
-    val downloadedFilter = manga.downloadedFilter
+    val downloadedFilter = manga.downloadedFilter(downloadedOnly)
     val bookmarkedFilter = manga.bookmarkedFilter
     return asSequence()
         // RK: the item's any-source flags, so this agrees with the details list it filters.

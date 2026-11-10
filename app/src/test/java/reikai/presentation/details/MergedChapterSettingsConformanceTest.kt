@@ -55,12 +55,12 @@ class MergedChapterSettingsConformanceTest {
         Dispatchers.setMain(UnconfinedTestDispatcher())
         // Both read through Injekt in production; held at their shipped defaults.
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
         mockkObject(DebugToggles.ENABLE_EXH_ROOT_REDIRECT)
         every { DebugToggles.ENABLE_EXH_ROOT_REDIRECT.enabled } returns DebugToggles.ENABLE_EXH_ROOT_REDIRECT.default
         // A manga chip's header names its source through the language preferences, read off Injekt.
         mockkStatic(SOURCE_EXTENSIONS_FILE)
-        every { any<Source>().getNameForMangaInfo() } returns "source"
+        every { any<Source>().getNameForMangaInfo(any()) } returns "source"
     }
 
     @AfterEach

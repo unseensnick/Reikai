@@ -354,7 +354,7 @@ class App :
                 )
                 // Keyer
                 add(MangaCoverKeyer(coverCache))
-                add(MangaKeyer())
+                add(MangaKeyer(coverCache))
                 add(InstalledExtensionIconKeyer())
                 add(InstalledSourceIconKeyer())
                 add(NovelCoverKeyer(coverCache)) // RK

@@ -2,8 +2,7 @@ package reikai.data.track
 
 import android.net.Uri
 import eu.kanade.tachiyomi.data.track.Tracker
-import eu.kanade.tachiyomi.data.track.mangaupdates.MangaUpdates
-import eu.kanade.tachiyomi.data.track.myanimelist.MyAnimeList
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.util.lang.htmlDecode
 import io.kotest.matchers.shouldBe
@@ -24,13 +23,11 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 
 class SearchKindCase(
     private val label: String,
     val search: suspend (Tracker) -> List<Long>,
-    val tracker: () -> Tracker,
+    val tracker: (TrackerManager) -> Tracker,
     val expected: List<Long>,
 ) {
     override fun toString() = label
@@ -43,7 +40,7 @@ class SearchKindCase(
  */
 class TrackerSearchKindTest {
 
-    private lateinit var appScope: InjektScope
+    private lateinit var trackers: TrackerManager
 
     @BeforeEach
     fun setUp() {
@@ -53,13 +50,17 @@ class TrackerSearchKindTest {
         mockkStatic(HTML_DECODE)
         every { any<String>().htmlDecode() } answers { firstArg() }
         val client = OkHttpClient.Builder().addInterceptor(FakeTrackerServer).build()
-        appScope =
-            installTrackerTestGraph(mockk<NetworkHelper>(relaxed = true) { every { this@mockk.client } returns client })
+        trackers = trackerTestManager(
+            trackerTestDependencies(
+                mockk<NetworkHelper>(relaxed = true) {
+                    every { this@mockk.client } returns client
+                },
+            ),
+        )
     }
 
     @AfterEach
     fun tearDown() {
-        Injekt = appScope
         unmockkStatic(Uri::class)
         unmockkStatic(HTML_DECODE)
     }
@@ -67,7 +68,7 @@ class TrackerSearchKindTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("cases")
     fun `a search offers only the sheet's own kind`(case: SearchKindCase) = runTest {
-        case.search(case.tracker()) shouldBe case.expected
+        case.search(case.tracker(trackers)) shouldBe case.expected
     }
 
     companion object {
@@ -79,8 +80,8 @@ class TrackerSearchKindTest {
         private fun novel(query: String): suspend (Tracker) -> List<Long> =
             { t -> t.searchNovel(query).map { it.remote_id } }
 
-        private val mal = { MyAnimeList(1) }
-        private val mu = { MangaUpdates(7) }
+        private val mal = { trackers: TrackerManager -> trackers.myAnimeList }
+        private val mu = { trackers: TrackerManager -> trackers.mangaUpdates }
 
         @JvmStatic
         fun cases() = listOf(

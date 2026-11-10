@@ -19,15 +19,11 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import reikai.data.track.installTrackerTestGraph
+import reikai.data.track.trackerTestManager
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 
 class RemoteStatusCase(
     private val label: String,
@@ -50,26 +46,12 @@ class RemoteTrackStatusTest {
     }
 
     companion object {
-        private lateinit var appScope: InjektScope
-
-        @JvmStatic
-        @BeforeAll
-        fun installGraph() {
-            appScope = installTrackerTestGraph()
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun restoreGraph() {
-            Injekt = appScope
-        }
-
         private fun preferences() = ReikaiRecommendationPreferences(InMemoryPreferenceStore())
 
         private fun anilist(status: String?, expected: TrackStatus) = RemoteStatusCase(
             "AniList $status",
             {
-                val tracker = spyk(Anilist(2))
+                val tracker = spyk(trackerTestManager().aniList)
                 coEvery { tracker.getUserLibrary() } returns listOf(
                     ALLibraryEntry(status = status, media = ALLibraryMedia(id = 1, title = ALLibraryMediaTitle("t"))),
                 )
@@ -81,7 +63,7 @@ class RemoteTrackStatusTest {
         private fun myAnimeList(listStatus: MALLibraryListStatus?, expected: TrackStatus) = RemoteStatusCase(
             "MyAnimeList $listStatus",
             {
-                val tracker = spyk(MyAnimeList(1))
+                val tracker = spyk(trackerTestManager().myAnimeList)
                 coEvery { tracker.getUserLibrary() } returns listOf(
                     MALLibraryItem(node = MALLibraryNode(id = 1, title = "t"), listStatus = listStatus),
                 )
@@ -93,7 +75,7 @@ class RemoteTrackStatusTest {
         private fun kitsu(status: String, expected: TrackStatus) = RemoteStatusCase(
             "Kitsu $status",
             {
-                val tracker = spyk(Kitsu(3))
+                val tracker = spyk(trackerTestManager().kitsu)
                 coEvery { tracker.getUserLibrary() } returns listOf(
                     KitsuLibraryEntry(1, "t", status, null, emptyList(), null, null),
                 )
@@ -105,7 +87,7 @@ class RemoteTrackStatusTest {
         private fun shikimori(status: String?, expected: TrackStatus) = RemoteStatusCase(
             "Shikimori $status",
             {
-                val tracker = spyk(Shikimori(4))
+                val tracker = spyk(trackerTestManager().shikimori)
                 coEvery { tracker.getUserLibrary() } returns listOf(
                     SMUserRate(status = status, manga = SMUserRateManga(id = "1", name = "t")),
                 )
@@ -117,7 +99,7 @@ class RemoteTrackStatusTest {
         private fun bangumi(type: Int, expected: TrackStatus) = RemoteStatusCase(
             "Bangumi $type",
             {
-                val tracker = spyk(Bangumi(5))
+                val tracker = spyk(trackerTestManager().bangumi)
                 coEvery { tracker.getUserLibrary() } returns listOf(BGMCollectionItem(subjectId = 1, type = type))
                 BangumiLibraryFetcher(tracker, preferences())
             },

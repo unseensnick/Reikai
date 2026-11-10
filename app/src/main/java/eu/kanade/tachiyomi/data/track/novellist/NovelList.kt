@@ -1,15 +1,21 @@
 package eu.kanade.tachiyomi.data.track.novellist
 
 import android.util.Base64
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLNovel
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLReadingListEntry
 import eu.kanade.tachiyomi.data.track.novellist.dto.NLUpdateRequest
 import eu.kanade.tachiyomi.network.HttpException
+import kotlinx.serialization.json.Json
 import reikai.data.track.MetadataAccess
 import reikai.data.track.NovelStatusTracker
 import reikai.data.track.NovelTrackerStatuses
@@ -26,8 +32,12 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  *
  * Every write carries the chapter count, because a body omitting it resets progress to zero.
  */
-class NovelList(id: Long) :
-    TokenTracker(id, "NovelList"),
+@Inject
+@SingleIn(AppScope::class)
+class NovelList(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+) : TokenTracker(TrackerManager.NOVELLIST, "NovelList", dependencies),
     DeletableTracker,
     NovelStatusTracker {
 
@@ -45,7 +55,7 @@ class NovelList(id: Long) :
     private val interceptor by lazy { NovelListInterceptor(restoreToken()) }
 
     private val api by lazy {
-        NovelListApi(interceptor, client) { NovelListApi.novelListApiUrl(trackPreferences.novelListApiUrl.get()) }
+        NovelListApi(interceptor, client, json) { NovelListApi.novelListApiUrl(trackPreferences.novelListApiUrl.get()) }
     }
 
     override fun getLogo(): Int = R.drawable.brand_novellist

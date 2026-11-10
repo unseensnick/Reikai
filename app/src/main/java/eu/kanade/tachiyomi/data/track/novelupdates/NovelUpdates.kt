@@ -1,11 +1,16 @@
 package eu.kanade.tachiyomi.data.track.novelupdates
 
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.CookieLoginTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
 import eu.kanade.tachiyomi.data.track.Tracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
+import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
@@ -14,6 +19,8 @@ import reikai.data.track.MetadataAccess
 import reikai.data.track.NovelStatusTracker
 import reikai.data.track.NovelTrackerStatuses
 import reikai.data.track.TrackerSignedOutException
+import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.track.UnreadPushTracker
 import reikai.domain.track.RereadPushTracker
@@ -23,7 +30,6 @@ import reikai.domain.track.highestStillRead
 import reikai.domain.track.site.OwnedSites
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.system.logcat
-import uy.kohesive.injekt.injectLazy
 import java.io.IOException
 import tachiyomi.domain.track.model.Track as DomainTrack
 
@@ -34,8 +40,14 @@ import tachiyomi.domain.track.model.Track as DomainTrack
  * read-modify-write over their text. It has no score and no reading dates either, so both rows stay
  * hidden rather than doing nothing.
  */
-class NovelUpdates(id: Long) :
-    BaseTracker(id, NovelUpdatesApi.NAME),
+@Inject
+@SingleIn(AppScope::class)
+class NovelUpdates(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+    private val getNovelTracks: Lazy<GetNovelTracks>,
+    private val novelChapterRepository: Lazy<NovelChapterRepository>,
+) : BaseTracker(TrackerManager.NOVELUPDATES, NovelUpdatesApi.NAME, dependencies),
     DeletableTracker,
     CookieLoginTracker,
     AutoBindTracker,
@@ -64,9 +76,7 @@ class NovelUpdates(id: Long) :
         private val SESSION_COOKIE = Regex("(wordpress_logged_in_[^=]+=[^;]+)")
     }
 
-    private val json: Json by injectLazy()
-
-    private val api by lazy { NovelUpdatesApi(client) }
+    private val api by lazy { NovelUpdatesApi(client, json) }
 
     private val releases = HeldReleases { api.releases(it) }
 
@@ -294,8 +304,8 @@ class NovelUpdates(id: Long) :
 
     /** The chapters of every source the track reaches: the merge group, or only its own with sharing off. */
     private suspend fun groupChapters(novelId: Long): List<NovelChapter> =
-        appGraph.getNovelTracks.groupIds(novelId)
-            .flatMap { appGraph.novelChapterRepository.getByNovelId(it) }
+        getNovelTracks.value.groupIds(novelId)
+            .flatMap { novelChapterRepository.value.getByNovelId(it) }
 
     private fun mapping(): NovelUpdatesListMapping =
         if (trackPreferences.novelUpdatesUseCustomListMapping.get()) {

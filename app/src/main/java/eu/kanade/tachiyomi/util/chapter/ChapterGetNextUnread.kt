@@ -18,6 +18,7 @@ import tachiyomi.domain.manga.model.Manga
 // RK: merged-series and hidden-chapter aware, resuming in the reader's order
 fun List<Chapter>.getNextUnread(
     manga: Manga,
+    downloadedOnly: Boolean,
     downloadManager: DownloadManager,
     // RK --> the merge group this list is the stitch of, whose other sources answer read, bookmarked and
     // on disk, as the details list does. The library resumes in group scope, so any copy counts.
@@ -28,7 +29,7 @@ fun List<Chapter>.getNextUnread(
     val mangaById = group?.mangaById.orEmpty()
     val ownerOf = { chapter: Chapter -> mangaById[chapter.mangaId] ?: manga }
     val flags = group.groupFlags(this) { downloadManager.downloadedChapterIds(it, ownerOf) }
-    val shown = applyFilters(manga, flags)
+    val shown = applyFilters(manga, downloadedOnly, flags)
     // RK <--
     // RK: the order the reader pages in, asked the question novels resume by, hidden chapters last.
     val isHidden = { chapter: Chapter -> chapter.hiddenKey(ownerOf(chapter)) in hiddenKeys }
@@ -42,8 +43,12 @@ fun List<Chapter>.getNextUnread(
  */
 // RK --> as above, through the reader's order, hidden chapters last. Read on the item, whose flag spans
 // the group.
-fun List<ChapterList.Item>.getNextUnread(manga: Manga, isHidden: (ChapterList.Item) -> Boolean): Chapter? {
-    val shown = applyFilters(manga).associateBy { it.id }
+fun List<ChapterList.Item>.getNextUnread(
+    manga: Manga,
+    downloadedOnly: Boolean,
+    isHidden: (ChapterList.Item) -> Boolean,
+): Chapter? {
+    val shown = applyFilters(manga, downloadedOnly).associateBy { it.id }
     return ReadingOrder.resumeAt(
         shown.values.map { it.chapter }.inReadingOrder(manga),
         isHidden = { isHidden(shown.getValue(it.id)) },

@@ -1,10 +1,14 @@
 package eu.kanade.tachiyomi.data.track.hikka
 
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
 import eu.kanade.tachiyomi.data.track.hikka.dto.HKOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -12,10 +16,15 @@ import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
+@Inject
+@SingleIn(AppScope::class)
+class Hikka(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+) : BaseTracker(10L, "Hikka", dependencies),
+    DeletableTracker {
 
     companion object {
         const val READING = 0L
@@ -32,11 +41,9 @@ class Hikka(id: Long) : BaseTracker(id, "Hikka"), DeletableTracker {
         // RK: SEARCH_ID_PREFIX moved into BaseTracker's trackerSearchId, which manga and novel search share
     }
 
-    private val json: Json by injectLazy()
+    private val interceptor by lazy { HikkaInterceptor(this, json) }
 
-    private val interceptor by lazy { HikkaInterceptor(this) }
-
-    private val api by lazy { HikkaApi(id, client, interceptor) }
+    private val api by lazy { HikkaApi(id, client, interceptor, json) }
 
     override val supportsReadingDates: Boolean = true
 

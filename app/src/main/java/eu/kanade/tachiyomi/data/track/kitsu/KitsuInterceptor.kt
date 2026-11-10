@@ -7,11 +7,11 @@ import okhttp3.Interceptor
 import okhttp3.Response
 import reikai.data.track.REIKAI_TRACKER_USER_AGENT
 import reikai.data.track.TrackerSignedOutException
-import uy.kohesive.injekt.injectLazy
 
-class KitsuInterceptor(private val kitsu: Kitsu) : Interceptor {
-
-    private val json: Json by injectLazy()
+class KitsuInterceptor(
+    private val kitsu: Kitsu,
+    private val json: Json,
+) : Interceptor {
 
     /**
      * OAuth object used for authenticated requests.

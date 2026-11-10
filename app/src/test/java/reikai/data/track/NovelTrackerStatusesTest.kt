@@ -57,9 +57,9 @@ class NovelTrackerStatusesTest {
 
         @JvmStatic
         fun cases() = listOf(
-            StatusCase("RanobeDB") { RanobeDb(102L) },
-            StatusCase("NovelList") { NovelList(101L) },
-            StatusCase("NovelUpdates") { NovelUpdates(100L) },
+            StatusCase("RanobeDB") { trackerTestManager().ranobeDb },
+            StatusCase("NovelList") { trackerTestManager().novelList },
+            StatusCase("NovelUpdates") { trackerTestManager().novelUpdates },
         )
     }
 }

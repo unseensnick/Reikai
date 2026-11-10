@@ -10,16 +10,16 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.test.runTest
+import mihon.app.di.AppBindings
 import okhttp3.FormBody
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
-import reikai.data.track.installTrackerTestGraph
+import reikai.data.track.trackerTestDependencies
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelMergeManager
@@ -27,8 +27,6 @@ import reikai.domain.novel.interactor.GetNovelTracks
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.core.common.preference.InMemoryPreferenceStore.InMemoryPreference
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 import java.io.IOException
 import kotlin.time.Instant
 
@@ -38,7 +36,7 @@ import kotlin.time.Instant
  */
 class NovelUpdatesPushTest {
 
-    private lateinit var appScope: InjektScope
+    private lateinit var tracker: NovelUpdates
 
     private val askedFor = mutableListOf<String>()
 
@@ -98,39 +96,33 @@ class NovelUpdatesPushTest {
         val sharingOff = ReikaiLibraryPreferences(
             InMemoryPreferenceStore(sequenceOf(InMemoryPreference("sync_tracker_links_grouped", false, true))),
         )
-        appScope = installTrackerTestGraph(
-            network = mockk<NetworkHelper>(relaxed = true) { every { client } returns site },
-            preferences = InMemoryPreferenceStore(
-                sequenceOf(InMemoryPreference("novelupdates_unread_push", true, false)),
+        tracker = NovelUpdates(
+            trackerTestDependencies(
+                network = mockk<NetworkHelper>(relaxed = true) { every { client } returns site },
+                preferences = InMemoryPreferenceStore(
+                    sequenceOf(InMemoryPreference("novelupdates_unread_push", true, false)),
+                ),
             ),
-        ) {
-            every { novelChapterRepository } returns chapters
-            every { novelMergeManager } returns mergeManager
-            every { getNovelTracks } returns GetNovelTracks(mockk(), mergeManager, sharingOff)
-        }
-    }
-
-    @AfterEach
-    fun tearDown() {
-        Injekt = appScope
+            AppBindings.providesJson(),
+            getNovelTracks = lazyOf(GetNovelTracks(mockk(), mergeManager, sharingOff)),
+            novelChapterRepository = lazyOf(chapters),
+        )
     }
 
     @Test
     fun `with sharing off an unread moves the site to the bound source's own progress`() = runTest {
-        val pushed = NovelUpdates(TrackerManager.NOVELUPDATES).pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
+        val pushed = tracker.pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
 
         pushed?.last_chapter_read shouldBe 4.0
     }
 
     @Test
     fun `a reread is held back by default, as every tracker's is`() {
-        NovelUpdates(TrackerManager.NOVELUPDATES).followsRereads shouldBe false
+        tracker.followsRereads shouldBe false
     }
 
     @Test
     fun `a run of reads asks the site for the series' releases once`() = runTest {
-        val tracker = NovelUpdates(TrackerManager.NOVELUPDATES)
-
         tracker.update(track(6.0), didReadChapter = true)
         tracker.update(track(7.0), didReadChapter = true)
 
@@ -141,7 +133,7 @@ class NovelUpdatesPushTest {
     fun `a note the site refuses to read leaves the series where it was`() = runTest {
         notesRefused = true
 
-        runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false) }
+        runCatching { tracker.update(track(6.0), didReadChapter = false) }
 
         askedFor.none { it == "/updatelist.php" } shouldBe true
     }
@@ -150,7 +142,7 @@ class NovelUpdatesPushTest {
     fun `a note that does not parse leaves the series where it was`() = runTest {
         notesUnreadable = true
 
-        runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false) }
+        runCatching { tracker.update(track(6.0), didReadChapter = false) }
 
         askedFor.none { it == "/updatelist.php" } shouldBe true
     }
@@ -161,7 +153,7 @@ class NovelUpdatesPushTest {
         notesUnreadable = true
 
         shouldThrowExactly<IOException> {
-            NovelUpdates(TrackerManager.NOVELUPDATES).update(track(6.0), didReadChapter = false)
+            tracker.update(track(6.0), didReadChapter = false)
         }
     }
 
@@ -170,7 +162,7 @@ class NovelUpdatesPushTest {
         notesUnreadable = true
 
         runCatching {
-            NovelUpdates(TrackerManager.NOVELUPDATES).pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
+            tracker.pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
         }
 
         askedFor.none { it == "/readinglist_update.php" } shouldBe true
@@ -178,7 +170,7 @@ class NovelUpdatesPushTest {
 
     @Test
     fun `an unread moves the site's bookmark back to the highest chapter still read`() = runTest {
-        NovelUpdates(TrackerManager.NOVELUPDATES).pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
+        tracker.pushUnread(track(5.0), listOf(chapter(SOURCE_A, 5)))
 
         askedFor.count { it == "/readinglist_update.php" } shouldBe 1
     }

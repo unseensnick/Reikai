@@ -56,7 +56,7 @@ class HiddenChapterResumeConformanceTest {
     fun setUp() {
         // The downloaded filter reads a global preference through the app graph; it is not under test.
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.DISABLED
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.DISABLED
     }
 
     @AfterEach
@@ -137,7 +137,12 @@ class HiddenChapterResumeConformanceTest {
             hiddenUrls.mapTo(HashSet()) { hiddenChapterKey("ln-source", it) }
 
         private val mangaLibrary = ResumeCase("manga library") { hiddenUrls, bookmarkedOnly ->
-            mangaChapters.getNextUnread(manga(bookmarkedOnly), mockk(), hiddenKeys = mangaKeys(hiddenUrls))?.id
+            mangaChapters.getNextUnread(
+                manga(bookmarkedOnly),
+                downloadedOnly = false,
+                mockk(),
+                hiddenKeys = mangaKeys(hiddenUrls),
+            )?.id
         }
 
         private val mangaDetails = ResumeCase("manga details") { hiddenUrls, bookmarkedOnly ->
@@ -146,7 +151,7 @@ class HiddenChapterResumeConformanceTest {
             mangaChapters.map {
                 ChapterList.Item(it, Download.State.NOT_DOWNLOADED, isRead = false, isBookmarked = it.bookmark)
             }
-                .getNextUnread(manga) { it.chapter.hiddenKey(manga) in hiddenKeys }?.id
+                .getNextUnread(manga, downloadedOnly = false) { it.chapter.hiddenKey(manga) in hiddenKeys }?.id
         }
 
         private val novelLibrary = ResumeCase("novel library") { hiddenUrls, bookmarkedOnly ->

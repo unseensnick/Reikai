@@ -62,8 +62,8 @@ class TenPointScoreTest {
     companion object {
         @JvmStatic
         fun cases() = listOf(
-            ScoreCase("RanobeDB") { RanobeDb(102L) },
-            ScoreCase("NovelList") { NovelList(101L) },
+            ScoreCase("RanobeDB") { trackerTestManager().ranobeDb },
+            ScoreCase("NovelList") { trackerTestManager().novelList },
         )
     }
 }

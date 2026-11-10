@@ -17,16 +17,14 @@ import okhttp3.CookieJar
 import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import tachiyomi.core.common.util.lang.withIOContext
-import uy.kohesive.injekt.injectLazy
 import java.net.URLEncoder
 import kotlin.time.Duration.Companion.minutes
 
 class RanobeDbApi(
     interceptor: RanobeDbInterceptor,
     client: OkHttpClient,
+    private val json: Json,
 ) {
-    private val json: Json by injectLazy()
-
     // The published docs ask for no more than 60 requests a minute, so stay under it rather than
     // at it. Both clients share the limiter because they hit the same host.
     //

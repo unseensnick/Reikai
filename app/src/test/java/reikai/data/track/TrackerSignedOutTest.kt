@@ -36,6 +36,7 @@ import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import mihon.app.di.AppBindings
 import okhttp3.Dispatcher
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -81,6 +82,7 @@ class TrackerSignedOutTest {
                 every { loadOAuth() } returns MALOAuth("r", "a", expiresIn = 0, createdAt = 0)
                 every { getIfAuthExpired() } returns false
             },
+            JSON,
         )
         TrackerError.of(call(interceptor, offline = true).second!!, isOnline = false) shouldBe TrackerError.Offline
     }
@@ -103,18 +105,24 @@ class TrackerSignedOutTest {
     }
 
     companion object {
+        private val JSON = AppBindings.providesJson()
+
         @JvmStatic
         fun cases() = listOf(
-            SignedOutCase("Bangumi") { BangumiInterceptor(mockk<Bangumi> { every { restoreToken() } returns null }) },
-            SignedOutCase("MangaBaka") {
-                MangaBakaInterceptor(mockk<MangaBaka> { every { restoreToken() } returns null })
+            SignedOutCase("Bangumi") {
+                BangumiInterceptor(mockk<Bangumi> { every { restoreToken() } returns null }, JSON)
             },
-            SignedOutCase("Comick") { ComickInterceptor(mockk<Comick> { every { restoreToken() } returns null }) },
-            SignedOutCase("Hikka") { HikkaInterceptor(mockk<Hikka> { every { loadOAuth() } returns null }) },
+            SignedOutCase("MangaBaka") {
+                MangaBakaInterceptor(mockk<MangaBaka> { every { restoreToken() } returns null }, JSON)
+            },
+            SignedOutCase("Comick") {
+                ComickInterceptor(mockk<Comick> { every { restoreToken() } returns null }, JSON)
+            },
+            SignedOutCase("Hikka") { HikkaInterceptor(mockk<Hikka> { every { loadOAuth() } returns null }, JSON) },
             SignedOutCase("AniList") { AnilistInterceptor(mockk<Anilist>(), null) },
-            SignedOutCase("Kitsu") { KitsuInterceptor(mockk<Kitsu> { every { restoreToken() } returns null }) },
+            SignedOutCase("Kitsu") { KitsuInterceptor(mockk<Kitsu> { every { restoreToken() } returns null }, JSON) },
             SignedOutCase("Shikimori") {
-                ShikimoriInterceptor(mockk<Shikimori> { every { restoreToken() } returns null })
+                ShikimoriInterceptor(mockk<Shikimori> { every { restoreToken() } returns null }, JSON)
             },
             SignedOutCase("MyAnimeList") {
                 MyAnimeListInterceptor(
@@ -122,11 +130,12 @@ class TrackerSignedOutTest {
                         every { loadOAuth() } returns null
                         every { getIfAuthExpired() } returns false
                     },
+                    JSON,
                 )
             },
             // A stored login whose refresh token is missing, which the refresh used to force with `!!`.
             SignedOutCase("Kitsu, no refresh token") {
-                KitsuInterceptor(mockk<Kitsu> { every { restoreToken() } returns KitsuOAuth("a", 0, 0, null) })
+                KitsuInterceptor(mockk<Kitsu> { every { restoreToken() } returns KitsuOAuth("a", 0, 0, null) }, JSON)
             },
             SignedOutCase("Bangumi, expired with no refresh token") {
                 BangumiInterceptor(
@@ -134,10 +143,16 @@ class TrackerSignedOutTest {
                         every { restoreToken() } returns
                             BGMOAuth("a", createdAt = 0, expiresIn = 0, refreshToken = null)
                     },
+                    JSON,
                 )
             },
             SignedOutCase("Shikimori, expired with no refresh token") {
-                ShikimoriInterceptor(mockk<Shikimori> { every { restoreToken() } returns SMOAuth("a", 0, 0, null) })
+                ShikimoriInterceptor(
+                    mockk<Shikimori> {
+                        every { restoreToken() } returns SMOAuth("a", 0, 0, null)
+                    },
+                    JSON,
+                )
             },
             SignedOutCase("NovelList") { NovelListInterceptor(null) },
             SignedOutCase("RanobeDB") {
@@ -165,6 +180,7 @@ class TrackerSignedOutTest {
                         every { loadOAuth() } returns null
                         every { getIfAuthExpired() } returns true
                     },
+                    JSON,
                 )
             },
             SignedOutCase("MDList, unreadable stored login") {

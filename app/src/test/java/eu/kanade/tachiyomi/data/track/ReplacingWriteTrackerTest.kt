@@ -7,6 +7,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.track.trackerTestManager
 
 /**
  * The tracking sheet asks before binding only a tracker that declares its writes replace the remote
@@ -28,9 +29,9 @@ class ReplacingWriteTrackerTest {
     companion object {
         @JvmStatic
         fun cases() = listOf(
-            Arguments.of("RanobeDB", RanobeDb(1L), true),
-            Arguments.of("NovelList", NovelList(2L), false),
-            Arguments.of("MyAnimeList", MyAnimeList(3L), false),
+            Arguments.of("RanobeDB", trackerTestManager().ranobeDb, true),
+            Arguments.of("NovelList", trackerTestManager().novelList, false),
+            Arguments.of("MyAnimeList", trackerTestManager().myAnimeList, false),
         )
     }
 }

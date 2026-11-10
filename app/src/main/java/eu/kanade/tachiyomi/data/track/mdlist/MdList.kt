@@ -1,9 +1,14 @@
 package eu.kanade.tachiyomi.data.track.mdlist
 
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
@@ -14,12 +19,21 @@ import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import reikai.data.track.MetadataAccess
+import reikai.domain.source.ReikaiSourcePreferences
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class MdList(id: Long) : BaseTracker(id, "MDList") {
+@Inject
+@SingleIn(AppScope::class)
+class MdList(
+    dependencies: TrackerDependencies,
+    private val sourcePreferences: Lazy<SourcePreferences>,
+    private val reikaiSourcePreferences: Lazy<ReikaiSourcePreferences>,
+    private val sourceManager: Lazy<SourceManager>,
+) : BaseTracker(TrackerManager.MDLIST, "MDList", dependencies) {
 
     companion object {
         private val SCORE_LIST = IntRange(0, 10)
@@ -33,9 +47,9 @@ class MdList(id: Long) : BaseTracker(id, "MDList") {
     // Resolved on every call rather than cached, so a change of preferred MangaDex source reaches
     // the tracker at once, as it does login.
     private suspend fun mdex() = MdUtil.getEnabledMangaDex(
-        appGraph.sourcePreferences,
-        appGraph.reikaiSourcePreferences,
-        appGraph.sourceManager,
+        sourcePreferences.value,
+        reikaiSourcePreferences.value,
+        sourceManager.value,
     )
 
     val interceptor = MangaDexAuthInterceptor(trackPreferences, this)

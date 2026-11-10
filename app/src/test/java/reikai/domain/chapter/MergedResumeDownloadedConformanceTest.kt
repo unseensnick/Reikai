@@ -44,7 +44,7 @@ class MergedResumeDownloadedConformanceTest {
     @BeforeEach
     fun setUp() {
         mockkStatic(DOWNLOADED_FILTER_FILE)
-        every { any<Manga>().downloadedFilter } returns TriState.ENABLED_IS
+        every { any<Manga>().downloadedFilter(any()) } returns TriState.ENABLED_IS
     }
 
     @AfterEach
@@ -94,7 +94,7 @@ class MergedResumeDownloadedConformanceTest {
                 }
             }
             // As LibraryViewModel.getNextUnreadChapter calls it.
-            group.chapters.getNextUnread(manga = leading, downloadManager, group)?.id
+            group.chapters.getNextUnread(manga = leading, downloadedOnly = false, downloadManager, group)?.id
         }
 
         private val novel = ResumeCase("novel") { _, _ ->

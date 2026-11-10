@@ -6,11 +6,11 @@ import kotlinx.serialization.json.Json
 import okhttp3.Interceptor
 import okhttp3.Response
 import reikai.data.track.TrackerSignedOutException
-import uy.kohesive.injekt.injectLazy
 
-class MangaBakaInterceptor(private val mangaBaka: MangaBaka) : Interceptor {
-
-    private val json: Json by injectLazy()
+class MangaBakaInterceptor(
+    private val mangaBaka: MangaBaka,
+    private val json: Json,
+) : Interceptor {
 
     @Volatile
     private var oauth: MangaBakaOAuth? = mangaBaka.restoreToken()

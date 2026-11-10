@@ -1,19 +1,14 @@
 package reikai.domain.recommendation
 
-import eu.kanade.tachiyomi.data.track.TrackerManager
 import io.kotest.matchers.collections.shouldContainExactlyInAnyOrder
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.serialization.json.Json
-import org.junit.jupiter.api.AfterAll
-import org.junit.jupiter.api.BeforeAll
 import org.junit.jupiter.api.Test
-import reikai.data.track.installTrackerTestGraph
+import reikai.data.track.trackerTestManager
 import reikai.domain.recommendation.taste.KitsuLibraryFetcher
 import reikai.presentation.recents.EmittingPreferenceStore
-import uy.kohesive.injekt.Injekt
-import uy.kohesive.injekt.api.InjektScope
 
 /**
  * Each tracker's recommendation switch and library-pull switch is listed once, and the settings screen,
@@ -21,7 +16,7 @@ import uy.kohesive.injekt.api.InjektScope
  */
 class RecommendationTogglesTest {
 
-    private val trackerManager = TrackerManager()
+    private val trackerManager = trackerTestManager()
     private val store = EmittingPreferenceStore()
     private val preferences = ReikaiRecommendationPreferences(store)
 
@@ -65,21 +60,5 @@ class RecommendationTogglesTest {
         val fetcher = KitsuLibraryFetcher(mockk { every { isLoggedIn } returns false }, preferences)
 
         fetcher.isEnabled() shouldBe false
-    }
-
-    companion object {
-        private lateinit var appScope: InjektScope
-
-        @JvmStatic
-        @BeforeAll
-        fun installGraph() {
-            appScope = installTrackerTestGraph()
-        }
-
-        @JvmStatic
-        @AfterAll
-        fun restoreGraph() {
-            Injekt = appScope
-        }
     }
 }

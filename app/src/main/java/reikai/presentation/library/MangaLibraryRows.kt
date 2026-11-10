@@ -1,6 +1,8 @@
 package reikai.presentation.library
 
 import dev.zacsweers.metro.Inject
+import eu.kanade.domain.base.BasePreferences
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.download.DownloadCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
@@ -52,6 +54,8 @@ class MangaLibraryRows(
     private val mergedChapterUnitRepository: MergedChapterUnitRepository,
     private val mergedChapterProvider: MergedChapterProvider,
     private val mangaPreferences: MangaPreferences,
+    private val basePreferences: BasePreferences,
+    private val sourcePreferences: SourcePreferences,
 ) {
 
     fun rows(): Flow<List<LibraryItem>> {
@@ -73,6 +77,9 @@ class MangaLibraryRows(
             val sources = libraryManga
                 .mapTo(mutableSetOf()) { it.manga.source }
                 .associateWith { sourceManager.getOrStub(it) }
+            val metadataSourceNames = sources.mapValues { (_, source) ->
+                source.getMainSource<MetadataSource<*, *>>()?.let { source.getNameForMangaInfo(sourcePreferences) }
+            }
             val downloadCounts = downloadManager.getDownloadCounts(libraryManga.map { it.manga })
             val items = libraryManga.map { manga ->
                 manga.toLibraryItem(
@@ -80,6 +87,7 @@ class MangaLibraryRows(
                     downloadCount = downloadCounts.getValue(manga.id),
                     badgePrefs = preferences,
                     sourceBadge = mangaSourceBadge(sourceManager.badgeSource(manga.manga.source)),
+                    metadataSourceName = metadataSourceNames.getValue(manga.manga.source),
                 )
             }
             // Collapse persisted merge groups into one entry per group. Returns the RAW items: search,
@@ -117,8 +125,9 @@ class MangaLibraryRows(
         // The filters and order are the group's shared chapter settings, the settings owner's.
         val settings = group.chapterSettingsOf(manga)
         val hidden = mangaPreferences.hiddenChapters().get()
+        val downloadedOnly = basePreferences.downloadedOnly.get()
         return withContext(Dispatchers.Default) {
-            group.chapters.getNextUnread(settings, downloadManager, group, hidden)
+            group.chapters.getNextUnread(settings, downloadedOnly, downloadManager, group, hidden)
         }
     }
 
@@ -155,6 +164,8 @@ internal fun LibraryManga.toLibraryItem(
     downloadCount: Int,
     badgePrefs: LibraryBadgePrefs,
     sourceBadge: SourceBadge,
+    // Non-null only for gallery/metadata sources, which selects the tag-search path.
+    metadataSourceName: String?,
 ): LibraryItem {
     val language = entryLanguage(manga.isLocal(), manga.localFilesLanguage, source.lang)
     return LibraryItem(
@@ -164,8 +175,7 @@ internal fun LibraryManga.toLibraryItem(
         isLocal = manga.isLocal(),
         sourceName = source.name.lowercase(),
         sourceLanguage = language,
-        // Non-null only for gallery/metadata sources, which selects the tag-search path.
-        metadataSourceName = source.getMainSource<MetadataSource<*, *>>()?.let { source.getNameForMangaInfo() },
+        metadataSourceName = metadataSourceName,
         // The badge gates are libraryBadgePrefsFlow's, shared with the novel row builder
         badges = badgePrefs.badges(
             downloadCount = downloadCount,

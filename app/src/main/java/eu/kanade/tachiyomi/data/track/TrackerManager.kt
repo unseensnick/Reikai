@@ -23,7 +23,30 @@ import kotlinx.coroutines.flow.combine
 
 @Inject
 @SingleIn(AppScope::class)
-class TrackerManager {
+class TrackerManager(
+    val myAnimeList: MyAnimeList,
+    val aniList: Anilist,
+    val kitsu: Kitsu,
+    val shikimori: Shikimori,
+    val bangumi: Bangumi,
+    val komga: Komga,
+    val mangaUpdates: MangaUpdates,
+    val kavita: Kavita,
+    val suwayomi: Suwayomi,
+    val hikka: Hikka,
+    val mangaBaka: MangaBaka,
+    val comick: Comick,
+    // RK -->
+    // RanobeDB light-novel tracker (paste-a-token login, binds to a series)
+    val ranobeDb: RanobeDb,
+    // NovelUpdates light-novel tracker (browser sign-in, scraped, progress lives in notes)
+    val novelUpdates: NovelUpdates,
+    // NovelList light-novel tracker (browser sign-in, UUID ids)
+    val novelList: NovelList,
+    // MangaDex MDList tracker (OAuth login + follow-status/rating sync)
+    val mdList: MdList,
+    // RK <--
+) {
 
     companion object { // RK: ids for Reikai's own trackers
         // RK: MangaDex MDList tracker (id matches Komikku; ids persist with tracks, never change it)
@@ -34,31 +57,6 @@ class TrackerManager {
         const val NOVELLIST = 101L
         const val RANOBEDB = 102L
     }
-
-    val myAnimeList = MyAnimeList(1L)
-    val aniList = Anilist(2L)
-    val kitsu = Kitsu(3L)
-    val shikimori = Shikimori(4L)
-    val bangumi = Bangumi(5L)
-    val komga = Komga(6L)
-    val mangaUpdates = MangaUpdates(7L)
-    val kavita = Kavita(8L)
-    val suwayomi = Suwayomi(9L)
-    val hikka = Hikka(10L)
-    val mangaBaka = MangaBaka(11L)
-    val comick = Comick(12L)
-
-    // RK: RanobeDB light-novel tracker (paste-a-token login, binds to a series)
-    val ranobeDb = RanobeDb(RANOBEDB)
-
-    // RK: NovelUpdates light-novel tracker (browser sign-in, scraped, progress lives in notes)
-    val novelUpdates = NovelUpdates(NOVELUPDATES)
-
-    // RK: NovelList light-novel tracker (browser sign-in, UUID ids)
-    val novelList = NovelList(NOVELLIST)
-
-    // RK: MangaDex MDList tracker (OAuth login + follow-status/rating sync)
-    val mdList = MdList(MDLIST)
 
     val trackers = listOf(
         myAnimeList,

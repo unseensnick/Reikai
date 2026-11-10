@@ -288,6 +288,7 @@ class MangaScreen(
                 MangaViewModel.Dialog.SettingsSheet -> ChapterSettingsDialog(
                     onDismissRequest = onDismissRequest,
                     manga = successState.manga,
+                    downloadedOnly = successState.downloadedOnly,
                     onDownloadFilterChanged = viewModel::setDownloadedFilter,
                     onUnreadFilterChanged = viewModel::setUnreadFilter,
                     onBookmarkedFilterChanged = viewModel::setBookmarkedFilter,

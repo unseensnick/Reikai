@@ -1,25 +1,36 @@
 package eu.kanade.tachiyomi.data.track.kitsu
 
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
 import eu.kanade.tachiyomi.data.track.DeletableTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuLibraryEntry
 import eu.kanade.tachiyomi.data.track.kitsu.dto.KitsuOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
+import reikai.domain.track.KitsuEntryIdCopies
 import reikai.domain.track.KitsuLibraryEntryResolver
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import java.text.DecimalFormat
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
+@Inject
+@SingleIn(AppScope::class)
+class Kitsu(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+    private val kitsuEntryIdCopies: Lazy<KitsuEntryIdCopies>, // RK
+) : BaseTracker(3L, "Kitsu", dependencies),
+    DeletableTracker {
 
     private data class RatingSystem(
         val name: String,
@@ -68,11 +79,9 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
 
     override val supportsPrivateTracking: Boolean = true
 
-    private val json: Json by injectLazy()
+    private val interceptor by lazy { KitsuInterceptor(this, json) }
 
-    private val interceptor by lazy { KitsuInterceptor(this) }
-
-    private val api by lazy { KitsuApi(id, client, interceptor) }
+    private val api by lazy { KitsuApi(id, client, interceptor, json) }
 
     // RK: full library pull for the recommendation taste profile.
     suspend fun getUserLibrary(): List<KitsuLibraryEntry> = api.getUserLibrary()
@@ -82,7 +91,7 @@ class Kitsu(id: Long) : BaseTracker(id, "Kitsu"), DeletableTracker {
         KitsuLibraryEntryResolver(
             findInLibrary = api::findLibManga,
             findEntry = api::findLibraryEntry,
-            rewriteCopies = { entryId, mangaId -> appGraph.kitsuEntryIdCopies.heal(id, entryId, mangaId) },
+            rewriteCopies = { entryId, mangaId -> kitsuEntryIdCopies.value.heal(id, entryId, mangaId) },
         )
     }
     // RK <--

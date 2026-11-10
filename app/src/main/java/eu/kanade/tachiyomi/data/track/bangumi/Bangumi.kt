@@ -1,25 +1,31 @@
 package eu.kanade.tachiyomi.data.track.bangumi
 
 import dev.icerock.moko.resources.StringResource
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.database.models.Track
 import eu.kanade.tachiyomi.data.track.BaseTracker
+import eu.kanade.tachiyomi.data.track.TrackerDependencies
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMCollectionItem
 import eu.kanade.tachiyomi.data.track.bangumi.dto.BGMOAuth
 import eu.kanade.tachiyomi.data.track.model.TrackMangaMetadata
 import eu.kanade.tachiyomi.data.track.model.TrackSearch
 import kotlinx.serialization.json.Json
 import tachiyomi.i18n.MR
-import uy.kohesive.injekt.injectLazy
 import tachiyomi.domain.track.model.Track as DomainTrack
 
-class Bangumi(id: Long) : BaseTracker(id, "Bangumi") {
+@Inject
+@SingleIn(AppScope::class)
+class Bangumi(
+    dependencies: TrackerDependencies,
+    private val json: Json,
+) : BaseTracker(5L, "Bangumi", dependencies) {
 
-    private val json: Json by injectLazy()
+    private val interceptor by lazy { BangumiInterceptor(this, json) }
 
-    private val interceptor by lazy { BangumiInterceptor(this) }
-
-    private val api by lazy { BangumiApi(id, client, interceptor) }
+    private val api by lazy { BangumiApi(id, client, interceptor, json) }
 
     // RK: full library pull for the recommendation taste profile.
     suspend fun getUserLibrary(): List<BGMCollectionItem> = api.getUserLibrary(api.getCurrentUser().username)

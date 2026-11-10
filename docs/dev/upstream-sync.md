@@ -199,6 +199,8 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `524fa5304` | `chore: sync Mihon Injekt removal` | 2026-11-10 | Injekt and app-graph lookups replaced by constructor parameters outside the extension API (mihon 524fa5304, mihonapp/mihon#4179): trackers through `TrackerDependencies`, Reikai's four trackers included, Downloaded only passed into the chapter filters, the source name, cover keyer, download index, local source, About version and secure-activity inject. Already Reikai's: the reader flash host, the library resume, the cover model's `hasCustomCover`. `MetroInjektRegistrar` keeps `Json` and `XML` with no reader left in the tree, as upstream's does. |
+| `4df41cef6` | (skipped) | 2026-11-10 | Agent instructions for Mihon's own repository (`AGENTS.md`, `CLAUDE.md`), N/A: not app code, and Reikai keeps its own. |
 | `002a5fba2` | `chore: sync Mihon scroll indicators` | 2026-11-10 | Fast scrollers driven by measured item sizes and `scrollIndicatorState`, and `ScrollbarLazyColumn` on Material's `nonInteractiveScrollbar` with `Scrollbar.kt` deleted (mihon 002a5fba2); the thumb stays in `FastScrollThumb.kt` (Deliberate divergences). |
 | `629033c80` | `chore: sync Mihon lint fixes` | 2026-11-10 | The extension settings confirm button as `AppCompatButton` and the Upcoming calendar reading the Compose locale (mihon 629033c80); its splash colour move is N/A, since Reikai's resources carry no `splash` colour. |
 | `7eec566d9` | `chore: sync Mihon mockk 1.14.12` | 2026-11-08 | MockK 1.14.12 (mihon 7eec566d9, mihonapp/mihon#4261), a test-only dependency. |

@@ -4,6 +4,7 @@ import android.content.Context
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.chapter.interactor.GetAvailableScanlators
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.tachiyomi.data.download.DownloadCache
@@ -97,6 +98,9 @@ internal fun mangaDetailsModel(
         context = mockk<Context>(relaxed = true),
         mangaId = mangaId,
         isFromSource = false,
+        // The real class reads the installer default through Android at construction.
+        basePreferences = mockk { every { downloadedOnly } returns prefs.getBoolean("downloaded_only", false) },
+        sourcePreferences = SourcePreferences(prefs),
         libraryPreferences = LibraryPreferences(prefs),
         trackPreferences = TrackPreferences(prefs),
         readerPreferences = ReaderPreferences(prefs),

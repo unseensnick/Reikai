@@ -11,11 +11,10 @@ import okhttp3.OkHttpClient
 import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
-import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.Test
-import reikai.data.track.installTrackerTestGraph
+import reikai.data.track.trackerTestDependencies
+import reikai.data.track.trackerTestManager
 import reikai.presentation.track.TrackerError
-import uy.kohesive.injekt.Injekt
 
 /**
  * A lapsed session still gets pages, only anonymous ones, so what they lack is what reads as signed
@@ -47,22 +46,18 @@ class NovelUpdatesSignedOutTest {
         }
         .build()
 
-    private val appScope =
-        installTrackerTestGraph(mockk<NetworkHelper>(relaxed = true) { every { client } returns site })
+    private val tracker = trackerTestManager(
+        trackerTestDependencies(mockk<NetworkHelper>(relaxed = true) { every { client } returns site }),
+    ).novelUpdates
 
     private val track = Track.create(TrackerManager.NOVELUPDATES).apply { remote_id = 99L }
-
-    @AfterEach
-    fun tearDown() {
-        Injekt = appScope
-    }
 
     private fun kindOf(error: Throwable?) = error?.let { TrackerError.of(it, isOnline = true) }
 
     @Test
     fun `a session showing no reading lists reads as signed out`() = runTest {
         val error = runCatching {
-            NovelUpdates(TrackerManager.NOVELUPDATES).loginWithCookie("wordpress_logged_in_x=y")
+            tracker.loginWithCookie("wordpress_logged_in_x=y")
         }.exceptionOrNull()
 
         kindOf(error) shouldBe TrackerError.SignedOut
@@ -74,7 +69,7 @@ class NovelUpdatesSignedOutTest {
         notesCode = 400
         notesBody = "0"
 
-        val error = runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).refresh(track) }.exceptionOrNull()
+        val error = runCatching { tracker.refresh(track) }.exceptionOrNull()
 
         kindOf(error) shouldBe TrackerError.SignedOut
     }
@@ -83,14 +78,14 @@ class NovelUpdatesSignedOutTest {
     fun `a series page without its reading-list panel reads as signed out`() = runTest {
         seriesPage = "<div class='seriestitlenu'>X</div>"
 
-        val error = runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).refresh(track) }.exceptionOrNull()
+        val error = runCatching { tracker.refresh(track) }.exceptionOrNull()
 
         kindOf(error) shouldBe TrackerError.SignedOut
     }
 
     @Test
     fun `the list picker reads a page with no reading lists as signed out`() = runTest {
-        val error = runCatching { NovelUpdates(TrackerManager.NOVELUPDATES).readingLists() }.exceptionOrNull()
+        val error = runCatching { tracker.readingLists() }.exceptionOrNull()
 
         kindOf(error) shouldBe TrackerError.SignedOut
     }
