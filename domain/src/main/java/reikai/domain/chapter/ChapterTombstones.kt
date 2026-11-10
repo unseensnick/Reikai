@@ -56,17 +56,18 @@ fun tombstoneRevivals(
 /**
  * The [removed] chapters a local sync may not take, because their file is still there: the listing was
  * short. A chapter kept inside a container ([containerOf]: a volume folder's Extras, a book's chapter)
- * is confirmed gone once [listed] still reads that container, since the container itself was read.
+ * is confirmed gone once [listed] still reads that container, since the container itself was read; any
+ * other is asked of [present], a trusted listing of its folder, never the file's own query.
  */
 suspend fun unconfirmedRemovals(
     removed: List<String>,
     listed: Collection<String>,
     containerOf: (String) -> String?,
-    exists: suspend (String) -> Boolean,
+    present: suspend (String) -> Boolean,
 ): List<String> = removed.filter { url ->
     val container = containerOf(url)
     val containerRead = container != null && listed.any { it.startsWith(container) }
-    !containerRead && exists(url)
+    !containerRead && present(url)
 }
 
 interface ChapterTombstoneRepository {

@@ -1,5 +1,7 @@
 package reikai.domain.chapter
 
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
@@ -63,6 +65,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
     val tmp = TemporaryFolder()
 
     private val root: File get() = tmp.root
+    private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: Database
     private lateinit var tombstones: LocalChapterTombstones
@@ -83,7 +86,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         }
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
-            LocalChapterFiles(LocalSourceFileSystem(storage), storage),
+            LocalChapterFiles(context, LocalSourceFileSystem(storage), storage),
         )
     }
 

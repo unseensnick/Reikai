@@ -94,7 +94,7 @@ class LocalRenameVsSyncRaceTest {
         val fileSystem = LocalSourceFileSystem(storage)
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
-            LocalChapterFiles(fileSystem, storage),
+            LocalChapterFiles(context, fileSystem, storage),
         )
         source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, locks)
     }
@@ -112,6 +112,20 @@ class LocalRenameVsSyncRaceTest {
 
         shouldThrow<LocalChapterStillPresentException> { sync(stale) }
         (readUrls() to tombstoneUrls()) shouldBe (listOf("Series/Vol 2/Ch 1") to emptyList())
+    }
+
+    /** The provider answers a failed document query "absent"; a chapter's folder listing, trusted whole, does not. */
+    @Test
+    fun `a present chapter whose own query fails is kept, since confirm reads its folder's listing`() = runTest {
+        sync(listed())
+        markRead("Series/Vol 1/Ch 2")
+        File(local, "Series/Vol 1/Ch 2").deleteRecursively()
+        val stale = listed()
+        chapterFolder("Vol 1", "Ch 2")
+        FakeSafProvider.failingDocuments += File(local, "Series/Vol 1/Ch 2")
+
+        shouldThrow<LocalChapterStillPresentException> { sync(stale) }
+        (readUrls() to tombstoneUrls()) shouldBe (listOf("Series/Vol 1/Ch 2") to emptyList())
     }
 
     @Test

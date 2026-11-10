@@ -29,8 +29,9 @@ class LocalChapterTombstonesImpl(
         listed: Collection<String>,
     ) {
         if (!isLocal || removed.isEmpty()) return
+        val listings = files.listings()
         val present = unconfirmedRemovals(removed.map { it.url }, listed, { files.containerOf(type, it) }) {
-            files.exists(type, it)
+            listings.present(type, it)
         }
         if (present.isNotEmpty()) throw LocalChapterStillPresentException(present)
     }
