@@ -16,6 +16,8 @@ import org.junit.jupiter.api.io.TempDir
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.util.testAppScope
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.download.service.DownloadPreferences
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
@@ -82,6 +84,7 @@ class NovelDownloadCacheRenewTest {
                     mockk { every { listFiles() } returns arrayOf(sourceDir) }
             },
             provider = provider,
+            downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         )
         // The scanned chapter shows once the scan has swapped its result in; only then is the write judged.
         awaitOnRealThreads { cache.isChapterDownloaded(novel, onDisk) } shouldBe true

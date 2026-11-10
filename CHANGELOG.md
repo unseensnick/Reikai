@@ -99,6 +99,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Manga downloads can now wait between chapters, globally or per source, for sites that block fast downloading.** Off by default, so nothing changes until you set one.
 
+- **Settings -> Downloads -> Recheck downloads folder sets how often the app notices chapters added or removed outside it, from hourly to daily or only on Reindex downloads (ported from Komikku).** Covers manga and novels; hourly stays the default.
+
 #### Changed
 
 - **Novel downloads now run several sources at once, up to the same limit as manga, so one slow site holds up only itself.**

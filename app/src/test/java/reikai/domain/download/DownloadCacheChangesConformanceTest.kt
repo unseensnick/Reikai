@@ -28,6 +28,7 @@ import reikai.novel.download.NovelDownloadCache
 import reikai.novel.download.NovelDownloadProvider
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -108,6 +109,7 @@ class DownloadCacheChangesConformanceTest {
                 provider = mockk(relaxed = true),
                 sourceManager = mockk(relaxed = true),
                 storageManager = mockk { every { changes } returns MutableSharedFlow() },
+                downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
             )
             val source = mockk<Source> { every { id } returns 1L }
             return cache.changes to { cache.removeSource(source) }
@@ -134,6 +136,7 @@ class DownloadCacheChangesConformanceTest {
                     libraryPreferences = libraryPreferences,
                     novelPreferences = NovelPreferences(InMemoryPreferenceStore()),
                 ),
+                downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
             )
             val novel = Novel.create().copy(id = 1L, source = "src", title = "Novel")
             return cache.changes to { cache.removeNovel(novel) }

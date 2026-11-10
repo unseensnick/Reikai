@@ -31,6 +31,7 @@ import reikai.domain.download.DownloadIndexRules
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import tachiyomi.core.common.util.system.logcat
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 import java.util.concurrent.atomic.AtomicBoolean
@@ -51,6 +52,7 @@ class NovelDownloadCache(
     private val context: Context,
     private val storageManager: StorageManager,
     private val provider: NovelDownloadProvider,
+    private val downloadPreferences: DownloadPreferences,
 ) {
 
     private val _changes = Channel<Unit>(Channel.UNLIMITED)
@@ -215,7 +217,8 @@ class NovelDownloadCache(
         }
     }
     private fun renewIfStale() {
-        if (DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis()) && !renewing.get()) {
+        val renewHours = downloadPreferences.downloadIndexRenewHours.get()
+        if (DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis(), renewHours) && !renewing.get()) {
             scope.launch { renew() }
         }
     }

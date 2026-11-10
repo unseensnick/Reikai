@@ -10,9 +10,15 @@ import kotlin.time.Duration.Companion.hours
  */
 object DownloadIndexRules {
 
-    val RENEW_INTERVAL_MS = 1.hours.inWholeMilliseconds
+    /** Never rescan on a timer; only Reindex downloads, a storage move or a restore rescans. */
+    const val MANUAL = -1
 
-    fun isStale(lastRenew: Long, now: Long): Boolean = now - lastRenew > RENEW_INTERVAL_MS
+    /** An index never scanned (or thrown away, which resets `lastRenew` to 0) is stale whatever the interval. */
+    fun isStale(lastRenew: Long, now: Long, intervalHours: Int): Boolean = when {
+        lastRenew == 0L -> true
+        intervalHours == MANUAL -> false
+        else -> now - lastRenew > intervalHours.hours.inWholeMilliseconds
+    }
 
     /** A half-written chapter, which both downloaders mark with the same suffix, is never counted. */
     fun isIndexed(name: String): Boolean = !name.endsWith(Downloader.TMP_DIR_SUFFIX)

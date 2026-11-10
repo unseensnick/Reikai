@@ -49,6 +49,7 @@ import tachiyomi.core.common.storage.nameWithoutExtension
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.chapter.model.Chapter
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
@@ -60,9 +61,9 @@ import kotlin.time.Duration.Companion.seconds
 /**
  * Cache where we dump the downloads directory from the filesystem. This class is needed because
  * directory checking is expensive and it slows down the app. The cache is invalidated by the time
- * defined in [DownloadIndexRules.RENEW_INTERVAL_MS] as we don't have any control over the filesystem
+ * set in [DownloadPreferences.downloadIndexRenewHours] as we don't have any control over the filesystem
  * and the user can delete the folders at any time without the app noticing.
- * RK: the interval lives in DownloadIndexRules, which the novel download index shares.
+ * RK: the interval is a setting, read through DownloadIndexRules, which the novel download index shares.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -72,6 +73,7 @@ class DownloadCache(
     private val provider: DownloadProvider,
     private val sourceManager: SourceManager,
     private val storageManager: StorageManager,
+    private val downloadPreferences: DownloadPreferences, // RK
 ) {
 
     private val _changes: Channel<Unit> = Channel(Channel.UNLIMITED)
@@ -79,7 +81,7 @@ class DownloadCache(
         .onStart { emit(Unit) }
         .shareIn(scope, SharingStarted.Lazily, 1)
 
-    // RK: renewInterval moved to DownloadIndexRules.RENEW_INTERVAL_MS, which the novel index shares
+    // RK: renewInterval moved to DownloadPreferences.downloadIndexRenewHours, read by DownloadIndexRules.isStale
 
     /**
      * The last time the cache was refreshed.
@@ -376,8 +378,10 @@ class DownloadCache(
      */
     private fun renewCache(deleteDiskCache: Boolean = false) {
         // Avoid renewing cache if in the process nor too often
-        // RK: the novel index renews by the same rule
-        if (!DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis()) || renewalJob?.isActive == true) {
+        // RK: the novel index renews by the same rule, at the interval the user set
+        val renewHours = downloadPreferences.downloadIndexRenewHours.get()
+        val isStale = DownloadIndexRules.isStale(lastRenew, System.currentTimeMillis(), renewHours)
+        if (!isStale || renewalJob?.isActive == true) {
             return
         }
 

@@ -1129,6 +1129,12 @@
     <string name="pref_source_delay_search">Search sources</string>
     <string name="download_delay_seconds">%1$s s</string>
     <string name="save_chapter_as_cbz">Save as CBZ archive</string>
+    <!-- RK: how often both download indexes recheck the downloads folder for changes made outside the app -->
+    <string name="pref_download_index_renew">Recheck downloads folder</string>
+    <string name="pref_download_index_renew_manual">Manual</string>
+    <string name="pref_download_index_renew_1hour">Every hour</string>
+    <string name="pref_download_index_renew_2hour">Every 2 hours</string>
+    <string name="pref_download_index_renew_manual_summary">Manual: only on Reindex downloads in Advanced</string>
     <string name="pref_download_concurrent_sources">Concurrent source downloads</string>
     <string name="pref_download_concurrent_pages">Concurrent page downloads</string>
     <string name="pref_download_concurrent_pages_summary">Pages downloaded simultaneously per source</string>

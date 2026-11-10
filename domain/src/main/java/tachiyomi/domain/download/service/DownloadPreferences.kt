@@ -56,6 +56,10 @@ class DownloadPreferences(
 
     val parallelPageLimit: Preference<Int> = preferenceStore.getInt("download_parallel_page_limit", 5)
 
+    // RK --> hours between rescans of both download indexes; -1 rescans only on Reindex downloads
+    val downloadIndexRenewHours: Preference<Int> = preferenceStore.getInt("download_cache_renew_interval", 1)
+    // RK <--
+
     companion object {
         private const val REMOVE_EXCLUDE_CATEGORIES_PREF_KEY = "remove_exclude_categories"
         private const val DOWNLOAD_NEW_CATEGORIES_PREF_KEY = "download_new_categories"

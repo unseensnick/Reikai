@@ -24,6 +24,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.util.testAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
+import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -85,6 +86,7 @@ class NovelDownloadCacheRemoveTest {
             context = mockk(relaxed = true) { every { cacheDir } returns this@NovelDownloadCacheRemoveTest.cacheDir },
             storageManager = storageManager,
             provider = provider,
+            downloadPreferences = DownloadPreferences(InMemoryPreferenceStore()),
         )
         awaitOnRealThreads { cache.getDownloadCount(novel) == 4 } shouldBe true
         return cache

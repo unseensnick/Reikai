@@ -12,6 +12,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.category.visualName
 import eu.kanade.presentation.more.settings.Preference
 import mihon.app.di.appGraph
+import reikai.domain.download.DownloadIndexRules
 import reikai.domain.download.DownloadPacing
 import reikai.domain.download.MAX_PARALLEL_PAGES
 import reikai.domain.download.MAX_PARALLEL_SOURCES
@@ -68,6 +69,7 @@ object SettingsDownloadScreen : SearchableSettings {
                 title = stringResource(MR.strings.save_chapter_as_cbz),
                 visible = showsContent(ContentType.MANGA), // RK
             ),
+            indexRenewItem(downloadPreferences.downloadIndexRenewHours), // RK
             // RK: the concurrency sliders moved into downloadSpeedGroup, beside the delays
             // RK --> duplicated manga/novel download options, split into content-type sub-groups so each
             // row reads clean and the two never drift (the manga/novel builders are parameter-identical).
@@ -113,6 +115,29 @@ object SettingsDownloadScreen : SearchableSettings {
             // RK <--
         )
     }
+
+    // RK --> one interval for both download indexes, since both rescan by DownloadIndexRules.isStale
+    @Composable
+    private fun indexRenewItem(preference: PreferenceData<Int>) = Preference.PreferenceItem.ListPreference(
+        preference = preference,
+        entries = mapOf(
+            DownloadIndexRules.MANUAL to stringResource(MR.strings.pref_download_index_renew_manual),
+            1 to stringResource(MR.strings.pref_download_index_renew_1hour),
+            2 to stringResource(MR.strings.pref_download_index_renew_2hour),
+            6 to stringResource(MR.strings.update_6hour),
+            12 to stringResource(MR.strings.update_12hour),
+            24 to stringResource(MR.strings.update_24hour),
+        ),
+        title = stringResource(MR.strings.pref_download_index_renew),
+        subtitleProvider = { value, entries ->
+            if (value == DownloadIndexRules.MANUAL) {
+                stringResource(MR.strings.pref_download_index_renew_manual_summary)
+            } else {
+                entries[value]
+            }
+        },
+    )
+    // RK <--
 
     // RK --> the group builders take their preferences as parameters, so manga and novels share them
     // One builder, called once per content type, so the manga and novel delete-chapters groups can't drift.
