@@ -29,6 +29,7 @@ class CaseBlindSourceFolder(vararg names: String) {
         var current = initial
         return mockk {
             every { name } answers { current }
+            every { isDirectory } returns true
             every { parentFile } returns folder
             every { renameTo(any()) } answers {
                 val asked = firstArg<String>()

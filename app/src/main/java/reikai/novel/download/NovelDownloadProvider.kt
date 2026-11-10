@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.download.chapterFileLookup
+import reikai.domain.download.movesDownloadFolder
 import reikai.domain.download.renameDownloadFolder
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
@@ -87,7 +88,8 @@ class NovelDownloadProvider(
         sources.forEach { source ->
             val target = folderName(to(source))
             val folder = root.findFile(folderName(from(source)))?.takeIf { it.isDirectory } ?: return@forEach
-            if (folder.name == target || root.findFile(target) != null) return@forEach
+            // No other entry is named onto a source folder, so only a taken name keeps it in place
+            if (folder.name == target || !movesDownloadFolder(folder, target, emptyList())) return@forEach
             renameDownloadFolder(folder, target)
         }
     }

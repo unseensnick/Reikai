@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import reikai.domain.download.CaseBlindSourceFolder
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.model.Novel
@@ -55,18 +56,18 @@ class NovelDownloadProviderTest {
         )
     }
 
-    private val provider by lazy {
-        NovelDownloadProvider(
-            scope = testAppScope(),
-            storageManager = mockk<StorageManager> {
-                every { getNovelDownloadsDirectory() } returns UniFile.fromFile(root)
-                every { changes } returns MutableSharedFlow()
-            },
-            downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
-            libraryPreferences = libraryPreferences,
-            novelPreferences = novelPreferences,
-        )
-    }
+    private val provider by lazy { provider(UniFile.fromFile(root)) }
+
+    private fun provider(downloads: UniFile?) = NovelDownloadProvider(
+        scope = testAppScope(),
+        storageManager = mockk<StorageManager> {
+            every { getNovelDownloadsDirectory() } returns downloads
+            every { changes } returns MutableSharedFlow()
+        },
+        downloadProvider = DownloadProvider(mockk(), mockk(), libraryPreferences),
+        libraryPreferences = libraryPreferences,
+        novelPreferences = novelPreferences,
+    )
 
     @Test
     fun `an app catalogue's folder is named by its name and language, as manga's is`() {
@@ -92,6 +93,20 @@ class NovelDownloadProviderTest {
         provider.renameSourceFolders(listOf("plugin"), from = { it }, to = provider::sourceFolderLabel)
 
         File(root, "plugin (Plugin Site)/Old Title").isDirectory shouldBe true
+    }
+
+    /** A case-blind disk finds the folder itself at its new name, which is no reason to leave it. */
+    @Test
+    fun `a source folder whose label changes only in letter case is renamed`() {
+        val disk = CaseBlindSourceFolder("plugin (plugin site)")
+
+        provider(disk.folder).renameSourceFolders(
+            listOf("plugin"),
+            from = { "plugin (plugin site)" },
+            to = provider::sourceFolderLabel,
+        )
+
+        disk.names() shouldBe listOf("plugin (Plugin Site)")
     }
 
     private val novel = Novel.create().copy(id = 1L, source = "src", url = "/n", title = "Old Title")
