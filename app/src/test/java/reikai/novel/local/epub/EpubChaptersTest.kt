@@ -74,7 +74,9 @@ class EpubChaptersTest {
     @Test
     fun `the next chapter's heading leaves no empty shell behind in the one before`() {
         val book = EpubBook.parse(oneFile)
-        val html = EpubChapters.render(book, oneFile, EpubChapters.list(book, oneFile), 0) { _, _ -> null }
+        val html = EpubChapters.render(book, oneFile, EpubChapters.list(book, oneFile), 0, {
+            "pic:$it"
+        }) { _, _ -> null }
 
         Regex("<h2").findAll(html).count() shouldBe 1
     }
@@ -153,7 +155,9 @@ class EpubChaptersTest {
         )
         val parsed = EpubBook.parse(book)
 
-        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { _, _ -> null } shouldContain
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, {
+            "pic:$it"
+        }) { _, _ -> null } shouldContain
             "line one\nline two"
     }
 
@@ -212,14 +216,16 @@ class EpubChaptersTest {
 
     private fun renderIllustrated(): String {
         val book = EpubBook.parse(illustrated)
-        return EpubChapters.render(book, illustrated, EpubChapters.list(book, illustrated), 0) { path, _ ->
+        return EpubChapters.render(book, illustrated, EpubChapters.list(book, illustrated), 0, {
+            "pic:$it"
+        }) { path, _ ->
             "data:$path"
         }
     }
 
     @Test
-    fun `a picture framed in SVG becomes a picture, inlined from its file`() {
-        renderIllustrated() shouldContain """src="data:OEBPS/images/cover art.jpg""""
+    fun `a picture framed in SVG becomes a picture of its file`() {
+        renderIllustrated() shouldContain """src="pic:OEBPS/images/cover art.jpg""""
     }
 
     // The reader's shared sanitizer is the one owner of this, as for every source's chapter. Only the
@@ -244,7 +250,9 @@ class EpubChaptersTest {
         )
         val parsed = EpubBook.parse(book)
 
-        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { _, _ -> null } shouldContain
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, {
+            "pic:$it"
+        }) { _, _ -> null } shouldContain
             "text-indent: 3em"
     }
 
@@ -265,7 +273,7 @@ class EpubChaptersTest {
         )
         val parsed = EpubBook.parse(book)
 
-        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { path, _ ->
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, { "pic:$it" }) { path, _ ->
             "data:${parsed.mediaTypes[path]}"
         } shouldContain "data:image/avif"
     }
@@ -294,6 +302,9 @@ class EpubChaptersTest {
         )
         val parsed = EpubBook.parse(book)
 
-        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0) { _, _ -> null } shouldNotContain "href"
+        EpubChapters.render(parsed, book, EpubChapters.list(parsed, book), 0, {
+            "pic:$it"
+        }) { _, _ -> null } shouldNotContain
+            "href"
     }
 }

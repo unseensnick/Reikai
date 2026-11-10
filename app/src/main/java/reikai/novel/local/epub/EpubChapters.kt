@@ -113,14 +113,17 @@ object EpubChapters {
     }
 
     /**
-     * The HTML of [chapters]'s [index]th chapter: its body content with the book's stylesheets, every
-     * picture inlined through [inline] (handed a zip path, answering a `data:` address or null to drop it).
+     * The HTML of [chapters]'s [index]th chapter: its body content with the book's stylesheets. Each `<img>`
+     * points at [pictureAddress] of its zip path, read only when the reader shows it, so no size is too big;
+     * a stylesheet picture is inlined through [inline] (handed a zip path, answering a `data:` address or null
+     * to drop it), since neither renderer fetches what a stylesheet names.
      */
     fun render(
         book: EpubBook,
         archive: EpubArchive,
         chapters: List<EpubChapterRef>,
         index: Int,
+        pictureAddress: (path: String) -> String,
         inline: (path: String, bytes: ByteArray) -> String?,
     ): String {
         val files = filesOf(book, chapters, index)
@@ -151,17 +154,15 @@ object EpubChapters {
             it.base to (it.text ?: cssFiles[it.path]?.toString(Charsets.UTF_8).orEmpty())
         }
 
-        val pictures = out.body().local("img").mapNotNull { img -> img.attr(PATH_ATTR).ifEmpty { null } }.toSet()
         val cssUrls = css.flatMap { (base, text) ->
             CSS_URL.findAll(text).map { resolve(base, it.groupValues[2]) }.filter { book.imageType(it) != null }
         }
-        val bytes = archive.read(pictures + cssUrls)
+        val bytes = archive.read(cssUrls.toSet())
 
         for (img in out.body().local("img")) {
             val path = img.attr(PATH_ATTR)
             img.removeAttr(PATH_ATTR)
-            val address = bytes[path]?.let { inline(path, it) }
-            if (address == null) img.remove() else img.attr("src", address)
+            if (path.isEmpty()) img.remove() else img.attr("src", pictureAddress(path))
         }
         val styleText = css.joinToString("\n") { (base, text) -> cleanCss(text, base, bytes, inline) }
         if (styleText.isNotBlank()) out.head().appendElement("style").appendChild(DataNode(styleText))

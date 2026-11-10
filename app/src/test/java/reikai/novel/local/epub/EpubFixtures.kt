@@ -66,7 +66,7 @@ internal fun chapterTexts(archive: EpubArchive): List<Pair<String, String>> {
     val book = EpubBook.parse(archive)
     val chapters = EpubChapters.list(book, archive)
     return chapters.indices.map { index ->
-        val html = EpubChapters.render(book, archive, chapters, index) { path, _ -> "data:$path" }
+        val html = EpubChapters.render(book, archive, chapters, index, { "pic:$it" }) { path, _ -> "data:$path" }
         chapters[index].title to org.jsoup.Jsoup.parse(html).text()
     }
 }

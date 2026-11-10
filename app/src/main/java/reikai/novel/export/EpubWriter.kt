@@ -10,6 +10,7 @@ import org.jsoup.nodes.Entities
 import reikai.novel.content.NovelHtmlUtils
 import reikai.novel.content.RenderTarget
 import reikai.novel.content.anchorTarget
+import reikai.novel.local.LocalNovelPicture
 import java.io.OutputStream
 import java.util.Base64
 import java.util.zip.CRC32
@@ -35,17 +36,24 @@ data class EpubExportBook(
 
 /**
  * One chapter, its HTML read only when the writer reaches it, so a long novel is never held whole.
- * [sourceKey] is the source chapter's own address, which names the chapter's file in the book.
+ * [sourceKey] is the source chapter's own address, which names the chapter's file in the book. A local
+ * novel's chapter names its pictures by its book's address, which [localPicture] reads in place of `data:`.
  */
-class ExportChapter(val title: String, val sourceKey: String, val html: suspend () -> String)
+class ExportChapter(
+    val title: String,
+    val sourceKey: String,
+    val localPicture: suspend (address: String) -> LocalNovelPicture? = { null },
+    val html: suspend () -> String,
+)
 
 data class ExportPicture(val bytes: ByteArray, val mime: String)
 
 /**
  * Writes an EPUB 3 with an EPUB 2 table of contents beside it, so older readers find the chapters too.
- * Each chapter becomes well-formed XHTML: pictures carried as `data:` addresses become files of their own
- * (one per distinct picture), web pictures are dropped since a book on disk cannot fetch them, and nothing
- * that runs is kept. [includePictures] false drops every picture. Design: docs/dev/subsystems/local-novels.md.
+ * Each chapter becomes well-formed XHTML: pictures carried as `data:` or local book addresses become files
+ * of their own (one per distinct picture), web pictures are dropped since a book on disk cannot fetch them,
+ * and nothing that runs is kept. [includePictures] false drops every picture.
+ * Design: docs/dev/subsystems/local-novels.md.
  */
 class EpubWriter(private val includePictures: Boolean = true) {
 
@@ -127,7 +135,11 @@ class EpubWriter(private val includePictures: Boolean = true) {
         }
         for (img in body.select("img")) {
             val src = img.attr("src")
-            val picture = if (includePictures) decodeDataAddress(src) else null
+            val picture = if (includePictures) {
+                decodeDataAddress(src) ?: chapter.localPicture(src)?.let { bookPicture(it.bytes, it.mime) }
+            } else {
+                null
+            }
             if (picture == null) {
                 img.keepingId().remove()
                 continue
@@ -292,12 +304,18 @@ $points
             if (!src.startsWith("data:")) return null
             val marker = src.indexOf(";base64,")
             if (marker < 0) return null
-            val declared = src.substring(5, marker).substringBefore(';').ifEmpty { "image/jpeg" }.lowercase()
-            // Servers often send the unregistered image/jpg, which a book's manifest may not declare.
-            val mime = if (declared == "image/jpg") "image/jpeg" else declared
-            if (mime !in PICTURE_TYPES) return null
+            val declared = src.substring(5, marker).substringBefore(';')
             val data = src.substring(marker + BASE64_MARKER.length)
-            return runCatching { ExportPicture(Base64.getMimeDecoder().decode(data), mime) }.getOrNull()
+            val bytes = runCatching { Base64.getMimeDecoder().decode(data) }.getOrNull() ?: return null
+            return bookPicture(bytes, declared)
+        }
+
+        /** [bytes] as a picture a book can carry, typed JPEG when [declared] names nothing; null for another type. */
+        private fun bookPicture(bytes: ByteArray, declared: String?): ExportPicture? {
+            val type = declared?.ifEmpty { null }?.lowercase() ?: "image/jpeg"
+            // Servers often send the unregistered image/jpg, which a book's manifest may not declare.
+            val mime = if (type == "image/jpg") "image/jpeg" else type
+            return ExportPicture(bytes, mime).takeIf { mime in PICTURE_TYPES }
         }
 
         private fun extensionOf(mime: String): String = when (mime) {

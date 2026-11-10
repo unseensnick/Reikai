@@ -151,10 +151,21 @@ class LocalNovelSource(
         val index = opened.chapters.indexOfFirst { it.key == key }.takeIf { it >= 0 }
             ?: throw LocalNovelMissingException(chapterPath)
         file.archiveReader(context).use { reader ->
-            EpubChapters.render(opened.book, EpubArchive(reader::readEntries), opened.chapters, index) { path, bytes ->
-                inlinedImageAddress(bytes, opened.book.imageType(path))
-            }
+            val archive = EpubArchive(reader::readEntries)
+            renderChapter(opened.book, archive, opened.chapters, index, seriesPath, volumeName, file.lastModified())
         }
+    }
+
+    /**
+     * The picture [address] names (see [pictureAddress]), read from its book, or null when no book in the
+     * folder holds that entry. Only a series directly in the folder and one of its own books resolve.
+     */
+    suspend fun picture(address: String): LocalNovelPicture? = withIOContext {
+        val (series, volume, entry) = parsePictureAddress(address) ?: return@withIOContext null
+        val file = seriesAt(series)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
+        val bytes = file.archiveReader(context).use { it.readEntries(setOf(entry))[entry] }
+            ?: return@withIOContext null
+        LocalNovelPicture(bytes, runCatching { book(file) }.getOrNull()?.imageType(entry))
     }
 
     // A local novel has no page on the web: a blank address hides WebView, Share and Copy link.
@@ -166,8 +177,10 @@ class LocalNovelSource(
         return root.listFiles().orEmpty().mapNotNull { entry -> seriesOf(entry) }
     }
 
-    private fun seriesAt(path: String): Series? =
-        storageManager.getLocalNovelsDirectory()?.findFile(path)?.let(::seriesOf)
+    // A path from a chapter row or a picture address is a name in the folder, never a way out of it.
+    private fun seriesAt(path: String): Series? = path.takeIf(::isChildName)
+        ?.let { storageManager.getLocalNovelsDirectory()?.findFile(it) }
+        ?.let(::seriesOf)
 
     private fun seriesOf(entry: UniFile): Series? {
         val name = entry.name ?: return null
@@ -342,6 +355,7 @@ class LocalNovelSource(
         private const val PARTIAL_SUFFIX = ".part"
         private const val EPUB_SUFFIX = ".epub"
         private const val PATH_SEPARATOR = "::"
+        private const val PICTURE_SCHEME = "rk-local-picture:"
 
         fun isLocal(sourceId: String?): Boolean = sourceId == ID
 
@@ -372,6 +386,45 @@ class LocalNovelSource(
         internal fun volumeLabel(index: Int, meta: EpubMetadata): String =
             meta.seriesIndex?.takeUnless { meta.isReikaiExport }?.let(::formatChapterNumber) ?: (index + 1).toString()
 
+        /** Chapter [index] of book [volume] of the series at [series], as the reader gets it. */
+        internal fun renderChapter(
+            book: EpubBook,
+            archive: EpubArchive,
+            chapters: List<EpubChapterRef>,
+            index: Int,
+            series: String,
+            volume: String,
+            version: Long,
+        ): String = EpubChapters.render(
+            book,
+            archive,
+            chapters,
+            index,
+            pictureAddress = { path -> pictureAddress(series, volume, path, version) },
+        ) { path, bytes -> inlinedImageAddress(bytes, book.imageType(path)) }
+
+        /**
+         * Where the picture at zip path [entry] of book [volume] in the series at [series] is read from, which
+         * [picture] answers and both renderers load through the chapter-picture fetch. [version], the book's
+         * modified time, is only there so the image cache never serves a replaced book's picture.
+         */
+        internal fun pictureAddress(series: String, volume: String, entry: String, version: Long): String =
+            PICTURE_SCHEME + encoded(listOf(series, volume, entry, version.toString()))
+
+        /** The series, book and entry [address] names, or null for one [pictureAddress] did not make. */
+        internal fun parsePictureAddress(address: String): Triple<String, String, String>? {
+            if (!isPictureAddress(address)) return null
+            val parts = decoded(address.removePrefix(PICTURE_SCHEME)) ?: return null
+            if (parts.size != 4) return null
+            return Triple(parts[0], parts[1], parts[2])
+        }
+
+        fun isPictureAddress(address: String): Boolean = address.startsWith(PICTURE_SCHEME)
+
+        /** A name that is one entry of the folder: no separator, and not `.` or `..`. */
+        internal fun isChildName(name: String): Boolean =
+            name.isNotEmpty() && name != "." && name != ".." && '/' !in name && '\\' !in name
+
         /** One chapter of a series as it is listed: its [volume]'s index, address and place in the series. */
         internal data class LocalChapter(val volume: Int, val ref: EpubChapterRef, val path: String, val number: Double)
 
@@ -398,14 +451,11 @@ class LocalNovelSource(
                 key.heading != null -> "h:${key.heading}"
                 else -> "t"
             }
-            return listOf(series, volume, key.path, at).joinToString(PATH_SEPARATOR) {
-                URLEncoder.encode(it, "UTF-8")
-            }
+            return encoded(listOf(series, volume, key.path, at))
         }
 
         internal fun parseChapterPath(path: String): Triple<String, String, EpubChapterKey>? {
-            val parts = path.split(PATH_SEPARATOR)
-                .map { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() ?: return null }
+            val parts = decoded(path) ?: return null
             if (parts.size != 4) return null
             val (series, volume, file, at) = parts
             val key = when {
@@ -418,8 +468,17 @@ class LocalNovelSource(
             }
             return Triple(series, volume, key)
         }
+
+        private fun encoded(parts: List<String>): String =
+            parts.joinToString(PATH_SEPARATOR) { URLEncoder.encode(it, "UTF-8") }
+
+        private fun decoded(path: String): List<String>? = path.split(PATH_SEPARATOR)
+            .map { runCatching { URLDecoder.decode(it, "UTF-8") }.getOrNull() ?: return null }
     }
 }
+
+/** A picture read out of a local novel's book, with the type its package declares, if any. */
+class LocalNovelPicture(val bytes: ByteArray, val mime: String?)
 
 /** A local novel, book or chapter that is no longer in the folder, or no longer where it was in its book. */
 class LocalNovelMissingException(path: String) : Exception("Not found in the local novels folder: $path")

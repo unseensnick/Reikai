@@ -5,6 +5,7 @@ import org.jsoup.Jsoup
 import org.junit.jupiter.api.Test
 import reikai.data.coil.NovelImage
 import reikai.novel.content.NovelImageSources
+import reikai.novel.local.LocalNovelSource
 
 /** WebView mode's pictures reach the app's own fetch, and nothing else the page loads does. */
 class NovelWebImagesTest {
@@ -38,6 +39,15 @@ class NovelWebImagesTest {
     fun `a protocol-relative picture with no base is https`() {
         images.imageFor(img("""<img src="//cdn.example/a.jpg">""", baseUrl = null).attr("src")) shouldBe
             NovelImage("https://cdn.example/a.jpg", "p")
+    }
+
+    @Test
+    fun `a local book's picture is served by the app, since the page cannot read files`() {
+        val address = LocalNovelSource.pictureAddress("Saga", "Book.epub", "OEBPS/plate.png", 1)
+        val src = Jsoup.parseBodyFragment(images.rewrite("""<img src="$address">""", null, LocalNovelSource.ID))
+            .selectFirst("img")!!.attr("src")
+
+        images.imageFor(src) shouldBe NovelImage(address, LocalNovelSource.ID)
     }
 
     @Test

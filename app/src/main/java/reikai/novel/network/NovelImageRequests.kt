@@ -16,6 +16,8 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.siteHost
+import reikai.novel.local.LocalNovelPicture
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.AppNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.isNovelAppSourceId
@@ -86,7 +88,15 @@ class NovelImageRequests(
     private val network: NetworkHelper,
     private val novelPreferences: NovelPreferences,
     private val sourceManager: NovelSourceManager,
+    private val localNovels: () -> LocalNovelSource,
 ) {
+
+    /**
+     * The local novel picture at [url], read from its book. Null for a chapter of any other source, so a
+     * source's chapter naming such an address cannot read the user's own books.
+     */
+    suspend fun localPicture(url: String, sourceId: String?): LocalNovelPicture? =
+        if (LocalNovelSource.isLocal(sourceId)) localNovels().picture(url) else null
 
     suspend fun forSource(sourceId: String?): NovelImageClient {
         appImages(sourceId)?.let { return it }

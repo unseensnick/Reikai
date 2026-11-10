@@ -33,7 +33,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import logcat.LogPriority
 import reikai.data.coil.NovelImage
-import reikai.novel.content.NovelChapterAddress
+import reikai.data.coil.isNovelImageAddress
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchUI
@@ -71,9 +71,9 @@ class DrawableWrapper : Drawable() {
  * Resolves the images in a chapter for `Html.fromHtml`.
  *
  * Ported from tsundoku (`textview/NovelImageGetter.kt`), with their host Activity replaced by a
- * [Context] and each picture fetched with its source's own client and headers ([NovelImage]). Their
- * page-loader scheme is not taken: it serves images out of a local archive, which our content never
- * produces (a downloaded chapter carries its images inline as data URLs).
+ * [Context] and each picture fetched with its source's own client and headers ([NovelImage]). A local
+ * novel's picture is fetched the same way, from its book ([isNovelImageAddress]), in place of their
+ * page-loader scheme; a downloaded chapter carries its images inline as data URLs.
  */
 class NovelImageGetter(
     private val context: Context,
@@ -131,7 +131,7 @@ class NovelImageGetter(
         when {
             source.isNullOrBlank() -> showFailure(wrapper, retryable = false)
             source.startsWith("data:") -> decodeInlineImage(source, wrapper)
-            NovelChapterAddress.isWebAddress(source) -> pendingLoads += PendingLoad(source, wrapper)
+            isNovelImageAddress(source) -> pendingLoads += PendingLoad(source, wrapper)
             else -> {
                 logcat(LogPriority.DEBUG) { "Skipping unsupported image source" }
                 showFailure(wrapper, retryable = false)

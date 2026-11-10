@@ -45,6 +45,7 @@ import reikai.domain.novel.ownersOf
 import reikai.novel.download.NovelDownloadedTexts
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubBook
+import reikai.novel.network.NovelImageRequests
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.pluralStringResource
@@ -78,6 +79,8 @@ class NovelEpubExportWorker(
     @Inject private lateinit var sourceManager: NovelSourceManager
 
     @Inject private lateinit var localNovelLanguages: LocalNovelLanguageRepository
+
+    @Inject private lateinit var imageRequests: NovelImageRequests
 
     @Inject private lateinit var getEntryCustomInfo: GetEntryCustomInfo
 
@@ -206,7 +209,8 @@ class NovelEpubExportWorker(
             // A run is one volume of the novel, placed by its first chapter so several runs import in order.
             seriesPosition = from.takeIf { isRun },
             chapters = chosen.map { chapter ->
-                ExportChapter(chapter.name, chapter.url) {
+                val sourceId = owners[chapter.novelId]?.source
+                ExportChapter(chapter.name, chapter.url, { imageRequests.localPicture(it, sourceId) }) {
                     downloadedTexts.storedHtml(chapter, owners) ?: throw IOException("Missing ${chapter.name}")
                 }
             },

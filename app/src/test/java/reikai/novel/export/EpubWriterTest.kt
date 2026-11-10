@@ -10,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.novel.toNovel
 import reikai.novel.host.SourceNovel
+import reikai.novel.local.LocalNovelPicture
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubArchive
 import reikai.novel.local.epub.EpubBook
@@ -92,6 +93,18 @@ class EpubWriterTest {
     @Test
     fun `a web picture is dropped, since the book cannot fetch it`() = runTest {
         written().chapter(2).toString(Charsets.UTF_8) shouldNotContain_ "example.com"
+    }
+
+    @Test
+    fun `a local novel's chapter carries the pictures its book holds`() = runTest {
+        val address = LocalNovelSource.pictureAddress("Saga", "Book.epub", "OEBPS/plate.png", 1)
+        val chapter =
+            ExportChapter("Local", "l", { src -> LocalNovelPicture(png, "image/png").takeIf { src == address } }) {
+                "<p>Text</p><img src=\"$address\">"
+            }
+
+        written(book = book.copy(chapters = listOf(chapter)))["OEBPS/images/image-1.png"]?.toList() shouldBe
+            png.toList()
     }
 
     @Test

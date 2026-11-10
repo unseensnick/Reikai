@@ -6,9 +6,11 @@ import eu.kanade.tachiyomi.extension.model.Extension
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.online.HttpSource
+import io.kotest.matchers.nulls.shouldBeNull
 import io.kotest.matchers.shouldBe
 import io.ktor.client.HttpClient
 import io.ktor.client.request.HttpRequestBuilder
+import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.awaitCancellation
@@ -19,8 +21,12 @@ import okhttp3.Headers
 import okhttp3.Headers.Companion.headersOf
 import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
+import reikai.data.coil.NovelImage
+import reikai.data.coil.fetchNovelImage
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.local.LocalNovelPicture
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderSourceHolder
 import reikai.novel.source.novelApp
@@ -232,10 +238,35 @@ class NovelImageRequestsTest {
         return novelApp(IReaderSourceHolder(catalogue)).copy(kind = Extension.Kind.IREADER)
     }
 
+    private val plate = byteArrayOf(-119, 80, 78, 71, 1, 2, 3)
+    private val plateAddress = LocalNovelSource.pictureAddress("Saga", "Book.epub", "OEBPS/plate.png", 1)
+    private val localBooks = mockk<LocalNovelSource> {
+        coEvery { picture(plateAddress) } returns LocalNovelPicture(plate, "image/png")
+    }
+
+    @Test
+    fun `a local chapter's picture is read from its book through the chapter-picture fetch`() = runTest {
+        val result = fetchNovelImage(
+            NovelImage(plateAddress, LocalNovelSource.ID),
+            requests(local = localBooks),
+            diskCache = null,
+            readCache = true,
+            writeCache = true,
+        )
+
+        result.source.source().readByteArray().toList() shouldBe plate.toList()
+    }
+
+    @Test
+    fun `another source's chapter naming a local picture never reads the user's books`() = runTest {
+        requests(local = localBooks).localPicture(plateAddress, "lnreader.some-plugin").shouldBeNull()
+    }
+
     private fun requests(
         seen: Map<String, LnSourceIdentity> = emptyMap(),
         loaded: List<Extension.Loaded> = emptyList(),
         scanDone: Boolean = true,
+        local: LocalNovelSource? = null,
     ): NovelImageRequests {
         val preferences = NovelPreferences(
             InMemoryPreferenceStore(sequenceOf(InMemoryPreference("ln_seen_novel_sources", seen, emptyMap()))),
@@ -253,6 +284,7 @@ class NovelImageRequestsTest {
                 },
                 prefs = preferences,
             ),
+            localNovels = { local ?: error("read a local book") },
         )
     }
 }

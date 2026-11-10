@@ -4,23 +4,24 @@ import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import org.jsoup.Jsoup
 import reikai.data.coil.NovelImage
+import reikai.data.coil.isNovelImageAddress
 import reikai.novel.content.NovelChapterAddress
 import reikai.novel.content.NovelImageSources
 import java.util.concurrent.ConcurrentHashMap
 
 /**
- * Routes a chapter's online pictures through the app, so WebView mode fetches them with the source's own
- * client and headers, as the text renderer does. Each address is rewritten to one on the host Android
- * reserves for an app to answer itself, which the reader's `shouldInterceptRequest` serves; nothing
- * else the page loads is touched. The source rides in the address because a merged novel's chapters
- * can come from different sources. One per viewport: only an address it produced is served, since a
- * chapter could otherwise name one (in a style or a script) that sends a source's headers anywhere.
+ * Routes a chapter's pictures through the app, so WebView mode fetches them as the text renderer does: an
+ * online one with the source's client and headers, a local novel's from its book, which the page has no
+ * file access to read. Each address is rewritten onto the host Android reserves for an app to answer, which
+ * `shouldInterceptRequest` serves; nothing else is touched. The source rides in the address, since a merged
+ * novel's chapters can come from different sources. One per viewport: only an address it produced is
+ * served, since a chapter could otherwise name one (in a style or a script) that sends headers anywhere.
  */
 class NovelWebImages {
 
     private val routed = ConcurrentHashMap.newKeySet<NovelImage>()
 
-    /** [html] with each online picture address rewritten; relative ones are resolved against [baseUrl]. */
+    /** [html] with each fetched picture's address rewritten; relative ones are resolved against [baseUrl]. */
     fun rewrite(html: String, baseUrl: String?, sourceId: String?): String {
         if (!html.contains("<img", ignoreCase = true) && !html.contains("<source", ignoreCase = true)) return html
         val document = Jsoup.parseBodyFragment(html)
@@ -47,7 +48,7 @@ class NovelWebImages {
     }
 
     private fun routed(url: String, sourceId: String?): String? {
-        if (!NovelChapterAddress.isWebAddress(url)) return null
+        if (!isNovelImageAddress(url)) return null
         routed += NovelImage(url, sourceId)
         return appAddress(PATH)
             .addQueryParameter("u", url)

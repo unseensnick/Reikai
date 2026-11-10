@@ -63,8 +63,9 @@ suspend fun inlineChapterImages(html: String, baseSite: String, images: NovelIma
 }
 
 /**
- * A picture as a `data:` address a chapter carries in itself, or null when it is empty or over the cap
- * every stored or local chapter holds pictures to. [mime] defaults to JPEG, which the decoders sniff past.
+ * A picture as a `data:` address a chapter carries in itself, or null when it is empty or over the cap a
+ * stored chapter's pictures and a local chapter's stylesheet pictures are held to. [mime] defaults to
+ * JPEG, which the decoders sniff past.
  */
 fun inlinedImageAddress(bytes: ByteArray, mime: String?): String? {
     if (bytes.isEmpty() || bytes.size > MAX_INLINE_BYTES) return null
