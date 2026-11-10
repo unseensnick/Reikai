@@ -28,6 +28,7 @@ import reikai.domain.novel.model.NovelUpdate
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.NovelItem
+import reikai.novel.source.LockedSeriesSource
 import reikai.novel.source.NovelSource
 import reikai.util.idleAppScope
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
@@ -147,6 +148,17 @@ class NovelRefreshTest {
         refresh(novel, PagedSource(oneChapter, summary = "New description"))
 
         novels.getById(novel.id)!!.let { it.favorite to it.notes } shouldBe (false to "x")
+    }
+
+    /** A local series' parse and its row sync run inside one hold of the source's lock, so no move lands between. */
+    @Test
+    fun `a refresh parses and writes its chapters inside the source's lock`() = runTest {
+        val novel = storedNovel()
+        val source = LockedSource(PagedSource(oneChapter)) { chapters.getByNovelId(novel.id).size }
+
+        refresh(novel, source)
+
+        (source.parsedInside to source.rowsAtRelease) shouldBe (true to 1)
     }
 
     @Test
@@ -473,4 +485,27 @@ class NovelRefreshTest {
             return real.update(update)
         }
     }
+}
+
+/** [inner] with its lock hold counted, so a test can tell what ran inside it; [rowsNow] is read as the hold ends. */
+private class LockedSource(
+    private val inner: NovelSource,
+    private val rowsNow: suspend () -> Int,
+) : NovelSource by inner,
+    LockedSeriesSource {
+    var parsedInside = false
+    var rowsAtRelease = -1
+    private var holds = 0
+
+    override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T {
+        holds++
+        try {
+            return block()
+        } finally {
+            rowsAtRelease = rowsNow()
+            holds--
+        }
+    }
+
+    override suspend fun parseNovel(novelPath: String) = inner.parseNovel(novelPath).also { parsedInside = holds > 0 }
 }

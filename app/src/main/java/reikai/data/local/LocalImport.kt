@@ -22,6 +22,7 @@ import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
+import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.export.epubFileName
@@ -148,6 +149,7 @@ class LocalImport(
     private val mangaAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
+    private val seriesLocks: LocalSeriesLocks,
 ) {
 
     /** Reads each of [uris] and groups them into series; a file that cannot be read is a problem, not a group. */
@@ -230,50 +232,67 @@ class LocalImport(
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
-                var copied = 0
-                // Trusted whole: a book missing from a short listing would have its name given to a new file, and
-                // a provider hands back the existing file to write over.
-                val present = folder.listFilesOrNull(context)?.filter { it.isFile } ?: run {
-                    problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
-                    return@mapNotNull null
+                // Under the series' lock from the first copy to the row sync, so a refresh of the series it joins
+                // cannot list a half-copied file or a book stepping aside, nor sync a listing from before the copy.
+                // The folder is made first, so the lock names the folder as storage spelled it.
+                seriesLocks.withSeries(group.type, path) {
+                    importGroup(group, folder, path, joined == null, addToLibrary, categoryIds, problems)
                 }
-                val taken = present.mapNotNull { it.name }.toMutableSet()
-                var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
-                group.files.forEach { file ->
-                    val exact = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
-                    val older = group.newerCopies[file.uri]?.let { name -> present.firstOrNull { it.name == name } }
-                    val duplicate = exact ?: older
-                    val choice = if (exact == null && older != null) group.onNewerCopy else group.onDuplicate
-                    if (duplicate != null && choice == DuplicateChoice.Skip) return@forEach
-                    val name = when {
-                        duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
-                        // A book takes the series and its volume, as Rename files names it; a comic keeps its name,
-                        // which names its chapter.
-                        group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
-                        else -> freeName(file.name, taken)
-                    }
-                    runCatching {
-                        copy(group.type, file, folder, name, replacing = duplicate?.takeIf { name == it.name })
-                    }
-                        .onSuccess { copied++ }
-                        .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
-                }
-                // Nothing copied, every file skipped or failed, so the series was not imported to.
-                if (copied == 0) {
-                    if (joined == null && folder.listFilesOrNull(context)?.isEmpty() == true) folder.delete()
-                    return@mapNotNull null
-                }
-                val entryId = if (addToLibrary) {
-                    runCatchingCancellable { add(group.type, path, categoryIds) }
-                        .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
-                        .getOrNull()
-                } else {
-                    null
-                }
-                ImportedSeries(group.key, group.type, group.title, path, entryId)
             }
             ImportResult(series, problems)
         }
+
+    private suspend fun importGroup(
+        group: ImportGroup,
+        folder: UniFile,
+        path: String,
+        made: Boolean,
+        addToLibrary: Boolean,
+        categoryIds: List<Long>,
+        problems: MutableList<ImportProblem>,
+    ): ImportedSeries? {
+        var copied = 0
+        // Trusted whole: a book missing from a short listing would have its name given to a new file, and
+        // a provider hands back the existing file to write over.
+        val present = folder.listFilesOrNull(context)?.filter { it.isFile } ?: run {
+            problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
+            return null
+        }
+        val taken = present.mapNotNull { it.name }.toMutableSet()
+        var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
+        group.files.forEach { file ->
+            val exact = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
+            val older = group.newerCopies[file.uri]?.let { name -> present.firstOrNull { it.name == name } }
+            val duplicate = exact ?: older
+            val choice = if (exact == null && older != null) group.onNewerCopy else group.onDuplicate
+            if (duplicate != null && choice == DuplicateChoice.Skip) return@forEach
+            val copyName = when {
+                duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
+                // A book takes the series and its volume, as Rename files names it; a comic keeps its name,
+                // which names its chapter.
+                group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
+                else -> freeName(file.name, taken)
+            }
+            runCatching {
+                copy(group.type, file, folder, copyName, replacing = duplicate?.takeIf { copyName == it.name })
+            }
+                .onSuccess { copied++ }
+                .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
+        }
+        // Nothing copied, every file skipped or failed, so the series was not imported to.
+        if (copied == 0) {
+            if (made && folder.listFilesOrNull(context)?.isEmpty() == true) folder.delete()
+            return null
+        }
+        val entryId = if (addToLibrary) {
+            runCatchingCancellable { add(group.type, path, categoryIds) }
+                .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
+                .getOrNull()
+        } else {
+            null
+        }
+        return ImportedSeries(group.key, group.type, group.title, path, entryId)
+    }
 
     /** Stores the series the folder [path] now holds, fills in its chapters and favorites it. */
     private suspend fun add(type: ContentType, path: String, categoryIds: List<Long>): Long? = when (type) {

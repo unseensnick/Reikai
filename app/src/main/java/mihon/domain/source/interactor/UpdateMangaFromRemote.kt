@@ -11,6 +11,8 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
+import reikai.domain.library.ContentType
+import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.source.keptCover
 import reikai.domain.source.keptDetail
 import reikai.domain.source.keptGenres
@@ -39,6 +41,7 @@ class UpdateMangaFromRemote(
     private val coverCache: CoverCache,
     private val libraryPreferences: LibraryPreferences,
     private val downloadManager: DownloadManager,
+    private val seriesLocks: LocalSeriesLocks, // RK
 ) {
     suspend operator fun invoke(
         manga: Manga,
@@ -66,22 +69,27 @@ class UpdateMangaFromRemote(
         fetchWindow: ClosedRange<Instant>? = null,
     ): Result<RemoteMangaUpdate> = withIOContext {
         try {
-            val chapters = chapterRepository.getChapterByMangaId(manga.id)
-                .sortedBy { it.sourceOrder }
-            val update = source.getMangaUpdate(
-                manga = manga.toSManga(),
-                chapters = chapters.map(Chapter::toSChapter),
-                fetchDetails = fetchDetails,
-                fetchChapters = fetchChapters,
-            )
-            awaitUpdateFromSource(manga, update.manga, manualFetch)
-            val newChapters = syncChaptersWithSource.await(
-                rawSourceChapters = update.chapters,
-                manga = manga,
-                source = source,
-                manualFetch = manualFetch,
-                fetchWindow = fetchWindow,
-            )
+            // RK --> a local series' listing and its row sync run under the series' lock as one, so a move of
+            // its files cannot land between them and have the sync write rows for files that moved
+            val newChapters = underSeriesLock(source, manga) {
+                val chapters = chapterRepository.getChapterByMangaId(manga.id)
+                    .sortedBy { it.sourceOrder }
+                val update = source.getMangaUpdate(
+                    manga = manga.toSManga(),
+                    chapters = chapters.map(Chapter::toSChapter),
+                    fetchDetails = fetchDetails,
+                    fetchChapters = fetchChapters,
+                )
+                awaitUpdateFromSource(manga, update.manga, manualFetch)
+                syncChaptersWithSource.await(
+                    rawSourceChapters = update.chapters,
+                    manga = manga,
+                    source = source,
+                    manualFetch = manualFetch,
+                    fetchWindow = fetchWindow,
+                )
+            }
+            // RK <--
             val updatedManga = mangaRepository.getMangaById(manga.id)
 
             Result.success(RemoteMangaUpdate(manga = updatedManga, newChapters = newChapters))
@@ -96,6 +104,11 @@ class UpdateMangaFromRemote(
             Result.failure(Exception(e.toString(), e))
         }
     }
+
+    // RK --> the series is the folder the manga's url names; any other source holds nothing on disk
+    private suspend fun <T> underSeriesLock(source: Source, manga: Manga, refresh: suspend () -> T): T =
+        if (source.isLocal()) seriesLocks.withSeries(ContentType.MANGA, manga.url, refresh) else refresh()
+    // RK <--
 
     private suspend fun awaitUpdateFromSource(
         localManga: Manga,

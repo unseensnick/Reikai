@@ -18,6 +18,7 @@ import org.robolectric.Robolectric
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.SourceNovel
@@ -67,6 +68,7 @@ class LocalImportTest(private val type: ContentType) {
         updateMangaFromRemote = mockk {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
         },
+        seriesLocks = LocalSeriesLocks().apply { open() },
     )
 
     @Before

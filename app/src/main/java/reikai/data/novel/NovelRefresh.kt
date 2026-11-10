@@ -19,6 +19,7 @@ import reikai.domain.source.refreshedTitle
 import reikai.novel.download.NovelDownloadManager
 import reikai.novel.host.SourceNovel
 import reikai.novel.local.LocalNovelSource
+import reikai.novel.source.LockedSeriesSource
 import reikai.novel.source.NovelSource
 import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -118,6 +119,10 @@ suspend fun storeRefreshedNovel(
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 
+/** [block] under this source's hold on the novel at [novelPath] when it has one to give, else at once. */
+private suspend fun <T> NovelSource.seriesLocked(novelPath: String, block: suspend () -> T): T =
+    if (this is LockedSeriesSource) locked(novelPath, block) else block()
+
 /**
  * [this] for a write that syncs no chapters. The stored page count is the mark the next update walks from, so raising
  * it without walking would leave the pages between never fetched. Zero keeps the stored count.
@@ -149,7 +154,9 @@ suspend fun refreshNovelFromSource(
     manualFetch: Boolean = false,
     fetchWindow: ClosedRange<Instant>? = null,
     details: StoredDetails = StoredDetails.KEPT,
-): NovelRefreshResult {
+): NovelRefreshResult = source.seriesLocked(novel.url) {
+    // The parse and every row write under one hold of a local series' lock, so a move of its files cannot
+    // land between them; any other source runs this at once.
     val sourceNovel = source.parseNovel(novel.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
     val merged = storeRefreshedNovel(
@@ -204,7 +211,7 @@ suspend fun refreshNovelFromSource(
             fetchWindow,
         )
     }
-    return NovelRefreshResult(merged, synced?.newChapters.orEmpty())
+    NovelRefreshResult(merged, synced?.newChapters.orEmpty())
 }
 
 /**

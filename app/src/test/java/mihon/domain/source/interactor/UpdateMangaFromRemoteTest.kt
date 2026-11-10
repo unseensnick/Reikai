@@ -11,6 +11,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
+import reikai.domain.local.LocalSeriesLocks
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
@@ -26,6 +27,7 @@ class UpdateMangaFromRemoteTest {
         coverCache = mockk(relaxed = true),
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         downloadManager = mockk(relaxed = true),
+        seriesLocks = LocalSeriesLocks().apply { open() },
     )
 
     @Test
