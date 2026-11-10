@@ -59,7 +59,7 @@ class DeleteNovelChaptersBehindReader(
             stitch,
             libraryPreferences,
             incognito,
-            copyMarks.marks(ContentType.NOVELS).value,
+            copyMarks.loadedMarks(ContentType.NOVELS),
         )
             .map { it.copy(read = true) }
         val removable = removableDownloads(listOf(target) + duplicates)

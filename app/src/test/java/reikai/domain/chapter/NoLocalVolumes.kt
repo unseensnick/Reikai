@@ -7,6 +7,8 @@ import reikai.domain.library.ContentType
 object NoLocalVolumes : LocalVolumeRepository {
     override fun volumes(type: ContentType) = MutableStateFlow(emptyMap<String, List<LocalVolume>>())
 
+    override suspend fun loadedVolumes(type: ContentType) = emptyMap<String, List<LocalVolume>>()
+
     override suspend fun setOrder(type: ContentType, series: String, keys: List<String>) = Unit
 
     override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) = Unit

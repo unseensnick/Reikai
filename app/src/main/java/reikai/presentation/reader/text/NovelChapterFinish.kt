@@ -55,7 +55,7 @@ class NovelChapterFinish(
             stitch,
             libraryPreferences,
             incognito,
-            copyMarks.marks(ContentType.NOVELS).value,
+            copyMarks.loadedMarks(ContentType.NOVELS),
         )
         // Without "delete after marked as read", as in Mihon's reader: the trim behind is the reader's rule.
         setNovelReadStatus.awaitFinishedInReader(listOf(chapter) + duplicates)

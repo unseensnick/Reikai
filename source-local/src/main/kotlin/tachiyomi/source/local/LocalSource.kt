@@ -388,8 +388,8 @@ class LocalSource(
 
     // RK --> volume folders
     // In the order the user gave them, each led by its Extras, still newest first like the rest of the list.
-    private fun List<SChapter>.inUserVolumeOrder(series: String): List<SChapter> {
-        val saved = userVolumes.volumes(ContentType.MANGA).value[series]
+    private suspend fun List<SChapter>.inUserVolumeOrder(series: String): List<SChapter> {
+        val saved = userVolumes.loadedVolumes(ContentType.MANGA)[series]
         return asReversed().groupBy { localVolumeChapter(it.url)?.volume.orEmpty() }
             .entries.toList().inUserOrder({ it.key }, saved)
             .flatMap { (_, chapters) -> chapters.sortedByDescending { it.url.endsWith('/') } }.asReversed()

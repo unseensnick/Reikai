@@ -1344,7 +1344,7 @@ class NovelReaderViewModel(
         isForwardEligible: (NovelChapter) -> Boolean,
     ): List<NovelChapter> {
         val isHidden = getNextNovelChapter.hiddenAmong(chapters)
-        val marks = copyMarks.marks(ContentType.NOVELS).value
+        val marks = copyMarks.loadedMarks(ContentType.NOVELS)
         val current = chapters.find { it.id == currentChapterId } ?: return chapters.filterNot(isHidden)
         return chapters.navigableChapters(
             current,

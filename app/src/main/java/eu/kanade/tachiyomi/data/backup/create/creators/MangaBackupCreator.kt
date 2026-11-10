@@ -113,8 +113,8 @@ class MangaBackupCreator(
     override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
         val mangaIds = batch.map { it.first.id }
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
-        val marksByMangaId = copyMarks.marks(ContentType.MANGA).value // RK
-        val volumesBySeries = localVolumes.volumes(ContentType.MANGA).value // RK
+        val marksByMangaId = copyMarks.loadedMarks(ContentType.MANGA) // RK
+        val volumesBySeries = localVolumes.loadedVolumes(ContentType.MANGA) // RK
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK

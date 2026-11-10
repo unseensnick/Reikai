@@ -174,7 +174,7 @@ class CombineLocalVolumes(
             }
             rows += OwnerMoves(kept.id, kept.id, moves)
         }
-        val volumeRows = VolumeRows(localVolumes.volumes(ContentType.MANGA).value, kept.folder, kept.folder)
+        val volumeRows = VolumeRows(localVolumes.loadedVolumes(ContentType.MANGA), kept.folder, kept.folder)
         for (other in others) {
             val dir = localFiles.getMangaDirectory(other.folder) ?: return failed(missing(other))
             val chapters = chapterRepository.getChapterByMangaId(other.id)
@@ -228,7 +228,7 @@ class CombineLocalVolumes(
         val taken = keptEntry.takeIf { it.isDirectory }?.listFiles().orEmpty().mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<OwnerMoves>()
-        val volumeRows = VolumeRows(localVolumes.volumes(ContentType.NOVELS).value, kept.folder, folder)
+        val volumeRows = VolumeRows(localVolumes.loadedVolumes(ContentType.NOVELS), kept.folder, folder)
         if (!keptEntry.isDirectory) {
             if (root.findFile(folder) != null) return failed(taken(folder))
             val name = freeName(kept.folder, taken)
@@ -318,8 +318,8 @@ class CombineLocalVolumes(
     }
 
     /** The saved order and names of [keys], going from series [from] to [to] under the same keys. */
-    private fun volumeRowsOut(type: ContentType, from: String, to: String, keys: List<String>) =
-        localVolumes.volumes(type).value[from].orEmpty().filter { it.key in keys }.map { row ->
+    private suspend fun volumeRowsOut(type: ContentType, from: String, to: String, keys: List<String>) =
+        localVolumes.loadedVolumes(type)[from].orEmpty().filter { it.key in keys }.map { row ->
             VolumeRowPair(
                 VolumeRowMove(from, row.key, to, row.key, row.position),
                 VolumeRowMove(to, row.key, from, row.key, row.position),

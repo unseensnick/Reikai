@@ -106,7 +106,7 @@ class LocalNovelSource(
             LocalNovelMissingException(novelPath)
         }
         val volumes = inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
-            .inUserOrder({ it.first.name.orEmpty() }, userVolumes.volumes(ContentType.NOVELS).value[series.path])
+            .inUserOrder({ it.first.name.orEmpty() }, userVolumes.loadedVolumes(ContentType.NOVELS)[series.path])
         val (firstFile, first) = volumes.first()
         val details = series.details()
         val meta = first.book.metadata

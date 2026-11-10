@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.HeldRows
 import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
@@ -29,19 +30,23 @@ class LocalVolumeRepositoryImpl(
 
     private val queries = database.local_volumeQueries
 
-    // Held from app start, since a local source lists a series without suspending on the database.
-    private val byType = queries.getAll { type, series, key, position, label ->
-        Triple(type.toContentType(), series, LocalVolume(key, position, label))
-    }.asFlow()
-        .map { query -> query.awaitAsList().groupBy { it.first } }
-        .map { rows -> rows.mapValues { (_, typed) -> typed.groupBy({ it.second }, { it.third }) } }
-        .stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    private val byType = HeldRows(
+        queries.getAll { type, series, key, position, label ->
+            Triple(type.toContentType(), series, LocalVolume(key, position, label))
+        }.asFlow()
+            .map { query -> query.awaitAsList().groupBy { it.first } }
+            .map { rows -> rows.mapValues { (_, typed) -> typed.groupBy({ it.second }, { it.third }) } },
+        scope,
+        emptyMap(),
+    )
 
     private val flows = ContentType.entries.associateWith { type ->
-        byType.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
+        byType.held.map { it[type].orEmpty() }.stateIn(scope, SharingStarted.Eagerly, emptyMap())
     }
 
     override fun volumes(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = flows.getValue(type)
+
+    override suspend fun loadedVolumes(type: ContentType) = byType.loaded()[type].orEmpty()
 
     override suspend fun setOrder(type: ContentType, series: String, keys: List<String>) {
         database.transaction {

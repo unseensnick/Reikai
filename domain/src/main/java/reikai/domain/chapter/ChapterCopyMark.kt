@@ -45,6 +45,9 @@ interface ChapterCopyMarkRepository {
     /** Every mark of [type] by owner, then url. The marks are made by hand, so the whole set is held. */
     fun marks(type: ContentType): StateFlow<Map<Long, Map<String, CopyMark>>>
 
+    /** [marks] once the table has been read, for a backup or a finish that must not take the empty seed. */
+    suspend fun loadedMarks(type: ContentType): Map<Long, Map<String, CopyMark>>
+
     suspend fun set(type: ContentType, marks: List<ChapterCopyMark>)
 
     suspend fun clear(type: ContentType, ownerId: Long, urls: List<String>)

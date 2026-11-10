@@ -631,6 +631,8 @@ class ReaderViewModel(
                 // RK: resolve the Edit info overrides before the state update below builds the
                 // viewer, since auto-webtoon classifies off them.
                 customInfo = getCustomMangaInfo.subscribe(mangaId).first()
+                // RK: paging reads the held marks, so their first read lands before any page turn
+                copyMarks.loadedMarks(ContentType.MANGA)
                 if (chapterId == -1L) chapterId = initialChapterId
 
                 // RK --> resolve the merge group up front so the chapter list spans every grouped

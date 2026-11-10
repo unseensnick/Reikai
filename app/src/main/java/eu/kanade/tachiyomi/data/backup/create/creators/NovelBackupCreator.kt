@@ -106,8 +106,8 @@ class NovelBackupCreator(
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
-        val marksByNovelId = copyMarks.marks(ContentType.NOVELS).value
-        val volumesBySeries = localVolumes.volumes(ContentType.NOVELS).value
+        val marksByNovelId = copyMarks.loadedMarks(ContentType.NOVELS)
+        val volumesBySeries = localVolumes.loadedVolumes(ContentType.NOVELS)
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()

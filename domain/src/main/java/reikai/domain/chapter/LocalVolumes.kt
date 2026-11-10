@@ -10,6 +10,9 @@ interface LocalVolumeRepository {
     /** Every ordered or named volume of [type], by series folder. Held, so a source lists without a query. */
     fun volumes(type: ContentType): StateFlow<Map<String, List<LocalVolume>>>
 
+    /** [volumes] once the table has been read, for a backup or a listing that must not take the empty seed. */
+    suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>>
+
     /** Orders [series]' volumes as [keys] lists them. */
     suspend fun setOrder(type: ContentType, series: String, keys: List<String>)
 

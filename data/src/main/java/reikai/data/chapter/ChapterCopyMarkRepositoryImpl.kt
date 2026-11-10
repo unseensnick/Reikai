@@ -1,5 +1,6 @@
 package reikai.data.chapter
 
+import app.cash.sqldelight.Query
 import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.coroutines.asFlow
 import dev.zacsweers.metro.AppScope
@@ -7,11 +8,10 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.HeldRows
 import reikai.domain.chapter.ChapterCopyMark
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
@@ -29,14 +29,17 @@ class ChapterCopyMarkRepositoryImpl(
 
     private val queries = database.chapter_copy_markQueries
 
-    // Held from app start so a reader can read the marks on a page turn without suspending.
-    private val manga = queries.getMangaMarks(::row).asFlow().map { byOwner(it.awaitAsList()) }
-        .stateIn(scope, SharingStarted.Eagerly, emptyMap())
-    private val novels = queries.getNovelMarks(::row).asFlow().map { byOwner(it.awaitAsList()) }
-        .stateIn(scope, SharingStarted.Eagerly, emptyMap())
+    // Held so a reader can read the marks on a page turn without suspending.
+    private val manga = HeldRows(marksOf(queries.getMangaMarks(::row)), scope, emptyMap())
+    private val novels = HeldRows(marksOf(queries.getNovelMarks(::row)), scope, emptyMap())
 
-    override fun marks(type: ContentType): StateFlow<Map<Long, Map<String, CopyMark>>> =
-        if (type == ContentType.NOVELS) novels else manga
+    private fun marksOf(query: Query<ChapterCopyMark>) = query.asFlow().map { byOwner(it.awaitAsList()) }
+
+    private fun of(type: ContentType) = if (type == ContentType.NOVELS) novels else manga
+
+    override fun marks(type: ContentType): StateFlow<Map<Long, Map<String, CopyMark>>> = of(type).held
+
+    override suspend fun loadedMarks(type: ContentType) = of(type).loaded()
 
     override suspend fun set(type: ContentType, marks: List<ChapterCopyMark>) {
         database.transaction {
