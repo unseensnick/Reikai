@@ -146,6 +146,18 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
             "laid out with pictures still short: $laidOutShort",
             laidOutShort.isNotEmpty() && laidOutShort.all { it == 0 },
         )
+        var heights = emptyList<Int>()
+        instrumentation.runOnMainSync {
+            heights = block.chunkViews.flatMap { view ->
+                val text = view.text as? Spanned ?: return@flatMap emptyList()
+                text.getSpans(0, text.length, ImageSpan::class.java).map { it.drawable.bounds.height() }
+            }
+        }
+        // A placeholder's line is never short, so without this the case passes when neither picture loads.
+        assertTrue(
+            "the pictures are ${heights}px, the placeholder ${placeholderPx()}px",
+            heights.size == 2 && heights.all { it > placeholderPx() + 1 },
+        )
     }
 
     /**

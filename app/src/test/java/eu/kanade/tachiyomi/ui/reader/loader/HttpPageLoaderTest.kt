@@ -11,6 +11,7 @@ import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -21,6 +22,7 @@ import mihon.data.cache.ChapterCache
 import okhttp3.Response
 import org.junit.jupiter.api.Test
 import reikai.util.testAppScope
+import tachiyomi.domain.chapter.model.Chapter
 import java.util.Collections
 
 class HttpPageLoaderTest {
@@ -61,12 +63,20 @@ class HttpPageLoaderTest {
             status = Page.State.Ready
         }
         val loader = loader(chapter, canLoadAhead = true)
+        // Holds the refetch before it moves the status itself, so only the retry's own step is read.
+        val held = CompletableDeferred<Unit>()
+        coEvery { chapterCache.getImageFile(any()) } coAnswers {
+            held.await()
+            null
+        }
         coEvery { source.getImage(page) } coAnswers { awaitCancellation() }
 
         try {
             loader.retryPage(page)
+            val status = page.status
+            held.complete(Unit)
 
-            page.status shouldNotBe Page.State.Ready
+            status shouldNotBe Page.State.Ready
         } finally {
             loader.recycle()
         }
@@ -101,14 +111,24 @@ class HttpPageLoaderTest {
     fun `a page list fetched from the source is cached on close`() = runTest {
         coEvery { chapterCache.getPageList(any()) } returns null
         coEvery { source.getPageList(any()) } returns listOf(Page(0, "/0", "https://example.com/0.jpg"))
+        val own = Chapter.create().copy(id = 7L)
         val chapter = mockk<ReaderChapter>(relaxed = true)
-        every { chapter.pages } returns listOf(ReaderPage(0, imageUrl = "https://example.com/0.jpg"))
+        every { chapter.chapter } returns own
+        every { chapter.pages } returns listOf(ReaderPage(0, "/0", "https://example.com/0.jpg"))
         val loader = loader(chapter, canLoadAhead = false)
 
         loader.getPages()
         loader.recycle()
 
-        coVerify(timeout = 5_000) { chapterCache.putPageList(any(), any()) }
+        coVerify(timeout = 5_000) {
+            chapterCache.putPageList(
+                own,
+                match { pages ->
+                    pages.map { Triple(it.index, it.url, it.imageUrl) } ==
+                        listOf(Triple(0, "/0", "https://example.com/0.jpg"))
+                },
+            )
+        }
     }
 
     /** The indices a ten-page chapter fetches once its first page is asked for, read once [expected] have landed. */

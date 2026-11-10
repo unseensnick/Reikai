@@ -20,6 +20,7 @@ class TtsSleepTimerTest {
 
     @Test
     fun `a countdown does not fire before its end`() {
+        sleepTimer.onPublished(TtsPlayback.Playing)
         sleepTimer.setMinutes(15)
         now += 15 * 60_000L - 1
 

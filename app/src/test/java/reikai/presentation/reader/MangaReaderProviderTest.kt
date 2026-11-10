@@ -84,6 +84,18 @@ class MangaReaderProviderTest {
         second.loadState.first() shouldNotBe first.loadState.first()
     }
 
+    /** The state re-emits for unrelated changes, and a new attempt each time would raise a dismissed failure again. */
+    @Test
+    fun `an unrelated change keeps the same failure`() = runTest {
+        val state = MutableStateFlow(ReaderViewModel.State(adjacentLoadFailure = failure("no connection")))
+        val provider = providerOver(state)
+        val before = provider.loadState.first()
+
+        state.value = state.value.copy(bookmarked = true)
+
+        provider.loadState.first() shouldBe before
+    }
+
     /** The emission names its chapter; the session may already have moved past it when the map runs. */
     @Test
     fun `the web address is built for the chapter the state names`() = runTest {

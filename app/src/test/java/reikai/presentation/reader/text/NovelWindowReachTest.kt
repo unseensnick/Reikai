@@ -39,6 +39,12 @@ class NovelWindowReachTest {
     }
 
     @Test
+    fun `a chapter before that is not loaded stays out of the window`() {
+        NovelWindowReach.windowIds(previous = 0L, current = 1L, forward = listOf(2L), isCached = { it != 0L }) shouldBe
+            listOf(1L, 2L)
+    }
+
+    @Test
     fun `the reach stops at the end of the novel`() {
         NovelWindowReach.forward(next = 6L, after = after, fitsOnScreen = { true }) shouldBe listOf(6L)
     }

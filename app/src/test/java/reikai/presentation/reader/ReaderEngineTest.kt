@@ -490,7 +490,7 @@ class ReaderEngineTest {
     }
 
     @Test
-    fun `seeking with no viewport installed does nothing`() {
+    fun `seeking with no viewport installed does not throw`() {
         engine().seek(ChapterProgress.Percent(4200L))
     }
 

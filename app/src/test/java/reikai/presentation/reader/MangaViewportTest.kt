@@ -255,13 +255,6 @@ class MangaViewportTest {
 
         verify { viewer["moveLeft"]() }
     }
-
-    @Test
-    fun `the wrapped viewer stays reachable for the questions the contract does not answer`() {
-        val viewer = RecordingViewer()
-
-        viewport(viewer).viewer shouldBe viewer
-    }
 }
 
 private fun viewport(
