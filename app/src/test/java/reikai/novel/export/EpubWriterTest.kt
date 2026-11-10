@@ -36,13 +36,18 @@ class EpubWriterTest {
         identifier = "urn:reikai:novel:src:/test",
         cover = ExportPicture(png, "image/png"),
         chapters = listOf(
-            ExportChapter("Chapter 1") { "<p>One&nbsp;line<br>next</p><img src=\"$dataPng\" alt=\"pic\">" },
-            ExportChapter("Chapter 2") { "<p onclick=\"x()\">Two</p><script>bad()</script><img src=\"$dataPng\">" },
-            ExportChapter("Chapter 3") { "<p>Three</p><img src=\"https://example.com/x.png\">" },
+            ExportChapter("Chapter 1", "c1") { "<p>One&nbsp;line<br>next</p><img src=\"$dataPng\" alt=\"pic\">" },
+            ExportChapter("Chapter 2", "c2") {
+                "<p onclick=\"x()\">Two</p><script>bad()</script><img src=\"$dataPng\">"
+            },
+            ExportChapter("Chapter 3", "c3") { "<p>Three</p><img src=\"https://example.com/x.png\">" },
         ),
     )
 
-    private suspend fun written(writer: EpubWriter = EpubWriter()): Map<String, ByteArray> {
+    private suspend fun written(
+        writer: EpubWriter = EpubWriter(),
+        book: EpubExportBook = this.book,
+    ): Map<String, ByteArray> {
         val out = ByteArrayOutputStream()
         writer.write(book, out)
         val entries = LinkedHashMap<String, ByteArray>()
@@ -79,14 +84,14 @@ class EpubWriterTest {
 
     @Test
     fun `nothing that runs survives`() = runTest {
-        val chapter = written().getValue("OEBPS/text/chapter-0002.xhtml").toString(Charsets.UTF_8)
+        val chapter = written().chapter(1).toString(Charsets.UTF_8)
 
         listOf("script", "onclick").filter { it in chapter } shouldBe emptyList()
     }
 
     @Test
     fun `a web picture is dropped, since the book cannot fetch it`() = runTest {
-        written().getValue("OEBPS/text/chapter-0003.xhtml").toString(Charsets.UTF_8) shouldNotContain_ "example.com"
+        written().chapter(2).toString(Charsets.UTF_8) shouldNotContain_ "example.com"
     }
 
     @Test
@@ -188,14 +193,14 @@ class EpubWriterTest {
 
     @Test
     fun `a chapter keeps its text`() = runTest {
-        written().getValue("OEBPS/text/chapter-0001.xhtml").toString(Charsets.UTF_8) shouldContain "One"
+        written().chapter(0).toString(Charsets.UTF_8) shouldContain "One"
     }
 
     @Test
     fun `a chapter whose own heading names it gets no second heading`() = runTest {
         val nested = book.copy(
             chapters = listOf(
-                ExportChapter("I") {
+                ExportChapter("I", "i") {
                     "<div><header><h2>I</h2></header><p>Text</p></div>"
                 },
             ),
@@ -203,7 +208,7 @@ class EpubWriterTest {
         val out = ByteArrayOutputStream()
         EpubWriter().write(nested, out)
         val chapter = ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
-            generateSequence { zip.nextEntry }.first { it.name.endsWith("chapter-0001.xhtml") }
+            generateSequence { zip.nextEntry }.first { it.name.startsWith("OEBPS/text/") }
             zip.readBytes().toString(Charsets.UTF_8)
         }
 
@@ -214,7 +219,7 @@ class EpubWriterTest {
     fun `a script address and foreign markup do not survive`() = runTest {
         val scripted = book.copy(
             chapters = listOf(
-                ExportChapter("I") {
+                ExportChapter("I", "i") {
                     "<p>Text</p><map><area href=\"javascript:alert(1)\"></map>" +
                         "<svg><set attributeName=\"href\" to=\"javascript:x\"/></svg>"
                 },
@@ -223,7 +228,7 @@ class EpubWriterTest {
         val out = ByteArrayOutputStream()
         EpubWriter().write(scripted, out)
         val chapter = ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
-            generateSequence { zip.nextEntry }.first { it.name.endsWith("chapter-0001.xhtml") }
+            generateSequence { zip.nextEntry }.first { it.name.startsWith("OEBPS/text/") }
             zip.readBytes().toString(Charsets.UTF_8)
         }
 
@@ -236,9 +241,9 @@ class EpubWriterTest {
 
     private suspend fun firstChapter(html: String): String {
         val out = ByteArrayOutputStream()
-        EpubWriter().write(book.copy(chapters = listOf(ExportChapter("I") { html })), out)
+        EpubWriter().write(book.copy(chapters = listOf(ExportChapter("I", "i") { html })), out)
         return ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
-            generateSequence { zip.nextEntry }.first { it.name.endsWith("chapter-0001.xhtml") }
+            generateSequence { zip.nextEntry }.first { it.name.startsWith("OEBPS/text/") }
             zip.readBytes().toString(Charsets.UTF_8)
         }
     }
@@ -299,7 +304,13 @@ class EpubWriterTest {
     @Test
     fun `a short chapter stays its own chapter through an export and an import`() = runTest {
         val out = ByteArrayOutputStream()
-        val chapters = listOf(ExportChapter("Note") { "<p>Thanks.</p>" }, ExportChapter("Chapter 1") { "<p>Text</p>" })
+        val chapters =
+            listOf(
+                ExportChapter("Note", "note") {
+                    "<p>Thanks.</p>"
+                },
+                ExportChapter("Chapter 1", "c1") { "<p>Text</p>" },
+            )
         EpubWriter().write(book.copy(chapters = chapters), out)
         val files = LinkedHashMap<String, ByteArray>()
         ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
@@ -314,7 +325,7 @@ class EpubWriterTest {
     fun `a cancelled export reads no chapter after the cancel`() = runTest {
         var read = 0
         val chapters = List(3) {
-            ExportChapter("C$it") {
+            ExportChapter("C$it", "c$it") {
                 read++
                 "<p>x</p>"
             }
@@ -326,11 +337,40 @@ class EpubWriterTest {
         read shouldBe 1
     }
 
+    /** A local chapter is keyed by its file, so a chapter's file must not move when earlier ones are left out. */
+    @Test
+    fun `a chapter keeps its file name when the chapters before it are not exported again`() = runTest {
+        val (a, b, c) = book.chapters
+        suspend fun fileOf(chapters: List<ExportChapter>, title: String): String {
+            val files = LinkedHashMap<String, ByteArray>()
+            val out = ByteArrayOutputStream()
+            EpubWriter().write(book.copy(chapters = chapters), out)
+            ZipInputStream(ByteArrayInputStream(out.toByteArray())).use { zip ->
+                generateSequence { zip.nextEntry }.forEach { files[it.name] = zip.readBytes() }
+            }
+            val archive = EpubArchive { paths -> paths.mapNotNull { p -> files[p]?.let { p to it } }.toMap() }
+            return EpubChapters.list(EpubBook.parse(archive), archive).first { it.title == title }.key.path
+        }
+
+        fileOf(listOf(b, c), "Chapter 2") shouldBe fileOf(listOf(a, b, c), "Chapter 2")
+    }
+
+    @Test
+    fun `two chapters sharing a source address get files of their own`() = runTest {
+        val twins = List(2) { ExportChapter("C$it", "same") { "<p>x</p>" } }
+
+        written(book = book.copy(chapters = twins)).keys.count { it.startsWith("OEBPS/text/") } shouldBe 2
+    }
+
     @Test
     fun `a picture typed image jpg is declared by its registered type`() {
         EpubWriter.decodeDataAddress("data:image/jpg;base64," + Base64.getEncoder().encodeToString(png))!!.mime shouldBe
             "image/jpeg"
     }
+
+    /** The [index]th chapter's file, chapters being written in reading order. */
+    private fun Map<String, ByteArray>.chapter(index: Int): ByteArray =
+        filterKeys { it.startsWith("OEBPS/text/") }.values.elementAt(index)
 
     private infix fun String.shouldNotContain_(text: String) = (text in this) shouldBe false
 }

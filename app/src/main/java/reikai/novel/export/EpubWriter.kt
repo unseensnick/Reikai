@@ -33,8 +33,11 @@ data class EpubExportBook(
     val seriesPosition: Int? = null,
 )
 
-/** One chapter, its HTML read only when the writer reaches it, so a long novel is never held whole. */
-class ExportChapter(val title: String, val html: suspend () -> String)
+/**
+ * One chapter, its HTML read only when the writer reaches it, so a long novel is never held whole.
+ * [sourceKey] is the source chapter's own address, which names the chapter's file in the book.
+ */
+class ExportChapter(val title: String, val sourceKey: String, val html: suspend () -> String)
 
 data class ExportPicture(val bytes: ByteArray, val mime: String)
 
@@ -54,10 +57,16 @@ class EpubWriter(private val includePictures: Boolean = true) {
 
             // Each picture is written when first met, so only its name and type are kept for the manifest.
             val pictures = LinkedHashMap<String, Pair<String, String>>()
+            val taken = HashSet<String>()
             val files = book.chapters.mapIndexed { index, chapter ->
                 // A chapter read from the device never has to suspend, so a cancel would run to the book's end.
                 currentCoroutineContext().ensureActive()
-                val name = "text/chapter-%04d.xhtml".format(index + 1)
+                // Named by its source chapter, never its place: an imported book keys a chapter by its file, so
+                // a re-export missing earlier chapters would otherwise hand their read state to later ones.
+                val stem = "text/chapter-" + Hash.md5(chapter.sourceKey).take(FILE_HASH_LENGTH)
+                val name = generateSequence(1) { it + 1 }
+                    .map { if (it == 1) "$stem.xhtml" else "$stem-$it.xhtml" }
+                    .first(taken::add)
                 val xhtml = chapterXhtml(chapter, book.language, pictures) { path, picture ->
                     zip.bytes("OEBPS/$path", picture.bytes)
                 }
@@ -305,6 +314,7 @@ $points
         private fun escape(text: String): String = NovelHtmlUtils.escapeHtml(text)
 
         private const val BASE64_MARKER = ";base64,"
+        private const val FILE_HASH_LENGTH = 12
         private val PICTURE_TYPES =
             setOf("image/jpeg", "image/png", "image/gif", "image/webp", "image/svg+xml")
 

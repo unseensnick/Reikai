@@ -206,7 +206,7 @@ class NovelEpubExportWorker(
             // A run is one volume of the novel, placed by its first chapter so several runs import in order.
             seriesPosition = from.takeIf { isRun },
             chapters = chosen.map { chapter ->
-                ExportChapter(chapter.name) {
+                ExportChapter(chapter.name, chapter.url) {
                     downloadedTexts.storedHtml(chapter, owners) ?: throw IOException("Missing ${chapter.name}")
                 }
             },
