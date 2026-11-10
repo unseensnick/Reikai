@@ -270,11 +270,10 @@ class CombineLocalVolumes(
         if (base.findFile(folder) != null) return failed(taken(folder))
         val chapters = chapterRepository.getChapterByMangaId(series.id)
             .mapNotNull { chapter -> localVolumeChapter(chapter.url)?.takeIf { it.volume in keys } }
-        // One volume becomes the series folder itself; several keep their folders inside a new one.
-        val single = keys.size == 1
+        // One volume becomes the series folder itself; several keep their folders inside a new one, and so does
+        // one with an Extras chapter, which is the volume folder itself and has no place in a series folder.
+        val single = keys.size == 1 && chapters.none { it.file.isEmpty() }
         val moves = chapters
-            // An Extras chapter is the volume folder itself, which a series of one volume has no place for.
-            .filterNot { single && it.file.isEmpty() }
             .map { ChapterMove(it.url, if (single) "$folder/${it.file}" else it.copy(series = folder).url) }
         val created = networkToLocalManga(
             SManga.create().apply {
@@ -362,12 +361,11 @@ class CombineLocalVolumes(
         return LocalVolumeMove(
             result = result,
             undoing = undo@{
-                val back = placements.mapNotNull { it.back() }
-                if (back.size !=
-                    placements.size
-                ) {
-                    return@undo LocalMoveResult.Failed(IllegalStateException("Moved files are gone"))
+                // Every moved file is found before any is tidied, so an Undo that cannot go through deletes nothing.
+                val placed = placements.map {
+                    it.placed() ?: return@undo LocalMoveResult.Failed(IllegalStateException("Moved files are gone"))
                 }
+                val back = placements.zip(placed) { placement, file -> placement.back(file) }
                 val undone = moveLocalFiles(back) {
                     chapterMoves.move(
                         type,
@@ -644,9 +642,11 @@ class CombineLocalVolumes(
             it.isDirectory
         }?.listFiles().orEmpty().mapNotNull { it.name }.toSet()
 
-        /** The copy back, without what the folder gained since, such as the cover a relist wrote into it. */
-        fun back(): FileCopy? {
-            val placed = placedIn?.findFile(copy.name) ?: return null
+        /** The moved file or folder where the move left it, or null when it is gone. */
+        fun placed(): UniFile? = placedIn?.findFile(copy.name)
+
+        /** The copy back of [placed], without what the folder gained since, such as the cover a relist wrote. */
+        fun back(placed: UniFile): FileCopy {
             if (placed.isDirectory) {
                 placed.listFiles().orEmpty().filter {
                     it.name !in originalFiles
