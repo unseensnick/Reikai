@@ -2,6 +2,7 @@ package reikai.presentation.stats
 
 import eu.kanade.tachiyomi.data.track.Tracker
 import reikai.domain.library.SmartUpdateFacts
+import reikai.domain.library.TagAliases
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.MergeBucket
 import reikai.domain.merge.MergedGroupCounts
@@ -68,6 +69,7 @@ class StatsSeries<T>(
         trackers: Map<Long, Tracker>,
         readDuration: Map<Long, Long>,
         firstLoggedRead: Map<Long, Instant>,
+        tagAliases: TagAliases = TagAliases.NONE,
     ): List<StatsTitle> {
         val means = libraryTrackerMeans(membersByTitle, tracksById, trackers)
         return buckets.map { bucket ->
@@ -80,7 +82,9 @@ class StatsSeries<T>(
                 title = fields.title(title),
                 status = fields.status(title),
                 sources = bucket.members.map(fields.source).distinctBy { it.key },
-                genres = seriesGenres(fields.customGenres(title), bucket.members.map(fields.genres)),
+                genres = tagAliases.resolveAll(
+                    seriesGenres(fields.customGenres(title), bucket.members.map(fields.genres)),
+                ),
                 categoryIds = fields.categoryIds(title),
                 totalChapters = stitch?.total ?: fields.totalChapters(title),
                 readChapters = stitch?.read ?: fields.readCount(title),

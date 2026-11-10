@@ -2102,6 +2102,9 @@
     <string name="tag_filter_search">Search tags</string>
     <string name="tag_filter_save">Save filter</string>
     <string name="tag_filter_remove_saved">Remove the saved filter %1$s?</string>
+    <string name="tag_alias_title">Treat %1$s as</string>
+    <string name="tag_alias_chip">%1$s → %2$s</string>
+    <string name="tag_alias_remove">Stop treating %1$s as %2$s?</string>
     <string name="tag_filter_empty">No tags found</string>
     <string name="tag_filter_chip_hidden">Hiding %1$s</string>
     <string name="tag_filter_chip_untagged">Untagged only</string>

@@ -7,8 +7,13 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import org.junit.jupiter.api.Test
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.addTagAlias
+import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
 class ComputeTasteProfileTest {
+
+    private val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
 
     private val compute = ComputeTasteProfile(
         mockk<TrackerManager> {
@@ -16,6 +21,7 @@ class ComputeTasteProfileTest {
             every { myAnimeList.id } returns MAL
             every { kitsu.id } returns KITSU
         },
+        preferences,
     )
 
     private fun entry(
@@ -38,6 +44,18 @@ class ComputeTasteProfileTest {
     ) = TrackedEntry(trackerId, remoteId, "t$remoteId", score, status, tags, malId, anilistId)
 
     /** The MAL row comes first and carries more tags, so only the AniList-first priority keeps the AniList row. */
+    @Test
+    fun `a tag aliased to another scores as it`() {
+        preferences.addTagAlias("sci-fi", "science fiction")
+        val profile = compute(
+            listOf(
+                entry(1.0, TrackStatus.COMPLETED, listOf("sci-fi")),
+                entry(1.0, TrackStatus.COMPLETED, listOf("science fiction")),
+            ),
+        )
+        profile.tagEntryCounts shouldBe mapOf("science fiction" to 2)
+    }
+
     @Test
     fun `a series tracked on AniList and MyAnimeList counts once, as its AniList row`() {
         val aniRow = tracked(ANILIST, 10L, listOf("action"), TrackStatus.COMPLETED, 1.0, malId = 5L, anilistId = 10L)

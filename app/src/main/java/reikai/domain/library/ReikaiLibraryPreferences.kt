@@ -159,8 +159,16 @@ class ReikaiLibraryPreferences(
     val savedTagFilters: Preference<List<SavedTagFilter>> = preferenceStore.getObjectFromString(
         key = "pref_filter_library_saved_tags",
         defaultValue = emptyList(),
-        serializer = ::encodeSavedTagFilters,
-        deserializer = ::decodeSavedTagFilters,
+        serializer = { encodeJsonList(it) },
+        deserializer = { decodeJsonList(it) },
+    )
+
+    /** Tags read as another wherever the library compares tags; see [TagAliases]. */
+    val tagAliases: Preference<List<TagAlias>> = preferenceStore.getObjectFromString(
+        key = "pref_library_tag_aliases",
+        defaultValue = emptyList(),
+        serializer = { encodeJsonList(it) },
+        deserializer = { decodeJsonList(it) },
     )
 
     // endregion
@@ -274,10 +282,10 @@ class ReikaiLibraryPreferences(
     }
 }
 
-private val savedTagFiltersJson = Json { ignoreUnknownKeys = true }
+internal val listJson = Json { ignoreUnknownKeys = true }
 
-internal fun encodeSavedTagFilters(filters: List<SavedTagFilter>): String = savedTagFiltersJson.encodeToString(filters)
+internal inline fun <reified T> encodeJsonList(list: List<T>): String = listJson.encodeToString(list)
 
 // A value that no longer reads leaves the list empty rather than failing the library.
-internal fun decodeSavedTagFilters(json: String): List<SavedTagFilter> =
-    runCatching { savedTagFiltersJson.decodeFromString<List<SavedTagFilter>>(json) }.getOrDefault(emptyList())
+internal inline fun <reified T> decodeJsonList(json: String): List<T> =
+    runCatching { listJson.decodeFromString<List<T>>(json) }.getOrDefault(emptyList())

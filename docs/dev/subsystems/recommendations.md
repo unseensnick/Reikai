@@ -50,7 +50,7 @@ The profile is built from the user's tracker libraries, never the local library.
 
 A pull runs from three places: `refreshIfStale` on a details open (any enabled tracker older than six hours), the periodic `TrackerLibraryRefreshWorker` (`trackerLibraryAutoRefreshHours`: off, weekly or monthly), and Refresh now in settings, a one-off worker behind a 60 second cooldown (`tryStartManual`). All three first drop the rows of any tracker whose pull switch is off (`dropUnrequestedTrackers`).
 
-`ComputeTasteProfile` reduces the rows. Rows sharing a MAL id or an AniList id are one series, transitively (`DisjointSet`), keeping AniList's row over MyAnimeList's over Kitsu's. Per tag the score is the sum of rating times status weight over the absolute weights, clamped to -1..1: Completed 1.0, Reading 0.7, On hold 0.3, Dropped -1.0, Plan to read and unknown 0. An unrated entry counts as 0.5. Every tag goes through `toTagKeys` on both the profile and the candidate side, so a genre listed twice counts once.
+`ComputeTasteProfile` reduces the rows. Rows sharing a MAL id or an AniList id are one series, transitively (`DisjointSet`), keeping AniList's row over MyAnimeList's over Kitsu's. Per tag the score is the sum of rating times status weight over the absolute weights, clamped to -1..1: Completed 1.0, Reading 0.7, On hold 0.3, Dropped -1.0, Plan to read and unknown 0. An unrated entry counts as 0.5. Every tag goes through the user's tag aliases and then `toTagKeys` on both the profile and the candidate side (`TasteProfile.keysOf`), so a genre listed twice, or under an alias, counts once. Tag search still sends a genre's own name, since the source knows that one.
 
 ### The hide filter
 

@@ -19,22 +19,24 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -66,14 +68,18 @@ import mihon.icons.materialsymbols.rounded.Numbers
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.SortByAlpha
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.TagAlias
+import reikai.domain.library.TagAliases
 import reikai.domain.library.TagChoice
 import reikai.domain.library.TagFilter
+import reikai.domain.library.addTagAlias
 import reikai.domain.library.applyTagFilter
 import reikai.domain.library.clearTag
 import reikai.domain.library.clearTagFilter
 import reikai.domain.library.currentTagFilter
 import reikai.domain.library.cycleTag
 import reikai.domain.library.deleteSavedTagFilter
+import reikai.domain.library.removeTagAlias
 import reikai.domain.library.saveTagFilter
 import reikai.domain.library.tagChoices
 import reikai.domain.library.tagKey
@@ -123,14 +129,35 @@ fun ColumnScope.TagsFilterRow(tagFilter: LibraryTagFilter) {
 @Composable
 private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) {
     val preferences = tagFilter.preferences
-    val filter by rememberTagFilter(tagFilter)
-    // Every series' tags are folded once per opening, off the main thread, so a tap only recounts.
-    val library by produceState<PickerLibrary?>(null) {
+    val stored by rememberTagFilter(tagFilter)
+    val aliases = rememberTagAliases(preferences)
+    // The stored keys as the picker lists them: a tag chosen before it became an alias shows on its target.
+    val filter = remember(stored, aliases) {
+        stored.copy(
+            include = stored.include.mapTo(HashSet(), aliases::resolveKey),
+            exclude = stored.exclude.mapTo(HashSet(), aliases::resolveKey),
+        )
+    }
+    // Every series' tags are folded once per opening (and per alias change), off the main thread, so a
+    // tap only recounts.
+    val library by produceState<PickerLibrary?>(null, aliases) {
         value = withContext(Dispatchers.Default) {
-            tagFilter.seriesTags().let { PickerLibrary(tagChoices(it), it.map(::tagKeys)) }
+            tagFilter.seriesTags().map(aliases::resolveAll).let { PickerLibrary(tagChoices(it), it.map(::tagKeys)) }
         }
     }
     val choices = library?.choices.orEmpty()
+    var aliasing by remember { mutableStateOf<TagChoice?>(null) }
+    aliasing?.let { from ->
+        TagAliasDialog(
+            from = from,
+            choices = choices,
+            onPick = { to ->
+                preferences.addTagAlias(from.label, to.label)
+                aliasing = null
+            },
+            onDismiss = { aliasing = null },
+        )
+    }
     var query by rememberSaveable { mutableStateOf("") }
     var byName by rememberSaveable { mutableStateOf(false) }
     val shown = remember(choices, filter.include, filter.exclude, query, byName) {
@@ -191,6 +218,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
                     }
                 }
                 SavedTagFilters(preferences, filter)
+                TagAliasChips(preferences, aliases)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     if (shown.isEmpty()) {
@@ -206,6 +234,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
                                 choice = choice,
                                 state = filter.stateOf(choice.key),
                                 onClick = { preferences.cycleTag(choice.key) },
+                                onLongClick = { aliasing = choice }.takeIf { choice.count > 0 },
                             )
                         }
                     }
@@ -260,12 +289,12 @@ private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFi
     if (saved.isEmpty() && !filter.isActive) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         saved.forEach { entry ->
-            SavedFilterChip(
-                name = entry.name,
-                selected = entry.filter == filter,
-                onApply = { preferences.applyTagFilter(entry.filter) },
-                onRemove = { removing = entry.name },
-            )
+            TriStateChip(
+                state = if (entry.filter == filter) TriState.ENABLED_IS else TriState.DISABLED,
+                onClick = { preferences.applyTagFilter(entry.filter) },
+                onLongClick = { removing = entry.name },
+                modifier = Modifier.testTag("saved:${entry.name}"),
+            ) { Text(entry.name) }
         }
         if (filter.isActive) {
             AssistChip(
@@ -277,29 +306,79 @@ private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFi
     }
 }
 
-/** A chip with a long press, which Material's chips do not take. Styled as a selected or idle filter chip. */
+/** The aliases in use, one chip each; a tap asks to stop treating the tag as its target. */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun SavedFilterChip(name: String, selected: Boolean, onApply: () -> Unit, onRemove: () -> Unit) {
-    val colors = MaterialTheme.colorScheme
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = if (selected) colors.secondaryContainer else colors.surface,
-        contentColor = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant,
-        border = if (selected) null else BorderStroke(1.dp, colors.outlineVariant),
-        modifier = Modifier
-            .padding(vertical = 8.dp)
-            .clip(MaterialTheme.shapes.small)
-            .combinedClickable(onClick = onApply, onLongClick = onRemove)
-            .testTag("saved:$name"),
-    ) {
-        Row(
-            modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            if (selected) Icon(MaterialSymbols.Rounded.Check, null, Modifier.size(18.dp).padding(end = 4.dp))
-            Text(name, style = MaterialTheme.typography.labelLarge)
+private fun TagAliasChips(preferences: ReikaiLibraryPreferences, aliases: TagAliases) {
+    var removing by remember { mutableStateOf<TagAlias?>(null) }
+    removing?.let { alias ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            text = { Text(stringResource(MR.strings.tag_alias_remove, alias.from, alias.to)) },
+            dismissButton = {
+                TextButton(onClick = { removing = null }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        preferences.removeTagAlias(alias.from)
+                        removing = null
+                    },
+                ) { Text(stringResource(MR.strings.action_remove)) }
+            },
+        )
+    }
+    if (aliases.entries.isEmpty()) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        aliases.entries.forEach { alias ->
+            TriStateChip(
+                state = TriState.DISABLED,
+                onClick = { removing = alias },
+                onLongClick = { removing = alias },
+                modifier = Modifier.testTag("alias:${alias.from}"),
+            ) { Text(stringResource(MR.strings.tag_alias_chip, alias.from, alias.to)) }
         }
     }
+}
+
+/** Picks the tag [from] should read as, from the library's other tags. */
+@Composable
+private fun TagAliasDialog(
+    from: TagChoice,
+    choices: List<TagChoice>,
+    onPick: (TagChoice) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    var query by rememberSaveable { mutableStateOf("") }
+    val targets = remember(choices, from, query) {
+        val needle = tagKey(query)
+        choices.filter { it.key != from.key && (needle.isEmpty() || needle in it.key) }
+    }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.tag_alias_title, from.label)) },
+        text = {
+            Column {
+                TagSearchBar(query = query, onQueryChange = { query = it }, modifier = Modifier.fillMaxWidth())
+                LazyColumn(modifier = Modifier.padding(top = 8.dp).heightIn(max = 360.dp)) {
+                    items(targets, key = { it.key }) { target ->
+                        Text(
+                            text = target.label,
+                            style = MaterialTheme.typography.bodyLarge,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onPick(target) }
+                                .padding(vertical = 12.dp)
+                                .testTag("target:${target.key}"),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) }
+        },
+    )
 }
 
 @Composable
@@ -381,8 +460,13 @@ private fun TagSearchBar(query: String, onQueryChange: (String) -> Unit, modifie
 }
 
 @Composable
-private fun TagChoiceChip(choice: TagChoice, state: TriState, onClick: () -> Unit) {
-    TriStateChip(state = state, onClick = onClick, modifier = Modifier.testTag("tag:${choice.key}")) { color ->
+private fun TagChoiceChip(choice: TagChoice, state: TriState, onClick: () -> Unit, onLongClick: (() -> Unit)?) {
+    TriStateChip(
+        state = state,
+        onClick = onClick,
+        onLongClick = onLongClick,
+        modifier = Modifier.testTag("tag:${choice.key}"),
+    ) { color ->
         Text(choice.label)
         Text(
             text = "${choice.count}",
@@ -406,43 +490,55 @@ private fun OptionChip(labelRes: StringResource, selected: Boolean, onClick: () 
     ) { Text(stringResource(labelRes)) }
 }
 
-/** A chip that is off, shown (a check), or hidden (a block sign, in the error colours). */
+/**
+ * A chip that is off, shown (a check), or hidden (a block sign, in the error colours), drawn like Material's
+ * filter chip. Built on a surface because Material's chips take no long press, which saved filters and
+ * aliases need.
+ */
 @Composable
 private fun TriStateChip(
     state: TriState,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     label: @Composable RowScope.(contentColor: Color) -> Unit,
 ) {
-    val contentColor = when (state) {
-        TriState.ENABLED_IS -> MaterialTheme.colorScheme.onSecondaryContainer
-        TriState.ENABLED_NOT -> MaterialTheme.colorScheme.onErrorContainer
-        TriState.DISABLED -> MaterialTheme.colorScheme.onSurfaceVariant
+    val colors = MaterialTheme.colorScheme
+    val (container, content) = when (state) {
+        TriState.ENABLED_IS -> colors.secondaryContainer to colors.onSecondaryContainer
+        TriState.ENABLED_NOT -> colors.errorContainer to colors.onErrorContainer
+        TriState.DISABLED -> Color.Transparent to colors.onSurfaceVariant
     }
-    FilterChip(
-        selected = state != TriState.DISABLED,
-        onClick = onClick,
-        label = { Row(verticalAlignment = Alignment.CenterVertically) { label(contentColor) } },
-        leadingIcon = when (state) {
-            TriState.ENABLED_IS -> {
-                { Icon(MaterialSymbols.Rounded.Check, null, Modifier.size(18.dp)) }
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = container,
+        contentColor = content,
+        border = if (state == TriState.DISABLED) BorderStroke(1.dp, colors.outlineVariant) else null,
+        modifier = modifier
+            .padding(vertical = 8.dp)
+            .clip(MaterialTheme.shapes.small)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick),
+    ) {
+        Row(
+            modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            when (state) {
+                TriState.ENABLED_IS -> Icon(
+                    MaterialSymbols.Rounded.Check,
+                    null,
+                    Modifier.padding(end = 6.dp).size(18.dp),
+                )
+                TriState.ENABLED_NOT -> Icon(
+                    MaterialSymbols.Rounded.Block,
+                    null,
+                    Modifier.padding(end = 6.dp).size(18.dp),
+                )
+                TriState.DISABLED -> Unit
             }
-            TriState.ENABLED_NOT -> {
-                { Icon(MaterialSymbols.Rounded.Block, null, Modifier.size(18.dp)) }
-            }
-            TriState.DISABLED -> null
-        },
-        colors = if (state == TriState.ENABLED_NOT) {
-            FilterChipDefaults.filterChipColors(
-                selectedContainerColor = MaterialTheme.colorScheme.errorContainer,
-                selectedLabelColor = MaterialTheme.colorScheme.onErrorContainer,
-                selectedLeadingIconColor = MaterialTheme.colorScheme.onErrorContainer,
-            )
-        } else {
-            FilterChipDefaults.filterChipColors()
-        },
-        modifier = modifier,
-    )
+            ProvideTextStyle(MaterialTheme.typography.labelLarge) { label(content) }
+        }
+    }
 }
 
 /**
@@ -454,13 +550,16 @@ fun TagFilterStrip(tagFilter: LibraryTagFilter, modifier: Modifier = Modifier) {
     val preferences = tagFilter.preferences
     val filter by rememberTagFilter(tagFilter)
     if (!filter.isActive) return
+    val aliases = rememberTagAliases(preferences)
     // The stored keys are folded, so the chips show the spelling the library uses where one is found.
-    val labels by produceState(emptyMap<String, String>(), filter.include, filter.exclude) {
-        value = withContext(Dispatchers.Default) { tagChoices(tagFilter.seriesTags()).associate { it.key to it.label } }
+    val labels by produceState(emptyMap<String, String>(), filter.include, filter.exclude, aliases) {
+        value = withContext(Dispatchers.Default) {
+            tagChoices(tagFilter.seriesTags().map(aliases::resolveAll)).associate { it.key to it.label }
+        }
     }
 
     // Before the library loads no spelling is known yet, so the folded key stands in, capitalised.
-    fun labelOf(key: String) = labels[key] ?: key.replaceFirstChar(Char::uppercaseChar)
+    fun labelOf(key: String) = aliases.resolveKey(key).let { labels[it] ?: it.replaceFirstChar(Char::uppercaseChar) }
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -500,6 +599,12 @@ private fun StripChip(label: String, onClear: () -> Unit) {
 @Composable
 private fun rememberTagFilter(tagFilter: LibraryTagFilter): State<TagFilter> =
     tagFilter.state.collectAsState(initial = remember { tagFilter.preferences.currentTagFilter() })
+
+@Composable
+private fun rememberTagAliases(preferences: ReikaiLibraryPreferences): TagAliases {
+    val entries by preferences.tagAliases.collectAsState()
+    return remember(entries) { TagAliases(entries) }
+}
 
 private class PickerLibrary(val choices: List<TagChoice>, val keys: List<Set<String>>)
 

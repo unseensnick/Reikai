@@ -46,12 +46,14 @@ import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.LibrarySortFields
 import reikai.domain.library.ManualOrderPosition
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.TagAliases
 import reikai.domain.library.includes
 import reikai.domain.library.isSortOverridden
 import reikai.domain.library.librarySortComparator
 import reikai.domain.library.reorderedPositions
 import reikai.domain.library.sortForCategory
 import reikai.domain.library.sortsOnItsOwn
+import reikai.domain.library.tagAliasesFlow
 import reikai.domain.library.toSortMode
 import reikai.domain.library.within
 import reikai.domain.stats.inMenus
@@ -169,6 +171,7 @@ class LibraryEngine(
                 reikaiLibraryPreferences.groupLibraryBy.changes(),
                 reikaiLibraryPreferences.collapsedDynamicCategories.changes(),
                 reikaiLibraryPreferences.collapsedDynamicAtBottom.changes(),
+                reikaiLibraryPreferences.tagAliasesFlow(),
                 ::GroupPrefs,
             ),
         ) { list, group ->
@@ -181,6 +184,7 @@ class LibraryEngine(
                 groupBy = group.groupBy,
                 collapsedDynamic = group.collapsedDynamic,
                 collapsedDynamicAtBottom = group.collapsedDynamicAtBottom,
+                tagAliases = group.tagAliases,
             )
         }
         val manualFlow = combine(
@@ -291,6 +295,7 @@ class LibraryEngine(
             notTrackedLabel = context.stringResource(MR.strings.not_tracked),
             ungroupedLabel = context.stringResource(MR.strings.group_ungrouped),
             categorySortOrder = prefs.categorySortOrder,
+            tagAliases = prefs.tagAliases,
             sourceMeta = feeds.fold(emptyMap()) { acc, feed -> acc + feed.sourceMeta },
             trackStatuses = feeds.fold(emptyMap()) { acc, feed -> acc + feed.trackStatuses },
             languageCodes = feeds.fold(emptyMap()) { acc, feed -> acc + feed.languageCodes },
@@ -334,6 +339,7 @@ class LibraryEngine(
         val groupBy: Int,
         val collapsedDynamic: Set<String>,
         val collapsedDynamicAtBottom: Boolean,
+        val tagAliases: TagAliases,
     )
 
     private data class AssemblyPrefs(
@@ -345,6 +351,7 @@ class LibraryEngine(
         val groupBy: Int,
         val collapsedDynamic: Set<String>,
         val collapsedDynamicAtBottom: Boolean,
+        val tagAliases: TagAliases,
     )
 
     /** Grid shape, the other half of the display config. Both are library-wide, not per content type. */

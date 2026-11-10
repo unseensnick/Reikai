@@ -39,6 +39,7 @@ import reikai.domain.chapter.DownloadCandidates
 import reikai.domain.chapter.hiddenKey
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.TagAliases
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
@@ -223,6 +224,7 @@ class LibraryViewModel(
                             categoryMatches,
                             tracksMap,
                             filters.trackers.keys,
+                            filters.tagAliases, // RK
                         )
                         items.filter { libraryQueryMatches(queryNode, it, queryFields) }
                     }
@@ -331,6 +333,7 @@ class LibraryViewModel(
         categoryMatches: Map<String, Set<Long>>,
         trackMap: Map<Long, List<Track>>,
         loggedInTrackerIds: Set<Long>,
+        tagAliases: TagAliases,
     ): LibraryQueryFields<LibraryItem> {
         return libraryItemQueryFields(
             sourceKey = { it.libraryManga.manga.source.toString() },
@@ -342,6 +345,7 @@ class LibraryViewModel(
             categoryMatches = categoryMatches,
             tracksById = trackMap,
             trackers = trackerManager.getAll(loggedInTrackerIds).associateBy { it.id },
+            tagAliases = tagAliases,
         )
     }
 

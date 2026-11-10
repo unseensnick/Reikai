@@ -13,6 +13,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.currentTagAliases
 import reikai.domain.library.entryLanguage
 import reikai.domain.library.includes
 import reikai.domain.library.localFilesLanguage
@@ -242,6 +243,7 @@ class StatsLibraryLoader(
             id.toString() to mangaSourceBadge(sourceManager.badgeSource(id))
         } + novelSources.keys.associateWith { id -> novelSourceBadge(novelSourceManager.get(id), iconsBySite) }
 
+        val tagAliases = reikaiLibraryPreferences.currentTagAliases()
         val mangaTitles = manga.statsTitles(
             StatsTitleFields(
                 entryId = { EntryId.Manga(it.manga.id) },
@@ -263,6 +265,7 @@ class StatsLibraryLoader(
             trackers,
             mangaReadDurations.associate { it.entryId to it.duration },
             firstLoggedRead(mangaSessions),
+            tagAliases,
         )
         val novelTitles = novels.statsTitles(
             StatsTitleFields(
@@ -285,6 +288,7 @@ class StatsLibraryLoader(
             trackers,
             novelReadDurations.associate { it.entryId to it.duration },
             firstLoggedRead(novelSessions),
+            tagAliases,
         )
 
         return StatsLibrary(

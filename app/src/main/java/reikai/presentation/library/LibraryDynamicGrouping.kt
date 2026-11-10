@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.track.TrackerManager
 import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.library.TagAliases
 import reikai.domain.library.tagKey
 import reikai.presentation.components.entryStatusRes
 import tachiyomi.core.common.i18n.stringResource
@@ -139,6 +140,7 @@ object LibraryDynamicGrouping {
         statusNames: Map<EntryId, String> = emptyMap(),
         languageDisplay: (langCode: String) -> String = { it },
         trackingStatusOrder: (statusName: String) -> String = { it },
+        tagAliases: TagAliases = TagAliases.NONE,
     ): Map<LibraryBucket.Dynamic, List<EntryId>> {
         if (items.isEmpty()) return emptyMap()
 
@@ -173,6 +175,7 @@ object LibraryDynamicGrouping {
                 languageCodes = languageCodes,
                 statusNames = statusNames,
                 languageDisplay = languageDisplay,
+                tagAliases = tagAliases,
             )
             for (name in names.distinctBy(::normalizeDynamicKey)) {
                 val key = normalizeDynamicKey(name)
@@ -224,11 +227,13 @@ object LibraryDynamicGrouping {
         languageCodes: Map<EntryId, List<String>>,
         statusNames: Map<EntryId, String>,
         languageDisplay: (langCode: String) -> String,
+        tagAliases: TagAliases,
     ): List<String> {
         val itemId = item.id
         return when (groupType) {
             LibraryGroup.BY_TAG -> {
-                val tags = item.genre.orEmpty().mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
+                val tags = tagAliases.resolveAll(item.genre.orEmpty())
+                    .mapNotNull { it.trim().capitalizeWords().ifBlank { null } }
                 tags.ifEmpty { listOf(unknownLabel) }
             }
             LibraryGroup.BY_SOURCE -> sourceMeta[itemId].orEmpty()

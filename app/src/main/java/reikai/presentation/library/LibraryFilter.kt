@@ -11,8 +11,10 @@ import kotlinx.coroutines.flow.map
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.TagAliases
 import reikai.domain.library.TagFilter
 import reikai.domain.library.effectiveIntervalFilter
+import reikai.domain.library.tagAliasesFlow
 import reikai.domain.library.tagFilterFlow
 import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
@@ -40,6 +42,7 @@ data class LibraryFilterSettings(
     val categoriesInclude: Set<Long>,
     val categoriesExclude: Set<Long>,
     val tags: TagFilter = TagFilter(),
+    val tagAliases: TagAliases = TagAliases.NONE,
 ) {
     private val effectiveInterval get() = effectiveIntervalFilter(skipsOutsideReleasePeriod, intervalCustom)
 
@@ -65,7 +68,12 @@ data class LibraryFilterSettings(
         categoriesActive = categoriesActive,
         categoriesInclude = categoriesInclude,
         categoriesExclude = categoriesExclude,
-        tags = tags,
+        // A tag chosen before it became an alias still means the tag it now reads as.
+        tags = tags.copy(
+            include = tags.include.mapTo(HashSet(), tagAliases::resolveKey),
+            exclude = tags.exclude.mapTo(HashSet(), tagAliases::resolveKey),
+        ),
+        tagAliases = tagAliases,
     )
 }
 
@@ -103,18 +111,19 @@ fun libraryFilterSettingsFlow(
         reikaiLibraryPreferences.filterLewd.changes(),
         basePreferences.downloadedOnly.changes(),
         reikaiLibraryPreferences.tagFilterFlow(),
-        ::Triple,
+        reikaiLibraryPreferences.tagAliasesFlow(),
+        ::LewdAndTags,
     ),
     trackerFiltersFlow(libraryPreferences, trackerManager),
 ) {
         progress,
         (interval, skipsOutsideReleasePeriod),
         (categoriesEnabled, include, exclude),
-        (lewd, downloadedOnly, tags),
+        lewdAndTags,
         trackers,
     ->
     LibraryFilterSettings(
-        downloadedOnly = downloadedOnly,
+        downloadedOnly = lewdAndTags.downloadedOnly,
         downloaded = progress.downloaded,
         unread = progress.unread,
         started = progress.started,
@@ -122,14 +131,22 @@ fun libraryFilterSettingsFlow(
         completed = progress.completed,
         intervalCustom = interval,
         skipsOutsideReleasePeriod = skipsOutsideReleasePeriod,
-        lewd = lewd,
+        lewd = lewdAndTags.lewd,
         trackers = trackers,
         categoriesEnabled = categoriesEnabled,
         categoriesInclude = include.toLongIdSet(),
         categoriesExclude = exclude.toLongIdSet(),
-        tags = tags,
+        tags = lewdAndTags.tags,
+        tagAliases = lewdAndTags.aliases,
     )
 }
+
+private class LewdAndTags(
+    val lewd: TriState,
+    val downloadedOnly: Boolean,
+    val tags: TagFilter,
+    val aliases: TagAliases,
+)
 
 private class ProgressAxes(
     val downloaded: TriState,
@@ -176,6 +193,7 @@ data class LibraryFilterPrefs(
     val categoriesInclude: Set<Long>,
     val categoriesExclude: Set<Long>,
     val tags: TagFilter = TagFilter(),
+    val tagAliases: TagAliases = TagAliases.NONE,
 )
 
 /**
@@ -216,7 +234,7 @@ fun <T> libraryFilterMatches(
             !prefs.categoriesActive ||
                 matchesCategoryFilter(fields.categoryIds(row), prefs.categoriesInclude, prefs.categoriesExclude)
             ) &&
-        (!prefs.tags.isActive || prefs.tags.matches(fields.tags(row)))
+        (!prefs.tags.isActive || prefs.tags.matches(prefs.tagAliases.resolveAll(fields.tags(row).toList())))
 
 /**
  * The include/exclude tri-state over a group's unioned tracker ids, shared by both libraries. An entry

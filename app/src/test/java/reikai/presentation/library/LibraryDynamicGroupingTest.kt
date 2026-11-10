@@ -6,6 +6,8 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
+import reikai.domain.library.TagAlias
+import reikai.domain.library.TagAliases
 import tachiyomi.domain.library.model.LibraryManga
 import tachiyomi.domain.manga.model.Manga
 
@@ -335,6 +337,26 @@ class LibraryDynamicGroupingTest {
         )
         result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
             mapOf("Adult" to listOf(manga, novel), "Sci-Fi" to listOf(manga, novel))
+    }
+
+    @Test
+    fun `a tag aliased to another groups under it`() {
+        val manga = EntryId.Manga(1)
+        val novel = EntryId.Novel(1)
+        val result = LibraryDynamicGrouping.build(
+            items = listOf(
+                DynItem(manga, genre = listOf("Sci-fi"), author = null, artist = null),
+                DynItem(novel, genre = listOf("Science Fiction"), author = null, artist = null),
+            ),
+            groupType = LibraryGroup.BY_TAG,
+            collapsedDynamicCategories = emptySet(),
+            collapsedDynamicAtBottom = false,
+            unknownLabel = "Unknown",
+            notTrackedLabel = "Not tracked",
+            tagAliases = TagAliases(listOf(TagAlias("Sci-fi", "Science Fiction"))),
+        )
+        result.entries.associate { (bucket, ids) -> bucket.label to ids } shouldBe
+            mapOf("Science Fiction" to listOf(manga, novel))
     }
 
     @Test

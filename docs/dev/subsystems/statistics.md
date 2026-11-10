@@ -84,7 +84,7 @@ The reading card ends with each shown type's overall pace (`StatsLibrary.paces`,
 
 ## Decisions
 
-- **Merged series count once, except where a series has several values.** Status, categories, score and length read the series as its library row does, through the same lead; sources, tags, trackers and languages list every value, as library search matches any member. A series' tags are one rule for both sides, `seriesGenres`: its Edit info tags when set, else every source's tags.
+- **Merged series count once, except where a series has several values.** Status, categories, score and length read the series as its library row does, through the same lead; sources, tags, trackers and languages list every value, as library search matches any member. A series' tags are one rule for both sides, `seriesGenres`: its Edit info tags when set, else every source's tags, then the user's tag aliases (`TagAliases`).
 - **Start year prefers a tracker's start date.** It is a real date where one exists and reaches back before the log; the log's first session covers the rest.
 - **A row lists its series in Statistics rather than searching the library.** The library search lost Statistics from the back stack, could not express a start year, and with `tag:` and `lang:` matching part of a value it could find more than the row counted.
 

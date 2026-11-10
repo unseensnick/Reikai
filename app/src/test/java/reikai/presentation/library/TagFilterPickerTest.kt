@@ -18,6 +18,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.SavedTagFilter
+import reikai.domain.library.TagAlias
 import reikai.domain.library.TagFilter
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -101,6 +102,18 @@ class TagFilterPickerTest {
         compose.waitForIdle()
 
         preferences.savedTagFilters.get() shouldBe emptyList()
+    }
+
+    @Test
+    fun `a long press on a tag makes it an alias of the tag picked`() {
+        showPicker()
+        awaitTag("drama")
+
+        compose.onNodeWithTag("tag:drama").performScrollTo().performTouchInput { longClick() }
+        compose.onNodeWithTag("target:action").performClick()
+        compose.waitForIdle()
+
+        preferences.tagAliases.get() shouldBe listOf(TagAlias("Drama", "Action"))
     }
 
     @Test

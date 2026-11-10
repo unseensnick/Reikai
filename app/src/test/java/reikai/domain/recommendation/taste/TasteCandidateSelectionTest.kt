@@ -3,6 +3,8 @@ package reikai.domain.recommendation.taste
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
+import reikai.domain.library.TagAlias
+import reikai.domain.library.TagAliases
 
 class TasteCandidateSelectionTest {
 
@@ -27,6 +29,13 @@ class TasteCandidateSelectionTest {
     )
 
     // region selectContextualTags
+
+    @Test
+    fun `a genre scored through its alias is searched by its own name`() {
+        val profile = profile("science fiction" to 0.9)
+            .copy(tagAliases = TagAliases(listOf(TagAlias("sci-fi", "science fiction"))))
+        selectContextualTags(profile, listOf("Sci-Fi"), 3) shouldContainExactly listOf("sci-fi")
+    }
 
     @Test
     fun `tag search keeps only the current manga's genres that score positively, ranked by score`() {

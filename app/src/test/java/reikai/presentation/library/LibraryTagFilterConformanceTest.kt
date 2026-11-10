@@ -4,8 +4,11 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import mihon.domain.library.model.search.QueryNode
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.domain.library.TagAlias
+import reikai.domain.library.TagAliases
 import reikai.domain.library.TagFilter
 import reikai.domain.novel.model.LibraryNovel
 import reikai.domain.novel.model.Novel
@@ -43,6 +46,23 @@ class LibraryTagFilterConformanceTest {
     @EnumSource(Type::class)
     fun `a series with no tags passes No tags shown`(type: Type) = runTest {
         type.passes(listOf(emptyList()), TagFilter(noTags = TriState.ENABLED_IS)) shouldBe true
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a tag aliased to a shown tag counts as it`(type: Type) = runTest {
+        val aliases = TagAliases(listOf(TagAlias("Sci-fi", "Science Fiction")))
+        type.passes(listOf(listOf("Sci-fi")), TagFilter(include = setOf("science fiction")), aliases = aliases) shouldBe
+            true
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `tag search finds a series by an alias of its tag`(type: Type) = runTest {
+        val aliases = TagAliases(listOf(TagAlias("Sci-fi", "Science Fiction")))
+        val fields = libraryItemQueryFields(sourceKey = { "" }, tagAliases = aliases)
+        libraryQueryMatches(QueryNode.from("tag:sci-fi"), type.row(listOf(listOf("Science Fiction"))), fields) shouldBe
+            true
     }
 
     enum class Type {
@@ -85,7 +105,12 @@ class LibraryTagFilterConformanceTest {
 
         abstract suspend fun row(members: List<List<String>>): LibraryItem
 
-        suspend fun passes(members: List<List<String>>, tags: TagFilter, custom: List<String>? = null): Boolean {
+        suspend fun passes(
+            members: List<List<String>>,
+            tags: TagFilter,
+            custom: List<String>? = null,
+            aliases: TagAliases = TagAliases.NONE,
+        ): Boolean {
             val fields = libraryItemFilterFields(
                 sourceKey = { "" },
                 adultSource = { false },
@@ -93,7 +118,7 @@ class LibraryTagFilterConformanceTest {
                 trackerIds = { emptyList() },
                 customTags = { custom },
             )
-            return libraryFilterMatches(row(members), tagPrefs(tags), fields)
+            return libraryFilterMatches(row(members), tagPrefs(tags).copy(tagAliases = aliases), fields)
         }
     }
 

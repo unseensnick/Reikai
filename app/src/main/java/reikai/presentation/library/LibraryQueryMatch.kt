@@ -14,6 +14,7 @@ import mihon.domain.library.model.search.NotNode
 import mihon.domain.library.model.search.OrNode
 import mihon.domain.library.model.search.QueryNode
 import reikai.domain.category.isUncategorized
+import reikai.domain.library.TagAliases
 import reikai.presentation.components.EntryStatus
 import tachiyomi.domain.category.model.Category
 import kotlin.math.abs
@@ -63,6 +64,8 @@ class LibraryQueryFields<T>(
     val matchesCategory: (T, String) -> Boolean?,
     /** The mean 0 to 10 tracker score, the one the library sorts by; null when unscored. */
     val meanScore: (T) -> Double?,
+    /** Applied to a `tag:` value, so a term naming an alias finds the tag it reads as. */
+    val tagAliases: TagAliases = TagAliases.NONE,
 )
 
 /**
@@ -171,7 +174,12 @@ private fun <T> FieldQueryNode.matches(row: T, fields: LibraryQueryFields<T>): B
     val match = when (field) {
         MangaField.GENRE -> {
             val genre = fields.genre(row)
-            if (value.isEmpty()) genre.isNullOrEmpty() else genre?.any { it.contains(value, true) } ?: false
+            val aliased = fields.tagAliases.resolve(value)
+            if (value.isEmpty()) {
+                genre.isNullOrEmpty()
+            } else {
+                genre?.any { it.contains(value, true) || it.contains(aliased, true) } ?: false
+            }
         }
 
         // An empty value asks for an absent one, which a merged series has only when every source lacks it.

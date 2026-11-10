@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.ui.library.LibraryItem
 import reikai.domain.entry.EntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.LibrarySortFields
+import reikai.domain.library.TagAliases
 import reikai.util.isAdultEntry
 import tachiyomi.domain.track.model.Track
 
@@ -68,6 +69,7 @@ fun libraryItemQueryFields(
     categoryMatches: Map<String, Set<Long>> = emptyMap(),
     tracksById: Map<Long, List<Track>> = emptyMap(),
     trackers: Map<Long, Tracker> = emptyMap(),
+    tagAliases: TagAliases = TagAliases.NONE,
 ) = LibraryQueryFields<LibraryItem>(
     id = { it.id },
     title = { overlay[it.id]?.title ?: it.libraryManga.manga.title },
@@ -76,7 +78,7 @@ fun libraryItemQueryFields(
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     // Each source of a merged series keeps its own notes, so the card is found by any of them.
     notes = { it.memberNotes.ifEmpty { listOf(it.libraryManga.manga.notes) }.joinToString("\n") },
-    genre = { it.seriesTags(overlay[it.id]?.genre) },
+    genre = { tagAliases.resolveAll(it.seriesTags(overlay[it.id]?.genre)) },
     sources = { item -> item.allSources(sourceKey(item)) },
     // The deduplicated group counts, matching what the badges and the sort read.
     unreadCount = { it.unreadCount },
@@ -99,6 +101,7 @@ fun libraryItemQueryFields(
         categoryMatches[term]?.let { ids -> item.libraryManga.categories.any { it in ids } }
     },
     meanScore = { libraryTrackerMean(it.memberIds(), tracksById, trackers) },
+    tagAliases = tagAliases,
 )
 
 /**

@@ -108,7 +108,7 @@ class TagFilterTest {
                 TagFilter(setOf("action"), setOf("gore"), includeAll = true, noTags = TriState.ENABLED_NOT),
             ),
         )
-        decodeSavedTagFilters(encodeSavedTagFilters(saved)) shouldBe saved
+        decodeJsonList<SavedTagFilter>(encodeJsonList(saved)) shouldBe saved
     }
 
     @Test
@@ -124,7 +124,7 @@ class TagFilterTest {
 
     @Test
     fun `an unreadable saved list reads as empty`() {
-        decodeSavedTagFilters("not json") shouldBe emptyList()
+        decodeJsonList<SavedTagFilter>("not json") shouldBe emptyList()
     }
 
     @Test

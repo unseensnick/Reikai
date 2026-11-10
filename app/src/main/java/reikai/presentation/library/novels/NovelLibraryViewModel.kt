@@ -302,6 +302,7 @@ class NovelLibraryViewModel(
             categoryMatches = categoryMatches,
             tracksById = uiTracks,
             trackers = scoringTrackers,
+            tagAliases = filter.tagAliases,
         )
         val items = allItems.filter { item ->
             val matchesSearch = queryNode == null || libraryQueryMatches(queryNode, item, queryFields)

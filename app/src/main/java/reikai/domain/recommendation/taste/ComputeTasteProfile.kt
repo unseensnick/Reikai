@@ -2,6 +2,8 @@ package reikai.domain.recommendation.taste
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.currentTagAliases
 import reikai.util.DisjointSet
 import kotlin.math.abs
 
@@ -14,7 +16,10 @@ import kotlin.math.abs
  * with equal completed and dropped counts cannot divide by zero.
  */
 @Inject
-class ComputeTasteProfile(trackerManager: TrackerManager) {
+class ComputeTasteProfile(
+    trackerManager: TrackerManager,
+    private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
+) {
 
     // AniList carries the richest tags, so its row wins over MyAnimeList's, and MyAnimeList's over Kitsu's.
     private val trackerPriority = mapOf(
@@ -26,6 +31,7 @@ class ComputeTasteProfile(trackerManager: TrackerManager) {
     operator fun invoke(entries: List<TrackedEntry>): TasteProfile {
         val unique = entries.dedupedAcrossTrackers()
         if (unique.isEmpty()) return TasteProfile.EMPTY
+        val aliases = reikaiLibraryPreferences.currentTagAliases()
 
         val numerators = HashMap<String, Double>()
         val denominators = HashMap<String, Double>()
@@ -35,7 +41,8 @@ class ComputeTasteProfile(trackerManager: TrackerManager) {
             // Novelty wants exposure breadth across the whole library, so count every entry's tags
             // regardless of status weight; PLAN_TO_READ / UNKNOWN are skipped for scoring but still
             // register as "I've seen this tag."
-            for (tag in entry.tags) {
+            val tags = aliases.resolveAll(entry.tags).toTagKeys()
+            for (tag in tags) {
                 tagCounts.merge(tag, 1) { a, b -> a + b }
             }
             val statusWeight = STATUS_WEIGHTS[entry.status] ?: 0.0
@@ -43,7 +50,7 @@ class ComputeTasteProfile(trackerManager: TrackerManager) {
             val rating = if (entry.score >= 0.0) entry.score else 0.5
             val contribution = rating * statusWeight
             val absWeight = abs(statusWeight)
-            for (tag in entry.tags) {
+            for (tag in tags) {
                 numerators.merge(tag, contribution) { a, b -> a + b }
                 denominators.merge(tag, absWeight) { a, b -> a + b }
             }
@@ -57,6 +64,7 @@ class ComputeTasteProfile(trackerManager: TrackerManager) {
             tagScores = scores,
             tagEntryCounts = tagCounts,
             totalEntries = unique.size,
+            tagAliases = aliases,
         )
     }
 
