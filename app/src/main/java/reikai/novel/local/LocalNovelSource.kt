@@ -240,29 +240,25 @@ class LocalNovelSource(
      */
     private fun Series.coverAddress(file: UniFile, book: EpubBook): String? {
         files.localCover()?.let { return it.uri.toString() }
-        return copyCover(file, book, bookCoverName(path, file))
+        return copyCover(file, book, path)
     }
 
     /** The cover of the book [volume] in the series at [seriesPath], for its volume header. */
     suspend fun volumeCover(seriesPath: String, volume: String): String? = withIOContext {
         val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
         val book = runCatching { book(file) }.getOrNull() ?: return@withIOContext null
-        copyCover(file, book, bookCoverName(seriesPath, file))
+        copyCover(file, book, seriesPath)
     }
 
-    private fun bookCoverName(seriesPath: String, file: UniFile) =
-        coverCopyName(seriesPath, file.name.orEmpty(), file.lastModified())
-
-    /** [book]'s cover copied out of [file] once, as [name], since a cover loader cannot read inside an EPUB. */
-    private fun copyCover(file: UniFile, book: EpubBook, name: String): String? {
+    /** [book]'s cover copied out of [file] once, since a cover loader cannot read inside an EPUB. */
+    private fun copyCover(file: UniFile, book: EpubBook, seriesPath: String): String? {
         val coverPath = book.coverPath ?: return null
-        val target = File(File(context.filesDir, COVER_DIR), "$name.${coverPath.substringAfterLast('.', "jpg")}")
-        if (!target.exists()) {
-            val bytes = file.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] } ?: return null
-            target.parentFile?.mkdirs()
-            target.writeBytes(bytes)
-        }
-        return target.absolutePath
+        val bookName = file.name.orEmpty()
+        val name = coverCopyName(seriesPath, bookName, file.lastModified()) +
+            ".${coverPath.substringAfterLast('.', "jpg")}"
+        return storeCoverCopy(File(context.filesDir, COVER_DIR), seriesPath, bookName, name) {
+            file.archiveReader(context).use { it.readEntries(setOf(coverPath))[coverPath] }
+        }?.absolutePath
     }
 
     /**
@@ -302,7 +298,39 @@ class LocalNovelSource(
          * first book's, and under the series' prefix, so dropping the series' cover copies drops it too.
          */
         internal fun coverCopyName(seriesPath: String, book: String, modified: Long) =
-            "${coverCopyPrefix(seriesPath)}${Hash.md5(book)}-$modified"
+            "${coverCopyBookPrefix(seriesPath, book)}$modified"
+
+        /**
+         * The cover copy [name] of [book] in [dir], made from [bytes] when missing. It is written aside and
+         * renamed, since a copy that exists is served for good and one cut short would be; the copies of the
+         * book's earlier versions, and partials a killed write left, are deleted then.
+         */
+        internal fun storeCoverCopy(
+            dir: File,
+            seriesPath: String,
+            book: String,
+            name: String,
+            bytes: () -> ByteArray?,
+        ): File? {
+            val target = File(dir, name)
+            if (target.exists()) return target
+            val data = bytes() ?: return null
+            dir.mkdirs()
+            val partial = File.createTempFile(name, PARTIAL_SUFFIX, dir)
+            try {
+                partial.writeBytes(data)
+                partial.renameTo(target)
+            } finally {
+                partial.delete()
+            }
+            if (!target.exists()) return null
+            val bookPrefix = coverCopyBookPrefix(seriesPath, book)
+            dir.listFiles { copy -> copy.name.startsWith(bookPrefix) && copy.name != name }?.forEach(File::delete)
+            return target
+        }
+
+        private fun coverCopyBookPrefix(seriesPath: String, book: String) =
+            "${coverCopyPrefix(seriesPath)}${Hash.md5(book)}-"
 
         /** What the name of every book cover copied for the series at [path] starts with, whatever its version. */
         private fun coverCopyPrefix(path: String) = "${Hash.md5(path)}-"
@@ -311,6 +339,7 @@ class LocalNovelSource(
         private const val CHAPTER_CACHE_SIZE = 8
         private const val DETAILS_FILE = "details.json"
         private const val COVER_DIR = "local_novel_covers"
+        private const val PARTIAL_SUFFIX = ".part"
         private const val EPUB_SUFFIX = ".epub"
         private const val PATH_SEPARATOR = "::"
 
