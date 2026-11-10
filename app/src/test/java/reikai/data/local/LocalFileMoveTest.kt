@@ -3,6 +3,8 @@ package reikai.data.local
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
+import io.mockk.every
+import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -24,6 +26,16 @@ class LocalFileMoveTest {
         }
 
     private fun uni(file: File) = UniFile.fromFile(file)!!
+
+    @Test
+    fun `a replacement that cannot take the name leaves the old file where it was`() {
+        val dir = series("S", "Vol 1.epub" to "old")
+        val replacement = mockk<UniFile> { every { renameTo(any()) } returns false }
+
+        replaceFile(uni(File(dir, "Vol 1.epub")), replacement, "Vol 1.epub", "Vol 1.epub.old")
+
+        File(dir, "Vol 1.epub").readText() shouldBe "old"
+    }
 
     @Test
     fun `a committed move leaves the files only at their new place`() = runTest {

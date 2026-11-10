@@ -267,8 +267,11 @@ class LocalImport(
             throw e
         }
         if (replacing != null) {
-            replacing.delete()
-            if (!target.renameTo(name)) throw IOException("Could not replace $name")
+            val aside = freeNames("$name.old").first { folder.findFile(it) == null }
+            if (!replaceFile(replacing, target, name, aside)) {
+                target.delete()
+                throw IOException("Could not replace $name")
+            }
         }
     }
 

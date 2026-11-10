@@ -56,3 +56,18 @@ private fun copyChecked(source: UniFile, dir: UniFile, name: String): UniFile {
     }
     return target
 }
+
+/**
+ * Puts [replacement] in [old]'s place as [name]: the old file steps aside as [aside] first and goes only once
+ * the replacement holds the name, so a failed rename never leaves the series without either. Answers whether
+ * it went through; when not, [old] is back under [name].
+ */
+internal fun replaceFile(old: UniFile, replacement: UniFile, name: String, aside: String): Boolean {
+    if (!old.renameTo(aside)) return false
+    if (!replacement.renameTo(name)) {
+        old.renameTo(name)
+        return false
+    }
+    old.delete()
+    return true
+}
