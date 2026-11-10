@@ -3,6 +3,7 @@ package reikai.domain.library
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.serialization.json.Json
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -154,6 +155,14 @@ class ReikaiLibraryPreferences(
     val filterNoTags: Preference<TriState> =
         preferenceStore.getEnum("pref_filter_library_no_tags", TriState.DISABLED)
 
+    /** Tag filters saved under a name, in the order they were saved. */
+    val savedTagFilters: Preference<List<SavedTagFilter>> = preferenceStore.getObjectFromString(
+        key = "pref_filter_library_saved_tags",
+        defaultValue = emptyList(),
+        serializer = ::encodeSavedTagFilters,
+        deserializer = ::decodeSavedTagFilters,
+    )
+
     // endregion
 
     // region Novel library filters: RETIRED
@@ -264,3 +273,11 @@ class ReikaiLibraryPreferences(
         const val DEAD_LAST_USED_ALL_PAGE_KEY = "reikai_last_used_all_category"
     }
 }
+
+private val savedTagFiltersJson = Json { ignoreUnknownKeys = true }
+
+internal fun encodeSavedTagFilters(filters: List<SavedTagFilter>): String = savedTagFiltersJson.encodeToString(filters)
+
+// A value that no longer reads leaves the list empty rather than failing the library.
+internal fun decodeSavedTagFilters(json: String): List<SavedTagFilter> =
+    runCatching { savedTagFiltersJson.decodeFromString<List<SavedTagFilter>>(json) }.getOrDefault(emptyList())

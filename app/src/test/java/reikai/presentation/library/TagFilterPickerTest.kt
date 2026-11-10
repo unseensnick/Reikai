@@ -3,18 +3,22 @@ package reikai.presentation.library
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTouchInput
 import io.kotest.matchers.shouldBe
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.SavedTagFilter
+import reikai.domain.library.TagFilter
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.recents.EmittingPreferenceStore
 
@@ -74,6 +78,29 @@ class TagFilterPickerTest {
         awaitText("1 of 2 match")
 
         compose.onNodeWithText("1 of 2 match").assertIsDisplayed()
+    }
+
+    @Test
+    fun `a tap on a saved filter applies it`() {
+        preferences.savedTagFilters.set(listOf(SavedTagFilter("Mine", TagFilter(exclude = setOf("drama")))))
+        showPicker()
+
+        compose.onNodeWithTag("saved:Mine").performClick()
+        compose.waitForIdle()
+
+        preferences.filterTagsExclude.get() shouldBe setOf("drama")
+    }
+
+    @Test
+    fun `a long press on a saved filter removes it once confirmed`() {
+        preferences.savedTagFilters.set(listOf(SavedTagFilter("Mine", TagFilter(exclude = setOf("drama")))))
+        showPicker()
+
+        compose.onNodeWithTag("saved:Mine").performTouchInput { longClick() }
+        compose.onNodeWithText("Remove").performClick()
+        compose.waitForIdle()
+
+        preferences.savedTagFilters.get() shouldBe emptyList()
     }
 
     @Test

@@ -38,7 +38,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
-- **The library filters by tag: show or hide any tag from Filter -> Tags, or from a tag on a series' page.** Chips under the toolbar show what is filtered, and a tap removes one.
+- **The library filters by tag: show or hide any tag from Filter -> Tags, or from a tag on a series' page.** Save a set of tags to bring it back with one tap.
 
 - **Library categories can be arranged by hand: pick Manual in Sort, then long-press a cover and move it.** Each move offers Undo, and Reset manual order puts a category back.
 

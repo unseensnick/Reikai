@@ -1,8 +1,10 @@
 package reikai.presentation.library
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -24,6 +26,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.HorizontalDivider
@@ -31,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +49,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.testTag
@@ -53,17 +59,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.Block
+import mihon.icons.materialsymbols.rounded.BookmarkAdd
 import mihon.icons.materialsymbols.rounded.Check
 import mihon.icons.materialsymbols.rounded.Close
 import mihon.icons.materialsymbols.rounded.Numbers
 import mihon.icons.materialsymbols.rounded.Search
 import mihon.icons.materialsymbols.rounded.SortByAlpha
+import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.library.TagChoice
 import reikai.domain.library.TagFilter
+import reikai.domain.library.applyTagFilter
 import reikai.domain.library.clearTag
 import reikai.domain.library.clearTagFilter
 import reikai.domain.library.currentTagFilter
 import reikai.domain.library.cycleTag
+import reikai.domain.library.deleteSavedTagFilter
+import reikai.domain.library.saveTagFilter
 import reikai.domain.library.tagChoices
 import reikai.domain.library.tagKey
 import reikai.domain.library.tagKeys
@@ -71,6 +82,7 @@ import tachiyomi.core.common.preference.TriState
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
+import tachiyomi.presentation.core.util.collectAsState
 
 /** The Filter tab's Tags row, opening the picker. Shared by both content types through [LibraryTagFilter]. */
 @Composable
@@ -178,6 +190,7 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
                         preferences.filterTagsExcludeAll.set(!filter.excludeAll)
                     }
                 }
+                SavedTagFilters(preferences, filter)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
                 Column(modifier = Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState())) {
                     if (shown.isEmpty()) {
@@ -204,6 +217,112 @@ private fun TagFilterDialog(tagFilter: LibraryTagFilter, onDismiss: () -> Unit) 
         },
         confirmButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_close)) }
+        },
+    )
+}
+
+/**
+ * Saved tag filters, each applied by a tap and removed by a long press, and Save while a filter is set. A
+ * remove cross is not used: Compose widens a small tap target to 48dp, so on a short chip it took the tap.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SavedTagFilters(preferences: ReikaiLibraryPreferences, filter: TagFilter) {
+    val saved by preferences.savedTagFilters.collectAsState()
+    var naming by remember { mutableStateOf(false) }
+    var removing by remember { mutableStateOf<String?>(null) }
+    removing?.let { name ->
+        AlertDialog(
+            onDismissRequest = { removing = null },
+            text = { Text(stringResource(MR.strings.tag_filter_remove_saved, name)) },
+            dismissButton = {
+                TextButton(onClick = { removing = null }) { Text(stringResource(MR.strings.action_cancel)) }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        preferences.deleteSavedTagFilter(name)
+                        removing = null
+                    },
+                ) { Text(stringResource(MR.strings.action_remove)) }
+            },
+        )
+    }
+    if (naming) {
+        SaveTagFilterDialog(
+            onSave = {
+                preferences.saveTagFilter(it)
+                naming = false
+            },
+            onDismiss = { naming = false },
+        )
+    }
+    if (saved.isEmpty() && !filter.isActive) return
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        saved.forEach { entry ->
+            SavedFilterChip(
+                name = entry.name,
+                selected = entry.filter == filter,
+                onApply = { preferences.applyTagFilter(entry.filter) },
+                onRemove = { removing = entry.name },
+            )
+        }
+        if (filter.isActive) {
+            AssistChip(
+                onClick = { naming = true },
+                label = { Text(stringResource(MR.strings.tag_filter_save)) },
+                leadingIcon = { Icon(MaterialSymbols.Rounded.BookmarkAdd, null, Modifier.size(18.dp)) },
+            )
+        }
+    }
+}
+
+/** A chip with a long press, which Material's chips do not take. Styled as a selected or idle filter chip. */
+@Composable
+private fun SavedFilterChip(name: String, selected: Boolean, onApply: () -> Unit, onRemove: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = if (selected) colors.secondaryContainer else colors.surface,
+        contentColor = if (selected) colors.onSecondaryContainer else colors.onSurfaceVariant,
+        border = if (selected) null else BorderStroke(1.dp, colors.outlineVariant),
+        modifier = Modifier
+            .padding(vertical = 8.dp)
+            .clip(MaterialTheme.shapes.small)
+            .combinedClickable(onClick = onApply, onLongClick = onRemove)
+            .testTag("saved:$name"),
+    ) {
+        Row(
+            modifier = Modifier.height(32.dp).padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (selected) Icon(MaterialSymbols.Rounded.Check, null, Modifier.size(18.dp).padding(end = 4.dp))
+            Text(name, style = MaterialTheme.typography.labelLarge)
+        }
+    }
+}
+
+@Composable
+private fun SaveTagFilterDialog(onSave: (String) -> Unit, onDismiss: () -> Unit) {
+    var name by rememberSaveable { mutableStateOf("") }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(MR.strings.tag_filter_save)) },
+        text = {
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text(stringResource(MR.strings.name)) },
+                singleLine = true,
+            )
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(MR.strings.action_cancel)) }
+        },
+        confirmButton = {
+            TextButton(onClick = { onSave(name) }, enabled = name.isNotBlank()) {
+                Text(stringResource(MR.strings.action_save))
+            }
         },
     )
 }

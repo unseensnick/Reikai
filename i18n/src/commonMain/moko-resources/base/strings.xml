@@ -2100,6 +2100,8 @@
     <string name="tag_filter_sort_name">A to Z</string>
     <string name="tag_filter_match_count">%1$d of %2$d match</string>
     <string name="tag_filter_search">Search tags</string>
+    <string name="tag_filter_save">Save filter</string>
+    <string name="tag_filter_remove_saved">Remove the saved filter %1$s?</string>
     <string name="tag_filter_empty">No tags found</string>
     <string name="tag_filter_chip_hidden">Hiding %1$s</string>
     <string name="tag_filter_chip_untagged">Untagged only</string>

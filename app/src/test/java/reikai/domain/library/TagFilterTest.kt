@@ -101,6 +101,33 @@ class TagFilterTest {
     }
 
     @Test
+    fun `a saved filter reads back with every part`() {
+        val saved = listOf(
+            SavedTagFilter(
+                "Mine",
+                TagFilter(setOf("action"), setOf("gore"), includeAll = true, noTags = TriState.ENABLED_NOT),
+            ),
+        )
+        decodeSavedTagFilters(encodeSavedTagFilters(saved)) shouldBe saved
+    }
+
+    @Test
+    fun `saving under a taken name replaces that filter in its place`() {
+        val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
+        listOf("a" to "x", "b" to "y", "a" to "z").forEach { (name, tag) ->
+            preferences.applyTagFilter(TagFilter(include = setOf(tag)))
+            preferences.saveTagFilter(name)
+        }
+        preferences.savedTagFilters.get().map { it.name to it.filter.include } shouldBe
+            listOf("a" to setOf("z"), "b" to setOf("y"))
+    }
+
+    @Test
+    fun `an unreadable saved list reads as empty`() {
+        decodeSavedTagFilters("not json") shouldBe emptyList()
+    }
+
+    @Test
     fun `Group by tag folds a key the way the tag filter does`() {
         normalizeDynamicKey(" Slice_of--Life ") shouldBe tagKey("slice of life")
     }

@@ -2,6 +2,7 @@ package reikai.domain.library
 
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.serialization.Serializable
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.manga.model.applyFilter
 
@@ -10,6 +11,7 @@ import tachiyomi.domain.manga.model.applyFilter
  * [includeAll], else any) and tags it must not ([exclude], dropped when it has all of them with [excludeAll],
  * else any), plus [noTags] for series without a tag. Tags are stored and compared as [tagKey]s.
  */
+@Serializable
 data class TagFilter(
     val include: Set<String> = emptySet(),
     val exclude: Set<String> = emptySet(),
@@ -49,6 +51,30 @@ fun ReikaiLibraryPreferences.currentTagFilter() = TagFilter(
     filterTagsExcludeAll.get(),
     filterNoTags.get(),
 )
+
+/** A tag filter kept under a [name], which the picker applies with one tap. */
+@Serializable
+data class SavedTagFilter(val name: String, val filter: TagFilter)
+
+/** Saves the current tag filter as [name], replacing a saved one of that name in its place. */
+fun ReikaiLibraryPreferences.saveTagFilter(name: String) {
+    val saved = SavedTagFilter(name.trim(), currentTagFilter())
+    val list = savedTagFilters.get()
+    val at = list.indexOfFirst { it.name == saved.name }
+    savedTagFilters.set(if (at < 0) list + saved else list.toMutableList().apply { set(at, saved) })
+}
+
+fun ReikaiLibraryPreferences.deleteSavedTagFilter(name: String) {
+    savedTagFilters.set(savedTagFilters.get().filterNot { it.name == name })
+}
+
+fun ReikaiLibraryPreferences.applyTagFilter(filter: TagFilter) {
+    filterTagsInclude.set(filter.include)
+    filterTagsExclude.set(filter.exclude)
+    filterTagsIncludeAll.set(filter.includeAll)
+    filterTagsExcludeAll.set(filter.excludeAll)
+    filterNoTags.set(filter.noTags)
+}
 
 /** One tag's three states in the picker, which a tap cycles through: not filtered, required, then hidden. */
 fun ReikaiLibraryPreferences.cycleTag(key: String) = when (key) {
