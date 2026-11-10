@@ -47,7 +47,7 @@ class EntryVolumesTest {
             row(1, v1, read = true),
             row(2, v1),
             row(3, v2),
-        ).inVolumes(picked = null, saved = emptyMap())!!
+        ).inVolumes(picked = null, saved = emptyMap(), every = emptyList())!!
 
         view.items.map {
             (it as? EntryChapterListItem.Chapter)?.name
@@ -58,17 +58,27 @@ class EntryVolumesTest {
 
     @Test
     fun `a picked volume shows alone`() {
-        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 02", saved = emptyMap())!!.items.size shouldBe 2
+        listOf(
+            row(1, v1),
+            row(3, v2),
+        ).inVolumes(picked = "Vol 02", saved = emptyMap(), every = emptyList())!!.items.size shouldBe
+            2
     }
 
     @Test
     fun `a picked volume the series no longer has shows every volume`() {
-        listOf(row(1, v1), row(3, v2)).inVolumes(picked = "Vol 09", saved = emptyMap())!!.picked shouldBe null
+        listOf(
+            row(1, v1),
+            row(3, v2),
+        ).inVolumes(picked = "Vol 09", saved = emptyMap(), every = emptyList())!!.picked shouldBe
+            null
     }
 
     @Test
     fun `chips follow the volume numbers whatever the chapter sort`() {
-        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved = emptyMap())!!.chips.map { it.key } shouldBe
+        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved = emptyMap(), every = emptyList())!!.chips.map {
+            it.key
+        } shouldBe
             listOf("Vol 01", "Vol 02")
     }
 
@@ -76,7 +86,9 @@ class EntryVolumesTest {
     fun `a volume the user named shows their name`() {
         val saved = mapOf("Series" to listOf(LocalVolume("Vol 02", position = null, label = "Finale")))
 
-        listOf(row(1, v1), row(3, v2)).inVolumes(picked = null, saved)!!.chips.map { it.label } shouldBe
+        listOf(row(1, v1), row(3, v2)).inVolumes(picked = null, saved, every = emptyList())!!.chips.map {
+            it.label
+        } shouldBe
             listOf(VolumeLabel.Number(1.0), VolumeLabel.Name("Finale"))
     }
 
@@ -84,8 +96,19 @@ class EntryVolumesTest {
     fun `chips follow the order the user gave the volumes`() {
         val saved = mapOf("Series" to listOf(LocalVolume("Vol 02", 0, null), LocalVolume("Vol 01", 1, null)))
 
-        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved)!!.chips.map { it.key } shouldBe
+        listOf(row(3, v2), row(1, v1)).inVolumes(picked = null, saved, every = emptyList())!!.chips.map {
+            it.key
+        } shouldBe
             listOf("Vol 02", "Vol 01")
+    }
+
+    /** Reorder, Delete and Rename files act on the chips, so a filtered-out volume must stay among them. */
+    @Test
+    fun `a volume the chapter filter hides keeps its chip`() {
+        val v3 = mangaChapterVolume(0L, "Series/Vol 03/Ch 005.cbz", "Vol 03 - Ch 005")!!
+
+        listOf(row(1, v1), row(3, v2)).inVolumes(picked = null, saved = emptyMap(), every = listOf(v1, v2, v3))!!
+            .chips.map { it.key } shouldBe listOf("Vol 01", "Vol 02", "Vol 03")
     }
 
     // Two books of one series that both state volume 1, as after combining two series.
@@ -94,13 +117,17 @@ class EntryVolumesTest {
 
     @Test
     fun `a later volume showing an earlier one's label is numbered after it`() {
-        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved = emptyMap())!!.chips
+        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved = emptyMap(), every = emptyList())!!.chips
             .map { it.duplicate } shouldBe listOf(0, 1)
     }
 
     @Test
     fun `volumes that show one label are asked about together`() {
-        listOf(row(1, book1), row(2, other1), row(3, v2)).inVolumes(picked = null, saved = emptyMap())!!
+        listOf(
+            row(1, book1),
+            row(2, other1),
+            row(3, v2),
+        ).inVolumes(picked = null, saved = emptyMap(), every = emptyList())!!
             .duplicates.map { same -> same.map { it.key } } shouldBe listOf(listOf("Book One.epub", "Other.epub"))
     }
 
@@ -108,6 +135,7 @@ class EntryVolumesTest {
     fun `a volume kept under its own name no longer clashes`() {
         val saved = mapOf("Series" to listOf(LocalVolume("Other.epub", position = null, label = "Vol. 1 (2)")))
 
-        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved)!!.duplicates shouldBe emptyList()
+        listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved, every = emptyList())!!.duplicates shouldBe
+            emptyList()
     }
 }

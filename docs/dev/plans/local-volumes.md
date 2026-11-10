@@ -44,7 +44,6 @@ Merging separate local volumes is the only way to keep them together today, and 
 
 - **A volume chip's own menu** (rename, split out or delete one volume from its chip): build it, or keep those actions in ⋮ only, where they are now.
 - **Deleting every volume of a series**: it keeps its old chapter list, since a series with no files cannot be listed (both types). Remove it from the library then, or offer that in the Delete volumes dialog.
-- **Reorder volumes under a chapter filter** saves only the volumes the filter shows, so the hidden ones go last: build the chips from the unfiltered list.
 - **Merged sources that have volumes**: waits for a request on GitHub ([parked.md](../parked.md)); the design to use if it is revived is in Approach.
 
 ## Decisions & tradeoffs

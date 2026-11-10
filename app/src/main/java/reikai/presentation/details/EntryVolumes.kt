@@ -156,21 +156,33 @@ data class VolumeView(
 /**
  * [this] under a header per volume, only [picked]'s when it names one, each row titled without its volume
  * in front; null where volumes cannot head the list ([volumeRuns]). Chips follow the volumes' numbers when
- * every one states a number, else the list's order.
+ * every one states a number, else the list's order. The chips, which the volume dialogs act on, are every
+ * one of [every], the volumes of the series' unfiltered list, so a chapter filter hides none from them.
  */
-fun List<EntryChapterListItem>.inVolumes(picked: String?, saved: Map<String, List<LocalVolume>>): VolumeView? {
+fun List<EntryChapterListItem>.inVolumes(
+    picked: String?,
+    saved: Map<String, List<LocalVolume>>,
+    every: List<ChapterVolume>,
+): VolumeView? {
     val runs = filterIsInstance<EntryChapterListItem.Chapter>().volumeRuns { it.volume?.key } ?: return null
     val headers = runs.map { (key, rows) ->
         val volume = rows.first().volume!!.named(saved)
         EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map { it.id }, rows.count { it.read })
     }
-    val savedHere = saved[headers.first().series]
-    val numbers = headers.map { (it.label as? VolumeLabel.Number)?.number }
+    val series = headers.first().series
+    val shownByKey = headers.associateBy { it.key }
+    val all = every.filter { it.series == series }.distinctBy { it.key }.map { volume ->
+        shownByKey[volume.key] ?: volume.named(saved).let {
+            EntryChapterListItem.Volume(it.series, it.key, it.label, emptyList(), 0)
+        }
+    }.ifEmpty { headers }
+    val savedHere = saved[series]
+    val numbers = all.map { (it.label as? VolumeLabel.Number)?.number }
     val chips = when {
         // A series the user ordered follows their order, whatever the numbers say.
-        savedHere.orEmpty().any { it.position != null } -> headers.inUserOrder({ it.key }, savedHere)
-        numbers.all { it != null } -> headers.sortedBy { (it.label as VolumeLabel.Number).number }
-        else -> headers
+        savedHere.orEmpty().any { it.position != null } -> all.inUserOrder({ it.key }, savedHere)
+        numbers.all { it != null } -> all.sortedBy { (it.label as VolumeLabel.Number).number }
+        else -> all
     }
     // A later volume showing an earlier one's label is told apart by its place among them, in chip order.
     val duplicates = chips.groupBy {

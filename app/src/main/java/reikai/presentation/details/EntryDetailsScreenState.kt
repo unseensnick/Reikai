@@ -138,6 +138,9 @@ data class EntryChapterListUiState(
     /** What the reader's skip-duplicate rule folds and the user's own marks on it; null unless both that
      *  rule and "Show duplicate chapters the reader skips" are on. */
     val duplicates: DuplicateMarks? = null,
+    /** A local series' volumes over every chapter the viewed list holds before its filters, in list
+     *  order, so the volume dialogs reach a volume the filter hides ([inVolumes]). */
+    val volumes: List<ChapterVolume> = emptyList(),
 )
 
 /**

@@ -89,7 +89,7 @@ class MangaEntryAdapter(
             ),
             chapters = EntryChapterListUiState(
                 items = chapterSourceNames().let { names ->
-                    val sourceIds = mergedMangaById.mapValues { it.value.source } + (manga.id to manga.source)
+                    val sourceIds = chapterSourceIds()
                     chapterListItems.map { it.toNeutralItem(names, sourceIds, numberHints) }
                 },
                 missingChapterCount = missingChapterCount,
@@ -110,6 +110,11 @@ class MangaEntryAdapter(
                             urlOf = { it.url },
                             idOf = { it.id },
                         )
+                    }
+                },
+                volumes = chapterSourceIds().let { sourceIds ->
+                    chapters.mapNotNull {
+                        mangaChapterVolume(sourceIds[it.chapter.mangaId] ?: -1L, it.chapter.url, it.chapter.name)
                     }
                 },
             ),
@@ -149,6 +154,9 @@ class MangaEntryAdapter(
             downloadTargets = downloadTargets,
         )
     }
+
+    private fun MangaViewModel.State.Success.chapterSourceIds(): Map<Long, Long> =
+        mergedMangaById.mapValues { it.value.source } + (manga.id to manga.source)
 
     private fun MangaViewModel.State.Success.chapterSourceNames(): Map<Long, String> =
         mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })

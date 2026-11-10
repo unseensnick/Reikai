@@ -124,6 +124,7 @@ class NovelEntryAdapter(
                         )
                     }
                 },
+                volumes = storedRows.mapNotNull { novelChapterVolume(it.url, it.name) },
             ),
             capabilities = EntryCapabilities(
                 novelPageSelector = if (pages.size > 1) {

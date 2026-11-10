@@ -157,8 +157,8 @@ fun EntryDetailsContent(
     val type = state.entryId.contentType
     val picks by behavior.volumePicking.picks(type).collectAsState()
     val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
-    val volumes = remember(filtered.chapters.items, picks, savedVolumes) {
-        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes)
+    val volumes = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes) {
+        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes)
     }
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     val shownIds = remember(shown.chapters.items) {
