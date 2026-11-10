@@ -35,6 +35,8 @@ import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
+import reikai.storage.FolderUnreadableException
+import reikai.storage.listFilesOrFail
 import reikai.storage.localCover
 import reikai.storage.writeLocalCover
 import tachiyomi.core.common.i18n.stringResource
@@ -174,7 +176,14 @@ class LocalNovelSource(
     /** Every series in the folder: its folders holding an EPUB, then its loose EPUBs. */
     private fun allSeries(): List<Series> {
         val root = storageManager.getLocalNovelsDirectory() ?: return emptyList()
-        return root.listFiles().orEmpty().mapNotNull { entry -> seriesOf(entry) }
+        // Browsing skips a folder it cannot read; a refresh fails on one instead (seriesAt).
+        return root.listFiles().orEmpty().mapNotNull { entry ->
+            try {
+                seriesOf(entry)
+            } catch (e: FolderUnreadableException) {
+                null
+            }
+        }
     }
 
     // A path from a chapter row or a picture address is a name in the folder, never a way out of it.
@@ -187,7 +196,8 @@ class LocalNovelSource(
         if (name.startsWith('.')) return null
         return when {
             entry.isDirectory -> {
-                val files = entry.listFiles().orEmpty()
+                // A short listing would read as volumes deleted, and their chapters and read state with them.
+                val files = entry.listFilesOrFail(context)
                 val volumes = files.filter { it.isFile && it.isEpub() }
                     .sortedWith { a, b -> a.name.orEmpty().compareToCaseInsensitiveNaturalOrder(b.name.orEmpty()) }
                 if (volumes.isEmpty()) null else Series(name, volumes, files.toList())

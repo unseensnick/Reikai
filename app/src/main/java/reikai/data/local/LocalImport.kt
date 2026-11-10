@@ -31,6 +31,7 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.storage.listFilesOrNull
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -225,7 +226,12 @@ class LocalImport(
                     return@mapNotNull null
                 }
                 var copied = 0
-                val present = folder.listFiles().orEmpty().filter { it.isFile }
+                // Trusted whole: a book missing from a short listing would have its name given to a new file, and
+                // a provider hands back the existing file to write over.
+                val present = folder.listFilesOrNull(context)?.filter { it.isFile } ?: run {
+                    problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
+                    return@mapNotNull null
+                }
                 val taken = present.mapNotNull { it.name }.toMutableSet()
                 var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
                 group.files.forEach { file ->
@@ -247,7 +253,7 @@ class LocalImport(
                 }
                 // Nothing copied, every file skipped or failed, so the series was not imported to.
                 if (copied == 0) {
-                    if (joined == null && folder.listFiles().isNullOrEmpty()) folder.delete()
+                    if (joined == null && folder.listFilesOrNull(context)?.isEmpty() == true) folder.delete()
                     return@mapNotNull null
                 }
                 val entryId = if (addToLibrary) {

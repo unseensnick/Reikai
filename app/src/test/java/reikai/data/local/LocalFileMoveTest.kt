@@ -1,5 +1,8 @@
 package reikai.data.local
 
+import android.content.Context
+import android.net.Uri
+import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
@@ -26,6 +29,8 @@ class LocalFileMoveTest {
             files.forEach { (path, text) -> File(dir, path).apply { parentFile!!.mkdirs() }.writeText(text) }
         }
 
+    private val context = mockk<Context>()
+
     private fun uni(file: File) = UniFile.fromFile(file)!!
 
     @Test
@@ -36,8 +41,24 @@ class LocalFileMoveTest {
             every { listFiles() } returns null
         }
 
-        moveLocalFiles(listOf(FileCopy(unreadable, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
+        moveLocalFiles(context, listOf(FileCopy(unreadable, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
             .shouldBeInstanceOf<LocalMoveResult.Failed>()
+    }
+
+    @Test
+    fun `a picked folder that cannot be listed whole is not moved`() = runTest {
+        val from = series("B", "Vol 1/a.cbz" to "a")
+        // No provider answers this picked folder's count, so its listing cannot be told whole.
+        val picked = spyk(uni(File(from, "Vol 1"))) {
+            every { uri } returns Uri.parse(
+                "content://com.android.externalstorage.documents/tree/primary%3AManga/document/primary%3AManga%2FVol",
+            )
+        }
+
+        moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked, uni(tmp.newFolder("A")), null, "Vol 1")),
+        ) {}.shouldBeInstanceOf<LocalMoveResult.Failed>()
     }
 
     @Test
@@ -47,7 +68,7 @@ class LocalFileMoveTest {
         val listed = volume.listFiles()!!.filter { it.name == "a.cbz" }.toTypedArray()
         val short = spyk(volume) { every { listFiles() } returns listed }
 
-        moveLocalFiles(listOf(FileCopy(short, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
+        moveLocalFiles(context, listOf(FileCopy(short, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
 
         File(from, "Vol 1/b.cbz").readText() shouldBe "b"
     }
@@ -67,7 +88,7 @@ class LocalFileMoveTest {
         val from = series("B", "Ch 1.cbz" to "one")
         val to = series("A")
 
-        moveLocalFiles(listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(to), null, "Ch 1.cbz"))) {}
+        moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(to), null, "Ch 1.cbz"))) {}
 
         (File(to, "Ch 1.cbz").readText() to File(from, "Ch 1.cbz").exists()) shouldBe ("one" to false)
     }
@@ -77,7 +98,7 @@ class LocalFileMoveTest {
         val from = series("B", "Ch 1/001.png" to "page")
         val to = series("A")
 
-        moveLocalFiles(listOf(FileCopy(uni(File(from, "Ch 1")), uni(to), null, "Vol 2"))) {}
+        moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Ch 1")), uni(to), null, "Vol 2"))) {}
 
         File(to, "Vol 2/001.png").readText() shouldBe "page"
     }
@@ -87,7 +108,7 @@ class LocalFileMoveTest {
         val from = series("B", "Ch 1.cbz" to "one")
         val to = series("A")
 
-        val result = moveLocalFiles(listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(to), null, "Ch 1.cbz"))) {
+        val result = moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(to), null, "Ch 1.cbz"))) {
             error("database refused")
         }
 
@@ -102,6 +123,7 @@ class LocalFileMoveTest {
         var committed = false
 
         moveLocalFiles(
+            context,
             listOf(
                 FileCopy(uni(File(from, "Ch 1.cbz")), uni(to), null, "Ch 1.cbz"),
                 FileCopy(uni(File(from, "Ch 2.cbz")), uni(to), null, "Ch 2.cbz"),
@@ -116,7 +138,9 @@ class LocalFileMoveTest {
     fun `a copy into a folder it had to make takes the folder away again when the commit fails`() = runTest {
         val from = series("A", "Ch 1.cbz" to "one")
 
-        moveLocalFiles(listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(from), "A", "Ch 1.cbz"))) { error("refused") }
+        moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Ch 1.cbz")), uni(from), "A", "Ch 1.cbz"))) {
+            error("refused")
+        }
 
         (File(from, "A").exists() to File(from, "Ch 1.cbz").exists()) shouldBe (false to true)
     }
@@ -126,7 +150,7 @@ class LocalFileMoveTest {
         val from = series("B", "Vol 1/Ch 1.cbz" to "one", "Vol 1/.nomedia" to "")
         val to = series("A")
 
-        moveLocalFiles(listOf(FileCopy(uni(File(from, "Vol 1")), uni(to), null, "Vol 1"))) {}
+        moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Vol 1")), uni(to), null, "Vol 1"))) {}
 
         (File(to, "Vol 1/Ch 1.cbz").exists() to File(to, "Vol 1/.nomedia").exists()) shouldBe (true to false)
     }

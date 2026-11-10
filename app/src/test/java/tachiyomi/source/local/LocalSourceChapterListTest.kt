@@ -1,11 +1,13 @@
 package tachiyomi.source.local
 
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.source.model.SManga
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import nl.adaptivity.xmlutil.serialization.XML
@@ -69,6 +71,34 @@ class LocalSourceChapterListTest {
         }
 
         chapterUrls("Saga").sorted() shouldBe listOf("Saga/Vol 1/Ch 1", "Saga/Vol 1/Ch 2")
+    }
+
+    @Test
+    fun `a series folder on picked storage that cannot be listed whole fails the refresh`() = runTest {
+        File(root, "Saga/Ch 1").mkdirs()
+        File(root, "Saga/Ch 1/001.jpg").writeBytes(byteArrayOf(1))
+        // No provider answers this picked folder's count, so its listing cannot be told whole.
+        val picked = spyk(UniFile.fromFile(File(root, "Saga"))!!) {
+            every { uri } returns Uri.parse(
+                "content://com.android.externalstorage.documents/tree/primary%3AManga/document/primary%3AManga%2FSaga",
+            )
+        }
+        val pickedRoot = spyk(UniFile.fromFile(root)!!) { every { findFile("Saga") } returns picked }
+        val source = LocalSource(
+            context,
+            LocalSourceFileSystem(mockk<StorageManager> { every { getLocalSourceDirectory() } returns pickedRoot }),
+            mockk(relaxed = true),
+            Json,
+            XML.v1 {},
+            NoLocalVolumes,
+        )
+        val saga = SManga.create().apply {
+            url = "Saga"
+            title = "Saga"
+        }
+
+        runCatching { source.getMangaUpdate(saga, emptyList(), fetchDetails = false, fetchChapters = true) }
+            .isFailure shouldBe true
     }
 
     @Test

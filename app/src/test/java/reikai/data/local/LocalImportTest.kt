@@ -1,11 +1,13 @@
 package reikai.data.local
 
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.spyk
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -36,12 +38,14 @@ class LocalImportTest(private val type: ContentType) {
         mkdirs()
     }
 
+    private var storageRoot: UniFile = UniFile.fromFile(root)!!
+
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
         context = context,
         storageManager = mockk<StorageManager> {
-            every { getLocalSourceDirectory() } returns UniFile.fromFile(root)
-            every { getLocalNovelsDirectory() } returns UniFile.fromFile(root)
+            every { getLocalSourceDirectory() } answers { storageRoot }
+            every { getLocalNovelsDirectory() } answers { storageRoot }
         },
         localNovels = mockk<LocalNovelSource> { coEvery { parseNovel(any()) } answers { SourceNovel(firstArg()) } },
         novelRepository = mockk<NovelRepository> {
@@ -171,6 +175,21 @@ class LocalImportTest(private val type: ContentType) {
     }
 
     @Test
+    fun `a series folder on picked storage that cannot be listed whole takes no file`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/Old.cbz").writeText("old version")
+        // No provider answers this picked folder's count, so its listing cannot be told whole.
+        val picked = spyk(UniFile.fromFile(File(root, "Foo"))!!) {
+            every { uri } returns Uri.parse("$PICKED/document/primary%3AManga%2FFoo")
+        }
+        storageRoot = spyk(UniFile.fromFile(root)!!) { every { findFile("Foo") } returns picked }
+
+        localImport.import(listOf(group("Foo").copy(existing = "Foo")), addToLibrary = false, categoryIds = emptyList())
+
+        File(root, "Foo").list()!!.toList() shouldBe listOf("Old.cbz")
+    }
+
+    @Test
     fun `an import waits on the user while a newer copy is unanswered`() {
         group("Foo").copy(existing = "Foo", newerCopies = mapOf(ImportDocuments.uri("1") to "Old.cbz"))
             .asksAboutNewerCopies shouldBe true
@@ -208,6 +227,8 @@ class LocalImportTest(private val type: ContentType) {
     )
 
     companion object {
+        private const val PICKED = "content://com.android.externalstorage.documents/tree/primary%3AManga"
+
         // A book takes the series and its volume; a comic keeps its own name, which names its chapter.
         private val NEW_NAME = mapOf(ContentType.MANGA to "a.cbz", ContentType.NOVELS to "Foo - Vol. 1.epub")
 

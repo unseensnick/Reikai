@@ -33,6 +33,7 @@ import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localVolumeChapter
+import reikai.storage.listFilesOrNull
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -461,10 +462,11 @@ class LocalSource(
             }
             )
 
-    // RK: [dir]'s files, or a failed refresh when it is missing or its listing fails, which an empty list would
-    // read as every chapter deleted
+    // RK: [dir]'s files, or a failed refresh when it is missing or its listing fails, which an empty or short
+    // list would read as chapters deleted
     private fun listedOrFail(dir: UniFile?, path: String): List<UniFile> =
-        dir?.listFiles()?.toList() ?: throw Exception(context.stringResource(MR.strings.local_folder_unreadable, path))
+        dir?.listFilesOrNull(context)
+            ?: throw Exception(context.stringResource(MR.strings.local_folder_unreadable, path))
 
     private fun updateCover(chapter: SChapter, manga: SManga): UniFile? {
         return try {
