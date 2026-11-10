@@ -1332,7 +1332,9 @@ class NovelDetailsViewModel(
         updateSelection(listed) { EntrySelection.toggleBlock(it, chapterIds) }
     }
 
+    /** Ends the selection, as manga's does, whether or not [chapterIds] were the selected ones. */
     fun markChaptersRead(chapterIds: List<Long>, read: Boolean) {
+        clearSelection()
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         setRead(loaded.chapters.filter { it.id in chapterIds }, read)
     }
@@ -1512,11 +1514,16 @@ class NovelDetailsViewModel(
     fun chapterSwipe(chapter: NovelChapter, action: LibraryPreferences.ChapterSwipeAction) {
         when (action) {
             // Toggled against the row's shown state, so a chapter read on a grouped source turns unread.
+            // A read or bookmark write ends the selection, as manga's does.
             LibraryPreferences.ChapterSwipeAction.ToggleRead -> {
                 val marks = (state.value as? NovelDetailsState.Loaded)?.marks ?: GroupMarks.NONE
                 markChapterRead(chapter, !marks.isRead(chapter.id, chapter.read))
+                clearSelection()
             }
-            LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> toggleChapterBookmark(chapter)
+            LibraryPreferences.ChapterSwipeAction.ToggleBookmark -> {
+                toggleChapterBookmark(chapter)
+                clearSelection()
+            }
             LibraryPreferences.ChapterSwipeAction.Download -> {
                 val loaded = state.value as? NovelDetailsState.Loaded
                 val downloadState = loaded?.downloadStateOf(chapter.id) ?: Download.State.NOT_DOWNLOADED
