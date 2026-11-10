@@ -9,6 +9,7 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -161,13 +162,24 @@ fun ReikaiLibraryContent(
             }
         }
 
-        val rowStartIndices = reikaiRowStartIndices(
-            buckets = buckets,
-            hasSearchItem = !searchQuery.isNullOrEmpty(),
-            isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
-            itemCount = { getItemsForCategory(it).size },
-            columns = columnCount,
-        )
+        // Walks every bucket's items, so only what it reads rebuilds it, not every recomposition.
+        val hasSearchItem = !searchQuery.isNullOrEmpty()
+        val rowStartIndices = remember(
+            buckets,
+            hasSearchItem,
+            collapsedCategories,
+            collapsedDynamicCategories,
+            getItemsForCategory,
+            columnCount,
+        ) {
+            reikaiRowStartIndices(
+                buckets = buckets,
+                hasSearchItem = hasSearchItem,
+                isCollapsed = { reikaiIsCollapsed(it, collapsedCategories, collapsedDynamicCategories) },
+                itemCount = { getItemsForCategory(it).size },
+                columns = columnCount,
+            )
+        }
 
         val manualOrder = rememberManualOrder()
         val reorder = rememberManualOrderGrid(gridState, manualOrder) { section ->

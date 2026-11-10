@@ -144,7 +144,7 @@ data object LibraryTab : Tab {
 
         val viewModel = metroViewModel<LibraryViewModel>()
         val settingsViewModel = metroViewModel<LibrarySettingsViewModel>()
-        val state by viewModel.state.collectAsStateWithLifecycle()
+        // RK: loading is read off mangaLibState below rather than a second whole-state collect
 
         // RK --> novels in the library behind the Manga/Novels chip. Both models stay live; a per-type
         // adapter maps each onto the neutral LibraryScreenState / LibraryBehavior, so the tab reads one
@@ -153,7 +153,6 @@ data object LibraryTab : Tab {
         // and the per-type screen types. The `active*` locals are kept as thin aliases over
         // `libState` so every downstream view reads them unchanged.
         val novelModel = metroViewModel<NovelLibraryViewModel>()
-        val novelState by novelModel.state.collectAsStateWithLifecycle()
         // The engine owns which provider drives the view and every dialog, so the content type is decided
         // in one place rather than at each call site. It is shaped to merge both providers for an All view
         // later, and is a ViewModel for its scope: building the change-categories dialog reads categories.
@@ -389,7 +388,7 @@ data object LibraryTab : Tab {
         // longer depends on ambient UI state, so a mixed list routes every row correctly.
         val openEntry: (EntryId) -> Unit = { entryId ->
             when (entryId) {
-                is EntryId.Novel -> novelState.routeFor(entryId.rawId)?.let {
+                is EntryId.Novel -> novelModel.state.value.routeFor(entryId.rawId)?.let {
                     navigator.push(NovelScreen(it.source, it.url))
                 }
                 is EntryId.Manga -> navigator.push(MangaScreen(entryId.rawId))
@@ -722,6 +721,8 @@ data object LibraryTab : Tab {
                         } else {
                             // RK: one composition per chip, as for the single list above
                             key(libraryContentType) {
+                                // Once, as for the single list: the pager asks per page per recomposition.
+                                val displayMode = remember { engine.displayMode() }
                                 LibraryContent(
                                     buckets = activeBuckets,
                                     searchQuery = activeSearchQuery,
@@ -741,7 +742,7 @@ data object LibraryTab : Tab {
                                     refreshing = refreshing,
                                     onGlobalSearchClicked = onGlobalSearch,
                                     getItemCountForCategory = activeGetItemCount,
-                                    getDisplayMode = { engine.displayMode() },
+                                    getDisplayMode = { displayMode },
                                     getColumnsForOrientation = { engine.columnsForOrientation(it) },
                                     getItemsForCategory = activeGetItems,
                                     getManualDrag = manualDragFor, // RK
@@ -859,8 +860,9 @@ data object LibraryTab : Tab {
             HomeScreen.showBottomNav(!activeSelectionMode)
         }
 
-        LaunchedEffect(state.isLoading) {
-            if (!state.isLoading) {
+        LaunchedEffect(mangaLibState.isLoading) {
+            // RK
+            if (!mangaLibState.isLoading) { // RK
                 (context as? MainActivity)?.ready = true
             }
         }

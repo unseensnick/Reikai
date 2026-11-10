@@ -13,7 +13,6 @@ import reikai.domain.library.sortForCategory
 import reikai.domain.library.toSortMode
 import tachiyomi.domain.category.model.Category
 import tachiyomi.domain.library.model.LibrarySort
-import java.util.concurrent.ConcurrentHashMap
 
 /**
  * The assembly inputs besides the rows and categories. One value each: these describe the list, not a
@@ -97,10 +96,9 @@ fun presentIdsOf(assembled: List<Pair<LibraryBucket, List<LibraryItem>>>): Set<E
     assembled.flatMapTo(HashSet()) { (_, items) -> items.map { it.entryId } }
 
 /**
- * The assembled list the tab renders: the ordered buckets, the per-bucket display read as a function
- * so the per-type custom-info overlay is applied at read time, only for what is rendered, and the one
- * count rule: the chip-filtered bucket size, shown when the count preference is on or a search is
- * active, on every chip.
+ * The assembled list the tab renders: the ordered buckets, each bucket's display with the per-type
+ * custom-info overlay already applied, and the one count rule: the chip-filtered bucket size, shown
+ * when the count preference is on or a search is active, on every chip.
  * [chip] is the view this output was assembled for: the flow lags a chip flip by one emission, so the
  * tab renders an assembly only when its chip matches, falling back to the provider's own list meanwhile.
  */
@@ -116,11 +114,7 @@ class LibraryAssembled(
     private val items: (LibraryBucket) -> List<LibraryItem>,
     private val counts: (LibraryBucket) -> Int? = { null },
 ) {
-    // The toolbar and the grid read these every frame, so each bucket's overlay pass runs once. Safe
-    // because an overlay edit re-emits a new assembly (the provider's overlay key is an assembly input).
-    private val itemsByKey = ConcurrentHashMap<String, List<LibraryItem>>()
-
-    fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = itemsByKey.getOrPut(bucket.key) { items(bucket) }
+    fun itemsFor(bucket: LibraryBucket): List<LibraryItem> = items(bucket)
     fun countFor(bucket: LibraryBucket): Int? = counts(bucket)
 }
 

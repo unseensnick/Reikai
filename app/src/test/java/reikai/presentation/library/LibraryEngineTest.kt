@@ -399,6 +399,24 @@ class LibraryEngineTest {
         assembled.itemsFor(bucket) shouldBeSameInstanceAs assembled.itemsFor(bucket)
     }
 
+    /** The tab reads every bucket's size on Main, so an overlay run at the read ran over the library there. */
+    @Test
+    fun `the overlay runs with the assembly, off the thread that reads the list`() = runTest {
+        val overlaidOn = mutableListOf<String>()
+        val provider = provider(ContentType.MANGA, rows = listOf(row(1, listOf(11)), row(2, listOf(11))))
+        every { provider.overlaid(any()) } answers {
+            // Coroutine debug mode appends " @coroutine#N" to the thread name.
+            synchronized(overlaidOn) { overlaidOn += Thread.currentThread().name.substringBefore(" @") }
+            firstArg()
+        }
+        val assembled = engineOver(listOf(provider), categories = listOf(reading)).assembled.filterNotNull().first()
+        val reader = Thread.currentThread().name.substringBefore(" @")
+
+        assembled.itemsFor(assembled.buckets.single())
+
+        (overlaidOn.isNotEmpty() to overlaidOn.none { it == reader }) shouldBe (true to true)
+    }
+
     /** The memo must never outlive its assembly: a custom title edit has to repaint the row. */
     @Test
     fun `a custom-info edit alone re-emits the assembly with the overlaid title`() = runTest {

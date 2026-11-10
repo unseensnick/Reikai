@@ -255,18 +255,18 @@ class LibraryEngine(
         } else {
             assembleDynamicGroups(active, rows, prefs, fields)
         }
-        val itemsByKey = assembledList.associate { it.first.key to it.second }
         val byType = providers.associateBy { it.contentType }
+        // Here, on Default, rather than at read: the tab reads every bucket's size on Main (row starts,
+        // header indices, the whole-library count), so a lazy overlay ran the whole pass there anyway.
+        val itemsByKey = assembledList.associate { (bucket, items) ->
+            bucket.key to items.map { item -> byType[item.entryId.contentType]?.overlaid(item) ?: item }
+        }
         val showCounts = prefs.showCounts || searchActive
         return LibraryAssembled(
             chip = chip,
             buckets = assembledList.map { it.first },
             presentIds = presentIdsOf(assembledList),
-            items = { bucket ->
-                itemsByKey[bucket.key].orEmpty().map { item ->
-                    byType[item.entryId.contentType]?.overlaid(item) ?: item
-                }
-            },
+            items = { bucket -> itemsByKey[bucket.key].orEmpty() },
             counts = { bucket -> if (showCounts) itemsByKey[bucket.key]?.size else null },
         )
     }

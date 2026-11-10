@@ -1,10 +1,13 @@
 package eu.kanade.tachiyomi.ui.library
 
+import androidx.compose.runtime.Immutable
 import reikai.domain.entry.EntryId
 import reikai.presentation.library.LibraryQuerySource
 import reikai.presentation.library.SourceBadge
 import tachiyomi.domain.library.model.LibraryManga
 
+// RK: rows are rebuilt on every library emission, so an equal one must compare equal to skip recomposing
+@Immutable
 data class LibraryItem(
     val libraryManga: LibraryManga,
     val downloadCount: Int,
@@ -43,6 +46,7 @@ data class LibraryItem(
 
     // RK: the EXH tag-search matcher moved to GallerySearchIndex.matches (GallerySearchIndex.kt).
 
+    @Immutable // RK
     data class Badges(
         val downloadCount: Int,
         val unreadCount: Long,

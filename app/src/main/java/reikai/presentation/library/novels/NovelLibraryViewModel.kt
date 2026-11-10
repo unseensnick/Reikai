@@ -159,8 +159,7 @@ class NovelLibraryViewModel(
                 ::Pair,
             ),
             // Debounced so a burst of keystrokes rebuilds the list once, matching the manga library.
-            // No distinctUntilChanged: a StateFlow already conflates equal values. The resolved
-            // `chapter:` id sets ride the slot so the chapter-table scan runs once per query
+            // The resolved `chapter:` id sets ride the slot so the chapter-table scan runs once per query
             // change, not on every library, download-cache or track tick, as the manga side does.
             // No pin: manga's 0.25 s is upstream's own literal, kept verbatim for sync, and the
             // once-per-query scan is a cost choice that changes nothing a user sees. Whole-library novel
@@ -181,6 +180,9 @@ class NovelLibraryViewModel(
         ) { (library, customInfo), searchInputs, settings ->
             buildState(library, customInfo, searchInputs, settings)
         }
+            // Here and not left to the StateFlow, whose equality check runs on Main and walks every list
+            // of an unchanged rebuild, which a download-cache tick causes; the manga library does the same.
+            .distinctUntilChanged()
             .flowOn(Dispatchers.Default)
             .stateIn(viewModelScope + subscriberGate, SharingStarted.Eagerly, null)
 
