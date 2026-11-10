@@ -5,6 +5,7 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import org.jsoup.parser.Parser
 import reikai.novel.content.decodePercentKeepingPlus
+import java.nio.charset.Charset
 
 /** The files inside one EPUB, by their path in the zip, read several at a time in one pass. */
 fun interface EpubArchive {
@@ -222,7 +223,30 @@ class EpubException(val kind: Kind) : Exception(kind.message) {
     }
 }
 
-internal fun EpubArchive.readText(path: String): String? = read(setOf(path))[path]?.toString(Charsets.UTF_8)
+internal fun EpubArchive.readText(path: String): String? = read(setOf(path))[path]?.let(::epubText)
+
+/** A book's XML or XHTML file as text: by its byte order mark, else its XML declaration, else as UTF-8. */
+internal fun epubText(bytes: ByteArray): String {
+    val bom = BYTE_ORDER_MARKS.firstOrNull { (mark) -> bytes.startsWith(mark) }
+    if (bom != null) return String(bytes, bom.first.size, bytes.size - bom.first.size, bom.second)
+    val head = String(bytes, 0, minOf(bytes.size, DECLARATION_SCAN), Charsets.ISO_8859_1)
+    // A declaration readable as single bytes cannot be UTF-16 or UTF-32, whatever it claims.
+    val declared = XML_ENCODING.find(head)?.groupValues?.get(1)
+        ?.let { runCatching { Charset.forName(it) }.getOrNull() }
+        ?.takeUnless { it.name().startsWith("UTF-16") || it.name().startsWith("UTF-32") }
+    return bytes.toString(declared ?: Charsets.UTF_8)
+}
+
+private fun ByteArray.startsWith(prefix: ByteArray) =
+    size >= prefix.size && prefix.indices.all { this[it] == prefix[it] }
+
+private val BYTE_ORDER_MARKS = listOf(
+    byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()) to Charsets.UTF_8,
+    byteArrayOf(0xFE.toByte(), 0xFF.toByte()) to Charsets.UTF_16BE,
+    byteArrayOf(0xFF.toByte(), 0xFE.toByte()) to Charsets.UTF_16LE,
+)
+private const val DECLARATION_SCAN = 1024
+private val XML_ENCODING = Regex("""^\s*<\?xml[^>]*?encoding\s*=\s*["']([\w.:-]+)["']""")
 
 internal fun xml(text: String): Document = Jsoup.parse(text, "", Parser.xmlParser())
 

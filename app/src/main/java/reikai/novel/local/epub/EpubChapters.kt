@@ -357,7 +357,7 @@ object EpubChapters {
  * open tag swallowing the rest of the page, then HTML for the EPUB 2 files that are not well-formed XML.
  */
 internal fun parseContent(bytes: ByteArray): Document? {
-    val text = bytes.toString(Charsets.UTF_8)
+    val text = epubText(bytes)
     val asXml = runCatching { Jsoup.parse(text, "", Parser.xmlParser()) }.getOrNull()
     val xmlBody = asXml?.firstLocal("body")
     val document = if (xmlBody != null) {

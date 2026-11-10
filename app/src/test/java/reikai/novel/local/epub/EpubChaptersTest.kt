@@ -46,6 +46,18 @@ class EpubChaptersTest {
     }
 
     @Test
+    fun `a chapter file declaring a legacy encoding reads in it`() {
+        val legacy = xhtml("<p>Café $fill</p>").replace("encoding=\"utf-8\"", "encoding=\"windows-1252\"")
+            .toByteArray(charset("windows-1252"))
+        val book = epub(
+            mapOf("OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"))),
+            mapOf("OEBPS/a.xhtml" to legacy),
+        )
+
+        chapterTexts(book).single().second shouldContain "Café"
+    }
+
+    @Test
     fun `an anchor partway into a heading cuts the heading there`() {
         val book = epub(
             mapOf(

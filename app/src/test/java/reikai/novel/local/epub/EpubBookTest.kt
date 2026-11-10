@@ -193,6 +193,17 @@ class EpubBookTest {
     }
 
     @Test
+    fun `a package written in UTF-16 with a byte order mark reads`() {
+        val utf16 = byteArrayOf(0xFF.toByte(), 0xFE.toByte()) +
+            opf(listOf("a" to "a.xhtml"), metadata = "<dc:title>Café</dc:title>")
+                .replace("<?xml version=\"1.0\"?>", "<?xml version=\"1.0\" encoding=\"UTF-16\"?>")
+                .toByteArray(Charsets.UTF_16LE)
+        val archive = epub(mapOf("OEBPS/a.xhtml" to xhtml("<p>x</p>")), mapOf("OEBPS/content.opf" to utf16))
+
+        EpubBook.parse(archive).metadata.title shouldBe "Café"
+    }
+
+    @Test
     fun `a file that is not an EPUB says so`() {
         shouldThrow<EpubException> { EpubBook.parse { emptyMap() } }.kind shouldBe EpubException.Kind.NotAnEpub
     }
