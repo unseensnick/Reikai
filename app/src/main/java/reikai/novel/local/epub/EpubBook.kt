@@ -168,7 +168,11 @@ class EpubBook(
                         ?: li.childrenLocal("span").firstOrNull()?.firstLocal("a")
                     val title = (link ?: li.childrenLocal("span").firstOrNull())?.text()?.trim()
                     val href = link?.attr("href")?.takeIf { it.isNotBlank() }
-                    if (href != null && !title.isNullOrEmpty()) entries += entry(base, href, title, depth)
+                    if (href != null &&
+                        !title.isNullOrEmpty()
+                    ) {
+                        entries += entry(base, href, title, depth, entries.lastOrNull())
+                    }
                     li.children().firstOrNull { it.localName() == "ol" || it.localName() == "ul" }
                         ?.let { walk(it, depth + 1) }
                 }
@@ -186,7 +190,11 @@ class EpubBook(
                 for (point in parent.childrenLocal("navPoint")) {
                     val title = point.childrenLocal("navLabel").firstOrNull()?.firstLocal("text")?.text()?.trim()
                     val src = point.childrenLocal("content").firstOrNull()?.attr("src")
-                    if (!title.isNullOrEmpty() && !src.isNullOrBlank()) entries += entry(base, src, title, depth)
+                    if (!title.isNullOrEmpty() &&
+                        !src.isNullOrBlank()
+                    ) {
+                        entries += entry(base, src, title, depth, entries.lastOrNull())
+                    }
                     walk(point, depth + 1)
                 }
             }
@@ -194,10 +202,18 @@ class EpubBook(
             return entries
         }
 
-        private fun entry(base: String, href: String, title: String, depth: Int): EpubTocEntry {
+        /** A fragment-only [href] (`#ch2`) points into the [previous] entry's file, as other readers take it. */
+        private fun entry(
+            base: String,
+            href: String,
+            title: String,
+            depth: Int,
+            previous: EpubTocEntry?,
+        ): EpubTocEntry {
             val file = href.substringBefore('#')
             val fragment = href.substringAfter('#', "").ifEmpty { null }?.let(::decode)
-            return EpubTocEntry(title.replace(WHITESPACE, " "), resolve(base, file), fragment, depth)
+            val path = if (file.isEmpty() && previous != null) previous.path else resolve(base, file)
+            return EpubTocEntry(title.replace(WHITESPACE, " "), path, fragment, depth)
         }
 
         /** What the identifier of a book Reikai exported starts with. */

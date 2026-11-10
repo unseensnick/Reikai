@@ -80,6 +80,29 @@ class EpubBookTest {
     }
 
     @Test
+    fun `a fragment-only nav entry points into the previous entry's file`() {
+        book(
+            "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
+            "OEBPS/nav.xhtml" to nav("One" to "a.xhtml#c1", "Two" to "#c2"),
+            "OEBPS/a.xhtml" to xhtml("<p id=\"c1\">x</p><p id=\"c2\">y</p>"),
+        ).toc.map { it.path to it.fragment } shouldBe listOf("OEBPS/a.xhtml" to "c1", "OEBPS/a.xhtml" to "c2")
+    }
+
+    @Test
+    fun `a fragment-only NCX entry points into the previous entry's file`() {
+        val ncx = """<?xml version="1.0"?>
+<ncx xmlns="http://www.daisy.org/z3986/2005/ncx/" version="2005-1"><navMap>
+  <navPoint id="1"><navLabel><text>One</text></navLabel><content src="a.xhtml"/></navPoint>
+  <navPoint id="2"><navLabel><text>Two</text></navLabel><content src="#c2"/></navPoint>
+</navMap></ncx>"""
+        book(
+            "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), ncx = "toc.ncx"),
+            "OEBPS/toc.ncx" to ncx,
+            "OEBPS/a.xhtml" to xhtml("<p>x</p><p id=\"c2\">y</p>"),
+        ).toc.map { it.title } shouldBe listOf("One", "Two")
+    }
+
+    @Test
     fun `a nested contents keeps its depth`() {
         book(
             "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml"), nav = "nav.xhtml"),
