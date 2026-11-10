@@ -43,8 +43,10 @@ class DuplicateMarking(
         combine(show.changes(), skipDuplicates.changes(), repository.marks(type)) { shown, skipping, marks ->
             marks.takeIf { shown && skipping }
         }.stateIn(
+            // A screen builds a marking per composition entry over its model's scope, which outlives that
+            // entry, so an eager start leaves a collector behind each time.
             scope,
-            SharingStarted.Eagerly,
+            SharingStarted.WhileSubscribed(),
             repository.marks(type).value.takeIf { show.get() && skipDuplicates.get() },
         )
 
