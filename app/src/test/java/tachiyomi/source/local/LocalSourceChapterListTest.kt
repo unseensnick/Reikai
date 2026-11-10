@@ -53,6 +53,13 @@ class LocalSourceChapterListTest {
     }
 
     @Test
+    fun `a series folder that lists no chapter file fails the refresh`() = runTest {
+        File(root, "Empty").mkdirs()
+
+        runCatching { chapterUrls("Empty") }.isFailure shouldBe true
+    }
+
+    @Test
     fun `a folder the system left inside a chapter folder keeps it one chapter`() = runTest {
         File(root, "Saga/Ch 1/__MACOSX").mkdirs()
         File(root, "Saga/Ch 1/001.jpg").writeBytes(byteArrayOf(1))

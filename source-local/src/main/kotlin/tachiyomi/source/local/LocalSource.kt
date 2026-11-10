@@ -45,6 +45,7 @@ import tachiyomi.core.metadata.comicinfo.copyFromComicInfo
 import tachiyomi.core.metadata.comicinfo.getComicInfo
 import tachiyomi.core.metadata.comicinfo.setLocalLanguage
 import tachiyomi.core.metadata.tachiyomi.MangaDetails
+import tachiyomi.domain.chapter.model.NoChaptersException
 import tachiyomi.domain.chapter.service.ChapterRecognition
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
@@ -356,6 +357,9 @@ class LocalSource(
             }
             .inUserVolumeOrder(manga.url) // RK
             .numberingExtras() // RK
+        // RK: no chapter at all is also how a picked folder's failed listing reads, so the refresh fails rather
+        // than deleting every row, as a local novel with no book does
+        if (chapters.isEmpty()) throw NoChaptersException()
 
         // Copy the cover from the first chapter found if not available
         if (manga.thumbnail_url.isNullOrBlank()) {
