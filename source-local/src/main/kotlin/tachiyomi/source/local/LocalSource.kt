@@ -31,6 +31,7 @@ import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
+import reikai.source.local.isVolumeCover
 import reikai.source.local.localVolumeChapter
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
@@ -432,7 +433,7 @@ class LocalSource(
     // By name alone, as a picture-named folder is never a chapter: each isDirectory is a query on a picked folder.
     private fun UniFile.isPicture() = ImageUtil.isImage(name)
 
-    private fun UniFile.isNamedCover() = name.orEmpty().substringBeforeLast('.').lowercase() in setOf("cover", "folder")
+    private fun UniFile.isNamedCover() = isVolumeCover(this)
     // RK <--
 
     // RK: a chapter's own file or folder, in a series folder or a volume folder; never a folder a system keeps

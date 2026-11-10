@@ -13,6 +13,7 @@ import mihon.core.archive.archiveReader
 import mihon.core.archive.epubReader
 import mihon.data.cache.ChapterCache
 import reikai.presentation.reader.ReaderResume
+import reikai.source.local.isVolumeCover
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
@@ -107,7 +108,12 @@ class ChapterLoader(
             )
             source is LocalSource -> source.getFormat(chapter.chapter.toSChapter()).let { format ->
                 when (format) {
-                    is Format.Directory -> DirectoryPageLoader(format.file)
+                    // RK: an Extras chapter, addressed by its volume folder, opens that folder without its cover
+                    is Format.Directory -> if (chapter.chapter.url.endsWith('/')) {
+                        DirectoryPageLoader(format.file, skips = ::isVolumeCover)
+                    } else {
+                        DirectoryPageLoader(format.file)
+                    }
                     is Format.Archive -> ArchivePageLoader(format.file.archiveReader(context))
                     is Format.Epub -> EpubPageLoader(format.file.epubReader(context))
                 }
