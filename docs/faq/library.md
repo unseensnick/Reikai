@@ -106,3 +106,6 @@ sorts and still groups with its other sources. This is deliberate: it keeps a re
 silently reshuffling your library or splitting a merged series. The edit is stored separately
 and never overwrites the source, so **Reset all** in Edit info restores the original cleanly (**Reset info** and
 **Reset tags** put back just those fields, applied when you save).
+
+## How do I see how far a library update has got?
+While a library update runs, a banner at the top of the screen shows it with a percentage, counting manga and novels together. A backup restore shows one the same way. To hide them, turn off **Show library update progress banner** in <nav to="library"> or **Show restore progress banner** in <nav to="data-and-storage">.

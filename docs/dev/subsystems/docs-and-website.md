@@ -8,7 +8,7 @@ How Reikai's documentation is organised and published. User docs live in this re
 
 ### The tiers
 
-- **User docs**, `docs/*.md`, `docs/guides/`, `docs/faq/`, with their illustrations beside them and the shared file-tree icons in `docs/img/`. Most top-level feature pages, and the backups, categories and tracking guides, open with an italic `_Dev records: ..._` line pointing at the dev docs for its area; the FAQ, the other guides, `about.md`, `novel-reader.md` and `shared-links.md` carry none. `docs/README.md` is the front door and carries the topic map (feature area to user doc and dev records).
+- **User docs**, `docs/*.md`, `docs/guides/`, `docs/faq/`, with their illustrations beside them and the shared file-tree icons in `docs/img/`. Most top-level feature pages, and the backups, categories and tracking guides, open with an italic `_Dev records: ..._` line pointing at the dev docs for its area; the FAQ, the other guides, `about.md` and `novel-reader.md` carry none. `docs/README.md` is the front door and carries the topic map (feature area to user doc and dev records).
 - **Dev reference**, `docs/dev/`: `docs/dev/README.md` is its front door, with the "what to update when you finish something" table and who owns which fact. Process records (`upstream-sync.md`, `feature-ports.md`, `off-path-manifest.md`, `parked.md`), `recipes.md` and `testing.md` sit at its top level.
 - **Subsystem docs**, `docs/dev/subsystems/`: one page per subsystem describing how it works now, rewritten in place. The template and rules are its [README](README.md).
 - **Plans**, `docs/dev/plans/`: in-flight design only. Once the work lands, its lasting content moves into a subsystem doc and the plan is deleted.

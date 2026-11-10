@@ -38,6 +38,8 @@ Downloads might not be detected due to multiple factors:
   > Rename the source's folder to match the new name. Light novel folders use the source's id, so a renamed novel source needs nothing.
 * Series title modified by the source.
   > Adjust the folder title to the updated name.
+* Chapters added or removed outside the app.
+  > Reikai checks the downloads folder for those changes on a schedule, set by **Recheck downloads folder** in <nav to="downloads">: from **Every hour**, the default, to **Daily**, or **Manual**, which checks only when you tap **Reindex downloads** in <nav to="advanced">. The setting covers manga and novels. To see a change straight away, tap **Reindex downloads**.
 
 ## How do I manage what's downloading?
 Navigate to <nav to="download-queue"> to interact with queued downloads.

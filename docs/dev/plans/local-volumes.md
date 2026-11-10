@@ -33,12 +33,17 @@ Merging separate local volumes is the only way to keep them together today, and 
 
 - `app/src/main/java/reikai/novel/local/LocalNovelSource.kt` (`localChapters`, `chapterPath`, `volumeLabel`) and `VolumeOrder.kt` (`inVolumeOrder`).
 - `source-local/src/main/kotlin/tachiyomi/source/local/LocalSource.kt` (Mihon's; `getChapterList`).
-- `app/src/main/java/reikai/data/local/LocalImport.kt` (`groupSeries`, `groupKey`) and `LocalImportScreen.kt`.
+- `app/src/main/java/reikai/data/local/LocalImport.kt` (`groupSeries`, `groupKey`) and `app/src/main/java/reikai/presentation/local/LocalImportScreen.kt`.
 - `app/src/main/java/reikai/presentation/details/EntryDetailsContent.kt` (`entryChapterItems`) and `EntryDetailsScreenState.kt` (`EntryChapterListItem`).
 - `app/src/main/java/reikai/presentation/reader/ReaderChapterListDialog.kt`, `ReaderChapterList.kt`.
 - `app/src/main/java/eu/kanade/presentation/reader/ChapterTransition.kt` and `reikai/presentation/reader/text/NovelSeam.kt` (`TransitionChapter`).
 - `app/src/main/java/reikai/presentation/components/MergeSourceChips.kt`, `ManageMergeSourcesDialog.kt`, `SettledReorder.kt`.
 - `app/src/main/java/reikai/domain/download/DownloadFolderRename.kt` (`renameDownloadFolder`), the rename pattern the file kernel extends.
+
+## Open questions
+
+- **A volume chip's own menu** (rename, split out or delete one volume from its chip): build it, or keep those actions in ⋮ only, where they are now.
+- **Merged sources that have volumes**: waits for a request on GitHub ([parked.md](../parked.md)); the design to use if it is revived is in Approach.
 
 ## Decisions & tradeoffs
 

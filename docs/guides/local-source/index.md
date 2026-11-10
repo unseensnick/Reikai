@@ -42,7 +42,7 @@ Reikai reads each file and shows it as the series it will become, with its cover
   decoding="async"
 />
 
-The files are copied into the folders described below, so you can delete the originals afterwards. Importing a file that is already there skips it, and a new volume of a series you have already imported joins that series.
+The files are copied into the folders described below, so you can delete the originals afterwards. When a file is already there, you choose to replace it, keep both copies, or skip it. A book that belongs to a series you already have is added to it as a new volume; tap **Keep separate** to import it as a series of its own, or **Add to series** to pick another series for it.
 
 Files protected with DRM cannot be read. Remove the protection with the tool you bought the book from, or buy it DRM-free.
 
@@ -212,3 +212,52 @@ All images inside the archive regardless of folder structure will become pages f
 A series split into volumes can keep each volume in a folder of its own inside the `Series` folder, such as `Vol 01` and `Vol 02`, with the volume's chapter archives or chapter folders inside it. Reikai reads one level of volume folders and names each chapter with its volume in front, like `Vol 02 - Ch 011`. A folder that holds only pictures is still read as one chapter.
 
 A picture in a volume folder named `cover` or `folder`, or the only picture there, is that volume's cover on its header. Any other pictures beside the chapters read as an Extras chapter at the start of the volume.
+
+## Managing volumes
+
+Everything here works the same for local manga and local novels. A manga volume is a volume folder, and a novel volume is one EPUB book. Files only move between series of the same type.
+
+### Volume chips
+
+A local series with two or more volumes lists its chapters under a header per volume, with a row of chips above them. **All volumes** shows every volume; a volume's chip shows only that one. Reikai remembers the chip you left each series on and opens it there next time.
+
+A header shows the volume's cover and how many of its chapters you have read. Tap it to select the volume's chapters, or use its button to mark them all read or unread.
+
+### Combining series into one
+
+Two ways to turn separate local series into one series with volumes:
+
+* **From the library.** Select two or more local series of one type and tap **Combine as volumes** in the bar at the bottom, where **Merge** usually sits. Under **Keep as the series**, pick the one that stays, then tap **Combine**.
+* **From the series that receives them.** Open it and pick **Add volumes** in the <nav to="overflow"> menu. Tick the other local series in your library that should move in, then tap **Add**.
+
+The other series move in as volumes and leave the library, and their read progress comes with them. A [merged series](/docs/multi-source) made only of local series offers **Combine as volumes** in **Manage sources** too: the merge is undone and the series you opened takes the others in.
+
+### Splitting volumes out
+
+**Split out volumes** in the <nav to="overflow"> menu does the reverse. Tick the volumes to take out and check the **Series name**, which starts as the series title plus the first ticked volume's label. Tap **Split out**, and those volumes become one new series in the library, with their read progress.
+
+### Reordering and renaming volumes
+
+**Reorder volumes** in the <nav to="overflow"> menu lists the volumes. Drag one by its handle to change the order; chapters sorted by source are read in the order you set. Tap the pencil to rename a volume's label, or **Reset** to go back to the name its file gives. These names and the order stay in the app; your files keep their names unless you also rename the files.
+
+### Renaming files
+
+**Rename files** in the <nav to="overflow"> menu gives the files on the device the names shown in the app. The series folder takes the series title. A manga volume folder takes its volume label, and a novel book takes the series title and its volume label. Every old name is listed with its new one before anything changes, and **Rename** goes ahead. Read progress stays.
+
+If another series already uses the folder name, Reikai picks a free one, like `Title (2)`, and says so. **Choose another name** lets you type your own, which then becomes the series title as well.
+
+**Edit info** and **Reorder volumes** offer **Also rename files** once you change the title or a volume's name. Leave it ticked to go straight to **Rename files** when you close them.
+
+### Deleting volumes
+
+**Delete volumes** in the <nav to="overflow"> menu lists each volume with its file name and read count. Tick the ones to remove and tap **Delete**. Reikai asks once more, because the files are deleted from the device and this cannot be undone.
+
+When two volumes show the same label, for example after combining two series that both had a Vol. 1, a notice above the chips says so. **Keep all** keeps every copy and names the later ones `Vol. 1 (2)` and up. **Delete some** opens **Delete volumes** with just those volumes, so you can pick the copies you do not want.
+
+### Undoing a move
+
+Combining, adding volumes, splitting out and renaming files each show a message with **Undo**. Undo puts the files, chapters and library entries back where they were. Deleting volumes has no undo.
+
+### Opening the folder
+
+**Open folder** in the <nav to="overflow"> menu opens the series' folder in a file manager app. For a novel that is a single EPUB with no folder of its own, it opens the folder the book sits in.
