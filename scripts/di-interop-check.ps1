@@ -253,7 +253,7 @@ $unregistered = @($mustResolve | Where-Object { -not $knownRegistered.Contains($
 # Upstream hands these back for the extension contract, so they have no reader in this tree and never
 # will. Anything else with no reader is either debt or a mistake, and fails below.
 $upstreamContract = @(
-    'Application', 'ProtoBuf', 'JavaScriptEngine'
+    'Application', 'Json', 'ProtoBuf', 'XML', 'JavaScriptEngine'
 )
 $unread = @(
     $interopTypes |
