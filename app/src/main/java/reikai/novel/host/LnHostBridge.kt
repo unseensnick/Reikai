@@ -129,6 +129,13 @@ class LnHostBridge(
         if (value == null) pref.delete() else pref.set(value)
     }
 
+    /** Everything [pluginId] has stored, in a stable order, so a change to any of it can be told apart. */
+    fun storageSnapshot(pluginId: String): String {
+        val scope = lnStorageScope(pluginId)
+        return preferenceStore.getAll().filterKeys { it.startsWith(scope) }.toSortedMap()
+            .entries.joinToString("\u0000") { (key, value) -> "$key=$value" }
+    }
+
     fun log(level: String, message: String) {
         when (level.lowercase()) {
             "error" -> logcat(LogPriority.ERROR) { message }

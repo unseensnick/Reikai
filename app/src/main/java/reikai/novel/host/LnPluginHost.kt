@@ -8,6 +8,7 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.NetworkHelper
+import eu.kanade.tachiyomi.util.lang.Hash
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -45,6 +46,7 @@ import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.logcat
+import java.io.File
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -129,6 +131,10 @@ class LnPluginHost(
     // Read from assets once and evaluated into every engine, in order.
     private val runtimeScripts: List<String> by lazy { RUNTIME_ASSETS.map(::asset) }
 
+    private val runtimeHash: String by lazy { Hash.sha256(runtimeScripts.joinToString("\u0000")) }
+
+    private val infoCache by lazy { LnPluginInfoCache(File(appContext.filesDir, INFO_CACHE_DIR)) }
+
     /** Create the slot's engine, load the runtime, and replay the plugin load if the slot has one. The
      *  engine is kept only once all of that succeeded: a half-built one answered "plugin not loaded" to
      *  every call until it idled out. Caller must hold the slot's mutex and be inside [EngineSlot.onThread]. */
@@ -152,7 +158,25 @@ class LnPluginHost(
         qjs = q
         lastUsedMs = System.currentTimeMillis()
         ensureSweeper()
+        trimLiveEngines()
         return q
+    }
+
+    /** A search over every plugin leaves one engine and thread live per plugin until it idles out, so
+     *  past [MAX_LIVE_ENGINES] the least recently used are closed now. A slot mid-call is skipped. */
+    private fun trimLiveEngines() {
+        val retire = enginesOverCap(pluginSlots.values.filter { it.qjs != null }, MAX_LIVE_ENGINES) { it.lastUsedMs }
+        if (retire.isEmpty()) return
+        scope.launch(Dispatchers.Default) {
+            retire.forEach { slot ->
+                if (!slot.mutex.tryLock()) return@forEach
+                try {
+                    if (slot.qjs != null) closeLocked(slot)
+                } finally {
+                    slot.mutex.unlock()
+                }
+            }
+        }
     }
 
     private suspend fun EngineSlot.setUp(q: QuickJs, scripts: List<String>) {
@@ -208,7 +232,9 @@ class LnPluginHost(
         expectedId: String? = null,
         trustedId: String? = expectedId,
     ): LnPluginInfo = withPluginTimeout(LOAD_TIMEOUT_MS, "inspectPlugin") {
-        val info = inspectPermits.withPermit { readInfo(source, expectedId, trustedId) }
+        val info = cachedInfo(source, expectedId, trustedId) {
+            inspectPermits.withPermit { readInfo(source, expectedId, trustedId) }
+        }
         if (expectedId != null && info.id != expectedId) {
             throw LnPluginException("now declares the id ${info.id}, installed as $expectedId")
         }
@@ -227,6 +253,29 @@ class LnPluginHost(
         val slot = pluginSlots.getOrPut(pluginId) { EngineSlot(pluginId, EngineStorage(bridge, pluginId)) }
         slot.source = source
         slot.rebuild = true
+    }
+
+    /**
+     * [read] once per installed plugin and change, through [LnPluginInfoCache]. Only an installed plugin
+     * ([expectedId] known) is cached, since the file is named by its id; a new install is always read.
+     */
+    private suspend fun cachedInfo(
+        source: String,
+        expectedId: String?,
+        trustedId: String?,
+        read: suspend () -> LnPluginInfo,
+    ): LnPluginInfo {
+        if (expectedId == null) return read()
+        return withIOContext {
+            val key = infoKey(source, trustedId)
+            infoCache.get(expectedId, key) ?: read().also { infoCache.put(expectedId, key, it) }
+        }
+    }
+
+    /** Everything a read of [source] sees: the runtime, the script, and the storage [trustedId] opens to it. */
+    internal fun infoKey(source: String, trustedId: String?): String {
+        val storage = trustedId?.let(bridge::storageSnapshot).orEmpty()
+        return LnPluginInfoCache.key(runtimeHash, "$trustedId\u0000$source", storage)
     }
 
     private suspend fun readInfo(source: String, expectedId: String?, trustedId: String?): LnPluginInfo {
@@ -498,6 +547,12 @@ class LnPluginHost(
         private const val IDLE_CLOSE_MS = 60_000L
         private const val SWEEP_INTERVAL_MS = 30_000L
 
+        // Above the fan-out a global search runs at, so a search never closes an engine it is still using.
+        private const val MAX_LIVE_ENGINES = 8
+
+        // Under filesDir rather than cacheDir, which the system trims and every cold start would then pay for.
+        private const val INFO_CACHE_DIR = "lnplugin-info"
+
         // headless.js last: it wires the shims over the vendor globals.
         internal val RUNTIME_ASSETS = listOf(
             "lnhost/vendor/dayjs.min.js",
@@ -534,6 +589,10 @@ internal class EngineStorage(private val bridge: LnHostBridge, @Volatile var id:
 }
 
 class LnPluginException(message: String, cause: Throwable? = null) : Exception(message, cause)
+
+/** The [live] engines to close to bring them down to [cap], least recently [lastUsed] first. */
+internal fun <T> enginesOverCap(live: List<T>, cap: Int, lastUsed: (T) -> Long): List<T> =
+    live.sortedBy(lastUsed).take((live.size - cap).coerceAtLeast(0))
 
 /** A plugin's chapter body. A null or undefined one is no text, which FetchFailures reads as empty; `content` is "null". */
 internal fun chapterText(raw: JsonElement): String = raw.jsonPrimitive.contentOrNull.orEmpty()

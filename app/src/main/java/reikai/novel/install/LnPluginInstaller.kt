@@ -76,8 +76,15 @@ class LnPluginInstaller(
 
     // Canonical URLs already loaded + registered this process. ensureLoaded retries only the installed
     // URLs NOT in here, so a plugin whose load failed once (a missing script's download hitting a
-    // network blip or Cloudflare) heals on the next novel-screen open instead of needing a cold restart.
+    // network blip or Cloudflare) heals on a later novel-screen open instead of needing a cold restart.
     private val loadedUrls: MutableSet<String> = ConcurrentHashMap.newKeySet()
+
+    // When each failed URL last failed. Every novel screen waits on the pass, so a plugin that keeps failing
+    // is retried at most once per RETRY_FAILED_AFTER_MS rather than on every open; loadInstalled ignores it.
+    private val failedAt = ConcurrentHashMap<String, Long>()
+
+    // The clock the retry wait reads; a test sets it.
+    internal var now: () -> Long = System::currentTimeMillis
 
     /**
      * Installed plugins whose last load failed, by canonical URL. Kept until a load or install of that
@@ -91,7 +98,7 @@ class LnPluginInstaller(
     private var firstLoadDone = false
 
     /** Load any installed plugins not yet registered this process, in parallel. Retries previously
-     *  failed ones on each call, so navigating to a novel screen self-heals a transient load failure. */
+     *  failed ones once their wait is up, so a novel screen opened later self-heals a transient failure. */
     suspend fun ensureLoaded() {
         loadMutex.withLock { loadPendingLocked() }
     }
@@ -108,7 +115,10 @@ class LnPluginInstaller(
 
     // Not marked done when cancelled, so a screen closed mid-load leaves the next lookup to load.
     private suspend fun loadPendingLocked() {
-        loadUrlsLocked(prefs.installedPluginUrls().get() - loadedUrls)
+        val at = now()
+        val due = (prefs.installedPluginUrls().get() - loadedUrls)
+            .filterTo(mutableSetOf()) { url -> failedAt[url]?.let { at - it >= RETRY_FAILED_AFTER_MS } ?: true }
+        loadUrlsLocked(due)
         firstLoadDone = true
     }
 
@@ -223,9 +233,11 @@ class LnPluginInstaller(
             }.onSuccess { source ->
                 manager.register(source)
                 loadedUrls += url
+                failedAt -= url
                 failures.update { it - url }
                 recordLoadedVersion(url, source)
             }.onFailure { error ->
+                failedAt[url] = now()
                 val seen = prefs.seenNovelSources().get()[metadata?.pluginId]
                 failures.update { it + (url to LnPluginLoadFailure.of(url, error, metadata, seen)) }
             }.getOrNull()
@@ -420,3 +432,6 @@ class LnPluginInstaller(
  */
 fun canonicalizePluginUrl(url: String): String =
     url.replace("[", "%5B").replace("]", "%5D")
+
+/** How long a failed plugin waits before an on-open pass loads it again. */
+private const val RETRY_FAILED_AFTER_MS = 60_000L
