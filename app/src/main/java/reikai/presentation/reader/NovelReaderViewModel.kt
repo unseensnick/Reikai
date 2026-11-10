@@ -261,7 +261,10 @@ class NovelReaderViewModel(
     val bookmarked: StateFlow<Boolean>
         field = MutableStateFlow(false)
 
-    fun retryLoad() = load()
+    fun retryLoad() {
+        textLoader.retryFailedPlugin()
+        load()
+    }
 
     /** The chapter the pending open fetches from its source rather than its downloaded copy. Any other
      *  open clears it, and Retry keeps it. */

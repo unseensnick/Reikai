@@ -160,12 +160,16 @@ class NovelReaderViewModelHarness private constructor(
     /** The installed plugins that threw while loading, by URL. */
     val pluginFailures = MutableStateFlow<Map<String, LnPluginLoadFailure>>(emptyMap())
 
+    /** What a Retry on one plugin's failed load does, by plugin id; nothing loads unless a test says so. */
+    var onPluginRetry: (pluginId: String) -> Unit = {}
+
     private val installer = mockk<LnPluginInstaller>(relaxed = true) {
         every { failures } returns pluginFailures
         coEvery { ensureLoaded() } coAnswers {
             pluginLoadGate.await()
             pluginLoads.release()
         }
+        coEvery { retryLoad(any()) } answers { onPluginRetry(firstArg()) }
     }
     private val sourceManager = NovelSourceManager(
         // On the test scheduler, or a source lookup waits on a real thread advanceUntilIdle cannot see

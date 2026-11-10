@@ -55,6 +55,14 @@ class NovelChapterTextLoader(
     @Volatile
     private var pluginsLoaded = false
 
+    /** Set by the user's Retry: the next lookup of a source that is not there loads its plugin again. */
+    @Volatile
+    private var retryMissingPlugin = false
+
+    fun retryFailedPlugin() {
+        retryMissingPlugin = true
+    }
+
     /** The source resolved for [novelId] so far, if a chapter of it has already loaded. */
     fun cachedSource(novelId: Long): NovelSource? = sourcesByNovel[novelId]
 
@@ -116,12 +124,21 @@ class NovelChapterTextLoader(
         }
         val sourceId = novelRepo.getById(forNovelId)?.source ?: error("Novel not found")
         val resolved = sourceManager.get(sourceId)
+            ?: retriedSource(sourceId)
             ?: error(
                 installer.failures.value.describing(sourceId, context)
                     ?: context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(sourceId)),
             )
         sourcesByNovel[forNovelId] = resolved
         return resolved
+    }
+
+    // The details and catalogue Retry go through the same installer call.
+    private suspend fun retriedSource(sourceId: String): NovelSource? {
+        if (!retryMissingPlugin) return null
+        retryMissingPlugin = false
+        runCatchingCancellable { installer.retryLoad(sourceId) }
+        return sourceManager.get(sourceId)
     }
 }
 
