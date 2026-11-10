@@ -20,7 +20,9 @@ class ArchiveReader(pfd: ParcelFileDescriptor) : Closeable {
         val found = HashMap<String, ByteArray>()
         while (found.size < names.size) {
             val entry = archive.getNextEntry() ?: break
-            if (entry.isFile && entry.name in names) found[entry.name] = archive.readBytes()
+            // A zip written on Windows can name `META-INF\container.xml`; a name asked for as listed still matches.
+            val name = entry.name.takeIf { it in names } ?: entry.name.replace('\\', '/')
+            if (entry.isFile && name in names) found[name] = archive.readBytes()
         }
         found
     }

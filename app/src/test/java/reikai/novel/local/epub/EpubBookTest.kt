@@ -34,6 +34,11 @@ class EpubBookTest {
         EpubBook.looksLikeEpub(listOf("OEBPS/content.opf", "OEBPS/a.jpg")) shouldBe true
     }
 
+    @Test
+    fun `an archive zipped with backslash paths is an EPUB`() {
+        EpubBook.looksLikeEpub(listOf("mimetype", "META-INF\\container.xml")) shouldBe true
+    }
+
     // Browse lists every local series through this read, so it must stay off the chapter files.
     @Test
     fun `reading a book's details reads none of its chapter files`() {

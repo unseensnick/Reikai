@@ -50,8 +50,8 @@ class EpubBook(
 
     companion object {
         /** Whether an archive holding [entryNames] is a book [parse] can open: a container, or its default package. */
-        fun looksLikeEpub(entryNames: Collection<String>): Boolean =
-            CONTAINER in entryNames || DEFAULT_PACKAGE in entryNames
+        fun looksLikeEpub(entryNames: Collection<String>): Boolean = entryNames.map { it.replace('\\', '/') }
+            .let { CONTAINER in it || DEFAULT_PACKAGE in it }
 
         fun parse(archive: EpubArchive): EpubBook {
             val packagePath = archive.readText(CONTAINER)?.let(::xml)?.firstLocal("rootfile")?.attr("full-path")
