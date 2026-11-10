@@ -52,6 +52,7 @@ import reikai.domain.novel.ownersOf
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.domain.source.SourceTitlesRepository
 import reikai.novel.install.LnPluginInstaller
+import reikai.novel.install.describing
 import reikai.novel.source.EmptyChapterException
 import reikai.novel.source.NovelSourceManager
 import reikai.util.inOrderOf
@@ -517,11 +518,14 @@ class NovelDownloadManager(
             adultChecker::adultNovelIdsAmong,
         )
         // No retry or Resume can fetch from a source that is gone, so the row fails at once and leaves the
-        // saved queue, as Mihon's DownloadStore.restore drops a manga row whose source is missing.
+        // saved queue, as Mihon's DownloadStore.restore drops a manga row whose source is missing. An
+        // installed plugin that failed to load keeps its row, since the next run's ensureLoaded retries it.
         if (novel != null && source == null) {
-            val reason = context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(novel.source))
+            val loadFailure = installer.failures.value.describing(novel.source, context)
+            val reason = loadFailure
+                ?: context.stringResource(MR.strings.source_not_installed, sourceManager.nameOf(novel.source))
             setState(next.chapterId, NovelDownload.State.ERROR, reason)
-            removeSaved(listOf(next.chapterId))
+            if (loadFailure == null) removeSaved(listOf(next.chapterId))
             onError(shown, chapter?.name, reason, isAdult)
             return
         }
