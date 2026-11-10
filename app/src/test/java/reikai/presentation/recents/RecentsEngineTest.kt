@@ -16,6 +16,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,6 +31,7 @@ import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.extension.RegisterExtension
 import org.junit.jupiter.params.ParameterizedTest
@@ -57,6 +59,7 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.updates.service.UpdatesPreferences
 import tachiyomi.i18n.MR
 import kotlin.coroutines.ContinuationInterceptor
+import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Instant
 
 /**
@@ -1514,6 +1517,24 @@ class RecentsEngineTest {
         fake.changeTargetInput()
 
         engine.targets.first { it.isEmpty() } shouldBe emptyMap()
+    }
+
+    /**
+     * A library update writes the chapter table once per entry, and a clear per write sent every drawn
+     * row back to loading its whole chapter list. The wait is real time: the assembly runs on Default.
+     */
+    @Test
+    fun `a target input change keeps the resolved rows until the changes go quiet`() = runTest {
+        val row = readRow(manga1, chapterId = 5)
+        val target = targetRow(ref(manga1, 2), readState(read = false))
+        val fake = resolvingProvider(row, target)
+        val engine = resolvedFeed(fake, row)
+        fake.awaitTargetInputWatcher()
+
+        fake.changeTargetInput()
+        withContext(Dispatchers.Default) { delay(100.milliseconds) }
+
+        engine.targets.value shouldBe mapOf(row.lane to target)
     }
 
     /**
