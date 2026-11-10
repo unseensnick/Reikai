@@ -11,7 +11,9 @@ import kotlinx.coroutines.flow.map
 import reikai.domain.category.categoryFilterActive
 import reikai.domain.category.matchesCategoryFilter
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.TagFilter
 import reikai.domain.library.effectiveIntervalFilter
+import reikai.domain.library.tagFilterFlow
 import reikai.presentation.category.toLongIdSet
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -37,6 +39,7 @@ data class LibraryFilterSettings(
     val categoriesEnabled: Boolean,
     val categoriesInclude: Set<Long>,
     val categoriesExclude: Set<Long>,
+    val tags: TagFilter = TagFilter(),
 ) {
     private val effectiveInterval get() = effectiveIntervalFilter(skipsOutsideReleasePeriod, intervalCustom)
 
@@ -44,7 +47,7 @@ data class LibraryFilterSettings(
 
     /** Whether the filter icon lights. Downloaded-only mode is left out: it is a global mode, not a filter. */
     val isActive: Boolean
-        get() = categoriesActive ||
+        get() = categoriesActive || tags.isActive ||
             listOf(downloaded, unread, started, bookmarked, completed, effectiveInterval, lewd)
                 .plus(trackers.values)
                 .any { it != TriState.DISABLED }
@@ -62,6 +65,7 @@ data class LibraryFilterSettings(
         categoriesActive = categoriesActive,
         categoriesInclude = categoriesInclude,
         categoriesExclude = categoriesExclude,
+        tags = tags,
     )
 }
 
@@ -95,13 +99,18 @@ fun libraryFilterSettingsFlow(
         reikaiLibraryPreferences.filterCategoriesExclude.changes(),
         ::Triple,
     ),
-    combine(reikaiLibraryPreferences.filterLewd.changes(), basePreferences.downloadedOnly.changes(), ::Pair),
+    combine(
+        reikaiLibraryPreferences.filterLewd.changes(),
+        basePreferences.downloadedOnly.changes(),
+        reikaiLibraryPreferences.tagFilterFlow(),
+        ::Triple,
+    ),
     trackerFiltersFlow(libraryPreferences, trackerManager),
 ) {
         progress,
         (interval, skipsOutsideReleasePeriod),
         (categoriesEnabled, include, exclude),
-        (lewd, downloadedOnly),
+        (lewd, downloadedOnly, tags),
         trackers,
     ->
     LibraryFilterSettings(
@@ -118,6 +127,7 @@ fun libraryFilterSettingsFlow(
         categoriesEnabled = categoriesEnabled,
         categoriesInclude = include.toLongIdSet(),
         categoriesExclude = exclude.toLongIdSet(),
+        tags = tags,
     )
 }
 
@@ -165,6 +175,7 @@ data class LibraryFilterPrefs(
     val categoriesActive: Boolean,
     val categoriesInclude: Set<Long>,
     val categoriesExclude: Set<Long>,
+    val tags: TagFilter = TagFilter(),
 )
 
 /**
@@ -184,6 +195,7 @@ class LibraryFilterFields<T>(
     val isLewd: (T) -> Boolean,
     val trackerIds: (T) -> List<Long>,
     val categoryIds: (T) -> Collection<Long>,
+    val tags: (T) -> Collection<String>,
 )
 
 /** Whether [row] passes every active axis of [prefs]. Pure over the [fields] accessors. */
@@ -203,7 +215,8 @@ fun <T> libraryFilterMatches(
         (
             !prefs.categoriesActive ||
                 matchesCategoryFilter(fields.categoryIds(row), prefs.categoriesInclude, prefs.categoriesExclude)
-            )
+            ) &&
+        (!prefs.tags.isActive || prefs.tags.matches(fields.tags(row)))
 
 /**
  * The include/exclude tri-state over a group's unioned tracker ids, shared by both libraries. An entry

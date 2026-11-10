@@ -33,6 +33,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import cafe.adriel.voyager.navigator.LocalNavigator
+import cafe.adriel.voyager.navigator.currentOrThrow
 import eu.kanade.presentation.manga.components.ChapterHeader
 import eu.kanade.presentation.manga.components.GalleryInfoBox
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
@@ -42,6 +44,7 @@ import eu.kanade.presentation.manga.components.PagePreviews
 import eu.kanade.presentation.manga.components.SearchMetadataChips
 import eu.kanade.tachiyomi.util.system.toast
 import kotlinx.coroutines.launch
+import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
@@ -78,6 +81,8 @@ data class EntryDetailsNavigation(
     /** Header title / author / artist tap: a global search, scoped to this entry's type. */
     val onGlobalSearch: (query: String) -> Unit,
     val onTagSearch: (String) -> Unit,
+    /** A tag's Show only / Hide this tag, which set the library's tag filter; filled by the shared body. */
+    val onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)? = null,
     /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. */
     val onOpenTrackingSettings: () -> Unit,
     val onEditNotes: () -> Unit,
@@ -132,8 +137,15 @@ fun EntryDetailsContent(
     nav: EntryDetailsNavigation,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val web = rememberEntryWebActions(state.webPage, state.details.header.title)
-    val libraryNav = nav.forState(state)
+    val navigator = LocalNavigator.currentOrThrow
+    val libraryPreferences = remember { context.appGraph.reikaiLibraryPreferences }
+    val libraryNav = nav.forState(state).copy(
+        onFilterLibraryByTag = { tag, show ->
+            scope.launch { navigator.filterLibraryByTag(libraryPreferences, tag, show) }
+        },
+    )
     var onlyCopies by rememberSaveable { mutableStateOf(false) }
     val copies = CopiesFilter(on = onlyCopies && !state.chapters.duplicates?.copies.isNullOrEmpty()) {
         onlyCopies = !onlyCopies
@@ -169,7 +181,6 @@ fun EntryDetailsContent(
             }
         }.takeIf { ownLocal },
     )
-    val context = LocalContext.current
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
     var renameTitle by remember { mutableStateOf<String?>(null) }
     if (ownLocal) {
@@ -600,6 +611,7 @@ private fun LazyListScope.entryInfoBlock(
         onWebViewClicked = web.openWebView,
         onWebViewLongClicked = web.copyUrl,
         onTagSearch = nav.onTagSearch,
+        onFilterLibraryByTag = nav.onFilterLibraryByTag,
         onCopyTagToClipboard = web.copyTag,
         onEditNotes = nav.onEditNotes,
         // Namespaced, grouped tag chips for the active source's gallery metadata (or its namespaced genre).

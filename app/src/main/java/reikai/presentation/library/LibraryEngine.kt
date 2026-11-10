@@ -438,9 +438,9 @@ class LibraryEngine(
     fun settingsFor(contentType: ContentType): LibrarySettingsBinding = settingsBindings.getValue(contentType).value
 
     private val settingsBindings: Map<ContentType, Lazy<LibrarySettingsBinding>> =
-        ContentType.entries.associateWith { type -> lazy { settingsBinding(providerSettingsFor(type)) } }
+        ContentType.entries.associateWith { type -> lazy { settingsBinding(type, providerSettingsFor(type)) } }
 
-    private fun settingsBinding(view: LibraryProviderSettings) = LibrarySettingsBinding(
+    private fun settingsBinding(type: ContentType, view: LibraryProviderSettings) = LibrarySettingsBinding(
         filterAxes = view.filterAxes,
         trackerFilter = libraryPreferences::filterTracking,
         categoryFilter = LibraryCategoryFilter(
@@ -448,6 +448,7 @@ class LibraryEngine(
             included = reikaiLibraryPreferences.filterCategoriesInclude,
             excluded = reikaiLibraryPreferences.filterCategoriesExclude,
         ),
+        tagFilter = LibraryTagFilter(reikaiLibraryPreferences) { providersFor(type).flatMap { it.seriesTags() } },
         categories = view.categories,
         groupMode = reikaiLibraryPreferences.groupLibraryBy,
         globalSort = globalSort,

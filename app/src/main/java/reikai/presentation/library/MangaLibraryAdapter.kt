@@ -122,6 +122,11 @@ class MangaLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
+    override fun seriesTags(): List<List<String>> {
+        val data = model.state.value.libraryData
+        return data.allFavorites.map { it.seriesTags(data.customInfo[it.id]?.genre) }
+    }
+
     private fun LibraryViewModel.State.toNeutral() = LibraryScreenState(
         isLoading = isLoading,
         isLibraryEmpty = isLibraryEmpty,

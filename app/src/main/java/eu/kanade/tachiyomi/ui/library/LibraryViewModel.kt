@@ -198,8 +198,9 @@ class LibraryViewModel(
                 (favorites, customInfo),
             ->
             val (searchQuery, chapterMatches) = search // RK
+            val customById = customInfo.associateBy { it.mangaId } // RK
             val filteredFavorites = favorites
-                .applyFilters(tracksMap, filters.resolve()) // RK
+                .applyFilters(tracksMap, filters.resolve(), customById) // RK
                 // RK: parse once, then filter through the shared query kernel, the same one the novel
                 //     library runs, so one typed query means one thing on every row of the All list.
                 //     A gallery entry ALSO answers each term with the EXH tag grammar, a manga-only
@@ -233,7 +234,8 @@ class LibraryViewModel(
                 tracksMap = tracksMap,
                 loggedInTrackerIds = filters.trackers.keys, // RK
                 // RK: display-only overrides, keyed by real manga id; applied at the display read.
-                customInfo = customInfo.associateBy { it.mangaId },
+                customInfo = customById,
+                allFavorites = favorites, // RK
             )
         }
             .distinctUntilChanged()
@@ -300,6 +302,7 @@ class LibraryViewModel(
     private suspend fun List<LibraryItem>.applyFilters(
         trackMap: Map<Long, List<Track>>,
         prefs: LibraryFilterPrefs,
+        customInfo: Map<Long, CustomMangaInfo>,
     ): List<LibraryItem> {
         val sourceKey = { item: LibraryItem -> item.libraryManga.manga.source.toString() }
         val adultSources = if (prefs.lewd != TriState.DISABLED) {
@@ -313,6 +316,7 @@ class LibraryViewModel(
             adultSource = { it in adultSources },
             lewdSourceName = { it.name },
             trackerIds = { item -> mergedGroupTracks(item.memberIds(), trackMap).map { it.trackerId } },
+            customTags = { customInfo[it.id]?.genre },
         )
         return fastFilter { libraryFilterMatches(it, prefs, fields) }
     }
@@ -558,6 +562,8 @@ class LibraryViewModel(
         //     search/filter/sort/selection (those use the raw favorites); applied only at the
         //     display read in State.withOverlay, through the adapter.
         val customInfo: Map</* Manga */ Long, CustomMangaInfo> = emptyMap(),
+        // RK: every merge-collapsed favourite before filter and search, which the tag picker counts over.
+        val allFavorites: List<LibraryItem> = emptyList(),
     ) {
         val favoritesById by lazy { favorites.associateBy { it.id } }
     }

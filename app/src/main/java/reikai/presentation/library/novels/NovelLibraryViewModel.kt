@@ -78,6 +78,7 @@ import reikai.presentation.library.libraryTrackerMeans
 import reikai.presentation.library.libraryTracksFlow
 import reikai.presentation.library.memberIdsOf
 import reikai.presentation.library.mergedGroupTracks
+import reikai.presentation.library.seriesTags
 import reikai.presentation.library.sortedByCategoryPref
 import reikai.presentation.library.toQueryOverlay
 import reikai.presentation.library.withCustomInfo
@@ -286,6 +287,7 @@ class NovelLibraryViewModel(
             adultSource = { it in adultSources },
             lewdSourceName = { null },
             trackerIds = { item -> tracksByRep[item.id].orEmpty().map { it.trackerId } },
+            customTags = { overlay[it.id]?.genre },
         )
         // The search twin of the filter binding above, pinned by libraryItemQueryFields, the kernel the manga
         // library runs too, so one typed query means one thing on every row of the All list. The seam: a
@@ -320,6 +322,7 @@ class NovelLibraryViewModel(
             isLoading = false,
             searchQuery = query,
             favorites = items,
+            allFavorites = allItems,
             trackerMeans = trackerMeanScores,
             novelById = novelById,
             tracksByRep = tracksByRep,
@@ -461,6 +464,8 @@ class NovelLibraryViewModel(
          *  split point the provider's row flow reads (the twin of manga's LibraryData.favorites, pinned by
          *  LibraryProvider.rows). The custom-info overlay is NOT applied here, matching the manga contract. */
         val favorites: List<LibraryItem> = emptyList(),
+        /** Every merge-collapsed row before filter and search, which the tag picker counts over. */
+        private val allFavorites: List<LibraryItem> = emptyList(),
         /** Per-rep mean tracker score (0-10, unscored reps absent), for the sort and the provider seam
          *  (LibraryProvider.trackerMeans). */
         val trackerMeans: Map<Long, Double> = emptyMap(),
@@ -477,6 +482,9 @@ class NovelLibraryViewModel(
         val overlayKey: Any get() = customInfo
 
         val isLibraryEmpty = favoritesById.isEmpty()
+
+        /** LibraryProvider.seriesTags: every novel's tags, its Edit info tags where set. */
+        fun seriesTags(): List<List<String>> = allFavorites.map { it.seriesTags(customInfo[it.id]?.genre) }
 
         // These resolve an explicit id set rather than reading the selection, so a bulk action is driven
         // by the ids its caller passes. That is what lets the shared engine own a selection spanning both

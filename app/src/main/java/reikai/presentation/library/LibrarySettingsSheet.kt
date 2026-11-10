@@ -117,6 +117,7 @@ private fun ColumnScope.FilterPage(
         }
     }
 
+    TagsFilterRow(settings.tagFilter)
     CategoriesFilter(settings, onManageCategories)
 }
 

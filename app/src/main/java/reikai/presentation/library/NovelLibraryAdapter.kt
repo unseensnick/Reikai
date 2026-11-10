@@ -98,6 +98,8 @@ class NovelLibraryAdapter(
 
     override fun overlaid(item: LibraryItem): LibraryItem = model.state.value.withOverlay(item)
 
+    override fun seriesTags(): List<List<String>> = model.state.value.seriesTags()
+
     override suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed {
         val state = model.state.value
         // Resolved once per source: a library holds far more novels than sources.

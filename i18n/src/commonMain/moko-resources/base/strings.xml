@@ -2091,4 +2091,19 @@
     <string name="stats_figure_trackers_used">Trackers used</string>
     <string name="stats_figure_total_chapters">Total chapters</string>
     <string name="stats_figure_read_chapters">Read chapters</string>
+    <string name="tag_filter_title">Tags</string>
+    <string name="tag_filter_summary">%1$d shown, %2$d hidden</string>
+    <string name="tag_filter_require_all">Match all shown</string>
+    <string name="tag_filter_hide_all">Match all hidden</string>
+    <string name="tag_filter_no_tags">No tags</string>
+    <string name="tag_filter_sort_count">Most used</string>
+    <string name="tag_filter_sort_name">A to Z</string>
+    <string name="tag_filter_match_count">%1$d of %2$d match</string>
+    <string name="tag_filter_search">Search tags</string>
+    <string name="tag_filter_empty">No tags found</string>
+    <string name="tag_filter_chip_hidden">Hiding %1$s</string>
+    <string name="tag_filter_chip_untagged">Untagged only</string>
+    <string name="tag_filter_chip_tagged">Tagged only</string>
+    <string name="action_show_only_tag">Show only this tag</string>
+    <string name="action_hide_tag">Hide this tag</string>
 </resources>

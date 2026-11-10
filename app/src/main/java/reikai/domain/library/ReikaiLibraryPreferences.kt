@@ -136,6 +136,24 @@ class ReikaiLibraryPreferences(
     val filterCategoriesExclude: Preference<Set<String>> =
         preferenceStore.getStringSet("pref_filter_library_categories_exclude", emptySet())
 
+    /** Tag keys ([reikai.domain.library.tagKey]) a series must carry, any of them or, with [filterTagsIncludeAll], all. */
+    val filterTagsInclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("pref_filter_library_tags_include", emptySet())
+
+    /** Tag keys a series must not carry: any of them or, with [filterTagsExcludeAll], all of them together. */
+    val filterTagsExclude: Preference<Set<String>> =
+        preferenceStore.getStringSet("pref_filter_library_tags_exclude", emptySet())
+
+    val filterTagsIncludeAll: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_filter_library_tags_include_all", false)
+
+    val filterTagsExcludeAll: Preference<Boolean> =
+        preferenceStore.getBoolean("pref_filter_library_tags_exclude_all", false)
+
+    /** Series with no tag at all: shown only, hidden, or not filtered. */
+    val filterNoTags: Preference<TriState> =
+        preferenceStore.getEnum("pref_filter_library_no_tags", TriState.DISABLED)
+
     // endregion
 
     // region Novel library filters: RETIRED

@@ -26,6 +26,8 @@ fun libraryItemFilterFields(
     lewdSourceName: (LibraryQuerySource) -> String?,
     /** The two content types keep separate track tables, so each resolves its own, already unioned. */
     trackerIds: (LibraryItem) -> List<Long>,
+    /** The series' Edit info tags, which the tag filter reads over its sources' own, as search does. */
+    customTags: (LibraryItem) -> List<String>? = { null },
 ) = LibraryFilterFields<LibraryItem>(
     // A local series' files are on the device, so it counts as downloaded, for either type, and so does a
     // merged series with a local member, which the leading row's own flag does not say.
@@ -43,6 +45,7 @@ fun libraryItemFilterFields(
     },
     trackerIds = trackerIds,
     categoryIds = { it.libraryManga.categories },
+    tags = { it.seriesTags(customTags(it)) },
 )
 
 /** Every source key [rows] stand for, members included, which the adult-source lookup must cover. */
@@ -73,7 +76,7 @@ fun libraryItemQueryFields(
     description = { overlay[it.id]?.description ?: it.libraryManga.manga.description },
     // Each source of a merged series keeps its own notes, so the card is found by any of them.
     notes = { it.memberNotes.ifEmpty { listOf(it.libraryManga.manga.notes) }.joinToString("\n") },
-    genre = { seriesGenres(overlay[it.id]?.genre, listOf(it.libraryManga.manga.genre, it.memberGenres)) },
+    genre = { it.seriesTags(overlay[it.id]?.genre) },
     sources = { item -> item.allSources(sourceKey(item)) },
     // The deduplicated group counts, matching what the badges and the sort read.
     unreadCount = { it.unreadCount },
@@ -105,6 +108,10 @@ fun libraryItemQueryFields(
  */
 fun seriesGenres(custom: List<String>?, memberGenres: List<List<String>?>): List<String> =
     custom ?: memberGenres.flatMap { it.orEmpty() }.distinctBy { it.lowercase() }
+
+/** This row's tags as [seriesGenres] reads them, with [custom] its Edit info tags. */
+fun LibraryItem.seriesTags(custom: List<String>?): List<String> =
+    seriesGenres(custom, listOf(libraryManga.manga.genre, memberGenres))
 
 /** This row's own source as the search terms read it; [key] is per content type, see [LibraryQuerySource.key]. */
 fun LibraryItem.querySource(key: String) = LibraryQuerySource(key, sourceName, sourceLanguage, isLocal)

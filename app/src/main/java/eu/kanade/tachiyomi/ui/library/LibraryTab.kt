@@ -92,6 +92,7 @@ import reikai.presentation.library.LibrarySettingsTab
 import reikai.presentation.library.ManualOrderDrag
 import reikai.presentation.library.ReikaiLibraryContent
 import reikai.presentation.library.ReikaiLibraryHopperOverlay
+import reikai.presentation.library.TagFilterStrip
 import reikai.presentation.library.libraryToolbarTitle
 import reikai.presentation.library.novels.NovelLibraryViewModel
 import reikai.presentation.library.reikaiCategoryHeaderIndices
@@ -543,6 +544,11 @@ data object LibraryTab : Tab {
                     ContentTypeFilterChips(
                         selected = libraryContentType,
                         onSelect = engine::setContentType,
+                        modifier = Modifier.background(chipBackground),
+                    )
+                    // RK: the active tag filter, each chip dropping its part.
+                    TagFilterStrip(
+                        tagFilter = engine.settingsFor(libraryContentType).tagFilter,
                         modifier = Modifier.background(chipBackground),
                     )
                 }

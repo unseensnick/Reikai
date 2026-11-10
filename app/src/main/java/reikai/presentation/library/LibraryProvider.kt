@@ -65,6 +65,12 @@ interface LibraryProvider : LibraryBehavior {
      * metadata resolution, and the engine concatenates the active feeds into one kernel call.
      */
     suspend fun dynamicGroupingFeed(groupType: Int): DynamicGroupingFeed
+
+    /**
+     * Every series of this type's tags, the Edit info tags where set, before any filter or search, so the tag
+     * picker offers tags the current filter hides. On demand: only an open picker pays for it.
+     */
+    fun seriesTags(): List<List<String>>
 }
 
 /**

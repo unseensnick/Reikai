@@ -4,6 +4,7 @@ import dev.icerock.moko.resources.StringResource
 import eu.kanade.tachiyomi.util.system.isReleaseBuildType
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.library.tagFilterFlow
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.TriState
 import tachiyomi.domain.category.model.Category
@@ -56,6 +57,17 @@ data class LibraryCategoryFilter(
 )
 
 /**
+ * The tag filter as the sheet edits it: the stored [state], and [seriesTags], every series of the view's
+ * content types with its tags, before any filter, so the picker offers and counts tags the filter hides.
+ */
+class LibraryTagFilter(
+    val preferences: ReikaiLibraryPreferences,
+    val seriesTags: () -> List<List<String>>,
+) {
+    val state = preferences.tagFilterFlow()
+}
+
+/**
  * What a settings sheet needs from one content type, the part that genuinely differs per view. A
  * provider omits a filter axis it lacks rather than the sheet branching on content type. [filterAxes]
  * is a flow because manga's interval-custom row comes and goes with a preference, and [categories]
@@ -75,6 +87,7 @@ data class LibrarySettingsBinding(
     val filterAxes: StateFlow<List<LibraryFilterAxis>>,
     val trackerFilter: (trackerId: Int) -> Preference<TriState>,
     val categoryFilter: LibraryCategoryFilter,
+    val tagFilter: LibraryTagFilter,
     val categories: StateFlow<List<Category>>,
     val groupMode: Preference<Int>,
     val globalSort: StateFlow<LibrarySort>,

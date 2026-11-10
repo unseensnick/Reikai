@@ -30,6 +30,7 @@ class LibraryFilterTest {
         isLewd = { it.lewd },
         trackerIds = { it.trackerIds },
         categoryIds = { it.categoryIds },
+        tags = { emptyList() },
     )
 
     private fun prefs(

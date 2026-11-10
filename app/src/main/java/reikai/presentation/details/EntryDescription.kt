@@ -79,6 +79,8 @@ fun ExpandableEntryDescription(
     tagsProvider: () -> List<String>?,
     notes: String,
     onTagSearch: (String) -> Unit,
+    // Show only / Hide this tag in the library's tag filter; null leaves them out of the menu.
+    onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)?,
     onCopyTagToClipboard: (tag: String) -> Unit,
     onEditNotes: () -> Unit,
     // Global search across sources for the tapped tag (Komikku's tag menu).
@@ -126,6 +128,22 @@ fun ExpandableEntryDescription(
                             showMenu = false
                         },
                     )
+                    if (onFilterLibraryByTag != null) {
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(MR.strings.action_show_only_tag)) },
+                            onClick = {
+                                onFilterLibraryByTag(tagSelected, true)
+                                showMenu = false
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(text = stringResource(MR.strings.action_hide_tag)) },
+                            onClick = {
+                                onFilterLibraryByTag(tagSelected, false)
+                                showMenu = false
+                            },
+                        )
+                    }
                     DropdownMenuItem(
                         text = { Text(text = stringResource(MR.strings.action_global_search)) },
                         onClick = {
