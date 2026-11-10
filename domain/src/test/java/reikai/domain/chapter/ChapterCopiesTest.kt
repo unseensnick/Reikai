@@ -41,6 +41,21 @@ class ChapterCopiesTest {
         chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
     }
 
+    /** Folders `01/` and `02/` each holding `001.cbz`, numbered from the chapter name alone. */
+    @Test
+    fun `bare-numbered chapters of two bare-numbered volumes are apart`() {
+        val chapters = listOf(Ch(1, "01 - 001", null, 1.0), Ch(2, "02 - 001", null, 1.0))
+
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 2
+    }
+
+    @Test
+    fun `one bare-numbered chapter of one volume from two scanlators is a copy`() {
+        val chapters = listOf(Ch(1, "01 - 001", "A", 1.0), Ch(2, "01 - 001", "B", 1.0))
+
+        chapters.chapterCopySets({ it.number }, { it.name }, { it.origin }, { 1L }).size shouldBe 1
+    }
+
     @Test
     fun `each copy reports the size of its set, and a chapter with none is absent`() {
         val chapters = listOf(Ch(1, "Chapter 1", "A", 1.0), Ch(2, "Chapter 1", "B", 1.0), Ch(3, "Chapter 2", "A", 2.0))

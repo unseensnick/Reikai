@@ -96,13 +96,14 @@ private class WrittenChapter(name: String, number: Double, origin: String?) {
             """\b(?:extra|bonus|omake|special|side ?story|notice|announcement|interlude|afterword|hiatus)\b|番外|外传|외전""",
         )
 
-        // A bare number leading a name whose chapter word comes after it, as a local volume folder "01" leads
-        // "01 - Ch 001": that number is the volume, so chapters numbered again in each volume stay apart.
+        // A bare number leading a name whose chapter number comes after it, as a local volume folder "01" leads
+        // "01 - Ch 001" or "01 - 001": that number is the volume, so chapters numbered again in each volume stay
+        // apart. The local source numbers such a chapter from its own name, never the folder's.
         val leadingNumber = Regex("""^\s*([0-9]+(?:\.[0-9]+)?)\s*[-:._]?\s+""")
-        val chapterWordNumber = Regex("""\b(?:ch|chap|chapter|ep|episode)\.?\s*#?[0-9]""")
+        val chapterNumberAfter = Regex("""^[0-9]|\b(?:ch|chap|chapter|ep|episode)\.?\s*#?[0-9]""")
 
         fun leadingVolume(name: String): Double? = leadingNumber.find(name)
-            ?.takeIf { chapterWordNumber.containsMatchIn(name.substring(it.range.last + 1)) }
+            ?.takeIf { chapterNumberAfter.containsMatchIn(name.substring(it.range.last + 1)) }
             ?.groupValues?.get(1)?.toDoubleOrNull()
 
         // After a chapter word, typos included ("Chaprer 19"), or leading the name.

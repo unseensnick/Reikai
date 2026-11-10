@@ -42,7 +42,7 @@ What counts as a copy of a chapter is one rule, `chapterCopySets` (`domain/.../r
 
 - they share a recognised chapter number;
 - the name writes that number as the chapter's own: after a chapter word (Chapter, Ch., Ep, Episode, #, a typo within two letters of "chapter", or 第, 章, 話, 화, Глава, Capítulo, Chapitre, Kapitel and the like) or leading the name, and not as a range ("Chapter 16-20", which the recognizer reads as 16.2);
-- a volume or season both names state is the same one;
+- a volume or season both names state is the same one, a bare number leading the name before its chapter number counting as one (a local volume folder "01" leads "01 - Ch 001" and "01 - 001");
 - a title marking an extra (side story, extra, bonus, special, notice, interlude, afterword) is a copy only of another such title, whoever scanlated it;
 - they come from different scanlators, or their titles match once the number and chapter words are dropped: equal, one with no title, or one's words all in the other's.
 
