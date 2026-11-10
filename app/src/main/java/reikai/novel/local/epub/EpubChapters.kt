@@ -49,8 +49,12 @@ object EpubChapters {
             .mapNotNull { entry -> book.spine.indexOf(entry.path).takeIf { it >= 0 }?.let { entry to it } }
             .sortedBy { it.second }
         val merged = mutableListOf<Pair<EpubChapterRef, Int>>()
+        // A place listed again further on is dropped: a second chapter of one key could never be opened, and
+        // what it would have started runs on in the chapter before it.
+        val listed = mutableSetOf<EpubChapterKey>()
         for ((entry, index) in cuts) {
             val cut = EpubCut(index, entry.fragment)
+            val key = EpubChapterKey(entry.path, entry.fragment)
             val title = cleanTitle(entry.title)
             val last = merged.lastOrNull()
             if (last != null && last.first.start == cut) {
@@ -58,8 +62,8 @@ object EpubChapters {
                 if (entry.depth > last.second) {
                     merged[merged.lastIndex] = last.first.copy(title = "${last.first.title} - $title") to entry.depth
                 }
-            } else {
-                merged += EpubChapterRef(title, cut, EpubChapterKey(entry.path, entry.fragment)) to entry.depth
+            } else if (listed.add(key)) {
+                merged += EpubChapterRef(title, cut, key) to entry.depth
             }
         }
         // Whatever comes before the first entry (a cover, a title page) opens the first chapter.

@@ -99,6 +99,35 @@ class EpubChaptersTest {
         chapterTexts(book).withoutFill() shouldBe listOf("One" to "start continued", "Two" to "next")
     }
 
+    /** Contents that list a file again after an anchor inside it. */
+    private val listedTwice = epub(
+        mapOf(
+            "OEBPS/content.opf" to opf(listOf("a" to "a.xhtml", "b" to "b.xhtml"), nav = "nav.xhtml"),
+            "OEBPS/nav.xhtml" to nav(
+                "One" to "a.xhtml",
+                "Mid" to "a.xhtml#x",
+                "Again" to "a.xhtml",
+                "Two" to "b.xhtml",
+            ),
+            "OEBPS/a.xhtml" to xhtml("""<p>first $fill</p><p id="x">middle $fill</p>"""),
+            "OEBPS/b.xhtml" to xhtml("<p>last $fill</p>"),
+        ),
+    )
+
+    @Test
+    fun `a place the contents list twice is one chapter`() {
+        val keys = EpubChapters.list(EpubBook.parse(listedTwice), listedTwice).map { it.key }
+
+        keys shouldBe keys.distinct()
+    }
+
+    @Test
+    fun `every file of a book whose contents list a place twice is read`() {
+        val text = chapterTexts(listedTwice).joinToString(" ") { it.second }
+
+        listOf("first", "middle", "last").filterNot { it in text } shouldBe emptyList()
+    }
+
     @Test
     fun `what comes before the first entry opens the first chapter`() {
         val book = epub(
