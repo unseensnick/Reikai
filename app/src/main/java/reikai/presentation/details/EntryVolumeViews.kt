@@ -359,7 +359,7 @@ internal fun AddVolumesDialog(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Checkbox(checked = one in picked, onCheckedChange = { toggle() })
-                            Text(one.title)
+                            VolumeName(one.title, one.folder)
                         }
                     }
                 }
