@@ -77,28 +77,44 @@ fun ReikaiLibraryPreferences.applyTagFilter(filter: TagFilter) {
 }
 
 /** One tag's three states in the picker, which a tap cycles through: not filtered, required, then hidden. */
-fun ReikaiLibraryPreferences.cycleTag(key: String) = when (key) {
-    in filterTagsInclude.get() -> hideTag(key)
-    in filterTagsExclude.get() -> clearTag(key)
-    else -> filterTagsInclude.set(filterTagsInclude.get() + key)
+fun ReikaiLibraryPreferences.cycleTag(key: String) = editTags(key) { tag, include, exclude ->
+    when (tag) {
+        in include -> include - tag to exclude + tag
+        in exclude -> include to exclude - tag
+        else -> include + tag to exclude
+    }
 }
 
 /** Shows only series carrying [key], replacing the other required tags. */
 fun ReikaiLibraryPreferences.showOnlyTag(key: String) {
-    filterTagsInclude.set(setOf(key))
-    filterTagsExclude.set(filterTagsExclude.get() - key)
+    editTags(key) { tag, _, exclude -> setOf(tag) to exclude - tag }
     // Only untagged series would leave nothing to show.
     if (filterNoTags.get() == TriState.ENABLED_IS) filterNoTags.set(TriState.DISABLED)
 }
 
-fun ReikaiLibraryPreferences.hideTag(key: String) {
-    filterTagsInclude.set(filterTagsInclude.get() - key)
-    filterTagsExclude.set(filterTagsExclude.get() + key)
-}
+fun ReikaiLibraryPreferences.hideTag(key: String) =
+    editTags(key) { tag, include, exclude -> include - tag to exclude + tag }
 
-fun ReikaiLibraryPreferences.clearTag(key: String) {
-    filterTagsInclude.set(filterTagsInclude.get() - key)
-    filterTagsExclude.set(filterTagsExclude.get() - key)
+fun ReikaiLibraryPreferences.clearTag(key: String) =
+    editTags(key) { tag, include, exclude -> include - tag to exclude - tag }
+
+/**
+ * Writes the filter's tags as [edit] makes them from tag [key], every key read through the aliases first. A
+ * saved filter or a filter from before an alias still holds a tag's old name, which the library already reads
+ * as the new one; compared raw, a tap on the new name would add it beside the old instead of cycling it.
+ */
+private fun ReikaiLibraryPreferences.editTags(
+    key: String,
+    edit: (tag: String, include: Set<String>, exclude: Set<String>) -> Pair<Set<String>, Set<String>>,
+) {
+    val aliases = currentTagAliases()
+    val (include, exclude) = edit(
+        aliases.resolveKey(key),
+        filterTagsInclude.get().mapTo(HashSet(), aliases::resolveKey),
+        filterTagsExclude.get().mapTo(HashSet(), aliases::resolveKey),
+    )
+    filterTagsInclude.set(include)
+    filterTagsExclude.set(exclude)
 }
 
 fun ReikaiLibraryPreferences.clearTagFilter() {

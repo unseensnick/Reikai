@@ -92,6 +92,17 @@ class TagFilterTest {
     }
 
     @Test
+    fun `a tap on a tag an alias reads as cycles the filter stored under its old name`() {
+        val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
+        preferences.filterTagsInclude.set(setOf("shounen"))
+        preferences.tagAliases.set(listOf(TagAlias("Shounen", "Shonen")))
+
+        preferences.cycleTag("shonen")
+
+        preferences.currentTagFilter().let { it.include to it.exclude } shouldBe (emptySet<String>() to setOf("shonen"))
+    }
+
+    @Test
     fun `Show only this tag replaces the shown tags and unhides it`() {
         val preferences = ReikaiLibraryPreferences(InMemoryPreferenceStore())
         preferences.filterTagsInclude.set(setOf("drama"))
