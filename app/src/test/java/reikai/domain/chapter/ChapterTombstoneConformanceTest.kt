@@ -69,6 +69,10 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
 
     @Before
     fun setUp() = runTest {
+        // DriverManager loads its drivers once per JVM, from the first caller's class loader. Under the
+        // Robolectric sandbox that copy of org.sqlite.JDBC is invisible to the plain JDBC tests that run
+        // after this one in the same worker, so the system loader's copy is registered first.
+        Class.forName("org.sqlite.JDBC", true, ClassLoader.getSystemClassLoader())
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         driver.execute(null, "PRAGMA foreign_keys = ON", 0).await()
         Database.Schema.create(driver).await()
