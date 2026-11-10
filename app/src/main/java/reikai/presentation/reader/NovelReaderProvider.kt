@@ -23,6 +23,7 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.launch
 import logcat.LogPriority
 import org.jsoup.Jsoup
 import reikai.data.coil.extractCoverColor
@@ -377,6 +378,19 @@ class NovelReaderProvider(
     // Built here rather than from the host's manga collector, which is what updateViewer hangs off and
     // which never fires without a Manga in state.
     override fun attach(host: ReaderActivity) {
+        // The novel's own renderer is read off the main thread at open. Built before it lands, the viewport
+        // took the default and was rebuilt, Activity and chapter both, once the novel's differed.
+        if (viewModel.renderingModeLoaded.isCompleted) {
+            attachViewport(host)
+        } else {
+            host.lifecycleScope.launch {
+                viewModel.renderingModeLoaded.await()
+                attachViewport(host)
+            }
+        }
+    }
+
+    private fun attachViewport(host: ReaderActivity) {
         // The session and its position outlive the Activity, so a rebuild lands where the reader is.
         viewportRebuilds.onEach { host.recreate() }.launchIn(host.lifecycleScope)
         val viewport = createViewport(host)

@@ -19,8 +19,10 @@ import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
@@ -339,6 +341,10 @@ class NovelReaderViewModel(
     /** The renderer this novel keeps for itself over the setting, null to follow it; on the opened entry, as rotation. */
     val renderingMode: StateFlow<NovelRenderingMode?>
         field = MutableStateFlow<NovelRenderingMode?>(null)
+
+    /** Completes once [renderingMode] holds the novel's own choice, which the first viewport is built with. */
+    val renderingModeLoaded: Deferred<Unit>
+        field = CompletableDeferred<Unit>()
 
     fun setRenderingMode(mode: NovelRenderingMode?) {
         renderingMode.value = mode
@@ -755,12 +761,19 @@ class NovelReaderViewModel(
         readAloudOffScreen()
         holdReadClockInMenu()
         viewModelScope.launchIO {
-            novelRepo.getById(novelId)?.let {
-                orientationOverride.value = it.readerOrientation.toInt()
-                NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
-                    textLoader.renderingMode = mode
-                    renderingMode.value = mode
+            val novel = try {
+                novelRepo.getById(novelId)?.also {
+                    NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
+                        textLoader.renderingMode = mode
+                        renderingMode.value = mode
+                    }
                 }
+            } finally {
+                // Also on a failed read, which leaves the default, so the reader still opens.
+                renderingModeLoaded.complete(Unit)
+            }
+            novel?.let {
+                orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
                 isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsRoute.value = DetailsRoute(it.source, it.url)

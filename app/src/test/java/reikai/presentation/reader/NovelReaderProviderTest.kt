@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelTapLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.recents.EmittingPreferenceStore
@@ -53,6 +54,18 @@ class NovelReaderProviderTest {
         advanceUntilIdle()
 
         viewport.asked shouldBe false
+    }
+
+    /** The viewport is built once this opens; built from the default, it was rebuilt with the chapter. */
+    @Test
+    fun `the novel's own renderer is in place once the viewport may be built`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelRenderingMode.flagOf(NovelRenderingMode.WEBVIEW) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+
+        model.renderingModeLoaded.await()
+
+        model.renderingMode.value shouldBe NovelRenderingMode.WEBVIEW
     }
 
     @Test
