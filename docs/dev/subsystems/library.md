@@ -139,6 +139,7 @@ Failures are recorded per content type (`trackUpdateErrors` and its novel half, 
 - **Manual order lives in a Reikai-owned table.** A column on the link tables would patch Mihon's schema, and Default has no link row to hold one; Yōkai's id list on the category is ambiguous once a manga and a novel share an id.
 - **A drag needs no filter, search or selection, but any content chip.** A drop between tiles a filter left apart could land anywhere among the hidden ones; a type chip hides a whole type, whose tiles keep their places.
 - **Long-press and move, not a reorder mode.** A device spike passed drag, select on release, the category swipe, edge auto-scroll and section boundaries in both views; a mode is the fallback if that ever stops holding.
+- **A series keeps its Manual place when it leaves a category or the library and comes back.** Undo of a removal writes the same change as a real return, so dropping the place on either write would lose it on Undo; a place left behind only sorts a series that is shown again.
 - **Statistics lists ignore Manual.** They mix categories, so a per-category order has nothing to say there; the shared comparator orders Manual by title.
 - **The toolbar sort is always global.** The tabbed pager has no per-category sort control; overrides are set from the single list.
 - **Smart update reuses the manga restriction constants.** They are content-agnostic tags; renaming would touch manga code for nothing.
