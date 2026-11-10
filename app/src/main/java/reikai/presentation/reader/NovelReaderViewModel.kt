@@ -536,6 +536,11 @@ class NovelReaderViewModel(
     @Volatile
     private var lastSaved: Pair<Long, ChapterProgress.Percent>? = null
 
+    /** The chapter whose finish was written at once. Past the threshold every scroll frame reports a new
+     *  place, so the reports after it take the hold, or each frame would write and wake every chapter list. */
+    @Volatile
+    private var finishWrittenFor: Long? = null
+
     /** Read aloud's place is the last one saved, with no report of the reader's own since. */
     @Volatile
     private var spokenPlaceHeld = false
@@ -578,7 +583,9 @@ class NovelReaderViewModel(
         lastSaved = id to clamped
         // A settle is where the scroll stopped, and finishing carries mark-as-read, the sibling marking
         // and the tracker push, so neither waits.
-        progressSave.report(id, clamped, now = settled || completesChapter(clamped))
+        val finishes = completesChapter(clamped) && finishWrittenFor != id
+        if (finishes) finishWrittenFor = id
+        progressSave.report(id, clamped, now = settled || finishes)
     }
 
     /** Write the last reported position now. The host calls this on pause, so being backgrounded or

@@ -14,6 +14,7 @@ import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.jupiter.api.AfterEach
@@ -247,6 +248,25 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         harness.progressOf(previous) shouldBe 0L
+    }
+
+    /** Past the mark-read threshold every scroll frame reports a new place, and each written at once
+     *  would wake every screen watching the chapter list. */
+    @Test
+    fun `scrolling on past a chapter's finish writes the finish at once and holds the rest`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val model = harness.open(novel, opened.id)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.reportProgress(opened.id, ChapterProgress.Percent.ofWhole(50))
+        model.reportProgress(opened.id, ChapterProgress.Percent.ofWhole(98))
+        runCurrent()
+
+        model.reportProgress(opened.id, ChapterProgress.Percent.ofWhole(99))
+        runCurrent()
+
+        harness.progressOf(opened) shouldBe 9_800L
     }
 
     /** Mark read on skip is off by default, so the step on to the next chapter marks nothing. */

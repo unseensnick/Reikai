@@ -29,7 +29,8 @@ fun ViewportHost(view: View, modifier: Modifier = Modifier) {
             }
         },
         modifier = modifier,
-        update = { view.setLayerType(View.LAYER_TYPE_HARDWARE, paint) },
+        // A layer re-renders the scrolling page offscreen every frame, so only a filter that needs one gets it.
+        update = { view.setLayerType(if (paint == null) View.LAYER_TYPE_NONE else View.LAYER_TYPE_HARDWARE, paint) },
         onRelease = { it.removeAllViews() },
     )
 }
