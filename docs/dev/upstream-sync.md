@@ -199,6 +199,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `629033c80` | `chore: sync Mihon lint fixes` | 2026-11-10 | The extension settings confirm button as `AppCompatButton` and the Upcoming calendar reading the Compose locale (mihon 629033c80); its splash colour move is N/A, since Reikai's resources carry no `splash` colour. |
 | `7eec566d9` | `chore: sync Mihon mockk 1.14.12` | 2026-11-08 | MockK 1.14.12 (mihon 7eec566d9, mihonapp/mihon#4261), a test-only dependency. |
 | `0c5552720` | `chore: sync Mihon toolchain and dependency bumps` | 2026-11-07 | AGP 9.5.1 (mihon 5ade9a967, mihonapp/mihon#4250), Gradle 9.9.0 (mihon 0c5552720, mihonapp/mihon#4256), Compose BOM 2026.11.00 (mihon 5d2020df6, mihonapp/mihon#4252), Conscrypt 2.9.0 (mihon 7b0fcb058, mihonapp/mihon#4253), UI Automator 2.4.1 (mihon aa3eb2a44, mihonapp/mihon#4251), action-gh-release 3.0.4 in the nightly and release workflows (mihon db4eeec00, mihonapp/mihon#4255). That commit's setup-java 6.2.0 followed in `chore: sync Mihon setup-java 6.2.0`, in the shared setup-build action the build, nightly and release workflows call |
 | `70c73c728` | `chore: sync Mihon webgpuviewer 58` | 2026-11-05 | webgpuviewer 58 (mihon 70c73c728, mihonapp/mihon#4243), a version bump with no app code of its own upstream; Reikai's viewer islands compile against it unchanged. Manga only: the WebGPU viewer draws images |
