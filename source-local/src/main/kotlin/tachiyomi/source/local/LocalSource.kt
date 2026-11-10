@@ -296,14 +296,17 @@ class LocalSource(
 
     // Chapters
     private suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
-        val chapters = fileSystem.getFilesInMangaDirectory(manga.url)
+        // RK: a folder that cannot be listed fails the refresh, as a local novel's does, since an empty list
+        // deletes every chapter row of the series and its read state with it
+        val chapters = listedOrFail(fileSystem.getMangaDirectory(manga.url), manga.url)
             // Only keep supported formats
             .filter(::isChapterFile) // RK: shared with the volume folders below
             // RK --> a folder holding chapter files or chapter folders is a volume, read one level down; its
             // chapters carry it in their address and in front of their name, as a local novel's volumes do
             .flatMap { file ->
-                val listed = file.takeIf { it.isDirectory }?.listFiles().orEmpty().toList()
-                val inside = listed.filter(::isChapterFile)
+                val path = "${manga.url}/${file.name}"
+                val listed = if (file.isDirectory) listedOrFail(file, path) else emptyList()
+                val inside = listed.filter { isVolumeChapter(it, "$path/${it.name}") }
                 // Pictures beside a volume's chapters, other than its cover, read as one Extras chapter: the
                 // folder itself, which the reader opens as a folder of pictures.
                 val extras = listOfNotNull(file.takeIf { inside.isNotEmpty() && listed.extraPictures().isNotEmpty() })
@@ -423,10 +426,27 @@ class LocalSource(
     private fun UniFile.isNamedCover() = name.orEmpty().substringBeforeLast('.').lowercase() in setOf("cover", "folder")
     // RK <--
 
-    // RK: a chapter's own file or folder, in a series folder or a volume folder
+    // RK: a chapter's own file or folder, in a series folder or a volume folder; never a folder a system keeps
     private fun isChapterFile(file: UniFile): Boolean =
         !file.name.orEmpty().startsWith('.') &&
-            (file.isDirectory || Archive.isSupported(file) || file.extension.equals("epub", true))
+            (
+                (file.isDirectory && file.name !in SYSTEM_FOLDERS) ||
+                    Archive.isSupported(file) || file.extension.equals("epub", true)
+                )
+
+    // RK: a chapter inside a volume folder. A folder there counts only with a picture or an archive in it, or
+    // a chapter of pictures holding any other folder would read as a volume and lose its own chapter row.
+    private fun isVolumeChapter(file: UniFile, path: String): Boolean = isChapterFile(file) &&
+        (
+            !file.isDirectory || listedOrFail(file, path).any {
+                !it.name.orEmpty().startsWith('.') && (it.isPicture() || Archive.isSupported(it))
+            }
+            )
+
+    // RK: [dir]'s files, or a failed refresh when it is missing or its listing fails, which an empty list would
+    // read as every chapter deleted
+    private fun listedOrFail(dir: UniFile?, path: String): List<UniFile> =
+        dir?.listFiles()?.toList() ?: throw Exception(context.stringResource(MR.strings.local_folder_unreadable, path))
 
     private fun updateCover(chapter: SChapter, manga: SManga): UniFile? {
         return try {
@@ -470,6 +490,10 @@ class LocalSource(
     }
 
     companion object {
+        // RK: folders macOS, Synology and Windows leave beside files, which hold no chapter
+        private val SYSTEM_FOLDERS =
+            setOf("__MACOSX", "@eaDir", "#recycle", "\$RECYCLE.BIN", "System Volume Information")
+
         const val ID = 0L
         const val HELP_URL = "${Constants.URL_DOCS}/guides/local-source/" // RK: Reikai's docs
 

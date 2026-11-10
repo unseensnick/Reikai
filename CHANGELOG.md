@@ -32,6 +32,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A local manga whose folder can't be read, such as on a removed SD card, no longer loses its chapters and read progress when the library updates.** The update fails for that series instead, as it does for local novels.
 - **Setting a smaller cover on a local manga no longer leaves part of the old picture's file behind.**
 
 ### Library
