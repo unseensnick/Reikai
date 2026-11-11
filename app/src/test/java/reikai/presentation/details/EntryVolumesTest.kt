@@ -49,7 +49,25 @@ class EntryVolumesTest {
             ChapterVolume("Series", "Other/", VolumeLabel.Name("Other"), "Other - ", "Ch 001.cbz", "Ch 001")
     }
 
-    private val loose1 = mangaChapterVolume(LOCAL, "Series/Ch 010.cbz", "Ch 010")!!
+    @Test
+    fun `an organized volume shows its label, not the series name Organize files put in front of it`() {
+        val titled = LOCAL.copy(title = "Alpha: Saga", url = "Alpha (2)")
+        listOf(
+            mangaChapterVolume(titled, "Alpha (2)/Alpha_ Saga - Beta/Ch 1", "Alpha_ Saga - Beta - Ch 1")!!.label,
+            mangaChapterVolume(titled, "Alpha (2)/Alpha (2) - Vol. 2/Ch 1", "Alpha (2) - Vol. 2 - Ch 1")!!.label,
+            mangaChapterVolume(titled, "Other/Alpha_ Saga - Beta/Ch 1", "Alpha_ Saga - Beta - Ch 1")!!.label,
+        ) shouldBe listOf(VolumeLabel.Name("Beta"), VolumeLabel.Number(2.0), VolumeLabel.Name("Alpha_ Saga - Beta"))
+    }
+
+    @Test
+    fun `a series' own loose chapters default to Extras, another folder's to that folder`() {
+        listOf(
+            mangaChapterVolume(LOCAL, "Series/Ch 1.cbz", "Ch 1")!!.label,
+            mangaChapterVolume(LOCAL, "Other/Ch 1.cbz", "Other - Ch 1")!!.label,
+        ) shouldBe listOf(VolumeLabel.Loose, VolumeLabel.Name("Other"))
+    }
+
+    private val loose1 =mangaChapterVolume(LOCAL, "Series/Ch 010.cbz", "Ch 010")!!
     private val loose2 = mangaChapterVolume(LOCAL, "Series/Ch 011.cbz", "Ch 011")!!
     private val mixed = listOf(row(1, v1), row(10, loose1), row(11, loose2))
 

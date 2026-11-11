@@ -24,6 +24,12 @@ class LocalFileNamesTest {
     }
 
     @Test
+    fun `an organized manga volume reads back as the label it was named from`() {
+        val names = localFileNames(ContentType.MANGA, "old", "Alpha: Saga", listOf("Beta/" to "Beta")).volumes
+        names.map { organizedLabel(it.to, "Alpha: Saga", "Alpha_ Saga") } shouldBe listOf("Beta")
+    }
+
+    @Test
     fun `a book file takes the title and its label`() {
         localFileNames(ContentType.NOVELS, "Volume Test", "Spike", listOf("a.epub" to "Vol. 2")).volumes shouldBe
             listOf(LocalFileNames.Rename("a.epub", "Spike - Vol. 2.epub"))

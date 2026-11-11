@@ -235,6 +235,7 @@ internal fun volumeName(volume: EntryChapterListItem.Volume): String =
 private fun volumeLabel(label: VolumeLabel): String = when (label) {
     is VolumeLabel.Number -> stringResource(MR.strings.volume_label, formatChapterNumber(label.number))
     is VolumeLabel.Name -> label.name
+    VolumeLabel.Loose -> stringResource(MR.strings.local_volume_extras)
 }
 
 /**

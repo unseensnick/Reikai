@@ -21,6 +21,7 @@ import reikai.data.local.LocalFileNames
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalSeriesRelink
 import reikai.data.local.LocalVolumeMove
+import reikai.data.local.organizedLabel
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
@@ -88,12 +89,16 @@ sealed interface VolumeLabel {
 
     /** A volume whose name states no number, shown as it is named. */
     data class Name(val name: String) : VolumeLabel
+
+    /** A manga series' own loose chapters, shown as Extras until the user names them. */
+    data object Loose : VolumeLabel
 }
 
 /**
  * A local manga chapter's volume in series [owner], the address of the series that lists it: the volume folder its
  * address names, or its folder's loose chapters, each by its key in the group ([localGroupKey]). A loose chapter of
- * another folder is led by that folder's name, as the local source names it.
+ * another folder is led by that folder's name, as the local source names it. A volume folder of the series' own
+ * folder is labelled without the series' name Organize files put in front of it.
  */
 internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): ChapterVolume? {
     if (owner?.source != LocalSource.ID) return null
@@ -102,9 +107,11 @@ internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): Chapt
     if (volume == VolumeOwner.LOOSE) {
         val prefix = if (folder == owner.url) "" else "$folder - "
         val file = url.split('/').last { it.isNotEmpty() }
-        return ChapterVolume(owner.url, key, VolumeLabel.Name(folder), prefix, file, name.removePrefix(prefix))
+        val label = if (folder == owner.url) VolumeLabel.Loose else VolumeLabel.Name(folder)
+        return ChapterVolume(owner.url, key, label, prefix, file, name.removePrefix(prefix))
     }
-    return ChapterVolume(owner.url, key, labelOf(volume), "$volume - ")
+    val shown = if (folder == owner.url) organizedLabel(volume, owner.title, owner.url) else volume
+    return ChapterVolume(owner.url, key, labelOf(shown), "$volume - ")
 }
 
 /** A local novel chapter's volume in series [owner]: the EPUB its address names, labelled as the source names it. */

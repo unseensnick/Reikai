@@ -47,6 +47,15 @@ fun localFileNames(
     return LocalFileNames(series, volumes)
 }
 
+/**
+ * The label a volume named [name] in its series' own folder shows: the name less the `<title> - ` Organize files
+ * gave it, read against the series' [title] and its [folder] (the title, unless another folder held that name).
+ */
+fun organizedLabel(name: String, title: String, folder: String): String =
+    listOf(DiskUtil.buildValidFilename(title), folder).firstNotNullOfOrNull { series ->
+        name.removePrefix("$series - ").takeIf { it != name && it.isNotBlank() }
+    } ?: name
+
 /** [name], or "name (2)" and up when [taken] holds it, taken for the next caller. */
 internal fun freeName(name: String, taken: MutableSet<String>): String =
     freeNames(name).first { candidate -> taken.none { it.equals(candidate, ignoreCase = true) } }.also { taken += it }
