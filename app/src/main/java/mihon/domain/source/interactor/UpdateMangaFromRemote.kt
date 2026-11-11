@@ -67,10 +67,10 @@ class UpdateMangaFromRemote(
         fetchChapters: Boolean = false,
         manualFetch: Boolean = false,
         fetchWindow: ClosedRange<Instant>? = null,
-    ): Result<RemoteMangaUpdate> = underSeriesLock(source, manga) {
         // RK --> a local series' listing and its row sync run under the series' lock as one, so a move of its
         // files cannot land between them and have the sync write rows for files that moved; the body below is
         // upstream's, untouched
+    ): Result<RemoteMangaUpdate> = underSeriesLock(source, manga) {
         refresh(source, manga, fetchDetails, fetchChapters, manualFetch, fetchWindow)
     }
 
