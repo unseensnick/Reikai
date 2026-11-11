@@ -34,6 +34,7 @@ fun noVolumePicking() = VolumePicking(
     NoLocalVolumes,
     { _, _, _ -> null },
     mockk(relaxed = true),
+    mockk(relaxed = true),
     mockk(),
     CoroutineScope(Dispatchers.Unconfined),
 )

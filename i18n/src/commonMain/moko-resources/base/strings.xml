@@ -335,6 +335,11 @@
     <string name="local_series_missing_title">Folder not found</string>
     <string name="local_series_missing_message">Pick the folder that now holds the files of %1$s</string>
     <string name="action_link_folder">Link</string>
+    <string name="local_volume_missing">%1$s\'s folder is missing</string>
+    <string name="local_volume_missing_file">%1$s\'s file is missing</string>
+    <string name="action_choose_folder">Choose folder</string>
+    <string name="action_remove_from_series">Remove from series</string>
+    <string name="local_volume_member_failed">Couldn\'t change the volume; nothing changed</string>
     <string name="local_series_link_failed">Couldn\'t link the folder</string>
     <string name="action_rename">Rename</string>
     <string name="undo_volumes_failed">Couldn't undo the move; the volumes stay where they are</string>

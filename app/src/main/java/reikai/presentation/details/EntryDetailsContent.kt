@@ -178,9 +178,17 @@ fun EntryDetailsContent(
         value = ownLocal && behavior.volumePicking.canOrganize(state.entryId)
     }
     val canOrganize = canOrganizeOrNull == true
+    // Read again whenever the list changes, since a refresh is what finds a member folder gone or back.
+    val missingFolders by produceState(emptyList<String>(), state.entryId, ownLocal, state.chapters.items) {
+        value = if (ownLocal) behavior.volumePicking.missingMembers(state.entryId) else emptyList()
+    }
+    val missing = remember(missingFolders, volumes) { missingVolumes(missingFolders, volumes?.chips.orEmpty()) }
+    var fixing by remember { mutableStateOf<MissingVolume?>(null) }
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
+        missing = missing,
+        onFixMissing = { fixing = it },
         shownChapterIds = shownChapterIds,
         // A picked volume hides the others' rows, so a selection among them would act out of sight.
         onPickVolume = {
@@ -328,6 +336,26 @@ fun EntryDetailsContent(
         )
         null -> {}
     }
+    fixing?.let { one ->
+        val done = { result: LocalMoveResult ->
+            behavior.refresh()
+            if (result is LocalMoveResult.Failed) context.toast(MR.strings.local_volume_member_failed)
+        }
+        MissingVolumeDialog(
+            missing = one,
+            candidates = { behavior.volumePicking.memberCandidates(state.entryId, one.folder) },
+            choices = { behavior.volumePicking.memberChoices(state.entryId, one.folder) },
+            onDismissRequest = { fixing = null },
+            onLink = { to ->
+                fixing = null
+                scope.launch { done(behavior.volumePicking.relinkMember(state.entryId, one.folder, to)) }
+            },
+            onRemove = {
+                fixing = null
+                scope.launch { done(behavior.volumePicking.removeMember(state.entryId, one.folder)) }
+            },
+        )
+    }
     deletingVolumes?.let { keys ->
         DeleteVolumesDialog(
             volumes = volumes?.chips.orEmpty().filter { it.key in keys },
@@ -363,6 +391,9 @@ private data class ChapterListExtras(
     // Null keys offers every volume; the duplicate notice offers only the ones that clash.
     val onDeleteVolumes: ((keys: List<String>?) -> Unit)?,
     val onKeepDuplicates: ((renames: List<Pair<String, String>>) -> Unit)?,
+    // Folders of the series' group gone from the local folder, each tapped to link or take out.
+    val missing: List<MissingVolume>,
+    val onFixMissing: (MissingVolume) -> Unit,
 )
 
 /** Where the details chrome sits (the scroll actions, the Start/Resume button), and whether the description shows images. */
@@ -450,6 +481,7 @@ private fun EntryDetailsSmallContent(
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
         chapterHeaderItem(state, nav, extras.copies)
+        missingVolumesItem(extras.missing, extras.onFixMissing)
         extras.volumes?.let {
             volumeChipsItem(
                 it,
@@ -524,6 +556,7 @@ private fun EntryDetailsLargeContent(
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
             chapterHeaderItem(state, nav, extras.copies)
+            missingVolumesItem(extras.missing, extras.onFixMissing)
             extras.volumes?.let {
                 volumeChipsItem(
                     it,

@@ -7,6 +7,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -18,6 +19,7 @@ import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalFileNames
 import reikai.data.local.LocalMoveResult
+import reikai.data.local.LocalSeriesRelink
 import reikai.data.local.LocalVolumeMove
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
@@ -100,6 +102,7 @@ class VolumePicking(
     private val volumes: LocalVolumeRepository,
     private val covers: VolumeCovers,
     private val combine: CombineLocalVolumes,
+    private val relink: LocalSeriesRelink,
     private val novelRepository: NovelRepository,
     @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
@@ -155,6 +158,26 @@ class VolumePicking(
     /** Moves [series]' files into its folder and names them as [names] gives them. */
     suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames, title: String?) =
         combine.organizeFiles(type, series, names, title)
+
+    /** The folders of [entry]'s group renamed or removed outside the app, which its screen asks about. */
+    suspend fun missingMembers(entry: EntryId): List<String> = relink.missingMembers(entry.contentType, entry.rawId)
+
+    /** The folders [entry]'s missing [member] may now be, by the chapter files they hold. */
+    suspend fun memberCandidates(entry: EntryId, member: String) =
+        relink.memberCandidates(entry.contentType, entry.rawId, member)
+
+    /** Every folder (or book) in the local folder [entry]'s missing [member] could be linked to by hand. */
+    suspend fun memberChoices(entry: EntryId, member: String) = relink.memberChoices(entry.contentType, member)
+
+    /** Links [entry]'s missing [member] to [to]; on the app scope, so closing the screen does not cut it off. */
+    suspend fun relinkMember(entry: EntryId, member: String, to: String): LocalMoveResult =
+        appScope.async { relink.relinkMember(entry.contentType, entry.rawId, member, to) }.await()
+
+    /** Takes [entry]'s missing [member] out of its group. */
+    suspend fun removeMember(entry: EntryId, member: String): LocalMoveResult {
+        val own = series(entry) ?: return LocalMoveResult.Failed(IllegalStateException("No such series"))
+        return combine.removeMember(entry.contentType, own, member)
+    }
 
     /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
     suspend fun canOrganize(entry: EntryId): Boolean = withIOContext {
