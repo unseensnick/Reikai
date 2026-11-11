@@ -786,6 +786,21 @@ class LocalMovesUnderLockTest {
     }
 
     @Test
+    fun `a series combined in whole shows its own cover on its volume, the series' own loose files none`() = runTest {
+        File(local, "Delta/Ch 1").mkdirs()
+        File(local, "Delta/Ch 1/001.png").writeBytes(byteArrayOf(4))
+        File(local, "Delta/cover.png").writeBytes(byteArrayOf(5))
+        addSeries(THIRD, "Delta")
+        refreshed(THIRD)
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
+        }
+
+        listOf(source.volumeCover("Kept", "Delta/")?.name, source.volumeCover("Kept", "")?.name) shouldBe
+            listOf("cover.png", null)
+    }
+
+    @Test
     fun `a member another series also lists from is not linked from this one`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)

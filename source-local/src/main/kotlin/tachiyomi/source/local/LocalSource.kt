@@ -41,6 +41,7 @@ import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
 import reikai.source.local.volumeExtras
 import reikai.storage.listOrNull
+import reikai.storage.localCover
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.extension
@@ -469,10 +470,15 @@ class LocalSource(
         extras.chapter_number = first - 0.01f
     }
 
-    /** A volume folder's cover: a picture named cover or folder, or its only picture. */
+    /**
+     * A volume folder's cover: a picture named cover or folder, or its only picture. Another folder's loose chapters,
+     * a series combined in whole, show that series' own cover, as its folder holds it.
+     */
     fun volumeCover(series: String, key: String): UniFile? {
         val (folder, volume) = localGroupUnit(series, key)
-        if (volume == VolumeOwner.LOOSE) return null
+        if (volume == VolumeOwner.LOOSE) {
+            return if (folder == series) null else fileSystem.getFilesInMangaDirectory(folder).localCover()
+        }
         val pictures = fileSystem.getMangaDirectory(folder)?.findFile(volume)?.listFiles().orEmpty().filter {
             it.isPicture()
         }
