@@ -48,12 +48,12 @@ class LocalOrganizer(
 
     /** Takes up [plan], journal row [id], where a kill left it, before any listing can read the half-done state. */
     suspend fun replay(type: ContentType, id: Long, plan: Organize) {
-        val root = reach(plan.root) ?: return
-        // The step a kill cut off may have landed before its note did.
-        val at = plan.steps.getOrNull(plan.done)
-            ?.takeIf { it !is FileStep.Rows && landed(root, it) == true }
-            ?.let { plan.copy(done = plan.done + 1).also { journal.update(id, it) } }
-            ?: plan
+        val root = reach(plan.root) ?: return locks.block(type, plan.folders())
+        // The step a kill cut off may have landed before its note did; one that cannot be told is left for a
+        // later start, since going on or putting back would each be wrong for one of the two answers.
+        val cut = plan.steps.getOrNull(plan.done)?.takeIf { it !is FileStep.Rows && it !is FileStep.SetAside }
+        val landed = cut?.let { landed(root, it) ?: return locks.block(type, plan.folders()) }
+        val at = if (landed == true) plan.copy(done = plan.done + 1).also { journal.update(id, it) } else plan
         val result = carryOn(type, id, at)
         if (result is LocalMoveResult.Failed) logcat(LogPriority.WARN, result.error) { "Organize $id left for later" }
     }
@@ -70,13 +70,21 @@ class LocalOrganizer(
                     writeRows(type, plan, step.forward) { journal.update(id, next) }
                 } else {
                     check(apply(root, step)) { "Could not $step" }
-                    journal.update(id, next)
                 }
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 return putBack(type, id, at, e)
             }
             at = next
+            // A step that landed is put back with the rest when its note fails, never left out of them.
+            if (step !is FileStep.Rows) {
+                try {
+                    journal.update(id, next)
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    return putBack(type, id, next, e)
+                }
+            }
         }
         journal.delete(id)
         return LocalMoveResult.Moved(emptyList())

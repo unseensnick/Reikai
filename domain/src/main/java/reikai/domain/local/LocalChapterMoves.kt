@@ -17,22 +17,16 @@ data class VolumeRowMove(
 /** Local series [id]'s folder renamed [fromSeries] to [toSeries], and each volume key in [volumes] (old to new). */
 data class SeriesRename(val id: Long, val fromSeries: String, val toSeries: String, val volumes: Map<String, String>)
 
-/**
- * Series [fromOwner]'s chapters in [units] (folder and volume, [VolumeOwner.WHOLE] for a whole folder) going to
- * series [toOwner], their addresses unchanged, since the files do not move.
- */
-data class UnitTransfer(val fromOwner: Long, val toOwner: Long, val units: List<Pair<String, String>>)
-
 interface LocalChapterMoveRepository {
     /**
-     * Regroups local volumes without touching a file, in one transaction: each of [transfers]' chapters, a row's
-     * or a kept state's, found by [unitOf] inside the transaction so one first listed since the caller planned
-     * is never left behind, goes to its new owner with what is keyed by owner and address; the [remove] owner
-     * rows go and the [add] ones are written; and [volumes]' saved order and names move to their new keys.
+     * Regroups local volumes without touching a file, in one transaction: the [remove] owner rows go and the [add]
+     * ones are written, then every chapter of the [series] (address to id), a row's or a kept state's, read inside
+     * the transaction and placed by [unitOf], goes to the one of them the table now says lists its volume, with
+     * what is keyed by owner and address, its address unchanged; [volumes]' saved order and names move too.
      */
     suspend fun regroup(
         type: ContentType,
-        transfers: List<UnitTransfer>,
+        series: Map<String, Long>,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
         volumes: List<VolumeRowMove>,

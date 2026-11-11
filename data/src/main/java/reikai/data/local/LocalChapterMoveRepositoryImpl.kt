@@ -10,8 +10,8 @@ import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.SeriesRename
-import reikai.domain.local.UnitTransfer
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
@@ -47,7 +47,7 @@ class LocalChapterMoveRepositoryImpl(
 
     override suspend fun regroup(
         type: ContentType,
-        transfers: List<UnitTransfer>,
+        series: Map<String, Long>,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
         volumes: List<VolumeRowMove>,
@@ -56,20 +56,20 @@ class LocalChapterMoveRepositoryImpl(
         val dbType = type.toDbValue()
         database.transaction {
             writeOwners(dbType, remove, add)
-            val arrived = HashMap<Long, MutableList<String>>()
-            transfers.forEach { transfer ->
-                val units = transfer.units.toSet()
-                fun moves(url: String) = unitOf(url)?.let { (folder, volume) ->
-                    (folder to volume) in units || (folder to VolumeOwner.WHOLE) in units
-                } == true
-                val urls = (
-                    chapterUrls(type, transfer.fromOwner) +
-                        tombstones.byOwner(type, transfer.fromOwner).map { it.url }
-                    )
-                    .distinct().filter(::moves)
-                urls.forEach { moveChapter(type, transfer.fromOwner, transfer.toOwner, ChapterMove(it, it)) }
-                arrived.getOrPut(transfer.toOwner) { mutableListOf() } += urls
+            // Each chapter goes where the table now says its volume lists, so a combine and its Undo move exactly
+            // what changed hands, in any order, and a chapter the series held all along stays.
+            val groups = LocalGroups(
+                ownerQueries.getAll(dbType) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }
+                    .awaitAsList(),
+            )
+            val moves = series.values.flatMap { id ->
+                (chapterUrls(type, id) + tombstones.byOwner(type, id).map { it.url }).distinct().mapNotNull { url ->
+                    val (folder, volume) = unitOf(url) ?: return@mapNotNull null
+                    series[groups.ownerOf(folder, volume)]?.takeIf { it != id }?.let { Triple(id, it, url) }
+                }
             }
+            moves.forEach { (from, to, url) -> moveChapter(type, from, to, ChapterMove(url, url)) }
+            val arrived = moves.groupBy({ it.second }, { it.third })
             volumes.forEach {
                 queries.forgetVolume(dbType, it.toSeries, it.toKey)
                 queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey)

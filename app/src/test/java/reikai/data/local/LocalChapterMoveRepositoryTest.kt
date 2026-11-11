@@ -13,7 +13,6 @@ import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.SeriesRename
-import reikai.domain.local.UnitTransfer
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.source.local.localChapterUnit
@@ -80,6 +79,27 @@ class LocalChapterMoveRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
+    fun `a chapter goes to the series the table now names for its volume, and one held all along stays`(type: Type) =
+        runTest {
+            type.seed.forEach { exec(it) }
+            // A holds B's volume v and a loose chapter of B; the table gives B's folder whole to C but v to A.
+            exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'B/v/c2'"))
+            exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(12, 1, 'B/c3'"))
+
+            repository().regroup(
+                type.contentType,
+                mapOf("A" to 1L, "B" to 2L, "C" to 3L),
+                emptyList(),
+                listOf(VolumeOwner("B", VolumeOwner.WHOLE, "C"), VolumeOwner("B", "v", "A")),
+                emptyList(),
+                ::localChapterUnit,
+            )
+
+            rows(type.ownerAndUrl) shouldBe listOf("1|B/v/c2", "3|B/c1", "3|B/c3")
+        }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
     fun `a regroup writes which series lists the volumes in its own transaction`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
         val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
@@ -87,7 +107,7 @@ class LocalChapterMoveRepositoryTest {
 
         repository().regroup(
             type.contentType,
-            listOf(TRANSFER),
+            SERIES,
             remove = listOf(VolumeOwner("X", "", "B")),
             add = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "A")),
             volumes = emptyList(),
@@ -165,7 +185,7 @@ class LocalChapterMoveRepositoryTest {
         runCatching {
             repository().regroup(
                 type.contentType,
-                listOf(TRANSFER),
+                SERIES,
                 remove = emptyList(),
                 add = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "A")),
                 volumes = emptyList(),
@@ -327,12 +347,12 @@ class LocalChapterMoveRepositoryTest {
 
     /** Series B's whole folder going to series A, as a combine writes it. */
     private suspend fun regroup(type: ContentType) =
-        repository().regroup(type, listOf(TRANSFER), emptyList(), emptyList(), emptyList(), ::localChapterUnit)
+        repository().regroup(type, SERIES, emptyList(), listOf(B_IN_A), emptyList(), ::localChapterUnit)
 
     private suspend fun moveVolumes(vararg moves: VolumeRowMove) =
         repository().regroup(
             ContentType.MANGA,
-            emptyList(),
+            emptyMap(),
             emptyList(),
             emptyList(),
             moves.toList(),
@@ -343,7 +363,8 @@ class LocalChapterMoveRepositoryTest {
         /** The rename's address mapping, series B to Bee, as the callers' url kernel would give it. */
         fun toBee(url: String) = "Bee/" + url.substringAfter('/')
 
-        val TRANSFER = UnitTransfer(2, 1, listOf("B" to VolumeOwner.WHOLE))
+        val SERIES = mapOf("A" to 1L, "B" to 2L)
+        val B_IN_A = VolumeOwner("B", VolumeOwner.WHOLE, "A")
         val RENAME = SeriesRename(2, "B", "Bee", emptyMap())
         val REPLACE_PLAN = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
     }

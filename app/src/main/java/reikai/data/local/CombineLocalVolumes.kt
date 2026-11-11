@@ -28,7 +28,6 @@ import reikai.domain.local.LocalFileJournalPlan.Organize
 import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
-import reikai.domain.local.UnitTransfer
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.domain.local.localGroupKey
@@ -146,7 +145,6 @@ class CombineLocalVolumes(
                 val groups = LocalGroups(before)
                 val remove = mutableListOf<VolumeOwner>()
                 val add = mutableListOf<VolumeOwner>()
-                val transfers = mutableListOf<UnitTransfer>()
                 val saved = localVolumes.loadedVolumes(type)
                 val volumeRows = VolumeRows(saved, kept.folder, kept.folder)
                 for (other in others) {
@@ -154,12 +152,10 @@ class CombineLocalVolumes(
                     remove += held
                     // A volume of the kept series' own folder that the other one held simply comes home.
                     add += held.filter { it.folder != kept.folder }.map { it.copy(owner = kept.folder) }
-                    if (!groups.hasNoFolder(other.folder)) {
-                        add +=
-                            VolumeOwner(other.folder, VolumeOwner.WHOLE, kept.folder)
+                    // Its own folder only when it lists it: a folder another series holds whole stays with that one.
+                    if (!groups.hasNoFolder(other.folder) && !groups.isLentWhole(other.folder)) {
+                        add += VolumeOwner(other.folder, VolumeOwner.WHOLE, kept.folder)
                     }
-                    val units = held.map { it.folder to it.volume } + (other.folder to VolumeOwner.WHOLE)
-                    transfers += UnitTransfer(other.id, kept.id, units.distinct())
                     volumeRows.next(other.folder)
                     saved[other.folder].orEmpty().forEach { row ->
                         val (folder, volume) = localGroupUnit(other.folder, row.key)
@@ -169,7 +165,7 @@ class CombineLocalVolumes(
                 regroup(
                     type = type,
                     folders = folders,
-                    transfers = transfers,
+                    series = (listOf(kept) + others).associate { it.folder to it.id },
                     remove = remove,
                     add = add,
                     volumes = volumeRows.moves,
@@ -221,7 +217,7 @@ class CombineLocalVolumes(
                 regroup(
                     type = type,
                     folders = folders,
-                    transfers = listOf(UnitTransfer(series.id, created, units)),
+                    series = mapOf(series.folder to series.id, folder to created),
                     remove = before.filter { (it.folder to it.volume) in units },
                     add = units.map { (from, volume) -> VolumeOwner(from, volume, folder) } +
                         VolumeOwner(folder, VolumeOwner.WHOLE, folder),
@@ -248,13 +244,13 @@ class CombineLocalVolumes(
     /**
      * Writes one regrouping and builds its undo. [leaving] entries leave the library, [joining] joins it, and the
      * [relist] entries list their chapters again. The caller holds the lock on [folders]; the undo runs later on the
-     * app scope, so it takes it again. The undo moves back every chapter of the volumes as it finds them then, so a
-     * chapter first listed since goes back with its volume.
+     * app scope, so it takes it again. Both place the [series]' chapters as they find them then, so a chapter first
+     * listed since goes back with its volume.
      */
     private suspend fun regroup(
         type: ContentType,
         folders: List<String>,
-        transfers: List<UnitTransfer>,
+        series: Map<String, Long>,
         remove: List<VolumeOwner>,
         add: List<VolumeOwner>,
         volumes: List<VolumeRowPair>,
@@ -264,7 +260,7 @@ class CombineLocalVolumes(
     ): LocalVolumeMove {
         val removal = removal(type)
         try {
-            chapterMoves.regroup(type, transfers, remove, add, volumes.map { it.forward }) { chapterVolumeUnit(type, it) }
+            chapterMoves.regroup(type, series, remove, add, volumes.map { it.forward }) { chapterVolumeUnit(type, it) }
         } catch (e: Exception) {
             if (e is CancellationException) throw e
             return failed(LocalMoveResult.Failed(e))
@@ -292,7 +288,7 @@ class CombineLocalVolumes(
                     try {
                         chapterMoves.regroup(
                             type,
-                            transfers.map { UnitTransfer(it.toOwner, it.fromOwner, it.units) },
+                            series,
                             remove = add,
                             add = remove,
                             volumes = volumes.map { it.back },
@@ -548,7 +544,9 @@ class CombineLocalVolumes(
             val container = if (type == ContentType.NOVELS && folder == volume) emptyList() else listOf(folder)
             if (type != ContentType.NOVELS && volume == VolumeOwner.LOOSE) {
                 steps += FileStep.MakeFolder(base + name)
-                listed.filter { chapterVolumeUnit(type, it) == folder to volume }.map { it.substringAfter('/') }.distinct()
+                listed.filter {
+                    chapterVolumeUnit(type, it) == folder to volume
+                }.map { it.substringAfter('/') }.distinct()
                     .forEach { file -> steps += FileStep.Move(container + file, base + name) }
             } else {
                 if (volume != name) steps += FileStep.Rename(container + volume, name)

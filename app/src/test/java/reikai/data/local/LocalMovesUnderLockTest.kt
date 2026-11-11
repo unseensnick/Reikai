@@ -458,6 +458,43 @@ class LocalMovesUnderLockTest {
             listOf(true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
+    /** Found by the randomized test: Other's folder lists under Kept already, with Other's chapters on Kept's rows. */
+    @Test
+    fun `combining a series whose folder another holds whole moves none of its chapters away from that one`() =
+        runTest {
+            chapterFolder("Third", "Vol 1", "Ch 3")
+            addSeries(THIRD, "Third")
+            refreshed(THIRD)
+            markRead("Other/Vol 1/Ch 1")
+            combined()
+
+            withContext(Dispatchers.Default) {
+                withTimeout(20_000) { combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER))) }
+            }
+            refreshed(KEPT)
+
+            readUrls(KEPT) shouldBe listOf("Other/Vol 1/Ch 1")
+        }
+
+    /** Found by the randomized test: the Undo took back the split-out volume with the folder it sits in. */
+    @Test
+    fun `undoing a combine into a split-out series leaves it the volume it was split with`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 2/Ch 2")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(split), listOf(series(KEPT))) }
+        }
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+
+        (undone is LocalMoveResult.Moved) to readUrls(split) shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
+    }
+
     private suspend fun addSeries(id: Long, folder: String) = driver.exec(
         "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_cover, remote_status, " +
             "state_initialized, user_reader_flags, user_chapter_flags, user_favorite_at, " +

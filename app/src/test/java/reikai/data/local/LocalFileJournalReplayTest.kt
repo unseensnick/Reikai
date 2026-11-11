@@ -18,7 +18,6 @@ import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
-import reikai.domain.local.UnitTransfer
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.novel.local.LocalNovelSource
@@ -175,7 +174,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
 
         override suspend fun regroup(
             type: ContentType,
-            transfers: List<UnitTransfer>,
+            series: Map<String, Long>,
             remove: List<VolumeOwner>,
             add: List<VolumeOwner>,
             volumes: List<VolumeRowMove>,
