@@ -46,6 +46,7 @@
 app/src/main/java/eu/kanade/domain/chapter/interactor/SyncChaptersWithSource.kt	app/src/main/java/reikai/data/novel/NovelChapterSync.kt	a3dbd4a121a97b83
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	2bbcb70481ae4872
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	38f3f7e648005bc6
+app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/MangaBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	0368b2ef3be06e8b
 app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	app/src/main/java/reikai/data/local/CombineLocalVolumes.kt	0ba4418288464ef8
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomMangaInfo.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupCustomNovelInfo.kt	3f25b0ac5f1f9294
 app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupManga.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/models/BackupNovel.kt	eb95fab0158a498f

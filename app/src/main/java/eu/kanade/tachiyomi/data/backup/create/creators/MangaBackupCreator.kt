@@ -118,10 +118,6 @@ class MangaBackupCreator(
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
         val marksByMangaId = copyMarks.loadedMarks(ContentType.MANGA) // RK
         val volumesBySeries = localVolumes.loadedVolumes(ContentType.MANGA) // RK
-        // RK: by its own rows, since a local series whose every chapter is gone has kept states and no chapter rows
-        batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
-            backup.chapterTombstones = kept.map { it.toBackup() }
-        }
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK
@@ -133,6 +129,12 @@ class MangaBackupCreator(
                     copyMark = marks[chapter.url]?.toBackupValue() // RK
                 }
             }
+        }
+        // RK: by its own rows, since a local series whose every chapter is gone has kept states and no chapter
+        // rows; read after the chapters, so one a refresh captures between the two reads lands in both, never in
+        // neither (the restore's fold spends the duplicate)
+        batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
+            backup.chapterTombstones = kept.map { it.toBackup() }
         }
     }
 

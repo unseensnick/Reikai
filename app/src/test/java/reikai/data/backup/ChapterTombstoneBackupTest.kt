@@ -28,6 +28,7 @@ import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoLocalVolumes
@@ -70,11 +71,31 @@ class ChapterTombstoneBackupTest {
         type.seed(driver)
         type.tombstone(driver)
 
-        val carried = type.backedUp(database).map {
+        val carried = type.backedUp(database, ChapterTombstoneRepositoryImpl(database)).tombstones.map {
             Triple(it.url, it.historyReadAt to it.historyDuration, it.sessions.map { s -> s.endedAt })
         }
 
         carried shouldBe listOf(Triple("/c5", 200L to 90L, listOf(2_000L)))
+    }
+
+    /** The creator reads chapters and kept states in two queries; a refresh can capture a chapter between them. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter captured between the backup's two reads is still in the backup`(type: Type) = runTest {
+        type.seed(driver)
+        type.restore(database, tombstones = emptyList(), chapters = listOf("/c5"))
+        val real = ChapterTombstoneRepositoryImpl(database)
+        val capturingAfterItsRead = object : ChapterTombstoneRepository by real {
+            override suspend fun getByOwners(contentType: ContentType, ownerIds: List<Long>) =
+                real.getByOwners(contentType, ownerIds).also {
+                    type.tombstone(driver)
+                    driver.exec(type.deleteChapterStatement)
+                }
+        }
+
+        val backed = type.backedUp(database, capturingAfterItsRead)
+
+        (backed.chapterUrls + backed.tombstones.map { it.url }).contains("/c5") shouldBe true
     }
 
     @ParameterizedTest
@@ -150,26 +171,29 @@ class ChapterTombstoneBackupTest {
             override val sessionCountQuery = "SELECT count(*) FROM manga_chapter_tombstone_session"
             override val readUrlQuery = "SELECT remote_url FROM chapter WHERE user_read = 1 ORDER BY remote_url"
 
-            override suspend fun backedUp(database: Database) = BackupManga(source = 1L, url = "u").also { backup ->
-                MangaBackupCreator(
-                    manualOrder = FakeLibraryManualOrderRepository(),
-                    mangaRepository = mockk(),
-                    chapterRepository = ChapterRepositoryImpl(database),
-                    trackRepository = mockk(),
-                    categoryRepository = mockk(),
-                    historyRepository = mockk(),
-                    mangaMetadataRepository = mockk(),
-                    customMangaInfoRepository = mockk(),
-                    getFavorites = mockk(),
-                    getManga = mockk(),
-                    mergeGroupRepository = mockk(),
-                    chapterNumberOverrides = NoChapterNumberOverrides,
-                    copyMarks = InMemoryChapterCopyMarks(),
-                    localVolumes = NoLocalVolumes,
-                    readingLog = NoReadingLog,
-                    tombstones = ChapterTombstoneRepositoryImpl(database),
-                ).chapters(listOf(Manga.create().copy(id = 1) to backup))
-            }.chapterTombstones
+            override val deleteChapterStatement = "DELETE FROM chapter WHERE remote_url = '/c5'"
+
+            override suspend fun backedUp(database: Database, tombstones: ChapterTombstoneRepository) =
+                BackupManga(source = 1L, url = "u").also { backup ->
+                    MangaBackupCreator(
+                        manualOrder = FakeLibraryManualOrderRepository(),
+                        mangaRepository = mockk(),
+                        chapterRepository = ChapterRepositoryImpl(database),
+                        trackRepository = mockk(),
+                        categoryRepository = mockk(),
+                        historyRepository = mockk(),
+                        mangaMetadataRepository = mockk(),
+                        customMangaInfoRepository = mockk(),
+                        getFavorites = mockk(),
+                        getManga = mockk(),
+                        mergeGroupRepository = mockk(),
+                        chapterNumberOverrides = NoChapterNumberOverrides,
+                        copyMarks = InMemoryChapterCopyMarks(),
+                        localVolumes = NoLocalVolumes,
+                        readingLog = NoReadingLog,
+                        tombstones = tombstones,
+                    ).chapters(listOf(Manga.create().copy(id = 1) to backup))
+                }.let { Backed(it.chapters.map { chapter -> chapter.url }, it.chapterTombstones) }
 
             override suspend fun restore(
                 database: Database,
@@ -206,26 +230,29 @@ class ChapterTombstoneBackupTest {
             override val sessionCountQuery = "SELECT count(*) FROM novel_chapter_tombstone_session"
             override val readUrlQuery = "SELECT url FROM novel_chapters WHERE read = 1 ORDER BY url"
 
-            override suspend fun backedUp(database: Database) = BackupNovel(source = "src", url = "u").also { backup ->
-                NovelBackupCreator(
-                    manualOrder = FakeLibraryManualOrderRepository(),
-                    novelRepository = mockk(),
-                    novelChapterRepository = NovelChapterRepositoryImpl(database),
-                    categoryRepository = mockk(),
-                    novelTrackRepository = mockk(),
-                    mergeGroupRepository = mockk(),
-                    customNovelInfoRepository = mockk(),
-                    novelHistoryRepository = mockk(),
-                    novelSourceManager = mockk(),
-                    chapterNumberOverrides = NoChapterNumberOverrides,
-                    copyMarks = InMemoryChapterCopyMarks(),
-                    localVolumes = NoLocalVolumes,
-                    readingLog = NoReadingLog,
-                    readingPace = NoReadingPace,
-                    localNovelLanguages = NoLocalNovelLanguages,
-                    tombstones = ChapterTombstoneRepositoryImpl(database),
-                ).chapters(listOf(Novel.create().copy(id = 1) to backup))
-            }.chapterTombstones
+            override val deleteChapterStatement = "DELETE FROM novel_chapters WHERE url = '/c5'"
+
+            override suspend fun backedUp(database: Database, tombstones: ChapterTombstoneRepository) =
+                BackupNovel(source = "src", url = "u").also { backup ->
+                    NovelBackupCreator(
+                        manualOrder = FakeLibraryManualOrderRepository(),
+                        novelRepository = mockk(),
+                        novelChapterRepository = NovelChapterRepositoryImpl(database),
+                        categoryRepository = mockk(),
+                        novelTrackRepository = mockk(),
+                        mergeGroupRepository = mockk(),
+                        customNovelInfoRepository = mockk(),
+                        novelHistoryRepository = mockk(),
+                        novelSourceManager = mockk(),
+                        chapterNumberOverrides = NoChapterNumberOverrides,
+                        copyMarks = InMemoryChapterCopyMarks(),
+                        localVolumes = NoLocalVolumes,
+                        readingLog = NoReadingLog,
+                        readingPace = NoReadingPace,
+                        localNovelLanguages = NoLocalNovelLanguages,
+                        tombstones = tombstones,
+                    ).chapters(listOf(Novel.create().copy(id = 1) to backup))
+                }.let { Backed(it.chapters.map { chapter -> chapter.url }, it.chapterTombstones) }
 
             override suspend fun restore(
                 database: Database,
@@ -268,8 +295,14 @@ class ChapterTombstoneBackupTest {
         abstract val sessionCountQuery: String
         abstract val readUrlQuery: String
 
-        /** The owner's kept states as the type's creator writes them. */
-        abstract suspend fun backedUp(database: Database): List<BackupChapterTombstone>
+        /** The owner's chapters and kept states as the type's creator writes them, reading tombstones from [tombstones]. */
+        abstract suspend fun backedUp(database: Database, tombstones: ChapterTombstoneRepository): Backed
+
+        /** The row at /c5 removed, as a refresh removes a chapter whose file is gone. */
+        abstract val deleteChapterStatement: String
+
+        /** What a creator wrote for the owner: its chapters' urls and its kept states. */
+        class Backed(val chapterUrls: List<String>, val tombstones: List<BackupChapterTombstone>)
 
         /** A restore of the backup's [tombstones] and unread [chapters] onto this database. */
         abstract suspend fun restore(
