@@ -19,7 +19,6 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.insertOpenedNovel
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
-import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
@@ -49,7 +48,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.system.ImageUtil
 import tachiyomi.domain.library.service.LibraryPreferences
-import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.i18n.MR
@@ -152,8 +150,6 @@ class LocalImport(
     private val libraryPreferences: LibraryPreferences,
     private val syncRules: NovelChapterSyncRules,
     private val journal: LocalFileJournal,
-    private val tombstones: ChapterTombstoneRepository,
-    private val getMangaByUrlAndSourceId: GetMangaByUrlAndSourceId,
     private val novelAdder: NovelLibraryAdder,
     private val mangaAdder: MangaLibraryAdder,
     private val networkToLocalManga: NetworkToLocalManga,
@@ -273,7 +269,8 @@ class LocalImport(
         }
         val taken = present.mapNotNull { it.name }.toMutableSet()
         var books = present.count { it.name.orEmpty().endsWith(EPUB, ignoreCase = true) }
-        val replacedBooks = mutableListOf<String>()
+        // A replaced book keeps its chapters' kept reading state: a newer copy is the same book by the
+        // import's own match, so a chapter back in it finds its state at its address, as after any return.
         group.files.forEach { file ->
             val exact = present.firstOrNull { file.uri in group.duplicates && it.length() == file.size }
             val older = group.newerCopies[file.uri]?.let { name -> present.firstOrNull { it.name == name } }
@@ -290,16 +287,8 @@ class LocalImport(
             runCatching {
                 copy(group.type, file, folder, copyName, taken, replacing = duplicate?.takeIf { copyName == it.name })
             }
-                .onSuccess {
-                    copied++
-                    if (exact == null && duplicate != null) replacedBooks += chapterPrefix(group.type, path, copyName)
-                }
+                .onSuccess { copied++ }
                 .onFailure { problems += ImportProblem(file.name, ImportProblem.Reason.CopyFailed, file.uri) }
-        }
-        // The old book's chapters whose files a refresh had lost are not the newer copy's: the user
-        // chose to replace it, so what the next listing finds at those addresses starts unread.
-        if (replacedBooks.isNotEmpty()) {
-            ownerOf(group.type, path)?.let { tombstones.forget(group.type, it, replacedBooks) }
         }
         // Nothing copied, every file skipped or failed, so the series was not imported to.
         if (copied == 0) {
@@ -346,17 +335,6 @@ class LocalImport(
             if (mangaAdder.addToBatch(stored.id, categoryIds) == AddOutcome.Failed) throw NotAddedException()
             stored.id
         }
-    }
-
-    /** What every chapter address of the file [name] in the series folder [path] starts with. */
-    private fun chapterPrefix(type: ContentType, path: String, name: String): String = when (type) {
-        ContentType.NOVELS -> LocalNovelSource.volumePathPrefix(path, name)
-        else -> "$path/$name"
-    }
-
-    private suspend fun ownerOf(type: ContentType, path: String): Long? = when (type) {
-        ContentType.NOVELS -> novelRepository.getByUrlAndSource(path, LocalNovelSource.ID)?.id
-        else -> getMangaByUrlAndSourceId.await(path, LocalSource.ID)?.id
     }
 
     /** "<series> - Vol. N.epub", N the book's own number or else its place in the series. */

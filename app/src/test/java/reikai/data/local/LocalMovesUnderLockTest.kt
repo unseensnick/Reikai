@@ -195,8 +195,6 @@ class LocalMovesUnderLockTest {
             novelChapterRepository = mockk(),
             libraryPreferences = libraryPreferences,
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, tombstones),
-            tombstones = tombstoneRepository,
-            getMangaByUrlAndSourceId = GetMangaByUrlAndSourceId(mangaRepository),
             journal = InMemoryLocalFileJournal(),
             novelAdder = mockk(),
             mangaAdder = mangaAdder,
