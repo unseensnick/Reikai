@@ -33,9 +33,9 @@ Merged series work the same way for manga and for light novels.
   decoding="async"
 />
 
-::: info A series is only merged when you ask
-Nothing is merged behind your back.
+::: info When a series is merged
 An entry joins a group when you accept the prompt shown as you add it, when you merge entries yourself, or when you migrate a merged series: the series you migrate to takes the old entry's place in the group, or joins the group beside it if you keep the old one.
+The one automatic case is [restoring a backup from another app](#restoring-a-backup-from-another-app), which groups series with the same title.
 A source you remove with the heart or from the library keeps its place in the group, so adding it back puts it straight back in. **Remove from library** in Manage sources splits it out first, so it comes back on its own.
 :::
 
@@ -64,6 +64,13 @@ Adding from Browse, global search, a series' own details page, History or Update
 
 The **Add to existing group** option is controlled by **Suggest merging same-titled series**, in <nav to="library"> under **Merged series**, once for **Manga** and once for **Novels**, and is also hidden while **Merge series across sources** is off.
 With it off, adding a matching series never offers to group it.
+
+### Restoring a backup from another app
+
+Reikai keeps no merged series from a backup made in another app, so restoring one groups the series in that backup's library that share a title.
+This happens whatever **Suggest merging same-titled series** is set to.
+Titles have to match apart from upper and lower case, so two spellings of one series stay apart until you [merge them yourself](#merging-entries-yourself).
+[Split](#splitting-a-group-up) any group you did not want. A backup made in Reikai restores its groups as they were saved.
 
 ### Reading a merged card
 

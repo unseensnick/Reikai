@@ -166,3 +166,4 @@ Pick the columns, **Title**, **Author** and **Artist** (all ticked to start), ta
 
 **Reikai** uses Mihon's backup format, so a `.tachibk` backup from Mihon, Yōkai and several other forks restores here, and a backup made here carries your manga to them.
 What comes across each way, and the steps for moving to Reikai, are in [Before you upgrade](/docs/before-you-upgrade#from-yokai-yokai-y2k-or-another-fork).
+Restoring one of these backups [groups series that share a title](/docs/multi-source#restoring-a-backup-from-another-app).

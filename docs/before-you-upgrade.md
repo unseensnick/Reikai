@@ -52,6 +52,7 @@ Yōkai-Y2K and older Yōkai-based Reikai builds use the same format.
 1. On the Restore screen, tick **Trust this repo** for each repo you recognise, so it comes back. These apps don't record which extensions you had, so install them again from Browse, and log in to your trackers again. See [Restoring a backup](guides/backups.md#restoring-a-backup).
 
 What comes across: your library, categories, reading history and tracking links.
+Series in your library that share a title come back as one [merged series](/docs/multi-source#restoring-a-backup-from-another-app), and you can split any of them afterwards.
 
 What does not:
 
