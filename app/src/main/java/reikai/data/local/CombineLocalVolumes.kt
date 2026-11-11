@@ -565,9 +565,13 @@ class CombineLocalVolumes(
         }
         if (!needsFolder && !loneBook && own != target) steps += FileStep.Rename(listOf(own), target)
         val before = rows.filter { it.owner == own }
-        // A folder the series held whole keeps listing under it, so what is left there (its cover, a file put
-        // there since) neither shows as a series of its own nor goes anywhere.
-        val after = before.filter { it.volume == VolumeOwner.WHOLE && it.folder != own }.map { it.copy(owner = target) }
+        // A folder the series held whole, or the loose chapters of one, keep listing under it, so what is left
+        // there (a chapter the listing missed, its cover, a file put there since) stays with its rows.
+        val after = before.filter {
+            it.folder != own &&
+                (it.volume == VolumeOwner.WHOLE || it.volume == VolumeOwner.LOOSE)
+        }
+            .map { it.copy(owner = target) }
         return Organize(
             entryId = series.id,
             root = root.uri.toString(),

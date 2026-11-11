@@ -662,6 +662,36 @@ class LocalMovesUnderLockTest {
         File(local, "Third/Ch 4/001.jpg").exists() to readUrls(KEPT) shouldBe (true to listOf("Third/Ch 4"))
     }
 
+    /** Found by the randomized test: the row naming another folder's loose chapters went, and the hidden one with it. */
+    @Test
+    fun `a hidden loose chapter of a split-out series stays with it after an organize`() = runTest {
+        listOf("Ch 3", "Ch 4").forEach {
+            File(local, "Third/$it").mkdirs()
+            File(local, "Third/$it/001.jpg").writeBytes(byteArrayOf(3))
+        }
+        addSeries(THIRD, "Third")
+        refreshed(THIRD)
+        markRead("Third/Ch 4")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
+        }
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Third/"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        val third = File(local, "Third")
+        FakeSafProvider.listingFault = { if (it == third) FakeSafProvider.ChildListingFault.Without("Ch 4") else null }
+        val names = combine.organizePlan(ContentType.MANGA, series(split), "Split", listOf("Third/" to "1"))
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
+        }
+        FakeSafProvider.listingFault = null
+        refreshed(split)
+
+        readUrls(split) shouldBe listOf("Third/Ch 4")
+    }
+
     @Test
     fun `organize is not offered where the storage cannot move a file`() = runTest {
         FakeSafProvider.supportsMove = false
