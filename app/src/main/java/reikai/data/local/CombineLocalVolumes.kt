@@ -646,8 +646,11 @@ class CombineLocalVolumes(
         seriesLocks.withSeries(type, series.folder) {
             val folder = folderOf(type, id)
                 ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No folder"))
-            val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteTree() == false }
-            val deleted = keys.takeWhile { it != failed }.associateWith { volumeChapterPrefix(type, series.folder, it) }
+            // Only a volume this call deleted counts: one it could not find may be there all the same, since a
+            // failed query reads as absent, and forgetting its kept state would then lose it for good.
+            val gone = keys.takeWhile { key -> folder.findFile(key)?.deleteTree() == true }
+            val failed = keys.getOrNull(gone.size)
+            val deleted = gone.associateWith { volumeChapterPrefix(type, series.folder, it) }
             // Their saved order and names would otherwise wait at those names for whatever is put there next.
             chapterMoves.forgetVolumes(type, id, series.folder, deleted)
             // The listing removes their rows and keeps their state, as for any file gone; the user chose to

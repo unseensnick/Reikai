@@ -378,6 +378,27 @@ class LocalMovesUnderLockTest {
         (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Kept/Vol 1 (2)/Ch 5"))
     }
 
+    /** A failed query reads as "no such volume", and a short listing then removes its rows as if it were gone. */
+    @Test
+    fun `a volume Delete volumes could not find keeps its chapters' reading state`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 2/Ch 2")
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "queryDocument" && target == File(local, "Kept/Vol 2")) error("the provider died")
+        }
+        FakeSafProvider.listingFault = { FakeSafProvider.ChildListingFault.Without("Vol 2") }
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
+        }
+        FakeSafProvider.onCall = null
+        FakeSafProvider.listingFault = null
+        refreshed(KEPT)
+
+        File(local, "Kept/Vol 2/Ch 2/001.jpg").exists() to allReadUrls() shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
+    }
+
     /** A failed query answers "not a folder", which must not make the local folder itself the series' folder. */
     @Test
     fun `deleting a volume never takes another series of the volume's name when the series' query fails`() = runTest {
