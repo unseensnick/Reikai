@@ -184,6 +184,17 @@ class LocalFilesPrimitivesTest {
         series.exists() shouldBe true
     }
 
+    /** A failed document query reads as "not a folder" and as "not a file" alike; only the second refuses. */
+    @Test
+    fun `deleteFile refuses a folder whose own query fails`() {
+        val folder = picked(File(tmp.root, "Reikai")).findFile("Series")!!
+        FakeSafProvider.failingDocuments += series
+
+        shouldThrow<IllegalArgumentException> { folder.deleteFile() }
+
+        names() shouldBe listOf("a.cbz", "b.cbz")
+    }
+
     @Test
     fun `deleteIfEmpty deletes nothing past a failed listing`() {
         FakeSafProvider.childListingFaults += ChildListingFault.Throw

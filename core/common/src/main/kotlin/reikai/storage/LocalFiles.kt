@@ -198,9 +198,12 @@ fun UniFile.rename(newName: String): Boolean {
     return true
 }
 
-/** Deletes this file. A folder is refused, so no delete is recursive by accident: that is [deleteTree]. */
+/**
+ * Deletes this file. A folder is refused, so no delete is recursive by accident: that is [deleteTree]. Asked as
+ * `isFile`, since a picked folder's failed query answers false to both questions and only this one refuses.
+ */
 fun UniFile.deleteFile(): Boolean {
-    require(!isDirectory) { "$name is a folder" }
+    require(isFile) { "$name is not a file" }
     return delete()
 }
 
