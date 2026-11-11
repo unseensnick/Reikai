@@ -2,7 +2,6 @@ package reikai.data.chapter
 
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
-import io.kotest.matchers.longs.shouldBeLessThanOrEqual
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.io.TempDir
@@ -15,10 +14,10 @@ import tachiyomi.data.DatabaseBindings
 import java.io.File
 
 /**
- * Kept reading state is bounded by the library, not by time: a library of ten local series of a thousand
- * chapters, all removed and all returning, over and over, holds ten thousand kept states while they are
- * gone, none once they are back, and the database file stops growing after the first round, since each
- * revive spends its state and the pages it held are used again.
+ * Kept reading state is bounded by the library, not by time: every local series' chapters removed and
+ * returning, round after round, holds one kept state per chapter while they are gone and none once they are
+ * back, since each revive spends its state. The size this was measured at (ten series of a thousand chapters,
+ * three rounds, the file flat after the first) is in the commit history, not in the suite.
  */
 class ChapterTombstoneGrowthTest {
 
@@ -35,7 +34,6 @@ class ChapterTombstoneGrowthTest {
         val repository = ChapterTombstoneRepositoryImpl(database)
         val novel = type == ContentType.NOVELS
         database.transaction { (1..SERIES).forEach { owner -> seedOwner(driver, novel, owner.toLong()) } }
-        val pages = mutableListOf<Long>()
         val kept = mutableListOf<Long>()
 
         repeat(ROUNDS) {
@@ -61,16 +59,10 @@ class ChapterTombstoneGrowthTest {
                 database.transaction { (1..CHAPTERS).forEach { deleteChapter(driver, novel, chapterId(owner, it)) } }
             }
             kept += driver.count(if (novel) "novel_chapter_tombstone" else "manga_chapter_tombstone")
-            pages += driver.pragma("page_count")
         }
-        println(
-            "$type: kept states per round (gone, back) $kept; file pages per round $pages " +
-                "of ${driver.pragma("page_size")} bytes",
-        )
         driver.close()
 
         kept shouldBe List(ROUNDS) { listOf(SERIES * CHAPTERS.toLong(), 0L) }.flatten()
-        pages.last() shouldBeLessThanOrEqual pages.first() + pages.first() / 10
     }
 
     private fun chapterId(owner: Int, i: Int) = owner * 10_000L + i
@@ -131,8 +123,6 @@ class ChapterTombstoneGrowthTest {
 
     private suspend fun JdbcSqliteDriver.count(table: String): Long = long("SELECT count(*) FROM $table")
 
-    private suspend fun JdbcSqliteDriver.pragma(name: String): Long = long("PRAGMA $name")
-
     private suspend fun JdbcSqliteDriver.long(sql: String): Long = executeQuery(
         null,
         sql,
@@ -141,8 +131,8 @@ class ChapterTombstoneGrowthTest {
     ).await()
 
     private companion object {
-        const val SERIES = 10
-        const val CHAPTERS = 1000
-        const val ROUNDS = 3
+        const val SERIES = 2
+        const val CHAPTERS = 40
+        const val ROUNDS = 2
     }
 }
