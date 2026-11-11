@@ -126,11 +126,13 @@ class SyncChaptersWithSource(
             }
         }
 
-        val removedChapters = dbChapters.filterNot { it.url in sourceUrls }
-
-        // RK --> a local chapter whose file is still there fails the refresh before anything is cancelled or
-        // deleted, as a local novel's does
+        // RK --> a local group member's folder gone from the local folder could not be read, so its rows stay as they
+        // are; a local chapter whose file is still there fails the refresh before anything is cancelled or deleted,
+        // as a local novel's does
         val isLocal = source.isLocal()
+        val unlisted = dbChapters.filterNot { it.url in sourceUrls }
+        val held = localTombstones.held(ContentType.MANGA, isLocal, manga.url, unlisted.map { it.toSyncedChapter() })
+        val removedChapters = unlisted.filterNot { it.url in held }
         localTombstones.confirm(ContentType.MANGA, isLocal, removedChapters.map { it.toSyncedChapter() }, sourceUrls)
         // RK <--
 

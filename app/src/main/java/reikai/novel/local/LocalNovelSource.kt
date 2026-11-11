@@ -124,7 +124,15 @@ class LocalNovelSource(
      */
     private suspend fun parseSeries(novelPath: String): SourceNovel {
         val groups = LocalGroups(userVolumes.all(ContentType.NOVELS))
-        val members = groups.foldersOf(novelPath).map { seriesAt(it) ?: throw LocalNovelMissingException(it) }
+        val folders = groups.foldersOf(novelPath)
+        // A member folder or book renamed or removed outside the app is left out, and the sync keeps its rows as they are.
+        val missing = if (folders.any { it != novelPath }) {
+            val root = storageManager.getLocalNovelsDirectory() ?: throw LocalNovelMissingException(novelPath)
+            groups.missingMembers(novelPath, root.list(context).mapNotNull { it.name })
+        } else {
+            emptySet()
+        }
+        val members = folders.filterNot { it in missing }.map { seriesAt(it) ?: throw LocalNovelMissingException(it) }
         val series = members.firstOrNull { it.path == novelPath }
         val ordered = members.flatMap { member ->
             val books = member.volumes.filter { groups.ownerOf(member.path, it.name.orEmpty()) == novelPath }

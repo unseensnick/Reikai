@@ -2,6 +2,7 @@ package reikai.domain.chapter
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
@@ -35,6 +36,8 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalVolumeOwnerRepository
+import reikai.domain.local.VolumeOwner
 import reikai.novel.host.ChapterItem
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
@@ -70,6 +73,10 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: Database
     private lateinit var tombstones: LocalChapterTombstones
+    private val owners = object : LocalVolumeOwnerRepository {
+        override suspend fun all(type: ContentType) = database.local_volume_ownerQueries
+            .getAll(type.db) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }.awaitAsList()
+    }
 
     @Before
     fun setUp() = runTest {
@@ -88,6 +95,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
             LocalChapterFiles(context, LocalSourceFileSystem(storage), storage),
+            owners,
         )
     }
 
@@ -117,6 +125,23 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         shouldThrow<LocalChapterStillPresentException> { type.synced(type.listed(1)) }
 
         (type.rowCount(driver) to type.tombstoneCount(driver)) shouldBe (2L to 0L)
+    }
+
+    @Test
+    fun `a chapter in a member folder gone from the local folder keeps its row, and the refresh goes on`() = runTest {
+        type.seed(driver, local = true)
+        type.synced(type.listed(1), Listed(type.memberUrl, 9.0))
+        type.setState(driver, type.memberUrl)
+        driver.exec(
+            "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) " +
+                "VALUES (${type.contentType.db}, 'Member', '/', 'Series')",
+        )
+        type.file(root, type.memberUrl).parentFile!!.deleteRecursively()
+
+        type.synced(type.listed(1), type.listed(2))
+
+        listOf(type.stateOf(driver, type.memberUrl), type.rowCount(driver), type.tombstoneCount(driver)) shouldBe
+            listOf(type.marked, 3L, 0L)
     }
 
     @Test
@@ -256,6 +281,8 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         MANGA(ContentType.MANGA) {
             override val marked = State(true, true, 7, 20, 0, READ_AT, 60_000, SESSIONS)
 
+            override val memberUrl = "Member/c9.cbz"
+
             override fun url(i: Int) = "Series/c$i.cbz"
 
             override fun urlInOtherCase(i: Int) = "Series/C$i.CBZ"
@@ -365,6 +392,8 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         NOVEL(ContentType.NOVELS) {
             override val marked = State(true, true, 4200, 1234, 5000, READ_AT, 60_000, SESSIONS)
 
+            override val memberUrl = LocalNovelSource.chapterPath("Member", "Vol9.epub", EpubChapterKey("c9.xhtml"))
+
             override fun url(i: Int) = LocalNovelSource.chapterPath("Series", "Vol$i.epub", EpubChapterKey("c$i.xhtml"))
 
             override fun urlInOtherCase(i: Int) =
@@ -465,6 +494,9 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         /** [State] as [setState] leaves a chapter. */
         abstract val marked: State
 
+        /** A chapter of the series' group in folder Member, which the series holds whole. */
+        abstract val memberUrl: String
+
         abstract fun url(i: Int): String
 
         /** [url] spelled as a case-insensitive file system may hand it back. */
@@ -505,6 +537,9 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
 
     companion object {
         private const val OWNER = 1L
+
+        // How the tables store a content type.
+        private val ContentType.db get() = if (this == ContentType.NOVELS) 1L else 0L
         private const val READ_AT = 1_700_000_000_000L
         private val SESSIONS = listOf(1_700_000_000_000L to 30_000L, 1_700_000_100_000L to 30_000L)
         private val UNREAD = State(false, false, 0, 0, 0, null, null, emptyList())

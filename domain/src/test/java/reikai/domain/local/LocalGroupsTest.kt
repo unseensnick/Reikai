@@ -36,6 +36,12 @@ class LocalGroupsTest {
     }
 
     @Test
+    fun `a member folder the local folder no longer holds is missing, the series' own never is`() {
+        listOf(groups.missingMembers("A", listOf("C")), groups.missingMembers("A", listOf("B"))) shouldBe
+            listOf(setOf("B"), emptySet())
+    }
+
+    @Test
     fun `naming one folder of a group names every folder the group lists across`() {
         groups.closure(listOf("S")) shouldBe setOf("S", "B", "A")
     }

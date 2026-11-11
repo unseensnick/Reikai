@@ -318,7 +318,18 @@ class LocalSource(
         // its own file, so grouping series into volumes moves no file (LocalGroups).
         val groups = LocalGroups(userVolumes.all(ContentType.MANGA))
         val folders = groups.foldersOf(manga.url)
-        val chapters = folders.flatMap { folder -> listFolder(folder).map { folder to it } }
+        // A member folder renamed or removed outside the app is left out, and the sync keeps its rows as they are.
+        val missing = if (folders.any { it != manga.url }) {
+            groups.missingMembers(
+                manga.url,
+                listedOrFail(fileSystem.getBaseDirectory(), manga.url).mapNotNull {
+                    it.name
+                },
+            )
+        } else {
+            emptySet()
+        }
+        val chapters = folders.filterNot { it in missing }.flatMap { folder -> listFolder(folder).map { folder to it } }
             .filter { (folder, chapter) ->
                 groups.ownerOf(folder, chapter.first?.name ?: VolumeOwner.LOOSE) == manga.url
             }

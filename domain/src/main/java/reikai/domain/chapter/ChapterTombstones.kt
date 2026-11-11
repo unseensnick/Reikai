@@ -151,6 +151,13 @@ interface ChapterTombstoneRepository {
 
 /** The tombstone rules as both syncs call them, which only a local series ([isLocal]) runs. */
 interface LocalChapterTombstones {
+    /**
+     * The urls of the [removed] chapters of local series [series] that sit in a folder its group lists but the local
+     * folder no longer holds ([reikai.domain.local.LocalGroups.missingMembers]): the sync keeps their rows as they
+     * are, since the listing could not read that folder at all. Asked before [confirm].
+     */
+    suspend fun held(type: ContentType, isLocal: Boolean, series: String, removed: List<SyncedChapter>): Set<String>
+
     /** Fails the sync with [LocalChapterStillPresentException] before a [removed] chapter whose file is still there. */
     suspend fun confirm(type: ContentType, isLocal: Boolean, removed: List<SyncedChapter>, listed: Collection<String>)
 

@@ -18,6 +18,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.domain.chapter.LocalChapterStillPresentException
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
 import reikai.novel.local.LocalNovelSource
@@ -54,6 +55,7 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
         tombstones = LocalChapterTombstonesImpl(
             mockk(),
             LocalChapterFiles(context, LocalSourceFileSystem(storage), storage),
+            NoLocalVolumes,
         )
     }
 

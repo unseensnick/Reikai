@@ -95,6 +95,7 @@ class LocalRenameVsSyncRaceTest {
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
             LocalChapterFiles(context, fileSystem, storage),
+            NoLocalVolumes,
         )
         source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, locks)
     }

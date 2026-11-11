@@ -86,9 +86,12 @@ suspend fun syncChaptersWithNovelSource(
     val dbByUrl = dbChapters.associateBy { it.url }
     val sourceUrls = sourceChapters.mapTo(mutableSetOf()) { it.url }
     val sourceNumbers = overridden.chapters.associate { it.url to it.chapterNumber }
-    val toDelete = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else emptyList()
-    // A local book's chapter whose file is still there fails the refresh, as a local manga's does.
+    // A local group member's folder or book gone from the local folder could not be read, so its rows stay as they
+    // are; a local book's chapter whose file is still there fails the refresh, as a local manga's does.
     val isLocal = LocalNovelSource.isLocal(novel.source)
+    val unlisted = if (page == null) dbChapters.filterNot { it.url in sourceUrls } else emptyList()
+    val held = tombstones.held(ContentType.NOVELS, isLocal, novel.url, unlisted.map { it.toSyncedChapter() })
+    val toDelete = unlisted.filterNot { it.url in held }
     tombstones.confirm(ContentType.NOVELS, isLocal, toDelete.map { it.toSyncedChapter() }, sourceUrls)
 
     val managedUrls = mutableSetOf<String>()

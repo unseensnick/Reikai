@@ -5,6 +5,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.data.local.LocalChapterFiles
+import reikai.data.local.chapterVolumeUnit
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalChapterStillPresentException
 import reikai.domain.chapter.LocalChapterTombstones
@@ -13,6 +14,8 @@ import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.tombstoneRevivals
 import reikai.domain.chapter.unconfirmedRemovals
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalGroups
+import reikai.domain.local.LocalVolumeOwnerRepository
 
 @Inject
 @SingleIn(AppScope::class)
@@ -20,7 +23,23 @@ import reikai.domain.library.ContentType
 class LocalChapterTombstonesImpl(
     private val repository: ChapterTombstoneRepository,
     private val files: LocalChapterFiles,
+    private val owners: LocalVolumeOwnerRepository,
 ) : LocalChapterTombstones {
+
+    override suspend fun held(
+        type: ContentType,
+        isLocal: Boolean,
+        series: String,
+        removed: List<SyncedChapter>,
+    ): Set<String> {
+        if (!isLocal || removed.isEmpty()) return emptySet()
+        val groups = LocalGroups(owners.all(type))
+        if (groups.foldersOf(series).none { it != series }) return emptySet()
+        val missing = groups.missingMembers(series, files.rootNames(type))
+        return removed.mapNotNullTo(HashSet()) { chapter ->
+            chapter.url.takeIf { chapterVolumeUnit(type, it)?.first in missing }
+        }
+    }
 
     override suspend fun confirm(
         type: ContentType,

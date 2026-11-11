@@ -45,6 +45,14 @@ class LocalGroups(val rows: List<VolumeOwner>) {
     fun hasNoFolder(series: String): Boolean =
         rows.any { it.folder == series && it.volume == VolumeOwner.WHOLE && it.owner == series }
 
+    /**
+     * The folders [series] lists volumes of that are not among [rootNames], the local folder's names from a listing
+     * trusted whole: renamed or removed outside the app. Its own folder is never one, since a series whose own
+     * folder is gone is relinked instead. Its listing leaves these out and its sync keeps their chapter rows.
+     */
+    fun missingMembers(series: String, rootNames: Collection<String>): Set<String> =
+        foldersOf(series).filterTo(LinkedHashSet()) { it != series && it !in rootNames }
+
     /** Whether everything in [folder] is listed by another series, so it is no series of its own in Browse. */
     fun isLentWhole(folder: String): Boolean = wholeOwner(folder) != folder
 

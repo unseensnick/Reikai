@@ -32,6 +32,12 @@ class LocalChapterFiles(
         else -> url.takeIf { it.endsWith('/') }
     }
 
+    /** The names in the type's local folder, from a listing trusted whole; one that cannot be trusted fails the refresh. */
+    fun rootNames(type: ContentType): Set<String> =
+        (root(type) ?: throw FolderUnreadableException("No local folder")).list(context).mapTo(HashSet()) {
+            it.name.orEmpty()
+        }
+
     /** One refresh's listings, each folder read once however many removed chapters sit in it. */
     fun listings(): Listings = Listings()
 

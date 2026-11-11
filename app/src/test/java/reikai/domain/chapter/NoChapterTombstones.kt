@@ -4,6 +4,9 @@ import reikai.domain.library.ContentType
 
 /** Tombstone rules that confirm every removal and keep nothing, for a sync test about something else. */
 object NoChapterTombstones : LocalChapterTombstones {
+    override suspend fun held(type: ContentType, isLocal: Boolean, series: String, removed: List<SyncedChapter>) =
+        emptySet<String>()
+
     override suspend fun confirm(
         type: ContentType,
         isLocal: Boolean,

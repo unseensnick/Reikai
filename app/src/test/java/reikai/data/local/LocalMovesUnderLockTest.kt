@@ -130,6 +130,7 @@ class LocalMovesUnderLockTest {
             LocalChapterTombstonesImpl(
                 tombstoneRepository,
                 LocalChapterFiles(context, fileSystem, storage),
+                volumes,
             ),
         )
         // The real cover writer: a mocked one never closes the page it is handed, which on Windows pins the folder.
@@ -716,6 +717,23 @@ class LocalMovesUnderLockTest {
 
         listOf(move.result is LocalMoveResult.Moved, entries("Split"), readUrls(split)) shouldBe
             listOf(true, listOf("Split - Vol. 2"), listOf("Split/Split - Vol. 2/Ch 2"))
+    }
+
+    @Test
+    fun `a member folder renamed outside the app leaves its rows as they are while the group refreshes`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        File(local, "Other").renameTo(File(local, "Elsewhere"))
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+
+        val result = refresh(series(KEPT).toManga(), fetchChapters = true)
+
+        listOf(result.isSuccess, urls(KEPT), readUrls(KEPT), tombstoneUrls(KEPT)) shouldBe listOf(
+            true,
+            listOf("Kept/Vol 1/Ch 1", "Kept/Vol 2/Ch 2", "Other/Vol 1/Ch 1"),
+            listOf("Other/Vol 1/Ch 1"),
+            emptyList<String>(),
+        )
     }
 
     private suspend fun combined() = withContext(Dispatchers.Default) {

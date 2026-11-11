@@ -256,7 +256,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         private val numberOverrides = ChapterNumberOverrideRepositoryImpl(database)
         private val copyMarks = InMemoryChapterCopyMarks()
         private val tombstones =
-            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, fileSystem, storage))
+            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, fileSystem, storage), volumes)
         val source = LocalSource(
             context,
             fileSystem,
