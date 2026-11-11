@@ -15,6 +15,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.storage.FakeSafProvider
+import reikai.storage.FakeSafProvider.ChildListingFault
 import reikai.storage.replaceFile
 import java.io.File
 
@@ -71,8 +73,54 @@ class LocalFileMoveTest {
 
         moveLocalFiles(context, listOf(FileCopy(short, uni(tmp.newFolder("A")), null, "Vol 1"))) {}
 
-        File(from, "Vol 1/b.cbz").readText() shouldBe "b"
+        File(from, ".moved-Vol 1/b.cbz").readText() shouldBe "b"
     }
+
+    /**
+     * A picked folder's provider can list short the same way twice, so the copy's own check cannot see the file it
+     * never copied; the second reading, later, can.
+     */
+    @Test
+    fun `a listing short the same way in the copy and the delete keeps the uncopied file, hidden`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Vol 1/a.cbz" to "a", "Vol 1/b.cbz" to "b")
+        val to = tmp.newFolder("A")
+        FakeSafProvider.faultedFolder = File(from, "Vol 1")
+        // The copy's listing, its count, and the delete's walk: each short by the same file.
+        repeat(3) { FakeSafProvider.childListingFaults += ChildListingFault.Short(1) }
+
+        val moved = moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked(from).findFile("Vol 1")!!, picked(to), null, "Vol 1")),
+        ) {}
+        purgeParked(ApplicationProvider.getApplicationContext(), (moved as LocalMoveResult.Moved).parked)
+
+        listOf(
+            File(to, "Vol 1").list()!!.toList(),
+            from.list()!!.toList(),
+            File(from, ".moved-Vol 1").list()!!.toList(),
+        ) shouldBe
+            listOf(listOf("a.cbz"), listOf(".moved-Vol 1"), listOf("b.cbz"))
+    }
+
+    @Test
+    fun `a parked folder that a fresh listing finds empty is purged`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Vol 1/Ch 1/001.png" to "p")
+        val to = tmp.newFolder("A")
+
+        val moved = moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked(from).findFile("Vol 1")!!, picked(to), null, "Vol 1")),
+        ) {}
+        val parkedBefore = from.list()!!.toList()
+        purgeParked(ApplicationProvider.getApplicationContext(), (moved as LocalMoveResult.Moved).parked)
+
+        (parkedBefore to from.list()!!.toList()) shouldBe (listOf(".moved-Vol 1") to emptyList())
+    }
+
+    private fun picked(folder: File): UniFile =
+        UniFile.fromUri(ApplicationProvider.getApplicationContext(), FakeSafProvider.treeUri(folder))!!
 
     @Test
     fun `a replacement that cannot take the name leaves the old file where it was`() {

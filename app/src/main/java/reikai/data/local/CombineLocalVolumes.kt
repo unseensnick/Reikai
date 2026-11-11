@@ -460,6 +460,8 @@ class CombineLocalVolumes(
                         removal.restore(tookOut)
                         joining?.let { removal.await(listOf(it)) }
                         (relist + leaving).filter { it != joining }.forEach { relist(type, it) }
+                        // Nothing runs after an undo, so its parked folders are read again here, after the relists.
+                        purgeParked(context, undone.parked)
                     }
                     undone
                 }
@@ -467,6 +469,7 @@ class CombineLocalVolumes(
             finishing = {
                 seriesLocks.withSeries(type, folders) {
                     removal.dropCovers(tookOut.keys.toList())
+                    purgeParked(context, result.parked)
                     leftovers().forEach { it.deleteIfEmpty(context, onlyMarkers = { file -> file.holdsOnlyDetails() }) }
                 }
             },
@@ -790,7 +793,7 @@ class CombineLocalVolumes(
          */
         fun UniFile.holdsOnlyDetails(): Boolean {
             val name = this.name.orEmpty()
-            return !isDirectory && (
+            return isFile && (
                 name.startsWith("cover.", ignoreCase = true) || name.equals("details.json", ignoreCase = true) ||
                     name == COMIC_INFO_FILE || name.startsWith(".")
                 )

@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.local.FileCopy
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.moveLocalFiles
+import reikai.data.local.purgeParked
 import reikai.storage.FakeSafProvider.ChildListingFault
 import java.io.File
 
@@ -41,6 +42,9 @@ class LocalFilesOnSafTest {
     private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
 
     private fun names(dir: File) = dir.list()!!.sorted()
+
+    /** The series folder as a move reaches it: a child of the picked root, never the picked root itself. */
+    private fun source() = picked(File(tmp.root, "Reikai")).findFile("Series")!!
 
     @Test
     fun `a whole listing is trusted`() {
@@ -80,30 +84,38 @@ class LocalFilesOnSafTest {
         FakeSafProvider.faultedFolder = series
         FakeSafProvider.childListingFaults += ChildListingFault.Short(1)
 
-        val result = moveLocalFiles(context, listOf(FileCopy(picked(series), picked(target), null, "Series"))) {}
+        val result = moveLocalFiles(context, listOf(FileCopy(source(), picked(target), null, "Series"))) {}
 
         result.shouldBeInstanceOf<LocalMoveResult.Failed>()
         (names(series) to names(target)) shouldBe (listOf("a.cbz", "b.cbz") to emptyList())
     }
 
     @Test
-    fun `a move whose source lists short while deleting keeps what was never copied`() = runTest {
+    fun `a move whose source lists short while deleting keeps what was never copied, parked`() = runTest {
         FakeSafProvider.faultedFolder = series
         // The copy's two queries read the folder whole; the delete's first one comes back short.
         FakeSafProvider.childListingFaults +=
             listOf(ChildListingFault.Healthy, ChildListingFault.Healthy, ChildListingFault.Short(1))
 
-        val result = moveLocalFiles(context, listOf(FileCopy(picked(series), picked(target), null, "Series"))) {}
+        val result = moveLocalFiles(context, listOf(FileCopy(source(), picked(target), null, "Series"))) {}
 
-        result shouldBe LocalMoveResult.Moved(leftBehind = listOf("Series"))
-        (names(series) to names(File(target, "Series"))) shouldBe (listOf("b.cbz") to listOf("a.cbz", "b.cbz"))
+        val parked = (result as LocalMoveResult.Moved).parked.map { it.name }
+        listOf(
+            result.leftBehind,
+            parked,
+            names(File(tmp.root, "Reikai/.moved-Series")),
+            names(File(target, "Series")),
+        ) shouldBe
+            listOf(emptyList(), listOf(".moved-Series"), listOf("b.cbz"), listOf("a.cbz", "b.cbz"))
     }
 
     @Test
-    fun `a healthy move copies everything and deletes the source`() = runTest {
-        val result = moveLocalFiles(context, listOf(FileCopy(picked(series), picked(target), null, "Series"))) {}
+    fun `a healthy move copies everything, parks the source and purges it on the next reading`() = runTest {
+        val result = moveLocalFiles(context, listOf(FileCopy(source(), picked(target), null, "Series"))) {}
+        val parked = names(File(tmp.root, "Reikai"))
+        purgeParked(context, (result as LocalMoveResult.Moved).parked)
 
-        result shouldBe LocalMoveResult.Moved(leftBehind = emptyList())
-        (series.exists() to File(target, "Series").list()!!.sorted()) shouldBe (false to listOf("a.cbz", "b.cbz"))
+        listOf(result.leftBehind, parked, names(File(tmp.root, "Reikai")), names(File(target, "Series"))) shouldBe
+            listOf(emptyList(), listOf(".moved-Series", "Target"), listOf("Target"), listOf("a.cbz", "b.cbz"))
     }
 }

@@ -212,12 +212,13 @@ fun UniFile.deleteTree(): Boolean = delete()
 
 /**
  * Deletes this folder only when a trusted listing shows nothing in it beyond what [onlyMarkers] allows (by
- * default hidden files such as `.nomedia`). A listing that failed or came back short deletes nothing, since a
- * picked folder's failed listing reads as empty and the delete would take everything it still holds.
+ * default hidden files such as `.nomedia`, never a hidden folder). A listing that failed or came back short
+ * deletes nothing, since a picked folder's failed listing reads as empty and the delete would take everything
+ * it still holds.
  */
 fun UniFile.deleteIfEmpty(
     context: Context,
-    onlyMarkers: (UniFile) -> Boolean = { it.name.orEmpty().startsWith('.') },
+    onlyMarkers: (UniFile) -> Boolean = { it.isFile && it.name.orEmpty().startsWith('.') },
 ): Boolean {
     val left = listOrNull(context) ?: return false
     return left.all(onlyMarkers) && delete()
