@@ -41,9 +41,7 @@ suspend fun syncChaptersWithNovelSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     page: String? = null,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
@@ -52,6 +50,7 @@ suspend fun syncChaptersWithNovelSource(
     val novelId = novel.id
     require(novelId > 0L) { "syncChaptersWithNovelSource requires a persisted novel (id > 0)" }
 
+    val (numberOverrides, copyMarks, tombstones) = syncRules
     val dbChapters = novelChapterRepository.getByNovelId(novelId)
 
     val drafts = rawSourceChapters.toDrafts(novelId, novel.title, page)

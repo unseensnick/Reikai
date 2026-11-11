@@ -6,8 +6,10 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -46,6 +48,7 @@ fun mangaRestorer(
     val chapters = ChapterRepositoryImpl(database)
     return MangaRestorer(
         restoreRepository = RestoreRepositoryImpl(
+            tombstones = ChapterTombstoneRepositoryImpl(database),
             manualOrder = FakeLibraryManualOrderRepository(),
             database = database,
             mangaRepository = mangas,
@@ -87,6 +90,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
 
     /** The novel restore over this database's categories, the rest of it relaxed. */
     fun novelCategoryRestorer() = NovelRestorer(
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(relaxed = true),
         novelChapterRepository = mockk(relaxed = true),

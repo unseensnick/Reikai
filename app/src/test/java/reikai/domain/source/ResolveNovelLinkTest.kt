@@ -16,6 +16,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
@@ -82,9 +83,7 @@ class ResolveNovelLinkTest {
         novelRepository = novels,
         novelChapterRepository = chapters,
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
-        chapterNumberOverrides = NoChapterNumberOverrides,
-        chapterCopyMarks = InMemoryChapterCopyMarks(),
-        localTombstones = NoChapterTombstones,
+        syncRules = NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
         coverCache = coverCache,
         novelDownloadManager = { downloads },
     )

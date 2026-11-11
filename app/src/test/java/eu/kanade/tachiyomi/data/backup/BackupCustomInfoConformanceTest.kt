@@ -32,6 +32,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -162,6 +163,7 @@ class BackupCustomInfoConformanceTest {
                 mergeGroupRepository = mockk { coEvery { getAllMemberships(any()) } returns emptyMap() },
                 categoriesBackupCreator = mockk(relaxed = true),
                 mangaBackupCreator = MangaBackupCreator(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
                         coEvery { getExcludedScanlatorsByMangaIds(listOf(7)) } returns emptyMap()
@@ -187,6 +189,7 @@ class BackupCustomInfoConformanceTest {
                 sourcesBackupCreator = mockk { coEvery { forSourceIds(any()) } returns emptyList() },
                 backupFileValidator = mockk(relaxed = true),
                 novelBackupCreator = NovelBackupCreator(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk {
                         coEvery { getFavorites() } returns
@@ -361,6 +364,7 @@ class NovelCustomInfoRestorer : CustomInfoRestorer {
             coEvery { update(any<Novel>()) } returns true
         }
         val restorer = NovelRestorer(
+            tombstones = NoChapterTombstoneRepository,
             manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = novels,
             novelChapterRepository = mockk(relaxed = true),

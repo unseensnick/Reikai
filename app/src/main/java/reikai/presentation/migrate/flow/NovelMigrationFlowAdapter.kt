@@ -6,6 +6,7 @@ import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.novel.toNovel
 import reikai.data.novel.toSourceChapters
@@ -59,9 +60,7 @@ class NovelMigrationFlowAdapter(
     private val novelRepository: NovelRepository,
     private val chapterRepository: NovelChapterRepository,
     private val libraryPreferences: LibraryPreferences,
-    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
-    private val chapterCopyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
     private val coverCache: CoverCache,
     private val downloadManagerProvider: () -> NovelDownloadManager,
     private val migrateNovel: MigrateNovelUseCase,
@@ -257,9 +256,7 @@ class NovelMigrationFlowAdapter(
                     chapterRepository,
                     novelRepository,
                     libraryPreferences,
-                    chapterNumberOverrides,
-                    chapterCopyMarks,
-                    localTombstones,
+                    syncRules,
                     coverCache,
                     novelDownloadManager = downloadManager,
                 )

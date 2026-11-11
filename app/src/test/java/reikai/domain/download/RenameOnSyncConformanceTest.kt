@@ -22,6 +22,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
@@ -225,9 +226,11 @@ class RenameOnSyncConformanceTest {
                     NovelChapterRepositoryImpl(database),
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
-                    ChapterNumberOverrideRepositoryImpl(database),
-                    InMemoryChapterCopyMarks(),
-                    NoChapterTombstones,
+                    NovelChapterSyncRules(
+                        ChapterNumberOverrideRepositoryImpl(database),
+                        InMemoryChapterCopyMarks(),
+                        NoChapterTombstones,
+                    ),
                     novelDownloadManager = downloads,
                 )
             }

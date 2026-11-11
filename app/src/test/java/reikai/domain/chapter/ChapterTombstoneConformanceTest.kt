@@ -31,6 +31,7 @@ import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.data.local.LocalChapterFiles
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.library.ContentType
@@ -401,9 +402,11 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
                     NovelChapterRepositoryImpl(database),
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
-                    ChapterNumberOverrideRepositoryImpl(database),
-                    InMemoryChapterCopyMarks(),
-                    tombstones,
+                    NovelChapterSyncRules(
+                        ChapterNumberOverrideRepositoryImpl(database),
+                        InMemoryChapterCopyMarks(),
+                        tombstones,
+                    ),
                 )
                 return Synced(result.foundRelease, result.newChapters.map { it.url })
             }

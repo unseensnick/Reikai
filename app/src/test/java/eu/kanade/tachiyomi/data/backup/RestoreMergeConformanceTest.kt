@@ -20,6 +20,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -465,6 +466,7 @@ class NovelMergeRestorer : MergeRestorer {
             ).forEach { driver.execute(null, it, 0).await() }
             val pace = ReadingPaceRepositoryImpl(database)
             NovelRestorer(
+                tombstones = NoChapterTombstoneRepository,
                 manualOrder = FakeLibraryManualOrderRepository(),
                 novelRepository = NovelRepositoryImpl(database),
                 novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -506,6 +508,7 @@ class NovelMergeRestorer : MergeRestorer {
         chapters: NovelChapterRepository = mockk(relaxed = true),
         tracks: NovelTrackRepository = mockk(relaxed = true),
     ) = NovelRestorer(
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = novels,
         novelChapterRepository = chapters,

@@ -19,6 +19,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -45,6 +46,8 @@ class NovelBackupRoundTripTest {
         )
 
     private fun restorer(repo: NovelRepository, repository: MergeGroupRepository) = NovelRestorer(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = repo,
         novelChapterRepository = mockk(relaxed = true),
@@ -74,6 +77,7 @@ class NovelBackupRoundTripTest {
             coEvery { getAllMemberships(ContentType.NOVELS) } returns mapOf(1L to 100L, 5L to 100L)
         }
         val creator = NovelBackupCreator(
+            tombstones = NoChapterTombstoneRepository,
             manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = backupRepo,
             novelChapterRepository = mockk(relaxed = true),
@@ -187,6 +191,7 @@ class NovelBackupRoundTripTest {
             page = "", scanlator = "Group",
         )
         val creator = NovelBackupCreator(
+            tombstones = NoChapterTombstoneRepository,
             manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = mockk(),
             novelChapterRepository = mockk {

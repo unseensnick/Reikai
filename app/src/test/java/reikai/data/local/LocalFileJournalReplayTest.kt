@@ -13,6 +13,9 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
+import reikai.domain.chapter.ChapterTombstoneRepository
+import reikai.domain.chapter.NoChapterTombstoneRepository
+import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.InMemoryLocalFileJournal
@@ -80,7 +83,18 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         mockk<NovelChapterRepository> {
             coEvery { getByNovelId(1) } returns listOf(novelChapter(url("Series", volume)))
         },
+        // A chapter of the volume whose file a refresh had lost, kept as a tombstone with no row.
+        object : ChapterTombstoneRepository by NoChapterTombstoneRepository {
+            override suspend fun byOwner(type: ContentType, ownerId: Long) =
+                listOf(SyncedChapter(-1L, lostUrl("Series", volume), 2.0))
+        },
     )
+
+    private fun lostUrl(series: String, volume: String) = if (type == ContentType.NOVELS) {
+        LocalNovelSource.chapterPath(series, volume, EpubChapterKey("ch2.xhtml"))
+    } else {
+        "$series/$volume/b.cbz"
+    }
 
     private fun uni(file: File) = UniFile.fromFile(file)!!
 
@@ -105,7 +119,10 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
                 Triple(
                     type,
                     SeriesRename(1, "Series", "Saga", mapOf(volume to renamedVolume)),
-                    listOf(ChapterMove(url("Series", volume), url("Saga", renamedVolume))),
+                    listOf(
+                        ChapterMove(url("Series", volume), url("Saga", renamedVolume)),
+                        ChapterMove(lostUrl("Series", volume), lostUrl("Saga", renamedVolume)),
+                    ),
                 ),
             ),
             emptyList<Any>(),
@@ -171,8 +188,12 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
             volumes: List<VolumeRowMove>,
         ) = error("not a move")
 
-        override suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, keys: List<String>) =
-            error("not a delete")
+        override suspend fun forgetVolumes(
+            type: ContentType,
+            entryId: Long,
+            series: String,
+            volumes: Map<String, String>,
+        ) = error("not a delete")
     }
 
     companion object {

@@ -16,6 +16,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.local.LocalNovelLanguageRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -81,6 +82,8 @@ class LocalNovelLanguageBackupTest {
     }
 
     private suspend fun backupOf(novel: Novel) = NovelBackupCreator(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = mockk(),
         novelChapterRepository = mockk(),
@@ -99,6 +102,8 @@ class LocalNovelLanguageBackupTest {
     ).base(listOf(novel)).single()
 
     private fun restorer() = NovelRestorer(
+
+        tombstones = NoChapterTombstoneRepository,
         manualOrder = FakeLibraryManualOrderRepository(),
         novelRepository = NovelRepositoryImpl(database),
         novelChapterRepository = NovelChapterRepositoryImpl(database),

@@ -5,6 +5,7 @@ import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import reikai.data.toDbValue
+import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
@@ -19,6 +20,7 @@ import tachiyomi.data.Database
 @ContributesBinding(AppScope::class)
 class LocalChapterMoveRepositoryImpl(
     private val database: Database,
+    private val tombstones: ChapterTombstoneRepository,
 ) : LocalChapterMoveRepository {
 
     private val queries = database.local_moveQueries
@@ -37,16 +39,22 @@ class LocalChapterMoveRepositoryImpl(
                 queries.forgetVolume(dbType, it.toSeries, it.toKey)
                 queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey)
             }
+            chapters.mapTo(HashSet()) { it.toOwner }.forEach { tombstones.settle(type, it) }
         }
     }
 
-    override suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, keys: List<String>) {
+    override suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, volumes: Map<String, String>) {
         val dbType = type.toDbValue()
         database.transaction {
-            keys.forEach {
-                queries.forgetVolume(dbType, series, it)
-                queries.forgetVolumePick(dbType, entryId, it)
+            volumes.forEach { (key, urlPrefix) ->
+                queries.forgetVolume(dbType, series, key)
+                queries.forgetVolumePick(dbType, entryId, key)
+                when (type) {
+                    ContentType.NOVELS -> queries.forgetNovelChaptersUnder(entryId, urlPrefix)
+                    else -> queries.forgetMangaChaptersUnder(entryId, urlPrefix)
+                }
             }
+            tombstones.forget(type, entryId, volumes.values.toList())
         }
     }
 
@@ -68,6 +76,7 @@ class LocalChapterMoveRepositoryImpl(
             }
             if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
             queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
+            tombstones.settle(type, rename.id)
         }
     }
 
@@ -78,6 +87,8 @@ class LocalChapterMoveRepositoryImpl(
         }
     }
 
+    // A tombstone at the address, a chapter with no row, moves with the rows' corrections; one landing
+    // where a row already is folds onto that row in the settle that ends the transaction.
     private suspend fun moveChapter(type: ContentType, fromOwner: Long, toOwner: Long, move: ChapterMove) {
         val (fromUrl, toUrl) = move
         when (type) {
@@ -93,5 +104,6 @@ class LocalChapterMoveRepositoryImpl(
                 queries.moveMangaCopyMark(toOwner, toUrl, fromOwner, fromUrl)
             }
         }
+        tombstones.move(type, fromOwner, fromUrl, toOwner, toUrl)
     }
 }

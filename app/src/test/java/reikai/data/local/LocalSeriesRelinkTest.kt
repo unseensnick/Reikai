@@ -17,6 +17,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
+import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.library.ContentType
@@ -76,7 +77,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             novelChapterRepository = NovelChapterRepositoryImpl(database),
             localFiles = LocalSourceFileSystem(storage),
             storageManager = storage,
-            chapterMoves = LocalChapterMoveRepositoryImpl(database),
+            chapterMoves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)),
             seriesLocks = LocalSeriesLocks().apply { open() },
         )
     }

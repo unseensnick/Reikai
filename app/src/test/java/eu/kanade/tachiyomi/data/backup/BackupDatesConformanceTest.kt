@@ -19,6 +19,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.library.ContentType
@@ -100,6 +101,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = MangaBackupCreator(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     mangaRepository = mockk {
                         coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap()
@@ -171,6 +173,7 @@ class BackupDatesConformanceTest {
                     startDate = dates.startDate, finishDate = dates.finishDate, private = false,
                 )
                 val creator = NovelBackupCreator(
+                    tombstones = NoChapterTombstoneRepository,
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(relaxed = true),
                     novelChapterRepository = mockk {

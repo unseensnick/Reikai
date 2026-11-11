@@ -1,6 +1,7 @@
 package reikai.domain.chapter
 
 import reikai.domain.library.ContentType
+import kotlin.time.Instant
 
 /** A chapter as a sync names it to the tombstone rules: its stored [id] (unset for one arriving), url and number. */
 data class SyncedChapter(val id: Long, val url: String, val number: Double)
@@ -10,6 +11,30 @@ data class Revival(val url: String, val tombstoneUrl: String)
 
 /** What a sync's write returned, with the [urls] of the chapters that arrived carrying a tombstone. */
 data class Revived<T>(val result: T, val urls: Set<String>)
+
+/** One reading session a tombstone keeps, as the reading log keeps it. */
+data class TombstoneSession(val endedAt: Long, val duration: Long)
+
+/**
+ * A removed local chapter's whole reading state, whole for a backup: [progress] is the type's resume
+ * position, [length] its page count or word count (null for a novel chapter never counted), [listenedMs]
+ * a novel's read-aloud share, [historyDuration] null when the chapter had no history row and
+ * [historyReadAt] null for history the user removed.
+ */
+data class ChapterTombstone(
+    val url: String,
+    val number: Double,
+    val read: Boolean,
+    val bookmark: Boolean,
+    val progress: Long,
+    val length: Long?,
+    val listenedMs: Long?,
+    val dateFetch: Instant,
+    val historyReadAt: Instant?,
+    val historyDuration: Long?,
+    val sessions: List<TombstoneSession>,
+    val removedAt: Long,
+)
 
 /** A local refresh listed no file for these chapters, yet the files are there: the listing was short. */
 class LocalChapterStillPresentException(val urls: List<String>) :
@@ -70,9 +95,18 @@ suspend fun unconfirmedRemovals(
     !containerRead && present(url)
 }
 
+/**
+ * The tombstone tables. Every write onto a key already held, and every tombstone applied onto a chapter
+ * row, folds by one rule, pinned by ChapterTombstoneFoldConformanceTest: read and bookmark stick,
+ * progress, length, listened time and history time take the larger, the fetch date the earlier, history
+ * the later read, sessions the union.
+ */
 interface ChapterTombstoneRepository {
     /** The tombstones [ownerId] holds, by url and number. */
     suspend fun byOwner(type: ContentType, ownerId: Long): List<SyncedChapter>
+
+    /** Every tombstone of each of [ownerIds], whole. */
+    suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>>
 
     /**
      * Runs [write], a sync's one transaction, inside one that first keeps the state of the rows at
@@ -86,6 +120,21 @@ interface ChapterTombstoneRepository {
         revivals: List<Revival>,
         write: suspend () -> T,
     ): T
+
+    /**
+     * Moves the tombstone at [fromUrl] of [fromOwner] under [toOwner] and [toUrl], folding onto one already
+     * there. Called inside the transaction that moves the chapter's address; [settle] follows it.
+     */
+    suspend fun move(type: ContentType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String)
+
+    /** Applies and consumes each of [ownerId]'s tombstones whose url a chapter row holds again. */
+    suspend fun settle(type: ContentType, ownerId: Long)
+
+    /** Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes]: the user deleted those files. */
+    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>)
+
+    /** Folds a backup's [tombstones] in under [ownerId], then settles them against its chapter rows. */
+    suspend fun restore(type: ContentType, ownerId: Long, tombstones: List<ChapterTombstone>)
 }
 
 /** The tombstone rules as both syncs call them, which only a local series ([isLocal]) runs. */

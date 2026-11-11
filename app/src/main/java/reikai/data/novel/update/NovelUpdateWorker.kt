@@ -36,6 +36,7 @@ import reikai.data.library.libraryUpdateManualRequest
 import reikai.data.library.libraryUpdatePeriodicRequest
 import reikai.data.library.stopLibraryUpdate
 import reikai.data.library.updateBySource
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.refreshNovelFromSource
 import reikai.data.updateerror.UpdateErrorEntry
 import reikai.data.updateerror.UpdateErrorLog
@@ -107,11 +108,7 @@ class NovelUpdateWorker(
 
     @Inject private lateinit var libraryPreferences: LibraryPreferences
 
-    @Inject private lateinit var chapterNumberOverrides: ChapterNumberOverrideRepository
-
-    @Inject private lateinit var chapterCopyMarks: ChapterCopyMarkRepository
-
-    @Inject private lateinit var localTombstones: LocalChapterTombstones
+    @Inject private lateinit var syncRules: NovelChapterSyncRules
 
     @Inject private lateinit var coverCache: CoverCache
 
@@ -237,9 +234,7 @@ class NovelUpdateWorker(
         chapterRepo,
         novelRepo,
         libraryPreferences,
-        chapterNumberOverrides,
-        chapterCopyMarks,
-        localTombstones,
+        syncRules,
         coverCache,
         novelDownloadManager = downloadManager,
         fetchWindow = fetchWindow,

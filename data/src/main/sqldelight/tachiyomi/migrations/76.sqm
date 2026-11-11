@@ -1,5 +1,5 @@
 -- The reading state of a local chapter a refresh removed, kept until its file comes back
--- (chapter_tombstone.sq). Empty on upgrade.
+-- (chapter_tombstone.sq), with its sessions beside it. Empty on upgrade.
 CREATE TABLE manga_chapter_tombstone(
     manga_id INTEGER NOT NULL,
     url TEXT NOT NULL,
@@ -11,9 +11,18 @@ CREATE TABLE manga_chapter_tombstone(
     date_fetch INTEGER NOT NULL,
     history_read_at INTEGER,
     history_read_duration INTEGER,
-    sessions TEXT NOT NULL,
     removed_at INTEGER NOT NULL,
     PRIMARY KEY(manga_id, url),
+    FOREIGN KEY(manga_id) REFERENCES manga (id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE manga_chapter_tombstone_session(
+    manga_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    PRIMARY KEY(manga_id, url, ended_at),
     FOREIGN KEY(manga_id) REFERENCES manga (id)
     ON DELETE CASCADE
 );
@@ -30,9 +39,18 @@ CREATE TABLE novel_chapter_tombstone(
     date_fetch INTEGER NOT NULL,
     history_last_read INTEGER,
     history_time_read INTEGER,
-    sessions TEXT NOT NULL,
     removed_at INTEGER NOT NULL,
     PRIMARY KEY(novel_id, url),
+    FOREIGN KEY(novel_id) REFERENCES novels (_id)
+    ON DELETE CASCADE
+);
+
+CREATE TABLE novel_chapter_tombstone_session(
+    novel_id INTEGER NOT NULL,
+    url TEXT NOT NULL,
+    ended_at INTEGER NOT NULL,
+    duration INTEGER NOT NULL,
+    PRIMARY KEY(novel_id, url, ended_at),
     FOREIGN KEY(novel_id) REFERENCES novels (_id)
     ON DELETE CASCADE
 );

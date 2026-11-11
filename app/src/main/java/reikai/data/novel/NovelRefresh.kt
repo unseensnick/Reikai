@@ -1,6 +1,7 @@
 package reikai.data.novel
 
 import eu.kanade.tachiyomi.data.cache.CoverCache
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
@@ -145,9 +146,7 @@ suspend fun refreshNovelFromSource(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     coverCache: CoverCache,
     // Required: without it a re-titled chapter or novel leaves its download behind under the old name
     novelDownloadManager: NovelDownloadManager,
@@ -179,9 +178,7 @@ suspend fun refreshNovelFromSource(
         novelChapterRepository,
         novelRepository,
         libraryPreferences,
-        numberOverrides,
-        copyMarks,
-        tombstones,
+        syncRules,
         novelDownloadManager,
     )
     if (merged.totalPages > 1L) {
@@ -193,9 +190,7 @@ suspend fun refreshNovelFromSource(
             novelChapterRepository,
             novelRepository,
             libraryPreferences,
-            numberOverrides,
-            copyMarks,
-            tombstones,
+            syncRules,
             novelDownloadManager = novelDownloadManager,
         )
         synced = synced?.plus(walked) ?: walked
@@ -225,9 +220,7 @@ suspend fun insertOpenedNovel(
     novelRepository: NovelRepository,
     novelChapterRepository: NovelChapterRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager? = null,
 ): Novel? {
     val target = novelRepository.insertOrGet(sourceNovel.toNovel(sourceId = sourceId, favorite = false))
@@ -238,9 +231,7 @@ suspend fun insertOpenedNovel(
         novelRepository,
         novelChapterRepository,
         libraryPreferences,
-        numberOverrides,
-        copyMarks,
-        tombstones,
+        syncRules,
         novelDownloadManager,
     )
     return target
@@ -256,9 +247,7 @@ suspend fun syncOpenedChapters(
     novelRepository: NovelRepository,
     novelChapterRepository: NovelChapterRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager? = null,
 ) {
     val synced = syncFirstPage(
@@ -267,9 +256,7 @@ suspend fun syncOpenedChapters(
         novelChapterRepository,
         novelRepository,
         libraryPreferences,
-        numberOverrides,
-        copyMarks,
-        tombstones,
+        syncRules,
         novelDownloadManager,
     ) ?: return
     predictNovelFetchInterval(
@@ -289,9 +276,7 @@ private suspend fun syncFirstPage(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager?,
 ): NovelChapterSyncResult? {
     val chapters = sourceNovel.chapters?.takeIf { it.isNotEmpty() } ?: return null
@@ -303,9 +288,7 @@ private suspend fun syncFirstPage(
         novelChapterRepository,
         novelRepository,
         libraryPreferences,
-        numberOverrides,
-        copyMarks,
-        tombstones,
+        syncRules,
         page = pageTag,
         novelDownloadManager = novelDownloadManager,
     )

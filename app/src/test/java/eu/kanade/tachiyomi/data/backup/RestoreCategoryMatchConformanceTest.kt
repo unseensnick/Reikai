@@ -21,6 +21,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -175,6 +176,8 @@ class RestoreCategoryMatchConformanceTest {
         }
 
         fun novelRestorer(novels: NovelRepository, categories: CategoryRepository) = NovelRestorer(
+
+            tombstones = NoChapterTombstoneRepository,
             manualOrder = FakeLibraryManualOrderRepository(),
             novelRepository = novels,
             novelChapterRepository = mockk { coEvery { getByNovelId(any()) } returns emptyList() },

@@ -1,5 +1,6 @@
 package reikai.data.novel
 
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
@@ -27,9 +28,7 @@ suspend fun walkNovelPages(
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
-    numberOverrides: ChapterNumberOverrideRepository,
-    copyMarks: ChapterCopyMarkRepository,
-    tombstones: LocalChapterTombstones,
+    syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
     var walked = NovelChapterSyncResult.UNCHANGED
@@ -45,9 +44,7 @@ suspend fun walkNovelPages(
                     novelChapterRepository,
                     novelRepository,
                     libraryPreferences,
-                    numberOverrides,
-                    copyMarks,
-                    tombstones,
+                    syncRules,
                     page = key,
                     novelDownloadManager = novelDownloadManager,
                 )

@@ -37,6 +37,7 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
@@ -56,6 +57,7 @@ import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.chapter.interactor.ShouldUpdateDbChapter
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.library.service.LibraryPreferences
+import tachiyomi.domain.manga.interactor.GetMangaByUrlAndSourceId
 import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
@@ -116,9 +118,10 @@ class LocalMovesUnderLockTest {
         val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
         val numberOverrides = ChapterNumberOverrideRepositoryImpl(database)
         val copyMarks = InMemoryChapterCopyMarks()
+        val tombstoneRepository = ChapterTombstoneRepositoryImpl(database)
         tombstones = PausableTombstones(
             LocalChapterTombstonesImpl(
-                ChapterTombstoneRepositoryImpl(database),
+                tombstoneRepository,
                 LocalChapterFiles(context, fileSystem, storage),
             ),
         )
@@ -154,7 +157,7 @@ class LocalMovesUnderLockTest {
             coEvery { await(any()) } returns emptyList()
         }
         val mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
-        val chapterMoves = LocalChapterMoveRepositoryImpl(database)
+        val chapterMoves = LocalChapterMoveRepositoryImpl(database, tombstoneRepository)
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
@@ -169,9 +172,8 @@ class LocalMovesUnderLockTest {
             storageManager = storage,
             novelSources = mockk(),
             libraryPreferences = libraryPreferences,
-            numberOverrides = numberOverrides,
-            copyMarks = copyMarks,
-            localTombstones = tombstones,
+            syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, tombstones),
+            tombstones = tombstoneRepository,
             coverCache = mockk(relaxed = true),
             novelDownloadManager = { mockk() },
             removeNovels = mockk(),
@@ -192,10 +194,10 @@ class LocalMovesUnderLockTest {
             novelRepository = mockk(),
             novelChapterRepository = mockk(),
             libraryPreferences = libraryPreferences,
-            chapterNumberOverrides = numberOverrides,
-            chapterCopyMarks = copyMarks,
+            syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, tombstones),
+            tombstones = tombstoneRepository,
+            getMangaByUrlAndSourceId = GetMangaByUrlAndSourceId(mangaRepository),
             journal = InMemoryLocalFileJournal(),
-            localTombstones = tombstones,
             novelAdder = mockk(),
             mangaAdder = mangaAdder,
             networkToLocalManga = NetworkToLocalManga(mangaRepository),

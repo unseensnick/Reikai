@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
 import reikai.domain.library.ContentType
@@ -177,9 +178,11 @@ class ChapterNumberRecognitionConformanceTest {
                     NovelChapterRepositoryImpl(database),
                     NovelRepositoryImpl(database),
                     LibraryPreferences(InMemoryPreferenceStore()),
-                    ChapterNumberOverrideRepositoryImpl(database),
-                    InMemoryChapterCopyMarks(),
-                    NoChapterTombstones,
+                    NovelChapterSyncRules(
+                        ChapterNumberOverrideRepositoryImpl(database),
+                        InMemoryChapterCopyMarks(),
+                        NoChapterTombstones,
+                    ),
                 )
             }
 

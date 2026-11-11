@@ -36,8 +36,12 @@ interface LocalChapterMoveRepository {
         volumes: List<VolumeRowMove>,
     )
 
-    /** Forgets the saved order, name and picked chip of series [series]' volumes [keys], whose files were deleted. */
-    suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, keys: List<String>)
+    /**
+     * Forgets series [series]' deleted [volumes] (key to the url prefix of its chapters) in one transaction:
+     * their saved order, name and picked chip, their chapter rows and their tombstones, since the user chose
+     * to delete the files and the next thing put at those names is not these chapters.
+     */
+    suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, volumes: Map<String, String>)
 
     /**
      * Writes [rename] in one transaction: the series' address, its [chapters]' addresses with what is keyed by

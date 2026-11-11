@@ -57,6 +57,7 @@ import reikai.data.coil.seedColor
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalSeriesRelink
+import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelStatusCode
 import reikai.data.novel.insertOpenedNovel
 import reikai.data.novel.refreshNovelFromSource
@@ -234,9 +235,7 @@ class NovelDetailsViewModel(
     private val mergedChapterProvider: NovelMergedChapterProvider,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val libraryPreferences: LibraryPreferences,
-    private val chapterNumberOverrides: ChapterNumberOverrideRepository,
-    private val chapterCopyMarks: ChapterCopyMarkRepository,
-    private val localTombstones: LocalChapterTombstones,
+    private val syncRules: NovelChapterSyncRules,
     private val localSeriesRelink: LocalSeriesRelink,
     private val editChapterNumber: EditChapterNumber,
     private val context: Context,
@@ -878,9 +877,7 @@ class NovelDetailsViewModel(
                 novelRepo,
                 chapterRepo,
                 libraryPreferences,
-                chapterNumberOverrides,
-                chapterCopyMarks,
-                localTombstones,
+                syncRules,
                 downloadManager,
             )
         } else {
@@ -893,9 +890,7 @@ class NovelDetailsViewModel(
                 novelRepo,
                 chapterRepo,
                 libraryPreferences,
-                chapterNumberOverrides,
-                chapterCopyMarks,
-                localTombstones,
+                syncRules,
                 downloadManager,
             )
         }
@@ -919,9 +914,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         libraryPreferences,
-                        chapterNumberOverrides,
-                        chapterCopyMarks,
-                        localTombstones,
+                        syncRules,
                         page = pageKey,
                         novelDownloadManager = downloadManager,
                     )
@@ -1111,9 +1104,7 @@ class NovelDetailsViewModel(
                 chapterRepo,
                 novelRepo,
                 libraryPreferences,
-                chapterNumberOverrides,
-                chapterCopyMarks,
-                localTombstones,
+                syncRules,
                 coverCache,
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
@@ -1134,9 +1125,7 @@ class NovelDetailsViewModel(
                         chapterRepo,
                         novelRepo,
                         libraryPreferences,
-                        chapterNumberOverrides,
-                        chapterCopyMarks,
-                        localTombstones,
+                        syncRules,
                         page = key,
                         novelDownloadManager = downloadManager,
                     )
