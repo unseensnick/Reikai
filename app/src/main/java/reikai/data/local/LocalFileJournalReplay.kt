@@ -7,7 +7,6 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
-import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
@@ -16,11 +15,9 @@ import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
-import reikai.domain.novel.NovelChapterRepository
 import reikai.storage.deleteFile
 import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
-import tachiyomi.domain.chapter.repository.ChapterRepository
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
@@ -38,9 +35,6 @@ class LocalFileJournalReplay(
     private val journal: LocalFileJournal,
     private val locks: LocalSeriesLocks,
     private val chapterMoves: LocalChapterMoveRepository,
-    private val chapterRepository: ChapterRepository,
-    private val novelChapterRepository: NovelChapterRepository,
-    private val tombstones: ChapterTombstoneRepository,
 ) {
 
     suspend fun replay() {
@@ -83,14 +77,9 @@ class LocalFileJournalReplay(
         }
         if (steps.none { it is Found.NotYet }) {
             steps.forEach { if (it is Found.InFlight) check(it.file.rename(it.step.to)) }
-            val urls = when (type) {
-                ContentType.NOVELS -> novelChapterRepository.getByNovelId(plan.entryId).map { it.url }
-                else -> chapterRepository.getChapterByMangaId(plan.entryId).map { it.url }
-            } + tombstones.byOwner(type, plan.entryId).map { it.url }
             val target = plan.series?.to ?: plan.folder
             val volumeNames = plan.volumes.associate { it.from to it.to }
-            val moves = renamedChapterMoves(type, urls, plan.folder, target, volumeNames)
-            chapterMoves.rename(type, SeriesRename(plan.entryId, plan.folder, target, volumeNames), moves, id)
+            chapterMoves.renameSeries(type, SeriesRename(plan.entryId, plan.folder, target, volumeNames), id)
             return
         }
         steps.asReversed().forEach { found -> found.file?.let { it.rename(found.step.from) } }

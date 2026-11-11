@@ -65,11 +65,7 @@ class LocalSeriesRelink(
             if (folder !in candidatesIn(type, id, series, root)) {
                 return@withSeries LocalMoveResult.Failed(IllegalStateException("$folder does not hold $series' files"))
             }
-            chapterMoves.rename(
-                type,
-                SeriesRename(id, series, folder, emptyMap()),
-                renamedChapterMoves(type, chapterUrls(type, id), series, folder, emptyMap()),
-            )
+            chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))
             LocalMoveResult.Moved(emptyList())
         }
     }

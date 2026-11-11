@@ -4,8 +4,6 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
-import io.mockk.coEvery
-import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
@@ -13,11 +11,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
-import reikai.domain.chapter.ChapterTombstoneRepository
-import reikai.domain.chapter.NoChapterTombstoneRepository
-import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
-import reikai.domain.local.ChapterMove
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournalPlan
@@ -26,14 +20,9 @@ import reikai.domain.local.OwnerMoves
 import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeRowMove
-import reikai.domain.novel.NovelChapterRepository
-import reikai.domain.novel.model.NovelChapter
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
-import tachiyomi.domain.chapter.model.Chapter
-import tachiyomi.domain.chapter.repository.ChapterRepository
 import java.io.File
-import kotlin.time.Instant
 
 /**
  * A Rename files or import Replace killed between its disk step and its row step is finished or put back at
@@ -71,25 +60,9 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
     private fun files() = root.walkTopDown().filter { it.isFile }
         .map { it.relativeTo(root).path.replace('\\', '/') }.sorted().toList()
 
-    /** The replay over rows at the old address, as a kill before the row step leaves them. */
-    private fun replay() = LocalFileJournalReplay(
-        context,
-        journal,
-        locks,
-        moves,
-        mockk<ChapterRepository> {
-            coEvery { getChapterByMangaId(1) } returns listOf(Chapter.create().copy(url = url("Series", volume)))
-        },
-        mockk<NovelChapterRepository> {
-            coEvery { getByNovelId(1) } returns listOf(novelChapter(url("Series", volume)))
-        },
-        // A chapter of the volume whose file a refresh had lost, kept as a tombstone with no row.
-        object : ChapterTombstoneRepository by NoChapterTombstoneRepository {
-            override suspend fun byOwner(type: ContentType, ownerId: Long) =
-                listOf(SyncedChapter(-1L, lostUrl("Series", volume), 2.0))
-        },
-    )
+    private fun replay() = LocalFileJournalReplay(context, journal, locks, moves)
 
+    /** A chapter of the volume whose file a refresh had lost, kept with no row, which the row step moves too. */
     private fun lostUrl(series: String, volume: String) = if (type == ContentType.NOVELS) {
         LocalNovelSource.chapterPath(series, volume, EpubChapterKey("ch2.xhtml"))
     } else {
@@ -119,10 +92,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
                 Triple(
                     type,
                     SeriesRename(1, "Series", "Saga", mapOf(volume to renamedVolume)),
-                    listOf(
-                        ChapterMove(url("Series", volume), url("Saga", renamedVolume)),
-                        ChapterMove(lostUrl("Series", volume), lostUrl("Saga", renamedVolume)),
-                    ),
+                    listOf(url("Saga", renamedVolume), lostUrl("Saga", renamedVolume)),
                 ),
             ),
             emptyList<Any>(),
@@ -167,17 +137,20 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
             Triple(listOf(old.name), "newer", emptyList<Any>())
     }
 
-    /** Records each rename's arguments and, as the real one does, takes the journal row in the same step. */
+    /**
+     * Records each rename with where its mapping sends the row's and the lost chapter's address and, as the
+     * real one does, takes the journal row in the same step.
+     */
     private inner class RecordingChapterMoves : LocalChapterMoveRepository {
-        val renames = mutableListOf<Triple<ContentType, SeriesRename, List<ChapterMove>>>()
+        val renames = mutableListOf<Triple<ContentType, SeriesRename, List<String>>>()
 
         override suspend fun rename(
             type: ContentType,
             rename: SeriesRename,
-            chapters: List<ChapterMove>,
             journalId: Long?,
+            movedUrl: (String) -> String,
         ) {
-            renames += Triple(type, rename, chapters)
+            renames += Triple(type, rename, listOf(url("Series", volume), lostUrl("Series", volume)).map(movedUrl))
             journalId?.let { journal.delete(it) }
         }
 
@@ -200,8 +173,5 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         @JvmStatic
         @ParameterizedRobolectricTestRunner.Parameters(name = "{0}")
         fun types() = listOf(ContentType.MANGA, ContentType.NOVELS)
-
-        fun novelChapter(url: String) =
-            NovelChapter(10, 1, url, "C", true, false, 0, 1.0, 0, Instant.fromEpochMilliseconds(0), null, "")
     }
 }

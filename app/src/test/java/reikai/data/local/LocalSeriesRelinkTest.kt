@@ -112,6 +112,20 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         }
 
     @Test
+    fun `a relinked series takes the kept state of a chapter whose file was already gone`() = runTest {
+        val id = seeded("Saga")
+        // The chapter's file went before the rename: no row, only its kept state at the old address.
+        val lost = chapterUrls("Saga").last()
+        driver.exec(deleteRow(lost))
+        driver.exec(tombstone(id, lost))
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+
+        relink.relink(type, id, "Saga Renamed")
+
+        driver.rows(tombstoneUrls(id)) { it.getString(0)!! } shouldBe listOf(chapterUrls("Saga Renamed").last())
+    }
+
+    @Test
     fun `two folders holding the files are both offered and neither is taken`() = runTest {
         val id = seeded("Saga")
         File(root, "Saga").renameTo(File(root, "Saga A"))
@@ -235,6 +249,26 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     }
 
     private suspend fun readUrls(owner: Long) = urls(owner, readOnly = true)
+
+    private fun deleteRow(url: String) = if (type == ContentType.NOVELS) {
+        "DELETE FROM novel_chapters WHERE url = '$url'"
+    } else {
+        "DELETE FROM chapter WHERE remote_url = '$url'"
+    }
+
+    private fun tombstone(owner: Long, url: String) = if (type == ContentType.NOVELS) {
+        "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, last_text_progress, " +
+            "date_fetch, removed_at) VALUES ($owner, '$url', 1.0, 1, 0, 0, 0, 0)"
+    } else {
+        "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
+            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1.0, 1, 0, 0, 0, 0, 0)"
+    }
+
+    private fun tombstoneUrls(owner: Long) = if (type == ContentType.NOVELS) {
+        "SELECT url FROM novel_chapter_tombstone WHERE novel_id = $owner"
+    } else {
+        "SELECT url FROM manga_chapter_tombstone WHERE manga_id = $owner"
+    }
 
     private suspend fun JdbcSqliteDriver.exec(sql: String) {
         execute(null, sql, 0).await()

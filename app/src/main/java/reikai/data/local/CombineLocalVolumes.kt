@@ -658,13 +658,6 @@ class CombineLocalVolumes(
                 !it.to.equals(it.from, true) && seriesFile.findFile(it.to) != null
             }?.let { return@withSeries taken(it.to) }
             val volumeNames = volumes.associate { it.from to it.to }
-            // A tombstone's address follows the rename as a row's does, so a chapter that comes back finds it.
-            val urls = if (type == ContentType.NOVELS) {
-                novelChapterRepository.getByNovelId(series.id).map { it.url }
-            } else {
-                chapterRepository.getChapterByMangaId(series.id).map { it.url }
-            } + tombstones.byOwner(type, series.id).map { it.url }
-            val chapters = renamedChapterMoves(type, urls, series.folder, target, volumeNames)
             val renaming =
                 JournaledRename(
                     journal,
@@ -679,10 +672,9 @@ class CombineLocalVolumes(
                 )
             try {
                 renaming.renameOnDisk()
-                chapterMoves.rename(
+                chapterMoves.renameSeries(
                     type,
                     SeriesRename(series.id, series.folder, target, volumeNames),
-                    chapters,
                     renaming.journalId,
                 )
                 LocalMoveResult.Moved(emptyList())

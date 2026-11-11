@@ -87,11 +87,7 @@ class LocalChapterMoveRepositoryTest {
             )
             exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
 
-            repository().rename(
-                type.contentType,
-                SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
-                listOf(ChapterMove("B/c1", "Bee/c1")),
-            )
+            repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), null, ::toBee)
 
             listOf(
                 one(type.seriesQuery),
@@ -170,11 +166,7 @@ class LocalChapterMoveRepositoryTest {
             )
         }
 
-        repository().rename(
-            type.contentType,
-            SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")),
-            emptyList(),
-        )
+        repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), null, ::toBee)
 
         rows("SELECT series || '|' || volume_key || '|' || label FROM local_volume") shouldBe listOf("Bee|Vol. 1|One")
     }
@@ -185,7 +177,7 @@ class LocalChapterMoveRepositoryTest {
         type.seed.forEach { exec(it) }
         val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
 
-        repository().rename(type.contentType, RENAME, emptyList(), journalId)
+        repository().rename(type.contentType, RENAME, journalId, ::toBee)
 
         rows("SELECT _id FROM local_file_journal") shouldBe emptyList()
     }
@@ -199,8 +191,7 @@ class LocalChapterMoveRepositoryTest {
         val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
 
         runCatching {
-            LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
-                .rename(type.contentType, RENAME, listOf(ChapterMove("B/c1", "Bee/c1")), journalId)
+            repository().rename(type.contentType, RENAME, journalId, ::toBee)
         }
 
         rows("SELECT _id FROM local_file_journal") shouldBe listOf(journalId.toString())
@@ -280,11 +271,12 @@ class LocalChapterMoveRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a renamed series takes its kept reading state along`(type: Type) = runTest {
+    fun `a renamed series takes its kept reading state along, found by the rename itself`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
+        // A chapter with no row, only its kept state, which no caller names: the row step must find it.
         exec(type.tombstone(2, "B/c9"))
 
-        repository().rename(type.contentType, RENAME, listOf(ChapterMove("B/c9", "Bee/c9")))
+        repository().rename(type.contentType, RENAME, null, ::toBee)
 
         rows(type.tombstoneUrls) shouldBe listOf("Bee/c9")
     }
@@ -292,6 +284,9 @@ class LocalChapterMoveRepositoryTest {
     private fun repository() = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
 
     private companion object {
+        /** The rename's address mapping, series B to Bee, as the callers' url kernel would give it. */
+        fun toBee(url: String) = "Bee/" + url.substringAfter('/')
+
         val MOVE = OwnerMoves(2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
         val RENAME = SeriesRename(2, "B", "Bee", emptyMap())
         val REPLACE_PLAN = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")

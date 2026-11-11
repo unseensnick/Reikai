@@ -30,6 +30,13 @@ moveNovelCopyMark:
 UPDATE novel_chapter_copy_mark SET novel_id = :toOwner, url = :toUrl
 WHERE novel_id = :fromOwner AND url = :fromUrl;
 
+-- Every chapter address a local series' rows hold, read inside a rename's transaction so none is missed.
+mangaChapterUrls:
+SELECT remote_url FROM chapter WHERE manga_id = :ownerId;
+
+novelChapterUrls:
+SELECT url FROM novel_chapters WHERE novel_id = :ownerId;
+
 -- A local series' files renamed: its address, then its volumes' saved order and labels and its picked chip,
 -- which are keyed by the folder and file names.
 renameManga:

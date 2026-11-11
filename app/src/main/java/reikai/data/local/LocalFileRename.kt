@@ -2,10 +2,11 @@ package reikai.data.local
 
 import com.hippo.unifile.UniFile
 import reikai.domain.library.ContentType
-import reikai.domain.local.ChapterMove
+import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalFileJournalPlan.Step
+import reikai.domain.local.SeriesRename
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localVolumeChapter
 import reikai.storage.IN_FLIGHT_SUFFIX
@@ -68,28 +69,35 @@ internal class JournaledRename(
 }
 
 /**
- * Each of a local series' chapter [urls] at its address once the series folder is [target] and each volume
- * in [volumeNames] (old to new) is renamed; the ones that do not change are left out. A loose book's one
- * volume is the series' own file, so it takes the series' new name. Rename files and its replay both read it.
+ * The row step of [rename], Rename files', its replay's and the relink's one path: the repository reads every
+ * chapter address the series holds, a row's or a kept state's, and takes each through [renamedChapterUrl].
  */
-internal fun renamedChapterMoves(
+internal suspend fun LocalChapterMoveRepository.renameSeries(
     type: ContentType,
-    urls: List<String>,
+    rename: SeriesRename,
+    journalId: Long? = null,
+) = rename(type, rename, journalId) { renamedChapterUrl(type, it, rename.fromSeries, rename.toSeries, rename.volumes) }
+
+/**
+ * A local series' chapter [url] at its address once the series folder is [target] and each volume in
+ * [volumeNames] (old to new) is renamed. A loose book's one volume is the series' own file, so it takes the
+ * series' new name.
+ */
+internal fun renamedChapterUrl(
+    type: ContentType,
+    url: String,
     folder: String,
     target: String,
     volumeNames: Map<String, String>,
-): List<ChapterMove> = urls.map { url ->
-    val moved = if (type == ContentType.NOVELS) {
-        LocalNovelSource.parseChapterPath(url)?.let { (_, volume, key) ->
-            val renamed = volumeNames[volume] ?: if (volume == folder) target else volume
-            LocalNovelSource.chapterPath(target, renamed, key)
-        } ?: url
-    } else {
-        localVolumeChapter(url)?.let { it.copy(series = target, volume = volumeNames[it.volume] ?: it.volume).url }
-            ?: (listOf(target) + url.split('/').drop(1)).joinToString("/")
-    }
-    ChapterMove(url, moved)
-}.filter { it.fromUrl != it.toUrl }
+): String = if (type == ContentType.NOVELS) {
+    LocalNovelSource.parseChapterPath(url)?.let { (_, volume, key) ->
+        val renamed = volumeNames[volume] ?: if (volume == folder) target else volume
+        LocalNovelSource.chapterPath(target, renamed, key)
+    } ?: url
+} else {
+    localVolumeChapter(url)?.let { it.copy(series = target, volume = volumeNames[it.volume] ?: it.volume).url }
+        ?: (listOf(target) + url.split('/').drop(1)).joinToString("/")
+}
 
 /** The name a case-only rename goes through, which a kill can leave a folder at. */
 internal fun String.inFlightName() = this + IN_FLIGHT_SUFFIX

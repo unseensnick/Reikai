@@ -1,5 +1,6 @@
 package reikai.data.local
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -61,14 +62,18 @@ class LocalChapterMoveRepositoryImpl(
     override suspend fun rename(
         type: ContentType,
         rename: SeriesRename,
-        chapters: List<ChapterMove>,
         journalId: Long?,
+        movedUrl: (String) -> String,
     ) {
         val dbType = type.toDbValue()
         database.transaction {
             journalId?.let { database.local_file_journalQueries.delete(it) }
             setAddress(type, rename.id, rename.toSeries)
-            chapters.forEach { moveChapter(type, rename.id, rename.id, it) }
+            // A kept state's address follows the rename as a row's does, so a chapter that comes back finds it.
+            val urls = chapterUrls(type, rename.id) + tombstones.byOwner(type, rename.id).map { it.url }
+            urls.map { ChapterMove(it, movedUrl(it)) }.filter { it.fromUrl != it.toUrl }.forEach {
+                moveChapter(type, rename.id, rename.id, it)
+            }
             rename.volumes.forEach { (from, to) ->
                 if (to != from) queries.forgetVolume(dbType, rename.fromSeries, to)
                 queries.renameVolume(to, dbType, rename.fromSeries, from)
@@ -79,6 +84,11 @@ class LocalChapterMoveRepositoryImpl(
             tombstones.settle(type, rename.id)
         }
     }
+
+    private suspend fun chapterUrls(type: ContentType, id: Long): List<String> = when (type) {
+        ContentType.NOVELS -> queries.novelChapterUrls(id)
+        else -> queries.mangaChapterUrls(id)
+    }.awaitAsList()
 
     private suspend fun setAddress(type: ContentType, id: Long, url: String) {
         when (type) {
