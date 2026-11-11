@@ -1072,10 +1072,11 @@ class NovelDetailsViewModel(
                 }
                 firstError?.let { e ->
                     // A local series whose folder is gone may have been renamed outside the app, so the folders
-                    // holding its files are offered in place of the failure, as the manga details do.
+                    // holding its files are offered in place of the failure, as the manga details do; a failure
+                    // of that question itself falls back to the refresh's own message.
                     val anchor = loaded.novel
                     val candidates = if (LocalNovelSource.isLocal(anchor.source)) {
-                        localSeriesRelink.candidates(ContentType.NOVELS, anchor.id)
+                        runCatching { localSeriesRelink.candidates(ContentType.NOVELS, anchor.id) }.getOrNull()
                     } else {
                         null
                     }

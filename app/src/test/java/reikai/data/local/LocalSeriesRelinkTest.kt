@@ -146,6 +146,26 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         relink.candidates(type, id) shouldBe listOf("Saga A")
     }
 
+    /** The question is asked from a refresh's failure handler, so it answers "nothing to offer" rather than throwing. */
+    @Test
+    fun `a local folder that cannot be listed whole offers nothing instead of failing`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+        FakeSafProvider.faultedFolder = root
+        FakeSafProvider.childListingFaults += FakeSafProvider.ChildListingFault.Throw
+
+        relink.candidates(type, id) shouldBe emptyList()
+    }
+
+    /** A folder's own query fails on a provider hiccup; the root's trusted listing still shows it there. */
+    @Test
+    fun `a series whose folder query fails is not read as missing, so its own folder is never offered`() = runTest {
+        val id = seeded("Saga")
+        FakeSafProvider.failingDocuments += File(root, "Saga")
+
+        relink.candidates(type, id) shouldBe null
+    }
+
     @Test
     fun `a missing folder nothing stands in for offers nothing and loses no row`() = runTest {
         val id = seeded("Saga")

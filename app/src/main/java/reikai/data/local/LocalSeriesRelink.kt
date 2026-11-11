@@ -12,7 +12,7 @@ import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localVolumeChapter
-import reikai.storage.list
+import reikai.storage.listOrNull
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -40,12 +40,17 @@ class LocalSeriesRelink(
     private val seriesLocks: LocalSeriesLocks,
 ) {
 
-    /** The folders series [id] may have been renamed to, or null while its folder is where its address says. */
+    /**
+     * The folders series [id] may have been renamed to, or null while its folder is where its address says. Asked
+     * from a refresh's failure handler, so a local folder that cannot be listed whole offers nothing and throws
+     * nothing; whether the folder is missing is read from that trusted listing, never a document's own query,
+     * which a provider hiccup answers "absent" to.
+     */
     suspend fun candidates(type: ContentType, id: Long): List<String>? = withIOContext {
         val series = address(type, id) ?: return@withIOContext emptyList()
-        val root = root(type) ?: return@withIOContext emptyList()
-        if (root.findFile(series) != null) return@withIOContext null
-        candidatesIn(type, id, series, root)
+        val listed = root(type)?.listOrNull(context) ?: return@withIOContext emptyList()
+        if (listed.any { it.name == series }) return@withIOContext null
+        candidatesIn(type, id, series, listed)
     }
 
     /**
@@ -57,12 +62,12 @@ class LocalSeriesRelink(
         val series = address(type, id)
             ?: return@withIOContext LocalMoveResult.Failed(IllegalStateException("No such series"))
         seriesLocks.withSeries(type, listOf(series, folder)) {
-            val root = root(type)
-                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No local folder"))
-            if (root.findFile(series) != null) {
+            val listed = root(type)?.listOrNull(context)
+                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
+            if (listed.any { it.name == series }) {
                 return@withSeries LocalMoveResult.Failed(IllegalStateException("$series is back in the local folder"))
             }
-            if (folder !in candidatesIn(type, id, series, root)) {
+            if (folder !in candidatesIn(type, id, series, listed)) {
                 return@withSeries LocalMoveResult.Failed(IllegalStateException("$folder does not hold $series' files"))
             }
             chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))
@@ -70,28 +75,31 @@ class LocalSeriesRelink(
         }
     }
 
-    private suspend fun candidatesIn(type: ContentType, id: Long, series: String, root: UniFile): List<String> {
+    /** The candidates among [listed], the local root's trusted listing; a folder that cannot be listed whole is none. */
+    private suspend fun candidatesIn(type: ContentType, id: Long, series: String, listed: List<UniFile>): List<String> {
         val paths = chapterUrls(type, id).mapNotNull { relativePath(type, series, it) }
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
-        val folders = root.list(context)
+        val folders = listed
             .filter { it.isDirectory && !it.name.orEmpty().startsWith('.') }
-            .associate { it.name.orEmpty() to contents(it, volumes) }
+            .mapNotNull { folder -> contents(folder, volumes)?.let { folder.name.orEmpty() to it } }
+            .toMap()
         return relinkCandidates(paths, folders).filter {
             heldBy(type, it).let { owner -> owner == null || owner == id }
         }
     }
 
     /** What [dir] holds, relative to it; only the subfolders named in [volumes] are read, one level down. */
-    private fun contents(
-        dir: UniFile,
-        volumes: Set<String>,
-    ): List<String> = dir.list(context).flatMap { entry ->
-        val name = entry.name.orEmpty()
-        when {
-            !entry.isDirectory -> listOf(name)
-            name.lowercase() !in volumes -> listOf("$name/")
-            else -> listOf("$name/") + entry.list(context).map { "$name/${it.name.orEmpty()}" }
+    private fun contents(dir: UniFile, volumes: Set<String>): List<String>? {
+        val entries = dir.listOrNull(context) ?: return null
+        return entries.flatMap { entry ->
+            val name = entry.name.orEmpty()
+            when {
+                !entry.isDirectory -> listOf(name)
+                name.lowercase() !in volumes -> listOf("$name/")
+                else -> listOf("$name/") +
+                    (entry.listOrNull(context) ?: return null).map { "$name/${it.name.orEmpty()}" }
+            }
         }
     }
 

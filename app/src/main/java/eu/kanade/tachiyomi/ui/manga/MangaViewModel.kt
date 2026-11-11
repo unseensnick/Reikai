@@ -767,8 +767,13 @@ class MangaViewModel(
             // ignore
         } catch (e: Exception) {
             // RK --> a local series whose folder is gone may have been renamed outside the app, so the
-            // folders holding its files are offered in place of the failure
-            val candidates = if (manga.isLocal()) localSeriesRelink.candidates(ContentType.MANGA, manga.id) else null
+            // folders holding its files are offered in place of the failure; a failure of that question
+            // itself must not throw out of this handler, so it falls back to the message
+            val candidates = if (manga.isLocal()) {
+                runCatching { localSeriesRelink.candidates(ContentType.MANGA, manga.id) }.getOrNull()
+            } else {
+                null
+            }
             if (!candidates.isNullOrEmpty()) {
                 dialog.value = Dialog.RelinkSeries(manga.title, candidates)
                 return
