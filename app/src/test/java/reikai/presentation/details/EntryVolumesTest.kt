@@ -67,7 +67,7 @@ class EntryVolumesTest {
         ) shouldBe listOf(VolumeLabel.Loose, VolumeLabel.Name("Other"))
     }
 
-    private val loose1 =mangaChapterVolume(LOCAL, "Series/Ch 010.cbz", "Ch 010")!!
+    private val loose1 = mangaChapterVolume(LOCAL, "Series/Ch 010.cbz", "Ch 010")!!
     private val loose2 = mangaChapterVolume(LOCAL, "Series/Ch 011.cbz", "Ch 011")!!
     private val mixed = listOf(row(1, v1), row(10, loose1), row(11, loose2))
 
