@@ -13,6 +13,7 @@ import cafe.adriel.voyager.navigator.LocalNavigator
 import cafe.adriel.voyager.navigator.currentOrThrow
 import com.materialkolor.PaletteStyle
 import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
 import eu.kanade.domain.ui.model.TimeFormat
@@ -31,6 +32,7 @@ import mihon.app.di.appGraph
 import reikai.domain.category.seedRecentsSurfaceFromUpdates
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
+import reikai.presentation.settings.appearance.CustomThemeColorScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -58,6 +60,7 @@ object SettingsAppearanceScreen : SearchableSettings {
         uiPreferences: UiPreferences,
     ): Preference.PreferenceGroup {
         val context = LocalContext.current
+        val navigator = LocalNavigator.currentOrThrow // RK
 
         val themeModePref = uiPreferences.themeMode
         val themeMode by themeModePref.collectAsState()
@@ -95,6 +98,24 @@ object SettingsAppearanceScreen : SearchableSettings {
                         )
                     }
                 },
+                // RK --> the Custom theme's seed color and palette style
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_custom_theme_color),
+                    subtitle = stringResource(MR.strings.pref_custom_theme_color_summary),
+                    visible = appTheme == AppTheme.CUSTOM,
+                    onClick = { navigator.push(CustomThemeColorScreen()) },
+                ),
+                Preference.PreferenceItem.ListPreference(
+                    preference = uiPreferences.customThemeStyle,
+                    entries = PaletteStyle.entries.associateWith { it.name },
+                    title = stringResource(MR.strings.pref_custom_theme_style),
+                    visible = appTheme == AppTheme.CUSTOM,
+                    onValueChanged = {
+                        (context as? Activity)?.let { ActivityCompat.recreate(it) }
+                        true
+                    },
+                ),
+                // RK <--
                 Preference.PreferenceItem.SwitchPreference(
                     preference = amoledPref,
                     title = stringResource(MR.strings.pref_dark_theme_pure_black),

@@ -561,6 +561,375 @@
     <!--== AMOLED Mode Overlay ==-->
     <style name="ThemeOverlay.Tachiyomi.Amoled" parent="" />
 
+    <!-- RK: themes from Kuukiyomi and Aniyomi (via Komikku) and from Yōkai; colors in presentation-core -->
+    <!-- Custom builds its scheme at runtime in Compose, so its View theme is the default one -->
+    <style name="Theme.Tachiyomi.Custom" />
+
+    <!--== Cotton Candy theme ==-->
+    <style name="Theme.Tachiyomi.CottonCandy">
+        <item name="colorPrimary">@color/cottoncandy_primary</item>
+        <item name="colorOnPrimary">@color/cottoncandy_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/cottoncandy_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/cottoncandy_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/cottoncandy_inversePrimary</item>
+        <item name="colorSecondary">@color/cottoncandy_secondary</item>
+        <item name="colorOnSecondary">@color/cottoncandy_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/cottoncandy_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/cottoncandy_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/cottoncandy_tertiary</item>
+        <item name="colorOnTertiary">@color/cottoncandy_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/cottoncandy_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/cottoncandy_onTertiaryContainer</item>
+        <item name="colorError">@color/cottoncandy_error</item>
+        <item name="colorOnError">@color/cottoncandy_onError</item>
+        <item name="colorErrorContainer">@color/cottoncandy_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/cottoncandy_onErrorContainer</item>
+        <item name="android:colorBackground">@color/cottoncandy_background</item>
+        <item name="colorOnBackground">@color/cottoncandy_onBackground</item>
+        <item name="colorSurface">@color/cottoncandy_surface</item>
+        <item name="colorOnSurface">@color/cottoncandy_onSurface</item>
+        <item name="colorSurfaceVariant">@color/cottoncandy_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/cottoncandy_onSurfaceVariant</item>
+        <item name="colorSurfaceInverse">@color/cottoncandy_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/cottoncandy_inverseOnSurface</item>
+        <item name="colorOutline">@color/cottoncandy_outline</item>
+        <item name="colorOutlineVariant">@color/cottoncandy_outlineVariant</item>
+        <item name="colorSurfaceDim">@color/cottoncandy_surfaceDim</item>
+        <item name="colorSurfaceBright">@color/cottoncandy_surfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/cottoncandy_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/cottoncandy_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/cottoncandy_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/cottoncandy_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/cottoncandy_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Mocha theme ==-->
+    <style name="Theme.Tachiyomi.Mocha">
+        <item name="colorPrimary">@color/mocha_primary</item>
+        <item name="colorOnPrimary">@color/mocha_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/mocha_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/mocha_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/mocha_inversePrimary</item>
+        <item name="colorSecondary">@color/mocha_secondary</item>
+        <item name="colorOnSecondary">@color/mocha_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/mocha_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/mocha_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/mocha_tertiary</item>
+        <item name="colorOnTertiary">@color/mocha_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/mocha_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/mocha_onTertiaryContainer</item>
+        <item name="colorError">@color/mocha_error</item>
+        <item name="colorOnError">@color/mocha_onError</item>
+        <item name="colorErrorContainer">@color/mocha_errorContainer</item>
+        <item name="colorOnErrorContainer">@color/mocha_onErrorContainer</item>
+        <item name="android:colorBackground">@color/mocha_background</item>
+        <item name="colorOnBackground">@color/mocha_onBackground</item>
+        <item name="colorSurface">@color/mocha_surface</item>
+        <item name="colorOnSurface">@color/mocha_onSurface</item>
+        <item name="colorSurfaceVariant">@color/mocha_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/mocha_onSurfaceVariant</item>
+        <item name="colorSurfaceInverse">@color/mocha_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/mocha_inverseOnSurface</item>
+        <item name="colorOutline">@color/mocha_outline</item>
+        <item name="colorOutlineVariant">@color/mocha_outlineVariant</item>
+        <item name="colorSurfaceDim">@color/mocha_surfaceDim</item>
+        <item name="colorSurfaceBright">@color/mocha_surfaceBright</item>
+        <item name="colorSurfaceContainerLowest">@color/mocha_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/mocha_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/mocha_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/mocha_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/mocha_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Cloudflare theme by LuftVerbot ==-->
+    <style name="Theme.Tachiyomi.Cloudflare">
+        <item name="colorPrimary">@color/cloudflare_primary</item>
+        <item name="colorOnPrimary">@color/cloudflare_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/cloudflare_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/cloudflare_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/cloudflare_inversePrimary</item>
+        <item name="colorSecondary">@color/cloudflare_secondary</item>
+        <item name="colorOnSecondary">@color/cloudflare_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/cloudflare_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/cloudflare_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/cloudflare_tertiary</item>
+        <item name="colorOnTertiary">@color/cloudflare_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/cloudflare_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/cloudflare_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/cloudflare_background</item>
+        <item name="colorOnBackground">@color/cloudflare_onBackground</item>
+        <item name="colorSurface">@color/cloudflare_surface</item>
+        <item name="colorOnSurface">@color/cloudflare_onSurface</item>
+        <item name="colorSurfaceVariant">@color/cloudflare_surfaceVariant</item>
+        <item name="elevationOverlayColor">@color/cloudflare_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/cloudflare_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/cloudflare_inverseOnSurface</item>
+        <item name="colorOutline">@color/cloudflare_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/cloudflare_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/cloudflare_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/cloudflare_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/cloudflare_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/cloudflare_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Doom theme by LuftVerbot ==-->
+    <style name="Theme.Tachiyomi.Doom">
+        <item name="colorPrimary">@color/doom_primary</item>
+        <item name="colorOnPrimary">@color/doom_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/doom_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/doom_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/doom_inversePrimary</item>
+        <item name="colorSecondary">@color/doom_secondary</item>
+        <item name="colorOnSecondary">@color/doom_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/doom_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/doom_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/doom_tertiary</item>
+        <item name="colorOnTertiary">@color/doom_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/doom_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/doom_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/doom_background</item>
+        <item name="colorOnBackground">@color/doom_onBackground</item>
+        <item name="colorSurface">@color/doom_surface</item>
+        <item name="colorOnSurface">@color/doom_onSurface</item>
+        <item name="colorSurfaceVariant">@color/doom_surfaceVariant</item>
+        <item name="elevationOverlayColor">@color/doom_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/doom_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/doom_inverseOnSurface</item>
+        <item name="colorOutline">@color/doom_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/doom_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/doom_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/doom_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/doom_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/doom_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Matrix theme by LuftVerbot ==-->
+    <style name="Theme.Tachiyomi.Matrix">
+        <item name="colorPrimary">@color/matrix_primary</item>
+        <item name="colorOnPrimary">@color/matrix_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/matrix_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/matrix_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/matrix_inversePrimary</item>
+        <item name="colorSecondary">@color/matrix_secondary</item>
+        <item name="colorOnSecondary">@color/matrix_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/matrix_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/matrix_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/matrix_tertiary</item>
+        <item name="colorOnTertiary">@color/matrix_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/matrix_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/matrix_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/matrix_background</item>
+        <item name="colorOnBackground">@color/matrix_onBackground</item>
+        <item name="colorSurface">@color/matrix_surface</item>
+        <item name="colorOnSurface">@color/matrix_onSurface</item>
+        <item name="colorSurfaceVariant">@color/matrix_surfaceVariant</item>
+        <item name="elevationOverlayColor">@color/matrix_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/matrix_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/matrix_inverseOnSurface</item>
+        <item name="colorOutline">@color/matrix_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/matrix_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/matrix_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/matrix_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/matrix_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/matrix_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Sapphire theme by LuftVerbot ==-->
+    <style name="Theme.Tachiyomi.Sapphire">
+        <item name="colorPrimary">@color/sapphire_primary</item>
+        <item name="colorOnPrimary">@color/sapphire_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/sapphire_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/sapphire_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/sapphire_inversePrimary</item>
+        <item name="colorSecondary">@color/sapphire_secondary</item>
+        <item name="colorOnSecondary">@color/sapphire_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/sapphire_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/sapphire_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/sapphire_tertiary</item>
+        <item name="colorOnTertiary">@color/sapphire_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/sapphire_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/sapphire_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/sapphire_background</item>
+        <item name="colorOnBackground">@color/sapphire_onBackground</item>
+        <item name="colorSurface">@color/sapphire_surface</item>
+        <item name="colorOnSurface">@color/sapphire_onSurface</item>
+        <item name="colorSurfaceVariant">@color/sapphire_surfaceVariant</item>
+        <item name="elevationOverlayColor">@color/sapphire_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/sapphire_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/sapphire_inverseOnSurface</item>
+        <item name="colorOutline">@color/sapphire_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/sapphire_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/sapphire_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/sapphire_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/sapphire_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/sapphire_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Spring and Dusk theme ==-->
+    <style name="Theme.Tachiyomi.SpringAndDusk">
+        <item name="colorPrimary">@color/springdusk_primary</item>
+        <item name="colorOnPrimary">@color/springdusk_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/springdusk_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/springdusk_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/springdusk_inversePrimary</item>
+        <item name="colorSecondary">@color/springdusk_secondary</item>
+        <item name="colorOnSecondary">@color/springdusk_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/springdusk_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/springdusk_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/springdusk_tertiary</item>
+        <item name="colorOnTertiary">@color/springdusk_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/springdusk_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/springdusk_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/springdusk_background</item>
+        <item name="colorOnBackground">@color/springdusk_onBackground</item>
+        <item name="colorSurface">@color/springdusk_surface</item>
+        <item name="colorOnSurface">@color/springdusk_onSurface</item>
+        <item name="colorSurfaceVariant">@color/springdusk_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/springdusk_onSurfaceVariant</item>
+        <item name="elevationOverlayColor">@color/springdusk_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/springdusk_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/springdusk_inverseOnSurface</item>
+        <item name="colorOutline">@color/springdusk_outline</item>
+        <item name="colorOutlineVariant">@color/springdusk_outlineVariant</item>
+        <item name="colorSurfaceContainerLowest">@color/springdusk_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/springdusk_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/springdusk_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/springdusk_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/springdusk_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Strawberries theme ==-->
+    <style name="Theme.Tachiyomi.Strawberries">
+        <item name="colorPrimary">@color/strawberries_primary</item>
+        <item name="colorOnPrimary">@color/strawberries_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/strawberries_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/strawberries_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/strawberries_inversePrimary</item>
+        <item name="colorSecondary">@color/strawberries_secondary</item>
+        <item name="colorOnSecondary">@color/strawberries_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/strawberries_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/strawberries_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/strawberries_tertiary</item>
+        <item name="colorOnTertiary">@color/strawberries_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/strawberries_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/strawberries_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/strawberries_background</item>
+        <item name="colorOnBackground">@color/strawberries_onBackground</item>
+        <item name="colorSurface">@color/strawberries_surface</item>
+        <item name="colorOnSurface">@color/strawberries_onSurface</item>
+        <item name="colorSurfaceVariant">@color/strawberries_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/strawberries_onSurfaceVariant</item>
+        <item name="elevationOverlayColor">@color/strawberries_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/strawberries_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/strawberries_inverseOnSurface</item>
+        <item name="colorOutline">@color/strawberries_outline</item>
+        <item name="colorOutlineVariant">@color/strawberries_outlineVariant</item>
+        <item name="colorSurfaceContainerLowest">@color/strawberries_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/strawberries_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/strawberries_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/strawberries_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/strawberries_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Teal and Sapphire theme ==-->
+    <style name="Theme.Tachiyomi.TealAndSapphire">
+        <item name="colorPrimary">@color/tealsapphire_primary</item>
+        <item name="colorOnPrimary">@color/tealsapphire_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/tealsapphire_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/tealsapphire_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/tealsapphire_inversePrimary</item>
+        <item name="colorSecondary">@color/tealsapphire_secondary</item>
+        <item name="colorOnSecondary">@color/tealsapphire_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/tealsapphire_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/tealsapphire_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/tealsapphire_tertiary</item>
+        <item name="colorOnTertiary">@color/tealsapphire_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/tealsapphire_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/tealsapphire_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/tealsapphire_background</item>
+        <item name="colorOnBackground">@color/tealsapphire_onBackground</item>
+        <item name="colorSurface">@color/tealsapphire_surface</item>
+        <item name="colorOnSurface">@color/tealsapphire_onSurface</item>
+        <item name="colorSurfaceVariant">@color/tealsapphire_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/tealsapphire_onSurfaceVariant</item>
+        <item name="elevationOverlayColor">@color/tealsapphire_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/tealsapphire_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/tealsapphire_inverseOnSurface</item>
+        <item name="colorOutline">@color/tealsapphire_outline</item>
+        <item name="colorOutlineVariant">@color/tealsapphire_outlineVariant</item>
+        <item name="colorSurfaceContainerLowest">@color/tealsapphire_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/tealsapphire_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/tealsapphire_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/tealsapphire_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/tealsapphire_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Lime theme ==-->
+    <style name="Theme.Tachiyomi.Lime">
+        <item name="colorPrimary">@color/lime_primary</item>
+        <item name="colorOnPrimary">@color/lime_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/lime_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/lime_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/lime_inversePrimary</item>
+        <item name="colorSecondary">@color/lime_secondary</item>
+        <item name="colorOnSecondary">@color/lime_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/lime_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/lime_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/lime_tertiary</item>
+        <item name="colorOnTertiary">@color/lime_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/lime_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/lime_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/lime_background</item>
+        <item name="colorOnBackground">@color/lime_onBackground</item>
+        <item name="colorSurface">@color/lime_surface</item>
+        <item name="colorOnSurface">@color/lime_onSurface</item>
+        <item name="colorSurfaceVariant">@color/lime_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/lime_onSurfaceVariant</item>
+        <item name="elevationOverlayColor">@color/lime_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/lime_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/lime_inverseOnSurface</item>
+        <item name="colorOutline">@color/lime_outline</item>
+        <item name="colorOutlineVariant">@color/lime_outlineVariant</item>
+        <item name="colorSurfaceContainerLowest">@color/lime_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/lime_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/lime_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/lime_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/lime_surfaceContainerHighest</item>
+    </style>
+
+    <!--== Doki theme by ziro ==-->
+    <style name="Theme.Tachiyomi.Doki">
+        <item name="colorPrimary">@color/doki_primary</item>
+        <item name="colorOnPrimary">@color/doki_onPrimary</item>
+        <item name="colorPrimaryContainer">@color/doki_primaryContainer</item>
+        <item name="colorOnPrimaryContainer">@color/doki_onPrimaryContainer</item>
+        <item name="colorPrimaryInverse">@color/doki_inversePrimary</item>
+        <item name="colorSecondary">@color/doki_secondary</item>
+        <item name="colorOnSecondary">@color/doki_onSecondary</item>
+        <item name="colorSecondaryContainer">@color/doki_secondaryContainer</item>
+        <item name="colorOnSecondaryContainer">@color/doki_onSecondaryContainer</item>
+        <item name="colorTertiary">@color/doki_tertiary</item>
+        <item name="colorOnTertiary">@color/doki_onTertiary</item>
+        <item name="colorTertiaryContainer">@color/doki_tertiaryContainer</item>
+        <item name="colorOnTertiaryContainer">@color/doki_onTertiaryContainer</item>
+        <item name="android:colorBackground">@color/doki_background</item>
+        <item name="colorOnBackground">@color/doki_onBackground</item>
+        <item name="colorSurface">@color/doki_surface</item>
+        <item name="colorOnSurface">@color/doki_onSurface</item>
+        <item name="colorSurfaceVariant">@color/doki_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/doki_onSurfaceVariant</item>
+        <item name="elevationOverlayColor">@color/doki_surfaceTint</item>
+        <item name="colorSurfaceInverse">@color/doki_inverseSurface</item>
+        <item name="colorOnSurfaceInverse">@color/doki_inverseOnSurface</item>
+        <item name="colorOutline">@color/doki_outline</item>
+        <item name="colorOutlineVariant">@color/doki_outlineVariant</item>
+        <item name="colorSurfaceContainerLowest">@color/doki_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/doki_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/doki_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/doki_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/doki_surfaceContainerHighest</item>
+    </style>
+
     <!--===============-->
     <!-- Launch Screen -->
     <!--===============-->

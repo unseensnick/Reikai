@@ -41,4 +41,18 @@ private val themeResources: Map<AppTheme, Int> = mapOf(
     AppTheme.YINYANG to R.style.Theme_Tachiyomi_YinYang,
     AppTheme.YOTSUBA to R.style.Theme_Tachiyomi_Yotsuba,
     AppTheme.TIDAL_WAVE to R.style.Theme_Tachiyomi_TidalWave,
+    // RK -->
+    AppTheme.CUSTOM to R.style.Theme_Tachiyomi_Custom,
+    AppTheme.COTTONCANDY to R.style.Theme_Tachiyomi_CottonCandy,
+    AppTheme.MOCHA to R.style.Theme_Tachiyomi_Mocha,
+    AppTheme.CLOUDFLARE to R.style.Theme_Tachiyomi_Cloudflare,
+    AppTheme.DOOM to R.style.Theme_Tachiyomi_Doom,
+    AppTheme.MATRIX to R.style.Theme_Tachiyomi_Matrix,
+    AppTheme.SAPPHIRE to R.style.Theme_Tachiyomi_Sapphire,
+    AppTheme.SPRING_AND_DUSK to R.style.Theme_Tachiyomi_SpringAndDusk,
+    AppTheme.STRAWBERRIES to R.style.Theme_Tachiyomi_Strawberries,
+    AppTheme.TEAL_AND_SAPPHIRE to R.style.Theme_Tachiyomi_TealAndSapphire,
+    AppTheme.LIME to R.style.Theme_Tachiyomi_Lime,
+    AppTheme.DOKI to R.style.Theme_Tachiyomi_Doki,
+    // RK <--
 )

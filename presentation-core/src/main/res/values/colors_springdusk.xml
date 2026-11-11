@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Spring and Dusk theme, from Yōkai, generated from SpringAndDuskColorScheme.kt -->
+<resources>
+    <color name="springdusk_primary">#A149BF</color>
+    <color name="springdusk_onPrimary">#FFFFFF</color>
+    <color name="springdusk_primaryContainer">#F7D8FF</color>
+    <color name="springdusk_onPrimaryContainer">#330045</color>
+    <color name="springdusk_inversePrimary">#CD95E0</color>
+    <color name="springdusk_secondary">#C43C97</color>
+    <color name="springdusk_onSecondary">#FFFFFF</color>
+    <color name="springdusk_secondaryContainer">#FFD8ED</color>
+    <color name="springdusk_onSecondaryContainer">#4C163A</color>
+    <color name="springdusk_tertiary">#99CC99</color>
+    <color name="springdusk_onTertiary">#000000</color>
+    <color name="springdusk_tertiaryContainer">#BBF0BB</color>
+    <color name="springdusk_onTertiaryContainer">#032100</color>
+    <color name="springdusk_background">#F7F4F8</color>
+    <color name="springdusk_onBackground">#3F2643</color>
+    <color name="springdusk_surface">#F7F4F8</color>
+    <color name="springdusk_onSurface">#3F2643</color>
+    <color name="springdusk_surfaceVariant">#EFE3F3</color>
+    <color name="springdusk_onSurfaceVariant">#4D444F</color>
+    <color name="springdusk_surfaceTint">#A149BF</color>
+    <color name="springdusk_inverseSurface">#323033</color>
+    <color name="springdusk_inverseOnSurface">#F3F0F4</color>
+    <color name="springdusk_outline">#7E7480</color>
+    <color name="springdusk_outlineVariant">#CEC3D0</color>
+    <color name="springdusk_surfaceContainerLowest">#F8ECFC</color>
+    <color name="springdusk_surfaceContainerLow">#F3E7F7</color>
+    <color name="springdusk_surfaceContainer">#EFE3F3</color>
+    <color name="springdusk_surfaceContainerHigh">#E6DBEA</color>
+    <color name="springdusk_surfaceContainerHighest">#DED2E2</color>
+</resources>

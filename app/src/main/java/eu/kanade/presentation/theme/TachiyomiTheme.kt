@@ -10,19 +10,32 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalInspectionMode
 import com.materialkolor.DynamicMaterialExpressiveTheme
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
 import eu.kanade.presentation.theme.colorscheme.CatppuccinColorScheme
+import eu.kanade.presentation.theme.colorscheme.CloudflareColorScheme
+import eu.kanade.presentation.theme.colorscheme.CottoncandyColorScheme
+import eu.kanade.presentation.theme.colorscheme.CustomColorScheme
+import eu.kanade.presentation.theme.colorscheme.DokiColorScheme
+import eu.kanade.presentation.theme.colorscheme.DoomColorScheme
 import eu.kanade.presentation.theme.colorscheme.GreenAppleColorScheme
 import eu.kanade.presentation.theme.colorscheme.LavenderColorScheme
+import eu.kanade.presentation.theme.colorscheme.LimeColorScheme
+import eu.kanade.presentation.theme.colorscheme.MatrixColorScheme
 import eu.kanade.presentation.theme.colorscheme.MidnightDuskColorScheme
+import eu.kanade.presentation.theme.colorscheme.MochaColorScheme
 import eu.kanade.presentation.theme.colorscheme.MonetColorScheme
 import eu.kanade.presentation.theme.colorscheme.MonochromeColorScheme
 import eu.kanade.presentation.theme.colorscheme.NordColorScheme
+import eu.kanade.presentation.theme.colorscheme.SapphireColorScheme
+import eu.kanade.presentation.theme.colorscheme.SpringAndDuskColorScheme
+import eu.kanade.presentation.theme.colorscheme.StrawberriesColorScheme
 import eu.kanade.presentation.theme.colorscheme.StrawberryColorScheme
 import eu.kanade.presentation.theme.colorscheme.TachiyomiColorScheme
 import eu.kanade.presentation.theme.colorscheme.TakoColorScheme
+import eu.kanade.presentation.theme.colorscheme.TealAndSapphireColorScheme
 import eu.kanade.presentation.theme.colorscheme.TealTurqoiseColorScheme
 import eu.kanade.presentation.theme.colorscheme.TidalWaveColorScheme
 import eu.kanade.presentation.theme.colorscheme.TokyoNightColorScheme
@@ -86,6 +99,7 @@ private fun BaseTachiyomiTheme(
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
+    val isPreview = LocalInspectionMode.current // RK
     MaterialExpressiveTheme(
         colorScheme = remember(appTheme, isDark, isAmoled) {
             getThemeColorScheme(
@@ -93,6 +107,7 @@ private fun BaseTachiyomiTheme(
                 appTheme = appTheme,
                 isDark = isDark,
                 isAmoled = isAmoled,
+                isPreview = isPreview, // RK
             )
         },
         content = content,
@@ -104,9 +119,15 @@ private fun getThemeColorScheme(
     appTheme: AppTheme,
     isDark: Boolean,
     isAmoled: Boolean,
+    isPreview: Boolean, // RK
 ): ColorScheme {
     val colorScheme = if (appTheme == AppTheme.MONET) {
         MonetColorScheme(context)
+        // RK --> Custom is generated from the user's seed; a preview has no graph to read it from
+    } else if (appTheme == AppTheme.CUSTOM && !isPreview) {
+        val uiPreferences = context.appGraph.uiPreferences
+        CustomColorScheme(Color(uiPreferences.customThemeSeed.get()), uiPreferences.customThemeStyle.get())
+        // RK <--
     } else {
         colorSchemes.getOrDefault(appTheme, TachiyomiColorScheme)
     }
@@ -132,4 +153,17 @@ private val colorSchemes: Map<AppTheme, BaseColorScheme> = mapOf(
     AppTheme.TIDAL_WAVE to TidalWaveColorScheme,
     AppTheme.YINYANG to YinYangColorScheme,
     AppTheme.YOTSUBA to YotsubaColorScheme,
+    // RK -->
+    AppTheme.COTTONCANDY to CottoncandyColorScheme,
+    AppTheme.MOCHA to MochaColorScheme,
+    AppTheme.CLOUDFLARE to CloudflareColorScheme,
+    AppTheme.DOOM to DoomColorScheme,
+    AppTheme.MATRIX to MatrixColorScheme,
+    AppTheme.SAPPHIRE to SapphireColorScheme,
+    AppTheme.SPRING_AND_DUSK to SpringAndDuskColorScheme,
+    AppTheme.STRAWBERRIES to StrawberriesColorScheme,
+    AppTheme.TEAL_AND_SAPPHIRE to TealAndSapphireColorScheme,
+    AppTheme.LIME to LimeColorScheme,
+    AppTheme.DOKI to DokiColorScheme,
+    // RK <--
 )

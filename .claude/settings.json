@@ -20,7 +20,11 @@
       "E:\\Code\\yokai-y2k\\refs\\lnreader-plugins",
       "E:\\Code\\yokai-y2k\\refs\\tsundoku",
       "E:\\Code\\yokai-y2k\\refs\\IReader",
-      "E:\\Code\\yokai-y2k\\refs\\tachiyomisy"
+      "E:\\Code\\yokai-y2k\\refs\\tachiyomisy",
+      "E:\\Code\\yokai-y2k\\refs\\anikku",
+      "E:\\Code\\yokai-y2k\\refs\\aniyomi",
+      "E:\\Code\\yokai-y2k\\refs\\shosetsu",
+      "E:\\Code\\yokai-y2k\\refs\\kotatsu"
     ],
     "allow": [
       "Bash(./gradlew :domain:test)",

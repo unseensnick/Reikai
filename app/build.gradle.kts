@@ -375,6 +375,7 @@ dependencies {
     implementation(libs.vico.compose.m3) // RK: Statistics charts (status, score, reading time)
     implementation(libs.bundles.markdown)
     implementation(libs.materialKolor)
+    implementation(libs.colorpicker.compose) // RK: the Custom theme's color picker
 
     // Logging
     implementation(libs.logcat)

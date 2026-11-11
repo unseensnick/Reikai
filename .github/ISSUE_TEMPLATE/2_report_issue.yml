@@ -61,7 +61,7 @@ body:
       label: Reikai version
       description: You can find your Reikai version in **More → About**.
       placeholder: |
-        Example: "0.19.9"
+        Example: "0.5.1" or "nightly r4072"
     validations:
       required: true
 
@@ -104,7 +104,7 @@ body:
           required: true
         - label: I have gone through the [FAQ](https://reikai.app/docs/faq/general) and [troubleshooting guide](https://reikai.app/docs/guides/troubleshooting/).
           required: true
-        - label: I have updated the app to the [latest release](https://github.com/unseensnick/Reikai/releases/latest).
+        - label: I am on the latest [stable release](https://github.com/unseensnick/Reikai/releases/latest) or [nightly](https://github.com/unseensnick/Reikai-preview/releases/latest).
           required: true
         - label: I have filled out all of the requested information in this form, including specific version numbers.
           required: true

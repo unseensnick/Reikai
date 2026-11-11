@@ -10,6 +10,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Reikai design refresh (off stock Material 3)** `[L]` - move shape, typography, component styling, spacing and layout off stock Material 3 across the shared `Entry*` surfaces, under whichever theme the reader picked. Exploratory; it starts by seeding tokens in `DESIGN.md`. [Doc](docs/dev/subsystems/content-layer.md).
 
+### Reader
+
+- **Centre margin between a spread's pages in the high quality renderer** `[M]` - an adjustable gap between the two pages of a dual page spread, filled with the background colour, as TachiyomiSY and Komikku offer (`center_margin_type`). Asked for in a GitHub discussion and ruled in by the owner, so it joins the image-viewer divergences content-layer.md names. [Doc](docs/dev/subsystems/reader.md).
+
 ## Parked and not building
 
 Not forward work, so it lives in [docs/dev/parked.md](docs/dev/parked.md): what each item is, why it
