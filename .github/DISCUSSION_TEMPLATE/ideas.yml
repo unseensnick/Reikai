@@ -1,0 +1,78 @@
+labels: [feature request]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Before you post**
+        - Check the [stable docs](https://reikai.app/docs/guides/getting-started), the [nightly docs](https://reikai.app/preview/docs/guides/getting-started) and the [FAQ](https://reikai.app/docs/faq/general). The nightly often has it already.
+        - Search the existing ideas. If yours is there, add a 👍 to it instead of posting again.
+        - Got several ideas? Put them all in one post.
+
+        Every idea gets read, but not every one gets a reply or gets built.
+
+        **What helps:** explain what you're trying to do, not only the feature. Compare:
+        - "PLEASE add a downloads tab"
+        - "I check my download queue several times a day and More > Downloads takes three taps. Could it be somewhere quicker?"
+
+        The second one tells me the problem, so I can find the best fix for it. [This post](https://github.com/unseensnick/Reikai/issues/86#issuecomment-6734736628) is a good example of several ideas in one place.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: What are you trying to do?
+      description: The problem or the situation, not the feature yet.
+      placeholder: |
+        Example: "I read on an e-reader and can't tell which reader buttons are on."
+    validations:
+      required: true
+
+  - type: textarea
+    id: today
+    attributes:
+      label: What do you do today instead?
+      description: How you handle it now, or why you can't.
+      placeholder: |
+        Example: "I open the settings every time to check."
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: Your idea
+      description: How it could work. One idea per section if you have several.
+      placeholder: |
+        Example: "Buttons that are on could look different, like a filled box."
+    validations:
+      required: true
+
+  - type: input
+    id: reikai-version
+    attributes:
+      label: Reikai version
+      description: You can find it in **More → About**.
+      placeholder: |
+        Example: "0.5.1" or "nightly r4072"
+    validations:
+      required: true
+
+  - type: textarea
+    id: other-details
+    attributes:
+      label: Screenshots or other details
+      placeholder: |
+        Screenshots, examples from other apps, anything else that helps.
+
+  - type: checkboxes
+    id: acknowledgements
+    attributes:
+      label: Acknowledgements
+      options:
+        - label: I have searched the existing ideas and issues, and this is not already there.
+          required: true
+        - label: I have checked the stable and nightly docs and the FAQ.
+          required: true
+        - label: I am on the latest [stable release](https://github.com/unseensnick/Reikai/releases/latest) or [nightly](https://github.com/unseensnick/Reikai-preview/releases/latest).
+          required: true
+        - label: I understand that not every idea gets a reply or gets built.
+          required: true
