@@ -23,4 +23,10 @@ object NoLocalVolumes : LocalVolumeRepository {
     override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
 
     override suspend fun restorePick(type: ContentType, series: String, key: String) = Unit
+
+    override fun looseFiles() = MutableStateFlow(emptyMap<String, LooseFiles>())
+
+    override suspend fun loadedLooseFiles() = emptyMap<String, LooseFiles>()
+
+    override suspend fun setLooseFiles(series: String, mode: LooseFiles) = Unit
 }

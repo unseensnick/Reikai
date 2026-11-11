@@ -1,0 +1,6 @@
+-- How a local manga series shows its loose chapter files (local_manga_loose.sq). Empty on upgrade, which is the
+-- default: loose files as one volume.
+CREATE TABLE local_manga_loose(
+    series TEXT NOT NULL PRIMARY KEY,
+    mode INTEGER NOT NULL
+);

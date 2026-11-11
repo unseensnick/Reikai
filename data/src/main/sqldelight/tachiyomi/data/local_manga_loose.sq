@@ -1,0 +1,24 @@
+-- How a local manga series shows the chapter files that sit loose beside its volume folders, by the series' folder:
+-- 0 as one volume of their own (no row), 1 each file a volume of its own, 2 no volumes at all, the series one flat
+-- list. Novels have none: every book of a local novel is a volume, so nothing is loose.
+CREATE TABLE local_manga_loose(
+    series TEXT NOT NULL PRIMARY KEY,
+    mode INTEGER NOT NULL
+);
+
+getAll:
+SELECT series, mode
+FROM local_manga_loose;
+
+setMode:
+INSERT OR REPLACE INTO local_manga_loose(series, mode)
+VALUES (:series, :mode);
+
+clear:
+DELETE FROM local_manga_loose
+WHERE series = :series;
+
+-- A series' folder renamed: its setting follows it, over one a series of the new name left behind.
+renameSeries:
+UPDATE OR REPLACE local_manga_loose SET series = :toSeries
+WHERE series = :fromSeries;

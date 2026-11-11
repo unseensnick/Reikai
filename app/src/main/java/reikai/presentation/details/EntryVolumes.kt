@@ -23,6 +23,7 @@ import reikai.data.local.LocalSeriesRelink
 import reikai.data.local.LocalVolumeMove
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.chapter.volumeNumberIn
@@ -31,6 +32,7 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
+import reikai.domain.local.localGroupUnit
 import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.stats.statsDetailsScreen
@@ -44,12 +46,35 @@ import tachiyomi.source.local.LocalSource
 /**
  * Where a chapter sits in a local series split into volumes: its [series] folder, its volume's [key], the
  * file or folder its address names, the [label] a header shows, and the [prefix] that names the volume in
- * front of its title.
+ * front of its title. A manga chapter loose beside the volume folders also carries its [looseFile] and title.
  */
 @Immutable
-data class ChapterVolume(val series: String, val key: String, val label: VolumeLabel, val prefix: String) {
+data class ChapterVolume(
+    val series: String,
+    val key: String,
+    val label: VolumeLabel,
+    val prefix: String,
+    val looseFile: String? = null,
+    val looseTitle: String? = null,
+) {
     /** [title] without the volume in front, for a row under its volume's header. */
     fun titleOf(title: String) = title.removePrefix(prefix)
+
+    /**
+     * This chapter's volume as [mode] shows a loose file: the loose files' one volume, a volume of the file alone
+     * (keyed by its own name, as a volume folder is), or none, which leaves the series without headers.
+     */
+    fun under(mode: LooseFiles?): ChapterVolume? {
+        val file = looseFile ?: return this
+        return when (mode ?: LooseFiles.ONE_VOLUME) {
+            LooseFiles.ONE_VOLUME -> this
+            LooseFiles.NO_VOLUME -> null
+            LooseFiles.EACH_ITS_OWN -> copy(
+                key = localGroupKey(series, localGroupUnit(series, key).first, file),
+                label = VolumeLabel.Name(looseTitle ?: file),
+            )
+        }
+    }
 
     /** This volume under the name the user gave it in [saved], if they gave it one. */
     fun named(saved: Map<String, List<LocalVolume>>): ChapterVolume =
@@ -75,7 +100,8 @@ internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): Chapt
     val key = localGroupKey(owner.url, folder, volume)
     if (volume == VolumeOwner.LOOSE) {
         val prefix = if (folder == owner.url) "" else "$folder - "
-        return ChapterVolume(owner.url, key, VolumeLabel.Name(folder), prefix)
+        val file = url.split('/').last { it.isNotEmpty() }
+        return ChapterVolume(owner.url, key, VolumeLabel.Name(folder), prefix, file, name.removePrefix(prefix))
     }
     return ChapterVolume(owner.url, key, labelOf(volume), "$volume - ")
 }
@@ -134,6 +160,17 @@ class VolumePicking(
     fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)
 
     fun saved(type: ContentType): StateFlow<Map<String, List<LocalVolume>>> = volumes.volumes(type)
+
+    /** How each local manga series shows its loose files; a novel has none. */
+    fun looseFiles(): StateFlow<Map<String, LooseFiles>> = volumes.looseFiles()
+
+    /** Shows [series]' loose files as [mode], then [relist]s, since the source lists their order by it. */
+    fun setLooseFiles(series: String, mode: LooseFiles, relist: () -> Unit) {
+        appScope.launchIO {
+            volumes.setLooseFiles(series, mode)
+            withUIContext { relist() }
+        }
+    }
 
     fun pick(entry: EntryId, volumeKey: String?) {
         appScope.launchIO { picks.set(entry.contentType, entry.rawId, volumeKey) }
@@ -230,15 +267,20 @@ fun List<EntryChapterListItem>.inVolumes(
     picked: String?,
     saved: Map<String, List<LocalVolume>>,
     every: List<ChapterVolume>,
+    loose: Map<String, LooseFiles> = emptyMap(),
 ): VolumeView? {
-    val runs = filterIsInstance<EntryChapterListItem.Chapter>().volumeRuns { it.volume?.key } ?: return null
+    val runs = filterIsInstance<EntryChapterListItem.Chapter>()
+        .map { row -> row.volume?.let { row.copy(volume = it.under(loose[it.series])) } ?: row }
+        .volumeRuns { it.volume?.key } ?: return null
     val headers = runs.map { (key, rows) ->
         val volume = rows.first().volume!!.named(saved)
         EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map { it.id }, rows.count { it.read })
     }
     val series = headers.first().series
     val shownByKey = headers.associateBy { it.key }
-    val all = every.filter { it.series == series }.distinctBy { it.key }.map { volume ->
+    val all = every.mapNotNull {
+        it.under(loose[it.series])
+    }.filter { it.series == series }.distinctBy { it.key }.map { volume ->
         shownByKey[volume.key] ?: volume.named(saved).let {
             EntryChapterListItem.Volume(it.series, it.key, it.label, emptyList(), 0)
         }

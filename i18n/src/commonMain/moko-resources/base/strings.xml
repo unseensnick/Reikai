@@ -345,6 +345,10 @@
     <string name="undo_volumes_failed">Couldn't undo the move; the volumes stay where they are</string>
     <string name="action_combine">Combine</string>
     <string name="volume_rename">Rename volume</string>
+    <string name="loose_files">Loose files</string>
+    <string name="loose_files_one_volume">One volume</string>
+    <string name="loose_files_each">Each its own volume</string>
+    <string name="loose_files_none">No volume</string>
     <string name="volume_order_hint">Chapters sorted by source are read in this order</string>
     <string name="volume_read_count">%1$d/%2$d read</string>
     <string name="local_novel_volume_chapter">Vol. %1$s - %2$s</string>

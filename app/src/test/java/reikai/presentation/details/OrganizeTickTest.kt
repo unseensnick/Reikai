@@ -50,7 +50,7 @@ class OrganizeTickTest {
 
     private fun reorder() = compose.setContent {
         ComposeTestHost {
-            ReorderVolumesDialog(volumes, canRenameFiles = true, { organize = it }, {}, { _, _ -> })
+            ReorderVolumesDialog(volumes, true, null, {}, { organize = it }, {}, { _, _ -> })
         }
     }
 

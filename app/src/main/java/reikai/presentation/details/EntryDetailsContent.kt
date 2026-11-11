@@ -51,9 +51,13 @@ import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.KeyboardArrowDown
 import reikai.data.local.LocalMoveResult
 import reikai.domain.chapter.CopyMark
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
+import reikai.domain.local.localGroupUnit
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
@@ -159,8 +163,14 @@ fun EntryDetailsContent(
     val type = state.entryId.contentType
     val picks by behavior.volumePicking.picks(type).collectAsState()
     val savedVolumes by behavior.volumePicking.saved(type).collectAsState()
-    val volumes = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes) {
+    val looseFiles by behavior.volumePicking.looseFiles().collectAsState()
+    // The volumes as files hold them, a manga's loose files one volume, which the dialogs that change files act on.
+    val structural = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes) {
         filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes)
+    }
+    // And as the series shows them, under its Loose files setting.
+    val volumes = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes, looseFiles) {
+        filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes, looseFiles)
     }
     val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     val shownIds = remember(shown.chapters.items) {
@@ -182,7 +192,7 @@ fun EntryDetailsContent(
     val missingFolders by produceState(emptyList<String>(), state.entryId, ownLocal, state.chapters.items) {
         value = if (ownLocal) behavior.volumePicking.missingMembers(state.entryId) else emptyList()
     }
-    val missing = remember(missingFolders, volumes) { missingVolumes(missingFolders, volumes?.chips.orEmpty()) }
+    val missing = remember(missingFolders, volumes) { missingVolumes(missingFolders, structural?.chips.orEmpty()) }
     var fixing by remember { mutableStateOf<MissingVolume?>(null) }
     val extras = ChapterListExtras(
         copies = copies,
@@ -195,12 +205,12 @@ fun EntryDetailsContent(
             behavior.volumePicking.pick(state.entryId, it)
             behavior.clearSelection()
         },
-        onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
+        onReorderVolumes = { reorderingVolumes = true }.takeIf { structural != null },
         onAddVolumes = { volumeDialog = VolumeDialog.AddVolumes }.takeIf { ownLocal },
-        onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
+        onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && structural != null },
         onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal && canOrganize },
-        onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: volumes?.chips?.map { it.key } }
-            .takeIf { ownLocal && volumes != null },
+        onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: structural?.chips?.map { it.key } }
+            .takeIf { ownLocal && structural != null },
         onKeepDuplicates = { renames: List<Pair<String, String>> ->
             val series = volumes?.chips?.firstOrNull()?.series
             if (series !=
@@ -253,10 +263,16 @@ fun EntryDetailsContent(
             chrome,
         )
     }
-    if (reorderingVolumes && volumes != null) {
-        val series = volumes.chips.first().series
+    if (reorderingVolumes && structural != null) {
+        val series = structural.chips.first().series
+        // A manga's loose files have a setting of their own; a local novel has none, every book being a volume.
+        val hasLoose =
+            type == ContentType.MANGA &&
+                structural.chips.any { localGroupUnit(series, it.key).second == VolumeOwner.LOOSE }
         ReorderVolumesDialog(
-            volumes = volumes.chips,
+            volumes = (volumes ?: structural).chips,
+            looseFiles = (looseFiles[series] ?: LooseFiles.ONE_VOLUME).takeIf { hasLoose },
+            onLooseFiles = { behavior.volumePicking.setLooseFiles(series, it, behavior::refresh) },
             canRenameFiles = ownLocal && canOrganize,
             onDismissRequest = { renameFiles ->
                 reorderingVolumes = false
@@ -286,7 +302,7 @@ fun EntryDetailsContent(
                 }
             },
         )
-        VolumeDialog.SplitOut -> volumes?.let { view ->
+        VolumeDialog.SplitOut -> structural?.let { view ->
             SplitOutDialog(
                 title = state.details.header.title,
                 volumes = view.chips,
@@ -313,7 +329,7 @@ fun EntryDetailsContent(
         }
         VolumeDialog.RenameFiles -> RenameFilesDialog(
             title = renameTitle ?: state.details.header.title,
-            volumes = volumes?.chips.orEmpty(),
+            volumes = structural?.chips.orEmpty(),
             plan = { title, labels -> behavior.volumePicking.renamePlan(state.entryId, title, labels) },
             onDismissRequest = {
                 volumeDialog = null
@@ -358,7 +374,10 @@ fun EntryDetailsContent(
     }
     deletingVolumes?.let { keys ->
         DeleteVolumesDialog(
-            volumes = volumes?.chips.orEmpty().filter { it.key in keys },
+            volumes = (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }.filter {
+                it.key in
+                    keys
+            },
             onDismissRequest = { deletingVolumes = null },
             onConfirm = { picked ->
                 deletingVolumes = null

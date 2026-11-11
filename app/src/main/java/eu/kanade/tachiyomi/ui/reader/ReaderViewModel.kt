@@ -333,9 +333,11 @@ class ReaderViewModel(
     private fun mangaForChapterId(chapterMangaId: Long): Manga =
         mergedGroup?.mangaById?.get(chapterMangaId) ?: manga!!
 
-    // RK: the local volume a chapter is in, under the name the user gave it, for the chapter sheet
+    // RK: the local volume a chapter is in, as the series shows its loose files and under the name the user gave
+    // it, for the chapter sheet
     fun chapterVolume(chapter: Chapter): ChapterVolume? =
         mangaChapterVolume(mangaForChapterId(chapter.mangaId), chapter.url, chapter.name)
+            ?.let { it.under(localVolumes.looseFiles().value[it.series]) }
             ?.named(localVolumes.volumes(ContentType.MANGA).value)
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:

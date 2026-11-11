@@ -21,6 +21,7 @@ import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomMangaInfo
@@ -105,7 +106,10 @@ class MangaRestorer(
             }
         }
         // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
-        backupMangas.forEach { it.restoreLocalVolumes(ContentType.MANGA, localVolumes, it.url) }
+        backupMangas.forEach {
+            it.restoreLocalVolumes(ContentType.MANGA, localVolumes, it.url)
+            it.looseFiles?.let { mode -> localVolumes.setLooseFiles(it.url, LooseFiles.of(mode)) }
+        }
     }
 
     // RK --> merge groups and custom info restore

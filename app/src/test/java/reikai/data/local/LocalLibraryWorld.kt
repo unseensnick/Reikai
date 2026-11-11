@@ -40,6 +40,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.download.DownloadIndexRules
 import reikai.domain.library.ContentType
@@ -1141,4 +1142,13 @@ private class DirectLocalVolumes(private val database: Database) : LocalVolumeRe
     override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
 
     override suspend fun restorePick(type: ContentType, series: String, key: String) = Unit
+
+    override fun looseFiles() = MutableStateFlow(emptyMap<String, LooseFiles>())
+
+    override suspend fun loadedLooseFiles(): Map<String, LooseFiles> =
+        database.local_manga_looseQueries.getAll().awaitAsList().associate { it.series to LooseFiles.of(it.mode) }
+
+    override suspend fun setLooseFiles(series: String, mode: LooseFiles) {
+        database.local_manga_looseQueries.setMode(series, mode.stored)
+    }
 }

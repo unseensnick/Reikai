@@ -63,6 +63,8 @@ class BackupManga(
     @ProtoNumber(705) override var volumeOwners: List<BackupVolumeOwner> = emptyList(),
     // RK: a local series' remembered volume chip, by its key, which a restore finds again by the series' address
     @ProtoNumber(706) override var volumePick: String? = null,
+    // RK: how a local series shows its loose files (LooseFiles.stored), absent for the default
+    @ProtoNumber(707) var looseFiles: Long? = null,
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

@@ -117,6 +117,7 @@ class BackupTableCoverageTest {
             "local_volume" to on(MANGA, 703) + on(NOVEL, 703),
             "local_volume_owner" to on(MANGA, 705) + on(NOVEL, 705),
             "local_volume_pick" to on(MANGA, 706) + on(NOVEL, 706),
+            "local_manga_loose" to on(MANGA, 707),
             // Membership only; a group's source order and override flag are left out (merged-series.md, Decisions).
             "merge_group" to on(ROOT, 702, 711),
             "merge_group_manga" to on(ROOT, 711),

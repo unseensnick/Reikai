@@ -18,6 +18,7 @@ import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import tachiyomi.data.Database
@@ -71,6 +72,26 @@ class LocalVolumeRepositoryImpl(
             owners.forEach {
                 database.local_volume_ownerQueries.setOwner(type.toDbValue(), it.folder, it.volume, it.owner)
             }
+        }
+    }
+
+    private val loose = HeldRows(
+        database.local_manga_looseQueries.getAll().asFlow()
+            .map { query -> query.awaitAsList().associate { it.series to LooseFiles.of(it.mode) } },
+        scope,
+        emptyMap(),
+    )
+
+    override fun looseFiles(): StateFlow<Map<String, LooseFiles>> = loose.held
+
+    override suspend fun loadedLooseFiles() = loose.loaded()
+
+    override suspend fun setLooseFiles(series: String, mode: LooseFiles) {
+        // The default is no row, so a series left as it was carries nothing.
+        if (mode == LooseFiles.ONE_VOLUME) {
+            database.local_manga_looseQueries.clear(series)
+        } else {
+            database.local_manga_looseQueries.setMode(series, mode.stored)
         }
     }
 

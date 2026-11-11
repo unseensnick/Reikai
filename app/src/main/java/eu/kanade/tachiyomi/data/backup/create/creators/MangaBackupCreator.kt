@@ -136,6 +136,8 @@ class MangaBackupCreator(
         }
         // RK: a pass of their own, so a local series with no chapter rows keeps its grouping
         batch.writeLocalVolumes(ContentType.MANGA, localVolumes, { it.isLocal() }, Manga::id, Manga::url)
+        val looseBySeries = localVolumes.loadedLooseFiles()
+        batch.forEach { (entry, backup) -> if (entry.isLocal()) backup.looseFiles = looseBySeries[entry.url]?.stored }
     }
 
     override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {

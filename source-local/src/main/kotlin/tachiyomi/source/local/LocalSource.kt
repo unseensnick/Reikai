@@ -29,6 +29,7 @@ import mihon.core.archive.epubReader
 import nl.adaptivity.xmlutil.core.AndroidXmlReader
 import nl.adaptivity.xmlutil.serialization.XML
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalGroups
@@ -443,11 +444,16 @@ class LocalSource(
 
     // RK --> volume folders
     // In the order the user gave them, each led by its Extras, still newest first like the rest of the list.
-    // A group's volumes come folder by folder, its own first, until the user orders them.
+    // A group's volumes come folder by folder, its own first, until the user orders them; a loose file shown as a
+    // volume of its own is ordered by its own key, as the details screen keys it.
     private suspend fun List<SChapter>.inUserVolumeOrder(series: String, folders: List<String>): List<SChapter> {
         val saved = userVolumes.loadedVolumes(ContentType.MANGA)[series]
+        val each = userVolumes.loadedLooseFiles()[series] == LooseFiles.EACH_ITS_OWN
         return asReversed().groupBy { chapter ->
-            localChapterUnit(chapter.url).let { (folder, volume) -> localGroupKey(series, folder, volume) }
+            localChapterUnit(chapter.url).let { (folder, volume) ->
+                val file = chapter.url.split('/').last { it.isNotEmpty() }
+                localGroupKey(series, folder, if (each && volume == VolumeOwner.LOOSE) file else volume)
+            }
         }
             .entries.sortedBy { folders.indexOf(localGroupUnit(series, it.key).first) }
             .inUserOrder({ it.key }, saved)

@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.LocalVolume
+import reikai.domain.chapter.LooseFiles
 import tachiyomi.domain.manga.model.Manga
 
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
@@ -45,7 +46,43 @@ class EntryVolumesTest {
     @Test
     fun `another folder's loose chapters are one volume, led by the folder's name`() {
         mangaChapterVolume(LOCAL, "Other/Ch 001.cbz", "Other - Ch 001") shouldBe
-            ChapterVolume("Series", "Other/", VolumeLabel.Name("Other"), "Other - ")
+            ChapterVolume("Series", "Other/", VolumeLabel.Name("Other"), "Other - ", "Ch 001.cbz", "Ch 001")
+    }
+
+    private val loose1 = mangaChapterVolume(LOCAL, "Series/Ch 010.cbz", "Ch 010")!!
+    private val loose2 = mangaChapterVolume(LOCAL, "Series/Ch 011.cbz", "Ch 011")!!
+    private val mixed = listOf(row(1, v1), row(10, loose1), row(11, loose2))
+
+    private fun headers(view: VolumeView?) = view?.items?.filterIsInstance<EntryChapterListItem.Volume>()?.map {
+        it.key
+    }
+
+    @Test
+    fun `a manga's loose files show as one volume by default`() {
+        headers(mixed.inVolumes(null, emptyMap(), emptyList())) shouldBe listOf("Vol 01", "")
+    }
+
+    @Test
+    fun `a manga's loose files can each show as a volume of their own`() {
+        val loose = mapOf("Series" to LooseFiles.EACH_ITS_OWN)
+
+        headers(mixed.inVolumes(null, emptyMap(), emptyList(), loose)) shouldBe
+            listOf("Vol 01", "Ch 010.cbz", "Ch 011.cbz")
+    }
+
+    @Test
+    fun `a manga whose loose files show in no volume is one flat list`() {
+        mixed.inVolumes(null, emptyMap(), emptyList(), mapOf("Series" to LooseFiles.NO_VOLUME)) shouldBe null
+    }
+
+    @Test
+    fun `a loose file of its own takes the name the user gave it`() {
+        val saved = mapOf("Series" to listOf(LocalVolume("Ch 010.cbz", null, "Bonus")))
+
+        mixed.inVolumes(null, saved, emptyList(), mapOf("Series" to LooseFiles.EACH_ITS_OWN))!!.chips.map {
+            it.label
+        } shouldBe
+            listOf(VolumeLabel.Number(1.0), VolumeLabel.Name("Bonus"), VolumeLabel.Name("Ch 011"))
     }
 
     @Test

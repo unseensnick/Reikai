@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -46,6 +47,7 @@ import mihon.icons.materialsymbols.rounded.Edit
 import mihon.icons.materialsymbols.rounded.RemoveDone
 import reikai.data.local.CombinableSeries
 import reikai.data.local.LocalFileNames
+import reikai.domain.chapter.LooseFiles
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
@@ -243,6 +245,9 @@ private fun volumeLabel(label: VolumeLabel): String = when (label) {
 internal fun ReorderVolumesDialog(
     volumes: List<EntryChapterListItem.Volume>,
     canRenameFiles: Boolean,
+    // How a manga's loose files show, or null where there are none to set it for.
+    looseFiles: LooseFiles?,
+    onLooseFiles: (LooseFiles) -> Unit,
     // renameFiles: a volume was renamed and the files are to follow it.
     onDismissRequest: (renameFiles: Boolean) -> Unit,
     onReorder: (keys: List<String>) -> Unit,
@@ -292,6 +297,7 @@ internal fun ReorderVolumesDialog(
                         }
                     }
                 }
+                looseFiles?.let { LooseFilesChoice(it, onLooseFiles) }
                 if (canRenameFiles && renamed) {
                     LabeledCheckbox(
                         label = stringResource(MR.strings.edit_info_also_rename_files),
@@ -315,6 +321,36 @@ internal fun ReorderVolumesDialog(
                 renaming = null
             },
         )
+    }
+}
+
+/** The Loose files setting: the chapter files beside a manga's volume folders as one volume, one each, or none. */
+@Composable
+private fun LooseFilesChoice(current: LooseFiles, onPick: (LooseFiles) -> Unit) {
+    var picked by remember(current) { mutableStateOf(current) }
+    Column(modifier = Modifier.padding(top = 8.dp)) {
+        Text(stringResource(MR.strings.loose_files), style = MaterialTheme.typography.titleSmall)
+        LooseFiles.entries.forEach { mode ->
+            val pick = {
+                picked = mode
+                onPick(mode)
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = pick),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RadioButton(selected = mode == picked, onClick = pick)
+                Text(
+                    stringResource(
+                        when (mode) {
+                            LooseFiles.ONE_VOLUME -> MR.strings.loose_files_one_volume
+                            LooseFiles.EACH_ITS_OWN -> MR.strings.loose_files_each
+                            LooseFiles.NO_VOLUME -> MR.strings.loose_files_none
+                        },
+                    ),
+                )
+            }
+        }
     }
 }
 

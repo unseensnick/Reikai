@@ -11,6 +11,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.protobuf.ProtoBuf
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
@@ -21,6 +22,7 @@ import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolume
+import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
@@ -85,6 +87,27 @@ class LocalFilesBackupRoundTripTest {
                 pick = "vol2",
                 kept = keptBefore,
             )
+        } finally {
+            before.driver.close()
+            after.driver.close()
+        }
+    }
+
+    // Manga only: in a local novel every book is a volume, so nothing is loose.
+    @Test
+    fun `a local manga's Loose files setting comes back`() = runTest {
+        val before = Db.create()
+        val after = Db.create()
+        try {
+            val volumes = LocalVolumeRepositoryImpl(before.database, backgroundScope)
+            Type.MANGA.seedSeries(before.driver, id = 1, url = SERIES)
+            volumes.setLooseFiles(SERIES, LooseFiles.EACH_ITS_OWN)
+
+            val wire = Type.MANGA.backUp(before.database, volumes)
+            val restored = LocalVolumeRepositoryImpl(after.database, backgroundScope)
+            Type.MANGA.restore(after.database, wire, restored)
+
+            restored.loadedLooseFiles() shouldBe mapOf(SERIES to LooseFiles.EACH_ITS_OWN)
         } finally {
             before.driver.close()
             after.driver.close()
