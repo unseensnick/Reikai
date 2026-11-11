@@ -144,6 +144,24 @@ class LocalFileMoveTest {
         File(to, "Vol 1/theirs.cbz").readText() shouldBe "theirs"
     }
 
+    /** A provider can leave a folder out of its parent's listing and read it as empty, at every reading. */
+    @Test
+    fun `a failed move never deletes a folder every listing hid, with what it holds`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Ch 1.cbz" to "one")
+        val to = series("A", "Vol 1/theirs.cbz" to "theirs")
+        FakeSafProvider.listingFault = { parent ->
+            if (parent == to) ChildListingFault.Without("Vol 1") else ChildListingFault.Without("theirs.cbz")
+        }
+
+        moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked(from).findFile("Ch 1.cbz")!!, picked(to), "Vol 1", "Ch 1.cbz")),
+        ) { error("database refused") }
+
+        File(to, "Vol 1/theirs.cbz").readText() shouldBe "theirs"
+    }
+
     /** The rows have moved by then, so a throw would lose the Undo of a move that went through. */
     @Test
     fun `an original whose query fails once the move has committed is left behind, not thrown over`() = runTest {

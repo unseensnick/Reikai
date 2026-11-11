@@ -57,7 +57,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 - **A holder of the series lock names every folder it will touch up front.** A nested ask for a key it did not name throws rather than waits; a move that creates or renames a folder names the new name too, as storage spells it.
 - **A failed document query answers no to every question.** A picked folder's `isDirectory`, `isFile`, `exists` and `length` all read false or -1 when the provider hiccups, so a guard asks the question whose "no" refuses (`deleteFile` asks `isFile`, a marker file is `isFile` and dot-named), never the one whose "no" permits.
 - **A `.moved-` folder is a moved original set aside, not a chapter.** Every listing skips dot-named entries, and no code deletes one: a picked folder's delete takes everything in it, and its listing can hide the same file at every reading, so no listing proves a folder empty.
-- **A folder a move fills is found by its parent's trusted listing, never its own query.** A query that fails reads as "absent", and some providers answer the create that follows with the folder already there, which a failed move would then delete as one it made.
+- **A folder is new only when two readings say so.** A move finds the folder it fills in its parent's trusted listing, else makes it with `createNew`, which refuses a name the listing holds and a folder its own query finds: a query that fails reads as "absent", a listing can leave a folder out, and the create that follows hands back the folder already there, which a failed move would then delete as one it made.
 
 ## Decisions
 

@@ -39,8 +39,8 @@ suspend fun moveLocalFiles(context: Context, copies: List<FileCopy>, commit: sus
     val placed = mutableListOf<Pair<UniFile, UniFile>>()
     try {
         copies.forEach { copy ->
-            // Found by the parent's trusted listing, never its own query: a folder that query missed would be
-            // "made" again as the one already there, and deleted with all it holds if the move then failed.
+            // Found in the parent's trusted listing, else made by createNew, which refuses a folder either
+            // reading finds: one taken for new here is deleted with all it holds if the move then fails.
             val dir = copy.folder?.let { name ->
                 copy.parent.list(context).firstOrNull { it.name == name }
                     ?: copy.parent.createNew(context, name, directory = true).also { made += it }

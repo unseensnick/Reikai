@@ -84,6 +84,9 @@ internal fun UniFile.createFresh(context: Context, listed: List<UniFile>, name: 
     if (listed.any { it.name.equals(name, ignoreCase = true) }) {
         throw FileExistsException("$name is already in ${this.name}")
     }
+    // A folder is also asked for by its own query, a second reading the listing cannot hide it from: the create
+    // hands back a folder already there, and one whose children a listing hides reads as new and empty.
+    if (directory && findFile(name) != null) throw FileExistsException("$name is already in ${this.name}")
     val made = (if (directory) createDirectory(name) else createFile(name))
         ?: throw IOException("Could not create $name in ${this.name}")
     val got = made.name.orEmpty()

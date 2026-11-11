@@ -175,6 +175,18 @@ class LocalFilesPrimitivesTest {
         (file.rename("A.cbz") to names()) shouldBe (true to listOf("A.cbz", "b.cbz"))
     }
 
+    /** The library's own create hands back a folder already there, and a listing can hide all it holds. */
+    @Test
+    fun `createNew refuses a folder its parent's listing hid, however empty it reads`() {
+        FakeSafProvider.listingFault = { parent ->
+            if (parent == series) ChildListingFault.Short(0) else ChildListingFault.Without("Series")
+        }
+
+        shouldThrow<FileExistsException> {
+            picked(File(tmp.root, "Reikai")).createNew(context, "Series", directory = true)
+        }
+    }
+
     // deletes
 
     @Test
