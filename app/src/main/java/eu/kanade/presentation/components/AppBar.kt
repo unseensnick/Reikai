@@ -2,6 +2,7 @@ package eu.kanade.presentation.components
 
 import androidx.compose.foundation.basicMarquee
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -199,65 +200,73 @@ fun AppBarActions(
     var showMenu by remember { mutableStateOf(false) }
 
     actions.filterIsInstance<AppBar.Action>().map {
-        TooltipBox(
-            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-            tooltip = {
-                PlainTooltip {
-                    Text(it.title)
-                }
-            },
-            state = rememberTooltipState(),
-            focusable = false,
-        ) {
-            IconButton(
-                onClick = it.onClick,
-                enabled = it.enabled,
+        // RK: an icon and its own menu share a Box, so the menu opens from the icon, not the whole row
+        Box {
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = {
+                    PlainTooltip {
+                        Text(it.title)
+                    }
+                },
+                state = rememberTooltipState(),
+                focusable = false,
             ) {
-                Icon(
-                    imageVector = it.icon,
-                    tint = it.iconTint ?: LocalContentColor.current,
-                    contentDescription = it.title,
-                )
+                IconButton(
+                    onClick = it.onClick,
+                    enabled = it.enabled,
+                ) {
+                    Icon(
+                        imageVector = it.icon,
+                        tint = it.iconTint ?: LocalContentColor.current,
+                        contentDescription = it.title,
+                    )
+                }
             }
-        }
+            it.menu?.invoke() // RK
+        } // RK
     }
 
     val overflowActions = actions.filterIsInstance<AppBar.OverflowAction>()
     if (overflowActions.isNotEmpty()) {
-        TooltipBox(
-            positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
-            tooltip = {
-                PlainTooltip {
-                    Text(stringResource(MR.strings.action_menu_overflow_description))
-                }
-            },
-            state = rememberTooltipState(),
-            focusable = false,
-        ) {
-            IconButton(
-                onClick = { showMenu = !showMenu },
+        // RK: the overflow button and its menu share a Box: as a sibling in the actions row the menu took
+        // the whole row as its anchor and opened at the row's start once the icons outgrew its width
+        Box {
+            TooltipBox(
+                positionProvider = rememberTooltipPositionProvider(TooltipAnchorPosition.Above),
+                tooltip = {
+                    PlainTooltip {
+                        Text(stringResource(MR.strings.action_menu_overflow_description))
+                    }
+                },
+                state = rememberTooltipState(),
+                focusable = false,
             ) {
-                Icon(
-                    MaterialSymbols.Rounded.MoreVert,
-                    contentDescription = stringResource(MR.strings.action_menu_overflow_description),
-                )
+                IconButton(
+                    onClick = { showMenu = !showMenu },
+                ) {
+                    Icon(
+                        MaterialSymbols.Rounded.MoreVert,
+                        contentDescription = stringResource(MR.strings.action_menu_overflow_description),
+                    )
+                }
             }
-        }
 
-        DropdownMenu(
-            expanded = showMenu,
-            onDismissRequest = { showMenu = false },
-        ) {
-            overflowActions.map {
-                DropdownMenuItem(
-                    onClick = {
-                        it.onClick()
-                        showMenu = false
-                    },
-                    text = { Text(it.title, fontWeight = FontWeight.Normal) },
-                )
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false },
+            ) {
+                overflowActions.map {
+                    DropdownMenuItem(
+                        onClick = {
+                            it.onClick()
+                            showMenu = false
+                        },
+                        text = { Text(it.title, fontWeight = FontWeight.Normal) },
+                    )
+                }
             }
-        }
+        } // RK
     }
 }
 
@@ -447,6 +456,7 @@ sealed interface AppBar {
         val iconTint: Color? = null,
         val onClick: () -> Unit,
         val enabled: Boolean = true,
+        val menu: (@Composable () -> Unit)? = null, // RK: a menu anchored to this icon, shown by its onClick
     ) : AppBarAction
 
     data class OverflowAction(

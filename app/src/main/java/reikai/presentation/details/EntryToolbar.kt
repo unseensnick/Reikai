@@ -117,15 +117,7 @@ fun EntryToolbar(
             .copy(alpha = if (isActionMode) 1f else backgroundAlphaProvider()),
         navigateUp = navigateUp,
         actions = {
-            // Declared inside the actions RowScope so the menu anchors under the download icon.
             var downloadExpanded by remember { mutableStateOf(false) }
-            if (onClickDownload != null) {
-                DownloadDropdownMenu(
-                    expanded = downloadExpanded,
-                    onDismissRequest = { downloadExpanded = false },
-                    onDownloadClicked = onClickDownload,
-                )
-            }
             val filterTint = if (hasFilters) MaterialTheme.colorScheme.active else LocalContentColor.current
             AppBarActions(
                 actions = buildList {
@@ -204,6 +196,13 @@ fun EntryToolbar(
                                 title = stringResource(MR.strings.manga_download),
                                 icon = MaterialSymbols.Rounded.Download,
                                 onClick = { downloadExpanded = !downloadExpanded },
+                                menu = {
+                                    DownloadDropdownMenu(
+                                        expanded = downloadExpanded,
+                                        onDismissRequest = { downloadExpanded = false },
+                                        onDownloadClicked = onClickDownload,
+                                    )
+                                },
                             ),
                         )
                     }

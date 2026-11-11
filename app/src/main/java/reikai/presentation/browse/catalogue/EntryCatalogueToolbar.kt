@@ -74,6 +74,49 @@ fun EntryCatalogueToolbar(
                                     -> MaterialSymbols.RoundedFilled.ViewCompact
                                 },
                                 onClick = { selectingDisplayMode = true },
+                                menu = {
+                                    DropdownMenu(
+                                        expanded = selectingDisplayMode && displayMode != null,
+                                        onDismissRequest = { selectingDisplayMode = false },
+                                    ) {
+                                        RadioMenuItem(
+                                            text = {
+                                                Text(text = stringResource(MR.strings.action_display_comfortable_grid))
+                                            },
+                                            isChecked = displayMode == LibraryDisplayMode.ComfortableGrid,
+                                        ) {
+                                            selectingDisplayMode = false
+                                            onDisplayModeChange(LibraryDisplayMode.ComfortableGrid)
+                                        }
+                                        RadioMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = stringResource(
+                                                        MR.strings.action_display_comfortable_grid_panorama,
+                                                    ),
+                                                )
+                                            },
+                                            isChecked = displayMode == LibraryDisplayMode.ComfortableGridPanorama,
+                                        ) {
+                                            selectingDisplayMode = false
+                                            onDisplayModeChange(LibraryDisplayMode.ComfortableGridPanorama)
+                                        }
+                                        RadioMenuItem(
+                                            text = { Text(text = stringResource(MR.strings.action_display_grid)) },
+                                            isChecked = displayMode == LibraryDisplayMode.CompactGrid,
+                                        ) {
+                                            selectingDisplayMode = false
+                                            onDisplayModeChange(LibraryDisplayMode.CompactGrid)
+                                        }
+                                        RadioMenuItem(
+                                            text = { Text(text = stringResource(MR.strings.action_display_list)) },
+                                            isChecked = displayMode == LibraryDisplayMode.List,
+                                        ) {
+                                            selectingDisplayMode = false
+                                            onDisplayModeChange(LibraryDisplayMode.List)
+                                        }
+                                    }
+                                },
                             ),
                         )
                     }
@@ -128,40 +171,6 @@ fun EntryCatalogueToolbar(
                     }
                 },
             )
-
-            DropdownMenu(
-                expanded = selectingDisplayMode && displayMode != null,
-                onDismissRequest = { selectingDisplayMode = false },
-            ) {
-                RadioMenuItem(
-                    text = { Text(text = stringResource(MR.strings.action_display_comfortable_grid)) },
-                    isChecked = displayMode == LibraryDisplayMode.ComfortableGrid,
-                ) {
-                    selectingDisplayMode = false
-                    onDisplayModeChange(LibraryDisplayMode.ComfortableGrid)
-                }
-                RadioMenuItem(
-                    text = { Text(text = stringResource(MR.strings.action_display_comfortable_grid_panorama)) },
-                    isChecked = displayMode == LibraryDisplayMode.ComfortableGridPanorama,
-                ) {
-                    selectingDisplayMode = false
-                    onDisplayModeChange(LibraryDisplayMode.ComfortableGridPanorama)
-                }
-                RadioMenuItem(
-                    text = { Text(text = stringResource(MR.strings.action_display_grid)) },
-                    isChecked = displayMode == LibraryDisplayMode.CompactGrid,
-                ) {
-                    selectingDisplayMode = false
-                    onDisplayModeChange(LibraryDisplayMode.CompactGrid)
-                }
-                RadioMenuItem(
-                    text = { Text(text = stringResource(MR.strings.action_display_list)) },
-                    isChecked = displayMode == LibraryDisplayMode.List,
-                ) {
-                    selectingDisplayMode = false
-                    onDisplayModeChange(LibraryDisplayMode.List)
-                }
-            }
         },
         scrollBehavior = scrollBehavior,
     )
