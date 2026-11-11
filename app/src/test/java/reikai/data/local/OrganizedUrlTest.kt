@@ -13,7 +13,7 @@ class OrganizedUrlTest {
 
     private val mangaRules = listOf(
         UrlRule("B", "Vol 1", "Saga", "Saga - Vol. 2"),
-        UrlRule("C", VolumeOwner.LOOSE, "Saga", "Saga - Vol. 3"),
+        UrlRule("C", VolumeOwner.LOOSE, "Saga", "Saga - Vol. 3", "Ch 9.cbz"),
     )
 
     private fun manga(url: String, rules: List<UrlRule> = mangaRules) =
@@ -25,6 +25,12 @@ class OrganizedUrlTest {
             listOf("Saga/Saga - Vol. 2/Ch 1", "Saga/Saga - Vol. 2/", "Saga/Saga - Vol. 3/Ch 9.cbz")
     }
 
+    /** Found by the randomized test: a chapter every listing hid did not move, so its address must not either. */
+    @Test
+    fun `a loose chapter of another folder that no rule names keeps its address`() {
+        manga("C/Ch 10.cbz") shouldBe "C/Ch 10.cbz"
+    }
+
     @Test
     fun `a volume of the series' own folder follows the folder's new name, and another folder's stays`() {
         listOf(manga("A/Vol 1/Ch 1"), manga("A/Ch 2"), manga("D/Vol 1/Ch 1")) shouldBe
@@ -33,7 +39,7 @@ class OrganizedUrlTest {
 
     @Test
     fun `the reversed rules take a moved manga address back where it was`() {
-        val back = mangaRules.map { UrlRule(it.toFolder, it.toVolume, it.fromFolder, it.fromVolume) }
+        val back = mangaRules.map { it.reversed() }
 
         organizedUrl(ContentType.MANGA, "Saga/Saga - Vol. 3/Ch 9.cbz", back, "Saga", "A") shouldBe "C/Ch 9.cbz"
     }

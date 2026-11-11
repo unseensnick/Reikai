@@ -550,15 +550,17 @@ class CombineLocalVolumes(
             val container = if (type == ContentType.NOVELS && folder == volume) emptyList() else listOf(folder)
             if (type != ContentType.NOVELS && volume == VolumeOwner.LOOSE) {
                 steps += FileStep.MakeFolder(base + name)
-                listed.filter {
-                    chapterVolumeUnit(type, it) == folder to volume
-                }.map { it.substringAfter('/') }.distinct()
-                    .forEach { file -> steps += FileStep.Move(container + file, base + name) }
+                // One by one, each with its own address rule: a chapter the listing hid stays, and so does its row.
+                listed.filter { chapterVolumeUnit(type, it) == folder to volume }.map { it.substringAfter('/') }
+                    .distinct().forEach { file ->
+                        steps += FileStep.Move(container + file, base + name)
+                        rules += UrlRule(folder, volume, target, name, file)
+                    }
             } else {
                 if (volume != name) steps += FileStep.Rename(container + volume, name)
                 if (container != base) steps += FileStep.Move(container + name, base)
+                rules += UrlRule(folder, volume, target, name)
             }
-            rules += UrlRule(folder, volume, target, name)
             if (key != name) keys[key] = name
         }
         if (!needsFolder && !loneBook && own != target) steps += FileStep.Rename(listOf(own), target)

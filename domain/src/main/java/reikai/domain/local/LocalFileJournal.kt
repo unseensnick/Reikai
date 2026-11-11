@@ -70,9 +70,20 @@ sealed interface LocalFileJournalPlan {
         fun putBack() = copy(steps = steps.take(done).asReversed().map { it.reversed() }, done = 0, isPutBack = true)
     }
 
-    /** Chapter addresses in volume [fromVolume] of folder [fromFolder] go to [toVolume] of [toFolder]. */
+    /**
+     * Chapter addresses in volume [fromVolume] of folder [fromFolder] go to [toVolume] of [toFolder]; only the
+     * chapter [file] when one is named, since loose chapters move one by one and one a listing hid stays put.
+     */
     @Serializable
-    data class UrlRule(val fromFolder: String, val fromVolume: String, val toFolder: String, val toVolume: String)
+    data class UrlRule(
+        val fromFolder: String,
+        val fromVolume: String,
+        val toFolder: String,
+        val toVolume: String,
+        val file: String? = null,
+    ) {
+        fun reversed() = UrlRule(toFolder, toVolume, fromFolder, fromVolume, file)
+    }
 
     /** One change of an organize, each document named by its path of names under the local folder. */
     @Serializable

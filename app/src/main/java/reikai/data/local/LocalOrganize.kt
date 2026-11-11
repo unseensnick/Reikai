@@ -109,13 +109,7 @@ class LocalOrganizer(
         val from = if (forward) plan.fromSeries else plan.toSeries
         val to = if (forward) plan.toSeries else plan.fromSeries
         val keys = if (forward) plan.volumeKeys else plan.volumeKeys.entries.associate { (a, b) -> b to a }
-        val rules = if (forward) {
-            plan.urls
-        } else {
-            plan.urls.map {
-                UrlRule(it.toFolder, it.toVolume, it.fromFolder, it.fromVolume)
-            }
-        }
+        val rules = if (forward) plan.urls else plan.urls.map { it.reversed() }
         chapterMoves.organize(
             type,
             SeriesRename(plan.entryId, from, to, keys),
@@ -192,7 +186,10 @@ internal fun chapterVolumeUnit(type: ContentType, url: String): Pair<String, Str
  */
 internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, from: String, to: String): String {
     val (folder, volume) = chapterVolumeUnit(type, url) ?: return url
-    val rule = rules.firstOrNull { it.fromFolder == folder && it.fromVolume == volume }
+    val file = url.split('/').last()
+    val rule = rules.firstOrNull {
+        it.fromFolder == folder && it.fromVolume == volume && (it.file == null || it.file == file)
+    }
         ?: UrlRule(from, volume, to, volume).takeIf { folder == from }
         ?: return url
     return when (type) {

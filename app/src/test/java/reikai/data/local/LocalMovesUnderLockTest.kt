@@ -631,6 +631,37 @@ class LocalMovesUnderLockTest {
             listOf(true, listOf("Other", "Saga"), listOf("Saga/Saga - Vol. 1/Ch 1"))
     }
 
+    /** Found by the randomized test: the rows of a loose chapter the listing hid moved, and the chapter did not. */
+    @Test
+    fun `a loose chapter every listing hid stays put with its reading state when its group is organized`() = runTest {
+        listOf("Ch 3", "Ch 4").forEach {
+            File(local, "Third/$it").mkdirs()
+            File(local, "Third/$it/001.jpg").writeBytes(byteArrayOf(3))
+        }
+        addSeries(THIRD, "Third")
+        refreshed(THIRD)
+        markRead("Third/Ch 4")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
+        }
+        val third = File(local, "Third")
+        FakeSafProvider.listingFault = { if (it == third) FakeSafProvider.ChildListingFault.Without("Ch 4") else null }
+        val names = combine.organizePlan(
+            ContentType.MANGA,
+            series(KEPT),
+            "Kept",
+            listOf("Vol 1" to "1", "Third/" to "2"),
+        )
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
+        }
+        FakeSafProvider.listingFault = null
+        refreshed(KEPT)
+
+        File(local, "Third/Ch 4/001.jpg").exists() to readUrls(KEPT) shouldBe (true to listOf("Third/Ch 4"))
+    }
+
     @Test
     fun `organize is not offered where the storage cannot move a file`() = runTest {
         FakeSafProvider.supportsMove = false
