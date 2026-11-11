@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Lime theme, from Yōkai, generated from LimeColorScheme.kt -->
+<resources>
+    <color name="lime_primary">#7CF7A5</color>
+    <color name="lime_onPrimary">#043314</color>
+    <color name="lime_primaryContainer">#015229</color>
+    <color name="lime_onPrimaryContainer">#80FBA9</color>
+    <color name="lime_inversePrimary">#09933C</color>
+    <color name="lime_secondary">#4AF88A</color>
+    <color name="lime_onSecondary">#0A2012</color>
+    <color name="lime_secondaryContainer">#005225</color>
+    <color name="lime_onSecondaryContainer">#CBFFE0</color>
+    <color name="lime_tertiary">#304E51</color>
+    <color name="lime_onTertiary">#FFFFFF</color>
+    <color name="lime_tertiaryContainer">#2E4C4F</color>
+    <color name="lime_onTertiaryContainer">#C7E9EC</color>
+    <color name="lime_background">#202125</color>
+    <color name="lime_onBackground">#FFFFFF</color>
+    <color name="lime_surface">#202125</color>
+    <color name="lime_onSurface">#FFFFFF</color>
+    <color name="lime_surfaceVariant">#202125</color>
+    <color name="lime_onSurfaceVariant">#BCCABF</color>
+    <color name="lime_surfaceTint">#7CF7A5</color>
+    <color name="lime_inverseSurface">#E1E2E8</color>
+    <color name="lime_inverseOnSurface">#2F3034</color>
+    <color name="lime_outline">#86948A</color>
+    <color name="lime_outlineVariant">#3E4A40</color>
+    <color name="lime_surfaceContainerLowest">#1A1B1F</color>
+    <color name="lime_surfaceContainerLow">#1D1E22</color>
+    <color name="lime_surfaceContainer">#202125</color>
+    <color name="lime_surfaceContainerHigh">#26272B</color>
+    <color name="lime_surfaceContainerHighest">#2D2E32</color>
+</resources>

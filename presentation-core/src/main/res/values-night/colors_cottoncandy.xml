@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Cotton Candy theme, from Aniyomi via Komikku, generated from CottoncandyColorScheme.kt -->
+<resources>
+    <color name="cottoncandy_primary">#FFB3B4</color>
+    <color name="cottoncandy_onPrimary">#561D21</color>
+    <color name="cottoncandy_primaryContainer">#733336</color>
+    <color name="cottoncandy_onPrimaryContainer">#FFDAD9</color>
+    <color name="cottoncandy_inversePrimary">#8F4A4C</color>
+    <color name="cottoncandy_secondary">#80D4D8</color>
+    <color name="cottoncandy_onSecondary">#003739</color>
+    <color name="cottoncandy_secondaryContainer">#004F52</color>
+    <color name="cottoncandy_onSecondaryContainer">#9CF1F4</color>
+    <color name="cottoncandy_tertiary">#EBB5ED</color>
+    <color name="cottoncandy_onTertiary">#48204E</color>
+    <color name="cottoncandy_tertiaryContainer">#613766</color>
+    <color name="cottoncandy_onTertiaryContainer">#FFD6FE</color>
+    <color name="cottoncandy_error">#FFB4AB</color>
+    <color name="cottoncandy_onError">#690005</color>
+    <color name="cottoncandy_errorContainer">#93000A</color>
+    <color name="cottoncandy_onErrorContainer">#FFDAD6</color>
+    <color name="cottoncandy_background">#1A1111</color>
+    <color name="cottoncandy_onBackground">#F0DEDE</color>
+    <color name="cottoncandy_surface">#1A1112</color>
+    <color name="cottoncandy_onSurface">#F0DEDF</color>
+    <color name="cottoncandy_surfaceVariant">#524343</color>
+    <color name="cottoncandy_onSurfaceVariant">#D7C1C1</color>
+    <color name="cottoncandy_inverseSurface">#F0DEDF</color>
+    <color name="cottoncandy_inverseOnSurface">#382E2F</color>
+    <color name="cottoncandy_outline">#A08C8C</color>
+    <color name="cottoncandy_outlineVariant">#524343</color>
+    <color name="cottoncandy_surfaceDim">#1A1112</color>
+    <color name="cottoncandy_surfaceBright">#413738</color>
+    <color name="cottoncandy_surfaceContainerLowest">#140C0D</color>
+    <color name="cottoncandy_surfaceContainerLow">#22191A</color>
+    <color name="cottoncandy_surfaceContainer">#261D1E</color>
+    <color name="cottoncandy_surfaceContainerHigh">#312828</color>
+    <color name="cottoncandy_surfaceContainerHighest">#3D3233</color>
+</resources>

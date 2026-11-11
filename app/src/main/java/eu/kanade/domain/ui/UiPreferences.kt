@@ -42,6 +42,13 @@ class UiPreferences(
 
     val themeDarkAmoled: Preference<Boolean> = preferenceStore.getBoolean("pref_theme_dark_amoled_key", false)
 
+    // RK --> the Custom theme's seed color and palette style, under Komikku's keys
+    val customThemeSeed: Preference<Int> = preferenceStore.getInt("pref_color_theme", 0xFFDF0090.toInt())
+
+    val customThemeStyle: Preference<PaletteStyle> =
+        preferenceStore.getEnum("pref_custom_theme_style_key", PaletteStyle.Fidelity)
+    // RK <--
+
     val relativeTime: Preference<Boolean> = preferenceStore.getBoolean("relative_time_v2", true)
 
     val dateFormat: Preference<String> = preferenceStore.getString("app_date_format", "")

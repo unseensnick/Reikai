@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Teal and Sapphire theme, from Yōkai, generated from TealAndSapphireColorScheme.kt -->
+<resources>
+    <color name="tealsapphire_primary">#80B8D1</color>
+    <color name="tealsapphire_onPrimary">#02212C</color>
+    <color name="tealsapphire_primaryContainer">#014D63</color>
+    <color name="tealsapphire_onPrimaryContainer">#BCE9FE</color>
+    <color name="tealsapphire_inversePrimary">#1D698B</color>
+    <color name="tealsapphire_secondary">#589AB8</color>
+    <color name="tealsapphire_onSecondary">#FFFFFF</color>
+    <color name="tealsapphire_secondaryContainer">#014D64</color>
+    <color name="tealsapphire_onSecondaryContainer">#B5EBFF</color>
+    <color name="tealsapphire_tertiary">#99CC99</color>
+    <color name="tealsapphire_onTertiary">#141A14</color>
+    <color name="tealsapphire_tertiaryContainer">#215026</color>
+    <color name="tealsapphire_onTertiaryContainer">#BBF0BB</color>
+    <color name="tealsapphire_background">#14191B</color>
+    <color name="tealsapphire_onBackground">#FFFFFF</color>
+    <color name="tealsapphire_surface">#14191B</color>
+    <color name="tealsapphire_onSurface">#FFFFFF</color>
+    <color name="tealsapphire_surfaceVariant">#1D2528</color>
+    <color name="tealsapphire_onSurfaceVariant">#B7C9D3</color>
+    <color name="tealsapphire_surfaceTint">#80B8D1</color>
+    <color name="tealsapphire_inverseSurface">#DDE4E6</color>
+    <color name="tealsapphire_inverseOnSurface">#2C3133</color>
+    <color name="tealsapphire_outline">#82939C</color>
+    <color name="tealsapphire_outlineVariant">#394951</color>
+    <color name="tealsapphire_surfaceContainerLowest">#171F22</color>
+    <color name="tealsapphire_surfaceContainerLow">#1A2225</color>
+    <color name="tealsapphire_surfaceContainer">#1D2528</color>
+    <color name="tealsapphire_surfaceContainerHigh">#232B2E</color>
+    <color name="tealsapphire_surfaceContainerHighest">#2A3235</color>
+</resources>

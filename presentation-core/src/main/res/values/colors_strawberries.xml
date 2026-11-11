@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Strawberries theme, from Yōkai, generated from StrawberriesColorScheme.kt -->
+<resources>
+    <color name="strawberries_primary">#D31D3B</color>
+    <color name="strawberries_onPrimary">#FFFFFF</color>
+    <color name="strawberries_primaryContainer">#FEDAD8</color>
+    <color name="strawberries_onPrimaryContainer">#410003</color>
+    <color name="strawberries_inversePrimary">#EF8E9E</color>
+    <color name="strawberries_secondary">#ED4A65</color>
+    <color name="strawberries_onSecondary">#FFFFFF</color>
+    <color name="strawberries_secondaryContainer">#FFDADB</color>
+    <color name="strawberries_onSecondaryContainer">#68101F</color>
+    <color name="strawberries_tertiary">#99CC99</color>
+    <color name="strawberries_onTertiary">#000000</color>
+    <color name="strawberries_tertiaryContainer">#BBF0BB</color>
+    <color name="strawberries_onTertiaryContainer">#032100</color>
+    <color name="strawberries_background">#FAFAFA</color>
+    <color name="strawberries_onBackground">#202020</color>
+    <color name="strawberries_surface">#FAFAFA</color>
+    <color name="strawberries_onSurface">#202020</color>
+    <color name="strawberries_surfaceVariant">#F3E7E7</color>
+    <color name="strawberries_onSurfaceVariant">#544342</color>
+    <color name="strawberries_surfaceTint">#D31D3B</color>
+    <color name="strawberries_inverseSurface">#303030</color>
+    <color name="strawberries_inverseOnSurface">#F1F1F1</color>
+    <color name="strawberries_outline">#867371</color>
+    <color name="strawberries_outlineVariant">#D7C2C0</color>
+    <color name="strawberries_surfaceContainerLowest">#FCF0F0</color>
+    <color name="strawberries_surfaceContainerLow">#F7EBEB</color>
+    <color name="strawberries_surfaceContainer">#F3E7E7</color>
+    <color name="strawberries_surfaceContainerHigh">#EADEDE</color>
+    <color name="strawberries_surfaceContainerHighest">#E2D6D6</color>
+</resources>

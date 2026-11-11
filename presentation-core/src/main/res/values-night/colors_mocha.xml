@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Colors for Mocha theme, from Aniyomi via Komikku, generated from MochaColorScheme.kt -->
+<resources>
+    <color name="mocha_primary">#FFB77F</color>
+    <color name="mocha_onPrimary">#4E2600</color>
+    <color name="mocha_primaryContainer">#6C3A08</color>
+    <color name="mocha_onPrimaryContainer">#FFDCC3</color>
+    <color name="mocha_inversePrimary">#89511F</color>
+    <color name="mocha_secondary">#F6BC70</color>
+    <color name="mocha_onSecondary">#462B00</color>
+    <color name="mocha_secondaryContainer">#643F00</color>
+    <color name="mocha_onSecondaryContainer">#FFDDB6</color>
+    <color name="mocha_tertiary">#AED18D</color>
+    <color name="mocha_onTertiary">#1C3704</color>
+    <color name="mocha_tertiaryContainer">#314E19</color>
+    <color name="mocha_onTertiaryContainer">#C9EEA7</color>
+    <color name="mocha_error">#FFB4AB</color>
+    <color name="mocha_onError">#690005</color>
+    <color name="mocha_errorContainer">#93000A</color>
+    <color name="mocha_onErrorContainer">#FFDAD6</color>
+    <color name="mocha_background">#19120C</color>
+    <color name="mocha_onBackground">#EFDFD6</color>
+    <color name="mocha_surface">#19120D</color>
+    <color name="mocha_onSurface">#F0DFD6</color>
+    <color name="mocha_surfaceVariant">#52443C</color>
+    <color name="mocha_onSurfaceVariant">#D7C3B8</color>
+    <color name="mocha_inverseSurface">#F0DFD6</color>
+    <color name="mocha_inverseOnSurface">#382F28</color>
+    <color name="mocha_outline">#9F8D83</color>
+    <color name="mocha_outlineVariant">#52443C</color>
+    <color name="mocha_surfaceDim">#19120D</color>
+    <color name="mocha_surfaceBright">#413731</color>
+    <color name="mocha_surfaceContainerLowest">#140D08</color>
+    <color name="mocha_surfaceContainerLow">#221A14</color>
+    <color name="mocha_surfaceContainer">#261E18</color>
+    <color name="mocha_surfaceContainerHigh">#312822</color>
+    <color name="mocha_surfaceContainerHighest">#3C332D</color>
+</resources>
