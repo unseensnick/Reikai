@@ -304,6 +304,34 @@ class LocalMovesUnderLockTest {
         (result is LocalMoveResult.Moved) to urls(KEPT) shouldBe (true to listOf("Kept/Vol 1/Ch 1"))
     }
 
+    @Test
+    fun `deleting a volume leaves no kept state for its chapters, read or lost before`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 2/Ch 2")
+        // A chapter of the volume whose file went before: kept state with no row.
+        tombstone(KEPT, "Kept/Vol 2/Ch 9")
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
+        }
+
+        urls(KEPT) to tombstoneUrls(KEPT) shouldBe (listOf("Kept/Vol 1/Ch 1") to emptyList())
+    }
+
+    @Test
+    fun `a volume joining the kept series drops the kept state waiting under its new name`() = runTest {
+        // Other's "Vol 1" lands in Kept as "Vol 1 (2)", a name a volume deleted outside the app left state under.
+        tombstone(KEPT, "Kept/Vol 1 (2)/Ch 9")
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+        }
+
+        listOf(move.result is LocalMoveResult.Moved, urls(KEPT), tombstoneUrls(KEPT)) shouldBe
+            listOf(true, listOf("Kept/Vol 1 (2)/Ch 1", "Kept/Vol 1/Ch 1"), emptyList<String>())
+    }
+
     /** The real rules, with one call of [confirm] held between its listing and its sync when asked. */
     private class PausableTombstones(private val real: LocalChapterTombstones) : LocalChapterTombstones by real {
         var listed = CompletableDeferred<Unit>()
@@ -349,6 +377,16 @@ class LocalMovesUnderLockTest {
 
     private suspend fun urls(owner: Long) =
         driver.rows("SELECT remote_url FROM chapter WHERE manga_id = $owner ORDER BY remote_url") { it.getString(0)!! }
+
+    private suspend fun tombstone(owner: Long, url: String) = driver.exec(
+        "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
+            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 9.0, 1, 0, 0, 0, 0, 0)",
+    )
+
+    private suspend fun tombstoneUrls(owner: Long) =
+        driver.rows("SELECT url FROM manga_chapter_tombstone WHERE manga_id = $owner ORDER BY url") {
+            it.getString(0)!!
+        }
 
     private suspend fun readUrls(owner: Long) = driver.rows(
         "SELECT remote_url FROM chapter WHERE manga_id = $owner AND user_read = 1 ORDER BY remote_url",

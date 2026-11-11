@@ -159,6 +159,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
             address: SeriesAddress?,
             chapters: List<OwnerMoves>,
             volumes: List<VolumeRowMove>,
+            clearing: Map<Long, List<String>>,
         ) = error("not a move")
 
         override suspend fun forgetVolumes(

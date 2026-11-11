@@ -127,14 +127,26 @@ interface ChapterTombstoneRepository {
      */
     suspend fun move(type: ContentType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String)
 
-    /** Applies and consumes each of [ownerId]'s tombstones whose url a chapter row holds again. */
-    suspend fun settle(type: ContentType, ownerId: Long)
+    /**
+     * Applies and consumes each of [ownerId]'s tombstones at [urls] whose url a chapter row holds again: the
+     * keys the calling transaction wrote, never the owner's whole table, so a tombstone and row meeting
+     * elsewhere for a moment (a restore in flight) is not folded by an unrelated move.
+     */
+    suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>)
 
     /** Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes]: the user deleted those files. */
     suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>)
 
-    /** Folds a backup's [tombstones] in under [ownerId], then settles them against its chapter rows. */
-    suspend fun restore(type: ContentType, ownerId: Long, tombstones: List<ChapterTombstone>)
+    /**
+     * Folds a backup's [tombstones] in under [ownerId], then settles them and the restored [chapterUrls]
+     * against the chapter rows: a backup tombstone onto a device row, a device tombstone onto a restored row.
+     */
+    suspend fun restore(
+        type: ContentType,
+        ownerId: Long,
+        tombstones: List<ChapterTombstone>,
+        chapterUrls: Collection<String>,
+    )
 }
 
 /** The tombstone rules as both syncs call them, which only a local series ([isLocal]) runs. */

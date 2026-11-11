@@ -28,18 +28,22 @@ interface LocalChapterMoveRepository {
      * Writes one move of local files in one transaction, so either all of it lands or none does: [address],
      * each of [chapters]' rows with what is keyed by their owner and address, and each of [volumes]' saved
      * order and name. A saved row already at a volume's new key is one whose files are gone, and is replaced.
+     * [clearing] names, per destination owner, the address prefixes the move fills: the kept state waiting
+     * under them is dropped first, since it belonged to files deleted outside the app, not to what arrives.
      */
     suspend fun move(
         type: ContentType,
         address: SeriesAddress?,
         chapters: List<OwnerMoves>,
         volumes: List<VolumeRowMove>,
+        clearing: Map<Long, List<String>> = emptyMap(),
     )
 
     /**
      * Forgets series [series]' deleted [volumes] (key to the url prefix of its chapters) in one transaction:
-     * their saved order, name and picked chip, their chapter rows and their tombstones, since the user chose
-     * to delete the files and the next thing put at those names is not these chapters.
+     * their saved order, name and picked chip, and the kept state waiting under them, since the user chose to
+     * delete the files and the next thing put at those names is not these chapters. Their rows are the
+     * listing's to remove, as any removed file's are; the caller forgets under the prefixes again after it.
      */
     suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, volumes: Map<String, String>)
 

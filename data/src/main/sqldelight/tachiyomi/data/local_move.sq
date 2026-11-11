@@ -57,17 +57,6 @@ renameVolumePick:
 UPDATE local_volume_pick SET volume_key = :toKey
 WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :fromKey;
 
--- The rows of a volume the user deleted in the app, gone with its files in the same transaction, so the
--- listing that follows removes nothing and keeps no state for them (a tombstone would revive onto
--- whatever is put at those names next).
-forgetMangaChaptersUnder:
-DELETE FROM chapter
-WHERE manga_id = :ownerId AND :prefix = substr(remote_url, 1, length(:prefix));
-
-forgetNovelChaptersUnder:
-DELETE FROM novel_chapters
-WHERE novel_id = :ownerId AND :prefix = substr(url, 1, length(:prefix));
-
 -- A saved row at a name no file holds any more, which a move or rename onto that name replaces.
 forgetVolume:
 DELETE FROM local_volume

@@ -136,7 +136,12 @@ class NovelRestorer(
         restoreHistory(chapters, backupNovel.history)
         readingLog.restore(ContentType.NOVELS, novelId, backupNovel.readingSessions.map { it.toUrlReadingSession() })
         // After the chapters and their history, so a tombstone meets the row it belongs to, as manga's does.
-        tombstones.restore(ContentType.NOVELS, novelId, backupNovel.chapterTombstones.map { it.toChapterTombstone() })
+        tombstones.restore(
+            ContentType.NOVELS,
+            novelId,
+            backupNovel.chapterTombstones.map { it.toChapterTombstone() },
+            backupNovel.chapters.map { it.url },
+        )
         // An old backup carries the Last read stamp without history; after the history above, so a
         // backup that has history keeps it as is.
         backupNovel.lastReadAt?.toInstantOrNull()?.let { lastRead ->

@@ -18,9 +18,14 @@ object NoChapterTombstoneRepository : ChapterTombstoneRepository {
 
     override suspend fun move(type: ContentType, fromOwner: Long, fromUrl: String, toOwner: Long, toUrl: String) = Unit
 
-    override suspend fun settle(type: ContentType, ownerId: Long) = Unit
+    override suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>) = Unit
 
     override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>) = Unit
 
-    override suspend fun restore(type: ContentType, ownerId: Long, tombstones: List<ChapterTombstone>) = Unit
+    override suspend fun restore(
+        type: ContentType,
+        ownerId: Long,
+        tombstones: List<ChapterTombstone>,
+        chapterUrls: Collection<String>,
+    ) = Unit
 }

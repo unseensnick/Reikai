@@ -406,7 +406,18 @@ class CombineLocalVolumes(
         val removal = removal(type)
         val result = moveLocalFiles(context, placements.map { it.copy }) {
             checkListed(type, rows.flatMap { it.moves }.map { it.toUrl })
-            chapterMoves.move(type, renamed?.let { SeriesAddress(it.id, it.to) }, rows, volumeRows.map { it.forward })
+            // The folders and books the move fills were named free among files, not among the kept state a
+            // volume deleted outside the app left under them, which is not the arriving chapters'.
+            val clearing = rows.groupBy({ it.toOwner }, { it.moves }).mapValues { (_, moves) ->
+                moves.flatten().map { chapterUrlPrefix(type, it.toUrl) }.distinct()
+            }
+            chapterMoves.move(
+                type,
+                renamed?.let { SeriesAddress(it.id, it.to) },
+                rows,
+                volumeRows.map { it.forward },
+                clearing,
+            )
         }
         if (result !is LocalMoveResult.Moved) return failed(result)
         // The files and rows have moved, so a failure in the library steps after them must not lose the Undo.
@@ -584,14 +595,13 @@ class CombineLocalVolumes(
             val folder = folderOf(type, id)
                 ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No folder"))
             val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteTree() == false }
-            // Their rows, saved order and names would otherwise wait at those names for whatever is put there next.
-            chapterMoves.forgetVolumes(
-                type,
-                id,
-                series.folder,
-                keys.takeWhile { it != failed }.associateWith { volumeChapterPrefix(type, series.folder, it) },
-            )
+            val deleted = keys.takeWhile { it != failed }.associateWith { volumeChapterPrefix(type, series.folder, it) }
+            // Their saved order and names would otherwise wait at those names for whatever is put there next.
+            chapterMoves.forgetVolumes(type, id, series.folder, deleted)
+            // The listing removes their rows and keeps their state, as for any file gone; the user chose to
+            // delete these, so what is put at those names next starts unread.
             relist(type, id)
+            tombstones.forget(type, id, deleted.values.toList())
             failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
                 ?: LocalMoveResult.Moved(emptyList())
         }
@@ -602,6 +612,14 @@ class CombineLocalVolumes(
         ContentType.NOVELS -> LocalNovelSource.volumePathPrefix(series, key)
         else -> "$series/$key/"
     }
+
+    /** The [volumeChapterPrefix] a chapter at [url] sits under, or the url itself for a loose chapter. */
+    private fun chapterUrlPrefix(type: ContentType, url: String): String = when (type) {
+        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (series, volume, _) ->
+            volumeChapterPrefix(type, series, volume)
+        }
+        else -> localVolumeChapter(url)?.let { volumeChapterPrefix(type, it.series, it.volume) }
+    } ?: url
 
     private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async { work() }.await()
 

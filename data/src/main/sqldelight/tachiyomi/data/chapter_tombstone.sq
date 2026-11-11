@@ -198,18 +198,18 @@ SELECT novel_id, url, ended_at, duration
 FROM novel_chapter_tombstone_session
 WHERE novel_id IN :ownerIds;
 
--- The owner's tombstones whose url a chapter row holds again, to apply and consume.
+-- Among :urls, the owner's tombstones whose url a chapter row holds again, to apply and consume.
 mangaSettled:
 SELECT T.url
 FROM manga_chapter_tombstone T
 INNER JOIN chapter C ON C.manga_id = T.manga_id AND C.remote_url = T.url
-WHERE T.manga_id = :ownerId;
+WHERE T.manga_id = :ownerId AND T.url IN :urls;
 
 novelSettled:
 SELECT T.url
 FROM novel_chapter_tombstone T
 INNER JOIN novel_chapters C ON C.novel_id = T.novel_id AND C.url = T.url
-WHERE T.novel_id = :ownerId;
+WHERE T.novel_id = :ownerId AND T.url IN :urls;
 
 -- The tombstone at :tombstoneUrl onto the chapter stored at :url, by the fold, in the transaction that
 -- stored or moved it.

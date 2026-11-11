@@ -123,9 +123,14 @@ class ChapterTombstoneRepositoryImpl(
         consume(type, fromOwner, fromUrl)
     }
 
-    override suspend fun settle(type: ContentType, ownerId: Long) {
-        val urls = if (type == ContentType.NOVELS) queries.novelSettled(ownerId) else queries.mangaSettled(ownerId)
-        urls.awaitAsList().forEach { apply(type, ownerId, it, it) }
+    override suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>) {
+        if (urls.isEmpty()) return
+        val settled = if (type == ContentType.NOVELS) {
+            queries.novelSettled(ownerId, urls)
+        } else {
+            queries.mangaSettled(ownerId, urls)
+        }
+        settled.awaitAsList().forEach { apply(type, ownerId, it, it) }
     }
 
     override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>) {
@@ -140,10 +145,15 @@ class ChapterTombstoneRepositoryImpl(
         }
     }
 
-    override suspend fun restore(type: ContentType, ownerId: Long, tombstones: List<ChapterTombstone>) {
+    override suspend fun restore(
+        type: ContentType,
+        ownerId: Long,
+        tombstones: List<ChapterTombstone>,
+        chapterUrls: Collection<String>,
+    ) {
         database.transaction {
             tombstones.forEach { fold(type, ownerId, it) }
-            settle(type, ownerId)
+            settle(type, ownerId, tombstones.map { it.url } + chapterUrls)
         }
     }
 

@@ -213,18 +213,19 @@ class LocalChapterMoveRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `deleted volumes take their chapter rows and kept reading state with them, other volumes' kept`(type: Type) =
-        runTest {
-            type.seed.forEach { exec(it) }
-            // The seeded chapter is B/c1; a chapter of volume v1 beside it, and tombstones of both volumes.
-            exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'B/v1/c2'"))
-            exec(type.tombstone(2, "B/v1/c3"))
-            exec(type.tombstone(2, "B/v10/c4"))
+    fun `deleted volumes drop their kept reading state, other volumes' kept, and leave the rows to the listing`(
+        type: Type,
+    ) = runTest {
+        type.seed.forEach { exec(it) }
+        // The seeded chapter is B/c1; a chapter of volume v1 beside it, and tombstones of both volumes.
+        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'B/v1/c2'"))
+        exec(type.tombstone(2, "B/v1/c3"))
+        exec(type.tombstone(2, "B/v10/c4"))
 
-            repository().forgetVolumes(type.contentType, 2, "B", mapOf("v1" to "B/v1/"))
+        repository().forgetVolumes(type.contentType, 2, "B", mapOf("v1" to "B/v1/"))
 
-            rows(type.chapterUrls) + rows(type.tombstoneUrls) shouldBe listOf("B/c1", "B/v10/c4")
-        }
+        rows(type.chapterUrls) + rows(type.tombstoneUrls) shouldBe listOf("B/c1", "B/v1/c2", "B/v10/c4")
+    }
 
     @ParameterizedTest
     @EnumSource(Type::class)
@@ -267,6 +268,37 @@ class LocalChapterMoveRepositoryTest {
         repository().move(type.contentType, null, listOf(MOVE), emptyList())
 
         rows(type.tombstoneState) shouldBe listOf("1|A/B/c1|1|9")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a move drops the kept state waiting under the folder it fills, and only there`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        // Left by a volume deleted outside the app, at the folder name the arriving volume now takes.
+        exec(type.tombstone(1, "A/B/c7", read = 1))
+        exec(type.tombstone(1, "A/C/c8", read = 1))
+
+        repository().move(type.contentType, null, listOf(MOVE), emptyList(), mapOf(1L to listOf("A/B/")))
+
+        rows(type.tombstoneUrls) shouldBe listOf("A/C/c8")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a move settles only the keys it wrote`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        // A row and a kept state at one key elsewhere in the owner, as a restore in flight leaves them.
+        exec(
+            type.seed.first { "'B/c1', 'C'" in it }
+                .replace("(10, 2, 'B/c1'", "(11, 1, 'A/X/c5'")
+                .replace("'C', NULL, 1,", "'C', NULL, 0,")
+                .replace("'C', 1, 0,", "'C', 0, 0,"),
+        )
+        exec(type.tombstone(1, "A/X/c5", read = 1))
+
+        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+
+        listOf(one(type.readAt("A/X/c5")), rows(type.tombstoneUrls).joinToString()) shouldBe listOf("0", "A/X/c5")
     }
 
     @ParameterizedTest

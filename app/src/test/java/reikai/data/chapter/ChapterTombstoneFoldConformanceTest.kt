@@ -73,7 +73,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedTombstone(driver, URL, OLDER)
 
-        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()))
+        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()), emptyList())
 
         type.tombstoneState(driver, URL) shouldBe type.of(FOLDED)
     }
@@ -84,7 +84,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedOwner(driver)
         type.seedRow(driver, CHAPTER, URL, OLDER)
 
-        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()))
+        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()), emptyList())
 
         (type.rowState(driver, URL) to type.count(driver, type.tombstoneTable)) shouldBe (type.of(FOLDED) to 0L)
     }
@@ -96,7 +96,7 @@ class ChapterTombstoneFoldConformanceTest {
         type.seedTombstone(driver, URL, NEWER)
         type.seedRow(driver, CHAPTER, URL, OLDER)
 
-        repository.restore(type.contentType, OWNER, emptyList())
+        repository.restore(type.contentType, OWNER, emptyList(), listOf(URL))
 
         (type.rowState(driver, URL) to type.count(driver, type.tombstoneTable)) shouldBe (type.of(FOLDED) to 0L)
     }

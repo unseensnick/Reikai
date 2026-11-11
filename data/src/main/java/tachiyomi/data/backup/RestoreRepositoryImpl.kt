@@ -97,7 +97,7 @@ class RestoreRepositoryImpl(
         restoreHistory(manga, entry.history)
         readingLog.restore(ContentType.MANGA, manga.id, entry.readingSessions) // RK
         // RK: after the chapters and their history, so a tombstone meets the row it belongs to
-        tombstones.restore(ContentType.MANGA, manga.id, entry.chapterTombstones)
+        tombstones.restore(ContentType.MANGA, manga.id, entry.chapterTombstones, entry.chapters.map { it.url })
         restoreExcludedScanlators(manga, entry.excludedScanlators)
         // RK --> an entry without either leaves the device's own alone, as the forks do
         entry.searchMetadata?.let { mangaMetadataRepository.insertFlatMetadata(it.forManga(manga.id)) }
