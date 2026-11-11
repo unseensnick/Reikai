@@ -42,6 +42,8 @@ class LocalOrganizer(
 
     /** Runs [plan] from its first step; the caller holds the lock on every folder it names. */
     suspend fun run(type: ContentType, plan: Organize): LocalMoveResult {
+        // Before the journal, so a folder whose query hiccups fails the organize with nothing to put back.
+        reach(plan.root) ?: return LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
         val id = journal.insert(type, plan)
         return carryOn(type, id, plan)
     }

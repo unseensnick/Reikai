@@ -465,7 +465,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             20 to ::markStep,
             6 to ::combineStep,
             6 to ::splitStep,
-            6 to ::organizeStep,
+            12 to ::organizeStep,
             5 to ::deleteVolumesStep,
             10 to ::undoStep,
             8 to ::finishStep,
@@ -570,7 +570,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     }
 
     private suspend fun organizeStep() {
-        val (id, folder) = owned().randomOrNull(rng) ?: return
+        // A series that lists something, so most runs reach the file steps rather than failing to plan.
+        val (id, folder) = owned().filter { groupKeys(it).isNotEmpty() }.randomOrNull(rng) ?: return
         val title = if (rng.nextBoolean()) "Org${word()}" else folder
         val keys = groupKeys(id to folder)
         val labels = if (keys.size > 1 || keys.singleOrNull()?.isNotEmpty() == true) {
@@ -993,7 +994,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 
     /** The local series whose folder is where its row says, or that a split made with no folder of its own. */
     private suspend fun owned(): List<Pair<Long, String>> = groups().let { groups ->
-        localManga().filter { File(local, it.second).isDirectory || groups.hasNoFolder(it.second) }
+        // Not one combined into another: it has left the library, as the app takes it out, and no screen reaches it.
+        localManga().filter {
+            (File(local, it.second).isDirectory && !groups.isLentWhole(it.second)) || groups.hasNoFolder(it.second)
+        }
     }
 
     // endregion

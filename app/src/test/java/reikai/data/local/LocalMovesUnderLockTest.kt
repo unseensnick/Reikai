@@ -588,6 +588,49 @@ class LocalMovesUnderLockTest {
             listOf(true, true, listOf("Other/Vol 1/Ch 1"), 0L)
     }
 
+    /** A process killed between a move landing and its note: the next start finishes the organize. */
+    @Test
+    fun `an organize a kill cut off after a move landed is finished by the replay at the next start`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "moveDocument") {
+                FakeSafProvider.onCall = null
+                // The move lands, and the process dies before anything is noted.
+                File(local, "Other/${target.name}").renameTo(target)
+                throw KillError()
+            }
+        }
+        runCatching { organized() }
+        FakeSafProvider.onCall = null
+
+        val moves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
+        LocalFileJournalReplay(context, journal, locks, moves, LocalOrganizer(context, journal, moves, locks)).replay()
+        refreshed(KEPT)
+
+        listOf(entries("Kept"), readUrls(KEPT), journalRows()) shouldBe
+            listOf(listOf("Kept - Vol. 1", "Kept - Vol. 2"), listOf("Kept/Kept - Vol. 2/Ch 1"), 0L)
+    }
+
+    /** Found by the randomized test: the Undo renamed the folder back under the series that had since taken it in. */
+    @Test
+    fun `an organize Undo is refused once another series lists the folder it would rename back`() = runTest {
+        markRead("Kept/Vol 1/Ch 1")
+        val names = combine.organizePlan(ContentType.MANGA, series(KEPT), "Saga", listOf("Vol 1" to "Vol. 1"))
+        val organize = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
+        }
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
+        }
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { organize.undo() } }
+        refreshed(OTHER)
+
+        listOf(undone is LocalMoveResult.Failed, local.list()!!.sorted(), readUrls(OTHER)) shouldBe
+            listOf(true, listOf("Other", "Saga"), listOf("Saga/Saga - Vol. 1/Ch 1"))
+    }
+
     @Test
     fun `organize is not offered where the storage cannot move a file`() = runTest {
         FakeSafProvider.supportsMove = false

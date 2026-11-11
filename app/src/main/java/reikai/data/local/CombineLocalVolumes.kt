@@ -485,7 +485,10 @@ class CombineLocalVolumes(
         val undoing = suspend {
             seriesLocks.withSeries(type, plan.folders()) {
                 // As for a regroup's Undo: a later change to the group's rows or address is not this one's to undo.
-                val same = localVolumes.all(type).containsAll(plan.ownersAfter) &&
+                // A series since given volumes of this folder addresses them by its name, which the Undo changes back.
+                val now = localVolumes.all(type)
+                val same = now.containsAll(plan.ownersAfter) &&
+                    now.none { it.folder == plan.toSeries && it.owner != plan.toSeries } &&
                     series(type, listOf(series.id)).singleOrNull()?.folder == plan.toSeries
                 if (same) {
                     organizer.run(type, plan.undoing())
