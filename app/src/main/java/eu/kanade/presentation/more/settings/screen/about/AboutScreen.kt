@@ -147,6 +147,11 @@ object AboutScreen : SearchableSettings {
             Preference.PreferenceGroup(
                 title = stringResource(MR.strings.pref_category_links),
                 preferenceItems = listOf(
+                    // RK: credit the base app, as tsundoku does
+                    Preference.PreferenceItem.TextPreference(
+                        title = stringResource(MR.strings.based_on_mihon),
+                        onClick = { uriHandler.openUri("https://github.com/mihonapp/mihon") },
+                    ),
                     Preference.PreferenceItem.CustomPreference(title = "") {
                         Row(
                             modifier = Modifier

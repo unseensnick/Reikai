@@ -185,6 +185,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Time with the reader's menu open no longer counts as reading time in Statistics.** Read aloud playing still counts.
 
+- **Long chapter titles in the reader's top bar scroll by faster (from Tsundoku).** Upstream: tsundoku-otaku/tsundoku#472.
+
 #### Fixed
 
 - **A slow find-and-replace rule or chapter text search no longer stalls a novel chapter or the search.** A slow rule is skipped, and a slow search says so.
@@ -261,6 +263,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Statistics' Reading time period chips now wrap instead of squeezing at the largest text size.**
 
 ### Settings
+
+#### Added
+
+- **More -> About now links to Mihon, the app Reikai is built on (from Tsundoku).** Upstream: tsundoku-otaku/tsundoku#442.
 
 #### Changed
 

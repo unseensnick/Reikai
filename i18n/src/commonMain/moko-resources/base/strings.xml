@@ -1347,6 +1347,7 @@
     <string name="licenses">Open source licenses</string>
     <string name="privacy_policy">Privacy policy</string>
     <string name="check_for_updates">Check for updates</string>
+    <string name="based_on_mihon">Based on Mihon</string>
     <!-- RK: group headers on the About screen, now built on the preference DSL so its rows reach settings search. -->
     <string name="pref_category_legal">Legal</string>
     <string name="pref_category_links">Links</string>

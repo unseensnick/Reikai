@@ -187,6 +187,7 @@ fun AppBarTitle(
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.basicMarquee(
                     repeatDelayMillis = 2_000,
+                    velocity = 75.dp, // RK: a long chapter title finishes its scroll sooner (from tsundoku)
                 ),
             )
         }
