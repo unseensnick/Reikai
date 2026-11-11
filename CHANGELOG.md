@@ -25,10 +25,12 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A local series split into volumes lists its chapters under a header per volume, with chips to show one volume at a time.** A header shows the volume's cover and how much of it is read, selects it on a tap and marks it read with its button; the reader's chapter list is grouped the same way.
 - **A local series' volumes can be put in reading order and renamed from ⋮ -> Reorder volumes.** Chapters sorted by source are read in the new order; backups keep it.
 - **Local series can be combined into one series with volumes, and a volume split back out, without moving a file, keeping read progress and offering Undo.** Use Combine as volumes on a library selection or in Manage sources, or Add volumes and Split out volumes from a series' ⋮.
-- **⋮ -> Organize files moves a local series' volumes into its folder and names them after its title and volumes.** A preview lists every new name first; Also organize files does it from Add volumes, Edit info and Reorder volumes, where the storage can move files.
+- **⋮ -> Organize files moves a local series' volumes into its folder and names them after its title and volumes.** A preview lists every new name first, and an unticked Also organize files offers it after grouping, renaming or editing, where the storage can move files.
 - **Open folder on a local series opens the folder its files are in.**
 - **A local chapter whose file goes missing keeps its read progress until the file comes back, through renames, moves and backups.** Deleting a volume in the app drops it on purpose.
 - **A local series whose folder was renamed outside the app can be linked to its new folder from its details page.** The folders holding its files are offered; nothing is picked for you.
+- **A combined local series whose volume folder was renamed or removed outside the app keeps refreshing, and its details page names the missing volume.** Tap it to link the folder it moved to, choose another folder, or remove it from the series; nothing is decided for you.
+- **Local manga can show the files loose beside their volume folders as one volume, each as a volume of its own, or in no volume, from ⋮ -> Reorder volumes -> Loose files.** Backups keep the choice.
 - **A local series flags volumes that share a name, and ⋮ -> Delete volumes removes the copies you don't want.** Keep all names the later ones "Vol. 3 (2)" instead.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 
