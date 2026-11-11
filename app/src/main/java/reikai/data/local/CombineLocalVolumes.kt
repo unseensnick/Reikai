@@ -200,11 +200,15 @@ class CombineLocalVolumes(
         val taken = keptDir.list(context).mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<OwnerMoves>()
+        val riding = mutableSetOf<String>()
         // The kept series' loose chapters go into a volume folder of their own, or its volumes would not all be folders.
-        val loose = chapterRepository.getChapterByMangaId(kept.id).filter { it.url.count { c -> c == '/' } == 1 }
+        val loose = chapterRepository.getChapterByMangaId(kept.id).filter { it.url.isLooseChapter() }
         if (loose.isNotEmpty()) {
             val volume = freeName(kept.folder, taken)
-            val moves = loose.map { chapter ->
+            val states = keptUrls(ContentType.MANGA, kept.id).filter { it.isLooseChapter() }
+                .map { ChapterMove(it, "${kept.folder}/$volume/${it.substringAfter('/')}") }
+            riding += states.map { it.toUrl }
+            val moves = states + loose.map { chapter ->
                 val name = chapter.url.substringAfter('/')
                 placements +=
                     Placement(
@@ -219,6 +223,7 @@ class CombineLocalVolumes(
         for (other in others) {
             val dir = localFiles.getMangaDirectory(other.folder) ?: return failed(missing(other))
             val chapters = chapterRepository.getChapterByMangaId(other.id)
+            val gone = keptUrls(ContentType.MANGA, other.id)
             volumeRows.next(other.folder)
             val inVolumes = chapters.mapNotNull { localVolumeChapter(it.url) }
             val moves = if (inVolumes.isNotEmpty()) {
@@ -226,8 +231,10 @@ class CombineLocalVolumes(
                 // join as one more volume, as the kept series' own do.
                 val loose = chapters.filter { localVolumeChapter(it.url) == null }
                 val looseVolume = if (loose.isEmpty()) null else freeName(other.folder, taken)
+                val names = HashMap<String, String>()
                 inVolumes.groupBy { it.volume }.flatMap { (volume, inVolume) ->
                     val name = freeName(volume, taken)
+                    names[volume] = name
                     volumeRows.move(volume, name)
                     placements +=
                         Placement(
@@ -242,11 +249,23 @@ class CombineLocalVolumes(
                         dir,
                     )
                     ChapterMove(chapter.url, "${kept.folder}/$looseVolume/$name")
+                } + gone.mapNotNull { url ->
+                    // A kept state goes where a row of its volume goes, and stays where its volume does.
+                    val inVolume = localVolumeChapter(url)
+                    val to = if (inVolume != null) {
+                        names[inVolume.volume]?.let { inVolume.copy(series = kept.folder, volume = it).url }
+                    } else {
+                        looseVolume?.let { "${kept.folder}/$it/${url.substringAfter('/')}" }
+                    }
+                    to?.let { ChapterMove(url, it).also { move -> riding += move.toUrl } }
                 }
             } else {
                 val name = freeName(other.folder, taken)
                 placements += Placement(FileCopy(dir, keptDir, null, name), base)
-                chapters.map { ChapterMove(it.url, "${kept.folder}/$name/${it.url.substringAfter('/')}") }
+                val states = gone.filter { it.isLooseChapter() }
+                riding += states.map { "${kept.folder}/$name/${it.substringAfter('/')}" }
+                (chapters.map { it.url } + states)
+                    .map { ChapterMove(it, "${kept.folder}/$name/${it.substringAfter('/')}") }
             }
             rows += OwnerMoves(other.id, kept.id, moves)
         }
@@ -258,6 +277,7 @@ class CombineLocalVolumes(
             folders = folders,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
+            riding = riding,
             leftovers = { others.mapNotNull { localFiles.getMangaDirectory(it.folder) } },
         )
     }
@@ -275,13 +295,14 @@ class CombineLocalVolumes(
             .mapNotNull { it.name }.toMutableSet()
         val placements = mutableListOf<Placement>()
         val rows = mutableListOf<OwnerMoves>()
+        val riding = mutableSetOf<String>()
         val volumeRows = VolumeRows(localVolumes.loadedVolumes(ContentType.NOVELS), kept.folder, folder)
         if (!keptEntry.isDirectory) {
             if (root.findFile(folder) != null) return failed(taken(folder))
             val name = freeName(kept.folder, taken)
             volumeRows.move(kept.folder, name)
             placements += Placement(FileCopy(keptEntry, root, folder, name), root)
-            rows += OwnerMoves(kept.id, kept.id, novelMoves(kept, folder) { name })
+            rows += OwnerMoves(kept.id, kept.id, novelMoves(kept, folder, riding) { name })
         }
         for (other in others) {
             val entry = root.findFile(other.folder) ?: return failed(missing(other))
@@ -294,7 +315,7 @@ class CombineLocalVolumes(
                 placements +=
                     Placement(FileCopy(it, root, folder, renamed.getValue(it.name.orEmpty())), parent)
             }
-            rows += OwnerMoves(other.id, kept.id, novelMoves(other, folder) { volume -> renamed[volume] ?: volume })
+            rows += OwnerMoves(other.id, kept.id, novelMoves(other, folder, riding) { renamed[it] ?: it })
         }
         return perform(
             type = ContentType.NOVELS,
@@ -304,6 +325,7 @@ class CombineLocalVolumes(
             folders = folders,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
+            riding = riding,
             renamed = UrlChange(kept.id, kept.folder, folder).takeIf { folder != kept.folder },
             leftovers = { others.mapNotNull { root.findFile(it.folder)?.takeIf { dir -> dir.isDirectory } } },
         )
@@ -324,7 +346,10 @@ class CombineLocalVolumes(
         // One volume becomes the series folder itself; several keep their folders inside a new one, and so does
         // one with an Extras chapter, which is the volume folder itself and has no place in a series folder.
         val single = keys.size == 1 && chapters.none { it.file.isEmpty() }
-        val moves = chapters
+        val gone = keptUrls(ContentType.MANGA, series.id)
+            .mapNotNull { url -> localVolumeChapter(url)?.takeIf { it.volume in keys } }
+            .filterNot { single && it.file.isEmpty() }
+        val moves = (chapters + gone)
             .map { ChapterMove(it.url, if (single) "$folder/${it.file}" else it.copy(series = folder).url) }
         val created = networkToLocalManga(
             SManga.create().apply {
@@ -345,6 +370,7 @@ class CombineLocalVolumes(
             folders = folders,
             joining = created.id,
             relist = listOf(created.id, series.id),
+            riding = moves.takeLast(gone.size).mapTo(HashSet()) { it.toUrl },
         )
     }
 
@@ -361,10 +387,8 @@ class CombineLocalVolumes(
         val created = novelRepository.insertOrGet(
             Novel.create().copy(source = LocalNovelSource.ID, url = folder, title = folder),
         ) ?: return failed(missing(series))
-        val moves = novelChapterRepository.getByNovelId(series.id).mapNotNull { chapter ->
-            val (_, volume, key) = LocalNovelSource.parseChapterPath(chapter.url) ?: return@mapNotNull null
-            ChapterMove(chapter.url, LocalNovelSource.chapterPath(folder, volume, key)).takeIf { volume in keys }
-        }
+        val riding = mutableSetOf<String>()
+        val moves = novelMoves(series, folder, riding, keys) { it }
         return perform(
             type = ContentType.NOVELS,
             placements = books.map { Placement(FileCopy(it, root, folder, it.name.orEmpty()), seriesDir) },
@@ -373,6 +397,7 @@ class CombineLocalVolumes(
             folders = folders,
             joining = created.id,
             relist = listOf(created.id, series.id),
+            riding = riding,
         )
     }
 
@@ -387,9 +412,10 @@ class CombineLocalVolumes(
 
     /**
      * Runs one move and builds its undo. [leaving] entries leave the library, [joining] joins it, and the
-     * [relist] entries list their chapters again; [leftovers] are folders set aside under a hidden name once the
-     * chance to undo has passed, if all they still hold is their cover and details. The caller holds the lock on [folders], the
-     * series the move touches; the undo and the tidy run later on the app scope, so each takes it again.
+     * [relist] entries list their chapters again; [leftovers] are folders set aside under a hidden name once
+     * the chance to undo has passed, if all they still hold is their cover and details. [riding] are the new
+     * addresses among [rows] of kept reading state. The caller holds the lock on [folders], the series the
+     * move touches; the undo and the tidy run later on the app scope, so each takes it again.
      */
     private suspend fun perform(
         type: ContentType,
@@ -401,11 +427,13 @@ class CombineLocalVolumes(
         leaving: List<Long> = emptyList(),
         joining: Long? = null,
         renamed: UrlChange? = null,
+        riding: Set<String> = emptySet(),
         leftovers: suspend () -> List<UniFile> = { emptyList() },
     ): LocalVolumeMove {
         val removal = removal(type)
         val result = moveLocalFiles(context, placements.map { it.copy }) {
-            checkListed(type, rows.flatMap { it.moves }.map { it.toUrl })
+            // Not the kept states' addresses ([riding]): a chapter with no row may have no file to list either.
+            checkListed(type, rows.flatMap { it.moves }.map { it.toUrl }.filterNot { it in riding })
             // The folders and books the move fills were named free among files, not among the kept state a
             // volume deleted outside the app left under them, which is not the arriving chapters'.
             val clearing = rows.groupBy({ it.toOwner }, { it.moves }).mapValues { (_, moves) ->
@@ -551,11 +579,31 @@ class CombineLocalVolumes(
         check(unlisted.isEmpty()) { "${unlisted.size} chapters would not list where they move to" }
     }
 
-    private suspend fun novelMoves(series: CombinableSeries, folder: String, volumeName: (String) -> String) =
-        novelChapterRepository.getByNovelId(series.id).mapNotNull { chapter ->
-            val (_, volume, key) = LocalNovelSource.parseChapterPath(chapter.url) ?: return@mapNotNull null
-            ChapterMove(chapter.url, LocalNovelSource.chapterPath(folder, volumeName(volume), key))
+    /** [series]' chapters going to [folder], those of [volumes] or all; the kept states among them join [riding]. */
+    private suspend fun novelMoves(
+        series: CombinableSeries,
+        folder: String,
+        riding: MutableSet<String>,
+        volumes: Collection<String>? = null,
+        volumeName: (String) -> String,
+    ): List<ChapterMove> {
+        fun moved(url: String): ChapterMove? {
+            val (_, volume, key) = LocalNovelSource.parseChapterPath(url) ?: return null
+            if (volumes != null && volume !in volumes) return null
+            return ChapterMove(url, LocalNovelSource.chapterPath(folder, volumeName(volume), key))
         }
+        val kept = keptUrls(ContentType.NOVELS, series.id).mapNotNull(::moved)
+        riding += kept.map { it.toUrl }
+        return novelChapterRepository.getByNovelId(series.id).mapNotNull { moved(it.url) } + kept
+    }
+
+    /**
+     * The addresses of series [id]'s kept reading state: chapters with no row, their file gone at the last listing.
+     * A move takes them where it takes the rows of their volume. Left behind, a chapter put back since would list
+     * unread at its new address, and a combined-away series would take the state with it when it leaves.
+     */
+    private suspend fun keptUrls(type: ContentType, id: Long): List<String> =
+        tombstones.byOwner(type, id).map { it.url }
 
     /**
      * What Rename files gives [series] from its [title] and volume [labels], the series' name made free of every
@@ -789,6 +837,9 @@ class CombineLocalVolumes(
 
     private companion object {
         fun UniFile.isEpub() = name.orEmpty().endsWith(EPUB, true)
+
+        /** A manga chapter address straight under its series, in no volume folder. */
+        fun String.isLooseChapter() = count { it == '/' } == 1
 
         /**
          * Whether a file left in a series folder is only its cover or details, which went with its chapters: the

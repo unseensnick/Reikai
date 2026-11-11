@@ -354,6 +354,30 @@ class LocalMovesUnderLockTest {
         ) shouldBe listOf(true, false, 1)
     }
 
+    /** A chapter back on disk since the last listing has no row yet, only its kept state at its old address. */
+    @Test
+    fun `a chapter put back since the last listing keeps its reading state through a split of its volume`() =
+        runTest {
+            putBackUnlisted(KEPT, "Kept", "Vol 2", "Ch 2")
+
+            val move = withContext(Dispatchers.Default) {
+                withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+            }
+
+            (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Split/Ch 2"))
+        }
+
+    @Test
+    fun `a chapter put back since the last listing keeps its reading state through a combine`() = runTest {
+        putBackUnlisted(OTHER, "Other", "Vol 1", "Ch 5")
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+        }
+
+        (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Kept/Vol 1 (2)/Ch 5"))
+    }
+
     /** A failed query answers "not a folder", which must not make the local folder itself the series' folder. */
     @Test
     fun `deleting a volume never takes another series of the volume's name when the series' query fails`() = runTest {
@@ -426,6 +450,19 @@ class LocalMovesUnderLockTest {
             real.confirm(type, isLocal, removed, listed)
         }
     }
+
+    /** A read chapter whose folder went, was listed gone, and is back without a listing since. */
+    private suspend fun putBackUnlisted(owner: Long, series: String, volume: String, chapter: String) {
+        chapterFolder(series, volume, chapter)
+        refreshed(owner)
+        markRead("$series/$volume/$chapter")
+        File(local, "$series/$volume/$chapter").deleteRecursively()
+        refreshed(owner)
+        chapterFolder(series, volume, chapter)
+    }
+
+    private suspend fun allReadUrls() =
+        driver.rows("SELECT remote_url FROM chapter WHERE user_read = 1 ORDER BY remote_url") { it.getString(0)!! }
 
     private fun chapterFolder(series: String, volume: String, chapter: String) {
         File(local, "$series/$volume/$chapter").mkdirs()
