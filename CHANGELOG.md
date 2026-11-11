@@ -48,7 +48,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
-- **Library updates check several novel sources at once, as they do for manga, so they finish sooner.**
+- **Library updates check several novel sources at once, as they do for manga.**
 
 #### Fixed
 
@@ -118,7 +118,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**
 
-- **A manga or novel chapter cancelled or deleted just after the app starts no longer comes back into the queue.**
+- **Manga chapters in the download queue are no longer lost or brought back when you queue, reorder, cancel or delete right after opening the app.**
 
 - **Pausing novel downloads now stops fetching the current chapter's pictures straight away.**
 
@@ -140,8 +140,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A novel chapter whose read mark could not be saved keeps its download, and the failure is reported.**
 
-- **Manga chapters saved in the download queue are no longer lost when you queue, reorder or cancel right after opening the app.**
-
 - **A manga parallel page limit below one, restored from a backup, no longer stops that source's downloads.**
 
 ### Reader
@@ -161,7 +159,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
 - **Split wide pages and Rotate wide pages to fit now work with the manga reader's high quality renderer, paged and long strip.** A page they change shows once it has downloaded.
 - **Smart fit and Stretch now work as scale types with the manga reader's high quality renderer.**
-- **Settings > Manga reader now has the high quality renderer's own options while it is on.** Dual page view, Transition animation, Cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
+- **Settings -> Manga reader now shows the high quality renderer's own options while it is on, and hides the ones it ignores.** Dual page view, Transition animation, Cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
 
@@ -176,19 +174,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **The chapter cache now clears itself: pages after a day, novel text after a week (from Mihon).**
 
-- **Time with the reader's menu open no longer counts as reading time, in Statistics or for time left.** Read aloud playing still counts.
+- **Time with the reader's menu open no longer counts as reading time in Statistics.** Read aloud playing still counts.
 
 #### Fixed
 
-- **A novel chapter no longer hangs while loading on a find-and-replace rule whose pattern never finishes.**
+- **A slow find-and-replace rule or chapter text search no longer stalls a novel chapter or the search.** A slow rule is skipped, and a slow search says so.
 - **Auto-split no longer puts a blank line inside a novel chapter's list items, headings or quotes.**
 - **A novel chapter read aloud is now marked read and keeps your place, with Keep in view off too.** Reopening the chapter takes you to the paragraph being read.
 - **Read aloud no longer speaks brackets, quote marks, tildes, emoji or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.
 - **Turning back onto the second half of a split wide page now shows that page's number.**
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
-- **The high quality renderer's long strip now follows Animate page transitions: a tap or volume key scrolls smoothly when on, at once when off.**
-- **The high quality renderer's long strip now follows Sensitivity for hiding menu on scroll.**
-- **Settings > Manga reader no longer shows options the high quality renderer ignores while it is on.** Double tap animation speed goes, and so do the single-page options while Dual page view is Always.
+- **The high quality renderer's long strip now follows Animate page transitions and Sensitivity for hiding menu on scroll.** With Animate page transitions on, a tap or volume key scrolls smoothly.
 - **Paged novels with a picture taller than the screen no longer get stuck on it or freeze the page number.**
 - **A paged novel's short last chapter is no longer marked read while the transition before it is still showing.**
 - **The transition between novel chapters now always fits on one page in paged reading.** A long title or the missing-chapters warning used to split it across pages on a short screen.
@@ -207,8 +203,6 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Open in WebView on a failed page of a merged series now opens the chapter's own source in every manga reading mode.**
 
-- **The chapter page in the high quality renderer no longer gets cut off after Retry on a failed next chapter.**
-
 - **Auto-scroll in the high quality renderer's long strip now saves your reading progress and waits for pages that are still loading.**
 
 - **Reload chapter no longer jumps ahead and saves the wrong page in a chapter with split pages.**
@@ -221,7 +215,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel text in WebView mode now moves with the screen cutout when the phone turns upside down.**
 
-- **The reader sheet now shows the right high quality renderer options in each mode, and updates them as soon as Dual page view changes.** It adds Dual page view in Paged (vertical), Disable double tap gestures and long strip Crop borders, and hides the Grayscale and Inverted rows it ignores.
+- **The reader sheet now shows the right high quality renderer options in each mode, and updates them as soon as Dual page view changes.** It adds Dual page view in Paged (vertical), Disable double tap gestures and long strip Crop borders.
 
 - **Failed manga pages now follow the cover colour theme in every reading mode.**
 
@@ -235,9 +229,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Replacing an added reader font with a smaller file of the same name now replaces it whole.**
 - **More links inside novel chapters now reach their target in the WebView reading mode, as they already did in the native one.**
 - **A chapter that fails to load while offline now says there is no Internet connection, for manga and novels.**
-- **The novel reader no longer offers WebView, Open in browser or Share for a local novel.**
 - **The novel reader no longer saves progress on every scroll frame near a chapter's end.**
-- **A novel find-and-replace rule or chapter text search that runs too long no longer stalls the chapter or the search.** A slow rule is skipped, and a slow search says so.
 
 ### Statistics
 
@@ -268,7 +260,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Settings -> Advanced -> Clear cookies and Clear WebView data now also sign novel plugins out of their sites.**
-- **Settings -> Advanced -> Test FlareSolverr no longer shows the last result after the address or sign-in changes.**
+- **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page, and no longer shows a stale result after the address or sign-in changes.** A source that fails through the server reports the server's reason too.
 
 ### Browse
 
@@ -298,21 +290,17 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Updating a light-novel plugin while plugins load no longer leaves the old version running.**
 - **The light-novel plugin update check is no longer skipped after restoring a backup from another device.**
 - **Failed light-novel plugin requests are no longer logged with their search terms or tokens.**
-- **A tracker update sent to a Cloudflare-protected site while FlareSolverr is on is no longer reported saved when it was not.** The server can only fetch pages and send forms, so anything else goes through the app's own browser.
+- **Tracker updates, forms, searches and logins that FlareSolverr can't send now go through the app's own browser.** A tracker update is no longer reported saved when it was not, and forms no longer go out over plain http.
 - **Pages from a site FlareSolverr answers for now load side by side instead of one at a time.** Chapters and downloads from such a site were taking minutes.
 - **Requests to a site that sends you on to a Cloudflare-protected one no longer solve its check again one after another.**
-- **Open in WebView now opens the blocked page when Cloudflare blocks a later page of a source's listing, not the site's front page.**
+- **Open in WebView now opens the page Cloudflare blocked, such as a later page of a listing or the page a form sent you on to, not the site's front page.**
 - **Passing a Cloudflare check on a novel plugin's site from Extensions or the plugin's page now unblocks the plugin too.**
 - **Madara novel sources behind a strict Cloudflare check now list their chapters through FlareSolverr.**
 - **FlareSolverr keeps its session again after being unreachable when the app first used it.** It had stayed slower until the app restarted.
-- **Forms a source sends no longer travel to a FlareSolverr server over plain http across the internet.** They go through the app's own browser instead, as the site's cookies already did.
 - **A novel plugin's own cookies now reach FlareSolverr along with the ones the site set.**
-- **Open in WebView after a form sent on to a blocked page now opens that page.**
 - **A novel site's sign-in captured in the browser just after the app was restored is no longer lost.**
 - **A novel source that sets its own browser identity is now unblocked by passing its Cloudflare check in WebView.**
 - **Clear cookies in WebView and on an extension's page no longer leaves some sites' Cloudflare pass behind.** Those sites store it in a way the old removal missed.
-- **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page.** A source that fails through the server reports the server's reason too.
-- **With Byparr as the FlareSolverr server, a search or login behind Cloudflare no longer gets the wrong page back.** Byparr can only fetch pages, so these now go through the app's own browser.
 - **IReader novel extensions built for newer IReader versions no longer fail every search and listing with an access error.** Older extensions keep working too.
 - **An IReader novel extension whose site answers a search form with a redirect now reaches the results instead of an empty page.**
 - **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
