@@ -117,6 +117,48 @@ class LocalChapterMoveRepositoryImpl(
         }
     }
 
+    override suspend fun relinkMember(
+        type: ContentType,
+        rename: SeriesRename,
+        member: String,
+        to: String,
+        movedUrl: (String) -> String,
+    ) {
+        database.transaction {
+            ownerQueries.renameFolder(to, member, type.toDbValue())
+            renameRows(type, rename, movedUrl)
+        }
+    }
+
+    override suspend fun leaveGroup(
+        type: ContentType,
+        entryId: Long,
+        series: String,
+        member: String,
+        keys: List<String>,
+    ) {
+        val dbType = type.toDbValue()
+        database.transaction {
+            ownerQueries.forgetFolder(dbType, member, series)
+            keys.forEach { key ->
+                queries.forgetVolume(dbType, series, key)
+                queries.forgetVolumePick(dbType, entryId, key)
+            }
+        }
+    }
+
+    override suspend fun handOverKeptStates(type: ContentType, fromId: Long, toId: Long, urls: List<String>) {
+        database.transaction {
+            urls.forEach { tombstones.move(type, fromId, it, toId, it) }
+            tombstones.settle(type, toId, urls)
+        }
+    }
+
+    override suspend fun localAddresses(type: ContentType): Set<String> = when (type) {
+        ContentType.NOVELS -> queries.localNovelUrls()
+        else -> queries.localMangaUrls()
+    }.awaitAsList().toSet()
+
     private suspend fun renameRows(type: ContentType, rename: SeriesRename, movedUrl: (String) -> String) {
         val dbType = type.toDbValue()
         setAddress(type, rename.id, rename.toSeries)

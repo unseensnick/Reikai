@@ -80,3 +80,9 @@ SELECT id FROM manga WHERE source_id = 0 AND remote_url = :url;
 
 localNovelId:
 SELECT _id FROM novels WHERE source = 'local' AND url = :url;
+
+localMangaUrls:
+SELECT remote_url FROM manga WHERE source_id = 0;
+
+localNovelUrls:
+SELECT url FROM novels WHERE source = 'local';

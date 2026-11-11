@@ -70,4 +70,30 @@ interface LocalChapterMoveRepository {
      * [journalId], goes in the same transaction, so a kill leaves either both or neither.
      */
     suspend fun rename(type: ContentType, rename: SeriesRename, journalId: Long? = null, movedUrl: (String) -> String)
+
+    /**
+     * Links the member folder [member] of series [rename] (whose own address does not change) to [to], in one
+     * transaction: the owner rows naming [member], keeping their place in the group, then everything [rename]
+     * writes, as Organize files' rows step writes it, with each address through [movedUrl].
+     */
+    suspend fun relinkMember(
+        type: ContentType,
+        rename: SeriesRename,
+        member: String,
+        to: String,
+        movedUrl: (String) -> String,
+    )
+
+    /**
+     * Takes the member folder [member] out of the group of series [entryId] at [series], in one transaction: its
+     * owner rows and its volumes' saved order, names and picked chip ([keys]). Its chapters' rows are the next
+     * listing's to remove, which keeps their state as for any file gone.
+     */
+    suspend fun leaveGroup(type: ContentType, entryId: Long, series: String, member: String, keys: List<String>)
+
+    /** Moves the kept states at [urls] from [fromId] to [toId], folding onto any already there, in one transaction. */
+    suspend fun handOverKeptStates(type: ContentType, fromId: Long, toId: Long, urls: List<String>)
+
+    /** The address of every local series of [type] in the database, in the library or not. */
+    suspend fun localAddresses(type: ContentType): Set<String>
 }

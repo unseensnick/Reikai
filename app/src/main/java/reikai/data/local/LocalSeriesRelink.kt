@@ -3,11 +3,16 @@ package reikai.data.local
 import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
+import reikai.domain.local.LocalFileJournalPlan.UrlRule
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
-import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.VolumeOwner
+import reikai.domain.local.localGroupKey
+import reikai.domain.local.localGroupUnit
 import reikai.domain.local.relinkCandidates
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -39,7 +44,8 @@ class LocalSeriesRelink(
     private val storageManager: StorageManager,
     private val chapterMoves: LocalChapterMoveRepository,
     private val seriesLocks: LocalSeriesLocks,
-    private val owners: LocalVolumeOwnerRepository,
+    // The owner rows, and the saved volume rows a member's link renames.
+    private val owners: LocalVolumeRepository,
 ) {
 
     /**
@@ -82,11 +88,90 @@ class LocalSeriesRelink(
         }
     }
 
+    /**
+     * The folders series [id]'s group lists that the local folder no longer holds: renamed or removed outside the
+     * app. Empty where the local folder cannot be listed whole, since a short listing would name present ones.
+     */
+    suspend fun missingMembers(type: ContentType, id: Long): List<String> = withIOContext {
+        val series = address(type, id) ?: return@withIOContext emptyList()
+        val listed = root(type)?.listOrNull(context) ?: return@withIOContext emptyList()
+        LocalGroups(owners.all(type)).missingMembers(series, listed.mapNotNull { it.name }).toList()
+    }
+
+    /**
+     * Where series [id]'s missing member [member] may have gone: the folders holding every chapter file it lists from
+     * there, for the user to pick from, as [candidates] finds a series' own; none another series lists or holds.
+     */
+    suspend fun memberCandidates(type: ContentType, id: Long, member: String): List<String> = withIOContext {
+        val listed = root(type)?.listOrNull(context) ?: return@withIOContext emptyList()
+        val taken = taken(type)
+        candidatesIn(type, id, member, listed).filter { it !in taken }
+    }
+
+    /**
+     * Every entry of the local folder the user may link [member] to by hand: its folders, or its books for a loose
+     * book, none another series lists or holds. Only inside the local folder, which is all a series can address.
+     */
+    suspend fun memberChoices(type: ContentType, member: String): List<String> = withIOContext {
+        val listed = root(type)?.listOrNull(context) ?: return@withIOContext emptyList()
+        val taken = taken(type)
+        val book = isBook(type, member)
+        listed.filter { if (book) it.isFile && it.name.orEmpty().endsWith(".epub", true) else it.isDirectory }
+            .mapNotNull { it.name }.filter { !it.startsWith('.') && it !in taken }.sorted()
+    }
+
+    /**
+     * Links series [id]'s missing member [member] to [to]: every row keyed by the member's name, through the same row
+     * step Organize files writes, under the lock on both names. Checked again there that [member] is still gone, [to]
+     * is there and free, and the series holds [member] whole, since a folder another series lists from too is that
+     * series' to link.
+     */
+    suspend fun relinkMember(type: ContentType, id: Long, member: String, to: String): LocalMoveResult = withIOContext {
+        val series = address(type, id)
+            ?: return@withIOContext LocalMoveResult.Failed(IllegalStateException("No such series"))
+        seriesLocks.withSeries(type, listOf(series, to)) {
+            val names = root(type)?.listOrNull(context)?.mapNotNull { it.name }
+                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
+            val held = owners.all(type).filter { it.folder == member }
+            when {
+                member in names -> return@withSeries failed(" is back in the local folder")
+                to !in names || to in taken(type) -> return@withSeries failed(" cannot take 's place")
+                held.any { it.owner != series } || held.none { it.volume == VolumeOwner.WHOLE } ->
+                    return@withSeries failed("Another series lists 's volumes")
+            }
+            val book = isBook(type, member)
+            val keys = volumeKeys(type, id, series).mapNotNull { key ->
+                val (folder, volume) = localGroupUnit(series, key)
+                if (folder != member) return@mapNotNull null
+                key to localGroupKey(series, to, if (book && volume == member) to else volume)
+            }.toMap()
+            val rules = if (book) listOf(UrlRule(member, member, to, to)) else emptyList()
+            chapterMoves.relinkMember(type, SeriesRename(id, series, series, keys), member, to) {
+                organizedUrl(type, it, rules, member, to)
+            }
+            LocalMoveResult.Moved(emptyList())
+        }
+    }
+
+    // Folders a series lists or holds, which a member cannot be linked to without meeting that series' rows.
+    private suspend fun taken(type: ContentType): Set<String> =
+        chapterMoves.localAddresses(type) + owners.all(type).flatMap { listOf(it.folder, it.owner) }
+
+    // A novel member that is a loose book, a series of one.
+    private fun isBook(type: ContentType, member: String) = type == ContentType.NOVELS && member.endsWith(".epub", true)
+
+    // Every volume key series [id] keeps a saved order, name or picked chip under.
+    private suspend fun volumeKeys(type: ContentType, id: Long, series: String): Set<String> =
+        owners.loadedVolumes(type)[series].orEmpty().map { it.key }.toSet() +
+            listOfNotNull(owners.loadedPicks(type)[id])
+
+    private fun failed(reason: String) = LocalMoveResult.Failed(IllegalStateException(reason))
+
     /** The candidates among [listed], the local root's trusted listing; a folder that cannot be listed whole is none. */
-    private suspend fun candidatesIn(type: ContentType, id: Long, series: String, listed: List<UniFile>): List<String> {
-        // Only the chapters in the series' own folder: a group's others sit in folders that did not move.
-        val paths = chapterUrls(type, id).filter { chapterVolumeUnit(type, it)?.first == series }
-            .mapNotNull { relativePath(type, series, it) }
+    private suspend fun candidatesIn(type: ContentType, id: Long, folder: String, listed: List<UniFile>): List<String> {
+        // Only the chapters in [folder]: a group's others sit in folders that did not move.
+        val paths = chapterUrls(type, id).filter { chapterVolumeUnit(type, it)?.first == folder }
+            .mapNotNull { relativePath(type, folder, it) }
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
         val folders = listed

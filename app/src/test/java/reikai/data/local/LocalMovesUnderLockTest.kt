@@ -93,6 +93,7 @@ class LocalMovesUnderLockTest {
     private lateinit var refresh: UpdateMangaFromRemote
     private lateinit var combine: CombineLocalVolumes
     private lateinit var import: LocalImport
+    private lateinit var relink: LocalSeriesRelink
 
     @Before
     fun setUp() = runTest {
@@ -219,6 +220,18 @@ class LocalMovesUnderLockTest {
                 }
             },
             seriesLocks = locks,
+        )
+        relink = LocalSeriesRelink(
+            context = context,
+            mangaRepository = mangaRepository,
+            chapterRepository = chapterRepository,
+            novelRepository = mockk(),
+            novelChapterRepository = mockk(),
+            localFiles = fileSystem,
+            storageManager = storage,
+            chapterMoves = chapterMoves,
+            seriesLocks = locks,
+            owners = volumes,
         )
         refreshed(KEPT)
         refreshed(OTHER)
@@ -734,6 +747,52 @@ class LocalMovesUnderLockTest {
             listOf("Other/Vol 1/Ch 1"),
             emptyList<String>(),
         )
+    }
+
+    @Test
+    fun `a missing member linked to the folder it was renamed to keeps its reading state there`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        File(local, "Other").renameTo(File(local, "Elsewhere"))
+        val candidates = relink.memberCandidates(ContentType.MANGA, KEPT, "Other")
+
+        val linked = relink.relinkMember(ContentType.MANGA, KEPT, "Other", "Elsewhere")
+        refreshed(KEPT)
+
+        val missing = relink.missingMembers(ContentType.MANGA, KEPT)
+
+        listOf(candidates, linked is LocalMoveResult.Moved, readUrls(KEPT), missing) shouldBe
+            listOf(listOf("Elsewhere"), true, listOf("Elsewhere/Vol 1/Ch 1"), emptyList<String>())
+    }
+
+    @Test
+    fun `a member another series also lists from is not linked from this one`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        File(local, "Kept").renameTo(File(local, "Elsewhere"))
+
+        (relink.relinkMember(ContentType.MANGA, split, "Kept", "Elsewhere") is LocalMoveResult.Failed) shouldBe true
+    }
+
+    @Test
+    fun `a missing member removed from the series keeps its reading state, back once its folder is`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        File(local, "Other").renameTo(File(local, "Elsewhere"))
+
+        val removed = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.removeMember(ContentType.MANGA, series(KEPT), "Other") }
+        }
+        val keptAfter = urls(KEPT)
+        File(local, "Elsewhere").renameTo(File(local, "Other"))
+        refreshed(OTHER)
+
+        listOf(removed is LocalMoveResult.Moved, keptAfter, readUrls(OTHER)) shouldBe
+            listOf(true, listOf("Kept/Vol 1/Ch 1"), listOf("Other/Vol 1/Ch 1"))
     }
 
     private suspend fun combined() = withContext(Dispatchers.Default) {

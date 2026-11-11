@@ -29,3 +29,15 @@ WHERE content_type = :contentType AND owner = :fromOwner;
 forget:
 DELETE FROM local_volume_owner
 WHERE content_type = :contentType AND folder = :folder AND volume_key = :volumeKey;
+
+-- A member folder renamed outside the app, linked again: its rows keep their place in the group, and a loose book
+-- (its own volume) takes the new name as its volume too.
+renameFolder:
+UPDATE local_volume_owner SET folder = :toFolder,
+    volume_key = CASE WHEN volume_key = :fromFolder THEN :toFolder ELSE volume_key END
+WHERE content_type = :contentType AND folder = :fromFolder;
+
+-- A member leaving the series that lists it.
+forgetFolder:
+DELETE FROM local_volume_owner
+WHERE content_type = :contentType AND folder = :folder AND owner = :owner;
