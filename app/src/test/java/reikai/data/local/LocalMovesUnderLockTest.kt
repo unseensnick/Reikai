@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -63,6 +64,7 @@ import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
+import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 
@@ -125,7 +127,9 @@ class LocalMovesUnderLockTest {
                 LocalChapterFiles(context, fileSystem, storage),
             ),
         )
-        source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, locks)
+        // The real cover writer: a mocked one never closes the page it is handed, which on Windows pins the folder.
+        val covers = LocalCoverManager(context, fileSystem)
+        source = LocalSource(context, fileSystem, covers, Json, XML.v1 {}, NoLocalVolumes, locks)
         val sync = SyncChaptersWithSource(
             downloadManager = mockk(relaxed = true),
             downloadProvider = mockk(relaxed = true),
@@ -328,6 +332,72 @@ class LocalMovesUnderLockTest {
 
         listOf(move.result is LocalMoveResult.Moved, urls(KEPT), tombstoneUrls(KEPT)) shouldBe
             listOf(true, listOf("Kept/Vol 1 (2)/Ch 1", "Kept/Vol 1/Ch 1"), emptyList<String>())
+    }
+
+    /** A provider can hide the same folder at every reading, so no listing proves a folder empty enough to delete. */
+    @Test
+    fun `a combined series' folder is set aside with a chapter every listing hid, never deleted`() = runTest {
+        File(local, "Other/Ch 7").mkdirs()
+        File(local, "Other/Ch 7/001.jpg").writeBytes(byteArrayOf(7))
+        FakeSafProvider.listingFault = { FakeSafProvider.ChildListingFault.Without("Ch 7") }
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+        }
+        move.finish()
+        appScope.coroutineContext.job.children.forEach { it.join() }
+
+        listOf(
+            move.result is LocalMoveResult.Moved,
+            File(local, "Other").exists(),
+            tmp.root.walk().count { it.isFile && it.parentFile!!.name == "Ch 7" },
+        ) shouldBe listOf(true, false, 1)
+    }
+
+    /** A failed query answers "not a folder", which must not make the local folder itself the series' folder. */
+    @Test
+    fun `deleting a volume never takes another series of the volume's name when the series' query fails`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        chapterFolder("Vol 2", "Vol 1", "Ch 1")
+        refreshed(KEPT)
+        var queries = 0
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "queryDocument" && target == File(local, "Kept") && ++queries >= 2) error("the provider died")
+        }
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Vol 2")) }
+        }
+
+        File(local, "Vol 2/Vol 1/Ch 1/001.jpg").exists() shouldBe true
+    }
+
+    @Test
+    fun `a chapter put into a moved volume before the Undo goes back with the volume`() = runTest {
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+        }
+        File(local, "Kept/Vol 1 (2)/Ch 8").mkdirs()
+        File(local, "Kept/Vol 1 (2)/Ch 8/001.jpg").writeBytes(byteArrayOf(8))
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+
+        (undone is LocalMoveResult.Moved) to File(local, "Other/Vol 1/Ch 8/001.jpg").exists() shouldBe (true to true)
+    }
+
+    @Test
+    fun `an undone split leaves no empty series folder where the split-out series stood`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        chapterFolder("Kept", "Vol 3", "Ch 3")
+        refreshed(KEPT)
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2", "Vol 3"), "Split") }
+        }
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+
+        (undone is LocalMoveResult.Moved) to local.list()!!.filterNot { it.startsWith('.') }.sorted() shouldBe
+            (true to listOf("Kept", "Other"))
     }
 
     /** The real rules, with one call of [confirm] held between its listing and its sync when asked. */

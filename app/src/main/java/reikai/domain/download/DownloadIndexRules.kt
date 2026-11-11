@@ -1,6 +1,7 @@
 package reikai.domain.download
 
 import eu.kanade.tachiyomi.data.download.Downloader
+import reikai.storage.PARKED_PREFIX
 import kotlin.time.Duration.Companion.hours
 
 /**
@@ -20,6 +21,9 @@ object DownloadIndexRules {
         else -> now - lastRenew > intervalHours.hours.inWholeMilliseconds
     }
 
-    /** A half-written chapter, which both downloaders mark with the same suffix, is never counted. */
-    fun isIndexed(name: String): Boolean = !name.endsWith(Downloader.TMP_DIR_SUFFIX)
+    /**
+     * A half-written chapter, which both downloaders mark with the same suffix, is never counted, nor is a
+     * chapter folder a merge copied on and set aside, which would read as a second download of its chapter.
+     */
+    fun isIndexed(name: String): Boolean = !name.endsWith(Downloader.TMP_DIR_SUFFIX) && !name.startsWith(PARKED_PREFIX)
 }

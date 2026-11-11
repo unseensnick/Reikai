@@ -221,13 +221,13 @@ class MergedDuplicateDownloadsTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a merged-away folder the merge emptied is removed`(type: Type) = runTest {
+    fun `a merged-away folder the merge emptied is set aside under a hidden name`(type: Type) = runTest {
         type.chapter(sourceDir(type).dir(KEPT), CH1, "kept")
         type.chapter(sourceDir(type).dir(OLD), CH2, "old")
 
         downloads.carryFolders(listOf(duplicate(type, OLD)))
 
-        sourceDir(type).names() shouldBe listOf(KEPT)
+        sourceDir(type).names().sorted() shouldBe listOf(".moved-$OLD", KEPT)
     }
 
     @ParameterizedTest

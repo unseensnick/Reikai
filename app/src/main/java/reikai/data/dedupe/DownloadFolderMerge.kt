@@ -8,9 +8,10 @@ import reikai.domain.download.DownloadIndexRules
 import reikai.domain.download.hasRoomToCopy
 import reikai.storage.IN_FLIGHT_SUFFIX
 import reikai.storage.copyVerified
-import reikai.storage.deleteIfEmpty
 import reikai.storage.deleteTree
+import reikai.storage.parkIfSpent
 import reikai.storage.rename
+import reikai.storage.retireMoved
 import tachiyomi.core.common.util.system.logcat
 
 /** What carrying one merged-away copy's folder did: whether a later run has anything left to try, and a change. */
@@ -19,8 +20,10 @@ internal data class FolderCarry(val finished: Boolean, val changed: Boolean)
 /**
  * Merges a merged-away copy's download folder into the survivor's, one chapter at a time, by copy and delete, since
  * storage cannot move a file between folders. A chapter the survivor lacks is copied under [COPY_SUFFIX] from a
- * trusted listing and checked against one, renamed into place, and only then deleted from the source. A chapter
- * the survivor has is left in both, and nothing is ever overwritten. Rules: docs/dev/subsystems/data-and-backup.md.
+ * trusted listing and checked against one, renamed into place, and only then cleared from the source: a chapter
+ * file is deleted, a chapter folder set aside under a hidden name neither index reads, never deleted, since a
+ * download can be the only copy left, and so is the source folder once the run has emptied it. A chapter the
+ * survivor has is left in both, and nothing is ever overwritten. Rules: docs/dev/subsystems/data-and-backup.md.
  */
 internal object DownloadFolderMerge {
 
@@ -45,9 +48,9 @@ internal object DownloadFolderMerge {
 
         val results = chapters.map { move(context, it, into) }
         val placed = results.count { it == Moved.PLACED }
-        // Only a folder this run emptied goes, and only once a trusted listing shows it empty
+        // Only a folder this run emptied is set aside, and only once a trusted listing shows it spent
         if (placed == entries.size && placed > 0) {
-            from.deleteIfEmpty(context)
+            from.parkIfSpent(context)
         } else if (placed > 0 || results.any { it == Moved.LEFT }) {
             logcat { "Merged ${from.name} into ${into.name}; the chapters the survivor already had stay in it" }
         }
@@ -73,7 +76,7 @@ internal object DownloadFolderMerge {
             copy.deleteTree()
             return Moved.FAILED
         }
-        if (!chapter.deleteTree()) logcat(LogPriority.WARN) { "Merged $name, but its old copy could not be deleted" }
+        if (!chapter.retireMoved(copy)) logcat(LogPriority.WARN) { "Merged $name, but its old copy still stands" }
         return Moved.PLACED
     }
 

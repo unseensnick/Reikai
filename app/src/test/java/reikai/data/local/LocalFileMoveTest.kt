@@ -76,10 +76,7 @@ class LocalFileMoveTest {
         File(from, ".moved-Vol 1/b.cbz").readText() shouldBe "b"
     }
 
-    /**
-     * A picked folder's provider can list short the same way twice, so the copy's own check cannot see the file it
-     * never copied; the second reading, later, can.
-     */
+    /** A picked folder's provider can list short the same way twice, so the copy's own check cannot see the file. */
     @Test
     fun `a listing short the same way in the copy and the delete keeps the uncopied file, hidden`() = runTest {
         FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
@@ -89,11 +86,10 @@ class LocalFileMoveTest {
         // The copy's listing, its count, and the delete's walk: each short by the same file.
         repeat(3) { FakeSafProvider.childListingFaults += ChildListingFault.Short(1) }
 
-        val moved = moveLocalFiles(
+        moveLocalFiles(
             ApplicationProvider.getApplicationContext(),
             listOf(FileCopy(picked(from).findFile("Vol 1")!!, picked(to), null, "Vol 1")),
         ) {}
-        purgeParked(ApplicationProvider.getApplicationContext(), (moved as LocalMoveResult.Moved).parked)
 
         listOf(
             File(to, "Vol 1").list()!!.toList(),
@@ -103,20 +99,90 @@ class LocalFileMoveTest {
             listOf(listOf("a.cbz"), listOf(".moved-Vol 1"), listOf("b.cbz"))
     }
 
+    /** A provider can hide the same file at every reading, so a later listing is no second oracle either. */
     @Test
-    fun `a parked folder that a fresh listing finds empty is purged`() = runTest {
+    fun `a file hidden from every listing of a moved folder is still on disk after the move`() = runTest {
         FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
-        val from = series("B", "Vol 1/Ch 1/001.png" to "p")
+        val from = series("B", "Vol 1/a.cbz" to "a", "Vol 1/b.cbz" to "b")
         val to = tmp.newFolder("A")
+        FakeSafProvider.listingFault = { ChildListingFault.Without("b.cbz") }
 
-        val moved = moveLocalFiles(
+        moveLocalFiles(
             ApplicationProvider.getApplicationContext(),
             listOf(FileCopy(picked(from).findFile("Vol 1")!!, picked(to), null, "Vol 1")),
         ) {}
-        val parkedBefore = from.list()!!.toList()
-        purgeParked(ApplicationProvider.getApplicationContext(), (moved as LocalMoveResult.Moved).parked)
 
-        (parkedBefore to from.list()!!.toList()) shouldBe (listOf(".moved-Vol 1") to emptyList())
+        File(from, ".moved-Vol 1/b.cbz").readText() shouldBe "b"
+    }
+
+    @Test
+    fun `a file that changed after it was copied stays with the original, set aside`() = runTest {
+        val from = series("B", "Vol 1/a.cbz" to "a")
+        val to = series("A")
+
+        moveLocalFiles(context, listOf(FileCopy(uni(File(from, "Vol 1")), uni(to), null, "Vol 1"))) {
+            File(from, "Vol 1/a.cbz").writeText("a, and more")
+        }
+
+        File(from, ".moved-Vol 1/a.cbz").readText() shouldBe "a, and more"
+    }
+
+    /** Some providers answer a create of a taken name with the folder already there, which the move did not make. */
+    @Test
+    fun `a failed move never deletes a folder it found already there, whatever its query answered`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Ch 1.cbz" to "one")
+        val to = series("A", "Vol 1/theirs.cbz" to "theirs")
+        FakeSafProvider.failingDocuments += File(to, "Vol 1")
+        FakeSafProvider.createReturnsExisting = true
+
+        moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked(from).findFile("Ch 1.cbz")!!, picked(to), "Vol 1", "Ch 1.cbz")),
+        ) { error("database refused") }
+
+        File(to, "Vol 1/theirs.cbz").readText() shouldBe "theirs"
+    }
+
+    /** The rows have moved by then, so a throw would lose the Undo of a move that went through. */
+    @Test
+    fun `an original whose query fails once the move has committed is left behind, not thrown over`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Ch 1.cbz" to "one")
+        val to = tmp.newFolder("A")
+        var queriesSinceCommit = -1
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "queryDocument" && target.name == "Ch 1.cbz" && target.parentFile == from) {
+                if (queriesSinceCommit >= 0 && ++queriesSinceCommit == 2) error("the provider died")
+            }
+        }
+
+        val moved = runCatching {
+            moveLocalFiles(
+                ApplicationProvider.getApplicationContext(),
+                listOf(FileCopy(picked(from).findFile("Ch 1.cbz")!!, picked(to), null, "Ch 1.cbz")),
+            ) { queriesSinceCommit = 0 }
+        }
+
+        moved.getOrNull().shouldBeInstanceOf<LocalMoveResult.Moved>()
+    }
+
+    @Test
+    fun `a second folder moved away from the same name is set aside beside the first`() = runTest {
+        FakeSafProvider.install(ApplicationProvider.getApplicationContext(), tmp.root)
+        val from = series("B", "Vol 1/Ch 1/001.png" to "p", ".moved-Vol 1/Ch 0/kept.png" to "k")
+        val to = tmp.newFolder("A")
+
+        moveLocalFiles(
+            ApplicationProvider.getApplicationContext(),
+            listOf(FileCopy(picked(from).findFile("Vol 1")!!, picked(to), null, "Vol 1")),
+        ) {}
+
+        listOf(
+            from.list()!!.count { it.startsWith(".moved-Vol 1") },
+            from.list()!!.count { !it.startsWith(".moved-") },
+            File(from, ".moved-Vol 1/Ch 0/kept.png").readText(),
+        ) shouldBe listOf(2, 0, "k")
     }
 
     private fun picked(folder: File): UniFile =

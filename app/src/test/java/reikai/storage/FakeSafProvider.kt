@@ -39,6 +39,9 @@ class FakeSafProvider : ContentProvider() {
         /** The query answers with the first [keep] children only. */
         data class Short(val keep: Int) : ChildListingFault
 
+        /** The query answers everything but the child [name], the same lie at every reading it is given to. */
+        data class Without(val name: String) : ChildListingFault
+
         /** The query answers null, as a provider that refused does. */
         data object NullCursor : ChildListingFault
 
@@ -89,6 +92,7 @@ class FakeSafProvider : ContentProvider() {
 
         override fun queryDocument(documentId: String, projection: Array<out String>?): Cursor {
             val file = existing(documentId)
+            onCall?.invoke("queryDocument", file)
             check(file !in failingDocuments) { "document query failed" }
             return MatrixCursor(projection ?: DOCUMENT_PROJECTION).apply { addFile(file) }
         }
@@ -99,13 +103,16 @@ class FakeSafProvider : ContentProvider() {
             sortOrder: String?,
         ): Cursor? {
             val parent = existing(parentDocumentId)
+            onCall?.invoke("queryChildDocuments", parent)
             val children = parent.listFiles().orEmpty().sortedBy { it.name }
             val cursor = MatrixCursor(projection ?: DOCUMENT_PROJECTION)
             val faulted = faultedFolder == null || faultedFolder == parent
-            when (val fault = if (faulted) childListingFaults.removeFirstOrNull() else null) {
+            val queued = if (faulted) childListingFaults.removeFirstOrNull() else null
+            when (val fault = queued ?: listingFault?.invoke(parent)) {
                 ChildListingFault.Throw -> throw IllegalStateException("child query failed")
                 ChildListingFault.NullCursor -> return null
                 is ChildListingFault.Short -> children.take(fault.keep).forEach { cursor.addFile(it) }
+                is ChildListingFault.Without -> children.filter { it.name != fault.name }.forEach { cursor.addFile(it) }
                 ChildListingFault.Loading -> {
                     children.forEach { cursor.addFile(it) }
                     cursor.extras = Bundle().apply { putBoolean(DocumentsContract.EXTRA_LOADING, true) }
@@ -121,10 +128,14 @@ class FakeSafProvider : ContentProvider() {
         }
 
         override fun openDocument(documentId: String, mode: String, signal: CancellationSignal?): ParcelFileDescriptor =
-            ParcelFileDescriptor.open(existing(documentId), ParcelFileDescriptor.parseMode(mode))
+            existing(documentId).let { file ->
+                onCall?.invoke("openDocument", file)
+                ParcelFileDescriptor.open(file, ParcelFileDescriptor.parseMode(mode))
+            }
 
         override fun createDocument(parentDocumentId: String, mimeType: String, displayName: String): String {
             val parent = existing(parentDocumentId)
+            onCall?.invoke("createDocument", File(parent, displayName))
             beforeCreate?.invoke()
             val (name, ext) = splitFileName(mimeType, displayName)
             val asked = File(parent, if (ext.isEmpty()) name else "$name.$ext")
@@ -136,12 +147,14 @@ class FakeSafProvider : ContentProvider() {
         }
 
         override fun deleteDocument(documentId: String) {
+            onCall?.invoke("deleteDocument", existing(documentId))
             check(existing(documentId).deleteRecursively()) { "could not delete $documentId" }
         }
 
         // FileSystemProvider.renameDocument: FileUtils.buildUniqueFile dodges a taken name with "name (1).ext".
         override fun renameDocument(documentId: String, displayName: String): String {
             val file = existing(documentId)
+            onCall?.invoke("renameDocument", File(file.parentFile, displayName))
             beforeRename?.invoke()
             val after = uniqueFile(
                 file.parentFile,
@@ -249,6 +262,15 @@ class FakeSafProvider : ContentProvider() {
         /** Whether a create with a taken name answers with the existing document instead of a numbered one. */
         var createReturnsExisting = false
 
+        /** What a child query of a folder does when [childListingFaults] holds nothing for it. */
+        var listingFault: ((File) -> ChildListingFault?)? = null
+
+        /**
+         * Runs at the head of every provider call with its name and the file it is about (for a create or a
+         * rename, the file under the name asked for); what it throws is the call's own failure.
+         */
+        var onCall: ((call: String, target: File) -> Unit)? = null
+
         /** Runs inside the next creates and renames, before the name is taken: another writer in the window. */
         var beforeCreate: (() -> Unit)? = null
         var beforeRename: (() -> Unit)? = null
@@ -268,6 +290,8 @@ class FakeSafProvider : ContentProvider() {
             createReturnsExisting = false
             beforeCreate = null
             beforeRename = null
+            listingFault = null
+            onCall = null
             queryCount = 0
             val info = ProviderInfo().apply {
                 name = FakeSafProvider::class.java.name

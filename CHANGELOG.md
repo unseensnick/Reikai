@@ -118,6 +118,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Novel download folders now carry each source's name, where extension sources showed only a long number.** Existing folders are renamed on update.
 - **A storage hiccup while deleting downloads no longer removes the series' or the source's other downloads.** The folder goes only once a listing read whole shows it empty, for manga and novels alike.
+- **Merging the downloads of a series that was in the library twice no longer deletes the old chapter folders.** They are emptied of what was copied and kept under a hidden `.moved-` name, so a page storage failed to list is never lost.
 - **A novel chapter downloaded again is written beside its old file and swapped in whole.** A failed download keeps the old file, and a smaller chapter leaves nothing of it behind.
 
 - **A queued novel chapter whose source was uninstalled now fails at once with the reason, and is gone after a restart.**

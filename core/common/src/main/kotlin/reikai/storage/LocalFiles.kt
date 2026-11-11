@@ -224,15 +224,70 @@ fun UniFile.deleteIfEmpty(
     return left.all(onlyMarkers) && delete()
 }
 
+/** The hidden name a moved folder is set aside under; every listing skips a dot-named entry. */
+const val PARKED_PREFIX = ".moved-"
+
+/**
+ * Clears away this original of a move, once [copy] has been checked against it. A file is deleted. A folder never
+ * is: a picked folder's delete takes all it holds, and its listing can hide the same file at every reading, so
+ * no listing proves it empty. It loses only the files [copy] holds under the same name and size, level by level,
+ * and is then set aside by [park], so what the copy lacks stays on disk. False when the original still stands;
+ * it never throws, since the move it follows has landed. `isFile` is asked once: [deleteFile] asks again, and a
+ * provider that fails the second query would turn a file just seen into an exception.
+ */
+fun UniFile.retireMoved(copy: UniFile): Boolean = when {
+    isFile -> delete()
+    isDirectory -> {
+        removeCopied(copy, this)
+        park()
+    }
+    else -> false
+}
+
+private fun removeCopied(copy: UniFile, source: UniFile) {
+    val copied = copy.listFiles().orEmpty().associateBy { it.name }
+    source.listFiles().orEmpty().forEach { child ->
+        val twin = copied[child.name] ?: return@forEach
+        when {
+            child.isDirectory -> if (twin.isDirectory) removeCopied(twin, child)
+            // A failed query answers -1 for both lengths, which is no match.
+            child.isFile -> if (twin.isFile && child.length() >= 0 && child.length() == twin.length()) child.delete()
+        }
+    }
+}
+
+/**
+ * Renames this folder to a hidden name where it stands, so no listing reads it as a series, a volume, a chapter or
+ * a download, and nothing in it is deleted. A second folder set aside from the same name takes the time with it.
+ */
+fun UniFile.park(): Boolean {
+    val parked = PARKED_PREFIX + (name ?: return false)
+    return rename(parked) || rename("$parked ${System.currentTimeMillis().toString(Character.MAX_RADIX)}")
+}
+
+/**
+ * Sets this folder aside by [park] when a trusted listing shows nothing left in it but what [spent] allows (by
+ * default hidden marker files) and folders already set aside: the tidy for a folder a move emptied, in place of a
+ * delete. A listing that failed or came back short leaves it where it is.
+ */
+fun UniFile.parkIfSpent(
+    context: Context,
+    spent: (UniFile) -> Boolean = { it.isFile && it.name.orEmpty().startsWith('.') },
+): Boolean {
+    val left = listOrNull(context) ?: return false
+    return left.all { it.name.orEmpty().startsWith(PARKED_PREFIX) || spent(it) } && park()
+}
+
 /**
  * [source] copied into this folder as [name], new: a file checked by its length, a folder with everything in it
  * read from a trusted listing (hidden markers such as `.nomedia` left out, since storage may not let a copy
- * recreate them) and checked against a trusted listing of the copy. A copy that fails is deleted whole.
+ * recreate them, and the entries of the folder's own level named in [leaving]) and checked against a trusted
+ * listing of the copy. A copy that fails is deleted whole.
  */
-fun UniFile.copyVerified(context: Context, source: UniFile, name: String): UniFile {
+fun UniFile.copyVerified(context: Context, source: UniFile, name: String, leaving: Set<String> = emptySet()): UniFile {
     val target = createNew(context, name, directory = source.isDirectory)
     try {
-        copyInto(context, source, target)
+        copyInto(context, source, target, leaving)
     } catch (e: Throwable) {
         target.deleteTree()
         throw e
@@ -240,13 +295,13 @@ fun UniFile.copyVerified(context: Context, source: UniFile, name: String): UniFi
     return target
 }
 
-private fun copyInto(context: Context, source: UniFile, target: UniFile) {
+private fun copyInto(context: Context, source: UniFile, target: UniFile, leaving: Set<String> = emptySet()) {
     if (!source.isDirectory) {
         source.openInputStream().use { input -> target.openOutputStream().use { input.copyTo(it) } }
         if (target.length() != source.length()) throw IOException("${source.name} was copied short")
         return
     }
-    val entries = source.list(context).filterNot { it.name.orEmpty().startsWith('.') }
+    val entries = source.list(context).filterNot { it.name.orEmpty().startsWith('.') || it.name in leaving }
     entries.forEach { entry ->
         val entryName = entry.name ?: throw IOException("A file in ${source.name} has no name")
         // The target is a fresh folder of this call's own, so its children need no listing of their own.

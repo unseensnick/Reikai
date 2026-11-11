@@ -46,10 +46,10 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.source.local.localVolumeChapter
 import reikai.storage.FolderUnreadableException
-import reikai.storage.deleteIfEmpty
 import reikai.storage.deleteTree
 import reikai.storage.freeNames
 import reikai.storage.list
+import reikai.storage.parkIfSpent
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
 import tachiyomi.domain.chapter.repository.ChapterRepository
@@ -387,8 +387,8 @@ class CombineLocalVolumes(
 
     /**
      * Runs one move and builds its undo. [leaving] entries leave the library, [joining] joins it, and the
-     * [relist] entries list their chapters again; [leftovers] are folders deleted once the chance to undo has
-     * passed, if all they still hold is their cover and details. The caller holds the lock on [folders], the
+     * [relist] entries list their chapters again; [leftovers] are folders set aside under a hidden name once the
+     * chance to undo has passed, if all they still hold is their cover and details. The caller holds the lock on [folders], the
      * series the move touches; the undo and the tidy run later on the app scope, so each takes it again.
      */
     private suspend fun perform(
@@ -460,8 +460,6 @@ class CombineLocalVolumes(
                         removal.restore(tookOut)
                         joining?.let { removal.await(listOf(it)) }
                         (relist + leaving).filter { it != joining }.forEach { relist(type, it) }
-                        // Nothing runs after an undo, so its parked folders are read again here, after the relists.
-                        purgeParked(context, undone.parked)
                     }
                     undone
                 }
@@ -469,8 +467,7 @@ class CombineLocalVolumes(
             finishing = {
                 seriesLocks.withSeries(type, folders) {
                     removal.dropCovers(tookOut.keys.toList())
-                    purgeParked(context, result.parked)
-                    leftovers().forEach { it.deleteIfEmpty(context, onlyMarkers = { file -> file.holdsOnlyDetails() }) }
+                    leftovers().forEach { it.parkIfSpent(context) { file -> file.holdsOnlyDetails() } }
                 }
             },
             appScope = appScope,
@@ -580,11 +577,15 @@ class CombineLocalVolumes(
             names.copy(series = names.series.copy(to = free), taken = names.series.to.takeIf { it != free })
         }
 
-    /** Series [id]'s folder on disk, or for a loose book the folder it sits in. */
+    /**
+     * Series [id]'s folder on disk, or for a loose book the folder it sits in. Asked as `isFile`: a failed query
+     * answers false to both questions, and reading that as "a loose book" would hand Delete volumes the local
+     * folder itself, where a volume's name can be another series'.
+     */
     suspend fun folderOf(type: ContentType, id: Long): UniFile? {
         val series = series(type, listOf(id)).firstOrNull() ?: return null
         val parent = parent(type) ?: return null
-        return parent.findFile(series.folder)?.let { if (it.isDirectory) it else parent }
+        return parent.findFile(series.folder)?.let { if (it.isFile) parent else it }
     }
 
     /**
@@ -758,7 +759,7 @@ class CombineLocalVolumes(
         private val makesFolder = copy.folder?.let { copy.parent.findFile(it) == null } ?: false
         private val placedIn get() = if (copy.folder == null) copy.parent else copy.parent.findFile(copy.folder)
 
-        // Trusted whole, since an Undo deletes whatever the moved folder holds beyond it.
+        // What the folder held when it moved, which tells an Undo what it gained since.
         private val originalFiles = copy.source.takeIf {
             it.isDirectory
         }?.list(context).orEmpty().mapNotNull { it.name }.toSet()
@@ -766,21 +767,23 @@ class CombineLocalVolumes(
         /** The moved file or folder where the move left it, or null when it is gone. */
         fun placed(): UniFile? = placedIn?.findFile(copy.name)
 
-        /** The copy back of [placed], without what the folder gained since, such as the cover a relist wrote. */
+        /**
+         * The copy back of [placed]. The cover and details it gained since, which a relist writes into a split-out
+         * series, stay behind in the folder the Undo sets aside; anything else put there since is the user's own
+         * and goes back with it. Nothing is deleted.
+         */
         fun back(placed: UniFile): FileCopy {
-            if (placed.isDirectory) {
-                placed.listFiles().orEmpty().filter {
-                    it.name !in originalFiles
-                }.forEach { it.deleteTree() }
-            }
-            return FileCopy(placed, origin, null, originalName)
+            val gained = placed.takeIf { it.isDirectory }?.listFiles().orEmpty()
+                .filter { it.name !in originalFiles && it.holdsOnlyDetails() }
+                .mapNotNullTo(HashSet()) { it.name }
+            return FileCopy(placed, origin, null, originalName, gained)
         }
 
-        /** The folder the copy made, once an undo has emptied it, so it does not list as an empty chapter. */
+        /** The folder the copy made, set aside once an undo has emptied it, so it does not list as an empty one. */
         fun dropMadeFolder() {
             if (!makesFolder) return
             val folder = copy.folder?.let { copy.parent.findFile(it) } ?: return
-            folder.deleteIfEmpty(context)
+            folder.parkIfSpent(context) { it.holdsOnlyDetails() }
         }
     }
 

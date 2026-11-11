@@ -48,6 +48,12 @@ class DownloadIndexRulesTest {
     }
 
     @Test
+    @DisplayName("a chapter folder a move set aside is not counted as a second download")
+    fun parkedChapterIsSkipped() {
+        DownloadIndexRules.isIndexed(".moved-Chapter 1_a1b2c3") shouldBe false
+    }
+
+    @Test
     @DisplayName("a finished chapter is counted")
     fun finishedChapterIsCounted() {
         DownloadIndexRules.isIndexed("Chapter 1_a1b2c3.html") shouldBe true

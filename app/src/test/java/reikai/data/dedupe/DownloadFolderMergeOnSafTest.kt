@@ -59,11 +59,23 @@ class DownloadFolderMergeOnSafTest {
             (false to listOf("001.jpg", "002.jpg") to emptyList())
     }
 
+    /** A downloaded chapter can be the only copy left, and a provider can hide the same page at every reading. */
+    @Test
+    fun `a page hidden from every listing of a merged chapter stays on disk, set aside`() {
+        FakeSafProvider.listingFault = { ChildListingFault.Without("002.jpg") }
+
+        DownloadFolderMerge.merge(context, picked(from), picked(into))
+
+        val hidden = tmp.root.walk().single { it.name == "002.jpg" }
+        listOf(File(into, "Ch 1").list()!!.toList(), hidden.readText(), hidden.parentFile!!.name) shouldBe
+            listOf(listOf("001.jpg"), "two", ".moved-Ch 1")
+    }
+
     @Test
     fun `a chapter listed whole moves with every page`() {
         val carry = DownloadFolderMerge.merge(context, picked(from), picked(into))
 
-        (carry.finished to File(into, "Ch 1").list()!!.sorted() to from.exists()) shouldBe
-            (true to listOf("001.jpg", "002.jpg") to false)
+        (carry.finished to File(into, "Ch 1").list()!!.sorted() to from.walk().filter { it.isFile }.count()) shouldBe
+            (true to listOf("001.jpg", "002.jpg") to 0)
     }
 }

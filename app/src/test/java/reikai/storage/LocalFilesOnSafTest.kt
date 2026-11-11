@@ -15,7 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.local.FileCopy
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.moveLocalFiles
-import reikai.data.local.purgeParked
 import reikai.storage.FakeSafProvider.ChildListingFault
 import java.io.File
 
@@ -99,23 +98,24 @@ class LocalFilesOnSafTest {
 
         val result = moveLocalFiles(context, listOf(FileCopy(source(), picked(target), null, "Series"))) {}
 
-        val parked = (result as LocalMoveResult.Moved).parked.map { it.name }
         listOf(
-            result.leftBehind,
-            parked,
+            (result as LocalMoveResult.Moved).leftBehind,
             names(File(tmp.root, "Reikai/.moved-Series")),
             names(File(target, "Series")),
         ) shouldBe
-            listOf(emptyList(), listOf(".moved-Series"), listOf("b.cbz"), listOf("a.cbz", "b.cbz"))
+            listOf(emptyList(), listOf("b.cbz"), listOf("a.cbz", "b.cbz"))
     }
 
     @Test
-    fun `a healthy move copies everything, parks the source and purges it on the next reading`() = runTest {
+    fun `a healthy move copies everything and sets the emptied source aside, hidden`() = runTest {
         val result = moveLocalFiles(context, listOf(FileCopy(source(), picked(target), null, "Series"))) {}
-        val parked = names(File(tmp.root, "Reikai"))
-        purgeParked(context, (result as LocalMoveResult.Moved).parked)
 
-        listOf(result.leftBehind, parked, names(File(tmp.root, "Reikai")), names(File(target, "Series"))) shouldBe
-            listOf(emptyList(), listOf(".moved-Series", "Target"), listOf("Target"), listOf("a.cbz", "b.cbz"))
+        listOf(
+            (result as LocalMoveResult.Moved).leftBehind,
+            names(File(tmp.root, "Reikai")),
+            names(File(tmp.root, "Reikai/.moved-Series")),
+            names(File(target, "Series")),
+        ) shouldBe
+            listOf(emptyList(), listOf(".moved-Series", "Target"), emptyList(), listOf("a.cbz", "b.cbz"))
     }
 }
