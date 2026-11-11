@@ -15,6 +15,7 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.data.backup.restoreLocalVolumes
 import reikai.data.backup.restoredManualOrder
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
@@ -104,10 +105,7 @@ class MangaRestorer(
             }
         }
         // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
-        backupMangas.forEach {
-            localVolumes.restore(ContentType.MANGA, it.url, it.localVolumes.map { volume -> volume.toLocalVolume() })
-            localVolumes.restoreOwners(ContentType.MANGA, it.volumeOwners.map { row -> row.toOwner(it.url) }) // RK
-        }
+        backupMangas.forEach { it.restoreLocalVolumes(ContentType.MANGA, localVolumes, it.url) }
     }
 
     // RK --> merge groups and custom info restore

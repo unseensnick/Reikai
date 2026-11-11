@@ -26,4 +26,5 @@ object BackupFields {
     const val MERGE_GROUPS_STORED: Int = 718
     const val SORT_OVERRIDES_STORED: Int = 719
     const val KITSU_NATIVE_SCALE: Int = 720
+    const val NOVEL_FONTS: Int = 721
 }

@@ -345,6 +345,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A backup with App settings now carries the reader fonts you imported or downloaded, so a restore finds them.** Before, the font setting came back and the reader fell back to the default face.
 - **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.
 - **Unticking Extension repos on the Restore screen now keeps the backup's repos off your device.** The repos to trust are no longer offered then.
 - **Restoring someone else's backup can no longer weaken your privacy or security settings.** Header redaction, verbose logging, crash reports, analytics, the app lock and hidden notifications only ever restore to the safer choice.

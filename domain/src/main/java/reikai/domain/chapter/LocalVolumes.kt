@@ -27,6 +27,12 @@ interface LocalVolumeRepository : LocalVolumeOwnerRepository {
 
     /** Stores the volumes a backup said a series lists from other folders, in its order. */
     suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>)
+
+    /** The volume chip each local series of [type] was left on, by entry id ([VolumePickRepository]). */
+    suspend fun loadedPicks(type: ContentType): Map<Long, String>
+
+    /** Leaves the local series at [series] on the chip [key] a backup carried, unless this device already left it on one. */
+    suspend fun restorePick(type: ContentType, series: String, key: String)
 }
 
 /** [this] volumes in the user's order: the ones [saved] places, by position, then the rest as they came. */

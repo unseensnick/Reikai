@@ -18,6 +18,13 @@ class BackupLocalVolume(
 
 fun LocalVolume.toBackup() = BackupLocalVolume(key, position, label)
 
+/** A local series' own volume rows, carried on BackupManga and BackupNovel alike at 703, 705 and 706. */
+interface BackupLocalVolumeFields {
+    var localVolumes: List<BackupLocalVolume>
+    var volumeOwners: List<BackupVolumeOwner>
+    var volumePick: String?
+}
+
 /**
  * A volume a local series lists from another folder ([reikai.domain.local.VolumeOwner]), carried on the series that
  * lists it, BackupManga and BackupNovel alike at 705, so a restore groups the same files as before.

@@ -137,6 +137,30 @@ class NovelFontManager(
         parsed.familyMetadataList.also { catalogue = it }
     }
 
+    /**
+     * The fonts the user added, file name and bytes, for a backup. A file over [BACKUP_FONT_CAP] is left out, so a
+     * stray huge file in the fonts folder cannot swell every backup.
+     */
+    suspend fun backedUp(): List<Pair<String, ByteArray>> = withIOContext {
+        val dir = storageManager.getFontsDirectory() ?: return@withIOContext emptyList()
+        installed().mapNotNull { font ->
+            val file =
+                dir.findFile(font.fileName)?.takeIf { it.length() in 1..BACKUP_FONT_CAP } ?: return@mapNotNull null
+            runCatching { file.openInputStream().use { it.readBytes() } }.getOrNull()?.let { font.fileName to it }
+        }
+    }
+
+    /**
+     * Puts back a font a backup carried, through the same checked write an import uses, so a failed write keeps the
+     * one already there. One already here at the same size is left alone.
+     */
+    suspend fun restore(fileName: String, bytes: ByteArray): Boolean = withIOContext {
+        if (!isSupportedFontFile(fileName) || !isSfntHeader(bytes)) return@withIOContext false
+        val existing = storageManager.getFontsDirectory()?.findFile(DiskUtil.buildValidFilename(fileName))
+        if (existing != null && existing.length() == bytes.size.toLong()) return@withIOContext true
+        write(fileName, bytes).isSuccess
+    }
+
     suspend fun delete(font: NovelFont): Boolean = withIOContext {
         typefaces.remove(font.fileName)
         File(mirrorDir, font.fileName).delete()
@@ -212,6 +236,9 @@ class NovelFontManager(
     private companion object {
         const val CSS_URL = "https://fonts.googleapis.com/css2?family=%s:wght@400&display=swap"
         const val CATALOGUE_URL = "https://fonts.google.com/metadata/fonts"
+
+        // Larger than any text face; a CJK font runs to about 20 MB.
+        const val BACKUP_FONT_CAP = 32L * 1024 * 1024
     }
 }
 

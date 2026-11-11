@@ -57,8 +57,9 @@ class LocalFilesBackupRoundTripTest {
             volumes.setOrder(type.contentType, SERIES, listOf("vol2", "vol1"))
             volumes.setLabel(type.contentType, SERIES, "vol1", "First")
             volumes.restoreOwners(type.contentType, OWNERS + VolumeOwner("C", "x", "Elsewhere"))
-            // A chapter still on disk: the creator writes a series' volume rows only beside its chapter rows.
-            before.exec(type.chapterStatement(ownerId = 1))
+            before.exec(
+                "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol2')",
+            )
             type.tombstoneStatements(ownerId = 1).forEach { before.exec(it) }
             val keptBefore = ChapterTombstoneRepositoryImpl(before.database).getByOwners(type.contentType, listOf(1))[1]
 
@@ -73,6 +74,7 @@ class LocalFilesBackupRoundTripTest {
                 newId = newId,
                 volumes = restoredVolumes.loadedVolumes(type.contentType)[SERIES],
                 owners = restoredVolumes.all(type.contentType),
+                pick = restoredVolumes.loadedPicks(type.contentType)[newId],
                 kept = ChapterTombstoneRepositoryImpl(
                     after.database,
                 ).getByOwners(type.contentType, listOf(newId))[newId],
@@ -80,6 +82,7 @@ class LocalFilesBackupRoundTripTest {
                 newId = 2,
                 volumes = volumes.loadedVolumes(type.contentType)[SERIES],
                 owners = OWNERS,
+                pick = "vol2",
                 kept = keptBefore,
             )
         } finally {
@@ -92,6 +95,7 @@ class LocalFilesBackupRoundTripTest {
         val newId: Long,
         val volumes: List<LocalVolume>?,
         val owners: List<VolumeOwner>,
+        val pick: String?,
         val kept: List<ChapterTombstone>?,
     )
 
@@ -111,8 +115,8 @@ class LocalFilesBackupRoundTripTest {
         }
     }
 
-    enum class Type(val contentType: ContentType) {
-        MANGA(ContentType.MANGA) {
+    enum class Type(val contentType: ContentType, val db: Long) {
+        MANGA(ContentType.MANGA, 0) {
             override suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String) {
                 driver.execute(
                     null,
@@ -123,11 +127,6 @@ class LocalFilesBackupRoundTripTest {
                     0,
                 ).await()
             }
-
-            override fun chapterStatement(ownerId: Long) =
-                "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_chapter_number, remote_order, " +
-                    "remote_memo, user_read, user_bookmark, user_last_page_read, state_date_fetch) " +
-                    "VALUES (1, $ownerId, '$SERIES/vol2/c1.cbz', 'C1', 1.0, 0, '{}', 0, 0, 0, 0)"
 
             override fun tombstoneStatements(ownerId: Long) = listOf(
                 "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
@@ -172,7 +171,7 @@ class LocalFilesBackupRoundTripTest {
             override suspend fun idOf(database: Database, url: String) =
                 MangaRepositoryImpl(database).getMangaByUrlAndSourceId(url, LocalSource.ID)!!.id
         },
-        NOVEL(ContentType.NOVELS) {
+        NOVEL(ContentType.NOVELS, 1) {
             override suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String) {
                 driver.execute(
                     null,
@@ -181,10 +180,6 @@ class LocalFilesBackupRoundTripTest {
                     0,
                 ).await()
             }
-
-            override fun chapterStatement(ownerId: Long) =
-                "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, chapter_number, source_order, " +
-                    "date_fetch) VALUES (1, $ownerId, '$SERIES/book.epub#1', 'C1', 0, 0, 1.0, 0, 0)"
 
             override fun tombstoneStatements(ownerId: Long) = listOf(
                 "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, " +
@@ -247,7 +242,6 @@ class LocalFilesBackupRoundTripTest {
         ;
 
         abstract suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String)
-        abstract fun chapterStatement(ownerId: Long): String
         abstract fun tombstoneStatements(ownerId: Long): List<String>
         abstract suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray
         abstract suspend fun restore(

@@ -45,4 +45,6 @@ data class Backup(
     @ProtoNumber(719) var backupSortOverridesStored: BackupSortOverridesStored? = null,
     // RK: present when Kitsu scores are on Kitsu's native 2-20 scale; without it a restore may double them.
     @ProtoNumber(720) var backupKitsuNativeScale: BackupKitsuNativeScale? = null,
+    // RK: the reader fonts the user added, whole, so a restored font setting finds its file.
+    @ProtoNumber(721) var backupNovelFonts: List<BackupNovelFont> = emptyList(),
 )

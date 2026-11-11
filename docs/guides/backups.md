@@ -54,7 +54,7 @@ One backup covers both libraries: everything below applies to manga and light no
 The sources behind each [merged series](/docs/multi-source) are saved as source-and-address references, so they rebuild correctly even onto a fresh install. They ride along with **Library entries** and have no checkbox of their own.
 
 #### Settings data
-- **App settings**
+- **App settings** - Including the reader fonts you imported or downloaded, so the font you picked is there after a restore
 - **Extension stores** - Your extension repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel
 - **Source settings**
 - **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them

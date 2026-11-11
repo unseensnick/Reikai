@@ -1,6 +1,7 @@
 package reikai.data.chapter
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
@@ -71,6 +72,19 @@ class LocalVolumeRepositoryImpl(
                 database.local_volume_ownerQueries.setOwner(type.toDbValue(), it.folder, it.volume, it.owner)
             }
         }
+    }
+
+    override suspend fun loadedPicks(type: ContentType): Map<Long, String> =
+        database.local_volume_pickQueries.getAll { dbType, entryId, key -> Triple(dbType, entryId, key) }.awaitAsList()
+            .filter { it.first == type.toDbValue() }.associate { it.second to it.third }
+
+    override suspend fun restorePick(type: ContentType, series: String, key: String) {
+        // By the series' address, since the restore gave it a new id.
+        val id = when (type) {
+            ContentType.NOVELS -> database.local_moveQueries.localNovelId(series)
+            else -> database.local_moveQueries.localMangaId(series)
+        }.awaitAsOneOrNull() ?: return
+        database.local_volume_pickQueries.setIfAbsent(type.toDbValue(), id, key)
     }
 
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {

@@ -19,6 +19,7 @@ import eu.kanade.tachiyomi.data.backup.models.toUrlReadingSession
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
 import mihon.core.common.extensions.toInstantOrNull
+import reikai.data.backup.restoreLocalVolumes
 import reikai.data.backup.restoredManualOrder
 import reikai.data.novel.novelFetchInterval
 import reikai.domain.backup.RestoredChapterHistory
@@ -117,8 +118,7 @@ class NovelRestorer(
             novelId,
             backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
         )
-        localVolumes.restore(ContentType.NOVELS, backupNovel.url, backupNovel.localVolumes.map { it.toLocalVolume() })
-        localVolumes.restoreOwners(ContentType.NOVELS, backupNovel.volumeOwners.map { it.toOwner(backupNovel.url) })
+        backupNovel.restoreLocalVolumes(ContentType.NOVELS, localVolumes, backupNovel.url)
         copyMarks.set(
             ContentType.NOVELS,
             backedUpCopyMarks(backupNovel.chapters, { it.url }, { it.copyMark })

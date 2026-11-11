@@ -56,11 +56,13 @@ class BackupManga(
     // RK: the entry's places in Manual library orders (BackupManualOrderFields), beside 700 and 701.
     @ProtoNumber(702) override var manualOrder: List<BackupManualPosition> = emptyList(),
     // RK: a local series' volume order and names (BackupLocalVolume), beside 702.
-    @ProtoNumber(703) var localVolumes: List<BackupLocalVolume> = emptyList(),
+    @ProtoNumber(703) override var localVolumes: List<BackupLocalVolume> = emptyList(),
     // RK: a local series' removed chapters' kept reading state (BackupChapterTombstone), beside 703.
     @ProtoNumber(704) var chapterTombstones: List<BackupChapterTombstone> = emptyList(),
     // RK: the volumes a local series lists from other folders (BackupVolumeOwner), beside 704.
-    @ProtoNumber(705) var volumeOwners: List<BackupVolumeOwner> = emptyList(),
+    @ProtoNumber(705) override var volumeOwners: List<BackupVolumeOwner> = emptyList(),
+    // RK: a local series' remembered volume chip, by its key, which a restore finds again by the series' address
+    @ProtoNumber(706) override var volumePick: String? = null,
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,
@@ -70,7 +72,7 @@ class BackupManga(
     @ProtoNumber(804) override var customDescription: String? = null,
     @ProtoNumber(805) override var customGenre: List<String>? = null,
     // RK <--
-) : BackupCustomInfoFields, BackupManualOrderFields /* RK */ {
+) : BackupCustomInfoFields, BackupManualOrderFields, BackupLocalVolumeFields /* RK */ {
     fun getMangaImpl(): Manga {
         return Manga.create().copy(
             url = this@BackupManga.url,

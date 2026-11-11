@@ -74,5 +74,6 @@ suspend fun restoreEncoded(
         restoreExtensionInstaller = restoreExtensionInstaller,
         restoreInstallSources = mockk(relaxed = true),
         manualOrder = manualOrder,
+        novelFonts = mockk(relaxed = true),
     ).restore(uri, options, trusted)
 }

@@ -41,6 +41,7 @@ class BackupFieldsTest {
             "backupMergeGroupsStored" to BackupFields.MERGE_GROUPS_STORED,
             "backupSortOverridesStored" to BackupFields.SORT_OVERRIDES_STORED,
             "backupKitsuNativeScale" to BackupFields.KITSU_NATIVE_SCALE,
+            "backupNovelFonts" to BackupFields.NOVEL_FONTS,
         )
     }
 }

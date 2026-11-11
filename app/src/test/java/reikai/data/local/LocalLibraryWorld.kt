@@ -1137,4 +1137,8 @@ private class DirectLocalVolumes(private val database: Database) : LocalVolumeRe
     override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
         owners.forEach { this.owners.setOwner(type.db(), it.folder, it.volume, it.owner) }
     }
+
+    override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
+
+    override suspend fun restorePick(type: ContentType, series: String, key: String) = Unit
 }

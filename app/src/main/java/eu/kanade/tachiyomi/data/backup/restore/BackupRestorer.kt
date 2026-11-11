@@ -16,6 +16,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelFont
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
@@ -60,6 +61,7 @@ import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.withDisplayBitFromSort
 import reikai.novel.download.NovelDownloadCache
+import reikai.novel.font.NovelFontManager
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
@@ -103,6 +105,7 @@ class BackupRestorer(
     private val restoreExtensionInstaller: RestoreExtensionInstaller,
     private val restoreInstallSources: RestoreInstallSources,
     private val manualOrder: LibraryManualOrderRepository,
+    private val novelFonts: NovelFontManager,
     // RK <--
 ) {
 
@@ -208,6 +211,16 @@ class BackupRestorer(
             if (options.sourceSettings) {
                 restoreSourcePreferences(summary.backupSourcePreferences) // RK: from the pass-1 summary
             }
+            // RK: the fonts the restored reader settings name
+            if (options.appSettings) {
+                restoreIsolated("reader fonts") {
+                    summary.backupNovelFonts.forEach {
+                        if (!novelFonts.restore(it.fileName, it.bytes)) {
+                            errors.add(Date() to "Font not restored: ${it.fileName}")
+                        }
+                    }
+                }
+            }
             if (options.libraryEntries) {
                 restoreMangaStream(
                     uri,
@@ -269,6 +282,7 @@ class BackupRestorer(
         val backupCustomNovelInfo = mutableListOf<BackupCustomNovelInfo>()
         val backupSavedSearches = mutableListOf<BackupSavedSearch>()
         val backupFeedRows = mutableListOf<BackupFeedRow>()
+        val backupNovelFonts = mutableListOf<BackupNovelFont>() // RK
         val novelSourceNames = mutableMapOf<String, String>()
         val backupMangaUnmerges = mutableListOf<BackupMangaMergeGroup>()
         val backupNovelUnmerges = mutableListOf<BackupNovelMergeGroup>()
@@ -323,6 +337,8 @@ class BackupRestorer(
                 BackupFields.MERGE_GROUPS_STORED -> mergeGroupsStored = true
                 BackupFields.SORT_OVERRIDES_STORED -> sortOverridesStored = true
                 BackupFields.KITSU_NATIVE_SCALE -> kitsuNativeScale = true
+                BackupFields.NOVEL_FONTS -> // RK
+                    backupNovelFonts.add(parser.decodeFromByteArray(BackupNovelFont.serializer(), data))
             }
         }
 
@@ -340,6 +356,7 @@ class BackupRestorer(
             backupNovelMerges = backupNovelMerges,
             backupSavedSearches = backupSavedSearches,
             backupFeedRows = backupFeedRows,
+            backupNovelFonts = backupNovelFonts, // RK
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
@@ -372,6 +389,7 @@ class BackupRestorer(
         val backupNovelMerges: List<BackupNovelMergeGroup>,
         val backupSavedSearches: List<BackupSavedSearch>,
         val backupFeedRows: List<BackupFeedRow>,
+        val backupNovelFonts: List<BackupNovelFont>, // RK
         // Absent from a backup made before novels recorded their source names.
         val novelSourceNames: Map<String, String>,
         // False for a 0.3.x backup, whose same-title groups were never stored; the unmerges are its own.

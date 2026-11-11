@@ -15,6 +15,10 @@ set:
 INSERT OR REPLACE INTO local_volume_pick(content_type, entry_id, volume_key)
 VALUES (:contentType, :entryId, :volumeKey);
 
+setIfAbsent:
+INSERT OR IGNORE INTO local_volume_pick(content_type, entry_id, volume_key)
+VALUES (:contentType, :entryId, :volumeKey);
+
 clear:
 DELETE FROM local_volume_pick
 WHERE content_type = :contentType AND entry_id = :entryId;

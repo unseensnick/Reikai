@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
-import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
@@ -19,6 +18,7 @@ import reikai.data.backup.BackupEntryParts
 import reikai.data.backup.ChunkRead
 import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
+import reikai.data.backup.writeLocalVolumes
 import reikai.data.backup.writeRows
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
@@ -118,17 +118,9 @@ class MangaBackupCreator(
         val mangaIds = batch.map { it.first.id }
         val overridesByMangaId = chapterNumberOverrides.getByOwners(ContentType.MANGA, mangaIds)
         val marksByMangaId = copyMarks.loadedMarks(ContentType.MANGA) // RK
-        val volumesBySeries = localVolumes.loadedVolumes(ContentType.MANGA) // RK
-        val ownersBySeries = localVolumes.all(ContentType.MANGA).groupBy { it.owner } // RK
         batch.writeRows(chunkChapters(mangaIds), Manga::id) { entry, backup, chapters ->
             val overrides = overridesByMangaId[entry.id].orEmpty()
             val marks = marksByMangaId[entry.id].orEmpty() // RK
-            // RK: a local series only, since only its url is the folder the volumes are keyed by
-            if (entry.isLocal()) {
-                backup.localVolumes = volumesBySeries[entry.url].orEmpty().map { it.toBackup() }
-                backup.volumeOwners =
-                    ownersBySeries[entry.url].orEmpty().map { BackupVolumeOwner(it.folder, it.volume) }
-            }
             backup.chapters = chapters.map { chapter ->
                 chapter.toBackupChapter().apply {
                     sourceChapterNumber = overrides[chapter.url]?.sourceNumber
@@ -142,6 +134,8 @@ class MangaBackupCreator(
         batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
             backup.chapterTombstones = kept.map { it.toBackup() }
         }
+        // RK: a pass of their own, so a local series with no chapter rows keeps its grouping
+        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, { it.isLocal() }, Manga::id, Manga::url)
     }
 
     override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {

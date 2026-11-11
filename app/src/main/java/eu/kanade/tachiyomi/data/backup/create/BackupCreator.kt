@@ -28,6 +28,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelFont // RK
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
@@ -50,6 +51,7 @@ import reikai.data.backup.mergeGroupRefs
 import reikai.domain.library.ContentType
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelPreferences
+import reikai.novel.font.NovelFontManager // RK
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
@@ -85,6 +87,7 @@ class BackupCreator(
     private val extensionBackupCreator: ExtensionBackupCreator,
     private val feedBackupCreator: FeedBackupCreator,
     private val novelPreferences: NovelPreferences,
+    private val novelFonts: NovelFontManager,
     // RK <--
 ) {
     @AssistedFactory
@@ -188,6 +191,7 @@ class BackupCreator(
                     backupExtensionStores(options),
                 )
                 writeEach(out, BackupFields.EXTENSIONS, BackupExtension.serializer(), backupExtensions(options))
+                writeEach(out, BackupFields.NOVEL_FONTS, BackupNovelFont.serializer(), backupNovelFonts(options))
                 writeEach(
                     out,
                     BackupFields.NOVEL_SOURCES,
@@ -360,6 +364,12 @@ class BackupCreator(
         if (!options.extensionStores) return emptyList()
 
         return extensionBackupCreator()
+    }
+
+    // RK: the reader fonts the user added, with the App settings that name them
+    private suspend fun backupNovelFonts(options: BackupOptions): List<BackupNovelFont> {
+        if (!options.appSettings) return emptyList()
+        return novelFonts.backedUp().map { (name, bytes) -> BackupNovelFont(name, bytes) }
     }
 
     private suspend fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {

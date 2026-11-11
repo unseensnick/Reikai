@@ -15,7 +15,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
-import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
@@ -25,6 +24,7 @@ import reikai.data.backup.ChunkRead
 import reikai.data.backup.mergeGroupRefs
 import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
+import reikai.data.backup.writeLocalVolumes
 import reikai.data.backup.writeRows
 import reikai.domain.category.CategoryContentType
 import reikai.domain.chapter.ChapterCopyMarkRepository
@@ -110,18 +110,10 @@ class NovelBackupCreator(
         val novelIds = batch.map { it.first.id }
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
         val marksByNovelId = copyMarks.loadedMarks(ContentType.NOVELS)
-        val volumesBySeries = localVolumes.loadedVolumes(ContentType.NOVELS)
-        val ownersBySeries = localVolumes.all(ContentType.NOVELS).groupBy { it.owner }
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
             val marks = marksByNovelId[entry.id].orEmpty()
-            // A local series only, since only its url is the folder the volumes are keyed by.
-            if (LocalNovelSource.isLocal(entry.source)) {
-                backup.localVolumes = volumesBySeries[entry.url].orEmpty().map { it.toBackup() }
-                backup.volumeOwners =
-                    ownersBySeries[entry.url].orEmpty().map { BackupVolumeOwner(it.folder, it.volume) }
-            }
             backup.chapters = chapters.map {
                 it.toBackupNovelChapter(
                     sourceNumber = overrides[it.url]?.sourceNumber,
@@ -136,6 +128,9 @@ class NovelBackupCreator(
         batch.writeRows(tombstones.getByOwners(ContentType.NOVELS, novelIds), Novel::id) { _, backup, kept ->
             backup.chapterTombstones = kept.map { it.toBackup() }
         }
+        // A pass of their own, so a local series with no chapter rows keeps its grouping, as the manga creator writes it.
+        val isLocal = { novel: Novel -> LocalNovelSource.isLocal(novel.source) }
+        batch.writeLocalVolumes(ContentType.NOVELS, localVolumes, isLocal, Novel::id, Novel::url)
     }
 
     override suspend fun categories(batch: List<Pair<Novel, BackupNovel>>) {

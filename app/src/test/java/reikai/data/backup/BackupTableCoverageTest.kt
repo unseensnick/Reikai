@@ -116,6 +116,7 @@ class BackupTableCoverageTest {
             "library_manual_order_base" to on(CATEGORY, 8002),
             "local_volume" to on(MANGA, 703) + on(NOVEL, 703),
             "local_volume_owner" to on(MANGA, 705) + on(NOVEL, 705),
+            "local_volume_pick" to on(MANGA, 706) + on(NOVEL, 706),
             // Membership only; a group's source order and override flag are left out (merged-series.md, Decisions).
             "merge_group" to on(ROOT, 702, 711),
             "merge_group_manga" to on(ROOT, 711),
@@ -138,12 +139,11 @@ class BackupTableCoverageTest {
             "dedupe_merged_ids" to "an upgrade migration's record, emptied once its carry finishes",
             "dedupe_merged_chapter_ids" to "an upgrade migration's record, emptied once its carry finishes",
             "taste_library" to "a cache of the tracker libraries, pulled again from the trackers",
+            // data-and-backup.md, Decisions: a row is a disk step on the first device's storage.
             "local_file_journal" to "an in-flight file operation on this device's storage, replayed at start here only",
         )
 
         /** User-set rows no backup carries yet and no doc rules out. Each is an open gap, not a decision. */
-        private val KNOWN_GAPS: Map<String, String> = mapOf(
-            "local_volume_pick" to "the volume chip a split local series was left on, keyed by entry id",
-        )
+        private val KNOWN_GAPS: Map<String, String> = emptyMap()
     }
 }
