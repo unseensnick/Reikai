@@ -279,7 +279,7 @@ class LocalImport(
             if (duplicate != null && choice == DuplicateChoice.Skip) return@forEach
             val copyName = when {
                 duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
-                // A book takes the series and its volume, as Rename files names it; a comic keeps its name,
+                // A book takes the series and its volume, as Organize files names it; a comic keeps its name,
                 // which names its chapter.
                 group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
                 else -> freeName(file.name, taken)

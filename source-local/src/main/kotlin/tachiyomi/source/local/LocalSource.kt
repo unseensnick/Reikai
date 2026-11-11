@@ -308,8 +308,8 @@ class LocalSource(
 
     // Chapters
     private suspend fun getChapterList(manga: SManga): List<SChapter> = withIOContext {
-        // RK --> under the series' lock, which Rename files holds from its disk step to its row step, so the
-        // listing cannot read the renamed files against rows at the old addresses and have the sync delete them
+        // RK --> under the lock on the series' whole group, which Organize files holds from its rows to its last
+        // file step, so the listing cannot read moved files against rows at other addresses and drop them
         seriesLocks.withSeries(ContentType.MANGA, manga.url) { listChapters(manga) }
     }
 

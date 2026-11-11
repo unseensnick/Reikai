@@ -25,7 +25,7 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
  * A local series renamed outside the app: its address is its folder name, so its refresh fails and its rows
  * sit stranded. [candidates] finds the folders in the local root that hold every chapter file the series'
  * rows name, for the user to pick from, never to be picked for them; [relink] then moves the address and
- * every row keyed by it the way Rename files does, under the lock on both names. A loose novel book carries
+ * every row keyed by it the way an organize does, under the lock on both names. A loose novel book carries
  * nothing but the name that changed, so it has no candidates. Both content types.
  */
 @Inject

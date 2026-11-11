@@ -108,8 +108,8 @@ class LocalNovelSource(
         NovelItemsPage(items, CatalogueEnd.Reported(false))
     }
 
-    // Under the series' lock, which Rename files holds from its disk step to its row step, so the listing cannot
-    // read the renamed files against rows at the old addresses and have the sync delete them.
+    // Under the lock on the series' group, which Organize files holds from its rows to its last file step, so the
+    // listing cannot read moved files against rows at other addresses and have the sync drop them.
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
         seriesLocks.withSeries(ContentType.NOVELS, novelPath) { parseSeries(novelPath) }
     }

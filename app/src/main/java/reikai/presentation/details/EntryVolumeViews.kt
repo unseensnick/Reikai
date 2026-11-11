@@ -455,7 +455,7 @@ private fun VolumeName(label: String, key: String, modifier: Modifier = Modifier
 }
 
 /**
- * What Rename files will name a local series' folder and volumes, old name to new, from the [title] and the
+ * What Organize files will name a local series' folder and volumes, old name to new, from the [title] and the
  * [volumes]' labels on screen. The series' folder loads once it opens.
  */
 @Composable

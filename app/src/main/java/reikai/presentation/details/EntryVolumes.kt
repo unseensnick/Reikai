@@ -150,7 +150,7 @@ class VolumePicking(
 
     private val renameRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
 
-    /** The titles Edit info asked the files to take, which the series' screen opens Rename files for. */
+    /** The titles Edit info asked the files to take, which the series' screen opens Organize files for. */
     val fileRenameRequests: SharedFlow<String> = renameRequests
 
     fun requestFileRename(title: String) {

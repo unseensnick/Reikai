@@ -6,7 +6,7 @@ import reikai.novel.export.epubFileName
 import reikai.storage.freeNames
 
 /**
- * A local series' names on disk, [from] each one now [to] what Rename files gives it. [taken] is the series
+ * A local series' names on disk, [from] each one now [to] what Organize files gives it. [taken] is the series
  * name it wanted when something already held it, so [series] carries a free one instead.
  */
 data class LocalFileNames(val series: Rename, val volumes: List<Rename>, val taken: String? = null) {
