@@ -70,6 +70,9 @@ sealed interface EntryDetailsDialog {
 
     /** Correct one chapter's number, [edit] read when it opened. */
     data class ChapterNumber(val edit: ChapterNumberEdit) : EntryDetailsDialog
+
+    /** A local series whose folder is gone, and the folders holding its files the user may link it to. */
+    data class RelinkSeries(val entryTitle: String, val candidates: List<String>) : EntryDetailsDialog
 }
 
 /** One merge source for the manage-sources dialog: id + name + chapter count (for the coverage subtitle). */
@@ -211,6 +214,12 @@ fun Screen.EntryDetailsDialogHost(
             edit = dialog.edit,
             onDismissRequest = onDismissRequest,
             onSave = { behavior.saveChapterNumber(dialog.edit, it) },
+        )
+        is EntryDetailsDialog.RelinkSeries -> RelinkSeriesDialog(
+            entryTitle = dialog.entryTitle,
+            candidates = dialog.candidates,
+            onDismissRequest = onDismissRequest,
+            onConfirm = behavior::relinkSeries,
         )
     }
 }

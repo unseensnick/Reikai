@@ -31,6 +31,7 @@ import reikai.novel.local.epub.EpubChapterRef
 import reikai.novel.local.epub.EpubChapters
 import reikai.novel.local.epub.EpubException
 import reikai.novel.local.epub.EpubMetadata
+import reikai.novel.source.LockedSeriesSource
 import reikai.novel.source.NovelExtensionFormat
 import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
@@ -66,7 +67,7 @@ class LocalNovelSource(
     private val languages: LocalNovelLanguageRepository,
     private val userVolumes: LocalVolumeRepository,
     private val seriesLocks: LocalSeriesLocks,
-) : NovelSource {
+) : NovelSource, LockedSeriesSource {
 
     override val id: String = ID
     override val name: String get() = context.stringResource(MR.strings.local_source)
@@ -109,6 +110,9 @@ class LocalNovelSource(
     override suspend fun parseNovel(novelPath: String): SourceNovel = withIOContext {
         seriesLocks.withSeries(ContentType.NOVELS, novelPath) { parseSeries(novelPath) }
     }
+
+    override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T =
+        seriesLocks.withSeries(ContentType.NOVELS, novelPath, block)
 
     private suspend fun parseSeries(novelPath: String): SourceNovel {
         val series = seriesAt(novelPath) ?: throw LocalNovelMissingException(novelPath)

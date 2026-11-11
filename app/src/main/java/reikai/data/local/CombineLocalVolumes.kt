@@ -136,7 +136,19 @@ class CombineLocalVolumes(
     }
 
     suspend fun combine(type: ContentType, kept: CombinableSeries, others: List<CombinableSeries>): LocalVolumeMove =
-        onApp { if (type == ContentType.NOVELS) combineNovels(kept, others) else combineManga(kept, others) }
+        onApp {
+            // Every series the move touches, named up front: a loose kept book becomes a folder named after it.
+            val folders = listOf(kept.folder, kept.folder.removeSuffix(EPUB)) + others.map { it.folder }
+            seriesLocks.withSeries(type, folders) {
+                if (type ==
+                    ContentType.NOVELS
+                ) {
+                    combineNovels(kept, others, folders)
+                } else {
+                    combineManga(kept, others, folders)
+                }
+            }
+        }
 
     /** Takes [series]' volume [volumeKey] out into a series of its own named [title], in the library. */
     suspend fun splitOut(
@@ -147,12 +159,13 @@ class CombineLocalVolumes(
     ): LocalVolumeMove {
         val folder = DiskUtil.buildValidFilename(title)
         return onApp {
-            if (type ==
-                ContentType.NOVELS
-            ) {
-                splitNovel(series, volumeKeys, folder)
-            } else {
-                splitManga(series, volumeKeys, folder)
+            val folders = listOf(series.folder, folder)
+            seriesLocks.withSeries(type, folders) {
+                if (type == ContentType.NOVELS) {
+                    splitNovel(series, volumeKeys, folder, folders)
+                } else {
+                    splitManga(series, volumeKeys, folder, folders)
+                }
             }
         }
     }
@@ -176,7 +189,11 @@ class CombineLocalVolumes(
         }
     }
 
-    private suspend fun combineManga(kept: CombinableSeries, others: List<CombinableSeries>): LocalVolumeMove {
+    private suspend fun combineManga(
+        kept: CombinableSeries,
+        others: List<CombinableSeries>,
+        folders: List<String>,
+    ): LocalVolumeMove {
         val base = localFiles.getBaseDirectory() ?: return failed(missing(kept))
         val keptDir = localFiles.getMangaDirectory(kept.folder) ?: return failed(missing(kept))
         val taken = keptDir.list(context).mapNotNull { it.name }.toMutableSet()
@@ -237,13 +254,18 @@ class CombineLocalVolumes(
             placements = placements,
             rows = rows,
             volumeRows = volumeRows.moves,
+            folders = folders,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
             leftovers = { others.mapNotNull { localFiles.getMangaDirectory(it.folder) } },
         )
     }
 
-    private suspend fun combineNovels(kept: CombinableSeries, others: List<CombinableSeries>): LocalVolumeMove {
+    private suspend fun combineNovels(
+        kept: CombinableSeries,
+        others: List<CombinableSeries>,
+        folders: List<String>,
+    ): LocalVolumeMove {
         val root = storageManager.getLocalNovelsDirectory() ?: return failed(missing(kept))
         val keptEntry = root.findFile(kept.folder) ?: return failed(missing(kept))
         // A loose book becomes a folder named after it, which the kept series' address then names.
@@ -278,6 +300,7 @@ class CombineLocalVolumes(
             placements = placements,
             rows = rows,
             volumeRows = volumeRows.moves,
+            folders = folders,
             leaving = others.map { it.id },
             relist = listOf(kept.id),
             renamed = UrlChange(kept.id, kept.folder, folder).takeIf { folder != kept.folder },
@@ -285,7 +308,12 @@ class CombineLocalVolumes(
         )
     }
 
-    private suspend fun splitManga(series: CombinableSeries, keys: List<String>, folder: String): LocalVolumeMove {
+    private suspend fun splitManga(
+        series: CombinableSeries,
+        keys: List<String>,
+        folder: String,
+        folders: List<String>,
+    ): LocalVolumeMove {
         val base = localFiles.getBaseDirectory() ?: return failed(missing(series))
         val seriesDir = localFiles.getMangaDirectory(series.folder) ?: return failed(missing(series))
         val volumes = keys.map { seriesDir.findFile(it) ?: return failed(missing(series)) }
@@ -313,12 +341,18 @@ class CombineLocalVolumes(
             placements = placements,
             rows = listOf(OwnerMoves(series.id, created.id, moves)),
             volumeRows = if (single) emptyList() else volumeRowsOut(ContentType.MANGA, series.folder, folder, keys),
+            folders = folders,
             joining = created.id,
             relist = listOf(created.id, series.id),
         )
     }
 
-    private suspend fun splitNovel(series: CombinableSeries, keys: List<String>, folder: String): LocalVolumeMove {
+    private suspend fun splitNovel(
+        series: CombinableSeries,
+        keys: List<String>,
+        folder: String,
+        folders: List<String>,
+    ): LocalVolumeMove {
         val root = storageManager.getLocalNovelsDirectory() ?: return failed(missing(series))
         val seriesDir = root.findFile(series.folder) ?: return failed(missing(series))
         val books = keys.map { seriesDir.findFile(it) ?: return failed(missing(series)) }
@@ -335,6 +369,7 @@ class CombineLocalVolumes(
             placements = books.map { Placement(FileCopy(it, root, folder, it.name.orEmpty()), seriesDir) },
             rows = listOf(OwnerMoves(series.id, created.id, moves)),
             volumeRows = volumeRowsOut(ContentType.NOVELS, series.folder, folder, keys),
+            folders = folders,
             joining = created.id,
             relist = listOf(created.id, series.id),
         )
@@ -352,13 +387,15 @@ class CombineLocalVolumes(
     /**
      * Runs one move and builds its undo. [leaving] entries leave the library, [joining] joins it, and the
      * [relist] entries list their chapters again; [leftovers] are folders deleted once the chance to undo has
-     * passed, if all they still hold is their cover and details.
+     * passed, if all they still hold is their cover and details. The caller holds the lock on [folders], the
+     * series the move touches; the undo and the tidy run later on the app scope, so each takes it again.
      */
     private suspend fun perform(
         type: ContentType,
         placements: List<Placement>,
         rows: List<OwnerMoves>,
         relist: List<Long>,
+        folders: List<String>,
         volumeRows: List<VolumeRowPair> = emptyList(),
         leaving: List<Long> = emptyList(),
         joining: Long? = null,
@@ -383,33 +420,43 @@ class CombineLocalVolumes(
         relist.forEach { relist(type, it) }
         return LocalVolumeMove(
             result = result,
-            undoing = undo@{
-                // Every moved file is found before any is tidied, so an Undo that cannot go through deletes nothing.
-                val placed = placements.map {
-                    it.placed() ?: return@undo LocalMoveResult.Failed(IllegalStateException("Moved files are gone"))
+            undoing = {
+                seriesLocks.withSeries(type, folders) undo@{
+                    // Every moved file is found before any is tidied, so an Undo that cannot go through deletes nothing.
+                    val placed = placements.map {
+                        it.placed() ?: return@undo LocalMoveResult.Failed(IllegalStateException("Moved files are gone"))
+                    }
+                    val back = placements.zip(placed) { placement, file -> placement.back(file) }
+                    val undone = moveLocalFiles(context, back) {
+                        chapterMoves.move(
+                            type,
+                            renamed?.let { SeriesAddress(it.id, it.from) },
+                            rows.map { row ->
+                                OwnerMoves(
+                                    row.toOwner,
+                                    row.fromOwner,
+                                    row.moves.map {
+                                        ChapterMove(it.toUrl, it.fromUrl)
+                                    },
+                                )
+                            },
+                            volumeRows.map { it.back },
+                        )
+                    }
+                    if (undone is LocalMoveResult.Moved) {
+                        placements.forEach { it.dropMadeFolder() }
+                        removal.restore(tookOut)
+                        joining?.let { removal.await(listOf(it)) }
+                        (relist + leaving).filter { it != joining }.forEach { relist(type, it) }
+                    }
+                    undone
                 }
-                val back = placements.zip(placed) { placement, file -> placement.back(file) }
-                val undone = moveLocalFiles(context, back) {
-                    chapterMoves.move(
-                        type,
-                        renamed?.let { SeriesAddress(it.id, it.from) },
-                        rows.map { row ->
-                            OwnerMoves(row.toOwner, row.fromOwner, row.moves.map { ChapterMove(it.toUrl, it.fromUrl) })
-                        },
-                        volumeRows.map { it.back },
-                    )
-                }
-                if (undone is LocalMoveResult.Moved) {
-                    placements.forEach { it.dropMadeFolder() }
-                    removal.restore(tookOut)
-                    joining?.let { removal.await(listOf(it)) }
-                    (relist + leaving).filter { it != joining }.forEach { relist(type, it) }
-                }
-                undone
             },
             finishing = {
-                removal.dropCovers(tookOut.keys.toList())
-                leftovers().forEach { it.deleteIfEmpty(context, onlyMarkers = { file -> file.holdsOnlyDetails() }) }
+                seriesLocks.withSeries(type, folders) {
+                    removal.dropCovers(tookOut.keys.toList())
+                    leftovers().forEach { it.deleteIfEmpty(context, onlyMarkers = { file -> file.holdsOnlyDetails() }) }
+                }
             },
             appScope = appScope,
         )
@@ -533,16 +580,17 @@ class CombineLocalVolumes(
      */
     suspend fun deleteVolumes(type: ContentType, id: Long, keys: List<String>): LocalMoveResult = onAppResult {
         val series = series(type, listOf(id)).firstOrNull()
-        val folder = folderOf(type, id)
-        if (series == null || folder == null) {
-            return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
+            ?: return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
+        seriesLocks.withSeries(type, series.folder) {
+            val folder = folderOf(type, id)
+                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No folder"))
+            val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteTree() == false }
+            // Their saved order and names would otherwise wait at those names for whatever is put there next.
+            chapterMoves.forgetVolumes(type, id, series.folder, keys.takeWhile { it != failed })
+            relist(type, id)
+            failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
+                ?: LocalMoveResult.Moved(emptyList())
         }
-        val failed = keys.firstOrNull { key -> folder.findFile(key)?.deleteTree() == false }
-        // Their saved order and names would otherwise wait at those names for whatever is put there next.
-        chapterMoves.forgetVolumes(type, id, series.folder, keys.takeWhile { it != failed })
-        relist(type, id)
-        failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
-            ?: LocalMoveResult.Moved(emptyList())
     }
 
     private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async { work() }.await()
@@ -583,10 +631,10 @@ class CombineLocalVolumes(
         LocalVolumeMove(result, undoing, {}, appScope)
     }
 
-    // Under the series' lock from the first disk rename to the row step, so no listing reads between them; a
-    // relist comes after, since the lock is not reentrant.
+    // Under the lock on both the series' names from the first disk rename to the row step, so no listing reads
+    // between them; the relist comes after, as an ordinary refresh under its own hold.
     private suspend fun rename(type: ContentType, series: CombinableSeries, names: LocalFileNames): LocalMoveResult =
-        seriesLocks.withSeries(type, series.folder) {
+        seriesLocks.withSeries(type, listOf(series.folder, names.series.to)) {
             val parent = parent(type) ?: return@withSeries missing(series)
             val seriesFile = parent.findFile(series.folder) ?: return@withSeries missing(series)
             val target = names.series.to

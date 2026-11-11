@@ -7,12 +7,16 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -54,5 +58,28 @@ class LocalNovelFolderTest {
 
         runCatching { source.parseNovel("Saga") }.exceptionOrNull()?.javaClass?.simpleName shouldBe
             "FolderUnreadableException"
+    }
+
+    /** The hold a refresh takes through the source is the series' own lock, so a move of the series waits on it. */
+    @Test
+    fun `the source's hold on a series keeps another holder of it waiting until the hold ends`() = runTest {
+        val locks = LocalSeriesLocks().apply { open() }
+        val source = LocalNovelSource(
+            context,
+            mockk<StorageManager> { every { getLocalNovelsDirectory() } returns UniFile.fromFile(root) },
+            Json,
+            mockk(relaxed = true),
+            mockk(relaxed = true),
+            locks,
+        )
+        val waitedInside = CompletableDeferred<Boolean>()
+
+        source.locked("Saga") {
+            val other = backgroundScope.async { locks.withSeries(ContentType.NOVELS, "saga") { "moved" } }
+            repeat(3) { yield() }
+            waitedInside.complete(!other.isCompleted)
+        }
+
+        waitedInside.await() shouldBe true
     }
 }

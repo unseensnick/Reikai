@@ -108,6 +108,9 @@ interface EntryDetailsBehavior {
 
     /** Sets smart update's interval to [days], or back to the predicted one for 0. */
     fun setFetchInterval(days: Int)
+
+    /** Links a local series whose folder is gone to [folder], which holds its files, then refreshes it there. */
+    fun relinkSeries(folder: String)
     fun chapterSwipe(chapterId: Long, action: LibraryPreferences.ChapterSwipeAction)
 
     // Hidden chapters.

@@ -98,6 +98,8 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.local.CombineLocalVolumes
+import reikai.data.local.LocalMoveResult
+import reikai.data.local.LocalSeriesRelink
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.ChapterNumberEdit
 import reikai.domain.chapter.ChapterNumberHint
@@ -284,6 +286,7 @@ class MangaViewModel(
     private val editChapterNumber: EditChapterNumber,
     private val chapterSettings: MangaChapterSettings,
     private val sourceContacts: SourceContacts,
+    private val localSeriesRelink: LocalSeriesRelink,
     // RK <--
 ) : ViewModel() {
 
@@ -763,6 +766,14 @@ class MangaViewModel(
         } catch (_: CancellationException) {
             // ignore
         } catch (e: Exception) {
+            // RK --> a local series whose folder is gone may have been renamed outside the app, so the
+            // folders holding its files are offered in place of the failure
+            val candidates = if (manga.isLocal()) localSeriesRelink.candidates(ContentType.MANGA, manga.id) else null
+            if (!candidates.isNullOrEmpty()) {
+                dialog.value = Dialog.RelinkSeries(manga.title, candidates)
+                return
+            }
+            // RK <--
             // RK: the wording is shared with the novel details refresh
             val message = with(context) { e.refreshFailureMessage() }
 
@@ -771,6 +782,24 @@ class MangaViewModel(
             }
         }
     }
+
+    // RK --> links the series to the folder the user picked, on the app scope so a closed page does not cut the
+    // write off, then refreshes it there
+    fun relinkSeries(folder: String) {
+        val manga = successState?.manga ?: return
+        appScope.launch {
+            val result = localSeriesRelink.relink(ContentType.MANGA, manga.id, folder)
+            viewModelScope.launchIO {
+                if (result is LocalMoveResult.Moved) {
+                    val relinked = getMangaAndChapters.awaitManga(manga.id)
+                    fetchAllFromSource(relinked, manualFetch = true, fetchDetails = true, fetchChapters = true)
+                } else {
+                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
+                }
+            }
+        }
+    }
+    // RK <--
 
     // Manga info - start
 
@@ -1753,6 +1782,9 @@ class MangaViewModel(
         data class DuplicateManga(val manga: Manga, val prompt: DuplicatePrompt<MangaWithChapterCount, Long>) : Dialog
         data class Migrate(val target: Manga, val current: Manga) : Dialog
         data class SetFetchInterval(val manga: Manga) : Dialog
+
+        // RK: a local series whose folder is gone, and the folders holding its files it may be linked to
+        data class RelinkSeries(val title: String, val candidates: List<String>) : Dialog
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
         data object FullCover : Dialog

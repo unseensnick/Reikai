@@ -153,6 +153,15 @@ interface NovelSource {
 }
 
 /**
+ * A source whose novels are files on this device, which an in-app move or rename changes while a refresh may be
+ * reading them: [locked] runs [block], a parse of the novel at [novelPath] and the row sync that follows it,
+ * while nothing else lists or moves that novel. A source over the network has nothing to hold and is not one.
+ */
+interface LockedSeriesSource {
+    suspend fun <T> locked(novelPath: String, block: suspend () -> T): T
+}
+
+/**
  * A novel source that is a catalogue of an installed app rather than a plugin. [appSource] is the
  * catalogue object the app loaded, so a reload that kept it keeps its adapter too.
  */
