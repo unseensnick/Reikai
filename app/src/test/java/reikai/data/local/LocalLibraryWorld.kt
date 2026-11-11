@@ -110,6 +110,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     private val loose = LinkedHashSet<String>()
     private val pending = mutableListOf<Pair<LocalVolumeMove, List<String>>>()
 
+    /** The moves among [pending] that are a Rename files. */
+    private val renames = HashSet<LocalVolumeMove>()
+
     /** Series folders renamed outside the app, by the address their rows are still at until they are linked. */
     private val renamedOutside = HashMap<String, String>()
     private val trace = mutableListOf<String>()
@@ -551,16 +554,34 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val title = if (rng.nextBoolean()) "Ren${word()}" else folder
         val labels = volumesOf(folder).map { it to if (rng.nextBoolean()) "V${++counter}" else it }
         structural(listOf(folder, title))
+        var landed = false
         inApp("rename files of $folder to $title, $labels") {
             val series = app.combine.series(ContentType.MANGA, listOf(id)).single()
             val names = app.combine.renamePlan(ContentType.MANGA, series, title, labels)
-            if (names.changes) moved(app.combine.renameFiles(ContentType.MANGA, series, names), listOf(folder, title))
+            if (!names.changes) return@inApp
+            val move = app.combine.renameFiles(ContentType.MANGA, series, names)
+            landed = move.result is LocalMoveResult.Moved
+            if (landed) renames += move
+            moved(move, listOf(folder, title))
         }
-        // A rename the provider dodged to "name (1)" and then would not take back leaves the folder there, its
-        // rows at the old address: the series is stranded as by a rename outside the app, until it is linked.
+        if (!landed) astray(listOf(folder, title))
+    }
+
+    /**
+     * After a rename, or the undo of one, that did not land: a rename the provider dodged to "name (1)", or one
+     * whose own putting back failed, leaves a folder at a name its rows are not at (named, not a loss). A series
+     * is then stranded as by a rename outside the app until it is linked, and a volume's chapters are at
+     * addresses no row or kept state is at until the next listing.
+     */
+    private suspend fun astray(series: List<String>) {
+        val rows = states("chapter", "remote_url", "user_last_page_read")
+        val kept = states("manga_chapter_tombstone", "url", "last_page_read")
+        val disk = scan()
+        fun astray(chapter: Ch) = urlsOf(chapter, disk).any { it.first in series && it !in rows && it !in kept }
+        chapters.filter { it.state != null && astray(it) }.forEach { it.uncertain = true }
         val addresses = localManga().map { it.second }.toSet()
-        if (!File(local, folder).isDirectory && folder in addresses) {
-            seriesOnDisk().filter { it !in addresses }.forEach { renamedOutside.putIfAbsent(it, folder) }
+        series.filter { !File(local, it).isDirectory && it in addresses }.forEach { gone ->
+            seriesOnDisk().filter { it !in addresses }.forEach { renamedOutside.putIfAbsent(it, gone) }
         }
     }
 
@@ -575,6 +596,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
         chapters.filter { ch -> ch.absent?.let { it.first() == folder && it.getOrNull(1) in keys } == true }
             .forEach { it.removed = true }
+        val strays = chapters.filter { it.uncertain }.toSet()
+        val volumes = keys.map { listOf(folder, it) }
+        val held = before.filterValues { paths -> paths.any { it.drop(2).take(2) in volumes } }.keys
         var clean = false
         inApp("delete volumes $keys of $folder") {
             val result = app.combine.deleteVolumes(ContentType.MANGA, id, keys)
@@ -584,18 +608,19 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         // The user asked for these to go, and for whatever is put at their names next to start unread: a
         // delete that ran whole has dropped their kept state, which one cut off may not have.
         val after = scan()
-
-        // A cover the local source copied from a page outlives the page, and is not the chapter.
-        fun gone(
-            chapter: Ch,
-        ) = chapter.tokens.none { after[it].orEmpty().any { path -> !path.last().startsWith("cover") } }
-        // Only where the listing after the delete ran: a series left with no chapter cannot be listed, and
-        // keeps its rows as it does for files deleted outside the app.
+        // Whatever sat in the deleted volumes went with them, a picture or a second copy of a chapter too. A
+        // cover the local source copied from a page outlives the page, and is not the chapter.
+        val lost = held.filter { token -> after[token].orEmpty().none { !it.last().startsWith("cover") } }.toSet()
+        loose -= lost
+        chapters.filter { chapter -> chapter.tokens.any { it in lost } }.forEach { it.removed = true }
+        // Unread again only where the listing after the delete ran: a series left with no chapter cannot be
+        // listed, and keeps its rows as it does for files deleted outside the app.
         val rows = states("chapter", "remote_url", "user_last_page_read")
-        inside.filter { (chapter, _) -> gone(chapter) }.forEach { (chapter, url) ->
-            chapter.removed = true
-            if (clean && !faults.dead && (folder to url) !in rows) chapter.deletedAt = url.split('/')
-        }
+        // And only a chapter still at the address its row was at: one renamed outside since leaves its state
+        // kept at the old address, where the forget under the deleted volume's name does not reach.
+        inside.filter { (chapter, url) -> chapter.removed && clean && !faults.dead && (folder to url) !in rows }
+            .filter { (chapter, _) -> chapter !in strays }
+            .forEach { (chapter, url) -> chapter.deletedAt = url.split('/') }
     }
 
     private suspend fun outsidePutBackDeleted() {
@@ -620,7 +645,13 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val (move, series) = pending.randomOrNull(rng) ?: return
         pending.removeIf { it.first === move }
         structural(series)
-        inApp("undo the move over $series") { trace += "    -> ${move.undo()}" }
+        var landed = false
+        inApp("undo the move over $series") {
+            val result = move.undo()
+            landed = result is LocalMoveResult.Moved
+            trace += "    -> $result"
+        }
+        if (!landed && move in renames) astray(series)
     }
 
     private suspend fun finishStep() {
