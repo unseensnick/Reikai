@@ -71,6 +71,18 @@ class EntryVolumesTest {
     }
 
     @Test
+    fun `another folder combined in whole stays one volume when the series' own loose files are each their own`() {
+        val borrowed = listOf(
+            row(20, mangaChapterVolume(LOCAL, "Beta/Ch 1", "Beta - Ch 1")),
+            row(21, mangaChapterVolume(LOCAL, "Beta/Ch 2", "Beta - Ch 2")),
+        )
+        val loose = mapOf("Series" to LooseFiles.EACH_ITS_OWN)
+
+        headers((mixed + borrowed).inVolumes(null, emptyMap(), emptyList(), loose)) shouldBe
+            listOf("Vol 01", "Ch 010.cbz", "Ch 011.cbz", "Beta/")
+    }
+
+    @Test
     fun `a manga whose loose files show in no volume is one flat list`() {
         mixed.inVolumes(null, emptyMap(), emptyList(), mapOf("Series" to LooseFiles.NO_VOLUME)) shouldBe null
     }

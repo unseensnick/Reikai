@@ -83,6 +83,14 @@ class LocalGroups(val rows: List<VolumeOwner>) {
 fun localGroupKey(owner: String, folder: String, volume: String): String =
     if (folder == owner) volume else "$folder/$volume"
 
+/**
+ * The key a manga chapter [file] of [folder]'s [volume] shows under in series [owner]: with [eachLoose], a file
+ * loose in the owner's own folder is a volume of its own. Loose files rules only that folder, so a folder another
+ * series was combined in by keeps its loose chapters as one volume.
+ */
+fun localVolumeKey(owner: String, folder: String, volume: String, file: String, eachLoose: Boolean): String =
+    localGroupKey(owner, folder, if (eachLoose && folder == owner && volume == VolumeOwner.LOOSE) file else volume)
+
 /** The folder and volume name [key] names in series [owner]. */
 fun localGroupUnit(owner: String, key: String): Pair<String, String> =
     if ('/' in key) key.substringBefore('/') to key.substringAfter('/') else owner to key

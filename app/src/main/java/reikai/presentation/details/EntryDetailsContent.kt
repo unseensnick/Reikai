@@ -57,7 +57,6 @@ import reikai.domain.download.whereDownloadOffered
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
-import reikai.domain.local.localGroupUnit
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
@@ -265,10 +264,8 @@ fun EntryDetailsContent(
     }
     if (reorderingVolumes && structural != null) {
         val series = structural.chips.first().series
-        // A manga's loose files have a setting of their own; a local novel has none, every book being a volume.
-        val hasLoose =
-            type == ContentType.MANGA &&
-                structural.chips.any { localGroupUnit(series, it.key).second == VolumeOwner.LOOSE }
+        // A manga's own loose files have a setting of their own; a local novel has none, every book being a volume.
+        val hasLoose = type == ContentType.MANGA && structural.chips.any { it.key == VolumeOwner.LOOSE }
         ReorderVolumesDialog(
             volumes = (volumes ?: structural).chips,
             looseFiles = (looseFiles[series] ?: LooseFiles.ONE_VOLUME).takeIf { hasLoose },

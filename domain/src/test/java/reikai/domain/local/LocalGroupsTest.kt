@@ -18,6 +18,15 @@ class LocalGroupsTest {
     )
 
     @Test
+    fun `only a file loose in the series' own folder becomes a volume of its own`() {
+        listOf(
+            localVolumeKey("A", "A", VolumeOwner.LOOSE, "Ch 1", eachLoose = true),
+            localVolumeKey("A", "B", VolumeOwner.LOOSE, "Ch 1", eachLoose = true),
+            localVolumeKey("A", "A", VolumeOwner.LOOSE, "Ch 1", eachLoose = false),
+        ) shouldBe listOf("Ch 1", "B/", "")
+    }
+
+    @Test
     fun `a volume's own row wins over its folder's whole row`() {
         listOf(groups.ownerOf("B", "Vol 1"), groups.ownerOf("B", "Vol 2"), groups.ownerOf("C", "Vol 1")) shouldBe
             listOf("A", "S", "C")

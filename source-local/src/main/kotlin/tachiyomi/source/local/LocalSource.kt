@@ -35,8 +35,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
-import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
+import reikai.domain.local.localVolumeKey
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
 import reikai.source.local.volumeExtras
@@ -452,7 +452,7 @@ class LocalSource(
         return asReversed().groupBy { chapter ->
             localChapterUnit(chapter.url).let { (folder, volume) ->
                 val file = chapter.url.split('/').last { it.isNotEmpty() }
-                localGroupKey(series, folder, if (each && volume == VolumeOwner.LOOSE) file else volume)
+                localVolumeKey(series, folder, volume, file, each)
             }
         }
             .entries.sortedBy { folders.indexOf(localGroupUnit(series, it.key).first) }
