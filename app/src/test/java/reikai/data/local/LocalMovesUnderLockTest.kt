@@ -771,6 +771,21 @@ class LocalMovesUnderLockTest {
     }
 
     @Test
+    fun `a whole-folder member whose chapters are folders is offered the folder it was renamed to`() = runTest {
+        File(local, "Delta/Ch 1").mkdirs()
+        File(local, "Delta/Ch 1/001.png").writeBytes(byteArrayOf(4))
+        addSeries(THIRD, "Delta")
+        refreshed(THIRD)
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD))) }
+        }
+        File(local, "Delta").renameTo(File(local, "Delta Moved"))
+        refreshed(KEPT)
+
+        relink.memberCandidates(ContentType.MANGA, KEPT, "Delta") shouldBe listOf("Delta Moved")
+    }
+
+    @Test
     fun `a member another series also lists from is not linked from this one`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)

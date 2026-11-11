@@ -183,15 +183,17 @@ class LocalSeriesRelink(
         }
     }
 
-    /** What [dir] holds, relative to it; only the subfolders named in [volumes] are read, one level down. */
+    /**
+     * What [dir] holds, relative to it; only the subfolders named in [volumes] are read, one level down. A folder is
+     * named bare, as a chapter's address names a chapter that is a folder of pages.
+     */
     private fun contents(dir: UniFile, volumes: Set<String>): List<String>? {
         val entries = dir.listOrNull(context) ?: return null
         return entries.flatMap { entry ->
             val name = entry.name.orEmpty()
             when {
-                !entry.isDirectory -> listOf(name)
-                name.lowercase() !in volumes -> listOf("$name/")
-                else -> listOf("$name/") +
+                !entry.isDirectory || name.lowercase() !in volumes -> listOf(name)
+                else -> listOf(name) +
                     (entry.listOrNull(context) ?: return null).map { "$name/${it.name.orEmpty()}" }
             }
         }

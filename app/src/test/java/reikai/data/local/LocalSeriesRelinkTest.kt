@@ -202,6 +202,9 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             File(root, "$folder/Vol 1/Ch 2").mkdirs()
             File(root, "$folder/Vol 1/Ch 2/001.jpg").writeBytes(byteArrayOf(1))
             File(root, "$folder/Extra.cbz").writeBytes(byteArrayOf(3))
+            // A loose chapter that is a folder of pages, named by its address as a folder is.
+            File(root, "$folder/Ch 3").mkdirs()
+            File(root, "$folder/Ch 3/001.jpg").writeBytes(byteArrayOf(4))
         }
         val id = entry(folder)
         val urls = chapterUrls(folder)
@@ -232,7 +235,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             LocalNovelSource.chapterPath(folder, "Saga - Vol. 2.epub", EpubChapterKey("c2.xhtml")),
         )
     } else {
-        listOf("$folder/Vol 1/Ch 1", "$folder/Vol 1/Ch 2", "$folder/Extra.cbz")
+        listOf("$folder/Ch 3", "$folder/Vol 1/Ch 1", "$folder/Vol 1/Ch 2", "$folder/Extra.cbz")
     }
 
     private suspend fun entry(url: String): Long = if (type == ContentType.NOVELS) {
