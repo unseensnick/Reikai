@@ -571,6 +571,8 @@ class CombineLocalVolumes(
         }
         val rules = mutableListOf<UrlRule>()
         val keys = HashMap<String, String>()
+        // The volumes this plan moves; any other the series lists keeps its owner row.
+        val moved = HashSet<Pair<String, String>>()
         for ((folder, volume) in units) {
             val key = localGroupKey(own, folder, volume)
             if (loneBook) {
@@ -597,14 +599,15 @@ class CombineLocalVolumes(
                 rules += UrlRule(folder, volume, target, name)
             }
             if (key != name) keys[key] = name
+            moved += folder to volume
         }
         if (!needsFolder && !loneBook && own != target) steps += FileStep.Rename(listOf(own), target)
         val before = rows.filter { it.owner == own }
-        // A folder the series held whole, or the loose chapters of one, keep listing under it, so what is left
-        // there (a chapter the listing missed, its cover, a file put there since) stays with its rows.
+        // A folder the series held whole, the loose chapters of one, and a volume this plan does not move (the
+        // listing missed it) keep listing under it, so what is left there stays with its rows.
         val after = before.filter {
             it.folder != own &&
-                (it.volume == VolumeOwner.WHOLE || it.volume == VolumeOwner.LOOSE)
+                (it.volume == VolumeOwner.WHOLE || it.volume == VolumeOwner.LOOSE || (it.folder to it.volume) !in moved)
         }
             .map { it.copy(owner = target) }
         return Organize(

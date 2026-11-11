@@ -831,6 +831,34 @@ class LocalMovesUnderLockTest {
             listOf(true, true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
+    /** Found by the randomized test: a split-out volume the organize's listing missed whole lost its owner row. */
+    @Test
+    fun `a borrowed volume the organize's listing missed stays with the series that lists it`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 1/Ch 1")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 1", "Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        val vol1 = File(local, "Kept/Vol 1")
+        FakeSafProvider.listingFault = { if (it == vol1) FakeSafProvider.ChildListingFault.Without("Ch 1") else null }
+        val names = combine.organizePlan(
+            ContentType.MANGA,
+            series(split),
+            "Split",
+            listOf("Kept/Vol 1" to "1", "Kept/Vol 2" to "2"),
+        )
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
+        }
+        FakeSafProvider.listingFault = null
+        refresh(series(KEPT).toManga(), fetchChapters = true)
+
+        urls(KEPT) shouldBe emptyList()
+    }
+
     private suspend fun combined() = withContext(Dispatchers.Default) {
         withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
     }

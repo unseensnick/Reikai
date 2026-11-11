@@ -25,6 +25,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.job
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
@@ -125,6 +127,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 
     /** Series folders renamed outside the app, by the address their rows are still at until they are linked. */
     private val renamedOutside = HashMap<String, String>()
+
+    /** Group member folders renamed outside the app, new name to the name the group still lists them by. */
+    private val renamedMembers = HashMap<String, String>()
     private val trace = mutableListOf<String>()
 
     /** What the run did so far, a line per step, operation, fault and result. */
@@ -298,7 +303,15 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
         private val mangaAdder =
             mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
-        val organizer = LocalOrganizer(context, journal, chapterMoves, locks, scope)
+
+        // Retries of a blocked organize wait on this clock, which only [retryStep] moves, so a run stays the same run.
+        val retries = TestCoroutineScheduler()
+        val retryScope = CoroutineScope(
+            StandardTestDispatcher(retries) + SupervisorJob() + CoroutineExceptionHandler { _, e ->
+                if (e !is KillError) violations += "a retry threw $e"
+            },
+        )
+        val organizer = LocalOrganizer(context, journal, chapterMoves, locks, retryScope)
         val combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
@@ -391,7 +404,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     fun close() {
         FakeSafProvider.onCall = null
         FakeSafProvider.listingFault = null
-        if (::app.isInitialized) app.scope.cancel()
+        if (::app.isInitialized) {
+            app.scope.cancel()
+            app.retryScope.cancel()
+        }
         real.close()
     }
 
@@ -444,6 +460,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         // Whatever the dead process still ran dies at its next call, before anything new starts.
         runCatching { app.settle() }
         app.scope.cancel()
+        app.retryScope.cancel()
         faults.dead = false
         trace +=
             "    restart and replay ${real.rows("SELECT count(*) FROM local_file_journal") {
@@ -480,6 +497,11 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             2 to ::outsideMoveChapter,
             2 to ::outsideAddChapter,
             4 to ::relinkStep,
+            3 to ::outsideRenameMember,
+            3 to ::outsidePutBackMember,
+            5 to ::fixMemberStep,
+            3 to ::retryStep,
+            2 to ::looseFilesStep,
             3 to ::backupStep,
             5 to ::mergeStep,
             1 to ::newDownloadsStep,
@@ -836,6 +858,81 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
     }
 
+    /** A folder a group lists whole renamed outside the app; the group must go on refreshing and keep its rows. */
+    private suspend fun outsideRenameMember() {
+        val groups = groups()
+        val member = seriesOnDisk().filter { groups.isLentWhole(it) }.randomOrNull(rng) ?: return
+        val to = File(local, "Gone${word()}")
+        if (!File(local, member).renameTo(to)) return
+        renamedMembers[to.name] = member
+        structural(listOf(member))
+        trace += "  outside: rename member $member to ${to.name}"
+    }
+
+    private suspend fun outsidePutBackMember() {
+        val (now, was) = renamedMembers.entries.sortedBy { it.key }.randomOrNull(rng)?.toPair() ?: return
+        if (File(local, was).exists() || !File(local, now).renameTo(File(local, was))) return
+        renamedMembers -= now
+        structural(listOf(was))
+        trace += "  outside: put member $now back as $was"
+    }
+
+    /** What the missing-volume dialog offers: link to a candidate, link to any folder chosen, or take it out. */
+    private suspend fun fixMemberStep() {
+        val missing = owned().flatMap { (id, folder) ->
+            app.relink.missingMembers(ContentType.MANGA, id).map { Triple(id, folder, it) }
+        }
+        val (id, folder, member) = missing.randomOrNull(rng) ?: return
+        val choice = rng.nextInt(3)
+        inApp("fix missing member $member of $folder (choice $choice)") {
+            val result = when (choice) {
+                0 -> app.combine.removeMember(
+                    ContentType.MANGA,
+                    app.combine.series(ContentType.MANGA, listOf(id)).single(),
+                    member,
+                )
+                else -> {
+                    val offered = if (choice == 1) {
+                        app.relink.memberCandidates(ContentType.MANGA, id, member)
+                    } else {
+                        app.relink.memberChoices(ContentType.MANGA, member)
+                    }
+                    trace += "    offered $offered"
+                    val to = offered.randomOrNull(rng) ?: return@inApp
+                    // A folder chosen by hand need not hold the member's files: what it holds and what the member
+                    // held then say nothing about their reading state.
+                    if (to != renamedMembers.entries.firstOrNull { it.value == member }?.key) {
+                        chaptersUnder(File(local, to)).forEach { it.uncertain = true }
+                        renamedMembers.entries.filter { it.value == member }
+                            .forEach { chaptersUnder(File(local, it.key)).forEach { ch -> ch.uncertain = true } }
+                    }
+                    app.relink.relinkMember(ContentType.MANGA, id, member, to).also {
+                        if (it is LocalMoveResult.Moved) renamedMembers.entries.removeIf { e -> e.value == member }
+                    }
+                }
+            }
+            trace += "    -> $result"
+        }
+    }
+
+    /** Time passes, so a retry of an organize that could neither finish nor be put back runs. */
+    private suspend fun retryStep() {
+        val rows = real.rows("SELECT count(*) FROM local_file_journal") { it.getLong(0) }.single()
+        if (rows == 0L) return
+        inApp("time passes for $rows journal rows") {
+            app.retries.advanceTimeBy((1 + rng.nextInt(600)) * 1_000L)
+            app.retries.runCurrent()
+            trace += "    -> ${real.rows("SELECT count(*) FROM local_file_journal") { it.getLong(0) }.single()} left"
+        }
+    }
+
+    private suspend fun looseFilesStep() {
+        val (_, folder) = owned().randomOrNull(rng) ?: return
+        val mode = LooseFiles.entries.random(rng)
+        app.volumes.setLooseFiles(folder, mode)
+        trace += "  loose files of $folder: $mode"
+    }
+
     private suspend fun backupStep() {
         val wipe = rng.nextBoolean()
         trace += "  backup, ${if (wipe) "clear the library, " else ""}restore"
@@ -866,6 +963,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             real.exec("DELETE FROM manga WHERE source_id = 0")
             real.exec("DELETE FROM local_volume_owner")
             real.exec("DELETE FROM local_volume")
+            real.exec("DELETE FROM local_manga_loose")
             pending.clear()
         }
         mangaRestorer(database, localVolumes = app.volumes).restore(batch.map { it.second }, emptyList())
@@ -1036,6 +1134,12 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
                     chapters.filter { it.absent?.first() == folder }.forEach { it.uncertain = true }
                 }
             }
+        }
+        // A renamed member folder an import or Browse opened as a series of its own lists new rows there, while
+        // the group keeps the reading state at the member's old address, as for a renamed series (named).
+        renamedMembers.keys.filter { it in addresses }.forEach { folder ->
+            chaptersUnder(File(local, folder)).forEach { it.uncertain = true }
+            renamedMembers -= folder
         }
         chapters.filter { !it.removed && !it.uncertain }.forEach { chapter ->
             val urls = urlsOf(chapter, disk).filter { it.first in ownedSeries }
