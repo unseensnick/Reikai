@@ -36,8 +36,3 @@ renameFolder:
 UPDATE local_volume_owner SET folder = :toFolder,
     volume_key = CASE WHEN volume_key = :fromFolder THEN :toFolder ELSE volume_key END
 WHERE content_type = :contentType AND folder = :fromFolder;
-
--- A member leaving the series that lists it.
-forgetFolder:
-DELETE FROM local_volume_owner
-WHERE content_type = :contentType AND folder = :folder AND owner = :owner;

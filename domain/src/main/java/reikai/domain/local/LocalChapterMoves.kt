@@ -84,16 +84,6 @@ interface LocalChapterMoveRepository {
         movedUrl: (String) -> String,
     )
 
-    /**
-     * Takes the member folder [member] out of the group of series [entryId] at [series], in one transaction: its
-     * owner rows and its volumes' saved order, names and picked chip ([keys]). Its chapters' rows are the next
-     * listing's to remove, which keeps their state as for any file gone.
-     */
-    suspend fun leaveGroup(type: ContentType, entryId: Long, series: String, member: String, keys: List<String>)
-
-    /** Moves the kept states at [urls] from [fromId] to [toId], folding onto any already there, in one transaction. */
-    suspend fun handOverKeptStates(type: ContentType, fromId: Long, toId: Long, urls: List<String>)
-
     /** The address of every local series of [type] in the database, in the library or not. */
     suspend fun localAddresses(type: ContentType): Set<String>
 }

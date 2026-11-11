@@ -134,10 +134,10 @@ class LocalSeriesRelink(
                 ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
             val held = owners.all(type).filter { it.folder == member }
             when {
-                member in names -> return@withSeries failed(" is back in the local folder")
-                to !in names || to in taken(type) -> return@withSeries failed(" cannot take 's place")
+                member in names -> return@withSeries failed("$member is back in the local folder")
+                to !in names || to in taken(type) -> return@withSeries failed("$to cannot take $member's place")
                 held.any { it.owner != series } || held.none { it.volume == VolumeOwner.WHOLE } ->
-                    return@withSeries failed("Another series lists 's volumes")
+                    return@withSeries failed("Another series lists $member's volumes")
             }
             val book = isBook(type, member)
             val keys = volumeKeys(type, id, series).mapNotNull { key ->

@@ -436,10 +436,10 @@ class CombineLocalVolumes(
     }
 
     /**
-     * Takes [member], a folder of [series]' group renamed or removed outside the app, out of the group. Its chapters'
-     * rows then go through the series' listing, which keeps each one's reading state as for any file gone, handed to
-     * the member's own series where there is one, so it comes back once the folder is back and listed. Refused while
-     * the folder is in the local folder, whose listing would then refuse to drop rows whose files are there.
+     * Takes [member], a folder of [series]' group renamed or removed outside the app, out of the group, in one
+     * regrouping: its chapters' rows and kept states go to the member's own series, as a combine's Undo hands them
+     * back, so their reading state is there once the folder is back and listed; with no series of its own they stay
+     * and the next listing keeps their state as for any file gone. Refused while the folder is in the local folder.
      */
     suspend fun removeMember(type: ContentType, series: CombinableSeries, member: String): LocalMoveResult =
         onAppResult {
@@ -448,19 +448,22 @@ class CombineLocalVolumes(
                     ?: return@withSeries missing(series)
                 val rows = localVolumes.all(type).filter { it.folder == member && it.owner == series.folder }
                 if (member in names || rows.isEmpty()) {
-                    return@withSeries LocalMoveResult.Failed(IllegalStateException(" is not a missing member"))
+                    return@withSeries LocalMoveResult.Failed(IllegalStateException("$member is not a missing member"))
                 }
-                val keys = (
-                    localVolumes.loadedVolumes(type)[series.folder].orEmpty().map { it.key } +
-                        listOfNotNull(localVolumes.loadedPicks(type)[series.id])
-                    ).filter { localGroupUnit(series.folder, it).first == member }
-                chapterMoves.leaveGroup(type, series.id, series.folder, member, keys)
+                // Its volumes' saved order and names go home with it, keyed as its own folder keys them.
+                val volumes = localVolumes.loadedVolumes(type)[series.folder].orEmpty().mapNotNull { row ->
+                    val (folder, volume) = localGroupUnit(series.folder, row.key)
+                    VolumeRowMove(series.folder, row.key, member, volume, row.position).takeIf { folder == member }
+                }
+                try {
+                    chapterMoves.regroup(type, mapOf(series.folder to series.id), rows, emptyList(), volumes) {
+                        chapterVolumeUnit(type, it)
+                    }
+                } catch (e: Exception) {
+                    if (e is CancellationException) throw e
+                    return@withSeries LocalMoveResult.Failed(e)
+                }
                 relist(type, series.id)
-                heldBy(type, member)?.takeIf { it != series.id }?.let { home ->
-                    val kept = tombstones.byOwner(type, series.id).map { it.url }
-                        .filter { chapterVolumeUnit(type, it)?.first == member }
-                    if (kept.isNotEmpty()) chapterMoves.handOverKeptStates(type, series.id, home, kept)
-                }
                 LocalMoveResult.Moved(emptyList())
             }
         }

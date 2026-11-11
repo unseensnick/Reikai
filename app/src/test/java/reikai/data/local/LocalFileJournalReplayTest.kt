@@ -200,17 +200,6 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
             movedUrl: (String) -> String,
         ) = error("not a relink")
 
-        override suspend fun leaveGroup(
-            type: ContentType,
-            entryId: Long,
-            series: String,
-            member: String,
-            keys: List<String>,
-        ) = error("not a leave")
-
-        override suspend fun handOverKeptStates(type: ContentType, fromId: Long, toId: Long, urls: List<String>) =
-            error("not a hand-over")
-
         override suspend fun localAddresses(type: ContentType) = error("not a lookup")
 
         override suspend fun forgetVolumes(
