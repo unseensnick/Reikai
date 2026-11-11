@@ -45,6 +45,7 @@ import reikai.domain.download.DownloadIndexRules
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.local.LocalGroups
+import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
@@ -496,7 +497,12 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         try {
             withContext(Dispatchers.Default) { withTimeout(60_000) { work() } }
         } catch (e: Throwable) {
-            if (!faults.dead && e !is KillError) violations += "$name threw ${e.stackTraceToString().take(1500)}"
+            // A series an organize could neither finish nor put back is refused until the next start, by design.
+            if (e is LocalSeriesBlockedException) {
+                trace += "    -> refused: ${e.message}"
+            } else if (!faults.dead && e !is KillError) {
+                violations += "$name threw ${e.stackTraceToString().take(1500)}"
+            }
         } finally {
             faults.on = false
         }
@@ -1054,7 +1060,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         trace += "  audit"
         localManga().filter { !File(local, it.second).exists() }.forEach { (id, _) ->
             app.relink.candidates(ContentType.MANGA, id)?.singleOrNull()?.let {
-                app.relink.relink(ContentType.MANGA, id, it)
+                runCatching {
+                    app.relink.relink(ContentType.MANGA, id, it)
+                }.onFailure { e -> if (e !is LocalSeriesBlockedException) throw e }
             }
         }
         val clean = owned().filter { (id, _) ->

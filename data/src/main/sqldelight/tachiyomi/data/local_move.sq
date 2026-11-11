@@ -73,3 +73,10 @@ WHERE content_type = :contentType AND entry_id = :entryId AND volume_key = :volu
 moveVolume:
 UPDATE local_volume SET series = :toSeries, volume_key = :toKey, position = :position
 WHERE content_type = :contentType AND series = :fromSeries AND volume_key = :fromKey;
+
+-- The local series at an address, which a regroup hands the chapters its table now gives that series.
+localMangaId:
+SELECT id FROM manga WHERE source_id = 0 AND remote_url = :url;
+
+localNovelId:
+SELECT _id FROM novels WHERE source = 'local' AND url = :url;

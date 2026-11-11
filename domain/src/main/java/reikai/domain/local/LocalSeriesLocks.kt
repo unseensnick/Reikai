@@ -46,7 +46,7 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
         val held = currentCoroutineContext()[HeldSeries]?.keys.orEmpty()
         while (true) {
             val keys = keysOf(type, folders)
-            check(!isOpen || keys.none { it in blocked }) { "Local series ${keys.map { it.second }} wait for a repair" }
+            if (isOpen && keys.any { it in blocked }) throw LocalSeriesBlockedException(keys.map { it.second })
             val wanted = keys - held
             if (wanted.isEmpty()) return block()
             // Taking a series after others are already held is the one way two holders can wait on each other,
@@ -100,6 +100,11 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
         val KEY_ORDER = compareBy<Pair<ContentType, String>>({ it.first.ordinal }, { it.second })
     }
 }
+
+/** Local series whose files and rows disagree until the next start's journal replay ([LocalSeriesLocks.block]). */
+class LocalSeriesBlockedException(
+    folders: List<String>,
+) : IllegalStateException("Local series $folders wait for a repair")
 
 private object NoOwners : LocalVolumeOwnerRepository {
     override suspend fun all(type: ContentType): List<VolumeOwner> = emptyList()

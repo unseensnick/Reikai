@@ -495,6 +495,24 @@ class LocalMovesUnderLockTest {
         (undone is LocalMoveResult.Moved) to readUrls(split) shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
     }
 
+    /** Found by the randomized test: once the combine was undone, the split's Undo no longer led back to it. */
+    @Test
+    fun `undoing a split after the combine it split from was undone hands the volume to its folder's series`() =
+        runTest {
+            markRead("Other/Vol 1/Ch 1")
+            val joined = combined()
+            val split = withContext(Dispatchers.Default) {
+                withTimeout(20_000) {
+                    combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Other/Vol 1"), "Split")
+                }
+            }
+            withContext(Dispatchers.Default) { withTimeout(20_000) { joined.undo() } }
+
+            val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { split.undo() } }
+
+            (undone is LocalMoveResult.Moved) to readUrls(OTHER) shouldBe (true to listOf("Other/Vol 1/Ch 1"))
+        }
+
     private suspend fun addSeries(id: Long, folder: String) = driver.exec(
         "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_cover, remote_status, " +
             "state_initialized, user_reader_flags, user_chapter_flags, user_favorite_at, " +

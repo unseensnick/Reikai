@@ -1,6 +1,7 @@
 package reikai.data.local
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
+import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
@@ -62,10 +63,16 @@ class LocalChapterMoveRepositoryImpl(
                 ownerQueries.getAll(dbType) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }
                     .awaitAsList(),
             )
+            // The owner may be a series this regroup did not name, when a change since has moved the folder's.
+            val ids = HashMap(series)
+            suspend fun idOf(address: String): Long? = ids[address] ?: when (type) {
+                ContentType.NOVELS -> queries.localNovelId(address).awaitAsOneOrNull()
+                else -> queries.localMangaId(address).awaitAsOneOrNull()
+            }?.also { ids[address] = it }
             val moves = series.values.flatMap { id ->
                 (chapterUrls(type, id) + tombstones.byOwner(type, id).map { it.url }).distinct().mapNotNull { url ->
                     val (folder, volume) = unitOf(url) ?: return@mapNotNull null
-                    series[groups.ownerOf(folder, volume)]?.takeIf { it != id }?.let { Triple(id, it, url) }
+                    idOf(groups.ownerOf(folder, volume))?.takeIf { it != id }?.let { Triple(id, it, url) }
                 }
             }
             moves.forEach { (from, to, url) -> moveChapter(type, from, to, ChapterMove(url, url)) }

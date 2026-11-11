@@ -27,6 +27,7 @@ import reikai.domain.local.LocalFileJournalPlan.FileStep
 import reikai.domain.local.LocalFileJournalPlan.Organize
 import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.LocalGroups
+import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
@@ -71,7 +72,7 @@ class LocalVolumeMove internal constructor(
     private val finishing: suspend () -> Unit,
     private val appScope: CoroutineScope,
 ) {
-    suspend fun undo(): LocalMoveResult = appScope.async { undoing() }.await()
+    suspend fun undo(): LocalMoveResult = appScope.async { blockedAs({ it }) { undoing() } }.await()
 
     fun finish() {
         appScope.launch { finishing() }
@@ -232,7 +233,7 @@ class CombineLocalVolumes(
     // A move the screen started finishes after the screen has closed, and nobody is then left to offer its
     // Undo, so its tidy runs at once.
     private suspend fun onApp(move: suspend () -> LocalVolumeMove): LocalVolumeMove {
-        val running = appScope.async { move() }
+        val running = appScope.async { blockedAs({ failed(it) }) { move() } }
         return try {
             running.await()
         } catch (e: CancellationException) {
@@ -442,7 +443,9 @@ class CombineLocalVolumes(
         else -> "$folder/$key/"
     }
 
-    private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async { work() }.await()
+    private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async {
+        blockedAs({ it }, work)
+    }.await()
 
     private suspend fun heldBy(type: ContentType, url: String): Long? = when (type) {
         ContentType.NOVELS -> novelRepository.getByUrlAndSource(url, LocalNovelSource.ID)?.id
@@ -628,4 +631,11 @@ class CombineLocalVolumes(
     }
 
     private class VolumeRowPair(val forward: VolumeRowMove, val back: VolumeRowMove)
+}
+
+/** A change to a series waiting for an organize's repair fails, as one over an unreadable folder does. */
+private suspend fun <T> blockedAs(failed: (LocalMoveResult) -> T, work: suspend () -> T): T = try {
+    work()
+} catch (e: LocalSeriesBlockedException) {
+    failed(LocalMoveResult.Failed(e))
 }

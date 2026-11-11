@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.source.model.SManga
 import logcat.LogPriority
 import mihon.domain.source.models.RemoteMangaUpdate
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.source.keptCover
 import reikai.domain.source.keptDetail
@@ -115,9 +116,21 @@ class UpdateMangaFromRemote(
         }
     }
 
-    // RK --> the series is the folder the manga's url names; any other source holds nothing on disk
-    private suspend fun <T> underSeriesLock(source: Source, manga: Manga, refresh: suspend () -> T): T =
-        if (source.isLocal()) seriesLocks.withSeries(ContentType.MANGA, manga.url, refresh) else refresh()
+    // RK --> the series is the folder the manga's url names; any other source holds nothing on disk. A series
+    // waiting for an organize's repair fails its refresh, as an unreadable folder does.
+    private suspend fun underSeriesLock(
+        source: Source,
+        manga: Manga,
+        refresh: suspend () -> Result<RemoteMangaUpdate>,
+    ): Result<RemoteMangaUpdate> = if (source.isLocal()) {
+        try {
+            seriesLocks.withSeries(ContentType.MANGA, manga.url, refresh)
+        } catch (e: LocalSeriesBlockedException) {
+            Result.failure(e)
+        }
+    } else {
+        refresh()
+    }
     // RK <--
 
     private suspend fun awaitUpdateFromSource(
