@@ -665,6 +665,11 @@
         <item name="colorSurfaceInverse">@color/cloudflare_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/cloudflare_inverseOnSurface</item>
         <item name="colorOutline">@color/cloudflare_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/cloudflare_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/cloudflare_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/cloudflare_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/cloudflare_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/cloudflare_surfaceContainerHighest</item>
     </style>
 
     <!--== Doom theme by LuftVerbot ==-->
@@ -691,6 +696,11 @@
         <item name="colorSurfaceInverse">@color/doom_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/doom_inverseOnSurface</item>
         <item name="colorOutline">@color/doom_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/doom_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/doom_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/doom_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/doom_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/doom_surfaceContainerHighest</item>
     </style>
 
     <!--== Matrix theme by LuftVerbot ==-->
@@ -717,6 +727,11 @@
         <item name="colorSurfaceInverse">@color/matrix_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/matrix_inverseOnSurface</item>
         <item name="colorOutline">@color/matrix_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/matrix_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/matrix_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/matrix_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/matrix_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/matrix_surfaceContainerHighest</item>
     </style>
 
     <!--== Sapphire theme by LuftVerbot ==-->
@@ -743,6 +758,11 @@
         <item name="colorSurfaceInverse">@color/sapphire_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/sapphire_inverseOnSurface</item>
         <item name="colorOutline">@color/sapphire_outline</item>
+        <item name="colorSurfaceContainerLowest">@color/sapphire_surfaceContainerLowest</item>
+        <item name="colorSurfaceContainerLow">@color/sapphire_surfaceContainerLow</item>
+        <item name="colorSurfaceContainer">@color/sapphire_surfaceContainer</item>
+        <item name="colorSurfaceContainerHigh">@color/sapphire_surfaceContainerHigh</item>
+        <item name="colorSurfaceContainerHighest">@color/sapphire_surfaceContainerHighest</item>
     </style>
 
     <!--== Spring and Dusk theme ==-->

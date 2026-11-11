@@ -102,6 +102,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_custom_theme_color),
                     subtitle = stringResource(MR.strings.pref_custom_theme_color_summary),
+                    visible = appTheme == AppTheme.CUSTOM,
                     onClick = { navigator.push(CustomThemeColorScreen()) },
                 ),
                 Preference.PreferenceItem.ListPreference(

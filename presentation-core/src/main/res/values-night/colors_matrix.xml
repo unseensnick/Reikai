@@ -23,4 +23,9 @@
     <color name="matrix_inverseSurface">#FAFAFA</color>
     <color name="matrix_inverseOnSurface">#313131</color>
     <color name="matrix_outline">#00FF00</color>
+    <color name="matrix_surfaceContainerLowest">#0B0B0B</color>
+    <color name="matrix_surfaceContainerLow">#161616</color>
+    <color name="matrix_surfaceContainer">#1A1A1A</color>
+    <color name="matrix_surfaceContainerHigh">#202020</color>
+    <color name="matrix_surfaceContainerHighest">#262626</color>
 </resources>

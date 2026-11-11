@@ -23,4 +23,9 @@
     <color name="cloudflare_inverseSurface">#313033</color>
     <color name="cloudflare_inverseOnSurface">#F3EFF4</color>
     <color name="cloudflare_outline">#F38020</color>
+    <color name="cloudflare_surfaceContainerLowest">#FFFFFF</color>
+    <color name="cloudflare_surfaceContainerLow">#ECEFF2</color>
+    <color name="cloudflare_surfaceContainer">#E6E9EC</color>
+    <color name="cloudflare_surfaceContainerHigh">#E1E4E7</color>
+    <color name="cloudflare_surfaceContainerHighest">#DBDEE1</color>
 </resources>

@@ -23,4 +23,9 @@
     <color name="sapphire_inverseSurface">#424242</color>
     <color name="sapphire_inverseOnSurface">#FAFAFA</color>
     <color name="sapphire_outline">#1E88E5</color>
+    <color name="sapphire_surfaceContainerLowest">#FFFFFF</color>
+    <color name="sapphire_surfaceContainerLow">#FCFCFC</color>
+    <color name="sapphire_surfaceContainer">#F6F6F6</color>
+    <color name="sapphire_surfaceContainerHigh">#F1F1F1</color>
+    <color name="sapphire_surfaceContainerHighest">#EBEBEB</color>
 </resources>

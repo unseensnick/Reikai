@@ -23,4 +23,9 @@
     <color name="doom_inverseSurface">#424242</color>
     <color name="doom_inverseOnSurface">#FAFAFA</color>
     <color name="doom_outline">#FF0000</color>
+    <color name="doom_surfaceContainerLowest">#1D1D1D</color>
+    <color name="doom_surfaceContainerLow">#252525</color>
+    <color name="doom_surfaceContainer">#292929</color>
+    <color name="doom_surfaceContainerHigh">#303030</color>
+    <color name="doom_surfaceContainerHighest">#363636</color>
 </resources>
