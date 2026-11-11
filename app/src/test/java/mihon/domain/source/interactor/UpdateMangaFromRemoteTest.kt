@@ -32,7 +32,9 @@ class UpdateMangaFromRemoteTest {
 
     @Test
     fun `an extension built against a missing app method fails as an Exception callers already handle`() = runTest {
+        // An online source, so the lock asks nothing of it and the refresh reaches the extension's call.
         val source = mockk<Source> {
+            every { id } returns 7L
             coEvery { getMangaUpdate(any(), any(), any(), any()) } throws NoSuchMethodError("okhttp3.Foo.bar")
         }
 

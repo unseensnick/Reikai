@@ -67,29 +67,39 @@ class UpdateMangaFromRemote(
         fetchChapters: Boolean = false,
         manualFetch: Boolean = false,
         fetchWindow: ClosedRange<Instant>? = null,
+    ): Result<RemoteMangaUpdate> = underSeriesLock(source, manga) {
+        // RK --> a local series' listing and its row sync run under the series' lock as one, so a move of its
+        // files cannot land between them and have the sync write rows for files that moved; the body below is
+        // upstream's, untouched
+        refresh(source, manga, fetchDetails, fetchChapters, manualFetch, fetchWindow)
+    }
+
+    private suspend fun refresh(
+        source: Source,
+        manga: Manga,
+        fetchDetails: Boolean,
+        fetchChapters: Boolean,
+        manualFetch: Boolean,
+        fetchWindow: ClosedRange<Instant>?,
     ): Result<RemoteMangaUpdate> = withIOContext {
+        // RK <--
         try {
-            // RK --> a local series' listing and its row sync run under the series' lock as one, so a move of
-            // its files cannot land between them and have the sync write rows for files that moved
-            val newChapters = underSeriesLock(source, manga) {
-                val chapters = chapterRepository.getChapterByMangaId(manga.id)
-                    .sortedBy { it.sourceOrder }
-                val update = source.getMangaUpdate(
-                    manga = manga.toSManga(),
-                    chapters = chapters.map(Chapter::toSChapter),
-                    fetchDetails = fetchDetails,
-                    fetchChapters = fetchChapters,
-                )
-                awaitUpdateFromSource(manga, update.manga, manualFetch)
-                syncChaptersWithSource.await(
-                    rawSourceChapters = update.chapters,
-                    manga = manga,
-                    source = source,
-                    manualFetch = manualFetch,
-                    fetchWindow = fetchWindow,
-                )
-            }
-            // RK <--
+            val chapters = chapterRepository.getChapterByMangaId(manga.id)
+                .sortedBy { it.sourceOrder }
+            val update = source.getMangaUpdate(
+                manga = manga.toSManga(),
+                chapters = chapters.map(Chapter::toSChapter),
+                fetchDetails = fetchDetails,
+                fetchChapters = fetchChapters,
+            )
+            awaitUpdateFromSource(manga, update.manga, manualFetch)
+            val newChapters = syncChaptersWithSource.await(
+                rawSourceChapters = update.chapters,
+                manga = manga,
+                source = source,
+                manualFetch = manualFetch,
+                fetchWindow = fetchWindow,
+            )
             val updatedManga = mangaRepository.getMangaById(manga.id)
 
             Result.success(RemoteMangaUpdate(manga = updatedManga, newChapters = newChapters))
