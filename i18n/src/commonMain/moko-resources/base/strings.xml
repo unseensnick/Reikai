@@ -333,7 +333,7 @@
     <string name="rename_files_choose_name">Choose another name</string>
     <string name="local_files_renamed">Files renamed</string>
     <string name="local_series_missing_title">Folder not found</string>
-    <string name="local_series_missing_message">%1$s\'s folder is gone from the local folder. Link it to the folder that holds its files now</string>
+    <string name="local_series_missing_message">Pick the folder that now holds the files of %1$s</string>
     <string name="action_link_folder">Link</string>
     <string name="local_series_link_failed">Couldn\'t link the folder</string>
     <string name="action_rename">Rename</string>

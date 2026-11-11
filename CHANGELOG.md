@@ -27,6 +27,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Local series can be combined into one series with volumes, and a volume split back out, keeping read progress and offering Undo.** Use Combine as volumes on a library selection or in Manage sources, or Add volumes and Split out volumes from a series' ⋮.
 - **A local series' folder and files can take its title and volume names, from ⋮ -> Rename files.** A preview lists every new name first; Also rename files does it from Edit info and Reorder volumes.
 - **Open folder on a local series opens the folder its files are in.**
+- **A local chapter whose file goes missing keeps its read progress until the file comes back, through renames, moves and backups.** Deleting a volume in the app drops it on purpose.
+- **A local series whose folder was renamed outside the app can be linked to its new folder from its details page.** The folders holding its files are offered; nothing is picked for you.
 - **A local series flags volumes that share a name, and ⋮ -> Delete volumes removes the copies you don't want.** Keep all names the later ones "Vol. 3 (2)" instead.
 - **Local series show their real language in the library, read from the book or comic itself.** It also counts for language search, grouping and Statistics, and `details.json` can set it.
 

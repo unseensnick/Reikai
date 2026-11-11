@@ -130,6 +130,8 @@ Automatic removal (delete after read, delete after marked read, the reader's tri
 - **A manual Delete ignores the excluded categories; the bookmark switch still applies.** The exclusion governs automatic removal only, so a Delete on a read chapter in an excluded category no longer does nothing.
 - **"Downloaded" is a disk scan, not a flag.** A flag drifts from the disk on every reinstall or restore; the `is_downloaded` column is kept only to avoid a table rebuild.
 - **A lost connection pauses, never errors.** The chapter in flight is requeued and fetched when the network returns.
+- **The storage gateway's rules cover online sources' download folders too, not only local files.** `DownloadManager`'s emptied-folder deletes read a listing trusted whole and its title rename is judged by the name it produced, for every source: the direction is only safer (a folder lingers instead of vanishing; a rename dodged to "name (1)" is put back and reported failed where upstream reported success with the cache pointing at a name no folder had).
+- **`Downloader`'s page writes stay raw while `NovelChapterSaver` writes through `replace`.** A manga chapter is written into a fresh `_tmp` folder of its own, which nothing can truncate in place or hand back half-full, so the gateway's beside-and-swap buys it nothing; a novel chapter file is written over an earlier one.
 
 ## Upstream divergences
 
