@@ -46,7 +46,12 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
         val held = currentCoroutineContext()[HeldSeries]?.keys.orEmpty()
         while (true) {
             val keys = keysOf(type, folders)
-            if (isOpen && keys.any { it in blocked }) throw LocalSeriesBlockedException(keys.map { it.second })
+            val repairing = currentCoroutineContext()[Repairing] != null
+            if (isOpen && !repairing &&
+                keys.any { it in blocked }
+            ) {
+                throw LocalSeriesBlockedException(keys.map { it.second })
+            }
             val wanted = keys - held
             if (wanted.isEmpty()) return block()
             // Taking a series after others are already held is the one way two holders can wait on each other,
@@ -85,10 +90,23 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
     /**
      * Refuses every later hold on [folders] in this process: their files and rows disagree after an organize that
      * could neither finish nor be put back, and a listing would read that as chapters gone. The journal keeps the
-     * organize, which the next start's replay finishes or reverses before the locks open.
+     * organize, which a retry in this process ([repairing]) or the next start's replay finishes or reverses.
      */
     fun block(type: ContentType, folders: Collection<String>) {
         folders.forEach { blocked += type to it.lowercase() }
+    }
+
+    /** Lets [folders] be held again, once the organize that blocked them has been finished or put back. */
+    fun unblock(type: ContentType, folders: Collection<String>) {
+        folders.forEach { blocked -= type to it.lowercase() }
+    }
+
+    /** [locked] for the repair of a blocked organize, the one holder its own block lets through. */
+    suspend fun <T> repairing(type: ContentType, folders: Collection<String>, block: suspend () -> T): T =
+        withContext(Repairing()) { locked(type, folders, block) }
+
+    private class Repairing : AbstractCoroutineContextElement(Repairing) {
+        companion object Key : CoroutineContext.Key<Repairing>
     }
 
     /** The series the current coroutine holds, so a listing inside a move runs without waiting on it. */

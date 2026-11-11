@@ -297,7 +297,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
         private val mangaAdder =
             mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
-        val organizer = LocalOrganizer(context, journal, chapterMoves, locks)
+        val organizer = LocalOrganizer(context, journal, chapterMoves, locks, scope)
         val combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,

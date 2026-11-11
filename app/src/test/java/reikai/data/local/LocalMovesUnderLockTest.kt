@@ -19,6 +19,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.job
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -67,6 +68,7 @@ import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.image.LocalCoverManager
 import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * Every move of local files and every refresh of a local series hold the series' lock for their whole run, so a
@@ -193,7 +195,9 @@ class LocalMovesUnderLockTest {
             novelAdder = mockk(),
             setEntryTitle = mockk(),
             localVolumes = volumes,
-            organizer = LocalOrganizer(context, journal, chapterMoves, locks),
+            organizer = LocalOrganizer(context, journal, chapterMoves, locks, appScope).apply {
+                firstRetry = 200.milliseconds
+            },
             seriesLocks = locks,
             appScope = appScope,
         )
@@ -619,7 +623,8 @@ class LocalMovesUnderLockTest {
         FakeSafProvider.onCall = null
 
         val moves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
-        LocalFileJournalReplay(context, journal, locks, moves, LocalOrganizer(context, journal, moves, locks)).replay()
+        LocalFileJournalReplay(context, journal, locks, moves, LocalOrganizer(context, journal, moves, locks, appScope))
+            .replay()
         refreshed(KEPT)
 
         listOf(entries("Kept"), readUrls(KEPT), journalRows()) shouldBe
@@ -793,6 +798,37 @@ class LocalMovesUnderLockTest {
 
         listOf(removed is LocalMoveResult.Moved, keptAfter, readUrls(OTHER)) shouldBe
             listOf(true, listOf("Kept/Vol 1/Ch 1"), listOf("Other/Vol 1/Ch 1"))
+    }
+
+    @Test
+    fun `an organize that could neither finish nor be put back is retried in the same session`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        var failing = false
+        FakeSafProvider.onCall = { call, _ ->
+            if (call == "moveDocument") {
+                failing = true
+                error("move failed")
+            }
+            if (failing && call == "renameDocument") error("rename failed")
+        }
+        val organize = organized()
+        val refusedWhileBlocked = refresh(series(KEPT).toManga(), fetchChapters = true).isFailure
+        FakeSafProvider.onCall = null
+
+        val repaired = withContext(Dispatchers.Default) {
+            withTimeoutOrNull(20_000) {
+                while (refresh(series(KEPT).toManga(), fetchChapters = true).isFailure) delay(50)
+            }
+        }
+
+        listOf(
+            organize.result is LocalMoveResult.Failed,
+            refusedWhileBlocked,
+            repaired != null,
+            readUrls(KEPT),
+        ) shouldBe
+            listOf(true, true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
     private suspend fun combined() = withContext(Dispatchers.Default) {

@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
@@ -65,7 +67,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         journal,
         locks,
         moves,
-        LocalOrganizer(context, journal, moves, locks),
+        LocalOrganizer(context, journal, moves, locks, CoroutineScope(Dispatchers.Unconfined)),
     )
 
     /** A chapter of the volume whose file a refresh had lost, kept with no row, which the row step moves too. */

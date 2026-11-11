@@ -4,7 +4,11 @@ import android.content.Context
 import android.net.Uri
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import logcat.LogPriority
+import mihon.core.metro.AppCoroutineScope
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
@@ -23,14 +27,19 @@ import reikai.storage.parkIfSpent
 import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.core.metadata.comicinfo.COMIC_INFO_FILE
+import java.util.concurrent.ConcurrentHashMap
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Runs an Organize files plan: written to the journal first, then its steps in order, the rows' one transaction
  * first and one provider move, rename or folder per file after it, each noted in the journal as it lands, so a
  * kill is finished or reversed at the next start ([replay]). A step that fails puts back the steps before it by
- * the same path; one whose putting back fails too leaves the journal row and refuses the series' folders until
- * that replay ([LocalSeriesLocks.block]), since its rows and files then disagree. Both content types.
+ * the same path; one whose putting back fails too leaves the journal row and refuses the series' folders
+ * ([LocalSeriesLocks.block]), since its rows and files then disagree, until a retry in this process or the next
+ * start's replay resolves it. Both content types.
  */
 @Inject
 class LocalOrganizer(
@@ -38,7 +47,14 @@ class LocalOrganizer(
     private val journal: LocalFileJournal,
     private val chapterMoves: LocalChapterMoveRepository,
     private val locks: LocalSeriesLocks,
+    @AppCoroutineScope private val scope: CoroutineScope,
 ) {
+
+    /** The first wait before a blocked organize is taken up again; each later one doubles, up to [LAST_RETRY]. */
+    internal var firstRetry: Duration = 2.seconds
+
+    // Journal rows a retry is waiting on, so a block met again inside a retry does not start a second one.
+    private val retrying = ConcurrentHashMap.newKeySet<Long>()
 
     /** Runs [plan] from its first step; the caller holds the lock on every folder it names. */
     suspend fun run(type: ContentType, plan: Organize): LocalMoveResult {
@@ -50,11 +66,11 @@ class LocalOrganizer(
 
     /** Takes up [plan], journal row [id], where a kill left it, before any listing can read the half-done state. */
     suspend fun replay(type: ContentType, id: Long, plan: Organize) {
-        val root = reach(plan.root) ?: return locks.block(type, plan.folders())
+        val root = reach(plan.root) ?: return block(type, id, plan)
         // The step a kill cut off may have landed before its note did; one that cannot be told is left for a
-        // later start, since going on or putting back would each be wrong for one of the two answers.
+        // retry, since going on or putting back would each be wrong for one of the two answers.
         val cut = plan.steps.getOrNull(plan.done)?.takeIf { it !is FileStep.Rows && it !is FileStep.SetAside }
-        val landed = cut?.let { landed(root, it) ?: return locks.block(type, plan.folders()) }
+        val landed = cut?.let { landed(root, it) ?: return block(type, id, plan) }
         val at = if (landed == true) plan.copy(done = plan.done + 1).also { journal.update(id, it) } else plan
         val result = carryOn(type, id, at)
         if (result is LocalMoveResult.Failed) logcat(LogPriority.WARN, result.error) { "Organize $id left for later" }
@@ -62,7 +78,7 @@ class LocalOrganizer(
 
     private suspend fun carryOn(type: ContentType, id: Long, plan: Organize): LocalMoveResult {
         var at = plan
-        val root = reach(plan.root) ?: return blocked(type, plan, IllegalStateException("The local folder is gone"))
+        val root = reach(plan.root) ?: return blocked(type, id, plan, IllegalStateException("The local folder is gone"))
         while (at.done < at.steps.size) {
             val step = at.steps[at.done]
             val next = at.copy(done = at.done + 1)
@@ -93,16 +109,45 @@ class LocalOrganizer(
     }
 
     private suspend fun putBack(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
-        if (plan.isPutBack) return blocked(type, plan, failure)
+        if (plan.isPutBack) return blocked(type, id, plan, failure)
         val back = plan.putBack()
         journal.update(id, back)
         val result = carryOn(type, id, back)
         return if (result is LocalMoveResult.Moved) LocalMoveResult.Failed(failure) else result
     }
 
-    private fun blocked(type: ContentType, plan: Organize, failure: Exception): LocalMoveResult {
-        locks.block(type, plan.folders())
+    private fun blocked(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
+        block(type, id, plan)
         return LocalMoveResult.Failed(failure)
+    }
+
+    /**
+     * Refuses [plan]'s folders and takes journal row [id] up again in this process, after a wait that doubles each
+     * time it is still unresolved, up to [LAST_RETRY]; the folders open again once the row is gone.
+     */
+    private fun block(type: ContentType, id: Long, plan: Organize) {
+        locks.block(type, plan.folders())
+        if (!retrying.add(id)) return
+        scope.launch {
+            try {
+                var wait = firstRetry
+                while (true) {
+                    delay(wait)
+                    val left = journal.all().firstOrNull { it.id == id }?.plan as? Organize ?: break
+                    try {
+                        locks.repairing(type, left.folders()) { replay(type, id, left) }
+                    } catch (e: Exception) {
+                        if (e is CancellationException) throw e
+                        logcat(LogPriority.WARN, e) { "Retrying organize $id failed" }
+                    }
+                    if (journal.all().none { it.id == id }) break
+                    wait = (wait * 2).coerceAtMost(LAST_RETRY)
+                }
+                locks.unblock(type, plan.folders())
+            } finally {
+                retrying -= id
+            }
+        }
     }
 
     private suspend fun writeRows(type: ContentType, plan: Organize, forward: Boolean, note: suspend () -> Unit) {
@@ -153,11 +198,30 @@ class LocalOrganizer(
     private fun landed(root: UniFile, step: FileStep): Boolean? = when (step) {
         is FileStep.Rows, is FileStep.SetAside -> null
         is FileStep.MakeFolder -> holds(root, step.path.dropLast(1), step.path.last())
-        is FileStep.Rename -> holds(root, step.path.dropLast(1), step.to)?.takeIf {
-            holds(root, step.path.dropLast(1), step.path.last()) == false
+        is FileStep.Rename -> {
+            val parent = step.path.dropLast(1)
+            // A case-only rename a kill cut off waits at its in-flight name, which the step itself takes up.
+            moved(root, parent, step.path.last(), parent, step.to) ?: false.takeIf {
+                holds(root, parent, step.to.inFlightName()) == true
+            }
         }
-        is FileStep.Move -> holds(root, step.into, step.path.last())?.takeIf {
-            holds(root, step.path.dropLast(1), step.path.last()) == false
+        is FileStep.Move -> moved(root, step.path.dropLast(1), step.path.last(), step.into, step.path.last())
+    }
+
+    /** Whether a document went from [from] in [fromFolder] to [to] in [toFolder]: null when not plainly one or the other. */
+    private fun moved(
+        root: UniFile,
+        fromFolder: List<String>,
+        from: String,
+        toFolder: List<String>,
+        to: String,
+    ): Boolean? {
+        val there = holds(root, toFolder, to) ?: return null
+        val left = holds(root, fromFolder, from) ?: return null
+        return when {
+            there && !left -> true
+            !there && left -> false
+            else -> null
         }
     }
 
@@ -168,6 +232,10 @@ class LocalOrganizer(
         path.fold(root as UniFile?) { dir, name -> dir?.findFile(name) }
 
     private fun reach(uri: String): UniFile? = UniFile.fromUri(context, Uri.parse(uri))?.takeIf { it.isDirectory }
+
+    private companion object {
+        val LAST_RETRY = 5.minutes
+    }
 }
 
 /** Every series folder an organize names, before and after, which its holder locks and a failure blocks. */
