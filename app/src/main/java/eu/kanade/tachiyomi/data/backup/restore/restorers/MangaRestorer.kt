@@ -106,6 +106,7 @@ class MangaRestorer(
         // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
         backupMangas.forEach {
             localVolumes.restore(ContentType.MANGA, it.url, it.localVolumes.map { volume -> volume.toLocalVolume() })
+            localVolumes.restoreOwners(ContentType.MANGA, it.volumeOwners.map { row -> row.toOwner(it.url) }) // RK
         }
     }
 

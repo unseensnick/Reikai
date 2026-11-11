@@ -15,10 +15,11 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournalPlan
+import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.domain.local.LocalSeriesLocks
-import reikai.domain.local.OwnerMoves
-import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.UnitTransfer
+import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.local.epub.EpubChapterKey
@@ -60,7 +61,13 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
     private fun files() = root.walkTopDown().filter { it.isFile }
         .map { it.relativeTo(root).path.replace('\\', '/') }.sorted().toList()
 
-    private fun replay() = LocalFileJournalReplay(context, journal, locks, moves)
+    private fun replay() = LocalFileJournalReplay(
+        context,
+        journal,
+        locks,
+        moves,
+        LocalOrganizer(context, journal, moves, locks),
+    )
 
     /** A chapter of the volume whose file a refresh had lost, kept with no row, which the row step moves too. */
     private fun lostUrl(series: String, volume: String) = if (type == ContentType.NOVELS) {
@@ -71,19 +78,31 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
 
     private fun uni(file: File) = UniFile.fromFile(file)!!
 
-    private fun renaming(series: LocalFileNames.Rename?) = JournaledRename(
-        journal,
-        type,
-        1,
-        uni(root),
-        uni(File(root, "Series")),
-        series,
-        listOf(LocalFileNames.Rename(volume, renamedVolume)),
-    )
+    /**
+     * The disk step an older build's Rename files wrote down before its row step: the plan first, then the volume
+     * renamed and then the series folder, each noted as it takes, stopping at the first rename that fails.
+     */
+    private suspend fun renamedByAnOlderBuild(seriesTo: String) {
+        val seriesFile = uni(File(root, "Series"))
+        val volumeFile = seriesFile.findFile(volume)!!
+        var plan = LocalFileJournalPlan.Rename(
+            parent = uni(root).uri.toString(),
+            folder = "Series",
+            entryId = 1,
+            series = Step("Series", seriesTo, seriesFile.uri.toString()),
+            volumes = listOf(Step(volume, renamedVolume, volumeFile.uri.toString())),
+        )
+        val id = journal.insert(type, plan)
+        check(volumeFile.renameTo(renamedVolume))
+        plan = plan.copy(volumes = plan.volumes.map { it.copy(toUri = volumeFile.uri.toString()) })
+        journal.update(id, plan)
+        check(!File(root, seriesTo).exists() && seriesFile.renameTo(seriesTo))
+        journal.update(id, plan.copy(series = plan.series?.copy(toUri = seriesFile.uri.toString())))
+    }
 
     @Test
     fun `a rename killed after its disk step gets its row step at the next start`() = runTest {
-        renaming(LocalFileNames.Rename("Series", "Saga")).renameOnDisk()
+        renamedByAnOlderBuild("Saga")
 
         replay().replay()
 
@@ -106,7 +125,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         // The series' new name is taken, so the volume renames and the series folder's rename fails; a kill
         // there leaves that disk state without the rename back the live path does.
         File(root, "Saga").mkdirs()
-        runCatching { renaming(LocalFileNames.Rename("Series", "Saga")).renameOnDisk() }
+        runCatching { renamedByAnOlderBuild("Saga") }
 
         replay().replay()
 
@@ -154,19 +173,30 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
             journalId?.let { journal.delete(it) }
         }
 
-        override suspend fun move(
+        override suspend fun regroup(
             type: ContentType,
-            address: SeriesAddress?,
-            chapters: List<OwnerMoves>,
+            transfers: List<UnitTransfer>,
+            remove: List<VolumeOwner>,
+            add: List<VolumeOwner>,
             volumes: List<VolumeRowMove>,
-            clearing: Map<Long, List<String>>,
-        ) = error("not a move")
+            unitOf: (String) -> Pair<String, String>?,
+        ) = error("not a regroup")
+
+        override suspend fun organize(
+            type: ContentType,
+            rename: SeriesRename,
+            remove: List<VolumeOwner>,
+            add: List<VolumeOwner>,
+            inTransaction: suspend () -> Unit,
+            movedUrl: (String) -> String,
+        ) = error("not an organize")
 
         override suspend fun forgetVolumes(
             type: ContentType,
             entryId: Long,
             series: String,
             volumes: Map<String, String>,
+            owners: List<VolumeOwner>,
         ) = error("not a delete")
     }
 

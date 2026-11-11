@@ -2,6 +2,7 @@ package reikai.domain.chapter
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
 
 /** No volume ordered or named, for a test whose subject is not local volumes. */
 object NoLocalVolumes : LocalVolumeRepository {
@@ -14,4 +15,8 @@ object NoLocalVolumes : LocalVolumeRepository {
     override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) = Unit
 
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) = Unit
+
+    override suspend fun all(type: ContentType) = emptyList<VolumeOwner>()
+
+    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) = Unit
 }

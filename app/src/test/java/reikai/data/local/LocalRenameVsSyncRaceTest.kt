@@ -37,10 +37,10 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.Revived
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
-import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
 import reikai.storage.FakeSafProvider
+import reikai.storage.rename
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
@@ -190,21 +190,10 @@ class LocalRenameVsSyncRaceTest {
     ).chapters
 
     private suspend fun renameVolumeOnDiskAndRows(from: String, to: String) {
-        val journal = InMemoryLocalFileJournal()
-        val renaming = JournaledRename(
-            journal,
-            ContentType.MANGA,
-            OWNER,
-            picked(local),
-            picked(File(local, "Series")),
-            null,
-            listOf(LocalFileNames.Rename(from, to)),
-        )
-        renaming.renameOnDisk()
+        check(picked(File(local, "Series")).findFile(from)!!.rename(to))
         LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)).renameSeries(
             ContentType.MANGA,
             SeriesRename(OWNER, "Series", "Series", mapOf(from to to)),
-            renaming.journalId,
         )
     }
 

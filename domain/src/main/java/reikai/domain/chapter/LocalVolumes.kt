@@ -2,11 +2,14 @@ package reikai.domain.chapter
 
 import kotlinx.coroutines.flow.StateFlow
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalVolumeOwnerRepository
+import reikai.domain.local.VolumeOwner
 
 /** A local series' volume the user has ordered or named, by its file or folder [key]. */
 data class LocalVolume(val key: String, val position: Long?, val label: String?)
 
-interface LocalVolumeRepository {
+/** The volumes table and which series lists each volume ([LocalVolumeOwnerRepository.all]), both by folder. */
+interface LocalVolumeRepository : LocalVolumeOwnerRepository {
     /** Every ordered or named volume of [type], by series folder. Held, so a source lists without a query. */
     fun volumes(type: ContentType): StateFlow<Map<String, List<LocalVolume>>>
 
@@ -21,6 +24,9 @@ interface LocalVolumeRepository {
 
     /** Stores [volumes] as a backup carried them for [series]. */
     suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>)
+
+    /** Stores the volumes a backup said a series lists from other folders, in its order. */
+    suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>)
 }
 
 /** [this] volumes in the user's order: the ones [saved] places, by position, then the rest as they came. */

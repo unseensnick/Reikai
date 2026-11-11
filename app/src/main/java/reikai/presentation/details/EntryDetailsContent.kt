@@ -22,6 +22,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
@@ -171,6 +172,10 @@ fun EntryDetailsContent(
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
     var deletingVolumes by remember { mutableStateOf<List<String>?>(null) }
     val ownLocal = state.ownsLocalFiles
+    // Hidden, never shown disabled, where the storage cannot move or rename a file.
+    val canOrganize by produceState(false, state.entryId, ownLocal) {
+        value = ownLocal && behavior.volumePicking.canOrganize(state.entryId)
+    }
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
@@ -183,7 +188,7 @@ fun EntryDetailsContent(
         onReorderVolumes = { reorderingVolumes = true }.takeIf { volumes != null },
         onAddVolumes = { volumeDialog = VolumeDialog.AddVolumes }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && volumes != null },
-        onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal },
+        onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal && canOrganize },
         onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: volumes?.chips?.map { it.key } }
             .takeIf { ownLocal && volumes != null },
         onKeepDuplicates = { renames: List<Pair<String, String>> ->
@@ -204,7 +209,7 @@ fun EntryDetailsContent(
     )
     // Edit info saves the title before the screen shows it, so the files take the title it sent.
     var renameTitle by remember { mutableStateOf<String?>(null) }
-    if (ownLocal) {
+    if (ownLocal && canOrganize) {
         LaunchedEffect(behavior.volumePicking) {
             behavior.volumePicking.fileRenameRequests.collect {
                 renameTitle = it
@@ -241,7 +246,7 @@ fun EntryDetailsContent(
         val series = volumes.chips.first().series
         ReorderVolumesDialog(
             volumes = volumes.chips,
-            canRenameFiles = ownLocal,
+            canRenameFiles = ownLocal && canOrganize,
             onDismissRequest = { renameFiles ->
                 reorderingVolumes = false
                 if (renameFiles) volumeDialog = VolumeDialog.RenameFiles
@@ -254,13 +259,16 @@ fun EntryDetailsContent(
         VolumeDialog.AddVolumes -> AddVolumesDialog(
             title = state.details.header.title,
             load = { behavior.volumePicking.library(type).filterNot { it.id == state.entryId.rawId } },
+            canOrganize = canOrganize,
             onDismissRequest = { volumeDialog = null },
-            onConfirm = { others ->
+            onConfirm = { others, organize ->
                 volumeDialog = null
                 scope.launch {
                     val own = behavior.volumePicking.series(state.entryId) ?: return@launch
                     val move = behavior.volumePicking.addVolumes(type, own, others)
                     behavior.refresh()
+                    // Its own preview, after the chips show the volumes that came in.
+                    if (organize && move.result is LocalMoveResult.Moved) volumeDialog = VolumeDialog.RenameFiles
                     val message = context.stringResource(MR.strings.local_volumes_combined, own.title)
                     snackbarHostState.reportVolumeMove(context, move, message)
                     behavior.refresh()

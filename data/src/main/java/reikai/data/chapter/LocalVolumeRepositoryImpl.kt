@@ -18,6 +18,7 @@ import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
 import tachiyomi.data.Database
 
 @Inject
@@ -56,6 +57,20 @@ class LocalVolumeRepositoryImpl(
 
     override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) {
         queries.setLabel(type.toDbValue(), series, key, label?.trim()?.ifEmpty { null })
+    }
+
+    override suspend fun all(type: ContentType): List<VolumeOwner> =
+        database.local_volume_ownerQueries.getAll(type.toDbValue()) { folder, volume, owner ->
+            VolumeOwner(folder, volume, owner)
+        }.awaitAsList()
+
+    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
+        if (owners.isEmpty()) return
+        database.transaction {
+            owners.forEach {
+                database.local_volume_ownerQueries.setOwner(type.toDbValue(), it.folder, it.volume, it.owner)
+            }
+        }
     }
 
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {

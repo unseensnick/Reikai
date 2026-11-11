@@ -118,6 +118,7 @@ class NovelRestorer(
             backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
         )
         localVolumes.restore(ContentType.NOVELS, backupNovel.url, backupNovel.localVolumes.map { it.toLocalVolume() })
+        localVolumes.restoreOwners(ContentType.NOVELS, backupNovel.volumeOwners.map { it.toOwner(backupNovel.url) })
         copyMarks.set(
             ContentType.NOVELS,
             backedUpCopyMarks(backupNovel.chapters, { it.url }, { it.copyMark })

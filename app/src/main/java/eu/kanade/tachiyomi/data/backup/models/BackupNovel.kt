@@ -50,6 +50,8 @@ class BackupNovel(
     @ProtoNumber(703) var localVolumes: List<BackupLocalVolume> = emptyList(),
     // A local series' removed chapters' kept reading state, on the number BackupManga uses (BackupChapterTombstone).
     @ProtoNumber(704) var chapterTombstones: List<BackupChapterTombstone> = emptyList(),
+    // The volumes a local series lists from other folders, on the number BackupManga uses (BackupVolumeOwner).
+    @ProtoNumber(705) var volumeOwners: List<BackupVolumeOwner> = emptyList(),
     // The user's custom info, on the same numbers BackupManga uses (see BackupCustomInfoFields).
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

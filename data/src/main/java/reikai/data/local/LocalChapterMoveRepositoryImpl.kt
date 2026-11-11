@@ -10,9 +10,9 @@ import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalChapterMoveRepository
-import reikai.domain.local.OwnerMoves
-import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.UnitTransfer
+import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import tachiyomi.data.Database
 
@@ -25,33 +25,18 @@ class LocalChapterMoveRepositoryImpl(
 ) : LocalChapterMoveRepository {
 
     private val queries = database.local_moveQueries
+    private val ownerQueries = database.local_volume_ownerQueries
 
-    override suspend fun move(
+    override suspend fun forgetVolumes(
         type: ContentType,
-        address: SeriesAddress?,
-        chapters: List<OwnerMoves>,
-        volumes: List<VolumeRowMove>,
-        clearing: Map<Long, List<String>>,
+        entryId: Long,
+        series: String,
+        volumes: Map<String, String>,
+        owners: List<VolumeOwner>,
     ) {
         val dbType = type.toDbValue()
         database.transaction {
-            // Before the moves, so a kept state arriving with its chapter is never among what is cleared.
-            clearing.forEach { (owner, prefixes) -> tombstones.forget(type, owner, prefixes) }
-            address?.let { setAddress(type, it.id, it.url) }
-            chapters.forEach { owner -> owner.moves.forEach { moveChapter(type, owner.fromOwner, owner.toOwner, it) } }
-            volumes.forEach {
-                queries.forgetVolume(dbType, it.toSeries, it.toKey)
-                queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey)
-            }
-            chapters.groupBy({ it.toOwner }, { it.moves }).forEach { (owner, moves) ->
-                tombstones.settle(type, owner, moves.flatten().map { it.toUrl })
-            }
-        }
-    }
-
-    override suspend fun forgetVolumes(type: ContentType, entryId: Long, series: String, volumes: Map<String, String>) {
-        val dbType = type.toDbValue()
-        database.transaction {
+            writeOwners(dbType, owners, emptyList())
             volumes.keys.forEach { key ->
                 queries.forgetVolume(dbType, series, key)
                 queries.forgetVolumePick(dbType, entryId, key)
@@ -60,29 +45,87 @@ class LocalChapterMoveRepositoryImpl(
         }
     }
 
+    override suspend fun regroup(
+        type: ContentType,
+        transfers: List<UnitTransfer>,
+        remove: List<VolumeOwner>,
+        add: List<VolumeOwner>,
+        volumes: List<VolumeRowMove>,
+        unitOf: (String) -> Pair<String, String>?,
+    ) {
+        val dbType = type.toDbValue()
+        database.transaction {
+            writeOwners(dbType, remove, add)
+            val arrived = HashMap<Long, MutableList<String>>()
+            transfers.forEach { transfer ->
+                val units = transfer.units.toSet()
+                fun moves(url: String) = unitOf(url)?.let { (folder, volume) ->
+                    (folder to volume) in units || (folder to VolumeOwner.WHOLE) in units
+                } == true
+                val urls = (
+                    chapterUrls(type, transfer.fromOwner) +
+                        tombstones.byOwner(type, transfer.fromOwner).map { it.url }
+                    )
+                    .distinct().filter(::moves)
+                urls.forEach { moveChapter(type, transfer.fromOwner, transfer.toOwner, ChapterMove(it, it)) }
+                arrived.getOrPut(transfer.toOwner) { mutableListOf() } += urls
+            }
+            volumes.forEach {
+                queries.forgetVolume(dbType, it.toSeries, it.toKey)
+                queries.moveVolume(it.toSeries, it.toKey, it.position, dbType, it.fromSeries, it.fromKey)
+            }
+            arrived.forEach { (owner, urls) -> tombstones.settle(type, owner, urls) }
+        }
+    }
+
+    override suspend fun organize(
+        type: ContentType,
+        rename: SeriesRename,
+        remove: List<VolumeOwner>,
+        add: List<VolumeOwner>,
+        inTransaction: suspend () -> Unit,
+        movedUrl: (String) -> String,
+    ) {
+        database.transaction {
+            writeOwners(type.toDbValue(), remove, add)
+            renameRows(type, rename, movedUrl)
+            inTransaction()
+        }
+    }
+
+    private suspend fun writeOwners(dbType: Long, remove: List<VolumeOwner>, add: List<VolumeOwner>) {
+        remove.forEach { ownerQueries.forget(dbType, it.folder, it.volume) }
+        add.forEach { ownerQueries.setOwner(dbType, it.folder, it.volume, it.owner) }
+    }
+
     override suspend fun rename(
         type: ContentType,
         rename: SeriesRename,
         journalId: Long?,
         movedUrl: (String) -> String,
     ) {
-        val dbType = type.toDbValue()
         database.transaction {
             journalId?.let { database.local_file_journalQueries.delete(it) }
-            setAddress(type, rename.id, rename.toSeries)
-            // A kept state's address follows the rename as a row's does, so a chapter that comes back finds it.
-            val urls = chapterUrls(type, rename.id) + tombstones.byOwner(type, rename.id).map { it.url }
-            val moves = urls.map { ChapterMove(it, movedUrl(it)) }.filter { it.fromUrl != it.toUrl }
-            moves.forEach { moveChapter(type, rename.id, rename.id, it) }
-            rename.volumes.forEach { (from, to) ->
-                if (to != from) queries.forgetVolume(dbType, rename.fromSeries, to)
-                queries.renameVolume(to, dbType, rename.fromSeries, from)
-                queries.renameVolumePick(to, dbType, rename.id, from)
-            }
-            if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
-            queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
-            tombstones.settle(type, rename.id, moves.map { it.toUrl })
+            renameRows(type, rename, movedUrl)
         }
+    }
+
+    private suspend fun renameRows(type: ContentType, rename: SeriesRename, movedUrl: (String) -> String) {
+        val dbType = type.toDbValue()
+        setAddress(type, rename.id, rename.toSeries)
+        ownerQueries.renameOwner(rename.toSeries, dbType, rename.fromSeries)
+        // A kept state's address follows the rename as a row's does, so a chapter that comes back finds it.
+        val urls = chapterUrls(type, rename.id) + tombstones.byOwner(type, rename.id).map { it.url }
+        val moves = urls.distinct().map { ChapterMove(it, movedUrl(it)) }.filter { it.fromUrl != it.toUrl }
+        moves.forEach { moveChapter(type, rename.id, rename.id, it) }
+        rename.volumes.forEach { (from, to) ->
+            if (to != from) queries.forgetVolume(dbType, rename.fromSeries, to)
+            queries.renameVolume(to, dbType, rename.fromSeries, from)
+            queries.renameVolumePick(to, dbType, rename.id, from)
+        }
+        if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
+        queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
+        tombstones.settle(type, rename.id, moves.map { it.toUrl })
     }
 
     private suspend fun chapterUrls(type: ContentType, id: Long): List<String> = when (type) {

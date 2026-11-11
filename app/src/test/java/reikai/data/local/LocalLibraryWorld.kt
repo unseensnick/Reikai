@@ -2,6 +2,7 @@ package reikai.data.local
 
 import android.content.Context
 import app.cash.sqldelight.Transacter
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import app.cash.sqldelight.db.QueryResult
 import app.cash.sqldelight.db.SqlCursor
 import app.cash.sqldelight.db.SqlDriver
@@ -22,6 +23,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.job
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -36,16 +38,22 @@ import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.LocalVolume
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterNumberOverrides
-import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.download.DownloadIndexRules
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.VolumeOwner
+import reikai.domain.local.localGroupKey
+import reikai.domain.local.localGroupUnit
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.readinglog.NoReadingLog
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.source.local.localChapterUnit
 import reikai.storage.FakeSafProvider
 import reikai.storage.FakeSafProvider.ChildListingFault
 import reikai.storage.PARKED_PREFIX
@@ -229,12 +237,13 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 
     /** Everything a process builds at start, over the database and the disk that outlive it. */
     private inner class App {
-        val locks = LocalSeriesLocks()
         val scope = CoroutineScope(
             Dispatchers.IO + SupervisorJob() + CoroutineExceptionHandler { _, e ->
                 if (e !is KillError) violations += "an app-scope job threw $e"
             },
         )
+        val volumes = DirectLocalVolumes(database)
+        val locks = LocalSeriesLocks(volumes)
         val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
         val fileSystem = LocalSourceFileSystem(storage)
         val mangaRepository = MangaRepositoryImpl(database)
@@ -253,7 +262,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             LocalCoverManager(context, fileSystem),
             Json,
             XML.v1 {},
-            NoLocalVolumes,
+            volumes,
             locks,
         )
         val refresh = UpdateMangaFromRemote(
@@ -287,10 +296,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
         private val mangaAdder =
             mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
+        val organizer = LocalOrganizer(context, journal, chapterMoves, locks)
         val combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
-            chapterRepository = chapterRepository,
             localFiles = fileSystem,
             localManga = source,
             localNovels = mockk(),
@@ -311,8 +320,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             mangaAdder = mangaAdder,
             novelAdder = mockk(),
             setEntryTitle = mockk(relaxed = true),
-            localVolumes = NoLocalVolumes,
-            journal = journal,
+            localVolumes = volumes,
+            organizer = organizer,
             seriesLocks = locks,
             appScope = scope,
         )
@@ -341,8 +350,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             storageManager = storage,
             chapterMoves = chapterMoves,
             seriesLocks = locks,
+            owners = volumes,
         )
-        val replay = LocalFileJournalReplay(context, journal, locks, chapterMoves)
+        val replay = LocalFileJournalReplay(context, journal, locks, chapterMoves, organizer)
 
         suspend fun settle() = scope.coroutineContext.job.children.forEach { it.join() }
     }
@@ -397,6 +407,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             rng = Random(seed * 1_000_003 + step)
             trace += "step $step:"
             try {
+                see()
                 step()
                 faults.on = false
                 if (faults.dead) restart()
@@ -453,7 +464,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             20 to ::markStep,
             6 to ::combineStep,
             6 to ::splitStep,
-            6 to ::renameStep,
+            6 to ::organizeStep,
             5 to ::deleteVolumesStep,
             10 to ::undoStep,
             8 to ::finishStep,
@@ -530,42 +541,67 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         if (all.size < 2) return
         val kept = all[0]
         val others = all.drop(1).take(1 + rng.nextInt(2))
-        structural(listOf(kept.second) + others.map { it.second })
+        val touched = groupFolders(listOf(kept.second) + others.map { it.second })
+        structural(touched)
         inApp("combine ${others.map { it.second }} into ${kept.second}") {
             val series = app.combine.series(ContentType.MANGA, listOf(kept.first) + others.map { it.first })
             val move = app.combine.combine(ContentType.MANGA, series.first(), series.drop(1))
-            moved(move, listOf(kept.second) + others.map { it.second })
+            moved(move, touched)
         }
     }
 
     private suspend fun splitStep() {
-        val (id, folder) = owned().filter { volumesOf(it.second).isNotEmpty() }.randomOrNull(rng) ?: return
-        val keys = volumesOf(folder).shuffled(rng).take(1 + rng.nextInt(2))
+        val (id, folder) = owned().filter { groupKeys(it).size > 1 }.randomOrNull(rng) ?: return
+        val all = groupKeys(id to folder)
+        val keys = all.shuffled(rng).take(1 + rng.nextInt(minOf(2, all.size - 1)))
         val title = if (rng.nextInt(5) == 0) seriesOnDisk().random(rng) else "Split${word()}"
-        structural(listOf(folder, title))
+        val touched = groupFolders(listOf(folder, title))
+        structural(touched)
         inApp("split $keys of $folder out as $title") {
             val series = app.combine.series(ContentType.MANGA, listOf(id)).single()
-            moved(app.combine.splitOut(ContentType.MANGA, series, keys, title), listOf(folder, title))
+            moved(app.combine.splitOut(ContentType.MANGA, series, keys, title), touched)
         }
     }
 
-    private suspend fun renameStep() {
+    private suspend fun organizeStep() {
         val (id, folder) = owned().randomOrNull(rng) ?: return
-        val title = if (rng.nextBoolean()) "Ren${word()}" else folder
-        val labels = volumesOf(folder).map { it to if (rng.nextBoolean()) "V${++counter}" else it }
-        structural(listOf(folder, title))
+        val title = if (rng.nextBoolean()) "Org${word()}" else folder
+        val keys = groupKeys(id to folder)
+        val labels = if (keys.size > 1 || keys.singleOrNull()?.isNotEmpty() == true) {
+            keys.map { it to if (rng.nextBoolean()) "V${++counter}" else "Vol ${++counter}" }
+        } else {
+            emptyList()
+        }
+        val touched = groupFolders(listOf(folder, title))
+        structural(touched)
         var landed = false
-        inApp("rename files of $folder to $title, $labels") {
+        inApp("organize files of $folder as $title, $labels") {
             val series = app.combine.series(ContentType.MANGA, listOf(id)).single()
-            val names = app.combine.renamePlan(ContentType.MANGA, series, title, labels)
-            if (!names.changes) return@inApp
-            val move = app.combine.renameFiles(ContentType.MANGA, series, names)
+            val names = app.combine.organizePlan(ContentType.MANGA, series, title, labels)
+            val move = app.combine.organizeFiles(ContentType.MANGA, series, names)
             landed = move.result is LocalMoveResult.Moved
             if (landed) renames += move
-            moved(move, listOf(folder, title))
+            moved(move, touched + names.series.to)
         }
-        if (!landed) astray(listOf(folder, title))
+        if (!landed) astray(touched)
     }
+
+    /** The group keys of series [series]' chapters, as its chips list them. */
+    private suspend fun groupKeys(series: Pair<Long, String>): List<String> =
+        real.rows("SELECT remote_url FROM chapter WHERE manga_id = ${series.first} ORDER BY id") {
+            it.getString(0)!!
+        }.map {
+            localChapterUnit(it)
+        }.distinct().map { (folder, volume) -> localGroupKey(series.second, folder, volume) }
+
+    /** [series] and every folder their groups list from. */
+    private suspend fun groupFolders(series: List<String>): List<String> = groups().closure(series).toList()
+
+    private suspend fun groups() = LocalGroups(
+        real.rows("SELECT folder, volume_key, owner FROM local_volume_owner WHERE content_type = 0 ORDER BY rowid") {
+            VolumeOwner(it.getString(0)!!, it.getString(1)!!, it.getString(2)!!)
+        },
+    )
 
     /**
      * After a rename, or the undo of one, that did not land: a rename the provider dodged to "name (1)", or one
@@ -574,6 +610,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
      * addresses no row or kept state is at until the next listing.
      */
     private suspend fun astray(series: List<String>) {
+        see()
         val rows = states("chapter", "remote_url", "user_last_page_read")
         val kept = states("manga_chapter_tombstone", "url", "last_page_read")
         val disk = scan()
@@ -586,18 +623,26 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
     }
 
     private suspend fun deleteVolumesStep() {
-        val (id, folder) = owned().filter { volumesOf(it.second).isNotEmpty() }.randomOrNull(rng) ?: return
-        val keys = volumesOf(folder).shuffled(rng).take(1 + rng.nextInt(2))
-        structural(listOf(folder))
+        fun volumes(series: Pair<Long, String>, keys: List<String>) =
+            keys.map { localGroupUnit(series.second, it) }.filter { it.second != VolumeOwner.LOOSE }
+        val series = owned().filter { volumes(it, groupKeys(it)).isNotEmpty() }.randomOrNull(rng) ?: return
+        val (id, folder) = series
+        val keys = groupKeys(series).filter { localGroupUnit(folder, it).second != VolumeOwner.LOOSE }
+            .shuffled(rng).take(1 + rng.nextInt(2))
+        val units = volumes(series, keys).map { listOf(it.first, it.second) }
+        structural(groupFolders(listOf(folder)))
         val before = scan()
         val inside = chapters.filter { !it.removed && it.absent == null }.mapNotNull { chapter ->
-            val url = urlsOf(chapter, before).singleOrNull()?.second ?: return@mapNotNull null
-            (chapter to url).takeIf { keys.any { key -> url.startsWith("$folder/$key/") } }
+            val at = urlsOf(chapter, before).singleOrNull() ?: return@mapNotNull null
+            at.takeIf { (owner, url) ->
+                owner == folder &&
+                    units.any { url.startsWith(it.joinToString("/", postfix = "/")) }
+            }
+                ?.let { chapter to it.second }
         }
-        chapters.filter { ch -> ch.absent?.let { it.first() == folder && it.getOrNull(1) in keys } == true }
-            .forEach { it.removed = true }
+        chapters.filter { ch -> ch.absent?.let { it.take(2) in units } == true }.forEach { it.removed = true }
         val strays = chapters.filter { it.uncertain }.toSet()
-        val volumes = keys.map { listOf(folder, it) }
+        val volumes = units
         val held = before.filterValues { paths -> paths.any { it.drop(2).take(2) in volumes } }.keys
         var clean = false
         inApp("delete volumes $keys of $folder") {
@@ -800,19 +845,22 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             mergeGroupRepository = mockk(),
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
-            localVolumes = NoLocalVolumes,
+            localVolumes = app.volumes,
             readingLog = NoReadingLog,
             tombstones = app.tombstoneRepository,
         )
         val batch = localManga().map { (id, url) ->
-            Manga.create().copy(id = id) to BackupManga(source = LocalSource.ID, url = url, title = url)
+            Manga.create().copy(id = id, source = LocalSource.ID, url = url) to
+                BackupManga(source = LocalSource.ID, url = url, title = url)
         }
         creator.chapters(batch)
         if (wipe) {
             real.exec("DELETE FROM manga WHERE source_id = 0")
+            real.exec("DELETE FROM local_volume_owner")
+            real.exec("DELETE FROM local_volume")
             pending.clear()
         }
-        mangaRestorer(database).restore(batch.map { it.second }, emptyList())
+        mangaRestorer(database, localVolumes = app.volumes).restore(batch.map { it.second }, emptyList())
     }
 
     private suspend fun mergeStep() {
@@ -889,14 +937,27 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         .mapNotNull { file -> tokenOf(file)?.let { it to rel(file).split('/') } }
         .groupBy({ it.first }, { it.second })
 
-    /** The (series folder, chapter address) pairs the chapter's pages are listed at: under no hidden folder. */
+    /**
+     * The (series, chapter address) pairs the chapter's pages are listed at: under no hidden folder, by the series
+     * the app's own table says lists that volume ([view]), since grouping moves no file.
+     */
     private fun urlsOf(chapter: Ch, disk: Map<String, List<List<String>>>): Set<Pair<String, String>> =
         chapter.tokens.flatMap { disk[it].orEmpty() }
             // A cover the local source copied from a page is that page's bytes under another name, and no chapter.
             .filter { it.take(2) == listOf("Reikai", "local") && it.size in 5..6 && !it.last().startsWith("cover") }
             .filter { it.none { part -> part.startsWith('.') } }
-            .map { it[2] to it.subList(2, it.size - 1).joinToString("/") }
+            .map {
+                view.ownerOf(it[2], if (it.size == 6) it[3] else VolumeOwner.LOOSE) to
+                    it.subList(2, it.size - 1).joinToString("/")
+            }
             .toSet()
+
+    /** Which series lists which volume, as the database held it when last read ([see]). */
+    private var view = LocalGroups(emptyList())
+
+    private suspend fun see() {
+        view = groups()
+    }
 
     private fun visibleChapterFolders(): List<Pair<Ch, File>> {
         val disk = scan()
@@ -924,8 +985,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
                 it.getString(1)!!
         }
 
-    /** The local series whose folder is where its row says. */
-    private suspend fun owned(): List<Pair<Long, String>> = localManga().filter { File(local, it.second).isDirectory }
+    /** The local series whose folder is where its row says, or that a split made with no folder of its own. */
+    private suspend fun owned(): List<Pair<Long, String>> = groups().let { groups ->
+        localManga().filter { File(local, it.second).isDirectory || groups.hasNoFolder(it.second) }
+    }
 
     // endregion
 
@@ -942,6 +1005,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         .toMap()
 
     private suspend fun check(strict: Set<String> = emptySet()) {
+        see()
         val disk = scan()
         // (a) no user file is gone that no in-app delete took
         val required = loose + chapters.filter { !it.removed && it.absent == null }.flatMap { it.tokens }
@@ -1021,5 +1085,44 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 
     private companion object {
         val FRESH = St(read = false, bookmark = false, page = 0)
+    }
+}
+
+/**
+ * The volumes tables read and written straight through the database at each call, with no held flow behind them:
+ * a flow would query on its own schedule, which would move the statement a kill lands on from run to run.
+ */
+private class DirectLocalVolumes(private val database: Database) : LocalVolumeRepository {
+    private val volumes = database.local_volumeQueries
+    private val owners = database.local_volume_ownerQueries
+
+    private fun ContentType.db() = if (this == ContentType.NOVELS) 1L else 0L
+
+    override fun volumes(type: ContentType) = MutableStateFlow(emptyMap<String, List<LocalVolume>>())
+
+    override suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>> =
+        volumes.getAll().awaitAsList().filter { it.content_type == type.db() }
+            .groupBy({ it.series }, { LocalVolume(it.volume_key, it.position, it.label) })
+
+    override suspend fun setOrder(type: ContentType, series: String, keys: List<String>) {
+        keys.forEachIndexed { index, key -> volumes.setPosition(type.db(), series, key, index.toLong()) }
+    }
+
+    override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) {
+        volumes.setLabel(type.db(), series, key, label)
+    }
+
+    override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {
+        volumes.forEach { volume ->
+            volume.position?.let { this.volumes.setPosition(type.db(), series, volume.key, it) }
+            volume.label?.let { this.volumes.setLabel(type.db(), series, volume.key, it) }
+        }
+    }
+
+    override suspend fun all(type: ContentType): List<VolumeOwner> =
+        owners.getAll(type.db()) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }.awaitAsList()
+
+    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
+        owners.forEach { this.owners.setOwner(type.db(), it.folder, it.volume, it.owner) }
     }
 }

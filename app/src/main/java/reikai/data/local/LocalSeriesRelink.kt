@@ -6,6 +6,7 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.relinkCandidates
 import reikai.domain.novel.NovelChapterRepository
@@ -38,6 +39,7 @@ class LocalSeriesRelink(
     private val storageManager: StorageManager,
     private val chapterMoves: LocalChapterMoveRepository,
     private val seriesLocks: LocalSeriesLocks,
+    private val owners: LocalVolumeOwnerRepository,
 ) {
 
     /**
@@ -70,6 +72,11 @@ class LocalSeriesRelink(
             if (folder !in candidatesIn(type, id, series, listed)) {
                 return@withSeries LocalMoveResult.Failed(IllegalStateException("$folder does not hold $series' files"))
             }
+            // Another series addresses the volumes it lists from this folder by the old name, which a link here
+            // would leave behind.
+            if (owners.all(type).any { it.folder == series && it.owner != series }) {
+                return@withSeries LocalMoveResult.Failed(IllegalStateException("Another series lists $series' volumes"))
+            }
             chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))
             LocalMoveResult.Moved(emptyList())
         }
@@ -77,7 +84,9 @@ class LocalSeriesRelink(
 
     /** The candidates among [listed], the local root's trusted listing; a folder that cannot be listed whole is none. */
     private suspend fun candidatesIn(type: ContentType, id: Long, series: String, listed: List<UniFile>): List<String> {
-        val paths = chapterUrls(type, id).mapNotNull { relativePath(type, series, it) }
+        // Only the chapters in the series' own folder: a group's others sit in folders that did not move.
+        val paths = chapterUrls(type, id).filter { chapterVolumeUnit(type, it)?.first == series }
+            .mapNotNull { relativePath(type, series, it) }
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
         val folders = listed

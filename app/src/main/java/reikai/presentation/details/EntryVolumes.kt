@@ -19,11 +19,14 @@ import reikai.domain.chapter.volumeNumberIn
 import reikai.domain.chapter.volumeRuns
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
+import reikai.domain.local.localGroupKey
 import reikai.novel.local.LocalNovelSource
-import reikai.source.local.localVolumeChapter
+import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.core.common.util.lang.withUIContext
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.LocalSource
 
 /**
@@ -49,18 +52,29 @@ sealed interface VolumeLabel {
     data class Name(val name: String) : VolumeLabel
 }
 
-/** A local manga chapter's volume: the folder between the series and the chapter in its address. */
-internal fun mangaChapterVolume(sourceId: Long, url: String, name: String): ChapterVolume? {
-    if (sourceId != LocalSource.ID) return null
-    val chapter = localVolumeChapter(url) ?: return null
-    return ChapterVolume(chapter.series, chapter.volume, labelOf(chapter.volume), "${chapter.volume} - ")
+/**
+ * A local manga chapter's volume in series [owner], the address of the series that lists it: the volume folder its
+ * address names, or its folder's loose chapters, each by its key in the group ([localGroupKey]). A loose chapter of
+ * another folder is led by that folder's name, as the local source names it.
+ */
+internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): ChapterVolume? {
+    if (owner?.source != LocalSource.ID) return null
+    val (folder, volume) = localChapterUnit(url)
+    val key = localGroupKey(owner.url, folder, volume)
+    if (volume == VolumeOwner.LOOSE) {
+        val prefix = if (folder == owner.url) "" else "$folder - "
+        return ChapterVolume(owner.url, key, VolumeLabel.Name(folder), prefix)
+    }
+    return ChapterVolume(owner.url, key, labelOf(volume), "$volume - ")
 }
 
-/** A local novel chapter's volume: the EPUB its address names, labelled as the source names the chapter. */
-internal fun novelChapterVolume(url: String, name: String): ChapterVolume? {
-    val (series, key) = LocalNovelSource.parseChapterPath(url) ?: return null
+/** A local novel chapter's volume in series [owner]: the EPUB its address names, labelled as the source names it. */
+internal fun novelChapterVolume(owner: String?, url: String, name: String): ChapterVolume? {
+    val (folder, book) = LocalNovelSource.parseChapterPath(url) ?: return null
+    val series = owner ?: folder
+    val key = localGroupKey(series, folder, book)
     val named = name.substringBefore(" - ", "")
-    return ChapterVolume(series, key, labelOf(named.ifEmpty { key }), if (named.isEmpty()) "" else "$named - ")
+    return ChapterVolume(series, key, labelOf(named.ifEmpty { book }), if (named.isEmpty()) "" else "$named - ")
 }
 
 private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Number) ?: VolumeLabel.Name(name)
@@ -121,13 +135,18 @@ class VolumePicking(
         appScope.launchIO { volumes.setLabel(type, series, key, label) }
     }
 
-    /** What Rename files gives [entry]'s files from its [title] and volume [labels], with the series it renames. */
+    /** What Organize files gives [entry]'s files from its [title] and volume [labels], with the series it moves. */
     suspend fun renamePlan(entry: EntryId, title: String, labels: List<Pair<String, String>>) =
-        series(entry)?.let { it to combine.renamePlan(entry.contentType, it, title, labels) }
+        series(entry)?.let { it to combine.organizePlan(entry.contentType, it, title, labels) }
 
-    /** Renames [series]' files on disk as [names] gives them. */
+    /** Moves [series]' files into its folder and names them as [names] gives them. */
     suspend fun renameFiles(type: ContentType, series: CombinableSeries, names: LocalFileNames, title: String?) =
-        combine.renameFiles(type, series, names, title)
+        combine.organizeFiles(type, series, names, title)
+
+    /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
+    suspend fun canOrganize(entry: EntryId): Boolean = withIOContext {
+        series(entry)?.let { combine.canOrganize(entry.contentType, it) } == true
+    }
 
     private val renameRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
 

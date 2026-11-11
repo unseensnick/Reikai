@@ -11,12 +11,12 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.library.ContentType
-import reikai.domain.local.ChapterMove
 import reikai.domain.local.LocalFileJournalPlan
-import reikai.domain.local.OwnerMoves
-import reikai.domain.local.SeriesAddress
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.UnitTransfer
+import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
+import reikai.source.local.localChapterUnit
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -61,9 +61,40 @@ class LocalChapterMoveRepositoryTest {
     fun `the chapter moves to the other series, still read, with its number correction`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
 
-        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+        regroup(type.contentType)
 
-        listOf(one(type.chapterQuery), one(type.overrideQuery)) shouldBe listOf("1|A/B/c1|1", "1|A/B/c1")
+        listOf(one(type.chapterQuery), one(type.overrideQuery)) shouldBe listOf("1|B/c1|1", "1|B/c1")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a regroup moves every chapter of the volumes it names and none of another folder`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'C/c2'"))
+        exec(type.tombstone(2, "B/c3"))
+
+        regroup(type.contentType)
+
+        rows(type.ownerAndUrl) shouldBe listOf("1|B/c1", "1|B/c3", "2|C/c2")
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a regroup writes which series lists the volumes in its own transaction`(type: Type) = runTest {
+        type.seed.forEach { exec(it) }
+        val dbType = if (type.contentType == ContentType.NOVELS) 1 else 0
+        exec("INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) VALUES ($dbType, 'X', '', 'B')")
+
+        repository().regroup(
+            type.contentType,
+            listOf(TRANSFER),
+            remove = listOf(VolumeOwner("X", "", "B")),
+            add = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "A")),
+            volumes = emptyList(),
+            unitOf = ::localChapterUnit,
+        )
+
+        rows("SELECT folder || '|' || volume_key || '|' || owner FROM local_volume_owner") shouldBe listOf("B|/|A")
     }
 
     @Test
@@ -71,7 +102,7 @@ class LocalChapterMoveRepositoryTest {
         Type.MANGA.seed.forEach { exec(it) }
         exec("INSERT INTO history(manga_id, chapter_id, read_at, read_duration) VALUES (2, 10, 0, 0)")
 
-        repository().move(ContentType.MANGA, null, listOf(MOVE), emptyList())
+        regroup(ContentType.MANGA)
 
         one("SELECT manga_id FROM history WHERE chapter_id = 10") shouldBe "1"
     }
@@ -103,15 +134,10 @@ class LocalChapterMoveRepositoryTest {
             "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
         )
 
-        repository().move(
-            ContentType.MANGA,
-            null,
-            emptyList(),
-            listOf(VolumeRowMove("B", "v1", "A", "v1 (2)", 3)),
-        )
+        moveVolumes(VolumeRowMove("B", "v1", "A", "B/v1", 3))
 
         one("SELECT series || '|' || volume_key || '|' || position || '|' || label FROM local_volume") shouldBe
-            "A|v1 (2)|3|One"
+            "A|B/v1|3|One"
     }
 
     @Test
@@ -123,12 +149,7 @@ class LocalChapterMoveRepositoryTest {
             "INSERT INTO local_volume(content_type, series, volume_key, position, label) VALUES (0, 'B', 'v1', 0, 'One')",
         )
 
-        repository().move(
-            ContentType.MANGA,
-            null,
-            emptyList(),
-            listOf(VolumeRowMove("B", "v1", "A", "v1", 1)),
-        )
+        moveVolumes(VolumeRowMove("B", "v1", "A", "v1", 1))
 
         rows("SELECT series || '|' || volume_key || '|' || position || '|' || label FROM local_volume") shouldBe
             listOf("A|v1|1|One")
@@ -136,21 +157,23 @@ class LocalChapterMoveRepositoryTest {
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a move that fails part way writes nothing`(type: Type) = runTest {
+    fun `a regroup that fails part way writes nothing`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
-        // A chapter already at the address the move takes, which the owner's unique address refuses.
-        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'A/B/c1'"))
+        // A chapter already at the address under the new owner, which the owner's unique address refuses.
+        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'B/c1'"))
 
         runCatching {
-            repository().move(
+            repository().regroup(
                 type.contentType,
-                SeriesAddress(2, "Bee"),
-                listOf(MOVE),
-                emptyList(),
+                listOf(TRANSFER),
+                remove = emptyList(),
+                add = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "A")),
+                volumes = emptyList(),
+                unitOf = ::localChapterUnit,
             )
         }
 
-        listOf(one(type.seriesQuery), one(type.chapterQuery)) shouldBe listOf("B", "2|B/c1|1")
+        listOf(one(type.chapterQuery), one("SELECT count(*) FROM local_volume_owner")) shouldBe listOf("2|B/c1|1", "0")
     }
 
     @ParameterizedTest
@@ -234,9 +257,9 @@ class LocalChapterMoveRepositoryTest {
         type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
         exec(type.tombstone(2, "B/c1", read = 1))
 
-        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+        regroup(type.contentType)
 
-        rows(type.tombstoneUrls) shouldBe listOf("A/B/c1")
+        rows(type.tombstoneState) shouldBe listOf("1|B/c1|1|0")
     }
 
     @ParameterizedTest
@@ -247,15 +270,15 @@ class LocalChapterMoveRepositoryTest {
         type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
         exec(
             type.seed.first { "'B/c1', 'C'" in it }
-                .replace("(10, 2, 'B/c1'", "(11, 1, 'A/B/c1'")
+                .replace("(10, 2, 'B/c1'", "(11, 1, 'B/c1'")
                 .replace("'C', NULL, 1,", "'C', NULL, 0,")
                 .replace("'C', 1, 0,", "'C', 0, 0,"),
         )
         exec(type.tombstone(2, "B/c1", read = 1))
 
-        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+        regroup(type.contentType)
 
-        listOf(one(type.readAt("A/B/c1")), rows(type.tombstoneUrls).size.toString()) shouldBe listOf("1", "0")
+        listOf(one(type.readAt("B/c1")), rows(type.tombstoneUrls).size.toString()) shouldBe listOf("1", "0")
     }
 
     @ParameterizedTest
@@ -263,29 +286,16 @@ class LocalChapterMoveRepositoryTest {
     fun `a kept state landing on another folds onto it`(type: Type) = runTest {
         type.seed.filterNot { "'B/c1', 'C'" in it }.forEach { exec(it) }
         exec(type.tombstone(2, "B/c1", read = 1, progress = 3))
-        exec(type.tombstone(1, "A/B/c1", read = 0, progress = 9))
+        exec(type.tombstone(1, "B/c1", read = 0, progress = 9))
 
-        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+        regroup(type.contentType)
 
-        rows(type.tombstoneState) shouldBe listOf("1|A/B/c1|1|9")
+        rows(type.tombstoneState) shouldBe listOf("1|B/c1|1|9")
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
-    fun `a move drops the kept state waiting under the folder it fills, and only there`(type: Type) = runTest {
-        type.seed.forEach { exec(it) }
-        // Left by a volume deleted outside the app, at the folder name the arriving volume now takes.
-        exec(type.tombstone(1, "A/B/c7", read = 1))
-        exec(type.tombstone(1, "A/C/c8", read = 1))
-
-        repository().move(type.contentType, null, listOf(MOVE), emptyList(), mapOf(1L to listOf("A/B/")))
-
-        rows(type.tombstoneUrls) shouldBe listOf("A/C/c8")
-    }
-
-    @ParameterizedTest
-    @EnumSource(Type::class)
-    fun `a move settles only the keys it wrote`(type: Type) = runTest {
+    fun `a regroup settles only the keys it wrote`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
         // A row and a kept state at one key elsewhere in the owner, as a restore in flight leaves them.
         exec(
@@ -296,7 +306,7 @@ class LocalChapterMoveRepositoryTest {
         )
         exec(type.tombstone(1, "A/X/c5", read = 1))
 
-        repository().move(type.contentType, null, listOf(MOVE), emptyList())
+        regroup(type.contentType)
 
         listOf(one(type.readAt("A/X/c5")), rows(type.tombstoneUrls).joinToString()) shouldBe listOf("0", "A/X/c5")
     }
@@ -315,11 +325,25 @@ class LocalChapterMoveRepositoryTest {
 
     private fun repository() = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
 
+    /** Series B's whole folder going to series A, as a combine writes it. */
+    private suspend fun regroup(type: ContentType) =
+        repository().regroup(type, listOf(TRANSFER), emptyList(), emptyList(), emptyList(), ::localChapterUnit)
+
+    private suspend fun moveVolumes(vararg moves: VolumeRowMove) =
+        repository().regroup(
+            ContentType.MANGA,
+            emptyList(),
+            emptyList(),
+            emptyList(),
+            moves.toList(),
+            ::localChapterUnit,
+        )
+
     private companion object {
         /** The rename's address mapping, series B to Bee, as the callers' url kernel would give it. */
         fun toBee(url: String) = "Bee/" + url.substringAfter('/')
 
-        val MOVE = OwnerMoves(2, 1, listOf(ChapterMove("B/c1", "A/B/c1")))
+        val TRANSFER = UnitTransfer(2, 1, listOf("B" to VolumeOwner.WHOLE))
         val RENAME = SeriesRename(2, "B", "Bee", emptyMap())
         val REPLACE_PLAN = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
     }
@@ -379,6 +403,15 @@ class LocalChapterMoveRepositoryTest {
             "SELECT url FROM novel_chapters ORDER BY url"
         } else {
             "SELECT remote_url FROM chapter ORDER BY remote_url"
+        }
+
+        /** Every chapter, a row's or a kept state's, as its owner and address. */
+        val ownerAndUrl get() = if (contentType == ContentType.NOVELS) {
+            "SELECT novel_id || '|' || url FROM novel_chapters UNION ALL " +
+                "SELECT novel_id || '|' || url FROM novel_chapter_tombstone ORDER BY 1"
+        } else {
+            "SELECT manga_id || '|' || remote_url FROM chapter UNION ALL " +
+                "SELECT manga_id || '|' || url FROM manga_chapter_tombstone ORDER BY 1"
         }
 
         val tombstoneUrls get() = if (contentType == ContentType.NOVELS) {

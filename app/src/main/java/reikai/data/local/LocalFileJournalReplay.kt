@@ -21,12 +21,11 @@ import tachiyomi.core.common.util.system.logcat
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Finishes or reverses, at start, a Rename files or import Replace a kill cut off between its disk step and
- * its row step, under the series' lock and before any listing can read the half-done state: the locks open
- * only once [replay] has run. A rename whose every step took on disk gets its row step; one that took in part
- * is renamed back, as a failed rename is. A replace promotes its whole copy when the old file has stepped
- * aside. A row whose folder cannot be reached is kept for a later start. Nothing is touched before it has
- * been found where, and as, the plan says.
+ * Finishes or reverses, at start, an Organize files ([LocalOrganizer.replay]), an older build's Rename files or an
+ * import Replace a kill cut off, under the series' lock and before any listing can read the half-done state: the
+ * locks open only once [replay] has run. A rename whose every step took on disk gets its row step; one that took
+ * in part is renamed back. A replace promotes its whole copy when the old file has stepped aside. A row whose
+ * folder cannot be reached is kept for a later start. Nothing is touched before it is found where the plan says.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -35,6 +34,7 @@ class LocalFileJournalReplay(
     private val journal: LocalFileJournal,
     private val locks: LocalSeriesLocks,
     private val chapterMoves: LocalChapterMoveRepository,
+    private val organizer: LocalOrganizer,
 ) {
 
     suspend fun replay() {
@@ -58,6 +58,9 @@ class LocalFileJournalReplay(
                 replayRename(entry.id, entry.type, plan)
             }
             is LocalFileJournalPlan.Replace -> replayReplace(entry.id, plan)
+            is LocalFileJournalPlan.Organize -> locks.locked(entry.type, plan.folders()) {
+                organizer.replay(entry.type, entry.id, plan)
+            }
         }
     }
 

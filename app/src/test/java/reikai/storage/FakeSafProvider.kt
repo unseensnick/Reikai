@@ -25,8 +25,8 @@ import java.io.FileNotFoundException
 /**
  * A picked-folder (SAF) provider over a temp directory, shaped like the device's ExternalStorageProvider: document
  * ids are `primary:<path>`, a delete is recursive, a create or a rename onto a taken name lands on `name (1).ext`
- * and succeeds, and a file opens in the mode asked for, so "w" writes in place and "wt" truncates. [install]
- * registers it with Robolectric; the companion's faults and hooks say what the next queries and writes do.
+ * and succeeds, a move onto a taken name throws, and a file opens in the mode asked for ("w" in place, "wt"
+ * truncating). [install] registers it with Robolectric; the companion's faults and hooks say what comes next.
  * It is a plain provider wrapping the [Documents] one only because Robolectric's resolver hands a plain query to
  * the final pre-O `query`, which `DocumentsProvider` rejects; everything else is `DocumentsProvider`'s dispatch.
  */
@@ -166,6 +166,22 @@ class FakeSafProvider : ContentProvider() {
             return docIdFor(after)
         }
 
+        // FileSystemProvider.moveDocument: one File.renameTo into the target under the same name, refused when the
+        // target already holds it; a provider without the flag answers as DocumentsProvider's own default does.
+        override fun moveDocument(
+            sourceDocumentId: String,
+            sourceParentDocumentId: String,
+            targetParentDocumentId: String,
+        ): String {
+            if (!supportsMove) throw UnsupportedOperationException("Move not supported")
+            val before = existing(sourceDocumentId)
+            val after = File(existing(targetParentDocumentId), before.name)
+            onCall?.invoke("moveDocument", after)
+            check(!after.exists()) { "Already exists $after" }
+            check(before.renameTo(after)) { "Failed to move to $after" }
+            return docIdFor(after)
+        }
+
         private fun MatrixCursor.addFile(file: File) {
             val row = newRow()
             columnNames.forEach { column ->
@@ -194,6 +210,7 @@ class FakeSafProvider : ContentProvider() {
 
         private fun flagsFor(file: File): Int =
             Document.FLAG_SUPPORTS_DELETE or Document.FLAG_SUPPORTS_RENAME or
+                (if (supportsMove) Document.FLAG_SUPPORTS_MOVE else 0) or
                 if (file.isDirectory) Document.FLAG_DIR_SUPPORTS_CREATE else Document.FLAG_SUPPORTS_WRITE
 
         // The device provider's FileUtils.splitFileName: the extension the name carries is kept when it agrees with
@@ -262,6 +279,9 @@ class FakeSafProvider : ContentProvider() {
         /** Whether a create with a taken name answers with the existing document instead of a numbered one. */
         var createReturnsExisting = false
 
+        /** Whether documents move, as the device's own provider's do; many others' do not. */
+        var supportsMove = true
+
         /** What a child query of a folder does when [childListingFaults] holds nothing for it. */
         var listingFault: ((File) -> ChildListingFault?)? = null
 
@@ -288,6 +308,7 @@ class FakeSafProvider : ContentProvider() {
             faultedFolder = null
             failingDocuments.clear()
             createReturnsExisting = false
+            supportsMove = true
             beforeCreate = null
             beforeRename = null
             listingFault = null

@@ -20,10 +20,9 @@ data class LocalFileNames(val series: Rename, val volumes: List<Rename>, val tak
 }
 
 /**
- * The names Rename files gives local series [folder] from the [title] and volume [labels] (key to label) on
- * screen. The folder takes the title. A manga volume folder takes its label, since the series is already its
- * parent's name; a book file takes the title and its label, as a book is often handled away from its folder.
- * A loose book is the series itself and takes the title.
+ * The names Organize files gives local series [folder] from the [title] and volume [labels] (group key to label)
+ * on screen. The folder takes the title, and every volume, a manga volume folder or a book, `<title> - <label>`,
+ * one format for both types. A loose book with no other volume is the series itself and takes the title.
  */
 fun localFileNames(
     type: ContentType,
@@ -32,18 +31,16 @@ fun localFileNames(
     labels: List<Pair<String, String>>,
 ): LocalFileNames {
     val base = DiskUtil.buildValidFilename(title)
-    val looseBook = type == ContentType.NOVELS && folder.endsWith(EPUB, ignoreCase = true)
-    val series = LocalFileNames.Rename(folder, if (looseBook) epubFileName(title) else base)
-    if (looseBook) return LocalFileNames(series, emptyList())
+    val loneBook = type == ContentType.NOVELS && folder.endsWith(EPUB, ignoreCase = true) && labels.size <= 1
+    val series = LocalFileNames.Rename(folder, if (loneBook) epubFileName(title) else base)
+    if (loneBook) return LocalFileNames(series, emptyList())
     val taken = mutableSetOf<String>()
     val volumes = labels.map { (key, label) ->
         // A book's name keeps room for its extension, so a long title is cut before ".epub", never through it.
-        val name = if (type ==
-            ContentType.NOVELS
-        ) {
+        val name = if (type == ContentType.NOVELS) {
             epubFileName("$title - $label")
         } else {
-            DiskUtil.buildValidFilename(label)
+            DiskUtil.buildValidFilename("$title - $label")
         }
         LocalFileNames.Rename(key, freeName(name, taken))
     }

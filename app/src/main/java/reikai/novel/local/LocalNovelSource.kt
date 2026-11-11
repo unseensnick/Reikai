@@ -17,7 +17,10 @@ import reikai.data.novel.NovelStatusCode
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.inUserOrder
 import reikai.domain.library.ContentType
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.localGroupKey
+import reikai.domain.local.localGroupUnit
 import reikai.domain.novel.local.LocalNovelLanguageRepository
 import reikai.domain.source.CatalogueEnd
 import reikai.novel.download.inlinedImageAddress
@@ -114,22 +117,34 @@ class LocalNovelSource(
     override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T =
         seriesLocks.withSeries(ContentType.NOVELS, novelPath, block)
 
+    /**
+     * The series at [novelPath] with its books: its own folder's and those of other folders it holds, each under
+     * its key in the group ([localGroupKey]), so grouping moves no book. Each folder's books keep their own order,
+     * the series' own first, until the user orders them.
+     */
     private suspend fun parseSeries(novelPath: String): SourceNovel {
-        val series = seriesAt(novelPath) ?: throw LocalNovelMissingException(novelPath)
-        val readable = readableVolumes(series.volumes.map { file -> file to runCatching { open(file) } }) {
-            LocalNovelMissingException(novelPath)
-        }
-        val volumes = inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
-            .inUserOrder({ it.first.name.orEmpty() }, userVolumes.loadedVolumes(ContentType.NOVELS)[series.path])
-        val (firstFile, first) = volumes.first()
-        val details = series.details()
+        val groups = LocalGroups(userVolumes.all(ContentType.NOVELS))
+        val members = groups.foldersOf(novelPath).map { seriesAt(it) ?: throw LocalNovelMissingException(it) }
+        val series = members.firstOrNull { it.path == novelPath }
+        val ordered = members.flatMap { member ->
+            val books = member.volumes.filter { groups.ownerOf(member.path, it.name.orEmpty()) == novelPath }
+            val readable = readableVolumes(books.map { file -> file to runCatching { open(file) } }) {
+                LocalNovelMissingException(novelPath)
+            }.takeIf { books.isNotEmpty() }.orEmpty()
+            inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
+                .map { (file, opened) ->
+                    Triple(localGroupKey(novelPath, member.path, file.name.orEmpty()), file, opened)
+                }
+        }.ifEmpty { throw LocalNovelMissingException(novelPath) }
+        val volumes = ordered.inUserOrder({ it.first }, userVolumes.loadedVolumes(ContentType.NOVELS)[novelPath])
+        val (_, firstFile, first) = volumes.first()
+        val details = series?.details()
         val meta = first.book.metadata
         // Kept beside the novel, since a novel row has nowhere to hold it; details.json wins, as for every field.
-        languages.set(series.path, details?.language ?: meta.language)
-        val listed =
-            localChapters(series.path, volumes.map { (file, opened) -> file.name.orEmpty() to opened.chapters })
+        languages.set(novelPath, details?.language ?: meta.language)
+        val listed = localChapters(novelPath, volumes.map { (key, _, opened) -> key to opened.chapters })
         val chapters = listed.map { chapter ->
-            val (file, opened) = volumes[chapter.volume]
+            val (_, file, opened) = volumes[chapter.volume]
             ChapterItem(
                 name = if (volumes.size >
                     1
@@ -143,10 +158,11 @@ class LocalNovelSource(
                 chapterNumber = chapter.number,
             )
         }
+        val coverSeries = series ?: members.first { firstFile in it.volumes }
         return SourceNovel(
-            path = series.path,
-            name = details?.title ?: series.title(first.book),
-            cover = series.coverAddress(firstFile, first.book),
+            path = novelPath,
+            name = details?.title ?: (series ?: coverSeries).title(first.book),
+            cover = coverSeries.coverAddress(firstFile, first.book),
             genres = (details?.genre ?: meta.genres).joinToString(","),
             summary = details?.description ?: meta.description,
             author = details?.author ?: meta.author,
@@ -186,10 +202,12 @@ class LocalNovelSource(
     override suspend fun webUrl(path: String, isNovel: Boolean): String = ""
 
     /** Every series in the folder: its folders holding an EPUB, then its loose EPUBs. */
-    private fun allSeries(): List<Series> {
+    private suspend fun allSeries(): List<Series> {
         val root = storageManager.getLocalNovelsDirectory() ?: return emptyList()
-        // Browsing skips a folder it cannot read; a refresh fails on one instead (seriesAt).
-        return root.listFiles().orEmpty().mapNotNull { entry ->
+        val groups = LocalGroups(userVolumes.all(ContentType.NOVELS))
+        // Browsing skips a folder it cannot read; a refresh fails on one instead (seriesAt). A folder combined
+        // into another series is that series' volumes, not one of its own.
+        return root.listFiles().orEmpty().filterNot { groups.isLentWhole(it.name.orEmpty()) }.mapNotNull { entry ->
             try {
                 seriesOf(entry)
             } catch (e: FolderUnreadableException) {
@@ -279,10 +297,11 @@ class LocalNovelSource(
     }
 
     /** The cover of the book [volume] in the series at [seriesPath], for its volume header. */
-    suspend fun volumeCover(seriesPath: String, volume: String): String? = withIOContext {
-        val file = seriesAt(seriesPath)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
+    suspend fun volumeCover(seriesPath: String, key: String): String? = withIOContext {
+        val (folder, volume) = localGroupUnit(seriesPath, key)
+        val file = seriesAt(folder)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
         val book = runCatching { book(file) }.getOrNull() ?: return@withIOContext null
-        copyCover(file, book, seriesPath)
+        copyCover(file, book, folder)
     }
 
     /** [book]'s cover copied out of [file] once, since a cover loader cannot read inside an EPUB. */
@@ -451,14 +470,16 @@ class LocalNovelSource(
         internal data class LocalChapter(val volume: Int, val ref: EpubChapterRef, val path: String, val number: Double)
 
         /** Every chapter of [series], volume by volume: each volume is its file name and its chapters. */
+        // Each volume by its key in the series' group, so a book in another folder keeps that folder's address.
         internal fun localChapters(
             series: String,
             volumes: List<Pair<String, List<EpubChapterRef>>>,
         ): List<LocalChapter> {
             var number = 0
-            return volumes.flatMapIndexed { index, (volume, chapters) ->
+            return volumes.flatMapIndexed { index, (key, chapters) ->
+                val (folder, volume) = localGroupUnit(series, key)
                 chapters.map { ref ->
-                    LocalChapter(index, ref, chapterPath(series, volume, ref.key), (++number).toDouble())
+                    LocalChapter(index, ref, chapterPath(folder, volume, ref.key), (++number).toDouble())
                 }
             }
         }

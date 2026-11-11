@@ -340,11 +340,14 @@ private fun RenameVolumeDialog(current: String, onDismissRequest: () -> Unit, on
 internal fun AddVolumesDialog(
     title: String,
     load: suspend () -> List<CombinableSeries>,
+    canOrganize: Boolean,
     onDismissRequest: () -> Unit,
-    onConfirm: (List<CombinableSeries>) -> Unit,
+    // organize: the files are to move into this series' folder after, through Organize files' own preview.
+    onConfirm: (List<CombinableSeries>, organize: Boolean) -> Unit,
 ) {
     val series by produceState<List<CombinableSeries>?>(null) { value = load() }
     val picked = remember { mutableStateListOf<CombinableSeries>() }
+    var alsoOrganize by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(MR.strings.action_add_volumes)) },
@@ -363,10 +366,17 @@ internal fun AddVolumesDialog(
                         }
                     }
                 }
+                if (canOrganize) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.edit_info_also_rename_files),
+                        checked = alsoOrganize,
+                        onCheckedChange = { alsoOrganize = it },
+                    )
+                }
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(picked.toList()) }, enabled = picked.isNotEmpty()) {
+            TextButton(onClick = { onConfirm(picked.toList(), alsoOrganize) }, enabled = picked.isNotEmpty()) {
                 Text(stringResource(MR.strings.action_add))
             }
         },

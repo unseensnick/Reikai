@@ -6,8 +6,10 @@ import dev.zacsweers.metro.BindingContainer
 import dev.zacsweers.metro.Provides
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.data.track.TrackerManager
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.download.SourceContacts
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
@@ -41,6 +43,10 @@ object ReikaiBindings {
     /** The novel sources the app carries itself, there before any plugin or app loads. */
     @Provides
     fun providesBuiltInNovelSources(local: LocalNovelSource): List<NovelSource> = listOf(local)
+
+    /** Which series lists which local volume, for the series locks, which cannot see the volumes table. */
+    @Provides
+    fun providesVolumeOwners(volumes: LocalVolumeRepository): LocalVolumeOwnerRepository = volumes
 
     @Provides
     @SingleIn(AppScope::class)

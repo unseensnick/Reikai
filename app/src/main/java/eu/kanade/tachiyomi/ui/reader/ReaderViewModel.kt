@@ -335,7 +335,7 @@ class ReaderViewModel(
 
     // RK: the local volume a chapter is in, under the name the user gave it, for the chapter sheet
     fun chapterVolume(chapter: Chapter): ChapterVolume? =
-        mangaChapterVolume(mangaForChapterId(chapter.mangaId).source, chapter.url, chapter.name)
+        mangaChapterVolume(mangaForChapterId(chapter.mangaId), chapter.url, chapter.name)
             ?.named(localVolumes.volumes(ContentType.MANGA).value)
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:

@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
+import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
@@ -110,6 +111,7 @@ class NovelBackupCreator(
         val overridesByNovelId = chapterNumberOverrides.getByOwners(ContentType.NOVELS, novelIds)
         val marksByNovelId = copyMarks.loadedMarks(ContentType.NOVELS)
         val volumesBySeries = localVolumes.loadedVolumes(ContentType.NOVELS)
+        val ownersBySeries = localVolumes.all(ContentType.NOVELS).groupBy { it.owner }
         val wordsByChapterId = chunkPace(novelIds).associate { it.chapterId to it.words }
         batch.writeRows(novelChapterRepository.getByNovelIds(novelIds), Novel::id) { entry, backup, chapters ->
             val overrides = overridesByNovelId[entry.id].orEmpty()
@@ -117,6 +119,8 @@ class NovelBackupCreator(
             // A local series only, since only its url is the folder the volumes are keyed by.
             if (LocalNovelSource.isLocal(entry.source)) {
                 backup.localVolumes = volumesBySeries[entry.url].orEmpty().map { it.toBackup() }
+                backup.volumeOwners =
+                    ownersBySeries[entry.url].orEmpty().map { BackupVolumeOwner(it.folder, it.volume) }
             }
             backup.chapters = chapters.map {
                 it.toBackupNovelChapter(

@@ -24,9 +24,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
-import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
 import reikai.storage.FakeSafProvider
+import reikai.storage.rename
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.LocalSourceFileSystem
@@ -83,23 +83,12 @@ class LocalRenameUnderLockTest {
             listed("Series") // warm, so the listing below is a few milliseconds of real time
             val diskDone = CompletableDeferred<Unit>()
             val rowsGo = CompletableDeferred<Unit>()
-            val journal = InMemoryLocalFileJournal()
             val rename = launch(Dispatchers.IO) {
                 locks.withSeries(ContentType.MANGA, "Series") {
-                    val renaming = JournaledRename(
-                        journal,
-                        ContentType.MANGA,
-                        1,
-                        picked(local),
-                        picked(File(local, "Series")),
-                        null,
-                        listOf(LocalFileNames.Rename("Vol 1", "Vol 2")),
-                    )
-                    renaming.renameOnDisk()
+                    check(picked(File(local, "Series")).findFile("Vol 1")!!.rename("Vol 2"))
                     diskDone.complete(Unit)
                     rowsGo.await()
                     rows[0] = "Series/Vol 2/Ch 1"
-                    journal.delete(renaming.journalId!!)
                 }
             }
             diskDone.await()

@@ -202,6 +202,48 @@ fun UniFile.rename(newName: String): Boolean {
 }
 
 /**
+ * Whether the provider lets this document be moved ([DocumentsContract.Document.FLAG_SUPPORTS_MOVE]) and renamed
+ * ([DocumentsContract.Document.FLAG_SUPPORTS_RENAME]), read from its own flags. False off a picked folder (unifile
+ * has no move) and when the query fails, so an operation that needs both is not offered rather than tried.
+ */
+fun UniFile.canMoveAndRename(context: Context): Boolean {
+    if (!DocumentsContract.isDocumentUri(context, uri)) return false
+    val needed = DocumentsContract.Document.FLAG_SUPPORTS_MOVE or DocumentsContract.Document.FLAG_SUPPORTS_RENAME
+    val flags = try {
+        context.contentResolver.query(uri, arrayOf(DocumentsContract.Document.COLUMN_FLAGS), null, null, null)
+            ?.use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else null }
+    } catch (e: Exception) {
+        null
+    }
+    return flags != null && flags and needed == needed
+}
+
+/**
+ * Moves this document out of [from] into [into] under its own name, as one provider move, and answers it where it
+ * landed, or null when it did not move. A device provider's move is one rename on disk and refuses a name [into]
+ * already holds, so the caller frees the name first. A move that landed under another name is moved back and
+ * answers null, since nothing could find it there. Never moves a tree root, whose grant would not follow it.
+ */
+fun UniFile.moveTo(context: Context, from: UniFile, into: UniFile): UniFile? {
+    val name = name ?: return null
+    if (!DocumentsContract.isTreeUri(uri)) return null
+    if (DocumentsContract.getDocumentId(uri) == DocumentsContract.getTreeDocumentId(uri)) return null
+    val moved = try {
+        DocumentsContract.moveDocument(context.contentResolver, uri, from.uri, into.uri)
+    } catch (e: Exception) {
+        null
+    } ?: return null
+    val landed = UniFile.fromUri(context, moved) ?: return null
+    if (landed.name == name) return landed
+    try {
+        DocumentsContract.moveDocument(context.contentResolver, moved, into.uri, from.uri)
+    } catch (e: Exception) {
+        // Left where it landed: the caller's reversal finds it by its document, not its name.
+    }
+    return null
+}
+
+/**
  * Deletes this file. A folder is refused, so no delete is recursive by accident: that is [deleteTree]. Asked as
  * `isFile`, since a picked folder's failed query answers false to both questions and only this one refuses.
  */

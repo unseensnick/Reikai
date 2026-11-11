@@ -7,7 +7,7 @@ import reikai.domain.library.ContentType
 class LocalFileNamesTest {
 
     @Test
-    fun `a manga folder takes the title and each volume folder its label`() {
+    fun `a manga folder takes the title and each volume folder the title and its label`() {
         localFileNames(
             ContentType.MANGA,
             "old",
@@ -16,7 +16,10 @@ class LocalFileNamesTest {
         ) shouldBe
             LocalFileNames(
                 LocalFileNames.Rename("old", "Volume Comic"),
-                listOf(LocalFileNames.Rename("Vol 01", "Vol. 1"), LocalFileNames.Rename("Vol 02", "Finale")),
+                listOf(
+                    LocalFileNames.Rename("Vol 01", "Volume Comic - Vol. 1"),
+                    LocalFileNames.Rename("Vol 02", "Volume Comic - Finale"),
+                ),
             )
     }
 
@@ -33,9 +36,21 @@ class LocalFileNamesTest {
     }
 
     @Test
-    fun `a loose book is the series and takes the title`() {
+    fun `a loose book alone is the series and takes the title`() {
         localFileNames(ContentType.NOVELS, "war3.epub", "War and Peace", emptyList()) shouldBe
             LocalFileNames(LocalFileNames.Rename("war3.epub", "War and Peace.epub"), emptyList())
+    }
+
+    @Test
+    fun `a loose book that a group holds others with takes a folder named for the title`() {
+        localFileNames(ContentType.NOVELS, "war3.epub", "War", listOf("war3.epub" to "1", "B/b.epub" to "2")) shouldBe
+            LocalFileNames(
+                LocalFileNames.Rename("war3.epub", "War"),
+                listOf(
+                    LocalFileNames.Rename("war3.epub", "War - 1.epub"),
+                    LocalFileNames.Rename("B/b.epub", "War - 2.epub"),
+                ),
+            )
     }
 
     @Test
@@ -43,11 +58,11 @@ class LocalFileNamesTest {
         localFileNames(ContentType.MANGA, "S", "S", listOf("a" to "Extra", "b" to "Extra")).volumes.map {
             it.to
         } shouldBe
-            listOf("Extra", "Extra (2)")
+            listOf("S - Extra", "S - Extra (2)")
     }
 
     @Test
     fun `names that already match change nothing`() {
-        localFileNames(ContentType.MANGA, "S", "S", listOf("Vol. 1" to "Vol. 1")).changes shouldBe false
+        localFileNames(ContentType.MANGA, "S", "S", listOf("S - Vol. 1" to "Vol. 1")).changes shouldBe false
     }
 }

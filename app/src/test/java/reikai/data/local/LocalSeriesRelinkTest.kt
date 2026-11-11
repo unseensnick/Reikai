@@ -20,6 +20,7 @@ import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.model.Novel
@@ -79,6 +80,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             storageManager = storage,
             chapterMoves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)),
             seriesLocks = LocalSeriesLocks().apply { open() },
+            owners = NoLocalVolumes,
         )
     }
 

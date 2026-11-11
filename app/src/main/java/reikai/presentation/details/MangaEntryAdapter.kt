@@ -89,8 +89,8 @@ class MangaEntryAdapter(
             ),
             chapters = EntryChapterListUiState(
                 items = chapterSourceNames().let { names ->
-                    val sourceIds = chapterSourceIds()
-                    chapterListItems.map { it.toNeutralItem(names, sourceIds, numberHints) }
+                    val owners = chapterOwners()
+                    chapterListItems.map { it.toNeutralItem(names, owners, numberHints) }
                 },
                 missingChapterCount = missingChapterCount,
                 showHidden = showHidden,
@@ -112,9 +112,9 @@ class MangaEntryAdapter(
                         )
                     }
                 },
-                volumes = chapterSourceIds().let { sourceIds ->
+                volumes = chapterOwners().let { owners ->
                     chapters.mapNotNull {
-                        mangaChapterVolume(sourceIds[it.chapter.mangaId] ?: -1L, it.chapter.url, it.chapter.name)
+                        mangaChapterVolume(owners[it.chapter.mangaId], it.chapter.url, it.chapter.name)
                     }
                 },
             ),
@@ -155,19 +155,19 @@ class MangaEntryAdapter(
         )
     }
 
-    private fun MangaViewModel.State.Success.chapterSourceIds(): Map<Long, Long> =
-        mergedMangaById.mapValues { it.value.source } + (manga.id to manga.source)
+    private fun MangaViewModel.State.Success.chapterOwners(): Map<Long, Manga> =
+        mergedMangaById + (manga.id to manga)
 
     private fun MangaViewModel.State.Success.chapterSourceNames(): Map<Long, String> =
         mergeSourceLabels(mergeSources.associate { it.id to it.sourceName })
 
     private fun ChapterList.toNeutralItem(
         sourceNames: Map<Long, String>,
-        sourceIds: Map<Long, Long>,
+        owners: Map<Long, Manga>,
         numberHints: Map<Long, ChapterNumberHint.Hint>,
     ): EntryChapterListItem = when (this) {
         is ChapterList.Item -> toEntryChapter(sourceNames[chapter.mangaId], numberHinted = id in numberHints).copy(
-            volume = mangaChapterVolume(sourceIds[chapter.mangaId] ?: -1L, chapter.url, chapter.name),
+            volume = mangaChapterVolume(owners[chapter.mangaId], chapter.url, chapter.name),
         )
         is ChapterList.MissingCount -> EntryChapterListItem.Missing(id = id, count = count)
     }

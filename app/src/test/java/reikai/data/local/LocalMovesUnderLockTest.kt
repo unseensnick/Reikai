@@ -38,10 +38,10 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
+import reikai.data.chapter.LocalVolumeRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalChapterTombstones
-import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
@@ -81,7 +81,9 @@ class LocalMovesUnderLockTest {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val locks = LocalSeriesLocks().apply { open() }
+    private lateinit var locks: LocalSeriesLocks
+    private lateinit var volumes: LocalVolumeRepositoryImpl
+    private lateinit var journal: LocalFileJournalRepositoryImpl
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var local: File
     private lateinit var driver: JdbcSqliteDriver
@@ -113,6 +115,9 @@ class LocalMovesUnderLockTest {
                     "($id, ${LocalSource.ID}, '$folder', '$folder', 'cover.jpg', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
             )
         }
+        volumes = LocalVolumeRepositoryImpl(database, appScope)
+        locks = LocalSeriesLocks(volumes).apply { open() }
+        journal = LocalFileJournalRepositoryImpl(database)
         val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
         val fileSystem = LocalSourceFileSystem(storage)
         val mangaRepository = MangaRepositoryImpl(database)
@@ -129,7 +134,7 @@ class LocalMovesUnderLockTest {
         )
         // The real cover writer: a mocked one never closes the page it is handed, which on Windows pins the folder.
         val covers = LocalCoverManager(context, fileSystem)
-        source = LocalSource(context, fileSystem, covers, Json, XML.v1 {}, NoLocalVolumes, locks)
+        source = LocalSource(context, fileSystem, covers, Json, XML.v1 {}, volumes, locks)
         val sync = SyncChaptersWithSource(
             downloadManager = mockk(relaxed = true),
             downloadProvider = mockk(relaxed = true),
@@ -165,7 +170,6 @@ class LocalMovesUnderLockTest {
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
-            chapterRepository = chapterRepository,
             localFiles = fileSystem,
             localManga = source,
             localNovels = mockk(),
@@ -186,8 +190,8 @@ class LocalMovesUnderLockTest {
             mangaAdder = mangaAdder,
             novelAdder = mockk(),
             setEntryTitle = mockk(),
-            localVolumes = NoLocalVolumes,
-            journal = InMemoryLocalFileJournal(),
+            localVolumes = volumes,
+            organizer = LocalOrganizer(context, journal, chapterMoves, locks),
             seriesLocks = locks,
             appScope = appScope,
         )
@@ -322,37 +326,32 @@ class LocalMovesUnderLockTest {
     }
 
     @Test
-    fun `a volume joining the kept series drops the kept state waiting under its new name`() = runTest {
-        // Other's "Vol 1" lands in Kept as "Vol 1 (2)", a name a volume deleted outside the app left state under.
-        tombstone(KEPT, "Kept/Vol 1 (2)/Ch 9")
+    fun `a combine moves no file and the kept series lists the other's chapters where they are`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        val before = files()
 
         val move = withContext(Dispatchers.Default) {
             withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
         }
 
-        listOf(move.result is LocalMoveResult.Moved, urls(KEPT), tombstoneUrls(KEPT)) shouldBe
-            listOf(true, listOf("Kept/Vol 1 (2)/Ch 1", "Kept/Vol 1/Ch 1"), emptyList<String>())
+        listOf(move.result is LocalMoveResult.Moved, files() == before, urls(KEPT), readUrls(KEPT)) shouldBe
+            listOf(true, true, listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1"), listOf("Other/Vol 1/Ch 1"))
     }
 
-    /** A provider can hide the same folder at every reading, so no listing proves a folder empty enough to delete. */
     @Test
-    fun `a combined series' folder is set aside with a chapter every listing hid, never deleted`() = runTest {
-        File(local, "Other/Ch 7").mkdirs()
-        File(local, "Other/Ch 7/001.jpg").writeBytes(byteArrayOf(7))
-        FakeSafProvider.listingFault = { FakeSafProvider.ChildListingFault.Without("Ch 7") }
+    fun `a combined folder is no series of its own in Browse, and what is put there later lists under the kept one`() =
+        runTest {
+            withContext(Dispatchers.Default) {
+                withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+            }
+            chapterFolder("Other", "Vol 2", "Ch 2")
 
-        val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+            refreshed(KEPT)
+            val browsed = source.getPopularManga(1).mangas.map { it.url }
+
+            browsed to urls(KEPT) shouldBe
+                (listOf("Kept") to listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1", "Other/Vol 2/Ch 2"))
         }
-        move.finish()
-        appScope.coroutineContext.job.children.forEach { it.join() }
-
-        listOf(
-            move.result is LocalMoveResult.Moved,
-            File(local, "Other").exists(),
-            tmp.root.walk().count { it.isFile && it.parentFile!!.name == "Ch 7" },
-        ) shouldBe listOf(true, false, 1)
-    }
 
     /** A chapter back on disk since the last listing has no row yet, only its kept state at its old address. */
     @Test
@@ -364,7 +363,7 @@ class LocalMovesUnderLockTest {
                 withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
             }
 
-            (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Split/Ch 2"))
+            (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Kept/Vol 2/Ch 2"))
         }
 
     @Test
@@ -375,7 +374,7 @@ class LocalMovesUnderLockTest {
             withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
         }
 
-        (move.result is LocalMoveResult.Moved) to allReadUrls() shouldBe (true to listOf("Kept/Vol 1 (2)/Ch 5"))
+        (move.result is LocalMoveResult.Moved) to readUrls(KEPT) shouldBe (true to listOf("Other/Vol 1/Ch 5"))
     }
 
     /** A failed query reads as "no such volume", and a short listing then removes its rows as if it were gone. */
@@ -417,33 +416,175 @@ class LocalMovesUnderLockTest {
         File(local, "Vol 2/Vol 1/Ch 1/001.jpg").exists() shouldBe true
     }
 
+    /** The chapter had no row when the combine ran, so only an Undo that finds the volume's chapters then takes it. */
     @Test
-    fun `a chapter put into a moved volume before the Undo goes back with the volume`() = runTest {
+    fun `a chapter first listed after a combine goes back with its volume on Undo, read`() = runTest {
         val move = withContext(Dispatchers.Default) {
             withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
         }
-        File(local, "Kept/Vol 1 (2)/Ch 8").mkdirs()
-        File(local, "Kept/Vol 1 (2)/Ch 8/001.jpg").writeBytes(byteArrayOf(8))
+        chapterFolder("Other", "Vol 1", "Ch 8")
+        refreshed(KEPT)
+        markRead("Other/Vol 1/Ch 8")
 
         val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
 
-        (undone is LocalMoveResult.Moved) to File(local, "Other/Vol 1/Ch 8/001.jpg").exists() shouldBe (true to true)
+        (undone is LocalMoveResult.Moved) to readUrls(OTHER) shouldBe (true to listOf("Other/Vol 1/Ch 8"))
     }
 
+    /** Found by the randomized test: the older Undo took the newer combine's rows for its own and broke the group. */
     @Test
-    fun `an undone split leaves no empty series folder where the split-out series stood`() = runTest {
+    fun `an Undo of a combine that a later combine built on is refused and changes nothing`() = runTest {
+        chapterFolder("Third", "Vol 1", "Ch 3")
+        addSeries(THIRD, "Third")
+        refreshed(THIRD)
+        markRead("Other/Vol 1/Ch 1")
+        // Other and Kept into Third, then Third and Other into Kept, then the first one's Undo.
+        val first = withContext(Dispatchers.Default) {
+            withTimeout(20_000) {
+                combine.combine(ContentType.MANGA, series(THIRD), listOf(series(OTHER), series(KEPT)))
+            }
+        }
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) {
+                combine.combine(ContentType.MANGA, series(KEPT), listOf(series(THIRD), series(OTHER)))
+            }
+        }
+        val owners = volumes.all(ContentType.MANGA)
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { first.undo() } }
+        refreshed(KEPT)
+
+        listOf(undone is LocalMoveResult.Failed, volumes.all(ContentType.MANGA) == owners, readUrls(KEPT)) shouldBe
+            listOf(true, true, listOf("Other/Vol 1/Ch 1"))
+    }
+
+    private suspend fun addSeries(id: Long, folder: String) = driver.exec(
+        "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_cover, remote_status, " +
+            "state_initialized, user_reader_flags, user_chapter_flags, user_favorite_at, " +
+            "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
+            "($id, ${LocalSource.ID}, '$folder', '$folder', 'cover.jpg', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
+    )
+
+    @Test
+    fun `a split makes no folder, and the split-out series lists its volume where it is`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
-        chapterFolder("Kept", "Vol 3", "Ch 3")
         refreshed(KEPT)
 
         val move = withContext(Dispatchers.Default) {
-            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2", "Vol 3"), "Split") }
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
         }
-        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { move.undo() } }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
 
-        (undone is LocalMoveResult.Moved) to local.list()!!.filterNot { it.startsWith('.') }.sorted() shouldBe
-            (true to listOf("Kept", "Other"))
+        listOf(move.result is LocalMoveResult.Moved, local.list()!!.sorted(), urls(split)) shouldBe
+            listOf(true, listOf("Kept", "Other"), listOf("Kept/Vol 2/Ch 2"))
     }
+
+    // Organize files
+
+    @Test
+    fun `organize moves a combined group's volumes into its folder under the naming format, read state kept`() =
+        runTest {
+            markRead("Other/Vol 1/Ch 1")
+            combined()
+            val pages = pages()
+
+            val move = organized()
+
+            listOf(
+                move.result is LocalMoveResult.Moved,
+                pages() == pages,
+                local.list()!!.sorted(),
+                entries("Kept"),
+                readUrls(KEPT),
+                journalRows(),
+            ) shouldBe listOf(
+                true,
+                true,
+                listOf("Kept", "Other"),
+                listOf("Kept - Vol. 1", "Kept - Vol. 2"),
+                listOf("Kept/Kept - Vol. 2/Ch 1"),
+                0L,
+            )
+        }
+
+    @Test
+    fun `an organize Undo puts every file and row back`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        val layout = files()
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { organized().undo() } }
+
+        listOf(undone is LocalMoveResult.Moved, files() == layout, readUrls(KEPT)) shouldBe
+            listOf(true, true, listOf("Other/Vol 1/Ch 1"))
+    }
+
+    @Test
+    fun `an organize whose move fails part way puts back what it did, files and rows`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        val layout = files()
+        FakeSafProvider.onCall = { call, _ -> if (call == "moveDocument") error("the provider refused") }
+
+        val move = organized()
+        FakeSafProvider.onCall = null
+
+        listOf(move.result is LocalMoveResult.Failed, files() == layout, readUrls(KEPT), journalRows()) shouldBe
+            listOf(true, true, listOf("Other/Vol 1/Ch 1"), 0L)
+    }
+
+    @Test
+    fun `organize is not offered where the storage cannot move a file`() = runTest {
+        FakeSafProvider.supportsMove = false
+
+        combine.canOrganize(ContentType.MANGA, series(KEPT)) shouldBe false
+    }
+
+    @Test
+    fun `a split-out series organized gets a folder of its own`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 2/Ch 2")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        val names = combine.organizePlan(ContentType.MANGA, series(split), "Split", listOf("Kept/Vol 2" to "Vol. 2"))
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(split), names) }
+        }
+
+        listOf(move.result is LocalMoveResult.Moved, entries("Split"), readUrls(split)) shouldBe
+            listOf(true, listOf("Split - Vol. 2"), listOf("Split/Split - Vol. 2/Ch 2"))
+    }
+
+    private suspend fun combined() = withContext(Dispatchers.Default) {
+        withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(OTHER))) }
+    }
+
+    private suspend fun organized(): LocalVolumeMove {
+        val labels = listOf("Vol 1" to "Vol. 1", "Other/Vol 1" to "Vol. 2")
+        val names = combine.organizePlan(ContentType.MANGA, series(KEPT), "Kept", labels)
+        return withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
+        }
+    }
+
+    /** Every page under the local folder, in hidden folders too, by its path and bytes; marker files left out. */
+    private fun files() = local.walkTopDown()
+        .filter { it.isFile && it.name != "cover.jpg" && !it.name.startsWith('.') }
+        .associate { it.relativeTo(local).invariantSeparatorsPath to it.readBytes().toList() }
+
+    /** Every page's bytes wherever it is, so a move shows as the same pages and a loss as one fewer. */
+    private fun pages() = files().values.sortedBy { it.toString() }
+
+    /** What series folder [series] holds besides its cover and the markers a listing writes. */
+    private fun entries(series: String) =
+        File(local, series).list()!!.filterNot { it.startsWith('.') || it.startsWith("cover.") }.sorted()
+
+    private suspend fun journalRows() = driver.rows("SELECT count(*) FROM local_file_journal") { it.getLong(0)!! }
+        .single()
 
     /** The real rules, with one call of [confirm] held between its listing and its sync when asked. */
     private class PausableTombstones(private val real: LocalChapterTombstones) : LocalChapterTombstones by real {
@@ -538,5 +679,6 @@ class LocalMovesUnderLockTest {
     private companion object {
         const val KEPT = 1L
         const val OTHER = 2L
+        const val THIRD = 3L
     }
 }

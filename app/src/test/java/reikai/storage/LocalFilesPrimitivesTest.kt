@@ -5,6 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
 import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
+import io.mockk.every
+import io.mockk.mockk
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -266,5 +268,19 @@ class LocalFilesPrimitivesTest {
         shouldThrow<FolderUnreadableException> { picked(authority = FakeSafProvider.OTHER).createNew(context, "a.cbz") }
 
         names() shouldBe listOf("a.cbz", "b.cbz")
+    }
+
+    // replaceFile
+
+    @Test
+    fun `a replacement that cannot take the name leaves the old file where it was`() {
+        val replacement = mockk<UniFile> {
+            every { name } returns "a.cbz.part"
+            every { renameTo(any()) } returns false
+        }
+
+        replaceFile(picked().findFile("a.cbz")!!, replacement, "a.cbz", "a.cbz.old")
+
+        File(series, "a.cbz").readText() shouldBe "aaa"
     }
 }

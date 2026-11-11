@@ -59,6 +59,8 @@ class BackupManga(
     @ProtoNumber(703) var localVolumes: List<BackupLocalVolume> = emptyList(),
     // RK: a local series' removed chapters' kept reading state (BackupChapterTombstone), beside 703.
     @ProtoNumber(704) var chapterTombstones: List<BackupChapterTombstone> = emptyList(),
+    // RK: the volumes a local series lists from other folders (BackupVolumeOwner), beside 704.
+    @ProtoNumber(705) var volumeOwners: List<BackupVolumeOwner> = emptyList(),
     // RK --> the user's custom info, on Komikku's and Yōkai's numbers (see BackupCustomInfoFields)
     @ProtoNumber(602) override var customStatus: Int = 0,
     @ProtoNumber(603) override var customThumbnailUrl: String? = null,

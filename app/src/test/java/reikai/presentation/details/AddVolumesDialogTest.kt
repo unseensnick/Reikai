@@ -29,7 +29,7 @@ class AddVolumesDialogTest {
             ComposeTestHost {
                 AddVolumesDialog(title = "Saga", load = {
                     others
-                }, onDismissRequest = {}, onConfirm = { confirmed = it })
+                }, canOrganize = false, onDismissRequest = {}, onConfirm = { picked, _ -> confirmed = picked })
             }
         }
         compose.waitUntil(5_000) { compose.onAllNodesWithTag("add:2").fetchSemanticsNodes().isNotEmpty() }

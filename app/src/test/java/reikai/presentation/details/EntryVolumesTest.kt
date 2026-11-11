@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.LocalVolume
+import tachiyomi.domain.manga.model.Manga
 
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
 class EntryVolumesTest {
@@ -22,8 +23,13 @@ class EntryVolumesTest {
         volume = volume,
     )
 
-    private val v1 = mangaChapterVolume(0L, "Series/Vol 01/Ch 001.cbz", "Vol 01 - Ch 001")!!
-    private val v2 = mangaChapterVolume(0L, "Series/Vol 02/Ch 003.cbz", "Vol 02 - Ch 003")!!
+    private companion object {
+        val LOCAL = Manga.create().copy(source = 0L, url = "Series")
+        val ONLINE = Manga.create().copy(source = 42L, url = "/manga/1")
+    }
+
+    private val v1 = mangaChapterVolume(LOCAL, "Series/Vol 01/Ch 001.cbz", "Vol 01 - Ch 001")!!
+    private val v2 = mangaChapterVolume(LOCAL, "Series/Vol 02/Ch 003.cbz", "Vol 02 - Ch 003")!!
 
     @Test
     fun `a local manga chapter in a volume folder names the folder and its number`() {
@@ -31,13 +37,31 @@ class EntryVolumesTest {
     }
 
     @Test
+    fun `a volume a group lists from another folder goes by that folder and its own name`() {
+        mangaChapterVolume(LOCAL, "Other/Vol 01/Ch 001.cbz", "Vol 01 - Ch 001") shouldBe
+            ChapterVolume("Series", "Other/Vol 01", VolumeLabel.Number(1.0), "Vol 01 - ")
+    }
+
+    @Test
+    fun `another folder's loose chapters are one volume, led by the folder's name`() {
+        mangaChapterVolume(LOCAL, "Other/Ch 001.cbz", "Other - Ch 001") shouldBe
+            ChapterVolume("Series", "Other/", VolumeLabel.Name("Other"), "Other - ")
+    }
+
+    @Test
+    fun `a book a group lists from another folder goes by that folder and its own name`() {
+        novelChapterVolume("Saga", "Series::Book%202.epub::c1.xhtml::t", "Vol. 2 - Prologue") shouldBe
+            ChapterVolume("Saga", "Series/Book 2.epub", VolumeLabel.Number(2.0), "Vol. 2 - ")
+    }
+
+    @Test
     fun `a chapter of another source has no volume whatever its address`() {
-        mangaChapterVolume(42L, "/manga/chapter/1", "Chapter 1") shouldBe null
+        mangaChapterVolume(ONLINE, "/manga/chapter/1", "Chapter 1") shouldBe null
     }
 
     @Test
     fun `a local novel chapter names the book its address names, labelled as the source names it`() {
-        novelChapterVolume("Series::Book%202.epub::c1.xhtml::t", "Vol. 2 - Prologue") shouldBe
+        novelChapterVolume("Series", "Series::Book%202.epub::c1.xhtml::t", "Vol. 2 - Prologue") shouldBe
             ChapterVolume("Series", "Book 2.epub", VolumeLabel.Number(2.0), "Vol. 2 - ")
     }
 
@@ -105,15 +129,15 @@ class EntryVolumesTest {
     /** Reorder, Delete and Rename files act on the chips, so a filtered-out volume must stay among them. */
     @Test
     fun `a volume the chapter filter hides keeps its chip`() {
-        val v3 = mangaChapterVolume(0L, "Series/Vol 03/Ch 005.cbz", "Vol 03 - Ch 005")!!
+        val v3 = mangaChapterVolume(LOCAL, "Series/Vol 03/Ch 005.cbz", "Vol 03 - Ch 005")!!
 
         listOf(row(1, v1), row(3, v2)).inVolumes(picked = null, saved = emptyMap(), every = listOf(v1, v2, v3))!!
             .chips.map { it.key } shouldBe listOf("Vol 01", "Vol 02", "Vol 03")
     }
 
     // Two books of one series that both state volume 1, as after combining two series.
-    private val book1 = novelChapterVolume("Series::Book%20One.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
-    private val other1 = novelChapterVolume("Series::Other.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
+    private val book1 = novelChapterVolume("Series", "Series::Book%20One.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
+    private val other1 = novelChapterVolume("Series", "Series::Other.epub::c1.xhtml::t", "Vol. 1 - Prologue")!!
 
     @Test
     fun `a later volume showing an earlier one's label is numbered after it`() {

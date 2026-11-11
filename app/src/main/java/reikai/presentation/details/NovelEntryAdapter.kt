@@ -124,7 +124,7 @@ class NovelEntryAdapter(
                         )
                     }
                 },
-                volumes = storedRows.mapNotNull { novelChapterVolume(it.url, it.name) },
+                volumes = storedRows.mapNotNull { novelChapterVolume(ownerUrl(it.novelId), it.url, it.name) },
             ),
             capabilities = EntryCapabilities(
                 novelPageSelector = if (pages.size > 1) {
@@ -159,9 +159,13 @@ class NovelEntryAdapter(
                     loaded.marks,
                     loaded.downloadStateOf(chapter.id),
                     numberHinted = chapter.id in loaded.numberHints,
-                ).copy(volume = novelChapterVolume(chapter.url, chapter.name))
+                ).copy(volume = novelChapterVolume(loaded.ownerUrl(chapter.novelId), chapter.url, chapter.name))
             is NovelChapterListEntry.Missing -> EntryChapterListItem.Missing(id = id, count = count)
         }
+
+    // The address of the series that lists the chapter, which a grouped local volume's key is relative to.
+    private fun NovelDetailsState.Loaded.ownerUrl(novelId: Long): String? =
+        (groupNovels + novel).firstOrNull { it.id == novelId }?.url
 
     private fun chapterById(id: Long): NovelChapter? =
         (model.state.value as? NovelDetailsState.Loaded)?.chapters?.firstOrNull { it.id == id }

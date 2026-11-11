@@ -1,0 +1,31 @@
+-- A volume of a local series listed by another series while its files stay where they are, per content type:
+-- the series folder (or loose book) the files sit in, the volume inside it (a manga volume folder or a book, ''
+-- for a manga folder's loose chapters, '/' for the whole folder), and the address of the series that lists it.
+-- One row per volume, so no volume lists under two series. Rows read in the order they were written, which is
+-- the order a group lists its volumes in until the user orders them.
+CREATE TABLE local_volume_owner(
+    content_type INTEGER NOT NULL,
+    folder TEXT NOT NULL,
+    volume_key TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    PRIMARY KEY(content_type, folder, volume_key)
+);
+
+getAll:
+SELECT folder, volume_key, owner
+FROM local_volume_owner
+WHERE content_type = :contentType
+ORDER BY rowid;
+
+setOwner:
+INSERT OR REPLACE INTO local_volume_owner(content_type, folder, volume_key, owner)
+VALUES (:contentType, :folder, :volumeKey, :owner);
+
+-- A series' address renamed: the volumes it lists from other folders follow it.
+renameOwner:
+UPDATE local_volume_owner SET owner = :toOwner
+WHERE content_type = :contentType AND owner = :fromOwner;
+
+forget:
+DELETE FROM local_volume_owner
+WHERE content_type = :contentType AND folder = :folder AND volume_key = :volumeKey;

@@ -8,6 +8,7 @@ import io.mockk.mockk
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
@@ -43,6 +44,7 @@ fun mangaRestorer(
     mergeGroups: MergeGroupRepository = mockk(relaxed = true),
     customInfo: CustomMangaInfoRepository = CustomMangaInfoRepositoryImpl(database),
     readingLog: ReadingLogRepository = NoReadingLog,
+    localVolumes: LocalVolumeRepository = NoLocalVolumes,
 ): MangaRestorer {
     val mangas = MangaRepositoryImpl(database)
     val chapters = ChapterRepositoryImpl(database)
@@ -65,7 +67,7 @@ fun mangaRestorer(
         getMangaByUrlAndSourceId = GetMangaByUrlAndSourceId(mangas),
         restoreMergeGroups = RestoreMergeGroups(mergeGroups, PassThroughTransactions),
         setCustomMangaInfo = SetCustomMangaInfo(customInfo),
-        localVolumes = NoLocalVolumes,
+        localVolumes = localVolumes,
     )
 }
 

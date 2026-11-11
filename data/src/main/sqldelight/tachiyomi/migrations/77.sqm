@@ -1,0 +1,8 @@
+-- Volumes listed by a series other than the one whose folder holds them (local_volume_owner.sq). Empty on upgrade.
+CREATE TABLE local_volume_owner(
+    content_type INTEGER NOT NULL,
+    folder TEXT NOT NULL,
+    volume_key TEXT NOT NULL,
+    owner TEXT NOT NULL,
+    PRIMARY KEY(content_type, folder, volume_key)
+);
