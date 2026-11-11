@@ -28,18 +28,27 @@ class EntryEditInfoDialogTest {
     val compose = createComposeRule()
 
     private var saved: EntryEditInfoUi? = null
+    private var organize: Boolean? = null
 
-    private fun show(initial: EntryEditInfoUi = INITIAL, mergedTags: List<String>? = null) = compose.setContent {
+    private fun show(
+        initial: EntryEditInfoUi = INITIAL,
+        mergedTags: List<String>? = null,
+        canRenameFiles: Boolean = false,
+    ) = compose.setContent {
         ComposeTestHost {
             EntryEditInfoDialog(
                 initial = initial,
                 source = SOURCE,
                 coverModel = { null },
                 onDismissRequest = {},
-                onSave = { info, _ -> saved = info },
+                onSave = { info, renameFiles ->
+                    saved = info
+                    organize = renameFiles
+                },
                 onResetAll = {},
                 autofill = TrackerAutofill(candidates = { emptyList() }, fetch = { _, _ -> error("unused") }),
                 mergedTags = { mergedTags },
+                canRenameFiles = canRenameFiles,
             )
         }
     }
@@ -103,6 +112,17 @@ class EntryEditInfoDialogTest {
         compose.onNodeWithText("Save").performClick()
 
         saved?.genre shouldBe listOf("Drama", "Action")
+    }
+
+    @Test
+    fun `a new title organizes the files only when the user ticks it`() {
+        show(canRenameFiles = true)
+
+        compose.onNodeWithText("Edited title").performTextReplacement("New title")
+        compose.onNodeWithText("Also organize files").assertExists()
+        compose.onNodeWithText("Save").performClick()
+
+        organize shouldBe false
     }
 
     private companion object {

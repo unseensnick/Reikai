@@ -71,6 +71,7 @@ import mihon.app.di.appGraph
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.automirroredrounded.Help
 import mihon.icons.materialsymbols.rounded.TravelExplore
+import reikai.data.local.LocalMoveResult // RK
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
@@ -834,10 +835,17 @@ data object LibraryTab : Tab {
             }
             is LibraryDialog.CombineVolumes -> CombineVolumesDialog(
                 series = dialog.series,
+                canOrganize = dialog.canOrganize,
                 onDismissRequest = onDismissRequest,
-                onConfirm = { kept ->
+                onConfirm = { kept, organize ->
                     scope.launch {
                         val move = engine.combineVolumes(dialog, kept) ?: return@launch
+                        // The kept series' screen, where its volumes show, opens on Organize files' preview.
+                        if (organize && move.result is LocalMoveResult.Moved) {
+                            val entry = EntryId.of(dialog.type, kept.id)
+                            graph.volumePicking.requestOrganize(entry)
+                            graph.volumePicking.detailsScreen(entry)?.let(navigator::push)
+                        }
                         val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
                         snackbarHostState.reportVolumeMove(context, move, message)
                     }

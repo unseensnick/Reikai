@@ -53,6 +53,7 @@ import reikai.data.local.LocalMoveResult
 import reikai.domain.chapter.CopyMark
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.download.whereDownloadOffered
+import reikai.domain.entry.EntryId
 import reikai.domain.recommendation.RelatedMangaCandidate
 import reikai.presentation.components.ManageMergeSourceRow
 import reikai.presentation.components.MergeSourceChips
@@ -172,10 +173,11 @@ fun EntryDetailsContent(
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
     var deletingVolumes by remember { mutableStateOf<List<String>?>(null) }
     val ownLocal = state.ownsLocalFiles
-    // Hidden, never shown disabled, where the storage cannot move or rename a file.
-    val canOrganize by produceState(false, state.entryId, ownLocal) {
+    // Hidden, never shown disabled, where the storage cannot move or rename a file; null until it is known.
+    val canOrganizeOrNull by produceState<Boolean?>(null, state.entryId, ownLocal) {
         value = ownLocal && behavior.volumePicking.canOrganize(state.entryId)
     }
+    val canOrganize = canOrganizeOrNull == true
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
@@ -207,14 +209,15 @@ fun EntryDetailsContent(
         onReadButtonDocked = settings::dockReadButton,
         descriptionImages = settings.descriptionImages,
     )
-    // Edit info saves the title before the screen shows it, so the files take the title it sent.
+    // Edit info saves the title before the screen shows it, so the files take the title it sent. A request made
+    // where the files cannot move is taken and dropped, so it does not open later out of the blue.
     var renameTitle by remember { mutableStateOf<String?>(null) }
-    if (ownLocal && canOrganize) {
-        LaunchedEffect(behavior.volumePicking) {
-            behavior.volumePicking.fileRenameRequests.collect {
-                renameTitle = it
-                volumeDialog = VolumeDialog.RenameFiles
-            }
+    LaunchedEffect(state.entryId, canOrganizeOrNull) {
+        if (canOrganizeOrNull == null) return@LaunchedEffect
+        behavior.volumePicking.organizeRequests(state.entryId).collect {
+            if (!canOrganize) return@collect
+            renameTitle = it.title
+            volumeDialog = VolumeDialog.RenameFiles
         }
     }
     if (isTabletUi) {
@@ -279,13 +282,20 @@ fun EntryDetailsContent(
             SplitOutDialog(
                 title = state.details.header.title,
                 volumes = view.chips,
+                canOrganize = canOrganize,
                 onDismissRequest = { volumeDialog = null },
-                onConfirm = { keys, title ->
+                onConfirm = { keys, title, organize ->
                     volumeDialog = null
                     scope.launch {
                         val own = behavior.volumePicking.series(state.entryId) ?: return@launch
                         val move = behavior.volumePicking.splitOut(type, own, keys, title)
                         behavior.refresh()
+                        // The new series' own screen, where its volumes show, opens on the preview.
+                        move.created?.takeIf { organize }?.let { created ->
+                            val entry = EntryId.of(type, created)
+                            behavior.volumePicking.requestOrganize(entry)
+                            behavior.volumePicking.detailsScreen(entry)?.let(navigator::push)
+                        }
                         val message = context.stringResource(MR.strings.local_volume_split_out, title)
                         snackbarHostState.reportVolumeMove(context, move, message)
                         behavior.refresh()

@@ -45,10 +45,14 @@ sealed interface LibraryDialog {
         val initialTab: LibrarySettingsTab,
     ) : LibraryDialog
 
-    /** Combine as volumes over [series], the selection's local series, one of which the user keeps. */
+    /**
+     * Combine as volumes over [series], the selection's local series, one of which the user keeps; [canOrganize]
+     * where the storage can move their files, which offers Also organize files.
+     */
     data class CombineVolumes(
         val type: ContentType,
         val entries: Set<EntryId>,
         val series: List<CombinableSeries>,
+        val canOrganize: Boolean,
     ) : LibraryDialog
 }

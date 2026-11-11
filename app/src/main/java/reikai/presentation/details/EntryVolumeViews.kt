@@ -255,7 +255,7 @@ internal fun ReorderVolumesDialog(
     }
     var renaming by remember { mutableStateOf<EntryChapterListItem.Volume?>(null) }
     var renamed by remember { mutableStateOf(false) }
-    var alsoRenameFiles by remember { mutableStateOf(true) }
+    var alsoRenameFiles by remember { mutableStateOf(false) }
     val close = { onDismissRequest(canRenameFiles && renamed && alsoRenameFiles) }
     AlertDialog(
         onDismissRequest = close,
@@ -392,10 +392,13 @@ internal fun AddVolumesDialog(
 internal fun SplitOutDialog(
     title: String,
     volumes: List<EntryChapterListItem.Volume>,
+    canOrganize: Boolean,
     onDismissRequest: () -> Unit,
-    onConfirm: (keys: List<String>, name: String) -> Unit,
+    // organize: the new series' files are to move into a folder of its own, through Organize files' preview.
+    onConfirm: (keys: List<String>, name: String, organize: Boolean) -> Unit,
 ) {
     val picked = remember { mutableStateListOf<String>() }
+    var alsoOrganize by remember { mutableStateOf(false) }
     val labels = volumes.associate { it.key to volumeName(it) }
     var edited by remember { mutableStateOf<String?>(null) }
     val name =
@@ -426,11 +429,18 @@ internal fun SplitOutDialog(
                     enabled = picked.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                 )
+                if (canOrganize) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.edit_info_also_rename_files),
+                        checked = alsoOrganize,
+                        onCheckedChange = { alsoOrganize = it },
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(
-                onClick = { onConfirm(volumes.map { it.key }.filter { it in picked }, name.trim()) },
+                onClick = { onConfirm(volumes.map { it.key }.filter { it in picked }, name.trim(), alsoOrganize) },
                 enabled = picked.isNotEmpty() && name.isNotBlank(),
             ) {
                 Text(stringResource(MR.strings.action_split_out))

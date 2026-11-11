@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -93,23 +94,32 @@ fun Screen.EntryDetailsDialogHost(
     val context = LocalContext.current
     when (dialog) {
         null -> {}
-        is EntryDetailsDialog.EditInfo -> EntryEditInfoDialog(
-            initial = dialog.initial,
-            source = dialog.source,
-            coverModel = dialog.coverModel,
-            onDismissRequest = onDismissRequest,
-            onSave = { edited, renameFiles ->
-                behavior.saveInfo(edited)
-                if (renameFiles) behavior.volumePicking.requestFileRename(edited.title)
-            },
-            canRenameFiles = (behavior.state.value as? EntryDetailsScreenState.Loaded)?.ownsLocalFiles == true,
-            onResetAll = behavior::resetInfo,
-            autofill = TrackerAutofill(
-                candidates = behavior::autofillCandidates,
-                fetch = behavior::fetchTrackerMetadata,
-            ),
-            mergedTags = behavior::mergedSourceTags,
-        )
+        is EntryDetailsDialog.EditInfo -> {
+            val loaded = behavior.state.value as? EntryDetailsScreenState.Loaded
+            // Hidden, never shown disabled, where the storage cannot move or rename a file.
+            val canOrganize by produceState(false, loaded?.entryId) {
+                value = loaded?.ownsLocalFiles == true && behavior.volumePicking.canOrganize(loaded.entryId)
+            }
+            EntryEditInfoDialog(
+                initial = dialog.initial,
+                source = dialog.source,
+                coverModel = dialog.coverModel,
+                onDismissRequest = onDismissRequest,
+                onSave = { edited, renameFiles ->
+                    behavior.saveInfo(edited)
+                    if (renameFiles && loaded != null) {
+                        behavior.volumePicking.requestOrganize(loaded.entryId, edited.title)
+                    }
+                },
+                canRenameFiles = canOrganize,
+                onResetAll = behavior::resetInfo,
+                autofill = TrackerAutofill(
+                    candidates = behavior::autofillCandidates,
+                    fetch = behavior::fetchTrackerMetadata,
+                ),
+                mergedTags = behavior::mergedSourceTags,
+            )
+        }
         EntryDetailsDialog.Cover -> {
             // The behavior returns the per-type subclass through the star-projected base. Voyager only
             // used that type as a store key, but AndroidX's default factory would try to instantiate it

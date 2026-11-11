@@ -22,6 +22,11 @@ sealed interface EntryId : Serializable {
     data class Novel(override val rawId: Long) : EntryId {
         override val contentType: ContentType get() = ContentType.NOVELS
     }
+
+    companion object {
+        /** The entry of [type] with row id [rawId]. */
+        fun of(type: ContentType, rawId: Long): EntryId = if (type == ContentType.NOVELS) Novel(rawId) else Manga(rawId)
+    }
 }
 
 /**

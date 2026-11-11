@@ -64,13 +64,14 @@ data class CombinableSeries(val id: Long, val title: String, val folder: String)
 /**
  * A change to local volumes that went through or failed as [result]. [undo] puts the rows (and, for Organize files,
  * the files) and library entries back; [finish] tidies what only an Undo still needed, once the chance to undo has
- * passed. Both run on the app scope, so leaving the screen cuts neither off.
+ * passed. Both run on the app scope, so leaving the screen cuts neither off. [created] is the series a split made.
  */
 class LocalVolumeMove internal constructor(
     val result: LocalMoveResult,
     private val undoing: suspend () -> LocalMoveResult,
     private val finishing: suspend () -> Unit,
     private val appScope: CoroutineScope,
+    val created: Long? = null,
 ) {
     suspend fun undo(): LocalMoveResult = appScope.async { blockedAs({ it }) { undoing() } }.await()
 
@@ -306,6 +307,7 @@ class CombineLocalVolumes(
             },
             finishing = { removal.dropCovers(tookOut.keys.toList()) },
             appScope = appScope,
+            created = joining,
         )
     }
 
@@ -479,7 +481,7 @@ class CombineLocalVolumes(
         val (plan, outcome) = result
         if (plan == null || outcome !is LocalMoveResult.Moved) return@onApp failed(outcome)
         // A name chosen in place of the title becomes the title, so the two stay in step for both types.
-        val entry = if (type == ContentType.NOVELS) EntryId.Novel(series.id) else EntryId.Manga(series.id)
+        val entry = EntryId.of(type, series.id)
         val titleBefore = title?.let { setEntryTitle.await(entry, it) }
         relist(type, series.id)
         val undoing = suspend {

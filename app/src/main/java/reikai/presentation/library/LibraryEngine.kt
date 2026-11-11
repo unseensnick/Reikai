@@ -786,7 +786,8 @@ class LibraryEngine(
         val type = entries.map { it.contentType }.distinct().singleOrNull() ?: return
         appScope.launchIO {
             val series = combineLocalVolumes.series(type, entries.map { it.rawId })
-            withUIContext { mutableDialog.value = LibraryDialog.CombineVolumes(type, entries, series) }
+            val canOrganize = series.all { combineLocalVolumes.canOrganize(type, it) }
+            withUIContext { mutableDialog.value = LibraryDialog.CombineVolumes(type, entries, series, canOrganize) }
         }
     }
 

@@ -18,16 +18,20 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import reikai.data.local.CombinableSeries
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** Pick the series the others join as volumes, and see what happens to them before anything moves. */
 @Composable
 fun CombineVolumesDialog(
     series: List<CombinableSeries>,
+    canOrganize: Boolean,
     onDismissRequest: () -> Unit,
-    onConfirm: (kept: CombinableSeries) -> Unit,
+    // organize: the files are to move into the kept series' folder after, through Organize files' own preview.
+    onConfirm: (kept: CombinableSeries, organize: Boolean) -> Unit,
 ) {
     var kept by remember { mutableStateOf(series.first()) }
+    var alsoOrganize by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismissRequest,
         title = { Text(stringResource(MR.strings.action_combine_volumes)) },
@@ -48,12 +52,19 @@ fun CombineVolumesDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                if (canOrganize) {
+                    LabeledCheckbox(
+                        label = stringResource(MR.strings.edit_info_also_rename_files),
+                        checked = alsoOrganize,
+                        onCheckedChange = { alsoOrganize = it },
+                    )
+                }
             }
         },
         confirmButton = {
             TextButton(onClick = {
                 onDismissRequest()
-                onConfirm(kept)
+                onConfirm(kept, alsoOrganize)
             }) { Text(stringResource(MR.strings.action_combine)) }
         },
         dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },

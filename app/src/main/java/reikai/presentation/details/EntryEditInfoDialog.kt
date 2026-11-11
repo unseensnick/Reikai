@@ -143,7 +143,7 @@ fun EntryEditInfoDialog(
     var isDraggingTag by remember { mutableStateOf(false) }
     var pickerTracks by remember { mutableStateOf<List<Pair<Track, Tracker>>?>(null) }
     var isAddingTags by remember { mutableStateOf(false) }
-    var alsoRenameFiles by remember { mutableStateOf(true) }
+    var alsoRenameFiles by remember { mutableStateOf(false) }
     val titleChanged = form.title.text.toString() != initial.title
     var collatable by remember { mutableStateOf<List<String>?>(null) }
     LaunchedEffect(Unit) { collatable = runCatchingCancellable { mergedTags() }.getOrNull() }

@@ -1,11 +1,19 @@
 package reikai.presentation.details
 
 import androidx.compose.runtime.Immutable
+import cafe.adriel.voyager.core.screen.Screen
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
+import dev.zacsweers.metro.SingleIn
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.mapNotNull
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
+import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalFileNames
@@ -21,7 +29,9 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
+import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
+import reikai.presentation.stats.statsDetailsScreen
 import reikai.source.local.localChapterUnit
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withIOContext
@@ -83,12 +93,15 @@ private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Numbe
  * A local series' volumes as the user arranges them: the chip each series was left on, and the order and
  * names its volumes were given. Writes run on [appScope], so closing the screen does not cut one off.
  */
+@Inject
+@SingleIn(AppScope::class)
 class VolumePicking(
     private val picks: VolumePickRepository,
     private val volumes: LocalVolumeRepository,
     private val covers: VolumeCovers,
     private val combine: CombineLocalVolumes,
-    private val appScope: CoroutineScope,
+    private val novelRepository: NovelRepository,
+    @AppCoroutineScope private val appScope: CoroutineScope,
 ) {
     suspend fun library(type: ContentType): List<CombinableSeries> = combine.library(type)
 
@@ -148,15 +161,27 @@ class VolumePicking(
         series(entry)?.let { combine.canOrganize(entry.contentType, it) } == true
     }
 
-    private val renameRequests = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    // App-wide, since a request made on one screen (a combine in the library, a split) opens on another.
+    private val organizeRequests = MutableStateFlow(emptyMap<EntryId, OrganizeRequest>())
 
-    /** The titles Edit info asked the files to take, which the series' screen opens Organize files for. */
-    val fileRenameRequests: SharedFlow<String> = renameRequests
-
-    fun requestFileRename(title: String) {
-        renameRequests.tryEmit(title)
+    /**
+     * Opens Organize files on [entry]'s screen, now or once it opens, with [title] for the files where Edit info
+     * asked for one.
+     */
+    fun requestOrganize(entry: EntryId, title: String? = null) {
+        organizeRequests.update { it + (entry to OrganizeRequest(title)) }
     }
+
+    /** The Organize files requests for [entry], each taken once. */
+    fun organizeRequests(entry: EntryId): Flow<OrganizeRequest> = organizeRequests.mapNotNull { it[entry] }
+        .onEach { taken -> organizeRequests.update { if (it[entry] === taken) it - entry else it } }
+
+    /** The details screen of [entry], which a split or a library combine opens to organize it. */
+    suspend fun detailsScreen(entry: EntryId): Screen? = statsDetailsScreen(entry, novelRepository)
 }
+
+/** Organize files asked for from elsewhere, with the [title] Edit info gave the files, if it gave one. */
+class OrganizeRequest(val title: String?)
 
 /** A local series' list grouped by volume: the [chips] in volume order, the [picked] one, and the rows. */
 @Immutable
@@ -223,6 +248,7 @@ fun interface VolumeCovers {
 
 /** A manga volume folder's own picture, or a novel book's cover. */
 @Inject
+@ContributesBinding(AppScope::class)
 class LocalVolumeCovers(private val manga: LocalSource, private val novels: LocalNovelSource) : VolumeCovers {
     override suspend fun cover(type: ContentType, series: String, key: String): Any? = when (type) {
         ContentType.NOVELS -> novels.volumeCover(series, key)
