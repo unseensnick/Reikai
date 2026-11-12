@@ -33,6 +33,7 @@ import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
+import reikai.domain.local.localVolumeContainer
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -418,7 +419,7 @@ class CombineLocalVolumes(
             val gone = keys.takeWhile { key ->
                 val (folder, volume) = localGroupUnit(series.folder, key)
                 volume != VolumeOwner.LOOSE &&
-                    containerOf(parent, folder, volume)?.findFile(volume)?.deleteTree() == true
+                    containerOf(type, parent, folder, volume)?.findFile(volume)?.deleteTree() == true
             }
             val failed = keys.getOrNull(gone.size)
             val units = gone.associateWith { localGroupUnit(series.folder, it) }
@@ -468,9 +469,10 @@ class CombineLocalVolumes(
             }
         }
 
-    // A book that is a series of its own sits in the local folder itself; any other volume in its series' folder.
-    private fun containerOf(parent: UniFile, folder: String, volume: String): UniFile? =
-        if (folder == volume) parent else parent.findFile(folder)?.takeUnless { it.isFile }
+    private fun containerOf(type: ContentType, parent: UniFile, folder: String, volume: String): UniFile? =
+        localVolumeContainer(type, folder, volume).fold(parent as UniFile?) { dir, name ->
+            dir?.findFile(name)?.takeUnless { it.isFile }
+        }
 
     /** What every chapter address of volume [key] (a manga's folder, a novel's book) in [folder] starts with. */
     private fun volumeChapterPrefix(type: ContentType, folder: String, key: String): String = when (type) {
@@ -584,7 +586,7 @@ class CombineLocalVolumes(
             if (type != ContentType.NOVELS && volume == VolumeOwner.LOOSE && folder == own && !multi) continue
             val inPlace = folder == own && !needsFolder && volume == asked
             val name = if (inPlace) asked else freeName(asked, taken)
-            val container = if (type == ContentType.NOVELS && folder == volume) emptyList() else listOf(folder)
+            val container = localVolumeContainer(type, folder, volume)
             if (type != ContentType.NOVELS && volume == VolumeOwner.LOOSE) {
                 steps += FileStep.MakeFolder(base + name)
                 // One by one, each with its own address rule: a chapter the listing hid stays, and so does its row.

@@ -328,6 +328,19 @@ class LocalMovesUnderLockTest {
         (result is LocalMoveResult.Moved) to urls(KEPT) shouldBe (true to listOf("Kept/Vol 1/Ch 1"))
     }
 
+    /** Only a novel book named like its series sits in the local folder itself; a manga volume never does. */
+    @Test
+    fun `deleting a manga volume named like its series deletes that volume, not the series folder`() = runTest {
+        chapterFolder("Kept", "Kept", "Ch 3")
+        refreshed(KEPT)
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Kept")) }
+        }
+
+        File(local, "Kept/Vol 1/Ch 1").exists() to File(local, "Kept/Kept").exists() shouldBe (true to false)
+    }
+
     @Test
     fun `deleting a volume leaves no kept state for its chapters, read or lost before`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")

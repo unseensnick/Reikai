@@ -4,6 +4,7 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
 import reikai.domain.library.ContentType
+import reikai.domain.local.localVolumeContainer
 import reikai.novel.local.LocalNovelSource
 import reikai.storage.FolderUnreadableException
 import reikai.storage.list
@@ -74,7 +75,7 @@ class LocalChapterFiles(
         ContentType.NOVELS -> {
             val (series, volume) = LocalNovelSource.parseChapterPath(url) ?: return null
             if (!LocalNovelSource.isChildName(series) || !LocalNovelSource.isChildName(volume)) return null
-            if (volume == series) emptyList<String>() to series else listOf(series) to volume
+            localVolumeContainer(type, series, volume) to volume
         }
         else -> {
             val parts = url.split('/').filter { it.isNotEmpty() }

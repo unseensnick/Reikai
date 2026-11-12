@@ -91,6 +91,14 @@ fun localGroupKey(owner: String, folder: String, volume: String): String =
 fun localVolumeKey(owner: String, folder: String, volume: String, file: String, eachLoose: Boolean): String =
     localGroupKey(owner, folder, if (eachLoose && folder == owner && volume == VolumeOwner.LOOSE) file else volume)
 
+/**
+ * The folders under the local root that hold volume [volume] of [folder]: none for a novel book named like its
+ * series, which is a loose book in the local folder itself, else the series folder. A manga volume folder named
+ * like its series is an ordinary volume inside it, so treating it as loose would delete the whole series.
+ */
+fun localVolumeContainer(type: ContentType, folder: String, volume: String): List<String> =
+    if (type == ContentType.NOVELS && folder == volume) emptyList() else listOf(folder)
+
 /** The folder and volume name [key] names in series [owner]. */
 fun localGroupUnit(owner: String, key: String): Pair<String, String> =
     if ('/' in key) key.substringBefore('/') to key.substringAfter('/') else owner to key
