@@ -103,7 +103,7 @@ class LocalSeriesRelink(
                 return@withSeries failed("Another series lists $series' volumes")
             }
             chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))
-            LocalMoveResult.Moved(emptyList())
+            LocalMoveResult.Moved
         }
     }
 
@@ -170,7 +170,7 @@ class LocalSeriesRelink(
             chapterMoves.relinkMember(type, SeriesRename(id, series, series, keys), member, to) {
                 organizedUrl(type, it, rules, member, to)
             }
-            LocalMoveResult.Moved(emptyList())
+            LocalMoveResult.Moved
         }
     }
 

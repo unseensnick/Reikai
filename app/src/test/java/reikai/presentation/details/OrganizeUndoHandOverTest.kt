@@ -39,7 +39,7 @@ class OrganizeUndoHandOverTest {
     fun `a move that opened this screen to organize offers its Undo here`() {
         val snackbar = SnackbarHostState()
         val move =
-            mockk<LocalVolumeMove>(relaxed = true) { every { result } returns LocalMoveResult.Moved(emptyList()) }
+            mockk<LocalVolumeMove>(relaxed = true) { every { result } returns LocalMoveResult.Moved }
         compose.setContent { ComposeTestHost { Navigator(DetailsContentHost(behavior, snackbar)) } }
 
         picking.requestOrganize(EntryId.Manga(100L), undo = VolumeMoveUndo(move, "Split out"))

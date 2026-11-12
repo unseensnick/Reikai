@@ -107,7 +107,7 @@ class LocalOrganizer(
             }
         }
         journal.delete(id)
-        return LocalMoveResult.Moved(emptyList())
+        return LocalMoveResult.Moved
     }
 
     private suspend fun putBack(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {

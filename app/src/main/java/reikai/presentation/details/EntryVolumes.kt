@@ -48,7 +48,7 @@ import tachiyomi.source.local.LocalSource
 /**
  * Where a chapter sits in a local series split into volumes: its [series] folder, its volume's [key], the
  * file or folder its address names, the [label] a header shows, and the [prefix] that names the volume in
- * front of its title. A manga chapter loose beside the volume folders also carries its [looseFile] and title.
+ * front of its title. A manga chapter loose beside the volume folders also carries its [loose] file and title.
  */
 @Immutable
 data class ChapterVolume(
@@ -56,8 +56,7 @@ data class ChapterVolume(
     val key: String,
     val label: VolumeLabel,
     val prefix: String,
-    val looseFile: String? = null,
-    val looseTitle: String? = null,
+    val loose: LooseChapter? = null,
 ) {
     /** [title] without the volume in front, for a row under its volume's header. */
     fun titleOf(title: String) = title.removePrefix(prefix)
@@ -67,14 +66,15 @@ data class ChapterVolume(
      * (keyed by its own name, as a volume folder is), or none, which leaves the series without headers.
      */
     fun under(mode: LooseFiles?): ChapterVolume? {
-        val file = looseFile ?: return this
-        val own = localVolumeKey(series, localGroupUnit(series, key).first, VolumeOwner.LOOSE, file, eachLoose = true)
+        val loose = loose ?: return this
+        val own =
+            localVolumeKey(series, localGroupUnit(series, key).first, VolumeOwner.LOOSE, loose.file, eachLoose = true)
         // Not loose in the series' own folder, which is all the setting rules.
         if (own == key) return this
         return when (mode ?: LooseFiles.ONE_VOLUME) {
             LooseFiles.ONE_VOLUME -> this
             LooseFiles.NO_VOLUME -> null
-            LooseFiles.EACH_ITS_OWN -> copy(key = own, label = VolumeLabel.Name(looseTitle ?: file))
+            LooseFiles.EACH_ITS_OWN -> copy(key = own, label = VolumeLabel.Name(loose.title))
         }
     }
 
@@ -82,6 +82,10 @@ data class ChapterVolume(
     fun named(saved: Map<String, List<LocalVolume>>): ChapterVolume =
         saved[series]?.firstOrNull { it.key == key }?.label?.let { copy(label = VolumeLabel.Name(it)) } ?: this
 }
+
+/** A manga chapter loose in a folder: its [file] name, and its [title] without the folder in front. */
+@Immutable
+data class LooseChapter(val file: String, val title: String)
 
 sealed interface VolumeLabel {
     /** "Vol. 3", the number the volume's name states. */
@@ -108,7 +112,7 @@ internal fun mangaChapterVolume(owner: Manga?, url: String, name: String): Chapt
         val prefix = if (folder == owner.url) "" else "$folder - "
         val file = url.split('/').last { it.isNotEmpty() }
         val label = if (folder == owner.url) VolumeLabel.Loose else VolumeLabel.Name(folder)
-        return ChapterVolume(owner.url, key, label, prefix, file, name.removePrefix(prefix))
+        return ChapterVolume(owner.url, key, label, prefix, LooseChapter(file, name.removePrefix(prefix)))
     }
     val shown = if (folder == owner.url) organizedLabel(volume, owner.title, owner.url) else volume
     return ChapterVolume(owner.url, key, labelOf(shown), "$volume - ")

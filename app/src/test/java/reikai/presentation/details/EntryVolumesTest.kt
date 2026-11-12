@@ -47,7 +47,13 @@ class EntryVolumesTest {
     @Test
     fun `another folder's loose chapters are one volume, led by the folder's name`() {
         mangaChapterVolume(LOCAL, "Other/Ch 001.cbz", "Other - Ch 001") shouldBe
-            ChapterVolume("Series", "Other/", VolumeLabel.Name("Other"), "Other - ", "Ch 001.cbz", "Ch 001")
+            ChapterVolume(
+                "Series",
+                "Other/",
+                VolumeLabel.Name("Other"),
+                "Other - ",
+                LooseChapter("Ch 001.cbz", "Ch 001"),
+            )
     }
 
     @Test

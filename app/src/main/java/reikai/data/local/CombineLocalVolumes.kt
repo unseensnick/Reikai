@@ -84,8 +84,7 @@ class LocalVolumeMove internal constructor(
 }
 
 sealed interface LocalMoveResult {
-    /** Done; [leftBehind] names what could not be tidied, each still standing where it was. */
-    data class Moved(val leftBehind: List<String>) : LocalMoveResult
+    data object Moved : LocalMoveResult
 
     data class Failed(val error: Throwable) : LocalMoveResult
 }
@@ -151,7 +150,7 @@ class CombineLocalVolumes(
                 val remove = mutableListOf<VolumeOwner>()
                 val add = mutableListOf<VolumeOwner>()
                 val saved = localVolumes.loadedVolumes(type)
-                val volumeRows = VolumeRows(saved, kept.folder, kept.folder)
+                val volumeRows = VolumeRows(saved, kept.folder)
                 for (other in others) {
                     val held = before.filter { it.owner == other.folder }
                     remove += held
@@ -320,7 +319,7 @@ class CombineLocalVolumes(
         }
         relist.forEach { relist(type, it) }
         return LocalVolumeMove(
-            result = LocalMoveResult.Moved(emptyList()),
+            result = LocalMoveResult.Moved,
             undoing = {
                 seriesLocks.withSeries(type, folders) undo@{
                     // A later change to these volumes (a combine built on this one, an organize) makes this Undo's
@@ -344,7 +343,7 @@ class CombineLocalVolumes(
                     removal.restore(tookOut)
                     joining?.let { removal.await(listOf(it)) }
                     (relist + leaving).filter { it != joining }.forEach { relist(type, it) }
-                    LocalMoveResult.Moved(emptyList())
+                    LocalMoveResult.Moved
                 }
             },
             finishing = { removal.finish(tookOut.keys.toList()) },
@@ -479,7 +478,7 @@ class CombineLocalVolumes(
             relist(type, id)
             tombstones.forget(type, id, deleted.values.toList())
             failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
-                ?: LocalMoveResult.Moved(emptyList())
+                ?: LocalMoveResult.Moved
         }
     }
 
@@ -505,7 +504,7 @@ class CombineLocalVolumes(
                     return@withSeries LocalMoveResult.Failed(e)
                 }
                 relist(type, series.id)
-                LocalMoveResult.Moved(emptyList())
+                LocalMoveResult.Moved
             }
         }
 
@@ -719,19 +718,18 @@ class CombineLocalVolumes(
         LocalMoveResult.Failed(IllegalStateException("${series.title}'s files are not in the local folder"))
 
     /**
-     * The saved order and names of volumes joining [toSeries], read before they move. Each series that joins
+     * The saved order and names of volumes joining [kept], read before they move. Each series that joins
      * is placed after the ones before it, kept order first; a series with no saved order of its own, or
      * joining one with none, keeps none, so its volumes sort among the rest as they come.
      */
     private class VolumeRows(
         private val saved: Map<String, List<LocalVolume>>,
-        keptSeries: String,
-        private val toSeries: String,
+        private val kept: String,
     ) {
         val moves = mutableListOf<VolumeRowPair>()
-        private var from = keptSeries
+        private var from = kept
         private var base: Long? = 0L
-        private var next: Long? = saved[keptSeries]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
+        private var next: Long? = saved[kept]?.mapNotNull { it.position }?.maxOrNull()?.plus(1)
 
         /** Starts on [series]' volumes, placed after those before it. */
         fun next(series: String) {
@@ -745,8 +743,8 @@ class CombineLocalVolumes(
             val row = saved[from]?.firstOrNull { it.key == key } ?: return
             val position = row.position?.let { p -> base?.plus(p) }
             moves += VolumeRowPair(
-                VolumeRowMove(from, key, toSeries, toKey, position),
-                VolumeRowMove(toSeries, toKey, from, key, row.position),
+                VolumeRowMove(from, key, kept, toKey, position),
+                VolumeRowMove(kept, toKey, from, key, row.position),
             )
         }
     }

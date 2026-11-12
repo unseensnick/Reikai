@@ -215,7 +215,7 @@ class EntryMergeActionHostTest {
     private companion object {
         val SOURCES = listOf(1L, 2L)
         val GROUP = GroupSnapshot(listOf(1L, 2L, 3L), overrideSourceRanking = true)
-        val MOVED = LocalMoveResult.Moved(emptyList())
+        val MOVED = LocalMoveResult.Moved
         const val LOCALIZE = "tachiyomi.core.common.i18n.LocalizeKt"
     }
 }
