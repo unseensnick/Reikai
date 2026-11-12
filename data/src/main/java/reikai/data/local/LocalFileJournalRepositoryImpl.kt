@@ -6,13 +6,16 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.json.Json
+import logcat.LogPriority
 import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalEntry
 import reikai.domain.local.LocalFileJournalPlan
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.data.Database
 
 @Inject
@@ -38,7 +41,17 @@ class LocalFileJournalRepositoryImpl(
         queries.delete(id)
     }
 
-    override suspend fun all(): List<LocalFileJournalEntry> = queries.getAll().awaitAsList().map {
-        LocalFileJournalEntry(it._id, it.content_type.toContentType(), json.decodeFromString(it.plan))
+    /**
+     * Every row this build can read. One it cannot, a plan a newer build wrote before a downgrade, is kept for that
+     * build and passed over here, so it cannot stop the rest being replayed.
+     */
+    override suspend fun all(): List<LocalFileJournalEntry> = queries.getAll().awaitAsList().mapNotNull {
+        val plan = try {
+            json.decodeFromString<LocalFileJournalPlan>(it.plan)
+        } catch (e: SerializationException) {
+            logcat(LogPriority.WARN, e) { "Local file journal row ${it._id} is not one this build can read" }
+            return@mapNotNull null
+        }
+        LocalFileJournalEntry(it._id, it.content_type.toContentType(), plan)
     }
 }

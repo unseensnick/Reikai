@@ -1,5 +1,6 @@
 package reikai.data.local
 
+import app.cash.sqldelight.async.coroutines.awaitAsOne
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.test.runTest
@@ -17,13 +18,15 @@ import tachiyomi.data.DatabaseBindings
 class LocalFileJournalRepositoryTest {
 
     private lateinit var driver: JdbcSqliteDriver
+    private lateinit var database: Database
     private lateinit var journal: LocalFileJournalRepositoryImpl
 
     @BeforeEach
     fun setUp() = runTest {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
-        journal = LocalFileJournalRepositoryImpl(DatabaseBindings.providesDatabase(driver))
+        database = DatabaseBindings.providesDatabase(driver)
+        journal = LocalFileJournalRepositoryImpl(database)
     }
 
     @AfterEach
@@ -58,5 +61,15 @@ class LocalFileJournalRepositoryTest {
         journal.delete(id)
 
         journal.all() shouldBe emptyList()
+    }
+
+    /** A row from a newer build, read by an older one after a downgrade, must not stop every other row's replay. */
+    @Test
+    fun `a row this build cannot read is passed over and the rest still read`() = runTest {
+        database.local_file_journalQueries.insert(0L, """{"type":"future"}""").awaitAsOne()
+        val replace = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
+        val id = journal.insert(ContentType.MANGA, replace)
+
+        journal.all() shouldBe listOf(LocalFileJournalEntry(id, ContentType.MANGA, replace))
     }
 }

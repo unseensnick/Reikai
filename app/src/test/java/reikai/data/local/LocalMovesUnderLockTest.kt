@@ -10,6 +10,7 @@ import eu.kanade.domain.chapter.interactor.SyncChaptersWithSource
 import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -47,6 +48,9 @@ import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
+import reikai.domain.local.LocalFileJournal
+import reikai.domain.local.LocalFileJournalEntry
+import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
@@ -88,7 +92,7 @@ class LocalMovesUnderLockTest {
     private lateinit var locks: LocalSeriesLocks
     private lateinit var removal: RemoveMangaFromLibrary
     private lateinit var volumes: LocalVolumeRepositoryImpl
-    private lateinit var journal: LocalFileJournalRepositoryImpl
+    private lateinit var journal: FlakyJournal
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var local: File
     private lateinit var driver: JdbcSqliteDriver
@@ -123,7 +127,7 @@ class LocalMovesUnderLockTest {
         }
         volumes = LocalVolumeRepositoryImpl(database, appScope)
         locks = LocalSeriesLocks(volumes).apply { open() }
-        journal = LocalFileJournalRepositoryImpl(database)
+        journal = FlakyJournal(LocalFileJournalRepositoryImpl(database))
         val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
         val fileSystem = LocalSourceFileSystem(storage)
         val mangaRepository = MangaRepositoryImpl(database)
@@ -936,6 +940,44 @@ class LocalMovesUnderLockTest {
             listOf(true, true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
+    @Test
+    fun `a blocked organize's retry outlives a journal read that fails`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        var failing = false
+        FakeSafProvider.onCall = { call, _ ->
+            if (call == "moveDocument") {
+                failing = true
+                error("move failed")
+            }
+            if (failing && call == "renameDocument") error("rename failed")
+        }
+        organized()
+        FakeSafProvider.onCall = null
+        journal.failedReads = 1
+
+        val repaired = withContext(Dispatchers.Default) {
+            withTimeoutOrNull(20_000) {
+                while (refresh(series(KEPT).toManga(), fetchChapters = true).isFailure) delay(50)
+            }
+        }
+
+        repaired shouldNotBe null
+    }
+
+    @Test
+    fun `an organize whose put-back cannot be noted fails and refuses its folders`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+        combined()
+        FakeSafProvider.onCall = { call, _ -> if (call == "moveDocument") error("move failed") }
+        journal.failsPutBackNote = true
+
+        val organize = runCatching { organized() }
+        val refused = refresh(series(KEPT).toManga(), fetchChapters = true).isFailure
+
+        ((organize.getOrNull()?.result is LocalMoveResult.Failed) to refused) shouldBe (true to true)
+    }
+
     /** Found by the randomized test: a split-out volume the organize's listing missed whole lost its owner row. */
     @Test
     fun `a borrowed volume the organize's listing missed stays with the series that lists it`() = runTest {
@@ -1085,5 +1127,27 @@ class LocalMovesUnderLockTest {
         const val KEPT = 1L
         const val OTHER = 2L
         const val THIRD = 3L
+    }
+}
+
+/** The real journal, with a database that fails the reads and the put-back note a test asks it to. */
+private class FlakyJournal(private val real: LocalFileJournal) : LocalFileJournal by real {
+    var failedReads = 0
+    var failsPutBackNote = false
+
+    override suspend fun all(): List<LocalFileJournalEntry> {
+        if (failedReads > 0) {
+            failedReads--
+            error("database busy")
+        }
+        return real.all()
+    }
+
+    override suspend fun update(id: Long, plan: LocalFileJournalPlan) {
+        if (failsPutBackNote && (plan as? LocalFileJournalPlan.Organize)?.isPutBack == true) {
+            failsPutBackNote = false
+            error("database busy")
+        }
+        real.update(id, plan)
     }
 }

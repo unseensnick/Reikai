@@ -111,7 +111,13 @@ class LocalOrganizer(
     private suspend fun putBack(type: ContentType, id: Long, plan: Organize, failure: Exception): LocalMoveResult {
         if (plan.isPutBack) return blocked(type, id, plan, failure)
         val back = plan.putBack()
-        journal.update(id, back)
+        // Unnoted, the row still reads as the forward run at [plan]'s step, which a retry or the next start resumes.
+        try {
+            journal.update(id, back)
+        } catch (e: Exception) {
+            if (e is CancellationException) throw e
+            return blocked(type, id, plan, failure)
+        }
         val result = carryOn(type, id, back)
         return if (result is LocalMoveResult.Moved) LocalMoveResult.Failed(failure) else result
     }
@@ -133,14 +139,17 @@ class LocalOrganizer(
                 var wait = firstRetry
                 while (true) {
                     delay(wait)
-                    val left = journal.all().firstOrNull { it.id == id }?.plan as? Organize ?: break
-                    try {
-                        locks.repairing(type, left.folders()) { replay(type, id, left) }
+                    // The journal reads too, so a database hiccup costs one round rather than the retry.
+                    val resolved = try {
+                        val left = journal.all().firstOrNull { it.id == id }?.plan as? Organize
+                        if (left != null) locks.repairing(type, left.folders()) { replay(type, id, left) }
+                        journal.all().none { it.id == id }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
                         logcat(LogPriority.WARN, e) { "Retrying organize $id failed" }
+                        false
                     }
-                    if (journal.all().none { it.id == id }) break
+                    if (resolved) break
                     wait = (wait * 2).coerceAtMost(LAST_RETRY)
                 }
                 locks.unblock(type, plan.folders())
