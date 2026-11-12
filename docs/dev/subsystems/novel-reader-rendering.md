@@ -116,6 +116,7 @@ Speech keeps the reader's place itself, since it moves the screen only with Keep
 
 ## Decisions
 
+- **A JavaScript snippet switched off stays in effect on the open page until the next chapter load.** Script that has run cannot be undone without reloading the page, so turning a snippet off stops it reaching anything loaded after.
 - **Tsundoku's portable layers, not its viewers or a from-scratch renderer.** Their two viewers are welded to a forked `ReaderActivity` and to novels as manga rows (`Page.text`); a from-scratch renderer has no upstream to sync from. Their pipeline and native renderer have one, credited in [feature-ports.md](../feature-ports.md).
 - **The WebView mode is a capability, not a fallback.** A text layout cannot render a source's own CSS faithfully. Its document is Reikai's own, since a port of theirs would carry their chapter queue.
 - **The window is three chapters, the engine's own type, not `ViewerChapters`.** A novel chapter is one HTML body with no pages, so it cannot travel as a `ReaderPage`.

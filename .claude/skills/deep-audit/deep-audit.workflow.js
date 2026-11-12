@@ -146,15 +146,19 @@ const sliceText = s => `Slice "${s.id}" (${s.title}; surface: ${s.surface}; cont
 const findingsPrompt = (brief, target) => `${PREAMBLE}\n\nYour lens: ${brief}\n\nYour target:\n${target}\n\n${REPORTING} Return only findings that survive your own re-read. An empty list is a valid answer when "searched" says what you covered.`
 const tagged = (slices, tag) => slices.filter(s => (s.tags || []).includes(tag))
 
-// The ledger rows whose location names one of these files, each reason cut to its first sentence.
+// The ledger rows whose location names one of these files, each reason cut to its first sentence. Rows
+// come from `ledger.ps1 load` as "| status | location | claim | kind: reason |"; a "recheck" row's file
+// changed after it was refuted, so it is a lead to re-verify, not a refutation to lean on.
 function ledgerFor(files) {
   const names = files.map(f => f.split('/').pop())
   const rows = (GROUND.ledger || '').split('\n').filter(l => l.startsWith('|') && names.some(n => l.includes(n)))
   const trimmed = rows.map(r => {
     const cells = r.split('|')
+    const status = (cells[1] || '').trim()
     const reason = (cells[4] || '').trim()
     const first = reason.split(/(?<=\.)\s/)[0].slice(0, 300)
-    return `- ${(cells[2] || '').trim()}: ${(cells[3] || '').trim()}. Refuted: ${first}`
+    const caveat = status === 'holds' ? '' : ' (the file changed since; recheck this before relying on it)'
+    return `- ${(cells[2] || '').trim()}: ${(cells[3] || '').trim()}. Refuted, ${first}${caveat}`
   })
   return trimmed.length ? trimmed.join('\n') : '(no ledger rows for these files)'
 }
