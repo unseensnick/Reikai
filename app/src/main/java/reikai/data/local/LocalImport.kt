@@ -39,6 +39,7 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.storage.FolderUnreadableException
 import reikai.storage.createNew
 import reikai.storage.deleteIfEmpty
 import reikai.storage.freeName
@@ -173,27 +174,43 @@ class LocalImport(
                 .onFailure { problems += ImportProblem(file.name, readFailure(it), uri) }
                 .getOrNull()
         }
-        groupSeries(read).map { inspect(it) } to problems
+        val (groups, unread) = inspectAll(groupSeries(read))
+        groups to problems + unread
+    }
+
+    /** Each of [groups] by [inspect], or a storage problem for one whose local folders could not be read whole. */
+    internal suspend fun inspectAll(groups: List<ImportGroup>): Pair<List<ImportGroup>, List<ImportProblem>> {
+        val problems = mutableListOf<ImportProblem>()
+        val inspected = groups.mapNotNull { group ->
+            try {
+                inspect(group)
+            } catch (e: FolderUnreadableException) {
+                problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
+                null
+            }
+        }
+        return inspected to problems
     }
 
     /**
      * [group] with the series already there that it joins: [target]'s folder when the user picked one, else
      * the folder its title matches the way a batch groups its files. Its files that folder already holds, by
-     * size, are its duplicates, and its books that are another version of one there are its newer copies.
+     * size, are its duplicates, and its books that are another version of one there are its newer copies. Throws
+     * [FolderUnreadableException] when the root or that folder cannot be listed whole, since a short listing would
+     * show a new series where one is there, or no copy where the folder holds one.
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = storageManager.localRoot(group.type) ?: return@withIOContext group
         val groups = LocalGroups(owners.all(group.type))
         // Only a folder takes files in: a loose book of that name is a file.
         val takes = { it: UniFile -> it.isDirectory && takesNewFiles(groups, group.type, it.name.orEmpty()) }
+        val listed = root.list(context)
         val folder = if (target != null) {
-            root.findFile(target)?.takeIf(takes)
+            listed.firstOrNull { it.name == target }?.takeIf(takes)
         } else {
-            root.listFiles().orEmpty().firstOrNull {
-                takes(it) && groupKey(it.name.orEmpty()) == groupKey(group.title)
-            }
+            listed.firstOrNull { takes(it) && groupKey(it.name.orEmpty()) == groupKey(group.title) }
         }
-        val present = folder?.listFiles().orEmpty().filter { it.isFile }
+        val present = folder?.list(context).orEmpty().filter { it.isFile }
         val sizes = present.map { it.length() }.toSet()
         val duplicates = group.files.filter { it.size > 0 && it.size in sizes }.map { it.uri }.toSet()
         val held = if (group.files.any { it.identity != null }) heldBooks(present) else emptyMap()

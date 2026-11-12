@@ -25,6 +25,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.storage.FolderUnreadableException
 import reikai.util.testAppScope
 
 class LocalImportViewModelTest {
@@ -135,6 +136,22 @@ class LocalImportViewModelTest {
         model.viewModelScope.cancel()
 
         after.groups.map { it.key } shouldBe listOf("a", "b")
+    }
+
+    /** A rename finds the series again, and a folder that cannot be read whole must not leave the old answer. */
+    @Test
+    fun `a group whose folder cannot be read on a second look leaves as a storage problem`() = runTest {
+        coEvery { localImport.inspect(any(), any()) } answers { firstArg() } andThenThrows
+            FolderUnreadableException("Foo")
+        val model = model()
+        model.add(listOf(first))
+        model.state.first { !it.isReading }
+
+        model.rename("a", "Foo")
+        val after = model.state.first { it.groups.isEmpty() }
+        model.viewModelScope.cancel()
+
+        after.problems shouldBe listOf(ImportProblem("Foo", ImportProblem.Reason.NoStorage))
     }
 
     private fun group(key: String, uri: Uri) = ImportGroup(

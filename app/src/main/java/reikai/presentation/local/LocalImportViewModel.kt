@@ -28,6 +28,7 @@ import reikai.domain.library.ContentType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.storage.FolderUnreadableException
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.domain.category.model.Category
@@ -119,11 +120,24 @@ class LocalImportViewModel(
         reinspect(key, target = folder)
     }
 
-    /** Finds again the series [key] joins, [target] or the one it joins now, or by its title when [auto]. */
+    /**
+     * Finds again the series [key] joins, [target] or the one it joins now, or by its title when [auto]. A group
+     * whose folders cannot be read whole leaves as a storage problem, as the preview reports one.
+     */
     private fun reinspect(key: String, target: String? = null, auto: Boolean = false) {
         viewModelScope.launchIO {
             val group = state.value.groups.firstOrNull { it.key == key } ?: return@launchIO
-            val found = localImport.inspect(group, if (auto) null else target ?: group.existing)
+            val found = try {
+                localImport.inspect(group, if (auto) null else target ?: group.existing)
+            } catch (e: FolderUnreadableException) {
+                state.update { s ->
+                    s.copy(
+                        groups = s.groups.filterNot { it.key == key },
+                        problems = s.problems + ImportProblem(group.title, ImportProblem.Reason.NoStorage),
+                    )
+                }
+                return@launchIO
+            }
             updateGroup(key) {
                 it.copy(
                     existing = found.existing,

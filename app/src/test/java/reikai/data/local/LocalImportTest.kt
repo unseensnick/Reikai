@@ -3,6 +3,7 @@ package reikai.data.local
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.beInstanceOf
@@ -19,6 +20,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import org.robolectric.Robolectric
+import reikai.data.local.ImportProblem.Reason.NoStorage
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
@@ -38,6 +40,8 @@ import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FakeSafProvider
+import reikai.storage.FakeSafProvider.ChildListingFault
+import reikai.storage.FolderUnreadableException
 import reikai.storage.IN_FLIGHT_SUFFIX
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
@@ -381,6 +385,47 @@ class LocalImportTest(private val type: ContentType) {
         localImport.import(listOf(group("Foo").copy(existing = "Foo")), addToLibrary = false, categoryIds = emptyList())
 
         File(root, "Foo").list()!!.toList() shouldBe listOf("Old.cbz")
+    }
+
+    /** A short listing of the root hides the folder the title matches, and the preview would show a new series. */
+    @Test
+    fun `a preview over a root that cannot be listed whole reports the series as a storage problem`() = runTest {
+        File(root, "Foo").mkdirs()
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        FakeSafProvider.faultedFolder = root
+        FakeSafProvider.childListingFaults += ChildListingFault.Short(0)
+
+        val (groups, problems) = localImport.inspectAll(listOf(group("Foo")))
+
+        (groups to problems) shouldBe (emptyList<ImportGroup>() to listOf(ImportProblem("Foo", NoStorage)))
+    }
+
+    /** A short listing of the folder it joins hides the copies it already holds, which the preview asks about. */
+    @Test
+    fun `a preview over a joined folder that cannot be listed whole reports a storage problem`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        FakeSafProvider.faultedFolder = File(root, "Foo")
+        FakeSafProvider.childListingFaults += ChildListingFault.Short(0)
+
+        val (groups, problems) = localImport.inspectAll(listOf(group("Foo")))
+
+        (groups to problems) shouldBe (emptyList<ImportGroup>() to listOf(ImportProblem("Foo", NoStorage)))
+    }
+
+    /** A series the user picked is found in the root's listing too, so a short one cannot read as no such series. */
+    @Test
+    fun `a series picked to join is looked up in a listing trusted whole`() = runTest {
+        File(root, "Foo").mkdirs()
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        FakeSafProvider.faultedFolder = root
+        FakeSafProvider.childListingFaults += ChildListingFault.Short(0)
+
+        shouldThrow<FolderUnreadableException> { localImport.inspect(group("Other"), target = "Foo") }
     }
 
     @Test
