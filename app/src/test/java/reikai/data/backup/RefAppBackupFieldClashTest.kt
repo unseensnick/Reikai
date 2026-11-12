@@ -1,11 +1,16 @@
 package reikai.data.backup
 
+import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupChapterTombstone
+import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupLocalVolume
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupManualPosition
+import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelFont
+import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import io.kotest.matchers.shouldBe
@@ -16,7 +21,7 @@ import org.junit.jupiter.api.Test
 import reikai.domain.category.CategoryContentType
 
 /**
- * Reikai's own entry and category fields share no number with a field Komikku, TachiyomiSY, Yokai or Tsundoku
+ * Reikai's own root, entry and category fields share no number with a field Komikku, TachiyomiSY, Yokai or Tsundoku
  * declare for another meaning. Each other app's message is mirrored below with only its own high-numbered
  * fields, copied from its refs/ clone; a backup either app writes then decodes in the other with each side's
  * fields at their defaults.
@@ -35,6 +40,14 @@ class RefAppBackupFieldClashTest {
         // Tsundoku's reserved block.
         @ProtoNumber(8000) var isNovel: Boolean = false,
         @ProtoNumber(8001) var alternativeTitles: List<String> = emptyList(),
+    )
+
+    @Serializable
+    class ForeignBackup(
+        // TachiyomiSY's and Komikku's saved searches, then TachiyomiSY's feeds and Komikku's.
+        @ProtoNumber(600) var savedSearches: List<String> = emptyList(),
+        @ProtoNumber(601) var syFeeds: List<String> = emptyList(),
+        @ProtoNumber(610) var komikkuFeeds: List<String> = emptyList(),
     )
 
     @Serializable
@@ -108,6 +121,35 @@ class RefAppBackupFieldClashTest {
             reikai.chapterTombstones.size,
             reikai.volumeOwners.size,
         ) shouldBe listOf(null, 0, 0, 0, 0, 0)
+    }
+
+    @Test
+    fun `a Reikai backup's own root fields read as nothing in the other apps`() {
+        val reikai = Backup(
+            backupManga = emptyList(),
+            backupExtensions = listOf(BackupExtension("p", "n")),
+            backupNovelSources = listOf(BackupNovelSource("n", "s")),
+            backupMergeGroupsStored = BackupMergeGroupsStored(),
+            backupNovelFonts = listOf(BackupNovelFont("f.ttf", byteArrayOf(1))),
+        )
+
+        val foreign = ProtoBuf.decodeFromByteArray(
+            ForeignBackup.serializer(),
+            ProtoBuf.encodeToByteArray(Backup.serializer(), reikai),
+        )
+
+        listOf(foreign.savedSearches, foreign.syFeeds, foreign.komikkuFeeds) shouldBe
+            listOf(emptyList<String>(), emptyList(), emptyList())
+    }
+
+    @Test
+    fun `another app's root fields read as nothing in Reikai`() {
+        val foreign = ForeignBackup(savedSearches = listOf("s"), syFeeds = listOf("f"), komikkuFeeds = listOf("k"))
+
+        ProtoBuf.decodeFromByteArray(
+            Backup.serializer(),
+            ProtoBuf.encodeToByteArray(ForeignBackup.serializer(), foreign),
+        ) shouldBe Backup(emptyList())
     }
 
     @Test
