@@ -244,13 +244,11 @@ fun UniFile.moveTo(context: Context, from: UniFile, into: UniFile): UniFile? {
 }
 
 /**
- * Deletes this file. A folder is refused, so no delete is recursive by accident: that is [deleteTree]. Asked as
- * `isFile`, since a picked folder's failed query answers false to both questions and only this one refuses.
+ * Deletes this file, answering whether it went. Anything not answered as a file is left, a folder included, so no
+ * delete is recursive by accident: that is [deleteTree]. Asked as `isFile`, since a picked folder's failed query
+ * answers false to both questions, and answered with false rather than a throw, which no caller would catch.
  */
-fun UniFile.deleteFile(): Boolean {
-    require(isFile) { "$name is not a file" }
-    return delete()
-}
+fun UniFile.deleteFile(): Boolean = isFile && delete()
 
 /** Deletes this folder with everything in it, on purpose: a user-asked delete, or a folder this process made. */
 fun UniFile.deleteTree(): Boolean = delete()

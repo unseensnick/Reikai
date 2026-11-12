@@ -193,9 +193,9 @@ class LocalFilesPrimitivesTest {
 
     @Test
     fun `deleteFile refuses a folder`() {
-        shouldThrow<IllegalArgumentException> { picked(File(tmp.root, "Reikai")).findFile("Series")!!.deleteFile() }
+        val deleted = picked(File(tmp.root, "Reikai")).findFile("Series")!!.deleteFile()
 
-        series.exists() shouldBe true
+        (deleted to series.exists()) shouldBe (false to true)
     }
 
     /** A failed document query reads as "not a folder" and as "not a file" alike; only the second refuses. */
@@ -204,9 +204,18 @@ class LocalFilesPrimitivesTest {
         val folder = picked(File(tmp.root, "Reikai")).findFile("Series")!!
         FakeSafProvider.failingDocuments += series
 
-        shouldThrow<IllegalArgumentException> { folder.deleteFile() }
+        folder.deleteFile()
 
         names() shouldBe listOf("a.cbz", "b.cbz")
+    }
+
+    /** The font and novel chapter deletes call it with nothing to catch a throw, so a hiccup must not crash them. */
+    @Test
+    fun `deleteFile answers false for a file whose own query fails, and deletes nothing`() {
+        val file = picked(File(tmp.root, "Reikai")).findFile("Series")!!.findFile("a.cbz")!!
+        FakeSafProvider.failingDocuments += File(series, "a.cbz")
+
+        file.deleteFile() to names() shouldBe (false to listOf("a.cbz", "b.cbz"))
     }
 
     @Test

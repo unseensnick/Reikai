@@ -103,6 +103,18 @@ class LocalImportTest(private val type: ContentType) {
         root.list()!!.toList() shouldBe listOf("Foo Bar")
     }
 
+    /** The preview showed it joining, so a hiccup on the folder's own query must not make it a new series. */
+    @Test
+    fun `a series joins its folder though that folder's own query fails`() = runTest {
+        File(root, "Foo Bar").mkdirs()
+        val joining = localImport.inspect(group("foo-bar"))
+        storageRoot = spyk(UniFile.fromFile(root)!!) { every { findFile("Foo Bar") } returns null }
+
+        localImport.import(listOf(joining), addToLibrary = false, categoryIds = emptyList())
+
+        (root.list()!!.toList() to File(root, "Foo Bar").list()!!.size) shouldBe (listOf("Foo Bar") to 1)
+    }
+
     @Test
     fun `a series kept separate gets a folder of its own beside the one it matched`() = runTest {
         File(root, "Foo Bar").mkdirs()
@@ -186,7 +198,7 @@ class LocalImportTest(private val type: ContentType) {
         val picked = spyk(UniFile.fromFile(File(root, "Foo"))!!) {
             every { uri } returns Uri.parse("$PICKED/document/primary%3AManga%2FFoo")
         }
-        storageRoot = spyk(UniFile.fromFile(root)!!) { every { findFile("Foo") } returns picked }
+        storageRoot = spyk(UniFile.fromFile(root)!!) { every { listFiles() } returns arrayOf(picked) }
 
         localImport.import(listOf(group("Foo").copy(existing = "Foo")), addToLibrary = false, categoryIds = emptyList())
 

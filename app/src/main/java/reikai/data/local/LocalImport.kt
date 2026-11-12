@@ -226,16 +226,29 @@ class LocalImport(
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null
                 }
-                // A new series never lands in a folder already there, which the preview would have shown it joining.
-                val joined = group.joins?.let { root.findFile(it) }?.takeIf { it.isDirectory }
-                val folder = joined ?: runCatching {
-                    val rootNames = root.list(context).mapNotNullTo(HashSet()) { it.name }
-                    root.createNew(
-                        context,
-                        freeName(DiskUtil.buildValidFilename(group.title), rootNames),
-                        directory = true,
-                    )
+                // A new series never lands in a folder already there, which the preview would have shown it joining,
+                // and one the preview showed joining a folder joins that folder or nothing: it is found in the root's
+                // trusted listing, since its own query answers "absent" on a hiccup and a new folder beside it would be
+                // a series the preview never showed.
+                val folder = runCatchingCancellable {
+                    val listed = root.list(context)
+                    val joins = group.joins
+                    if (joins != null) {
+                        listed.firstOrNull { it.name == joins }?.takeIf { it.isDirectory }
+                    } else {
+                        root.createNew(
+                            context,
+                            freeName(
+                                DiskUtil.buildValidFilename(group.title),
+                                listed.mapNotNullTo(HashSet()) {
+                                    it.name
+                                },
+                            ),
+                            directory = true,
+                        )
+                    }
                 }.getOrNull()
+                val joined = folder.takeIf { group.joins != null }
                 val path = folder?.name
                 if (folder == null || path == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
