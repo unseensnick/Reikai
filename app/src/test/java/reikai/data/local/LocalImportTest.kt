@@ -37,6 +37,7 @@ import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.FakeSafProvider
+import reikai.storage.IN_FLIGHT_SUFFIX
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -226,6 +227,21 @@ class LocalImportTest(private val type: ContentType) {
 
         runCatching { seriesLocks.withSeries(type, "Foo") {} }.exceptionOrNull() should
             beInstanceOf<LocalSeriesBlockedException>()
+    }
+
+    /** A kill mid-copy must not leave a cut-off book under a name the series lists. */
+    @Test
+    fun `a new file is written under an in-flight name and named only once whole`() = runTest {
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        val opened = mutableListOf<String>()
+        FakeSafProvider.onCall = { call, target -> if (call == "openDocument") opened += target.name }
+
+        localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+        FakeSafProvider.onCall = null
+
+        (opened to File(root, "Foo").list()!!.toList()) shouldBe
+            (listOf(NEW_NAME.getValue(type) + IN_FLIGHT_SUFFIX) to listOf(NEW_NAME.getValue(type)))
     }
 
     @Test
