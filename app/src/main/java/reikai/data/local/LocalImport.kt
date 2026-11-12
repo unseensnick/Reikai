@@ -46,7 +46,7 @@ import reikai.storage.list
 import reikai.storage.listOrNull
 import reikai.storage.replace
 import reikai.storage.replaceFile
-import reikai.storage.writeNew
+import reikai.storage.writeInFlight
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withIOContext
@@ -398,8 +398,8 @@ class LocalImport(
         if (replacing == null) {
             folder.replace(context, name, expected, write)
         } else {
-            // A replacing one is written beside it and named by the journaled swap below.
-            val target = folder.writeNew(context, freeName("$name.part", taken), expected, write)
+            // A replacing one is written beside it the same way and named by the journaled swap below.
+            val target = folder.writeInFlight(context, name, expected, write)
             val aside = freeName("$name.old", taken)
             // Written down first: a kill between the old file stepping aside and the copy taking its name would
             // otherwise leave the book at neither, and the next refresh would delete its chapters' read state.

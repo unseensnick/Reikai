@@ -301,6 +301,21 @@ class LocalImportTest(private val type: ContentType) {
         File(root, "Foo").list()!!.toList() shouldBe listOf(NEW_NAME.getValue(type))
     }
 
+    /** A replacing copy killed mid-write is no journal row yet, so only its next write can clear what it left. */
+    @Test
+    fun `a replacing file clears the in-flight copy a killed replace left under its name`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        File(root, "Foo/old$IN_FLIGHT_SUFFIX").writeText("cut")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+
+        (File(root, "Foo").list()!!.toList() to File(root, "Foo/old").readText()) shouldBe (listOf("old") to "abc")
+    }
+
     @Test
     fun `a file kept beside its duplicate is copied too`() = runTest {
         File(root, "Foo").mkdirs()

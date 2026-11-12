@@ -108,13 +108,6 @@ internal fun UniFile.createFresh(context: Context, listed: List<UniFile>, name: 
  * [expectedLength] when the caller knows it, since a provider can end a stream early without failing. A write
  * that fails or comes up short deletes the file and throws, so no half-written file is left under a real name.
  */
-inline fun UniFile.writeNew(
-    context: Context,
-    name: String,
-    expectedLength: Long? = null,
-    write: (OutputStream) -> Unit,
-): UniFile = writeNew(context, list(context), name, expectedLength, write)
-
 @PublishedApi
 internal inline fun UniFile.writeNew(
     context: Context,
@@ -159,9 +152,8 @@ internal inline fun UniFile.replace(
 ): UniFile {
     val earlier =
         listed.firstOrNull { it.name == name } ?: listed.firstOrNull { it.name.equals(name, ignoreCase = true) }
-    val stale = listed.firstOrNull { it.name == name + IN_FLIGHT_SUFFIX }?.also { it.deleteFile() }
-    val names = listed.mapNotNullTo(HashSet()) { it.name.takeIf { file -> file !== stale } }
-    val part = writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, expectedLength, write)
+    val names = listed.mapNotNullTo(HashSet()) { it.name }
+    val part = writeInFlight(context, listed, name, expectedLength, write)
     val placed = if (earlier == null) {
         part.rename(name)
     } else {
@@ -172,6 +164,30 @@ internal inline fun UniFile.replace(
         throw IOException("Could not name $name in ${this.name}")
     }
     return part
+}
+
+/**
+ * A new file holding what [write] puts in it, under [name]'s in-flight name, which no listing reads, for the caller
+ * to name [name] once whole. One an earlier killed write left there is deleted first, since nothing else ever
+ * would. [expectedLength] checks the write as for [writeNew].
+ */
+inline fun UniFile.writeInFlight(
+    context: Context,
+    name: String,
+    expectedLength: Long? = null,
+    write: (OutputStream) -> Unit,
+): UniFile = writeInFlight(context, list(context), name, expectedLength, write)
+
+@PublishedApi
+internal inline fun UniFile.writeInFlight(
+    context: Context,
+    listed: List<UniFile>,
+    name: String,
+    expectedLength: Long?,
+    write: (OutputStream) -> Unit,
+): UniFile {
+    val stale = listed.firstOrNull { it.name == name + IN_FLIGHT_SUFFIX }?.also { it.deleteFile() }
+    return writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, expectedLength, write)
 }
 
 /**
