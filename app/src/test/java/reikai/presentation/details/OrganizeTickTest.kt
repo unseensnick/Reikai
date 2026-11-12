@@ -3,7 +3,9 @@ package reikai.presentation.details
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import io.kotest.matchers.shouldBe
@@ -48,10 +50,29 @@ class OrganizeTickTest {
         }
     }
 
-    private fun reorder() = compose.setContent {
+    private fun reorder(canOrganize: Boolean = true) = compose.setContent {
         ComposeTestHost {
-            ReorderVolumesDialog(volumes, true, null, {}, { organize = it }, {}, { _, _ -> })
+            ReorderVolumesDialog(volumes, canOrganize, null, {}, { organize = it }, {}, { _, _ -> })
         }
+    }
+
+    private fun addVolumes(canOrganize: Boolean) {
+        compose.setContent {
+            ComposeTestHost {
+                AddVolumesDialog("Saga", {
+                    listOf(CombinableSeries(2, "Other", "Other"))
+                }, canOrganize, {}) { _, organize ->
+                    this.organize = organize
+                }
+            }
+        }
+        compose.waitUntil(5_000) { compose.onAllNodesWithTag("add:2").fetchSemanticsNodes().isNotEmpty() }
+        compose.onNodeWithTag("add:2").performClick()
+    }
+
+    private fun renameFirstVolume() {
+        compose.onAllNodesWithContentDescription("Edit")[0].performClick()
+        compose.onNodeWithText("Save").performClick()
     }
 
     @Test
@@ -92,6 +113,16 @@ class OrganizeTickTest {
     }
 
     @Test
+    fun `a ticked combine organizes the files`() {
+        combine(canOrganize = true)
+
+        compose.onNodeWithText("Also organize files").performClick()
+        compose.onNodeWithText("Combine").performClick()
+
+        organize shouldBe true
+    }
+
+    @Test
     fun `a combine where the storage cannot move files does not offer to organize them`() {
         combine(canOrganize = false)
 
@@ -107,5 +138,51 @@ class OrganizeTickTest {
         compose.onNodeWithText("Close").performClick()
 
         organize shouldBe false
+    }
+
+    @Test
+    fun `renaming a volume with the box ticked organizes the files`() {
+        reorder()
+
+        renameFirstVolume()
+        compose.onNodeWithText("Also organize files").performClick()
+        compose.onNodeWithText("Close").performClick()
+
+        organize shouldBe true
+    }
+
+    @Test
+    fun `renaming a volume where the storage cannot move files does not offer to organize them`() {
+        reorder(canOrganize = false)
+
+        renameFirstVolume()
+
+        compose.onAllNodesWithText("Also organize files").assertCountEquals(0)
+    }
+
+    @Test
+    fun `adding volumes organizes the files only when ticked`() {
+        addVolumes(canOrganize = true)
+
+        compose.onNodeWithText("Add").performClick()
+
+        organize shouldBe false
+    }
+
+    @Test
+    fun `ticked added volumes organize the files`() {
+        addVolumes(canOrganize = true)
+
+        compose.onNodeWithText("Also organize files").performClick()
+        compose.onNodeWithText("Add").performClick()
+
+        organize shouldBe true
+    }
+
+    @Test
+    fun `adding volumes where the storage cannot move files does not offer to organize them`() {
+        addVolumes(canOrganize = false)
+
+        compose.onAllNodesWithText("Also organize files").assertCountEquals(0)
     }
 }
