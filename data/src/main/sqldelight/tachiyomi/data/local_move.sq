@@ -11,11 +11,11 @@ UPDATE history SET manga_id = :toOwner
 WHERE chapter_id = (SELECT id FROM chapter WHERE manga_id = :toOwner AND remote_url = :toUrl);
 
 moveMangaNumberOverride:
-UPDATE manga_chapter_number_override SET manga_id = :toOwner, url = :toUrl
+UPDATE OR IGNORE manga_chapter_number_override SET manga_id = :toOwner, url = :toUrl
 WHERE manga_id = :fromOwner AND url = :fromUrl;
 
 moveMangaCopyMark:
-UPDATE manga_chapter_copy_mark SET manga_id = :toOwner, url = :toUrl
+UPDATE OR IGNORE manga_chapter_copy_mark SET manga_id = :toOwner, url = :toUrl
 WHERE manga_id = :fromOwner AND url = :fromUrl;
 
 moveNovelChapter:
@@ -23,12 +23,37 @@ UPDATE novel_chapters SET novel_id = :toOwner, url = :toUrl
 WHERE novel_id = :fromOwner AND url = :fromUrl;
 
 moveNovelNumberOverride:
-UPDATE novel_chapter_number_override SET novel_id = :toOwner, url = :toUrl
+UPDATE OR IGNORE novel_chapter_number_override SET novel_id = :toOwner, url = :toUrl
 WHERE novel_id = :fromOwner AND url = :fromUrl;
 
 moveNovelCopyMark:
-UPDATE novel_chapter_copy_mark SET novel_id = :toOwner, url = :toUrl
+UPDATE OR IGNORE novel_chapter_copy_mark SET novel_id = :toOwner, url = :toUrl
 WHERE novel_id = :fromOwner AND url = :fromUrl;
+
+-- A chapter arriving where its new owner already holds a row at that address (a restore made before a
+-- combine gives both series one) folds onto that row as a kept state does: the arriving row is kept as a
+-- tombstone, then deleted, and what the owner already keys at the address wins over what arrives.
+mangaChapterIdAt:
+SELECT id FROM chapter WHERE manga_id = :ownerId AND remote_url = :url;
+
+novelChapterIdAt:
+SELECT _id FROM novel_chapters WHERE novel_id = :ownerId AND url = :url;
+
+deleteMangaChapter:
+DELETE FROM chapter WHERE id = :id;
+
+deleteNovelChapter:
+DELETE FROM novel_chapters WHERE _id = :id;
+
+forgetMangaExtras {
+    DELETE FROM manga_chapter_number_override WHERE manga_id = :ownerId AND url = :url;
+    DELETE FROM manga_chapter_copy_mark WHERE manga_id = :ownerId AND url = :url;
+}
+
+forgetNovelExtras {
+    DELETE FROM novel_chapter_number_override WHERE novel_id = :ownerId AND url = :url;
+    DELETE FROM novel_chapter_copy_mark WHERE novel_id = :ownerId AND url = :url;
+}
 
 -- Every chapter address a local series' rows hold, read inside a rename's transaction so none is missed.
 mangaChapterUrls:

@@ -116,6 +116,21 @@ class LocalChapterMoveRepositoryTest {
         rows("SELECT folder || '|' || volume_key || '|' || owner FROM local_volume_owner") shouldBe listOf("B|/|A")
     }
 
+    /** A restore made before a combine gives both series a row at one address; the move must not fail on it. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter moving onto a row already at its address folds its read state onto that row`(type: Type) =
+        runTest {
+            type.seed.forEach { exec(it) }
+            exec(type.unreadChapter(id = 20, owner = 1, url = "B/c1"))
+            exec(type.override(owner = 1, url = "B/c1", number = 7.0))
+
+            regroup(type.contentType)
+
+            listOf(rows(type.ownerAndUrl), one(type.readAt("B/c1")), rows(type.overrideOwners)) shouldBe
+                listOf(listOf("1|B/c1"), "1", listOf("1|7.0"))
+        }
+
     @Test
     fun `a moved manga chapter's history follows it`() = runTest {
         Type.MANGA.seed.forEach { exec(it) }
@@ -189,9 +204,8 @@ class LocalChapterMoveRepositoryTest {
     @EnumSource(Type::class)
     fun `a regroup that fails part way writes nothing`(type: Type) = runTest {
         type.seed.forEach { exec(it) }
-        // A chapter already at the address under the new owner, which the owner's unique address refuses.
-        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 1, 'B/c1'"))
 
+        // Placing the chapters fails after the owner rows are written.
         runCatching {
             repository().regroup(
                 type.contentType,
@@ -199,7 +213,7 @@ class LocalChapterMoveRepositoryTest {
                 remove = emptyList(),
                 add = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "A")),
                 volumes = emptyList(),
-                unitOf = ::localChapterUnit,
+                unitOf = { error("unreadable address $it") },
             )
         }
 
@@ -401,6 +415,27 @@ class LocalChapterMoveRepositoryTest {
         } else {
             "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
                 "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1.0, $read, 0, $progress, 0, 0, 0)"
+        }
+
+        fun unreadChapter(id: Long, owner: Long, url: String) = if (contentType == ContentType.NOVELS) {
+            "INSERT INTO novel_chapters(_id, novel_id, url, name, read, bookmark, last_text_progress, " +
+                "chapter_number, source_order, date_fetch, date_upload) VALUES ($id, $owner, '$url', 'C', 0, 0, 0, 1.0, 0, 0, 0)"
+        } else {
+            "INSERT INTO chapter(id, manga_id, remote_url, remote_name, remote_scanlator, user_read, " +
+                "user_bookmark, user_last_page_read, remote_chapter_number, remote_order, state_date_fetch, " +
+                "remote_date_upload, remote_memo) VALUES ($id, $owner, '$url', 'C', NULL, 0, 0, 0, 1.0, 0, 0, 0, '{}')"
+        }
+
+        fun override(owner: Long, url: String, number: Double) = if (contentType == ContentType.NOVELS) {
+            "INSERT INTO novel_chapter_number_override(novel_id, url, number, source_number) VALUES ($owner, '$url', $number, 1.0)"
+        } else {
+            "INSERT INTO manga_chapter_number_override(manga_id, url, number, source_number) VALUES ($owner, '$url', $number, 1.0)"
+        }
+
+        val overrideOwners get() = if (contentType == ContentType.NOVELS) {
+            "SELECT novel_id || '|' || number FROM novel_chapter_number_override ORDER BY 1"
+        } else {
+            "SELECT manga_id || '|' || number FROM manga_chapter_number_override ORDER BY 1"
         }
 
         val chapterUrls get() = if (contentType == ContentType.NOVELS) {

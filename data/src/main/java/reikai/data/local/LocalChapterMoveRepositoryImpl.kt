@@ -176,6 +176,12 @@ class LocalChapterMoveRepositoryImpl(
     // where a row already is folds onto that row in the settle that ends the transaction.
     private suspend fun moveChapter(type: ContentType, fromOwner: Long, toOwner: Long, move: ChapterMove) {
         val (fromUrl, toUrl) = move
+        if (fromOwner == toOwner && fromUrl == toUrl) return
+        val arriving = chapterIdAt(type, fromOwner, fromUrl)
+        if (arriving != null && chapterIdAt(type, toOwner, toUrl) != null) {
+            // Both series hold a row here, so the arriving one becomes a kept state that the settle folds on.
+            tombstones.capturing(type, fromOwner, listOf(arriving), emptyList()) { deleteChapter(type, arriving) }
+        }
         when (type) {
             ContentType.NOVELS -> {
                 queries.moveNovelChapter(toOwner, toUrl, fromOwner, fromUrl)
@@ -189,7 +195,24 @@ class LocalChapterMoveRepositoryImpl(
                 queries.moveMangaCopyMark(toOwner, toUrl, fromOwner, fromUrl)
             }
         }
+        // What the moves above left behind is what the new owner already keyed at the address.
+        when (type) {
+            ContentType.NOVELS -> queries.forgetNovelExtras(fromOwner, fromUrl)
+            else -> queries.forgetMangaExtras(fromOwner, fromUrl)
+        }.await()
         tombstones.move(type, fromOwner, fromUrl, toOwner, toUrl)
+    }
+
+    private suspend fun chapterIdAt(type: ContentType, owner: Long, url: String): Long? = when (type) {
+        ContentType.NOVELS -> queries.novelChapterIdAt(owner, url)
+        else -> queries.mangaChapterIdAt(owner, url)
+    }.awaitAsOneOrNull()
+
+    private suspend fun deleteChapter(type: ContentType, id: Long) {
+        when (type) {
+            ContentType.NOVELS -> queries.deleteNovelChapter(id)
+            else -> queries.deleteMangaChapter(id)
+        }
     }
 }
 
