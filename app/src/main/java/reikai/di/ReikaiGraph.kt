@@ -16,14 +16,11 @@ import exh.ui.login.EhLoginActivity
 import kotlinx.coroutines.CoroutineScope
 import mihon.core.metro.AppCoroutineScope
 import mihon.core.migration.migrations.MergedDuplicateCarryMigration
-import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalFileJournalReplay
 import reikai.data.novel.update.NovelUpdateWorker
 import reikai.data.track.TrackerRefreshWorker
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.chapter.ChapterCopyMarkRepository
-import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.entry.ResetEntryViewerFlags
 import reikai.domain.extension.ExtensionUpdateCounts
 import reikai.domain.library.ReikaiLibraryPreferences
@@ -49,7 +46,6 @@ import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.ireader.IReaderHostServices
 import reikai.novel.update.LnPluginUpdateChecker
 import reikai.novel.update.LnPluginUpdateNotifier
-import reikai.presentation.details.LocalVolumeCovers
 import reikai.presentation.details.MangaEntryCoverViewModel
 import reikai.presentation.details.VolumePicking
 import reikai.presentation.library.MangaLibraryAdapter
@@ -120,10 +116,6 @@ interface ReikaiGraph {
     val reikaiSourcePreferences: ReikaiSourcePreferences
     val taskBannerPreferences: TaskBannerPreferences // the Library and Data settings host its two switches
     val chapterCopyMarks: ChapterCopyMarkRepository
-    val volumePicks: VolumePickRepository
-    val localVolumes: LocalVolumeRepository
-    val volumeCovers: LocalVolumeCovers
-    val combineLocalVolumes: CombineLocalVolumes
     val volumePicking: VolumePicking
 
     val pagePreviewCache: PagePreviewCache
