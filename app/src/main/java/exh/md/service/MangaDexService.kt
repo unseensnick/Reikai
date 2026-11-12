@@ -10,9 +10,11 @@ import exh.md.dto.MangaListDto
 import exh.md.dto.StatisticsDto
 import exh.md.utils.MdApi
 import exh.md.utils.MdConstants
+import exh.md.utils.MdLang
 import exh.md.utils.MdUtil
 import okhttp3.CacheControl
 import okhttp3.Headers
+import okhttp3.HttpUrl
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 
@@ -99,14 +101,7 @@ class MangaDexService(
         return with(MdUtil.jsonParser) {
             client.newCall(
                 GET(
-                    MdApi.manga.toHttpUrl()
-                        .newBuilder()
-                        .apply {
-                            addPathSegment(id)
-                            addPathSegment("aggregate")
-                            addQueryParameter("translatedLanguage[]", translatedLanguage)
-                        }
-                        .build(),
+                    aggregateUrl(id, translatedLanguage),
                     headers = headers,
                     cache = CacheControl.FORCE_NETWORK,
                 ),
@@ -128,5 +123,19 @@ class MangaDexService(
                 .awaitSuccess()
                 .parseAs()
         }
+    }
+
+    companion object {
+        internal fun aggregateUrl(id: String, translatedLanguage: String): HttpUrl =
+            MdApi.manga.toHttpUrl()
+                .newBuilder()
+                .addPathSegment(id)
+                .addPathSegment("aggregate")
+                .apply {
+                    if (translatedLanguage != MdLang.ALL.lang) {
+                        addQueryParameter("translatedLanguage[]", translatedLanguage)
+                    }
+                }
+                .build()
     }
 }

@@ -47,6 +47,10 @@ enum class MdLang(val lang: String, val extLang: String = lang) {
     LATIN("la"),
     TAMIL("ta"),
     KAZAKH("kk"),
+
+    // The extension's all-languages source: MangaDex has no such code, so requests drop the language
+    // filter and descriptions label each alternative title with its language.
+    ALL("all"),
     ;
 
     companion object {

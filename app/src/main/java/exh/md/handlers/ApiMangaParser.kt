@@ -40,14 +40,12 @@ class ApiMangaParser(
                 val mangaAttributesDto = mangaDto.data.attributes
                 mdUuid = mangaDto.data.id
                 title = MdUtil.getTitleFromManga(mangaAttributesDto, lang, preferExtensionLangTitle)
-                altTitles = mangaAttributesDto.altTitles
-                    .mapNotNull { langMap ->
-                        langMap
-                            .filter { it.key == lang || it.key == "${mangaAttributesDto.originalLanguage}-ro" }
-                            .takeIf { it.isNotEmpty() }
-                    }
-                    .flatMap { it.values }
-                    .nullIfEmpty()
+                val altTitleEntries = MdUtil.altTitleEntries(
+                    mangaAttributesDto.altTitles,
+                    lang,
+                    mangaAttributesDto.originalLanguage,
+                )
+                altTitles = altTitleEntries.map { it.second }.nullIfEmpty()
 
                 val mangaRelationshipsDto = mangaDto.data.relationships
                 cover = mangaRelationshipsDto
@@ -67,7 +65,11 @@ class ApiMangaParser(
                 description = MdUtil.cleanDescription(rawDesc)
                     .let {
                         if (altTitlesInDesc) {
-                            MdUtil.addAltTitleToDesc(it, altTitles, context.stringResource(MR.strings.alt_titles))
+                            MdUtil.addAltTitleToDesc(
+                                it,
+                                MdUtil.descriptionAltTitles(altTitleEntries, lang),
+                                context.stringResource(MR.strings.alt_titles),
+                            )
                         } else {
                             it
                         }

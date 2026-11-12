@@ -241,6 +241,19 @@ class MdUtil {
                 .toList()
         }
 
+        /** Each alternative title a source shows, as language code to title; every one for [MdLang.ALL]. */
+        fun altTitleEntries(
+            altTitles: List<Map<String, String>>,
+            lang: String,
+            originalLanguage: String,
+        ): List<Pair<String, String>> = altTitles
+            .flatMap { it.entries }
+            .filter { lang == MdLang.ALL.lang || it.key == lang || it.key == "$originalLanguage-ro" }
+            .map { it.key to it.value }
+
+        fun descriptionAltTitles(entries: List<Pair<String, String>>, lang: String): List<String> =
+            entries.map { (code, title) -> if (lang == MdLang.ALL.lang) "[$code] $title" else title }
+
         fun addAltTitleToDesc(description: String, altTitles: List<String>?, heading: String): String {
             return if (altTitles.isNullOrEmpty()) {
                 description
