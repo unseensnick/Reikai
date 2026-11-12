@@ -1,5 +1,6 @@
 package eu.kanade.tachiyomi.data.backup
 
+import app.cash.sqldelight.async.coroutines.awaitAsList
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
@@ -48,6 +49,7 @@ class ForeignMergeRestoreTest {
                     source = FOREIGN_MERGED_SOURCE_ID, url = MERGED_URL, title = TITLE, dateAdded = DATE_ADDED,
                     categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
+                    chapterFlags = CHAPTER_FLAGS, viewerFlags = VIEWER_FLAGS, excludedScanlators = EXCLUDED,
                     mergedEntries = members.map { (url, source, priority) -> SyMergedEntry(priority, url, source) },
                     mergeSettings = SyMergeSettings(info.first, info.second).takeIf { infoMarked },
                 ),
@@ -58,6 +60,7 @@ class ForeignMergeRestoreTest {
                     source = FOREIGN_MERGED_SOURCE_ID, url = MERGED_URL, title = TITLE, dateAdded = DATE_ADDED,
                     categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
+                    chapterFlags = CHAPTER_FLAGS, viewerFlags = VIEWER_FLAGS, excludedScanlators = EXCLUDED,
                     mergedMangaReferences = members.map { (url, source, priority) ->
                         KomikkuMergedRef(infoMarked && url == info.first, priority, MERGED_URL, url, source)
                     },
@@ -211,6 +214,17 @@ class ForeignMergeRestoreTest {
         restored(rows(layout)) { mangas.getMangaByUrlAndSourceId(INFO_URL, INFO_SOURCE)!!.notes } shouldBe NOTES
     }
 
+    // The merged entry's own chapter list and reader settings are what the user saw, never the members' own.
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `the Primary member takes the merged entry's chapter and reader settings`(layout: Layout) = runTest {
+        restored(rows(layout)) {
+            val manga = mangas.getMangaByUrlAndSourceId(INFO_URL, INFO_SOURCE)!!
+            val excluded = database.excluded_scanlatorQueries.getExcludedScanlatorsByMangaId(manga.id).awaitAsList()
+            Triple(manga.chapterFlags, manga.viewerFlags, excluded)
+        } shouldBe Triple(CHAPTER_FLAGS.toLong(), VIEWER_FLAGS.toLong(), EXCLUDED)
+    }
+
     @ParameterizedTest
     @EnumSource(Layout::class)
     fun `a member keeps its gallery metadata`(layout: Layout) = runTest {
@@ -249,6 +263,9 @@ class ForeignMergeRestoreTest {
         const val TITLE = "One-Punch Man"
         const val CUSTOM_TITLE = "OPM"
         const val NOTES = "notes"
+        const val CHAPTER_FLAGS = 0x102
+        const val VIEWER_FLAGS = 0x13
+        val EXCLUDED = listOf("Group A")
         const val DATE_ADDED = 1_700_000_000_000L
         const val INFO_URL = "/manga/info"
         const val INFO_SOURCE = 11L
@@ -291,6 +308,9 @@ private class SyManga(
     @ProtoNumber(17) val categories: List<Long>,
     @ProtoNumber(18) val tracking: List<BackupTracking>,
     @ProtoNumber(100) val favorite: Boolean,
+    @ProtoNumber(101) val chapterFlags: Int,
+    @ProtoNumber(103) val viewerFlags: Int,
+    @ProtoNumber(108) val excludedScanlators: List<String>,
     @ProtoNumber(110) val notes: String,
     @ProtoNumber(800) val customTitle: String,
     @ProtoNumber(600) val mergedEntries: List<SyMergedEntry>,
@@ -335,6 +355,9 @@ private class KomikkuManga(
     @ProtoNumber(2) val url: String,
     @ProtoNumber(3) val title: String,
     @ProtoNumber(100) val favorite: Boolean,
+    @ProtoNumber(101) val chapterFlags: Int = 0,
+    @ProtoNumber(103) val viewerFlags: Int? = null,
+    @ProtoNumber(108) val excludedScanlators: List<String> = emptyList(),
     @ProtoNumber(13) val dateAdded: Long = 0,
     @ProtoNumber(17) val categories: List<Long> = emptyList(),
     @ProtoNumber(18) val tracking: List<BackupTracking> = emptyList(),

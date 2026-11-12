@@ -56,7 +56,7 @@ class ForeignMerge internal constructor(private val row: BackupForeignMergeRow, 
     /** Its tracks on the file's Kitsu scale, which pass 1 decides only after it has decoded this entry. */
     fun rescaleKitsu(scale: KitsuBackupScoreScale): ForeignMerge = apply { entry.rescaleKitsu(scale) }
 
-    /** Puts [member] in the library the way the merged entry was, and gives the Primary its own data. */
+    /** Puts [member] in the library the way the merged entry was, and gives the Primary its own data and settings. */
     fun applyTo(member: BackupManga, isPrimary: Boolean) {
         if (!entry.favorite) return
         if (!member.favorite) {
@@ -70,6 +70,10 @@ class ForeignMerge internal constructor(private val row: BackupForeignMergeRow, 
         member.tracking += entry.tracking.filterNot { it.syncId in tracked }
         if (member.customInfo == null) member.customInfo = entry.customInfo
         if (member.notes.isBlank()) member.notes = entry.notes
+        // The fork showed the merged entry's own chapter and reader settings, never a member's.
+        member.chapterFlags = entry.chapterFlags
+        member.viewer_flags = entry.viewer_flags ?: entry.viewer
+        member.excludedScanlators = entry.excludedScanlators
     }
 }
 
