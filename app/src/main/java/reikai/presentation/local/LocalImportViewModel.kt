@@ -144,6 +144,7 @@ class LocalImportViewModel(
                     duplicates = found.duplicates,
                     newerCopies = found.newerCopies,
                     onNewerCopy = found.onNewerCopy,
+                    listsUnder = found.listsUnder,
                 )
             }
         }
@@ -153,7 +154,7 @@ class LocalImportViewModel(
     fun setType(key: String, type: ContentType) {
         val group = state.value.groups.firstOrNull { it.key == key } ?: return
         if (!group.canBeEitherType || group.type == type) return
-        updateGroup(key) { it.copy(type = type, existing = null, duplicates = emptySet()) }
+        updateGroup(key) { it.copy(type = type, existing = null, duplicates = emptySet(), listsUnder = null) }
         reinspect(key, auto = true)
     }
 

@@ -60,6 +60,9 @@ class LocalImportTest(private val type: ContentType) {
     private var storageRoot: UniFile = UniFile.fromFile(root)!!
     private val journal = InMemoryLocalFileJournal()
     private var owners = emptyList<VolumeOwner>()
+
+    /** The series path each add stored and refreshed. */
+    private val added = mutableListOf<String>()
     private val seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
     private val organizer =
         LocalOrganizer(context, journal, mockk(), seriesLocks, CoroutineScope(Dispatchers.Unconfined))
@@ -71,7 +74,9 @@ class LocalImportTest(private val type: ContentType) {
             every { getLocalSourceDirectory() } answers { storageRoot }
             every { getLocalNovelsDirectory() } answers { storageRoot }
         },
-        localNovels = mockk<LocalNovelSource> { coEvery { parseNovel(any()) } answers { SourceNovel(firstArg()) } },
+        localNovels = mockk<LocalNovelSource> {
+            coEvery { parseNovel(any()) } answers { SourceNovel(firstArg<String>().also { added += it }) }
+        },
         novelRepository = mockk<NovelRepository> {
             coEvery { insertOrGet(any()) } returns null
             coEvery { getByUrlAndSource(any(), any()) } returns Novel.create().copy(id = 7L)
@@ -83,7 +88,10 @@ class LocalImportTest(private val type: ContentType) {
         novelAdder = mockk<NovelLibraryAdder> { coEvery { addToBatch(any(), any(), any()) } returns AddOutcome.Failed },
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {
-            coEvery { this@mockk.invoke(any<Manga>()) } returns Manga.create().copy(id = 7L)
+            coEvery { this@mockk.invoke(any<Manga>()) } answers {
+                added += firstArg<Manga>().url
+                Manga.create().copy(id = 7L)
+            }
         },
         updateMangaFromRemote = mockk {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
@@ -160,9 +168,9 @@ class LocalImportTest(private val type: ContentType) {
         root.list()!!.toList() shouldBe listOf("Foo (2)")
     }
 
-    /** Combined whole into another series, the folder is no series of its own, so a new file lists under that one. */
+    /** Combined whole into another series, the folder is no series of its own: a new file joins it and lists there. */
     @Test
-    fun `an import never joins a folder another series holds whole`() = runTest {
+    fun `an import into a folder another series holds whole reports that series`() = runTest {
         File(root, "Foo").mkdirs()
         owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
 
@@ -170,37 +178,56 @@ class LocalImportTest(private val type: ContentType) {
             listOf(localImport.inspect(group("Foo"))),
             addToLibrary = false,
             categoryIds = emptyList(),
-        ).series.single().path
+        ).series.single()
 
-        listsUnder(reported) shouldBe (reported to reported)
+        (reported.path to reported.title to listsUnder("Foo")) shouldBe ("Bar" to "Bar" to ("Foo" to "Bar"))
+    }
+
+    @Test
+    fun `the preview of a folder another series holds whole names that series`() = runTest {
+        File(root, "Foo").mkdirs()
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
+
+        localImport.inspect(group("Foo")).listsUnder shouldBe "Bar"
     }
 
     /** A manga file lands among the folder's loose chapters, which a row can lend; a novel book has no such unit. */
     @Test
-    fun `an import never joins a folder whose loose chapters another series holds`() = runTest {
-        File(root, "Foo").mkdirs()
-        owners = listOf(VolumeOwner("Foo", VolumeOwner.LOOSE, "Bar"))
+    fun `an import into a folder whose loose chapters another series holds reports the series that lists it`() =
+        runTest {
+            File(root, "Foo").mkdirs()
+            owners = listOf(VolumeOwner("Foo", VolumeOwner.LOOSE, "Bar"))
 
-        val reported = localImport.import(
-            listOf(localImport.inspect(group("Foo"))),
-            addToLibrary = false,
-            categoryIds = emptyList(),
-        ).series.single().path
+            val reported = localImport.import(
+                listOf(localImport.inspect(group("Foo"))),
+                addToLibrary = false,
+                categoryIds = emptyList(),
+            ).series.single().path
 
-        listsUnder(reported) shouldBe (reported to reported)
-    }
+            (reported to listsUnder("Foo")) shouldBe
+                (LOOSE_HOLDER.getValue(type) to ("Foo" to LOOSE_HOLDER.getValue(type)))
+        }
 
-    /** A Combine can lend the folder after the preview showed it joining, and the import must see that. */
+    /** A Combine can lend the folder after the preview showed it joining, and the import goes with it. */
     @Test
-    fun `an import refuses a folder combined into another series after its preview`() = runTest {
+    fun `an import reports the series a combine gave the folder to after its preview`() = runTest {
         File(root, "Foo").mkdirs()
         val joining = localImport.inspect(group("Foo"))
         owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
 
         val result = localImport.import(listOf(joining), addToLibrary = false, categoryIds = emptyList())
 
-        (result.problems.map { it.reason } to File(root, "Foo").list()!!.toList()) shouldBe
-            (listOf(ImportProblem.Reason.Combined) to emptyList())
+        (result.series.single().path to listsUnder("Foo")) shouldBe ("Bar" to ("Foo" to "Bar"))
+    }
+
+    @Test
+    fun `an import into a held folder adds the series that lists the file`() = runTest {
+        File(root, "Foo").mkdirs()
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
+
+        localImport.import(listOf(localImport.inspect(group("Foo"))), addToLibrary = true, categoryIds = emptyList())
+
+        added shouldBe listOf("Bar")
     }
 
     @Test
@@ -476,6 +503,9 @@ class LocalImportTest(private val type: ContentType) {
         private const val PICKED = "content://com.android.externalstorage.documents/tree/primary%3AManga"
 
         // A book takes the series and its volume; a comic keeps its own name, which names its chapter.
+        // A novel book is no loose chapter, so a loose row lends it nothing.
+        private val LOOSE_HOLDER = mapOf(ContentType.MANGA to "Bar", ContentType.NOVELS to "Foo")
+
         private val NEW_NAME = mapOf(ContentType.MANGA to "a.cbz", ContentType.NOVELS to "Foo - Vol. 1.epub")
 
         @JvmStatic

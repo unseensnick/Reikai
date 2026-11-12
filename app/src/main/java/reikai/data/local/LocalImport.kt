@@ -100,6 +100,8 @@ data class ImportGroup(
     val onDuplicate: DuplicateChoice = DuplicateChoice.KeepBoth,
     val newerCopies: Map<Uri, String> = emptyMap(),
     val onNewerCopy: DuplicateChoice? = null,
+    /** The series a file copied into [existing] lists under: its own, or the series that holds the folder. */
+    val listsUnder: String? = null,
 ) {
     /** The folder of the series this group goes into, when it joins one already there. */
     val joins: String? get() = existing?.takeUnless { separate }
@@ -126,7 +128,7 @@ internal fun newerCopiesOf(files: List<ImportFile>, held: Map<String, String>, d
 
 /** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
 data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
-    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed, Combined }
+    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed }
 }
 
 /** What an import did: the series it touched, by [ImportedSeries.type], and what it had to skip. */
@@ -201,14 +203,12 @@ class LocalImport(
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = storageManager.localRoot(group.type) ?: return@withIOContext group
-        val groups = LocalGroups(owners.all(group.type))
-        // Only a folder takes files in: a loose book of that name is a file.
-        val takes = { it: UniFile -> it.isDirectory && takesNewFiles(groups, group.type, it.name.orEmpty()) }
         val listed = root.list(context)
+        // Only a folder takes files in: a loose book of that name is a file.
         val folder = if (target != null) {
-            listed.firstOrNull { it.name == target }?.takeIf(takes)
+            listed.firstOrNull { it.name == target }?.takeIf { it.isDirectory }
         } else {
-            listed.firstOrNull { takes(it) && groupKey(it.name.orEmpty()) == groupKey(group.title) }
+            listed.firstOrNull { it.isDirectory && groupKey(it.name.orEmpty()) == groupKey(group.title) }
         }
         val present = folder?.list(context).orEmpty().filter { it.isFile }
         val sizes = present.map { it.length() }.toSet()
@@ -219,16 +219,18 @@ class LocalImport(
             duplicates = duplicates,
             newerCopies = newerCopiesOf(group.files, held, duplicates),
             onNewerCopy = group.onNewerCopy.takeIf { folder?.name == group.existing },
+            listsUnder = folder?.name?.let { seriesListingNewFiles(group.type, it) },
         )
     }
 
     /**
-     * Whether a file copied into [folder] lists under it rather than under a series another one's rows name, which
-     * would show it under a series the import never named. A copy lands among a manga folder's loose chapters, or
-     * as a book of its own, which no row names yet.
+     * The series a file copied into [folder] lists under: the folder's own, or the series a row lends it to. A copy
+     * lands among a manga folder's loose chapters, or as a book of its own, which no row names yet. Read from the
+     * table each time, so the import's second read under the lock follows a combine since the preview.
      */
-    private fun takesNewFiles(groups: LocalGroups, type: ContentType, folder: String): Boolean =
-        groups.ownerOf(folder, if (type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE) == folder
+    private suspend fun seriesListingNewFiles(type: ContentType, folder: String): String =
+        LocalGroups(owners.all(type))
+            .ownerOf(folder, if (type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE)
 
     /** The folder's books by [bookIdentity], each read from its package; one that will not open is left out. */
     private fun heldBooks(present: List<UniFile>): Map<String, String> = present
@@ -287,13 +289,10 @@ class LocalImport(
                 // cannot list a half-copied file or a book stepping aside, nor sync a listing from before the copy.
                 // The folder is made first, so the lock names the folder as storage spelled it.
                 seriesLocks.withSeries(group.type, path) {
-                    // Asked again under the lock a Combine also takes, since one may have lent the folder since the
-                    // preview.
-                    if (joined != null && !takesNewFiles(LocalGroups(owners.all(group.type)), group.type, path)) {
-                        problems += ImportProblem(group.title, ImportProblem.Reason.Combined)
-                        return@withSeries null
-                    }
-                    importGroup(group, folder, path, joined == null, addToLibrary, categoryIds, problems)
+                    // Asked again under the lock a Combine also takes, which may have lent the folder since the
+                    // preview; the lock covers the series it lent it to, which the add below refreshes.
+                    val series = seriesListingNewFiles(group.type, path)
+                    importGroup(group, folder, series, joined == null, addToLibrary, categoryIds, problems)
                 }
             }
             ImportResult(series, problems)
@@ -302,7 +301,7 @@ class LocalImport(
     private suspend fun importGroup(
         group: ImportGroup,
         folder: UniFile,
-        path: String,
+        series: String,
         made: Boolean,
         addToLibrary: Boolean,
         categoryIds: List<Long>,
@@ -329,7 +328,7 @@ class LocalImport(
                 duplicate != null && choice == DuplicateChoice.Replace -> duplicate.name.orEmpty()
                 // A book takes the series and its volume, as Organize files names it; a comic keeps its name,
                 // which names its chapter.
-                group.type == ContentType.NOVELS -> freeName(bookName(path, file, ++books), taken)
+                group.type == ContentType.NOVELS -> freeName(bookName(folder.name.orEmpty(), file, ++books), taken)
                 else -> freeName(file.name, taken)
             }
             runCatching {
@@ -344,13 +343,14 @@ class LocalImport(
             return null
         }
         val entryId = if (addToLibrary) {
-            runCatchingCancellable { add(group.type, path, categoryIds) }
+            runCatchingCancellable { add(group.type, series, categoryIds) }
                 .onFailure { problems += ImportProblem(group.title, ImportProblem.Reason.AddFailed) }
                 .getOrNull()
         } else {
             null
         }
-        return ImportedSeries(group.key, group.type, group.title, path, entryId)
+        // One already there is named by the series that lists the file, the holder's where another holds the folder.
+        return ImportedSeries(group.key, group.type, if (made) group.title else series, series, entryId)
     }
 
     /** Stores the series the folder [path] now holds, fills in its chapters and favorites it. */

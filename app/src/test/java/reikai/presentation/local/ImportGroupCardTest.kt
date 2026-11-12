@@ -7,6 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
@@ -45,6 +46,24 @@ class ImportGroupCardTest {
         }
 
         listOf(lines("Novels"), lines("Manga")) shouldBe listOf(1, 1)
+    }
+
+    /** A folder another series holds takes the files in, and they list under that series, not the folder's own. */
+    @Test
+    fun `a group joining a folder another series holds says it adds to that series`() {
+        compose.setContent {
+            ComposeTestHost {
+                GroupCard(
+                    group = GROUP.copy(existing = "Foo", listsUnder = "Bar"),
+                    enabled = true,
+                    onRename = {},
+                    onType = {},
+                    onRemove = {},
+                )
+            }
+        }
+
+        compose.onAllNodesWithText("Adds to Bar").fetchSemanticsNodes().size shouldBe 1
     }
 
     private fun lines(label: String): Int {
