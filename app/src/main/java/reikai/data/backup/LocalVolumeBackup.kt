@@ -4,6 +4,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupLocalVolumeFields
 import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.VolumeOwner
 
@@ -15,6 +16,7 @@ import reikai.domain.local.VolumeOwner
 suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
     type: ContentType,
     volumes: LocalVolumeRepository,
+    picks: VolumePickRepository,
     isLocal: (E) -> Boolean,
     idOf: (E) -> Long,
     urlOf: (E) -> String,
@@ -23,12 +25,12 @@ suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
     if (local.isEmpty()) return
     val volumesBySeries = volumes.loadedVolumes(type)
     val ownersBySeries = volumes.all(type).groupBy { it.owner }
-    val picks = volumes.loadedPicks(type)
+    val picked = picks.loadedPicks(type)
     local.forEach { (entry, backup) ->
         val url = urlOf(entry)
         backup.localVolumes = volumesBySeries[url].orEmpty().map { it.toBackup() }
         backup.volumeOwners = ownersBySeries[url].orEmpty().map { BackupVolumeOwner(it.folder, it.volume) }
-        backup.volumePick = picks[idOf(entry)]
+        backup.volumePick = picked[idOf(entry)]
     }
 }
 
@@ -40,10 +42,11 @@ suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
 suspend fun BackupLocalVolumeFields.restoreLocalVolumes(
     type: ContentType,
     volumes: LocalVolumeRepository,
+    picks: VolumePickRepository,
     url: String,
 ) {
     volumes.restore(type, url, localVolumes.map { it.toLocalVolume() })
-    volumePick?.let { volumes.restorePick(type, url, it) }
+    volumePick?.let { picks.restore(type, url, it) }
 }
 
 /** The owner rows the local series at [url] carried: the volumes it lists from other folders. */

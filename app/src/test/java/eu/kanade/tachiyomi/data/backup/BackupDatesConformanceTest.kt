@@ -21,6 +21,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -125,6 +126,7 @@ class BackupDatesConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = marks,
                     localVolumes = NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                     readingLog = NoReadingLog,
                 )
                 val batch = listOf(manga to creator.base(listOf(manga)).single())
@@ -194,6 +196,7 @@ class BackupDatesConformanceTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = marks,
                     localVolumes = NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,

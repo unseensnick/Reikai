@@ -24,6 +24,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
@@ -64,6 +65,8 @@ class MangaBackupCreator(
     private val copyMarks: ChapterCopyMarkRepository,
     // RK: a local series' volume order and names, carried with it.
     private val localVolumes: LocalVolumeRepository,
+    // RK: the volume chip a local series was left on, carried with it.
+    private val volumePicks: VolumePickRepository,
     // RK: the reading log, carried with history.
     private val readingLog: ReadingLogRepository,
     // RK: each entry's places in Manual library orders, carried with its categories.
@@ -118,7 +121,7 @@ class MangaBackupCreator(
         }
         // A local series' grouping describes the series, not its chapters, so it rides with every entry.
         val batch = entries.zip(backups)
-        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, { it.isLocal() }, Manga::id, Manga::url)
+        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, volumePicks, { it.isLocal() }, Manga::id, Manga::url)
         val looseBySeries = localVolumes.loadedLooseFiles()
         batch.forEach { (entry, backup) -> if (entry.isLocal()) backup.looseFiles = looseBySeries[entry.url]?.stored }
         return backups

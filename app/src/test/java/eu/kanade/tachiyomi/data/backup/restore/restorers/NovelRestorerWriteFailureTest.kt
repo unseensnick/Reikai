@@ -14,6 +14,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
@@ -107,6 +108,7 @@ class NovelRestorerWriteFailureTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
         localVolumes = NoLocalVolumes,
+        volumePicks = NoVolumePicks,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

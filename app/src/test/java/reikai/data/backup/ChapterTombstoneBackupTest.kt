@@ -34,6 +34,7 @@ import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -253,6 +254,7 @@ class ChapterTombstoneBackupTest {
                         chapterNumberOverrides = NoChapterNumberOverrides,
                         copyMarks = InMemoryChapterCopyMarks(),
                         localVolumes = NoLocalVolumes,
+                        volumePicks = NoVolumePicks,
                         readingLog = NoReadingLog,
                         tombstones = tombstones,
                     ).run {
@@ -319,6 +321,7 @@ class ChapterTombstoneBackupTest {
                         chapterNumberOverrides = NoChapterNumberOverrides,
                         copyMarks = InMemoryChapterCopyMarks(),
                         localVolumes = NoLocalVolumes,
+                        volumePicks = NoVolumePicks,
                         readingLog = NoReadingLog,
                         readingPace = NoReadingPace,
                         localNovelLanguages = NoLocalNovelLanguages,
@@ -346,6 +349,7 @@ class ChapterTombstoneBackupTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,

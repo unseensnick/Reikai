@@ -23,6 +23,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.RestoreMergeGroups
@@ -95,6 +96,7 @@ class RestoreCategoryMatchConformanceTest {
                     restoreMergeGroups = RestoreMergeGroups(mockk(relaxed = true), PassThroughTransactions),
                     setCustomMangaInfo = mockk(relaxed = true),
                     localVolumes = NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                 ).restore(
                     listOf(BackupManga(source = 1L, url = "u", title = "T", categories = orders)),
                     backup.map { (name, order) -> BackupCategory(name = name, order = order) },
@@ -189,6 +191,7 @@ class RestoreCategoryMatchConformanceTest {
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
             localVolumes = NoLocalVolumes,
+            volumePicks = NoVolumePicks,
             readingLog = NoReadingLog,
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,

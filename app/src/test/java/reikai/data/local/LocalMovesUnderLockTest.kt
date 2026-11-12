@@ -42,6 +42,7 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.chapter.VolumePickRepositoryImpl
 import reikai.data.exec
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.rows
@@ -249,6 +250,7 @@ class LocalMovesUnderLockTest {
             chapterMoves = chapterMoves,
             seriesLocks = locks,
             owners = volumes,
+            volumePicks = VolumePickRepositoryImpl(database, appScope),
         )
         refreshed(KEPT)
         refreshed(OTHER)

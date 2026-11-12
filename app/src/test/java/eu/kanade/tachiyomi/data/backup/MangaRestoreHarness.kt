@@ -12,6 +12,8 @@ import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
@@ -45,6 +47,7 @@ fun mangaRestorer(
     customInfo: CustomMangaInfoRepository = CustomMangaInfoRepositoryImpl(database),
     readingLog: ReadingLogRepository = NoReadingLog,
     localVolumes: LocalVolumeRepository = NoLocalVolumes,
+    volumePicks: VolumePickRepository = NoVolumePicks,
 ): MangaRestorer {
     val mangas = MangaRepositoryImpl(database)
     val chapters = ChapterRepositoryImpl(database)
@@ -68,6 +71,7 @@ fun mangaRestorer(
         restoreMergeGroups = RestoreMergeGroups(mergeGroups, PassThroughTransactions),
         setCustomMangaInfo = SetCustomMangaInfo(customInfo),
         localVolumes = localVolumes,
+        volumePicks = volumePicks,
     )
 }
 
@@ -104,6 +108,7 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
         localVolumes = NoLocalVolumes,
+        volumePicks = NoVolumePicks,
         readingLog = NoReadingLog,
         readingPace = NoReadingPace,
         localNovelLanguages = NoLocalNovelLanguages,

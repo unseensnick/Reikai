@@ -28,6 +28,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.local.VolumeOwner
@@ -204,6 +205,7 @@ class BackupChunkConformanceTest {
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = if (local) grouped else NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                     readingLog = ReadingLogRepositoryImpl(database),
                 )
                 val source = if (local) LocalSource.ID else 1L
@@ -277,6 +279,7 @@ class BackupChunkConformanceTest {
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = if (local) grouped else NoLocalVolumes,
+                    volumePicks = NoVolumePicks,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = object : ReadingPaceRepository by pace {
                         override suspend fun novelChapterPace(novelIds: List<Long>) =

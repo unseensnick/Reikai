@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.HeldRows
-import reikai.data.local.localSeriesId
 import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
@@ -84,16 +83,6 @@ class LocalVolumeRepositoryImpl(
         } else {
             database.local_manga_looseQueries.setMode(series, mode.stored)
         }
-    }
-
-    override suspend fun loadedPicks(type: ContentType): Map<Long, String> =
-        database.local_volume_pickQueries.getAll { dbType, entryId, key -> Triple(dbType, entryId, key) }.awaitAsList()
-            .filter { it.first == type.toDbValue() }.associate { it.second to it.third }
-
-    override suspend fun restorePick(type: ContentType, series: String, key: String) {
-        // By the series' address, since the restore gave it a new id.
-        val id = database.localSeriesId(type, series) ?: return
-        database.local_volume_pickQueries.setIfAbsent(type.toDbValue(), id, key)
     }
 
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {

@@ -37,6 +37,7 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.chapter.VolumePickRepositoryImpl
 import reikai.data.dedupe.DownloadFolderMerge
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
@@ -252,6 +253,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             },
         )
         val volumes = DirectLocalVolumes(database)
+        val volumePicks = VolumePickRepositoryImpl(database, CoroutineScope(Job().apply { cancel() }))
         val locks = LocalSeriesLocks(volumes)
         val storage = mockk<StorageManager> {
             every { getLocalSourceDirectory() } answers
@@ -371,6 +373,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             chapterMoves = chapterMoves,
             seriesLocks = locks,
             owners = volumes,
+            volumePicks = volumePicks,
         )
         val replay = LocalFileJournalReplay(context, journal, locks, organizer)
 
@@ -954,6 +957,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             chapterNumberOverrides = NoChapterNumberOverrides,
             copyMarks = InMemoryChapterCopyMarks(),
             localVolumes = app.volumes,
+            volumePicks = app.volumePicks,
             readingLog = NoReadingLog,
             tombstones = app.tombstoneRepository,
         )
@@ -968,7 +972,12 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             real.exec("DELETE FROM local_manga_loose")
             pending.clear()
         }
-        mangaRestorer(database, localVolumes = app.volumes).restore(batch.map { it.second }, emptyList())
+        mangaRestorer(database, localVolumes = app.volumes, volumePicks = app.volumePicks).restore(
+            batch.map {
+                it.second
+            },
+            emptyList(),
+        )
         // Owner rows regroup chapters across series, so the restore applies them once every series is back.
         app.combine.restoreOwners(
             ContentType.MANGA,

@@ -12,6 +12,7 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.readinglog.NoReadingLog
 import tachiyomi.domain.manga.model.Manga
@@ -54,6 +55,7 @@ class ExcludedScanlatorBackupTest {
         chapterNumberOverrides = NoChapterNumberOverrides,
         copyMarks = InMemoryChapterCopyMarks(),
         localVolumes = NoLocalVolumes,
+        volumePicks = NoVolumePicks,
         readingLog = NoReadingLog,
     )
 }

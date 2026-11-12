@@ -45,12 +45,6 @@ interface LocalVolumeRepository : LocalVolumeOwnerRepository {
     /** Stores [volumes] as a backup carried them for [series]. */
     suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>)
 
-    /** The volume chip each local series of [type] was left on, by entry id ([VolumePickRepository]). */
-    suspend fun loadedPicks(type: ContentType): Map<Long, String>
-
-    /** Leaves the local series at [series] on the chip [key] a backup carried, unless this device already left it on one. */
-    suspend fun restorePick(type: ContentType, series: String, key: String)
-
     /** How each local manga series shows its loose files, by its folder; a series with none set reads one volume. */
     fun looseFiles(): StateFlow<Map<String, LooseFiles>>
 

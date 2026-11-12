@@ -10,13 +10,16 @@ import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.protobuf.ProtoBuf
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.chapter.VolumePickRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
@@ -25,6 +28,8 @@ import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.NoChapterNumberOverrides
+import reikai.domain.chapter.NoVolumePicks
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
@@ -41,6 +46,7 @@ import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.LocalSource
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * A local series' own rows survive a reinstall, for both types: its volumes' saved order and names, the
@@ -72,11 +78,12 @@ class LocalFilesBackupRoundTripTest {
             type.tombstoneStatements(ownerId = 1).forEach { before.exec(it) }
             val keptBefore = ChapterTombstoneRepositoryImpl(before.database).getByOwners(type.contentType, listOf(1))[1]
 
-            val wire = type.backUp(before.database, volumes)
+            val wire = type.backUp(before.database, volumes, VolumePickRepositoryImpl(before.database, backgroundScope))
             // The device the restore lands on already holds another series at id 1.
             type.seedSeries(after.driver, id = 1, url = "other")
             val restoredVolumes = LocalVolumeRepositoryImpl(after.database, backgroundScope)
-            type.restore(after.database, wire, restoredVolumes)
+            val restoredPicks = VolumePickRepositoryImpl(after.database, backgroundScope)
+            type.restore(after.database, wire, restoredVolumes, restoredPicks)
             val newId = type.idOf(after.database, SERIES)
 
             Restored(
@@ -84,7 +91,7 @@ class LocalFilesBackupRoundTripTest {
                 volumes = restoredVolumes.loadedVolumes(type.contentType)[SERIES],
                 // Applied once every series is back, by CombineLocalVolumes.restoreOwners, so read from the wire here.
                 owners = type.carriedOwners(wire),
-                pick = restoredVolumes.loadedPicks(type.contentType)[newId],
+                pick = restoredPicks.loadedPicks(type.contentType)[newId],
                 kept = ChapterTombstoneRepositoryImpl(
                     after.database,
                 ).getByOwners(type.contentType, listOf(newId))[newId],
@@ -95,6 +102,64 @@ class LocalFilesBackupRoundTripTest {
                 pick = "vol2",
                 kept = keptBefore,
             )
+        } finally {
+            before.driver.close()
+            after.driver.close()
+        }
+    }
+
+    /** The details screen reads the held picks, not the table, so the restored chip must reach that flow. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a restored volume chip reaches the picks the details screen reads`(type: Type) = runTest {
+        val before = Db.create()
+        val after = Db.create()
+        try {
+            type.seedSeries(before.driver, id = 1, url = SERIES)
+            before.exec(
+                "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol2')",
+            )
+            val wire = type.backUp(
+                before.database,
+                LocalVolumeRepositoryImpl(before.database, backgroundScope),
+                VolumePickRepositoryImpl(before.database, backgroundScope),
+            )
+            val picks = VolumePickRepositoryImpl(after.database, backgroundScope)
+
+            type.restore(after.database, wire, LocalVolumeRepositoryImpl(after.database, backgroundScope), picks)
+            val newId = type.idOf(after.database, SERIES)
+
+            withTimeout(5.seconds) { picks.picks(type.contentType).first { newId in it } }[newId] shouldBe "vol2"
+        } finally {
+            before.driver.close()
+            after.driver.close()
+        }
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chip this device already left the series on wins over the backup's`(type: Type) = runTest {
+        val before = Db.create()
+        val after = Db.create()
+        try {
+            type.seedSeries(before.driver, id = 1, url = SERIES)
+            before.exec(
+                "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol2')",
+            )
+            val wire = type.backUp(
+                before.database,
+                LocalVolumeRepositoryImpl(before.database, backgroundScope),
+                VolumePickRepositoryImpl(before.database, backgroundScope),
+            )
+            type.seedSeries(after.driver, id = 1, url = SERIES)
+            after.exec(
+                "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol1')",
+            )
+            val picks = VolumePickRepositoryImpl(after.database, backgroundScope)
+
+            type.restore(after.database, wire, LocalVolumeRepositoryImpl(after.database, backgroundScope), picks)
+
+            picks.loadedPicks(type.contentType) shouldBe mapOf(1L to "vol1")
         } finally {
             before.driver.close()
             after.driver.close()
@@ -167,7 +232,11 @@ class LocalFilesBackupRoundTripTest {
                     "VALUES ($ownerId, '$SERIES/vol1/c5.cbz', 2000, 40)",
             )
 
-            override suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray {
+            override suspend fun backUp(
+                database: Database,
+                volumes: LocalVolumeRepositoryImpl,
+                picks: VolumePickRepository,
+            ): ByteArray {
                 val entry = Manga.create().copy(id = 1, source = LocalSource.ID, url = SERIES, title = "T")
                 val creator = MangaBackupCreator(
                     manualOrder = FakeLibraryManualOrderRepository(),
@@ -184,6 +253,7 @@ class LocalFilesBackupRoundTripTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = volumes,
+                    volumePicks = picks,
                     readingLog = NoReadingLog,
                     tombstones = ChapterTombstoneRepositoryImpl(database),
                 )
@@ -198,9 +268,14 @@ class LocalFilesBackupRoundTripTest {
                 database: Database,
                 wire: ByteArray,
                 volumes: LocalVolumeRepositoryImpl,
+                picks: VolumePickRepository,
             ) {
                 val backup = ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire)
-                mangaRestorer(database, localVolumes = volumes).restore(listOf(backup), emptyList())
+                mangaRestorer(
+                    database,
+                    localVolumes = volumes,
+                    volumePicks = picks,
+                ).restore(listOf(backup), emptyList())
             }
 
             override suspend fun idOf(database: Database, url: String) =
@@ -227,7 +302,11 @@ class LocalFilesBackupRoundTripTest {
                     "VALUES ($ownerId, '$SERIES/book.epub#5', 2000, 40)",
             )
 
-            override suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray {
+            override suspend fun backUp(
+                database: Database,
+                volumes: LocalVolumeRepositoryImpl,
+                picks: VolumePickRepository,
+            ): ByteArray {
                 val entry = Novel.create().copy(id = 1, source = LOCAL_NOVEL, url = SERIES, title = "T")
                 val creator = NovelBackupCreator(
                     manualOrder = FakeLibraryManualOrderRepository(),
@@ -242,6 +321,7 @@ class LocalFilesBackupRoundTripTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = volumes,
+                    volumePicks = picks,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,
@@ -257,6 +337,7 @@ class LocalFilesBackupRoundTripTest {
                 database: Database,
                 wire: ByteArray,
                 volumes: LocalVolumeRepositoryImpl,
+                picks: VolumePickRepository,
             ) {
                 NovelRestorer(
                     manualOrder = FakeLibraryManualOrderRepository(),
@@ -270,6 +351,7 @@ class LocalFilesBackupRoundTripTest {
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
                     localVolumes = volumes,
+                    volumePicks = picks,
                     readingLog = NoReadingLog,
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,
@@ -287,11 +369,16 @@ class LocalFilesBackupRoundTripTest {
 
         abstract suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String)
         abstract fun tombstoneStatements(ownerId: Long): List<String>
-        abstract suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray
+        abstract suspend fun backUp(
+            database: Database,
+            volumes: LocalVolumeRepositoryImpl,
+            picks: VolumePickRepository = NoVolumePicks,
+        ): ByteArray
         abstract suspend fun restore(
             database: Database,
             wire: ByteArray,
             volumes: LocalVolumeRepositoryImpl,
+            picks: VolumePickRepository = NoVolumePicks,
         )
         abstract suspend fun idOf(database: Database, url: String): Long
 

@@ -23,6 +23,7 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.chapter.VolumePickRepositoryImpl
 import reikai.data.exec
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
@@ -87,6 +88,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             chapterMoves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)),
             seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
             owners = LocalVolumeRepositoryImpl(database, scope),
+            volumePicks = VolumePickRepositoryImpl(database, scope),
         )
     }
 

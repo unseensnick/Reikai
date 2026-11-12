@@ -4,6 +4,7 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalGroups
@@ -45,6 +46,8 @@ class LocalSeriesRelink(
     private val seriesLocks: LocalSeriesLocks,
     // The owner rows, and the saved volume rows a member's link renames.
     private val owners: LocalVolumeRepository,
+    // The volume chip a member's link renames too.
+    private val volumePicks: VolumePickRepository,
 ) {
 
     /**
@@ -176,7 +179,7 @@ class LocalSeriesRelink(
     // Every volume key series [id] keeps a saved order, name or picked chip under.
     private suspend fun volumeKeys(type: ContentType, id: Long, series: String): Set<String> =
         owners.loadedVolumes(type)[series].orEmpty().map { it.key }.toSet() +
-            listOfNotNull(owners.loadedPicks(type)[id])
+            listOfNotNull(volumePicks.loadedPicks(type)[id])
 
     private fun failed(reason: String) = LocalMoveResult.Failed(IllegalStateException(reason))
 

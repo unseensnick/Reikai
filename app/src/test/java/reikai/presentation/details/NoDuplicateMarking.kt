@@ -3,10 +3,9 @@ package reikai.presentation.details
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.MutableStateFlow
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.chapter.VolumePickRepository
+import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.ContentType
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 
@@ -26,11 +25,7 @@ fun noDuplicateMarking(): DuplicateMarking {
 
 /** Volume picks held in memory, for a details test whose subject is not volumes. */
 fun noVolumePicking() = VolumePicking(
-    object : VolumePickRepository {
-        override fun picks(type: ContentType) = MutableStateFlow(emptyMap<Long, String>())
-
-        override suspend fun set(type: ContentType, entryId: Long, volumeKey: String?) = Unit
-    },
+    NoVolumePicks,
     NoLocalVolumes,
     { _, _, _ -> null },
     mockk(relaxed = true),

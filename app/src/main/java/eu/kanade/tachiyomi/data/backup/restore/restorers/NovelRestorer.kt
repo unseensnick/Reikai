@@ -38,6 +38,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomNovelInfo
@@ -75,6 +76,7 @@ class NovelRestorer(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val copyMarks: ChapterCopyMarkRepository,
     private val localVolumes: LocalVolumeRepository,
+    private val volumePicks: VolumePickRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
@@ -118,7 +120,7 @@ class NovelRestorer(
             novelId,
             backedUpOverrides(backupNovel.chapters, { it.url }, { it.chapterNumber }, { it.sourceChapterNumber }),
         )
-        backupNovel.restoreLocalVolumes(ContentType.NOVELS, localVolumes, backupNovel.url)
+        backupNovel.restoreLocalVolumes(ContentType.NOVELS, localVolumes, volumePicks, backupNovel.url)
         copyMarks.set(
             ContentType.NOVELS,
             backedUpCopyMarks(backupNovel.chapters, { it.url }, { it.copyMark })

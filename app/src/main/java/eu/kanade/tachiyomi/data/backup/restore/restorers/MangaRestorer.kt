@@ -22,6 +22,7 @@ import reikai.domain.category.CategoryContentType
 import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.backedUpCopyMarks
 import reikai.domain.chapter.backedUpOverrides
 import reikai.domain.entry.toCustomMangaInfo
@@ -47,6 +48,7 @@ class MangaRestorer(
     private val restoreMergeGroups: RestoreMergeGroups,
     private val setCustomMangaInfo: SetCustomMangaInfo,
     private val localVolumes: LocalVolumeRepository,
+    private val volumePicks: VolumePickRepository,
     // RK <--
 ) {
 
@@ -108,7 +110,7 @@ class MangaRestorer(
         }
         // RK: a local series' volume order and names, by its folder, as the novel restore keeps them
         backupMangas.forEach {
-            it.restoreLocalVolumes(ContentType.MANGA, localVolumes, it.url)
+            it.restoreLocalVolumes(ContentType.MANGA, localVolumes, volumePicks, it.url)
             it.looseFiles?.let { mode -> localVolumes.setLooseFiles(it.url, LooseFiles.of(mode)) }
         }
     }

@@ -31,6 +31,7 @@ import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.LocalVolumeRepository
+import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.chapter.toBackupValue
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
@@ -64,6 +65,7 @@ class NovelBackupCreator(
     private val chapterNumberOverrides: ChapterNumberOverrideRepository,
     private val copyMarks: ChapterCopyMarkRepository,
     private val localVolumes: LocalVolumeRepository,
+    private val volumePicks: VolumePickRepository,
     private val readingLog: ReadingLogRepository,
     private val readingPace: ReadingPaceRepository,
     private val localNovelLanguages: LocalNovelLanguageRepository,
@@ -109,7 +111,8 @@ class NovelBackupCreator(
         }
         // A local series' grouping describes the series, not its chapters, so it rides with every entry.
         val isLocal = { novel: Novel -> LocalNovelSource.isLocal(novel.source) }
-        entries.zip(backups).writeLocalVolumes(ContentType.NOVELS, localVolumes, isLocal, Novel::id, Novel::url)
+        entries.zip(backups)
+            .writeLocalVolumes(ContentType.NOVELS, localVolumes, volumePicks, isLocal, Novel::id, Novel::url)
         return backups
     }
 
