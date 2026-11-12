@@ -94,7 +94,8 @@ fun Screen.EntryDetailsDialogHost(
     when (dialog) {
         null -> {}
         is EntryDetailsDialog.EditInfo -> {
-            val loaded = behavior.state.value as? EntryDetailsScreenState.Loaded
+            val state by behavior.state.collectAsStateWithLifecycle()
+            val loaded = state as? EntryDetailsScreenState.Loaded
             val canOrganize =
                 behavior.rememberCanOrganize(loaded?.entryId, loaded?.ownsLocalFiles == true, null) == true
             EntryEditInfoDialog(
