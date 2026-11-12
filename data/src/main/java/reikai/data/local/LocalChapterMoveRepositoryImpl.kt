@@ -34,6 +34,7 @@ class LocalChapterMoveRepositoryImpl(
         series: String,
         volumes: Map<String, String>,
         owners: List<VolumeOwner>,
+        chapters: List<String>,
     ) {
         val dbType = type.toDbValue()
         database.transaction {
@@ -42,7 +43,7 @@ class LocalChapterMoveRepositoryImpl(
                 queries.forgetVolume(dbType, series, key)
                 queries.forgetVolumePick(dbType, entryId, key)
             }
-            tombstones.forget(type, entryId, volumes.values.toList())
+            tombstones.forget(type, entryId, volumes.values.toList(), chapters)
         }
     }
 

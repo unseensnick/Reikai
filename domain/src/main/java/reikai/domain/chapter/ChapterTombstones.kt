@@ -138,8 +138,11 @@ interface ChapterTombstoneRepository {
      */
     suspend fun settle(type: ContentType, ownerId: Long, urls: Collection<String>)
 
-    /** Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes]: the user deleted those files. */
-    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>)
+    /**
+     * Drops [ownerId]'s tombstones at urls starting with any of [urlPrefixes], and at each of [urls] exactly: the user
+     * deleted those files.
+     */
+    suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String> = emptyList())
 
     /**
      * Folds a backup's [tombstones] in under [ownerId], then settles them and the restored [chapterUrls]

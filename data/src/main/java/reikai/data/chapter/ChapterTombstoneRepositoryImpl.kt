@@ -134,7 +134,7 @@ class ChapterTombstoneRepositoryImpl(
         settled.awaitAsList().forEach { apply(type, ownerId, it, it) }
     }
 
-    override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>) {
+    override suspend fun forget(type: ContentType, ownerId: Long, urlPrefixes: List<String>, urls: List<String>) {
         urlPrefixes.forEach { prefix ->
             if (type == ContentType.NOVELS) {
                 queries.forgetNovel(ownerId, prefix)
@@ -144,6 +144,7 @@ class ChapterTombstoneRepositoryImpl(
                 queries.forgetMangaSessions(ownerId, prefix)
             }
         }
+        urls.forEach { consume(type, ownerId, it) }
     }
 
     override suspend fun restore(

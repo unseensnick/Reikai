@@ -361,6 +361,22 @@ class LocalMovesUnderLockTest {
         urls(KEPT) to tombstoneUrls(KEPT) shouldBe (listOf("Kept/Vol 1/Ch 1") to emptyList())
     }
 
+    /** Each its own shows a loose chapter as a volume of its own, which Delete volumes then takes by its name. */
+    @Test
+    fun `deleting a loose chapter shown as its own volume leaves no kept state for it, and only for it`() = runTest {
+        File(local, "Kept/Ch 5").mkdirs()
+        File(local, "Kept/Ch 5/001.jpg").writeBytes(byteArrayOf(5))
+        refreshed(KEPT)
+        markRead("Kept/Ch 5")
+        tombstone(KEPT, "Kept/Ch 50")
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.deleteVolumes(ContentType.MANGA, KEPT, listOf("Ch 5")) }
+        }
+
+        tombstoneUrls(KEPT) shouldBe listOf("Kept/Ch 50")
+    }
+
     /** A backup made after Other was combined into Kept, restored where Other is still a series of its own. */
     @Test
     fun `a restored owner row combines as a combine does`() = runTest {

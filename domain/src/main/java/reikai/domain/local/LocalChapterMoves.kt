@@ -52,7 +52,8 @@ interface LocalChapterMoveRepository {
      * their saved order, name and picked chip, and the kept state waiting under them, since the user chose to
      * delete the files and the next thing put at those names is not these chapters. Their rows are the
      * listing's to remove, as any removed file's are; the caller forgets under the prefixes again after it.
-     * The [owners] rows that let the series list them go too.
+     * The [owners] rows that let the series list them go too. A deleted chapter that was a volume of its own (a
+     * loose one under Each its own) has no prefix of its own, and is forgotten at its address among [chapters].
      */
     suspend fun forgetVolumes(
         type: ContentType,
@@ -60,6 +61,7 @@ interface LocalChapterMoveRepository {
         series: String,
         volumes: Map<String, String>,
         owners: List<VolumeOwner> = emptyList(),
+        chapters: List<String> = emptyList(),
     )
 
     /**

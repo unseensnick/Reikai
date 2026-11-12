@@ -48,6 +48,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.source.local.localChapterUrl
 import reikai.storage.canMoveAndRename
 import reikai.storage.deleteTree
 import reikai.storage.freeName
@@ -470,13 +471,19 @@ class CombineLocalVolumes(
             val failed = keys.getOrNull(gone.size)
             val units = gone.associateWith { localGroupUnit(series.folder, it) }
             val deleted = units.mapValues { (_, unit) -> volumeChapterPrefix(type, unit.first, unit.second) }
+            // A manga key may name a loose chapter that Each its own shows as a volume, addressed by itself.
+            val chapters = if (type == ContentType.NOVELS) {
+                emptyList()
+            } else {
+                units.values.map { (folder, volume) -> localChapterUrl(folder, VolumeOwner.LOOSE, volume) }
+            }
             val ownerRows = localVolumes.all(type).filter { (it.folder to it.volume) in units.values }
             // Their saved order and names would otherwise wait at those names for whatever is put there next.
-            chapterMoves.forgetVolumes(type, id, series.folder, deleted, ownerRows)
+            chapterMoves.forgetVolumes(type, id, series.folder, deleted, ownerRows, chapters)
             // The listing removes their rows and keeps their state, as for any file gone; the user chose to
             // delete these, so what is put at those names next starts unread.
             relist(type, id)
-            tombstones.forget(type, id, deleted.values.toList())
+            tombstones.forget(type, id, deleted.values.toList(), chapters)
             failed?.let { LocalMoveResult.Failed(IllegalStateException("Could not delete $it")) }
                 ?: LocalMoveResult.Moved
         }
@@ -556,7 +563,7 @@ class CombineLocalVolumes(
     /** What every chapter address of volume [key] (a manga's folder, a novel's book) in [folder] starts with. */
     private fun volumeChapterPrefix(type: ContentType, folder: String, key: String): String = when (type) {
         ContentType.NOVELS -> LocalNovelSource.volumePathPrefix(folder, key)
-        else -> "$folder/$key/"
+        else -> localChapterUrl(folder, key, "")
     }
 
     private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async {
