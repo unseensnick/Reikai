@@ -580,6 +580,23 @@ class LocalMovesUnderLockTest {
             "($id, ${LocalSource.ID}, '$folder', '$folder', 'cover.jpg', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
     )
 
+    /** A split-out series has no folder, so combining it lists no folder of its name: that would read as missing. */
+    @Test
+    fun `combining a split-out series leaves the kept one no member folder that never existed`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(split))) }
+        }
+
+        volumes.all(ContentType.MANGA).map { it.folder }.distinct().sorted() shouldBe listOf("Kept")
+    }
+
     @Test
     fun `a split makes no folder, and the split-out series lists its volume where it is`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")

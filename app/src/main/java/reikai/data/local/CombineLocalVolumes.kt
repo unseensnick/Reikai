@@ -153,8 +153,10 @@ class CombineLocalVolumes(
                 for (other in others) {
                     val held = before.filter { it.owner == other.folder }
                     remove += held
-                    // A volume of the kept series' own folder that the other one held simply comes home.
-                    add += held.filter { it.folder != kept.folder }.map { it.copy(owner = kept.folder) }
+                    // A volume of the kept series' own folder that the other one held simply comes home, and a
+                    // split-out series' own marker goes, since it names no folder for the kept one to list.
+                    add += held.filter { it.folder != kept.folder && !groups.hasNoFolder(it.folder) }
+                        .map { it.copy(owner = kept.folder) }
                     // Its own folder only when it lists it: a folder another series holds whole stays with that one.
                     if (!groups.hasNoFolder(other.folder) && !groups.isLentWhole(other.folder)) {
                         add += VolumeOwner(other.folder, VolumeOwner.WHOLE, kept.folder)
