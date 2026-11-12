@@ -13,7 +13,10 @@ import org.robolectric.RobolectricTestRunner
 import reikai.storage.FakeSafProvider.ChildListingFault
 import java.io.File
 
-/** The local-file rules over the picked-folder path itself: no listing fault is trusted. */
+/**
+ * The local-file rules over the picked-folder path itself: a listing the second count can catch is not trusted. One
+ * that hides the same file at every reading agrees with its count, so it is, and nothing can tell it from whole.
+ */
 @RunWith(RobolectricTestRunner::class)
 class LocalFilesOnSafTest {
 
@@ -64,5 +67,12 @@ class LocalFilesOnSafTest {
         FakeSafProvider.childListingFaults += listOf(ChildListingFault.Loading, ChildListingFault.Loading)
 
         picked(series).listOrNull(context) shouldBe null
+    }
+
+    @Test
+    fun `a listing that hides one file at every reading is trusted, since no count can catch it`() {
+        FakeSafProvider.listingFault = { ChildListingFault.Without("b.cbz") }
+
+        picked(series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz")
     }
 }

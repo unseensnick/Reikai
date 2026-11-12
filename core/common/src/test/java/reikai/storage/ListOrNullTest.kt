@@ -16,7 +16,7 @@ import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 
 /** A folder's listing is trusted only when it is all of the folder. */
-class ListedFilesTest {
+class ListOrNullTest {
 
     private val folderUri = mockk<Uri>()
     private val childrenUri = mockk<Uri>()
