@@ -126,6 +126,17 @@ class LocalChapterMoveRepositoryTest {
         one("SELECT manga_id FROM history WHERE chapter_id = 10") shouldBe "1"
     }
 
+    /** The default keeps no row, so the setting a gone series left at the new name must not pass to this one. */
+    @Test
+    fun `a manga series renamed with the default Loose files setting drops one left at the new name`() = runTest {
+        Type.MANGA.seed.forEach { exec(it) }
+        exec("INSERT INTO local_manga_loose(series, mode) VALUES ('Bee', 2)")
+
+        repository().rename(ContentType.MANGA, SeriesRename(2, "B", "Bee", emptyMap()), ::toBee)
+
+        one("SELECT count(*) FROM local_manga_loose") shouldBe "0"
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a renamed series takes its new address, its chapters', and its volumes' names and picked chip`(type: Type) =

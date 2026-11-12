@@ -153,6 +153,8 @@ class LocalChapterMoveRepositoryImpl(
         if (rename.toSeries != rename.fromSeries) queries.forgetSeriesVolumes(dbType, rename.toSeries)
         queries.renameVolumeSeries(rename.toSeries, dbType, rename.fromSeries)
         if (type == ContentType.MANGA && rename.toSeries != rename.fromSeries) {
+            // The default is no row, so one a gone series left at the new name is cleared rather than inherited.
+            database.local_manga_looseQueries.clear(rename.toSeries)
             database.local_manga_looseQueries.renameSeries(rename.toSeries, rename.fromSeries)
         }
         tombstones.settle(type, rename.id, moves.map { it.toUrl })
