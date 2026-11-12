@@ -115,7 +115,7 @@ class EntryEditInfoDialogTest {
     }
 
     @Test
-    fun `a new title organizes the files only when the user ticks it`() {
+    fun `a new title leaves the files alone until the user ticks Also organize files`() {
         show(canRenameFiles = true)
 
         compose.onNodeWithText("Edited title").performTextReplacement("New title")
@@ -123,6 +123,26 @@ class EntryEditInfoDialogTest {
         compose.onNodeWithText("Save").performClick()
 
         organize shouldBe false
+    }
+
+    @Test
+    fun `a new title with Also organize files ticked organizes the files`() {
+        show(canRenameFiles = true)
+
+        compose.onNodeWithText("Edited title").performTextReplacement("New title")
+        compose.onNodeWithText("Also organize files").performClick()
+        compose.onNodeWithText("Save").performClick()
+
+        organize shouldBe true
+    }
+
+    @Test
+    fun `storage that cannot rename files is never offered the move`() {
+        show(canRenameFiles = false)
+
+        compose.onNodeWithText("Edited title").performTextReplacement("New title")
+
+        compose.onNodeWithText("Also organize files").assertDoesNotExist()
     }
 
     private companion object {

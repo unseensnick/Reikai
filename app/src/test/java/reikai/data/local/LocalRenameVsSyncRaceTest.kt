@@ -136,20 +136,6 @@ class LocalRenameVsSyncRaceTest {
             markRead("Series/Vol 1/Ch 2")
             File(local, "Series/Vol 1/Ch 2").deleteRecursively()
             val stale = listed()
-            val renamingBeforeTheWrite = object : LocalChapterTombstones by tombstones {
-                override suspend fun <T> around(
-                    type: ContentType,
-                    ownerId: Long,
-                    isLocal: Boolean,
-                    removed: List<SyncedChapter>,
-                    arriving: List<SyncedChapter>,
-                    write: suspend () -> T,
-                ): Revived<T> {
-                    locks.withSeries(ContentType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
-                    return tombstones.around(type, ownerId, isLocal, removed, arriving, write)
-                }
-            }
-
             sync(stale, renamingBeforeTheWrite)
 
             (urls() to tombstoneUrls()) shouldBe (listOf("Series/Vol 2/Ch 1") to listOf("Series/Vol 2/Ch 2"))
@@ -160,16 +146,29 @@ class LocalRenameVsSyncRaceTest {
         sync(listed())
         markRead("Series/Vol 1/Ch 2")
         File(local, "Series/Vol 1/Ch 2").deleteRecursively()
-        val stale = listed()
-        locks.withSeries(ContentType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
-        // confirm finds no file at Series/Vol 2/Ch 2 either, so the delete goes through and the row at the
-        // renamed address is tombstoned there
-        runCatching { sync(stale) }
+        sync(listed(), renamingBeforeTheWrite)
         chapterFolder("Vol 2", "Ch 2")
 
         sync(listed())
 
         (readUrls() to tombstoneUrls()) shouldBe (listOf("Series/Vol 2/Ch 2") to emptyList())
+    }
+
+    /** Renames Vol 1 to Vol 2 after the confirm and before the delete, so the gone chapter is tombstoned at Vol 2. */
+    private val renamingBeforeTheWrite by lazy {
+        object : LocalChapterTombstones by tombstones {
+            override suspend fun <T> around(
+                type: ContentType,
+                ownerId: Long,
+                isLocal: Boolean,
+                removed: List<SyncedChapter>,
+                arriving: List<SyncedChapter>,
+                write: suspend () -> T,
+            ): Revived<T> {
+                locks.withSeries(ContentType.MANGA, "Series") { renameVolumeOnDiskAndRows("Vol 1", "Vol 2") }
+                return tombstones.around(type, ownerId, isLocal, removed, arriving, write)
+            }
+        }
     }
 
     private fun chapterFolder(volume: String, chapter: String) {
