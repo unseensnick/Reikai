@@ -367,6 +367,7 @@
     <string name="local_import_reason_no_storage">The storage folder is not set or cannot be written to</string>
     <string name="local_import_reason_copy_failed">Could not be copied</string>
     <string name="local_import_reason_add_failed">Copied, but could not be added to the library</string>
+    <string name="local_import_reason_combined">Combined into another series since it was read</string>
     <string name="local_import_open">Open</string>
     <string name="local_import_joins">Adds to %1$s</string>
     <string name="local_import_beside">A new series, beside %1$s</string>

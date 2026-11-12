@@ -632,4 +632,5 @@ private fun ImportProblem.Reason.label() = when (this) {
     ImportProblem.Reason.NoStorage -> MR.strings.local_import_reason_no_storage
     ImportProblem.Reason.CopyFailed -> MR.strings.local_import_reason_copy_failed
     ImportProblem.Reason.AddFailed -> MR.strings.local_import_reason_add_failed
+    ImportProblem.Reason.Combined -> MR.strings.local_import_reason_combined
 }

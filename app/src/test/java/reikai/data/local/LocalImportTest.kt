@@ -184,6 +184,19 @@ class LocalImportTest(private val type: ContentType) {
         listsUnder(reported) shouldBe (reported to reported)
     }
 
+    /** A Combine can lend the folder after the preview showed it joining, and the import must see that. */
+    @Test
+    fun `an import refuses a folder combined into another series after its preview`() = runTest {
+        File(root, "Foo").mkdirs()
+        val joining = localImport.inspect(group("Foo"))
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
+
+        val result = localImport.import(listOf(joining), addToLibrary = false, categoryIds = emptyList())
+
+        (result.problems.map { it.reason } to File(root, "Foo").list()!!.toList()) shouldBe
+            (listOf(ImportProblem.Reason.Combined) to emptyList())
+    }
+
     @Test
     fun `a new series names its files as Rename files would`() = runTest {
         localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())

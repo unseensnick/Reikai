@@ -125,7 +125,7 @@ internal fun newerCopiesOf(files: List<ImportFile>, held: Map<String, String>, d
 
 /** A file or series an import had to skip, and why; [uri] is the file's, null for a whole series. */
 data class ImportProblem(val name: String, val reason: Reason, val uri: Uri? = null) {
-    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed }
+    enum class Reason { Unreadable, Protected, Unsupported, NoStorage, CopyFailed, AddFailed, Combined }
 }
 
 /** What an import did: the series it touched, by [ImportedSeries.type], and what it had to skip. */
@@ -184,11 +184,8 @@ class LocalImport(
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = storageManager.localRoot(group.type) ?: return@withIOContext group
         val groups = LocalGroups(owners.all(group.type))
-        // A copy lands among a manga folder's loose chapters, or as a book of its own, which no row names.
-        val unit = if (group.type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE
-        // Only a folder takes files in: a loose book of that name is a file. Nor one whose new files another series
-        // lists, which would show them under a series the import never named.
-        val takes = { it: UniFile -> it.isDirectory && groups.ownerOf(it.name.orEmpty(), unit) == it.name }
+        // Only a folder takes files in: a loose book of that name is a file.
+        val takes = { it: UniFile -> it.isDirectory && takesNewFiles(groups, group.type, it.name.orEmpty()) }
         val folder = if (target != null) {
             root.findFile(target)?.takeIf(takes)
         } else {
@@ -207,6 +204,14 @@ class LocalImport(
             onNewerCopy = group.onNewerCopy.takeIf { folder?.name == group.existing },
         )
     }
+
+    /**
+     * Whether a file copied into [folder] lists under it rather than under a series another one's rows name, which
+     * would show it under a series the import never named. A copy lands among a manga folder's loose chapters, or
+     * as a book of its own, which no row names yet.
+     */
+    private fun takesNewFiles(groups: LocalGroups, type: ContentType, folder: String): Boolean =
+        groups.ownerOf(folder, if (type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE) == folder
 
     /** The folder's books by [bookIdentity], each read from its package; one that will not open is left out. */
     private fun heldBooks(present: List<UniFile>): Map<String, String> = present
@@ -265,6 +270,12 @@ class LocalImport(
                 // cannot list a half-copied file or a book stepping aside, nor sync a listing from before the copy.
                 // The folder is made first, so the lock names the folder as storage spelled it.
                 seriesLocks.withSeries(group.type, path) {
+                    // Asked again under the lock a Combine also takes, since one may have lent the folder since the
+                    // preview.
+                    if (joined != null && !takesNewFiles(LocalGroups(owners.all(group.type)), group.type, path)) {
+                        problems += ImportProblem(group.title, ImportProblem.Reason.Combined)
+                        return@withSeries null
+                    }
                     importGroup(group, folder, path, joined == null, addToLibrary, categoryIds, problems)
                 }
             }
