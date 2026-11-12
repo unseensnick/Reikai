@@ -8,6 +8,11 @@
 # - Backup models (BackupManga/BackupNovel, custom info): the
 #   proto shapes share field numbers on purpose; pinned by BackupCustomInfoConformanceTest and
 #   BackupDatesConformanceTest.
+# - MangaBackupCreator / NovelBackupCreator: the kept-state write each engine's creator makes after
+#   its chapter read, a three-line twin; pinned by ChapterTombstoneBackupTest over both types.
+# - SyncChaptersWithSource / NovelChapterSync: each engine's sync calling the LocalChapterTombstones
+#   kernel (held, confirm, around) in the same order; pinned by ChapterTombstoneConformanceTest and
+#   ChapterSyncConformanceTest.
 # - DownloadStore / NovelDownloadStore: Reikai's persisted/replacePersisted pair, written into each
 #   engine's store (the manga one as an RK island) for MergedDuplicateDownloads; pinned by
 #   MergedDuplicateDownloadsTest over both types.
