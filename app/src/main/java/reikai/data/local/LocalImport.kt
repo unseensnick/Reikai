@@ -39,13 +39,12 @@ import reikai.novel.local.inVolumeOrder
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
-import reikai.storage.IN_FLIGHT_SUFFIX
 import reikai.storage.createNew
 import reikai.storage.deleteIfEmpty
 import reikai.storage.freeName
 import reikai.storage.list
 import reikai.storage.listOrNull
-import reikai.storage.rename
+import reikai.storage.replace
 import reikai.storage.replaceFile
 import reikai.storage.writeNew
 import reikai.util.runCatchingCancellable
@@ -60,6 +59,7 @@ import tachiyomi.source.local.LocalSource
 import tachiyomi.source.local.io.Archive
 import java.io.File
 import java.io.IOException
+import java.io.OutputStream
 
 /**
  * One file the user picked, as the system names it; [size] is -1 when the provider does not say. [seriesIndex]
@@ -375,21 +375,20 @@ class LocalImport(
         taken: MutableSet<String>,
         replacing: UniFile? = null,
     ) {
-        // A new file is written under a name no listing reads and named once whole, so a kill mid-copy leaves no
-        // cut-off book in the series; a replacing one is named by the journaled swap below.
-        val temporary = replacing?.let { freeName("$name.part", taken) } ?: freeName(name + IN_FLIGHT_SUFFIX, taken)
         // Checked against the picker's size: a short copy must never replace the whole one.
-        val target = folder.writeNew(context, temporary, file.size.takeIf { it >= 0 }) { out ->
+        val expected = file.size.takeIf { it >= 0 }
+        val write: (OutputStream) -> Unit = { out ->
             val input =
                 context.contentResolver.openInputStream(file.uri) ?: throw IOException("Could not open ${file.name}")
             input.use { it.copyTo(out) }
         }
+        // A new file goes in by the gateway's replace, under an in-flight name until whole, so a kill mid-copy
+        // leaves no cut-off book in the series and the next import of that name clears what it left.
         if (replacing == null) {
-            if (!target.rename(name)) {
-                target.delete()
-                throw IOException("Could not name $name")
-            }
+            folder.replace(context, name, expected, write)
         } else {
+            // A replacing one is written beside it and named by the journaled swap below.
+            val target = folder.writeNew(context, freeName("$name.part", taken), expected, write)
             val aside = freeName("$name.old", taken)
             // Written down first: a kill between the old file stepping aside and the copy taking its name would
             // otherwise leave the book at neither, and the next refresh would delete its chapters' read state.

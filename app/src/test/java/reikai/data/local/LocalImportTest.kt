@@ -275,6 +275,19 @@ class LocalImportTest(private val type: ContentType) {
             (listOf(NEW_NAME.getValue(type) + IN_FLIGHT_SUFFIX) to listOf(NEW_NAME.getValue(type)))
     }
 
+    /** No listing reads an in-flight name, so nothing else would ever clear one a killed copy left. */
+    @Test
+    fun `a new file clears the in-flight copy a killed import left under its name`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/" + NEW_NAME.getValue(type) + IN_FLIGHT_SUFFIX).writeText("cut")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+
+        localImport.import(listOf(localImport.inspect(group("Foo"))), addToLibrary = false, categoryIds = emptyList())
+
+        File(root, "Foo").list()!!.toList() shouldBe listOf(NEW_NAME.getValue(type))
+    }
+
     @Test
     fun `a file kept beside its duplicate is copied too`() = runTest {
         File(root, "Foo").mkdirs()

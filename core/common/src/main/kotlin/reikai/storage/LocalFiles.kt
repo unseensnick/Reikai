@@ -139,23 +139,29 @@ internal inline fun UniFile.writeNew(
  * Writes [name] in this folder beside the earlier file of that name (in any letter case) and in its place only
  * once whole: the write lands in a fresh, empty in-flight sibling, which then takes the name by [replaceFile], so
  * a failed write or a refused rename keeps the earlier file, and nothing is ever written over in place. An
- * in-flight sibling an earlier killed write left is deleted first. Returns the file under [name].
+ * in-flight sibling an earlier killed write left is deleted first. [expectedLength] checks the write as for
+ * [writeNew]. Returns the file under [name].
  */
-inline fun UniFile.replace(context: Context, name: String, write: (OutputStream) -> Unit): UniFile =
-    replace(context, list(context), name, write)
+inline fun UniFile.replace(
+    context: Context,
+    name: String,
+    expectedLength: Long? = null,
+    write: (OutputStream) -> Unit,
+): UniFile = replace(context, list(context), name, expectedLength, write)
 
 @PublishedApi
 internal inline fun UniFile.replace(
     context: Context,
     listed: List<UniFile>,
     name: String,
+    expectedLength: Long? = null,
     write: (OutputStream) -> Unit,
 ): UniFile {
     val earlier =
         listed.firstOrNull { it.name == name } ?: listed.firstOrNull { it.name.equals(name, ignoreCase = true) }
     val stale = listed.firstOrNull { it.name == name + IN_FLIGHT_SUFFIX }?.also { it.deleteFile() }
     val names = listed.mapNotNullTo(HashSet()) { it.name.takeIf { file -> file !== stale } }
-    val part = writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, null, write)
+    val part = writeNew(context, listed.filter { it !== stale }, name + IN_FLIGHT_SUFFIX, expectedLength, write)
     val placed = if (earlier == null) {
         part.rename(name)
     } else {
