@@ -76,7 +76,7 @@ import kotlin.time.Duration.Companion.milliseconds
  * Every move of local files and every refresh of a local series hold the series' lock for their whole run, so a
  * refresh that has listed a series cannot sync that listing after a move has emptied or filled the folder, and
  * a move's own relist inside its hold does not wait on itself. Manga on the fake picked-folder provider; the
- * novel half shares the engine and pins its lock in NovelRefreshTest and LocalNovelFolderTest.
+ * novel moves are LocalNovelVolumesTest, and the novel lock is pinned in NovelRefreshTest and LocalNovelFolderTest.
  */
 @RunWith(RobolectricTestRunner::class)
 class LocalMovesUnderLockTest {
