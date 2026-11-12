@@ -8,7 +8,9 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.Revival
 import reikai.domain.chapter.TombstoneSession
@@ -21,8 +23,9 @@ import kotlin.time.Instant
  * One rule for every write of a kept reading state onto something that already holds state, for both
  * types: read and bookmark stick, progress, length, listened time and history time take the larger, the
  * fetch date the earlier, history the later read, sessions the union. The paths that meet an existing
- * state: a capture onto an older tombstone, a tombstone applied onto a row, a restored tombstone onto a
- * tombstone or onto a row, and a restored chapter onto the tombstone waiting for it.
+ * state: a capture, a restore or a move onto a tombstone (each with either side the newer, since the SQL
+ * writes the rule out per statement), a tombstone applied onto a row, a restored tombstone onto a row,
+ * and a restored chapter onto the tombstone waiting for it.
  */
 class ChapterTombstoneFoldConformanceTest {
 
@@ -42,11 +45,11 @@ class ChapterTombstoneFoldConformanceTest {
     fun tearDown() = driver.close()
 
     @ParameterizedTest
-    @EnumSource(Type::class)
-    fun `a row captured onto an older kept state keeps the newer of each`(type: Type) = runTest {
+    @MethodSource("orders")
+    fun `a row captured onto a kept state keeps the newer of each`(type: Type, order: Order) = runTest {
         type.seedOwner(driver)
-        type.seedTombstone(driver, URL, OLDER)
-        type.seedRow(driver, CHAPTER, URL, NEWER)
+        type.seedTombstone(driver, URL, order.held)
+        type.seedRow(driver, CHAPTER, URL, order.incoming)
 
         repository.capturing(type.contentType, OWNER, listOf(CHAPTER), emptyList()) {
             type.deleteRow(database, CHAPTER)
@@ -64,18 +67,34 @@ class ChapterTombstoneFoldConformanceTest {
 
         repository.capturing(type.contentType, OWNER, emptyList(), listOf(Revival(URL, URL))) {}
 
-        (type.rowState(driver, URL) to type.count(driver, type.tombstoneTable)) shouldBe (type.of(FOLDED) to 0L)
+        type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
 
     @ParameterizedTest
-    @EnumSource(Type::class)
-    fun `a restored kept state folds onto the one already there`(type: Type) = runTest {
+    @MethodSource("orders")
+    fun `a restored kept state folds onto the one already there`(type: Type, order: Order) = runTest {
         type.seedOwner(driver)
-        type.seedTombstone(driver, URL, OLDER)
+        type.seedTombstone(driver, URL, order.held)
 
-        repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()), emptyList())
+        repository.restore(type.contentType, OWNER, listOf(order.incoming.tombstone()), emptyList())
 
         type.tombstoneState(driver, URL) shouldBe type.of(FOLDED)
+    }
+
+    @ParameterizedTest
+    @MethodSource("orders")
+    fun `a kept state moved onto one already there keeps the newer of each and leaves nothing behind`(
+        type: Type,
+        order: Order,
+    ) = runTest {
+        type.seedOwner(driver)
+        type.seedTombstone(driver, URL, order.held)
+        type.seedTombstone(driver, MOVED_URL, order.incoming)
+
+        repository.move(type.contentType, OWNER, MOVED_URL, OWNER, URL)
+
+        Triple(type.tombstoneState(driver, URL), type.urls(driver), type.count(driver, type.sessionTable)) shouldBe
+            Triple(type.of(FOLDED), listOf(URL), 2L)
     }
 
     @ParameterizedTest
@@ -86,7 +105,7 @@ class ChapterTombstoneFoldConformanceTest {
 
         repository.restore(type.contentType, OWNER, listOf(NEWER.tombstone()), emptyList())
 
-        (type.rowState(driver, URL) to type.count(driver, type.tombstoneTable)) shouldBe (type.of(FOLDED) to 0L)
+        type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
 
     @ParameterizedTest
@@ -98,7 +117,7 @@ class ChapterTombstoneFoldConformanceTest {
 
         repository.restore(type.contentType, OWNER, emptyList(), listOf(URL))
 
-        (type.rowState(driver, URL) to type.count(driver, type.tombstoneTable)) shouldBe (type.of(FOLDED) to 0L)
+        type.spentOnto(driver, URL) shouldBe Triple(type.of(FOLDED), 0L, 0L)
     }
 
     @ParameterizedTest
@@ -350,12 +369,26 @@ class ChapterTombstoneFoldConformanceTest {
 
         suspend fun count(driver: JdbcSqliteDriver, table: String) =
             driver.rows("SELECT count(*) FROM $table") { it.getLong(0)!! }.single()
+
+        /** The row at [url], and what is left of the kept states and their sessions once one was spent on it. */
+        suspend fun spentOnto(driver: JdbcSqliteDriver, url: String) =
+            Triple(rowState(driver, url), count(driver, tombstoneTable), count(driver, sessionTable))
+    }
+
+    /** Which of the two states a key already holds and which arrives onto it, since the fold must not care. */
+    enum class Order(val held: State, val incoming: State) {
+        OLDER_HELD(OLDER, NEWER),
+        NEWER_HELD(NEWER, OLDER),
     }
 
     companion object {
         private const val OWNER = 1L
         private const val CHAPTER = 7L
         private const val URL = "Series/c1"
+        private const val MOVED_URL = "Other/c1"
+
+        @JvmStatic
+        fun orders() = Type.entries.flatMap { type -> Order.entries.map { Arguments.of(type, it) } }
 
         /** State read first: read, further along in a shorter chapter, fetched earlier, read earlier, one session. */
         private val OLDER = State(true, false, 9, 20, 500, 300, 100, 60, listOf(1_000L to 30L))

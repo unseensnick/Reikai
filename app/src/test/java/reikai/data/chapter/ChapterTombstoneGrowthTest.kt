@@ -15,9 +15,10 @@ import java.io.File
 
 /**
  * Kept reading state is bounded by the library, not by time: every local series' chapters removed and
- * returning, round after round, holds one kept state per chapter while they are gone and none once they are
- * back, since each revive spends its state. The size this was measured at (ten series of a thousand chapters,
- * three rounds, the file flat after the first) is in the commit history, not in the suite.
+ * returning, round after round, holds one kept state per chapter, with its sessions, while they are gone and
+ * none of either once they are back, since each revive spends its state and the sessions it holds. The size
+ * this was measured at (ten series of a thousand chapters, three rounds, the file flat after the first) is in
+ * the commit history, not in the suite.
  */
 class ChapterTombstoneGrowthTest {
 
@@ -34,7 +35,7 @@ class ChapterTombstoneGrowthTest {
         val repository = ChapterTombstoneRepositoryImpl(database)
         val novel = type == ContentType.NOVELS
         database.transaction { (1..SERIES).forEach { owner -> seedOwner(driver, novel, owner.toLong()) } }
-        val kept = mutableListOf<Long>()
+        val kept = mutableListOf<Pair<Long, Long>>()
 
         repeat(ROUNDS) {
             (1..SERIES).forEach { owner ->
@@ -50,7 +51,7 @@ class ChapterTombstoneGrowthTest {
                     }
                 }
             }
-            kept += driver.count(if (novel) "novel_chapter_tombstone" else "manga_chapter_tombstone")
+            kept += driver.keptCounts(novel)
             (1..SERIES).forEach { owner ->
                 val revivals = (1..CHAPTERS).map { url(owner, it) }.map { Revival(it, it) }
                 repository.capturing(type, owner.toLong(), emptyList(), revivals) {
@@ -58,11 +59,12 @@ class ChapterTombstoneGrowthTest {
                 }
                 database.transaction { (1..CHAPTERS).forEach { deleteChapter(driver, novel, chapterId(owner, it)) } }
             }
-            kept += driver.count(if (novel) "novel_chapter_tombstone" else "manga_chapter_tombstone")
+            kept += driver.keptCounts(novel)
         }
         driver.close()
 
-        kept shouldBe List(ROUNDS) { listOf(SERIES * CHAPTERS.toLong(), 0L) }.flatten()
+        val gone = SERIES * CHAPTERS.toLong()
+        kept shouldBe List(ROUNDS) { listOf(gone to gone * 2, 0L to 0L) }.flatten()
     }
 
     private fun chapterId(owner: Int, i: Int) = owner * 10_000L + i
@@ -122,6 +124,12 @@ class ChapterTombstoneGrowthTest {
     }
 
     private suspend fun JdbcSqliteDriver.count(table: String): Long = long("SELECT count(*) FROM $table")
+
+    /** The kept states and their sessions, two per chapter as seeded. */
+    private suspend fun JdbcSqliteDriver.keptCounts(novel: Boolean): Pair<Long, Long> {
+        val table = if (novel) "novel_chapter_tombstone" else "manga_chapter_tombstone"
+        return count(table) to count("${table}_session")
+    }
 
     private suspend fun JdbcSqliteDriver.long(sql: String): Long = executeQuery(
         null,
