@@ -96,6 +96,23 @@ class LocalFilesPrimitivesTest {
         File(series, "Vol 2/page.jpg").exists() shouldBe true
     }
 
+    // writeNew
+
+    /** A provider that stops answering fails the write and the file's own query alike, which reads as "not a file". */
+    @Test
+    fun `writeNew deletes its file when the write fails and the file's own query fails too`() {
+        FakeSafProvider.onCall = { call, target ->
+            if (call == "openDocument" && target.name == "c.txt") {
+                FakeSafProvider.failingDocuments += target
+                throw IOException("gone")
+            }
+        }
+
+        runCatching { picked().writeNew(context, "c.txt") { it.write(1) } }
+
+        names() shouldBe listOf("a.cbz", "b.cbz")
+    }
+
     // replace
 
     @Test

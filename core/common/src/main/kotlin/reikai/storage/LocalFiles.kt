@@ -124,7 +124,8 @@ internal inline fun UniFile.writeNew(
         made.openOutputStream().use(write)
         if (expectedLength != null && made.length() != expectedLength) throw IOException("$name was written short")
     } catch (e: Throwable) {
-        made.deleteFile()
+        // Not deleteFile: a provider failing the write fails the "is it a file" query too, and this one is ours.
+        made.delete()
         throw e
     }
     return made
@@ -157,7 +158,7 @@ internal inline fun UniFile.replace(
         replaceFile(earlier, part, name, freeNames("$name.old").first { it !in names })
     }
     if (!placed) {
-        part.deleteFile()
+        part.delete()
         throw IOException("Could not name $name in ${this.name}")
     }
     return part

@@ -393,7 +393,7 @@ class LocalImport(
             val replaced = replaceFile(replacing, target, name, aside)
             journal.delete(journaled)
             if (!replaced) {
-                target.deleteFile()
+                target.delete()
                 throw IOException("Could not replace $name")
             }
         }
