@@ -20,6 +20,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,6 +36,7 @@ import reikai.data.backup.restoredOwners
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
+import reikai.data.chapter.LocalVolumeRepositoryImpl
 import reikai.data.dedupe.DownloadFolderMerge
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
@@ -1206,49 +1208,23 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 }
 
 /**
- * The volumes tables read and written straight through the database at each call, with no held flow behind them:
- * a flow would query on its own schedule, which would move the statement a kill lands on from run to run.
+ * The volumes tables read straight through the database at each call, with no held flow behind them: a flow would
+ * query on its own schedule, which would move the statement a kill lands on from run to run. Every write and every
+ * other read is the real repository's, whose held flows never start on a scope that is already cancelled.
  */
-private class DirectLocalVolumes(private val database: Database) : LocalVolumeRepository {
-    private val volumes = database.local_volumeQueries
-    private val owners = database.local_volume_ownerQueries
-
+private class DirectLocalVolumes(
+    private val database: Database,
+) : LocalVolumeRepository by LocalVolumeRepositoryImpl(database, CoroutineScope(Job().apply { cancel() })) {
     private fun ContentType.db() = if (this == ContentType.NOVELS) 1L else 0L
 
     override fun volumes(type: ContentType) = MutableStateFlow(emptyMap<String, List<LocalVolume>>())
 
     override suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>> =
-        volumes.getAll().awaitAsList().filter { it.content_type == type.db() }
+        database.local_volumeQueries.getAll().awaitAsList().filter { it.content_type == type.db() }
             .groupBy({ it.series }, { LocalVolume(it.volume_key, it.position, it.label) })
-
-    override suspend fun setOrder(type: ContentType, series: String, keys: List<String>) {
-        keys.forEachIndexed { index, key -> volumes.setPosition(type.db(), series, key, index.toLong()) }
-    }
-
-    override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) {
-        volumes.setLabel(type.db(), series, key, label)
-    }
-
-    override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {
-        volumes.forEach { volume ->
-            volume.position?.let { this.volumes.setPosition(type.db(), series, volume.key, it) }
-            volume.label?.let { this.volumes.setLabel(type.db(), series, volume.key, it) }
-        }
-    }
-
-    override suspend fun all(type: ContentType): List<VolumeOwner> =
-        owners.getAll(type.db()) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }.awaitAsList()
-
-    override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
-
-    override suspend fun restorePick(type: ContentType, series: String, key: String) = Unit
 
     override fun looseFiles() = MutableStateFlow(emptyMap<String, LooseFiles>())
 
     override suspend fun loadedLooseFiles(): Map<String, LooseFiles> =
         database.local_manga_looseQueries.getAll().awaitAsList().associate { it.series to LooseFiles.of(it.mode) }
-
-    override suspend fun setLooseFiles(series: String, mode: LooseFiles) {
-        database.local_manga_looseQueries.setMode(series, mode.stored)
-    }
 }
