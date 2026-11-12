@@ -235,6 +235,7 @@ class LocalMovesUnderLockTest {
                 }
             },
             seriesLocks = locks,
+            owners = volumes,
         )
         relink = LocalSeriesRelink(
             context = context,

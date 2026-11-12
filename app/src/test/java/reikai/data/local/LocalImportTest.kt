@@ -24,6 +24,8 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.LocalVolumeOwnerRepository
+import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.SourceNovel
@@ -48,6 +50,7 @@ class LocalImportTest(private val type: ContentType) {
 
     private var storageRoot: UniFile = UniFile.fromFile(root)!!
     private val journal = InMemoryLocalFileJournal()
+    private var owners = emptyList<VolumeOwner>()
 
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
@@ -74,6 +77,9 @@ class LocalImportTest(private val type: ContentType) {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
         },
         seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
+        owners = object : LocalVolumeOwnerRepository {
+            override suspend fun all(type: ContentType) = owners
+        },
     )
 
     @Before
@@ -129,6 +135,16 @@ class LocalImportTest(private val type: ContentType) {
         localImport.import(listOf(separate), addToLibrary = false, categoryIds = emptyList())
 
         root.list()!!.sorted() shouldBe listOf("Foo Bar", "foo-bar")
+    }
+
+    /** A split-out series has no folder, only its rows; a folder at its name would be one its listing skips. */
+    @Test
+    fun `a new series never takes a name a local group's rows hold`() = runTest {
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Foo"))
+
+        localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
+
+        root.list()!!.toList() shouldBe listOf("Foo (2)")
     }
 
     @Test

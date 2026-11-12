@@ -358,6 +358,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             networkToLocalManga = NetworkToLocalManga(mangaRepository),
             updateMangaFromRemote = refresh,
             seriesLocks = locks,
+            owners = volumes,
         )
         val relink = LocalSeriesRelink(
             context = context,

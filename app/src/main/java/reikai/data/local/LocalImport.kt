@@ -24,6 +24,7 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.export.epubFileName
@@ -155,6 +156,7 @@ class LocalImport(
     private val networkToLocalManga: NetworkToLocalManga,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     private val seriesLocks: LocalSeriesLocks,
+    private val owners: LocalVolumeOwnerRepository,
 ) {
 
     /** Reads each of [uris] and groups them into series; a file that cannot be read is a problem, not a group. */
@@ -222,6 +224,7 @@ class LocalImport(
                     return@mapNotNull null
                 }
                 // A new series never lands in a folder already there, which the preview would have shown it joining,
+                // nor at a name a group's rows hold, which would list it under another series or under none,
                 // and one the preview showed joining a folder joins that folder or nothing: it is found in the root's
                 // trusted listing, since its own query answers "absent" on a hiccup and a new folder beside it would be
                 // a series the preview never showed.
@@ -237,7 +240,7 @@ class LocalImport(
                                 DiskUtil.buildValidFilename(group.title),
                                 listed.mapNotNullTo(HashSet()) {
                                     it.name
-                                },
+                                }.apply { addAll(localNamesGrouped(group.type, owners)) },
                             ),
                             directory = true,
                         )
