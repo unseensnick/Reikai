@@ -69,7 +69,7 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
         downloads = tmp.newFolder("Reikai", "downloads")
     }
 
-    private fun picked(): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(downloads))!!
+    private fun picked(): UniFile = FakeSafProvider.picked(context, downloads)
 
     @Test
     fun `deleting a chapter while the series folder lists short keeps the series' other chapter`() = runTest {

@@ -30,6 +30,8 @@ import org.robolectric.RobolectricTestRunner
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
+import reikai.data.exec
+import reikai.data.rows
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalChapterStillPresentException
 import reikai.domain.chapter.LocalChapterTombstones
@@ -90,7 +92,10 @@ class LocalRenameVsSyncRaceTest {
                 "state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
                 "($OWNER, ${LocalSource.ID}, 'Series', 'T', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
         )
-        val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
+        val storage = mockk<StorageManager> {
+            every { getLocalSourceDirectory() } answers
+                { FakeSafProvider.picked(context, local) }
+        }
         val fileSystem = LocalSourceFileSystem(storage)
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
@@ -176,8 +181,6 @@ class LocalRenameVsSyncRaceTest {
         File(local, "Series/$volume/$chapter/001.jpg").writeBytes(byteArrayOf(1))
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     private suspend fun listed(): List<SChapter> = source.getMangaUpdate(
         SManga.create().apply {
             url = "Series"
@@ -190,7 +193,7 @@ class LocalRenameVsSyncRaceTest {
     ).chapters
 
     private suspend fun renameVolumeOnDiskAndRows(from: String, to: String) {
-        check(picked(File(local, "Series")).findFile(from)!!.rename(to))
+        check(FakeSafProvider.picked(context, File(local, "Series")).findFile(from)!!.rename(to))
         LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)).renameSeries(
             ContentType.MANGA,
             SeriesRename(OWNER, "Series", "Series", mapOf(from to to)),
@@ -229,23 +232,6 @@ class LocalRenameVsSyncRaceTest {
 
     private suspend fun tombstoneUrls() =
         driver.rows("SELECT url FROM manga_chapter_tombstone WHERE read = 1 ORDER BY url") { it.getString(0)!! }
-
-    private suspend fun JdbcSqliteDriver.exec(sql: String) {
-        execute(null, sql, 0).await()
-    }
-
-    private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-        null,
-        sql,
-        { cursor ->
-            QueryResult.Value(
-                buildList {
-                    while (cursor.next().value) add(map(cursor))
-                },
-            )
-        },
-        0,
-    ).await()
 
     private companion object {
         const val OWNER = 1L

@@ -42,7 +42,9 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.exec
 import reikai.data.novel.NovelChapterSyncRules
+import reikai.data.rows
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.chapter.SyncedChapter
@@ -128,7 +130,10 @@ class LocalMovesUnderLockTest {
         volumes = LocalVolumeRepositoryImpl(database, appScope)
         locks = LocalSeriesLocks(volumes).apply { open() }
         journal = FlakyJournal(LocalFileJournalRepositoryImpl(database))
-        val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
+        val storage = mockk<StorageManager> {
+            every { getLocalSourceDirectory() } answers
+                { FakeSafProvider.picked(context, local) }
+        }
         val fileSystem = LocalSourceFileSystem(storage)
         val mangaRepository = MangaRepositoryImpl(database)
         val chapterRepository = ChapterRepositoryImpl(database)
@@ -1117,8 +1122,6 @@ class LocalMovesUnderLockTest {
         File(local, "$series/$volume/$chapter/001.jpg").writeBytes(byteArrayOf(1))
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     private suspend fun series(id: Long) = combine.series(ContentType.MANGA, listOf(id)).single()
 
     private suspend fun CombinableSeries.toManga() = MangaRepositoryImpl(database).getMangaById(id)
@@ -1144,23 +1147,6 @@ class LocalMovesUnderLockTest {
     private suspend fun readUrls(owner: Long) = driver.rows(
         "SELECT remote_url FROM chapter WHERE manga_id = $owner AND user_read = 1 ORDER BY remote_url",
     ) { it.getString(0)!! }
-
-    private suspend fun JdbcSqliteDriver.exec(sql: String) {
-        execute(null, sql, 0).await()
-    }
-
-    private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-        null,
-        sql,
-        { cursor ->
-            QueryResult.Value(
-                buildList {
-                    while (cursor.next().value) add(map(cursor))
-                },
-            )
-        },
-        0,
-    ).await()
 
     private companion object {
         const val KEPT = 1L

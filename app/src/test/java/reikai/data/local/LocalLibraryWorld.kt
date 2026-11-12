@@ -251,7 +251,10 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         )
         val volumes = DirectLocalVolumes(database)
         val locks = LocalSeriesLocks(volumes)
-        val storage = mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } }
+        val storage = mockk<StorageManager> {
+            every { getLocalSourceDirectory() } answers
+                { FakeSafProvider.picked(context, local) }
+        }
         val fileSystem = LocalSourceFileSystem(storage)
         val mangaRepository = MangaRepositoryImpl(database)
         val chapterRepository = ChapterRepositoryImpl(database)
@@ -369,8 +372,6 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
 
         suspend fun settle() = scope.coroutineContext.job.children.forEach { it.join() }
     }
-
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
 
     private fun rel(file: File) = file.relativeTo(root).invariantSeparatorsPath
 
@@ -972,7 +973,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val folders = downloads.listFiles().orEmpty().filter { it.isDirectory }.sortedBy { it.name }
         val from = folders.filter { it.name.startsWith("Old") }.randomOrNull(rng) ?: return
         val into = File(downloads, from.name.replace("Old", "New"))
-        val tree = picked(downloads)
+        val tree = FakeSafProvider.picked(context, downloads)
         val fromFile = tree.findFile(from.name) ?: return
         val intoFile = tree.findFile(into.name) ?: return
         inApp("merge downloads ${from.name} into ${into.name}") {

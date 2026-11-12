@@ -7,6 +7,7 @@ import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.exec
 import reikai.domain.chapter.Revival
 import reikai.domain.library.ContentType
 import tachiyomi.data.Database
@@ -118,10 +119,6 @@ class ChapterTombstoneGrowthTest {
 
     private suspend fun deleteChapter(driver: JdbcSqliteDriver, novel: Boolean, id: Long) =
         driver.exec(if (novel) "DELETE FROM novel_chapters WHERE _id = $id" else "DELETE FROM chapter WHERE id = $id")
-
-    private suspend fun JdbcSqliteDriver.exec(sql: String) {
-        execute(null, sql, 0).await()
-    }
 
     private suspend fun JdbcSqliteDriver.count(table: String): Long = long("SELECT count(*) FROM $table")
 

@@ -11,6 +11,8 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
+import reikai.data.exec
+import reikai.data.rows
 import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.Revival
 import reikai.domain.chapter.TombstoneSession
@@ -399,16 +401,5 @@ class ChapterTombstoneFoldConformanceTest {
         private val FOLDED = State(true, true, 9, 25, 500, 300, 200, 90, listOf(1_000L to 30L, 2_000L to 40L))
 
         private fun Boolean.bit() = if (this) 1 else 0
-
-        private suspend fun JdbcSqliteDriver.exec(sql: String) {
-            execute(null, sql, 0).await()
-        }
-
-        private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-            null,
-            sql,
-            { cursor -> QueryResult.Value(buildList { while (cursor.next().value) add(map(cursor)) }) },
-            0,
-        ).await()
     }
 }

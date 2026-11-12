@@ -31,7 +31,7 @@ class LocalFilesMoveTest {
         File(root, "B").mkdirs()
     }
 
-    private fun tree(): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(root))!!
+    private fun tree(): UniFile = FakeSafProvider.picked(context, root)
 
     @Test
     fun `a move takes the document and all it holds into the target under its own name`() {
@@ -66,7 +66,7 @@ class LocalFilesMoveTest {
 
     @Test
     fun `the tree root is never moved`() {
-        val inner = UniFile.fromUri(context, FakeSafProvider.treeUri(File(root, "A")))!!
+        val inner = FakeSafProvider.picked(context, File(root, "A"))
 
         inner.moveTo(context, tree(), tree().findFile("B")!!) shouldBe null
     }

@@ -23,8 +23,10 @@ import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.exec
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.rows
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.model.Novel
@@ -71,8 +73,8 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         Database.Schema.create(driver).await()
         database = DatabaseBindings.providesDatabase(driver)
         val storage = mockk<StorageManager> {
-            every { getLocalSourceDirectory() } answers { picked(root) }
-            every { getLocalNovelsDirectory() } answers { picked(root) }
+            every { getLocalSourceDirectory() } answers { FakeSafProvider.picked(context, root) }
+            every { getLocalNovelsDirectory() } answers { FakeSafProvider.picked(context, root) }
         }
         relink = LocalSeriesRelink(
             context = context,
@@ -331,8 +333,6 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         id
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     private suspend fun markRead(url: String) = driver.exec(
         if (type == ContentType.NOVELS) {
             "UPDATE novel_chapters SET read = 1 WHERE url = '$url'"
@@ -372,23 +372,6 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     } else {
         "SELECT url FROM manga_chapter_tombstone WHERE manga_id = $owner"
     }
-
-    private suspend fun JdbcSqliteDriver.exec(sql: String) {
-        execute(null, sql, 0).await()
-    }
-
-    private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-        null,
-        sql,
-        { cursor ->
-            QueryResult.Value(
-                buildList {
-                    while (cursor.next().value) add(map(cursor))
-                },
-            )
-        },
-        0,
-    ).await()
 
     companion object {
         @JvmStatic

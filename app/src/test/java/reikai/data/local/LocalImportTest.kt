@@ -176,7 +176,7 @@ class LocalImportTest(private val type: ContentType) {
         File(root, "Foo").mkdirs()
         File(root, "Foo/old").writeText("xyz")
         FakeSafProvider.install(context, context.cacheDir)
-        storageRoot = UniFile.fromUri(context, FakeSafProvider.treeUri(root))!!
+        storageRoot = FakeSafProvider.picked(context, root)
         val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
         FakeSafProvider.onCall = { call, target -> if (call == "renameDocument" && target.name == "old") error("no") }
 

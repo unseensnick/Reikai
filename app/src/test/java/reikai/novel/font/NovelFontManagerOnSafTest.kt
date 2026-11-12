@@ -36,7 +36,7 @@ class NovelFontManagerOnSafTest {
         fonts = tmp.newFolder("Reikai", "fonts")
         File(fonts, "Lora.ttf").writeBytes(SFNT + ByteArray(40))
         val storage = mockk<StorageManager> {
-            every { getFontsDirectory() } answers { UniFile.fromUri(context, FakeSafProvider.treeUri(fonts)) }
+            every { getFontsDirectory() } answers { FakeSafProvider.picked(context, fonts) }
         }
         manager = NovelFontManager(context, storage, mockk())
     }

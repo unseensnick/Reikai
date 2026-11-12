@@ -25,9 +25,11 @@ import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
+import reikai.data.exec
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
+import reikai.data.rows
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
@@ -408,16 +410,5 @@ class ChapterTombstoneBackupTest {
             sessions = listOf(BackupTombstoneSession(2_000, 40)),
             removedAt = 7,
         )
-
-        private suspend fun JdbcSqliteDriver.exec(sql: String) {
-            execute(null, sql, 0).await()
-        }
-
-        private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-            null,
-            sql,
-            { cursor -> QueryResult.Value(buildList { while (cursor.next().value) add(map(cursor)) }) },
-            0,
-        ).await()
     }
 }

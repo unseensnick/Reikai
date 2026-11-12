@@ -17,6 +17,7 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import android.provider.DocumentsProvider
 import android.webkit.MimeTypeMap
+import com.hippo.unifile.UniFile
 import org.robolectric.Robolectric
 import org.robolectric.Shadows.shadowOf
 import java.io.File
@@ -352,6 +353,10 @@ class FakeSafProvider : ContentProvider() {
         /** The tree URI a folder picker hands back for [folder], a directory under [volume]. */
         fun treeUri(folder: File, authority: String = EXTERNAL_STORAGE): Uri =
             DocumentsContract.buildTreeDocumentUri(authority, docIdFor(folder))
+
+        /** [folder] as the app sees it once picked: a tree document reached through this provider. */
+        fun picked(context: Context, folder: File, authority: String = EXTERNAL_STORAGE): UniFile =
+            UniFile.fromUri(context, treeUri(folder, authority))!!
 
         fun docIdFor(file: File): String = "primary:" + file.relativeTo(volume).path.replace(File.separatorChar, '/')
 

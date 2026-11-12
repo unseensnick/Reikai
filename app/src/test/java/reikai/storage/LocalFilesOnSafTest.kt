@@ -34,12 +34,10 @@ class LocalFilesOnSafTest {
         File(series, "b.cbz").writeText("bbbb")
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     /** A failed listing reads as empty, so a tidy that took its word would set aside a folder still holding files. */
     @Test
     fun `a folder whose listing fails is not set aside`() {
-        val folder = picked(series.parentFile!!).findFile("Series")!!
+        val folder = FakeSafProvider.picked(context, series.parentFile!!).findFile("Series")!!
         FakeSafProvider.childListingFaults += ChildListingFault.Throw
 
         (folder.parkIfSpent(context) to series.exists()) shouldBe (false to true)
@@ -47,41 +45,41 @@ class LocalFilesOnSafTest {
 
     @Test
     fun `a whole listing is trusted`() {
-        picked(series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
+        FakeSafProvider.picked(context, series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
     }
 
     @Test
     fun `a failed child query is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.Throw
 
-        picked(series).listOrNull(context) shouldBe null
+        FakeSafProvider.picked(context, series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a short child listing is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.Short(1)
 
-        picked(series).listOrNull(context) shouldBe null
+        FakeSafProvider.picked(context, series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a null cursor is not trusted`() {
         FakeSafProvider.childListingFaults += ChildListingFault.NullCursor
 
-        picked(series).listOrNull(context) shouldBe null
+        FakeSafProvider.picked(context, series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a folder still loading is not trusted`() {
         FakeSafProvider.childListingFaults += listOf(ChildListingFault.Loading, ChildListingFault.Loading)
 
-        picked(series).listOrNull(context) shouldBe null
+        FakeSafProvider.picked(context, series).listOrNull(context) shouldBe null
     }
 
     @Test
     fun `a listing that hides one file at every reading is trusted, since no count can catch it`() {
         FakeSafProvider.listingFault = { ChildListingFault.Without("b.cbz") }
 
-        picked(series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz")
+        FakeSafProvider.picked(context, series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz")
     }
 }

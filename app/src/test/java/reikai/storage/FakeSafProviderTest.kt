@@ -33,7 +33,7 @@ class FakeSafProviderTest {
     }
 
     private fun picked(authority: String = FakeSafProvider.EXTERNAL_STORAGE): UniFile =
-        UniFile.fromUri(context, FakeSafProvider.treeUri(File(tmp.root, "Reikai"), authority))!!
+        FakeSafProvider.picked(context, File(tmp.root, "Reikai"), authority)
 
     private fun seriesDir(): UniFile = picked().findFile("Series")!!
 

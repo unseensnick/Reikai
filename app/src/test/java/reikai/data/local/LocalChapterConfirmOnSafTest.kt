@@ -48,8 +48,8 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
         FakeSafProvider.install(context, tmp.root)
         root = tmp.newFolder("Reikai", "local")
         val storage = mockk<StorageManager> {
-            every { getLocalSourceDirectory() } answers { picked(root) }
-            every { getLocalNovelsDirectory() } answers { picked(root) }
+            every { getLocalSourceDirectory() } answers { FakeSafProvider.picked(context, root) }
+            every { getLocalNovelsDirectory() } answers { FakeSafProvider.picked(context, root) }
         }
         tombstones = LocalChapterTombstonesImpl(
             mockk(),
@@ -57,8 +57,6 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
             NoLocalVolumes,
         )
     }
-
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
 
     private suspend fun confirm(urls: List<String>, listed: List<String> = emptyList()) =
         tombstones.confirm(

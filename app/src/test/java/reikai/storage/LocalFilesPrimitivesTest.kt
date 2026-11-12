@@ -36,7 +36,7 @@ class LocalFilesPrimitivesTest {
     }
 
     private fun picked(folder: File = series, authority: String = FakeSafProvider.EXTERNAL_STORAGE): UniFile =
-        UniFile.fromUri(context, FakeSafProvider.treeUri(folder, authority))!!
+        FakeSafProvider.picked(context, folder, authority)
 
     private fun names() = series.list()!!.sorted()
 

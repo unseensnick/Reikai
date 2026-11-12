@@ -55,11 +55,12 @@ class LocalRenameUnderLockTest {
         File(local, "Series/Vol 1/Ch 1/001.jpg").writeBytes(byteArrayOf(1))
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     private val source by lazy {
         val fileSystem = LocalSourceFileSystem(
-            mockk<StorageManager> { every { getLocalSourceDirectory() } answers { picked(local) } },
+            mockk<StorageManager> {
+                every { getLocalSourceDirectory() } answers
+                    { FakeSafProvider.picked(context, local) }
+            },
         )
         LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, locks)
     }
@@ -85,7 +86,7 @@ class LocalRenameUnderLockTest {
             val rowsGo = CompletableDeferred<Unit>()
             val rename = launch(Dispatchers.IO) {
                 locks.withSeries(ContentType.MANGA, "Series") {
-                    check(picked(File(local, "Series")).findFile("Vol 1")!!.rename("Vol 2"))
+                    check(FakeSafProvider.picked(context, File(local, "Series")).findFile("Vol 1")!!.rename("Vol 2"))
                     diskDone.complete(Unit)
                     rowsGo.await()
                     rows[0] = "Series/Vol 2/Ch 1"

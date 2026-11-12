@@ -33,10 +33,12 @@ import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
 import reikai.data.chapter.LocalVolumeRepositoryImpl
+import reikai.data.exec
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.refreshNovelFromSource
+import reikai.data.rows
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
@@ -98,7 +100,7 @@ class LocalNovelVolumesTest {
         val volumes = LocalVolumeRepositoryImpl(database, appScope)
         val locks = LocalSeriesLocks(volumes).apply { open() }
         val storage = mockk<StorageManager> {
-            every { getLocalNovelsDirectory() } answers { picked(root) }
+            every { getLocalNovelsDirectory() } answers { FakeSafProvider.picked(context, root) }
             every { getLocalSourceDirectory() } returns null
         }
         novels = NovelRepositoryImpl(database)
@@ -359,8 +361,6 @@ class LocalNovelVolumesTest {
         File(root, path).apply { parentFile!!.mkdirs() }.writeBytes(path.toByteArray())
     }
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     private suspend fun addSeries(id: Long, url: String) = driver.exec(
         "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
             "VALUES ($id, '${LocalNovelSource.ID}', '$url', '$url', 0, 0, 0, 0)",
@@ -394,23 +394,6 @@ class LocalNovelVolumesTest {
         driver.rows("SELECT url FROM novel_chapter_tombstone WHERE novel_id = $owner ORDER BY url") {
             it.getString(0)!!
         }
-
-    private suspend fun JdbcSqliteDriver.exec(sql: String) {
-        execute(null, sql, 0).await()
-    }
-
-    private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-        null,
-        sql,
-        { cursor ->
-            QueryResult.Value(
-                buildList {
-                    while (cursor.next().value) add(map(cursor))
-                },
-            )
-        },
-        0,
-    ).await()
 
     private companion object {
         const val KEPT = 1L

@@ -30,11 +30,13 @@ import org.robolectric.ParameterizedRobolectricTestRunner.Parameters
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
+import reikai.data.exec
 import reikai.data.local.LocalChapterFiles
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelRepositoryImpl
 import reikai.data.novel.syncChaptersWithNovelSource
+import reikai.data.rows
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
@@ -547,17 +549,6 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         @JvmStatic
         @Parameters(name = "{0}")
         fun types() = Type.entries.map { arrayOf(it) }
-
-        private suspend fun JdbcSqliteDriver.exec(sql: String) {
-            execute(null, sql, 0).await()
-        }
-
-        private suspend fun <T> JdbcSqliteDriver.rows(sql: String, map: (SqlCursor) -> T): List<T> = executeQuery(
-            null,
-            sql,
-            { cursor -> QueryResult.Value(buildList { while (cursor.next().value) add(map(cursor)) }) },
-            0,
-        ).await()
 
         private suspend fun JdbcSqliteDriver.long(sql: String): Long = rows(sql) { it.getLong(0)!! }.single()
     }

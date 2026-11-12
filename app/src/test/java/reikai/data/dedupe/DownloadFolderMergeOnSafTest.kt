@@ -44,8 +44,6 @@ class DownloadFolderMergeOnSafTest {
     @After
     fun tearDown() = unmockkObject(DiskUtil)
 
-    private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
-
     /** A short listing of the chapter fails the copy; the chapter is never deleted behind a short copy. */
     @Test
     fun `a chapter whose folder lists short is left in place, not deleted behind a short copy`() {
@@ -53,7 +51,11 @@ class DownloadFolderMergeOnSafTest {
         FakeSafProvider.childListingFaults +=
             listOf(ChildListingFault.Healthy, ChildListingFault.Healthy, ChildListingFault.Short(1))
 
-        val carry = DownloadFolderMerge.merge(context, picked(from), picked(into))
+        val carry = DownloadFolderMerge.merge(
+            context,
+            FakeSafProvider.picked(context, from),
+            FakeSafProvider.picked(context, into),
+        )
 
         (carry.finished to File(from, "Ch 1").list()!!.sorted() to into.list()!!.toList()) shouldBe
             (false to listOf("001.jpg", "002.jpg") to emptyList())
@@ -64,7 +66,7 @@ class DownloadFolderMergeOnSafTest {
     fun `a page hidden from every listing of a merged chapter stays on disk, set aside`() {
         FakeSafProvider.listingFault = { ChildListingFault.Without("002.jpg") }
 
-        DownloadFolderMerge.merge(context, picked(from), picked(into))
+        DownloadFolderMerge.merge(context, FakeSafProvider.picked(context, from), FakeSafProvider.picked(context, into))
 
         val hidden = tmp.root.walk().single { it.name == "002.jpg" }
         listOf(File(into, "Ch 1").list()!!.toList(), hidden.readText(), hidden.parentFile!!.name) shouldBe
@@ -73,7 +75,11 @@ class DownloadFolderMergeOnSafTest {
 
     @Test
     fun `a chapter listed whole moves with every page`() {
-        val carry = DownloadFolderMerge.merge(context, picked(from), picked(into))
+        val carry = DownloadFolderMerge.merge(
+            context,
+            FakeSafProvider.picked(context, from),
+            FakeSafProvider.picked(context, into),
+        )
 
         (carry.finished to File(into, "Ch 1").list()!!.sorted() to from.walk().filter { it.isFile }.count()) shouldBe
             (true to listOf("001.jpg", "002.jpg") to 0)
@@ -83,7 +89,7 @@ class DownloadFolderMergeOnSafTest {
     @Test
     fun `a retry that places the last chapter sets aside the folder an earlier run began emptying`() {
         File(from, ".moved-Ch 0/001.jpg").apply { parentFile!!.mkdirs() }.writeText("zero")
-        val parent = picked(from.parentFile!!)
+        val parent = FakeSafProvider.picked(context, from.parentFile!!)
 
         DownloadFolderMerge.merge(context, parent.findFile("Old")!!, parent.findFile("New")!!)
 
