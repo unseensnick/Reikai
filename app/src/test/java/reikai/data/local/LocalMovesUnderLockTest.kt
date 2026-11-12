@@ -835,10 +835,11 @@ class LocalMovesUnderLockTest {
     )
 
     @Test
-    fun `organize is not offered where the storage cannot move a file`() = runTest {
+    fun `organize is offered only where the storage can move a file`() = runTest {
+        val withMove = combine.canOrganize(ContentType.MANGA, series(KEPT))
         FakeSafProvider.supportsMove = false
 
-        combine.canOrganize(ContentType.MANGA, series(KEPT)) shouldBe false
+        (withMove to combine.canOrganize(ContentType.MANGA, series(KEPT))) shouldBe (true to false)
     }
 
     @Test
