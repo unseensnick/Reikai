@@ -229,6 +229,35 @@ class LocalNovelVolumesTest {
             listOf(true, listOf("Kept", "Other"), listOf("Kept/Kept 1.epub"), listOf("Kept/Kept 2.epub"))
     }
 
+    /** A split-out series has no folder, so once it leaves the library nothing else could list its book. */
+    @Test
+    fun `a split-out novel series leaving the library hands its book back with its reading state`() = runTest {
+        book("Kept/Kept 2.epub")
+        refresh(KEPT)
+        markRead("Kept", "Kept 2.epub")
+        onApp { combine.splitOut(ContentType.NOVELS, series(KEPT), listOf("Kept 2.epub"), "Split") }
+        val split = novels.getByUrlAndSource("Split", LocalNovelSource.ID)!!.id
+
+        onApp { combine.handBack(ContentType.NOVELS, listOf(split)) }
+
+        readBooks(KEPT) to driver.rows("SELECT count(*) FROM local_volume_owner") { it.getLong(0)!! } shouldBe
+            (listOf("Kept/Kept 2.epub") to listOf(0L))
+    }
+
+    @Test
+    fun `only the local novels in the library are offered to take in`() = runTest {
+        driver.exec(
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
+                "VALUES (7, 'plugin', 'Online', 'Online', 0, 0, 0, 0)",
+        )
+        driver.exec(
+            "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags) " +
+                "VALUES (8, '${LocalNovelSource.ID}', 'Gone', 'Gone', 0, 0, 0)",
+        )
+
+        combine.library(ContentType.NOVELS).map { it.id }.sorted() shouldBe listOf(KEPT, OTHER)
+    }
+
     /** A backup made after Other was combined into Kept, restored where Other is still a series of its own. */
     @Test
     fun `a restored owner row combines novels as a combine does`() = runTest {
