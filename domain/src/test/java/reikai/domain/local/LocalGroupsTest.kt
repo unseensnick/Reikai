@@ -45,6 +45,11 @@ class LocalGroupsTest {
     }
 
     @Test
+    fun `a folder another series lists any volume of is lent, a split's own marker is not`() {
+        listOf(groups.isLent("B"), groups.isLent("S"), groups.isLent("A")) shouldBe listOf(true, false, false)
+    }
+
+    @Test
     fun `a member folder the local folder no longer holds is missing, the series' own never is`() {
         listOf(groups.missingMembers("A", listOf("C")), groups.missingMembers("A", listOf("B"))) shouldBe
             listOf(setOf("B"), emptySet())

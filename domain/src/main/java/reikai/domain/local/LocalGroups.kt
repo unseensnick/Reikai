@@ -53,6 +53,12 @@ class LocalGroups(val rows: List<VolumeOwner>) {
     fun missingMembers(series: String, rootNames: Collection<String>): Set<String> =
         foldersOf(series).filterTo(LinkedHashSet()) { it != series && it !in rootNames }
 
+    /**
+     * Whether another series lists volumes of [folder], whose chapters it addresses by that name: the folder keeps
+     * its name through Organize files, and a relink or an Undo that would rename it is refused.
+     */
+    fun isLent(folder: String): Boolean = rows.any { it.folder == folder && it.owner != folder }
+
     /** Whether everything in [folder] is listed by another series, so it is no series of its own in Browse. */
     fun isLentWhole(folder: String): Boolean = wholeOwner(folder) != folder
 

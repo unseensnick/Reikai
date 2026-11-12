@@ -99,7 +99,7 @@ class LocalSeriesRelink(
             }
             // Another series addresses the volumes it lists from this folder by the old name, which a link here
             // would leave behind.
-            if (owners.all(type).any { it.folder == series && it.owner != series }) {
+            if (LocalGroups(owners.all(type)).isLent(series)) {
                 return@withSeries failed("Another series lists $series' volumes")
             }
             chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))

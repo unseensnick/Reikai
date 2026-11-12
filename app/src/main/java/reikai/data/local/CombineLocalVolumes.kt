@@ -414,8 +414,12 @@ class CombineLocalVolumes(
         labels: List<Pair<String, String>>,
     ) =
         localFileNames(type, series.folder, title, labels).let { names ->
-            val lent = localVolumes.all(type).any { it.folder == series.folder && it.owner != series.folder }
-            if (lent) return@let names.copy(series = names.series.copy(to = series.folder))
+            if (LocalGroups(
+                    localVolumes.all(type),
+                ).isLent(series.folder)
+            ) {
+                return@let names.copy(series = names.series.copy(to = series.folder))
+            }
             val onDisk = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }.orEmpty()
             // Its own name is its own to keep, in any letter case.
             val held = (onDisk + localNamesHeld(type, chapterMoves, localVolumes))
@@ -593,7 +597,7 @@ class CombineLocalVolumes(
                 // A series since given volumes of this folder addresses them by its name, which the Undo changes back.
                 val now = localVolumes.all(type)
                 val same = now.containsAll(plan.ownersAfter) &&
-                    now.none { it.folder == plan.toSeries && it.owner != plan.toSeries } &&
+                    !LocalGroups(now).isLent(plan.toSeries) &&
                     series(type, listOf(series.id)).singleOrNull()?.folder == plan.toSeries
                 if (same) {
                     organizer.run(type, plan.undoing())
@@ -629,7 +633,7 @@ class CombineLocalVolumes(
         val loneBook = type == ContentType.NOVELS && ownEntry?.isFile == true && !multi
         val needsFolder = !loneBook && (groups.hasNoFolder(own) || ownEntry?.isFile == true)
         if (ownEntry == null && !groups.hasNoFolder(own)) return null
-        if (own != target && rows.any { it.folder == own && it.owner != own }) return null
+        if (own != target && groups.isLent(own)) return null
         val base = if (needsFolder) listOf(target) else listOf(own)
         val steps = mutableListOf<FileStep>(FileStep.Rows())
         if (needsFolder) steps += FileStep.MakeFolder(base)
