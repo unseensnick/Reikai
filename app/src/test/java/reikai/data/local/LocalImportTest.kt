@@ -8,6 +8,8 @@ import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.spyk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -19,6 +21,7 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.library.ContentType
+import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -27,6 +30,7 @@ import reikai.novel.local.LocalNovelSource
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
+import reikai.storage.FakeSafProvider
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
@@ -42,6 +46,7 @@ class LocalImportTest(private val type: ContentType) {
     }
 
     private var storageRoot: UniFile = UniFile.fromFile(root)!!
+    private val journal = InMemoryLocalFileJournal()
 
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
@@ -58,7 +63,7 @@ class LocalImportTest(private val type: ContentType) {
         novelChapterRepository = mockk(),
         libraryPreferences = mockk(),
         syncRules = NovelChapterSyncRules(mockk(), InMemoryChapterCopyMarks(), NoChapterTombstones),
-        journal = mockk(relaxed = true),
+        journal = journal,
         novelAdder = mockk<NovelLibraryAdder> { coEvery { addToBatch(any(), any(), any()) } returns AddOutcome.Failed },
         mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Failed },
         networkToLocalManga = mockk {
@@ -161,6 +166,25 @@ class LocalImportTest(private val type: ContentType) {
         val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
 
         localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+
+        (File(root, "Foo").list()!!.toList() to File(root, "Foo/old").readText()) shouldBe (listOf("old") to "abc")
+    }
+
+    /** The old book stepped aside and could not take its name back, so only the next start's replay can mend it. */
+    @Test
+    fun `a replace that strands the old book aside leaves its row for the replay to finish`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = UniFile.fromUri(context, FakeSafProvider.treeUri(root))!!
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+        FakeSafProvider.onCall = { call, target -> if (call == "renameDocument" && target.name == "old") error("no") }
+
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+        FakeSafProvider.onCall = null
+        val locks = LocalSeriesLocks()
+        val organizer = LocalOrganizer(context, journal, mockk(), locks, CoroutineScope(Dispatchers.Unconfined))
+        LocalFileJournalReplay(context, journal, locks, organizer).replay()
 
         (File(root, "Foo").list()!!.toList() to File(root, "Foo/old").readText()) shouldBe (listOf("old") to "abc")
     }

@@ -389,12 +389,14 @@ class LocalImport(
                     partUri = target.uri.toString(),
                 ),
             )
-            val replaced = replaceFile(replacing, target, name, aside)
-            journal.delete(journaled)
-            if (!replaced) {
+            if (!replaceFile(replacing, target, name, aside)) {
+                // Left at its aside name, the old book is in no listing: the row and the copy stay for the replay.
+                if (replacing.name != name) throw IOException("Could not replace $name, left for the next start")
+                journal.delete(journaled)
                 target.delete()
                 throw IOException("Could not replace $name")
             }
+            journal.delete(journaled)
         }
     }
 

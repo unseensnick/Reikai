@@ -1,4 +1,4 @@
--- A local file operation in flight whose disk step and row step cannot share a transaction (Rename files,
+-- A local file operation in flight whose disk step and row step cannot share a transaction (Organize files,
 -- import Replace): written before the disk step, deleted with the row step, replayed at start. The plan is
 -- a LocalFileJournalPlan as JSON.
 CREATE TABLE local_file_journal(
