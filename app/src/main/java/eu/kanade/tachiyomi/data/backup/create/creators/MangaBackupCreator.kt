@@ -6,7 +6,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchMetadata
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTag
 import eu.kanade.tachiyomi.data.backup.models.BackupSearchTitle
-import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupChapter
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import eu.kanade.tachiyomi.data.backup.models.toBackupTracking
@@ -15,6 +14,7 @@ import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toByteArray
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
+import reikai.data.backup.ChapterTombstoneBackupParts
 import reikai.data.backup.ChunkRead
 import reikai.data.backup.writeCategories
 import reikai.data.backup.writeCustomInfo
@@ -75,6 +75,10 @@ class MangaBackupCreator(
     // RK: history keys by chapter url, so it reuses the chapters part's read of the same chunk, as upstream reads once
     private val chunkChapters = ChunkRead { chapterRepository.getChaptersByMangaIds(it) }
 
+    // RK: kept states, with their history only under History too, shared with novels
+    private val keptStates =
+        ChapterTombstoneBackupParts(ContentType.MANGA, tombstones, Manga::id, BackupManga::chapterTombstones)
+
     // RK --> the option gates, the choice of which manga to back up and the chunking live in the driver
     // shared with novels (reikai.data.backup.backupEntries), so this class answers one part at a time for
     // a whole chunk.
@@ -134,12 +138,7 @@ class MangaBackupCreator(
                 }
             }
         }
-        // RK: by its own rows, since a local series whose every chapter is gone has kept states and no chapter
-        // rows; read after the chapters, so one a refresh captures between the two reads lands in both, never in
-        // neither (the restore's fold spends the duplicate)
-        batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
-            backup.chapterTombstones = kept.map { it.toBackup() }
-        }
+        keptStates.chapters(batch)
     }
 
     override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {
@@ -182,6 +181,7 @@ class MangaBackupCreator(
             // Sessions ride the history option, keyed by url as history is
             backup.readingSessions = sessionsByMangaId[entry.id].orEmpty().map { it.toBackupReadingSession() }
         }
+        keptStates.history(batch)
     }
 
     override suspend fun customInfo(batch: List<Pair<Manga, BackupManga>>) {

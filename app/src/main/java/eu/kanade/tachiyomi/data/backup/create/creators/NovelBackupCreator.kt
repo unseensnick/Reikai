@@ -15,11 +15,11 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
-import eu.kanade.tachiyomi.data.backup.models.toBackup
 import eu.kanade.tachiyomi.data.backup.models.toBackupReadingSession
 import kotlinx.coroutines.flow.first
 import mihon.core.common.extensions.toEpochMillisOrZero
 import reikai.data.backup.BackupEntryParts
+import reikai.data.backup.ChapterTombstoneBackupParts
 import reikai.data.backup.ChunkRead
 import reikai.data.backup.mergeGroupRefs
 import reikai.data.backup.writeCategories
@@ -74,6 +74,9 @@ class NovelBackupCreator(
     // The chapters part reads the word counts and history the read-aloud times, from the same chunk-wide row.
     private val chunkPace = ChunkRead { readingPace.novelChapterPace(it) }
 
+    private val keptStates =
+        ChapterTombstoneBackupParts(ContentType.NOVELS, tombstones, Novel::id, BackupNovel::chapterTombstones)
+
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
         if (options.categories) backupNovelCategories() else emptyList()
 
@@ -126,12 +129,7 @@ class NovelBackupCreator(
                 )
             }
         }
-        // By its own rows, since a local series whose every chapter is gone has kept states and no chapter rows;
-        // read after the chapters, so one a refresh captures between the two reads lands in both, never in
-        // neither (the restore's fold spends the duplicate), as the manga creator reads them.
-        batch.writeRows(tombstones.getByOwners(ContentType.NOVELS, novelIds), Novel::id) { _, backup, kept ->
-            backup.chapterTombstones = kept.map { it.toBackup() }
-        }
+        keptStates.chapters(batch)
     }
 
     override suspend fun categories(batch: List<Pair<Novel, BackupNovel>>) {
@@ -171,6 +169,7 @@ class NovelBackupCreator(
             // Sessions ride the history option, keyed by url as history is, as for manga.
             backup.readingSessions = sessionsByNovelId[entry.id].orEmpty().map { it.toBackupReadingSession() }
         }
+        keptStates.history(batch)
     }
 
     override suspend fun customInfo(batch: List<Pair<Novel, BackupNovel>>) {

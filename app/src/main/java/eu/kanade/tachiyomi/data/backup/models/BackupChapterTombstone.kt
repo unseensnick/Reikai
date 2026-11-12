@@ -49,17 +49,18 @@ class BackupTombstoneSession(
     @ProtoNumber(2) var duration: Long,
 )
 
-fun ChapterTombstone.toBackup() = BackupChapterTombstone(
+// Its history, sessions and listened time go in only with the History option, which carries a live chapter's.
+fun ChapterTombstone.toBackup(withHistory: Boolean) = BackupChapterTombstone(
     url = url,
     chapterNumber = number,
     read = read,
     bookmark = bookmark,
     progress = progress,
     length = length,
-    listenedMs = listenedMs,
+    listenedMs = listenedMs.takeIf { withHistory },
     dateFetch = dateFetch.toEpochMilliseconds(),
-    historyReadAt = historyReadAt.toEpochMillisOrZero(),
-    historyDuration = historyDuration,
-    sessions = sessions.map { BackupTombstoneSession(it.endedAt, it.duration) },
+    historyReadAt = if (withHistory) historyReadAt.toEpochMillisOrZero() else 0,
+    historyDuration = historyDuration.takeIf { withHistory },
+    sessions = if (withHistory) sessions.map { BackupTombstoneSession(it.endedAt, it.duration) } else emptyList(),
     removedAt = removedAt,
 )

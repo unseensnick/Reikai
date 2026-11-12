@@ -37,6 +37,7 @@ import reikai.domain.readinglog.NoReadingPace
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.chapter.ChapterRepositoryImpl
+import tachiyomi.data.history.HistoryRepositoryImpl
 import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.source.local.LocalSource
@@ -174,7 +175,7 @@ class LocalFilesBackupRoundTripTest {
                     chapterRepository = ChapterRepositoryImpl(database),
                     trackRepository = mockk(),
                     categoryRepository = mockk(),
-                    historyRepository = mockk(),
+                    historyRepository = HistoryRepositoryImpl(database),
                     mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
                     customMangaInfoRepository = mockk(),
                     getFavorites = mockk(),
@@ -186,9 +187,10 @@ class LocalFilesBackupRoundTripTest {
                     readingLog = NoReadingLog,
                     tombstones = ChapterTombstoneRepositoryImpl(database),
                 )
-                // The series' own fields first, then its chapters, as every backup writes them.
+                // The series' own fields first, then its chapters and history, as every backup writes them.
                 val backup = creator.base(listOf(entry)).single()
                 creator.chapters(listOf(entry to backup))
+                creator.history(listOf(entry to backup))
                 return ProtoBuf.encodeToByteArray(BackupManga.serializer(), backup)
             }
 
@@ -235,7 +237,7 @@ class LocalFilesBackupRoundTripTest {
                     novelTrackRepository = mockk(),
                     mergeGroupRepository = mockk(),
                     customNovelInfoRepository = mockk(),
-                    novelHistoryRepository = mockk(),
+                    novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = NoChapterNumberOverrides,
                     copyMarks = InMemoryChapterCopyMarks(),
@@ -247,6 +249,7 @@ class LocalFilesBackupRoundTripTest {
                 )
                 val backup = creator.base(listOf(entry)).single()
                 creator.chapters(listOf(entry to backup))
+                creator.history(listOf(entry to backup))
                 return ProtoBuf.encodeToByteArray(BackupNovel.serializer(), backup)
             }
 
