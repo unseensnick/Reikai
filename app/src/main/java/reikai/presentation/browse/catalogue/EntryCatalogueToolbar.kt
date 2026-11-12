@@ -76,7 +76,7 @@ fun EntryCatalogueToolbar(
                                 onClick = { selectingDisplayMode = true },
                                 menu = {
                                     DropdownMenu(
-                                        expanded = selectingDisplayMode && displayMode != null,
+                                        expanded = selectingDisplayMode,
                                         onDismissRequest = { selectingDisplayMode = false },
                                     ) {
                                         RadioMenuItem(
