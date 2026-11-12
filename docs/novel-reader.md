@@ -144,12 +144,12 @@ It works in both rendering modes.
 
 Tap the circle beside a rule to switch it off without deleting it, or the bin icon to delete it.
 
-## Search downloaded chapters
+## Search chapter text
 
 You can search the text of a novel's downloaded chapters, for example to find where a character first appeared.
 
 1. Open the novel's page.
-1. Open <nav to="overflow"> and tap **Search downloaded chapters**. It only appears while the novel has downloaded chapters and its source is installed.
+1. Open <nav to="overflow"> and tap **Search chapter text**. It only appears while the novel has downloaded chapters and its source is installed.
 1. Type what to find and search.
 
 Each result shows the chapter, how many matches it has and a snippet around them.

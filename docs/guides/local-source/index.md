@@ -238,15 +238,19 @@ The other series move in as volumes and leave the library, and their read progre
 
 ### Reordering and renaming volumes
 
-**Reorder volumes** in the <nav to="overflow"> menu lists the volumes. Drag one by its handle to change the order; chapters sorted by source are read in the order you set. Tap the pencil to rename a volume's label, or **Reset** to go back to the name its file gives. These names and the order stay in the app; your files keep their names unless you also rename the files.
+**Reorder volumes** in the <nav to="overflow"> menu lists the volumes. Drag one by its handle to change the order; chapters sorted by source are read in the order you set. Tap the pencil to rename a volume's label, or **Reset** to go back to the name its file gives. These names and the order stay in the app; your files keep their names unless you also organize the files.
 
-### Renaming files
+For local manga, **Loose files** at the bottom of **Reorder volumes** decides how the chapter files sitting loose beside the volume folders show: as **One volume** (the default, named Extras), as **Each its own volume**, or in **No volume**, which shows the whole series as one list without volume headers. Backups keep the choice. Local novels have no loose files, since every book is a volume.
 
-**Rename files** in the <nav to="overflow"> menu gives the files on the device the names shown in the app. The series folder takes the series title. A manga volume folder takes its volume label, and a novel book takes the series title and its volume label. Every old name is listed with its new one before anything changes, and **Rename** goes ahead. Read progress stays.
+### Organizing files
+
+**Organize files** in the <nav to="overflow"> menu moves every volume into the series' folder and gives it the name shown in the app, the series title followed by its volume label. Every old name is listed with its new one before anything changes, and **Rename** goes ahead. Read progress stays. The menu item only shows where your storage lets Reikai move and rename files.
 
 If another series already uses the folder name, Reikai picks a free one, like `Title (2)`, and says so. **Choose another name** lets you type your own, which then becomes the series title as well.
 
-**Edit info** and **Reorder volumes** offer **Also rename files** once you change the title or a volume's name. Leave it ticked to go straight to **Rename files** when you close them.
+**Combine as volumes**, **Add volumes**, **Split out volumes**, **Edit info** and **Reorder volumes** offer an **Also organize files** box, the last two once you change the title or a volume's name. It starts unticked; tick it to organize the files when you close them.
+
+If an organize is cut off partway, for example when storage goes away, Reikai keeps trying to finish it, and the series' details page says **An unfinished organize holds this series**. Tap the line to forget it: no file moves, and the next refresh lists what is there.
 
 ### Deleting volumes
 
@@ -256,7 +260,15 @@ When two volumes show the same label, for example after combining two series tha
 
 ### Undoing a move
 
-Combining, adding volumes, splitting out and renaming files each show a message with **Undo**. Undo puts the files, chapters and library entries back where they were. Deleting volumes has no undo.
+Combining, adding volumes, splitting out and organizing files each show a message with **Undo**. Undo puts the files, chapters and library entries back where they were. Deleting volumes has no undo.
+
+### When files move or go missing
+
+A local chapter whose file disappears, for example after you move or rename it in a file manager, keeps its read progress and bookmark. When the file comes back under the same name, or under a new name with the chapter number of the one chapter that went missing, the progress returns with it. Backups carry it in the meantime. Only **Delete volumes** drops it on purpose.
+
+If you renamed a series' folder outside the app, refreshing the series shows **Folder not found**, with the folders that hold its files. Pick one and tap **Link**. Reikai never picks one for you.
+
+In a combined series, a volume whose folder was renamed or removed shows a line above the chapters, such as "Vol. 2's folder is missing", and the rest of the series keeps refreshing. Tap the line to link the folder it moved to, **Choose folder** to pick any folder in your local folder, or **Remove from series** to give it back to a series of its own, where its read progress waits until the folder returns.
 
 ### Opening the folder
 

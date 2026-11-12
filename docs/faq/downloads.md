@@ -35,7 +35,7 @@ Downloads might not be detected due to multiple factors:
 * Inaccessibility of the download location.
   > Ensure the SD card is properly detected if in use.
 * Source name changes.
-  > Rename the source's folder to match the new name. Light novel folders use the source's id, so a renamed novel source needs nothing.
+  > Rename the source's folder to match the new name. Reikai renames a light novel source's folder for you when the source changes its name.
 * Series title modified by the source.
   > Adjust the folder title to the updated name.
 * Chapters added or removed outside the app.
@@ -62,7 +62,7 @@ Open the series and its <nav to="overflow">. Two entries show there while the se
 On a [merged series](/docs/multi-source), both follow the source you are viewing. On **All**, **Clear downloads** covers the whole group, while **Open folder** opens one folder: the series you opened if it has downloads, otherwise the first source in the group that does. If you opened a merged series through a source you have since uninstalled, both still show on **All** as long as another source in the group is installed.
 
 ## Can I search the text of a downloaded novel?
-Yes. On a novel's page, open <nav to="overflow"> and tap **Search downloaded chapters**, which shows there while the novel has downloaded chapters and its source is installed. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched. The [novel reader guide](/docs/novel-reader#search-downloaded-chapters) walks through it.
+Yes. On a novel's page, open <nav to="overflow"> and tap **Search chapter text**, which shows there while the novel has downloaded chapters and its source is installed. It searches every downloaded chapter, showing each match in context, and tapping a result opens that chapter in the reader. **Find with a pattern**, **Whole words only** and **Match case** narrow the search. Only downloaded chapters are searched. The [novel reader guide](/docs/novel-reader#search-chapter-text) walks through it.
 
 **Word count** in the same menu counts the words in the downloaded chapters: the total, the words per chapter, and a density from 1 to 10 for how long the chapters run.
 

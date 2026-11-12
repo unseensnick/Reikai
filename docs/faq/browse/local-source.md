@@ -8,7 +8,7 @@ description: Frequently Asked Questions about the Local source.
 Frequently Asked Questions about the Local source.
 
 ## How can I import my downloaded series?
-For a step-by-step process, we recommend referring to [this guide](/docs/guides/local-source/).
+Pick **Import files** in the ⋮ menu of the <nav to="main_library"> or of a **Local source** list, or open or share the file with Reikai from another app, and Reikai copies it into its local folders. To place the files yourself, follow [the local source guide](/docs/guides/local-source/).
 
 ## What should I do if I can't find the Reikai folder?
 In case the **Reikai** folder is not visible, create one using a file manager.

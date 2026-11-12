@@ -325,8 +325,20 @@ On the **Appearance** tab, paged modes only. How the page sits around the camera
 ### Disable double tap gestures <Badge type="info" text="Off" />
 On the **Controls** tab, in every reading mode. Turns off double tap zoom.
 
+### Crop instead of zoom <Badge type="info" text="Off" />
+On the **Reading** tab, for single pages in the paged modes, once **Crop borders** is on. Cuts a page's borders off instead of zooming in past them.
+
+### Disable tiles <Badge type="info" text="Off" />
+On the **Filters** tab. Draws pages through the fast path alone, with no tiles and no shaders, so the shader settings below are hidden while it is on.
+
 ### Image filters and Tile filters
-On the **Filters** tab. **Add shader** loads a WGSL shader file from your device. Image filters run on the whole page and tile filters on each tile, in list order, and you can drag or delete them.
+On the **Filters** tab. **Add shader** loads a WGSL shader file from your device. Image filters run on the whole page and tile filters on each tile, in list order, and you can drag or delete them. A shader with settings of its own has an arrow that opens them, each with its range and default.
+
+### Upscaler and Downscaler
+On the **Filters** tab. **Choose shader** replaces the built-in shader that scales a page up or down with one of your own, and the bin icon puts the built-in one back.
+
+### Show all tiles together <Badge type="info" text="Off" />
+On the **Filters** tab. Once a page stops moving, keeps showing it as it is until all its tiles are ready, rather than drawing them in as they finish.
 
 ## Navigation
 

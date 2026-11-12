@@ -55,7 +55,7 @@ The sources behind each [merged series](/docs/multi-source) are saved as source-
 
 #### Settings data
 - **App settings** - Including the reader fonts you imported or downloaded, so the font you picked is there after a restore
-- **Extension stores** - Your extension repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel
+- **Extension stores** - Your extension and plugin repos, plus the list of installed [extension apps](/docs/faq/browse/extensions#extension-apps-and-plugins), manga and novel, and your light-novel plugins
 - **Source settings**
 - **Feed and saved searches** - The searches you saved on a source, and the Browse feed built on them
 - **Include sensitive settings** - Saved sign-ins: tracker logins, the FlareSolverr sign-in, and source and plugin site sign-ins. A restore never applies the FlareSolverr settings. Not included by default, and can only be ticked while App settings or Source settings is ticked
