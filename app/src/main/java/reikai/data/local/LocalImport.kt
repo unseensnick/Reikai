@@ -23,8 +23,10 @@ import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.LocalVolumeOwnerRepository
+import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.export.epubFileName
@@ -181,13 +183,17 @@ class LocalImport(
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
         val root = storageManager.localRoot(group.type) ?: return@withIOContext group
-        // Only a folder takes files in: a loose book of that name is a file.
+        val groups = LocalGroups(owners.all(group.type))
+        // A copy lands among a manga folder's loose chapters, or as a book of its own, which no row names.
+        val unit = if (group.type == ContentType.MANGA) VolumeOwner.LOOSE else VolumeOwner.WHOLE
+        // Only a folder takes files in: a loose book of that name is a file. Nor one whose new files another series
+        // lists, which would show them under a series the import never named.
+        val takes = { it: UniFile -> it.isDirectory && groups.ownerOf(it.name.orEmpty(), unit) == it.name }
         val folder = if (target != null) {
-            root.findFile(target)?.takeIf { it.isDirectory }
+            root.findFile(target)?.takeIf(takes)
         } else {
             root.listFiles().orEmpty().firstOrNull {
-                it.isDirectory &&
-                    groupKey(it.name.orEmpty()) == groupKey(group.title)
+                takes(it) && groupKey(it.name.orEmpty()) == groupKey(group.title)
             }
         }
         val present = folder?.listFiles().orEmpty().filter { it.isFile }

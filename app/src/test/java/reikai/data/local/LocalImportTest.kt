@@ -25,6 +25,7 @@ import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
+import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.LocalVolumeOwnerRepository
@@ -151,6 +152,36 @@ class LocalImportTest(private val type: ContentType) {
         localImport.import(listOf(group("Foo")), addToLibrary = false, categoryIds = emptyList())
 
         root.list()!!.toList() shouldBe listOf("Foo (2)")
+    }
+
+    /** Combined whole into another series, the folder is no series of its own, so a new file lists under that one. */
+    @Test
+    fun `an import never joins a folder another series holds whole`() = runTest {
+        File(root, "Foo").mkdirs()
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.WHOLE, "Bar"))
+
+        val reported = localImport.import(
+            listOf(localImport.inspect(group("Foo"))),
+            addToLibrary = false,
+            categoryIds = emptyList(),
+        ).series.single().path
+
+        listsUnder(reported) shouldBe (reported to reported)
+    }
+
+    /** A manga file lands among the folder's loose chapters, which a row can lend; a novel book has no such unit. */
+    @Test
+    fun `an import never joins a folder whose loose chapters another series holds`() = runTest {
+        File(root, "Foo").mkdirs()
+        owners = listOf(VolumeOwner("Foo", VolumeOwner.LOOSE, "Bar"))
+
+        val reported = localImport.import(
+            listOf(localImport.inspect(group("Foo"))),
+            addToLibrary = false,
+            categoryIds = emptyList(),
+        ).series.single().path
+
+        listsUnder(reported) shouldBe (reported to reported)
     }
 
     @Test
@@ -309,6 +340,13 @@ class LocalImportTest(private val type: ContentType) {
         )
 
         File(root, "Book.epub").readText() shouldBe "book"
+    }
+
+    /** The folder holding the one file in [folder], paired with the series its local source lists that file under. */
+    private fun listsUnder(folder: String): Pair<String, String> {
+        val file = File(root, folder).list()!!.single()
+        val volume = mapOf(ContentType.MANGA to VolumeOwner.LOOSE)[type] ?: file
+        return folder to LocalGroups(owners).ownerOf(folder, volume)
     }
 
     private fun group(title: String) = ImportGroup(
