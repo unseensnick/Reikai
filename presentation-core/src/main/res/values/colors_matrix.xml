@@ -19,6 +19,7 @@
     <color name="matrix_surface">#F3FAF3</color>
     <color name="matrix_onSurface">#0D1F0D</color>
     <color name="matrix_surfaceVariant">#DCEBDC</color>
+    <color name="matrix_onSurfaceVariant">#3E5A3E</color>
     <color name="matrix_surfaceTint">#008F11</color>
     <color name="matrix_inverseSurface">#1E2B1E</color>
     <color name="matrix_inverseOnSurface">#EEF6EE</color>

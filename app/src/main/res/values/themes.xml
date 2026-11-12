@@ -661,6 +661,7 @@
         <item name="colorSurface">@color/cloudflare_surface</item>
         <item name="colorOnSurface">@color/cloudflare_onSurface</item>
         <item name="colorSurfaceVariant">@color/cloudflare_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/cloudflare_onSurfaceVariant</item>
         <item name="elevationOverlayColor">@color/cloudflare_surfaceTint</item>
         <item name="colorSurfaceInverse">@color/cloudflare_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/cloudflare_inverseOnSurface</item>
@@ -692,6 +693,7 @@
         <item name="colorSurface">@color/doom_surface</item>
         <item name="colorOnSurface">@color/doom_onSurface</item>
         <item name="colorSurfaceVariant">@color/doom_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/doom_onSurfaceVariant</item>
         <item name="elevationOverlayColor">@color/doom_surfaceTint</item>
         <item name="colorSurfaceInverse">@color/doom_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/doom_inverseOnSurface</item>
@@ -723,6 +725,7 @@
         <item name="colorSurface">@color/matrix_surface</item>
         <item name="colorOnSurface">@color/matrix_onSurface</item>
         <item name="colorSurfaceVariant">@color/matrix_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/matrix_onSurfaceVariant</item>
         <item name="elevationOverlayColor">@color/matrix_surfaceTint</item>
         <item name="colorSurfaceInverse">@color/matrix_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/matrix_inverseOnSurface</item>
@@ -754,6 +757,7 @@
         <item name="colorSurface">@color/sapphire_surface</item>
         <item name="colorOnSurface">@color/sapphire_onSurface</item>
         <item name="colorSurfaceVariant">@color/sapphire_surfaceVariant</item>
+        <item name="colorOnSurfaceVariant">@color/sapphire_onSurfaceVariant</item>
         <item name="elevationOverlayColor">@color/sapphire_surfaceTint</item>
         <item name="colorSurfaceInverse">@color/sapphire_inverseSurface</item>
         <item name="colorOnSurfaceInverse">@color/sapphire_inverseOnSurface</item>

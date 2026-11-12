@@ -19,6 +19,7 @@
     <color name="doom_surface">#FAFAFA</color>
     <color name="doom_onSurface">#1B1B1B</color>
     <color name="doom_surfaceVariant">#E0E0E0</color>
+    <color name="doom_onSurfaceVariant">#5F5F5F</color>
     <color name="doom_surfaceTint">#D50000</color>
     <color name="doom_inverseSurface">#2B2B2B</color>
     <color name="doom_inverseOnSurface">#F5F5F5</color>

@@ -19,6 +19,7 @@
     <color name="sapphire_surface">#212121</color>
     <color name="sapphire_onSurface">#FFFFFF</color>
     <color name="sapphire_surfaceVariant">#424242</color>
+    <color name="sapphire_onSurfaceVariant">#D8FFFFFF</color>
     <color name="sapphire_surfaceTint">#1E88E5</color>
     <color name="sapphire_inverseSurface">#FAFAFA</color>
     <color name="sapphire_inverseOnSurface">#313131</color>
