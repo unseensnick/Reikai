@@ -234,10 +234,21 @@ class VolumePicking(
 
     /**
      * Opens Organize files on [entry]'s screen, now or once it opens, with [title] for the files where Edit info
-     * asked for one.
+     * asked for one, and [undo] for the move that led there, whose screen the user is leaving.
      */
-    fun requestOrganize(entry: EntryId, title: String? = null) {
-        organizeRequests.update { it + (entry to OrganizeRequest(title)) }
+    fun requestOrganize(entry: EntryId, title: String? = null, undo: VolumeMoveUndo? = null) {
+        organizeRequests.update { it + (entry to OrganizeRequest(title, undo)) }
+    }
+
+    /**
+     * Opens [entry]'s screen on Organize files' preview, through [push], offering [move]'s Undo there: leaving this
+     * screen ends its own snackbar. False when no screen opens, so the caller reports the move where it is.
+     */
+    suspend fun organizeOn(entry: EntryId, move: LocalVolumeMove, message: String, push: (Screen) -> Unit): Boolean {
+        val screen = detailsScreen(entry) ?: return false
+        requestOrganize(entry, undo = VolumeMoveUndo(move, message))
+        push(screen)
+        return true
     }
 
     /** The Organize files requests for [entry], each taken once. */
@@ -248,8 +259,14 @@ class VolumePicking(
     suspend fun detailsScreen(entry: EntryId): Screen? = statsDetailsScreen(entry, novelRepository)
 }
 
-/** Organize files asked for from elsewhere, with the [title] Edit info gave the files, if it gave one. */
-class OrganizeRequest(val title: String?)
+/**
+ * Organize files asked for from elsewhere, with the [title] Edit info gave the files, if it gave one, and the [undo]
+ * of the move that asked for it, if one did.
+ */
+class OrganizeRequest(val title: String?, val undo: VolumeMoveUndo? = null)
+
+/** A local volume move whose Undo the screen it opened offers, as [message]. */
+class VolumeMoveUndo(val move: LocalVolumeMove, val message: String)
 
 /** A local series' list grouped by volume: the [chips] in volume order, the [picked] one, and the rows. */
 @Immutable

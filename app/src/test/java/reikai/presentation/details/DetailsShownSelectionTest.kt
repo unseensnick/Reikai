@@ -61,7 +61,7 @@ class DetailsShownSelectionTest {
 
     @Test
     fun `select all under Only copies selects the copies alone`() {
-        compose.setContent { ComposeTestHost { Navigator(Host(behavior)) } }
+        compose.setContent { ComposeTestHost { Navigator(DetailsContentHost(behavior)) } }
 
         compose.onNodeWithText("Show only these", substring = true).performClick()
         compose.onNode(hasScrollToNodeAction()).performScrollToNode(hasText("Copy one"))
@@ -73,105 +73,17 @@ class DetailsShownSelectionTest {
 
     private fun select(ids: Set<Long>) = state.update { it.copy(selection = it.selection + ids) }
 
-    private class Host(private val behavior: EntryDetailsBehavior) : Screen {
-        @Composable
-        override fun Content() {
-            val loaded by behavior.state.collectAsState()
-            val store = InMemoryPreferenceStore()
-            EntryDetailsContent(
-                behavior = behavior,
-                state = loaded as EntryDetailsScreenState.Loaded,
-                snackbarHostState = SnackbarHostState(),
-                isTabletUi = false,
-                chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-                chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-                nav = EntryDetailsNavigation(
-                    navigateUp = {},
-                    onOpenChapter = {},
-                    onGlobalSearch = {},
-                    onTagSearch = {},
-                    onOpenFilterSettings = {},
-                    onOpenTrackingSettings = {},
-                    onEditNotes = {},
-                    onLibrarySearch = {},
-                ),
-                settings = DetailsSettings(
-                    UiPreferences(store),
-                    ReikaiLibraryPreferences(store),
-                    CoroutineScope(Dispatchers.Unconfined),
-                ),
-            )
-        }
-    }
-
     private companion object {
         val COPIES = listOf(1L, 2L)
 
-        fun chapter(id: Long, name: String, number: Double) = EntryChapterListItem.Chapter(
-            id = id,
-            name = name,
-            subtitle = null,
-            read = false,
-            bookmark = false,
-            dateUpload = null,
-            chapterNumber = number,
-            progress = null,
-            downloadState = Download.State.NOT_DOWNLOADED,
-            numberHinted = false,
-        )
-
-        fun loaded() = EntryDetailsScreenState.Loaded(
-            entryId = EntryId.Manga(100L),
-            viewedEntryId = 100L,
-            details = EntryDetailsUiState(
-                header = EntryHeaderUi(
-                    coverModel = Unit,
-                    title = "Series",
-                    author = null,
-                    artist = null,
-                    status = 0L,
-                    sourceName = "",
-                    sourceState = EntrySourceState.Installed,
-                    sourceQuery = null,
-                ),
-                favorite = true,
-                trackingCount = 0,
-                hasLoggedInTrackers = false,
-                nextUpdate = null,
-                isUserIntervalMode = false,
-                description = null,
-                tags = null,
-                notes = "",
-                descriptionDefaultExpanded = false,
+        fun loaded() = loadedDetails(
+            items = listOf(
+                detailsChapter(1L, "Copy one", 1.0),
+                detailsChapter(2L, "Copy two", 1.0),
+                detailsChapter(3L, "Another", 2.0),
+                detailsChapter(4L, "And another", 3.0),
             ),
-            chapters = EntryChapterListUiState(
-                items = listOf(
-                    chapter(1L, "Copy one", 1.0),
-                    chapter(2L, "Copy two", 1.0),
-                    chapter(3L, "Another", 2.0),
-                    chapter(4L, "And another", 3.0),
-                ),
-                missingChapterCount = 0,
-                showHidden = false,
-                hasHiddenChapters = false,
-                hiddenChapterIds = emptySet(),
-                // The dated line reads the date format off the app graph, which a test host has none of.
-                undatedChapterDate = UndatedChapterDate.Blank,
-                duplicates = DuplicateMarks(copies = COPIES.associateWith { 2 }, marks = emptyMap()),
-            ),
-            capabilities = EntryCapabilities(),
-            mergeSources = emptyList(),
-            selectedSourceId = null,
-            hasActiveFilter = false,
-            isRefreshing = false,
-            selection = emptySet(),
-            resumeChapterId = null,
-            hasStarted = false,
-            hasViewedDownloads = false,
-            showChapterNumberOnly = false,
-            seedColor = null,
-            webPage = null,
-            downloadTargets = DownloadTargets.OWN,
+            duplicates = DuplicateMarks(copies = COPIES.associateWith { 2 }, marks = emptyMap()),
         )
     }
 }

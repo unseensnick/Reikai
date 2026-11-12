@@ -232,6 +232,8 @@ fun EntryDetailsContent(
     LaunchedEffect(state.entryId, canOrganizeOrNull) {
         if (canOrganizeOrNull == null) return@LaunchedEffect
         behavior.volumePicking.organizeRequests(state.entryId).collect {
+            // The move that opened this screen offers its Undo here, wherever its files can go.
+            it.undo?.let { undo -> launch { snackbarHostState.reportVolumeMove(context, undo.move, undo.message) } }
             if (!canOrganize) return@collect
             renameTitle = it.title
             volumeDialog = VolumeDialog.RenameFiles
@@ -311,15 +313,15 @@ fun EntryDetailsContent(
                         val own = behavior.volumePicking.series(state.entryId) ?: return@launch
                         val move = behavior.volumePicking.splitOut(type, own, keys, title)
                         behavior.refresh()
-                        // The new series' own screen, where its volumes show, opens on the preview.
-                        move.created?.takeIf { organize }?.let { created ->
-                            val entry = EntryId.of(type, created)
-                            behavior.volumePicking.requestOrganize(entry)
-                            behavior.volumePicking.detailsScreen(entry)?.let(navigator::push)
-                        }
                         val message = context.stringResource(MR.strings.local_volume_split_out, title)
-                        snackbarHostState.reportVolumeMove(context, move, message)
-                        behavior.refresh()
+                        // The new series' own screen, where its volumes show, opens on the preview with the Undo.
+                        val opened = move.created?.takeIf { organize }?.let { created ->
+                            behavior.volumePicking.organizeOn(EntryId.of(type, created), move, message, navigator::push)
+                        } == true
+                        if (!opened) {
+                            snackbarHostState.reportVolumeMove(context, move, message)
+                            behavior.refresh()
+                        }
                     }
                 },
             )

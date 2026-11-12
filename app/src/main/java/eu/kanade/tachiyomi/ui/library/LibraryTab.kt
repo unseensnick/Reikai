@@ -840,14 +840,17 @@ data object LibraryTab : Tab {
                 onConfirm = { kept, organize ->
                     scope.launch {
                         val move = engine.combineVolumes(dialog, kept) ?: return@launch
-                        // The kept series' screen, where its volumes show, opens on Organize files' preview.
-                        if (organize && move.result is LocalMoveResult.Moved) {
-                            val entry = EntryId.of(dialog.type, kept.id)
-                            graph.volumePicking.requestOrganize(entry)
-                            graph.volumePicking.detailsScreen(entry)?.let(navigator::push)
-                        }
                         val message = context.stringResource(MR.strings.local_volumes_combined, kept.title)
-                        snackbarHostState.reportVolumeMove(context, move, message)
+                        // The kept series' screen, where its volumes show, opens on Organize files' preview with
+                        // the Undo, since leaving this screen ends its own snackbar.
+                        val opened = organize && move.result is LocalMoveResult.Moved &&
+                            graph.volumePicking.organizeOn(
+                                EntryId.of(dialog.type, kept.id),
+                                move,
+                                message,
+                                navigator::push,
+                            )
+                        if (!opened) snackbarHostState.reportVolumeMove(context, move, message)
                     }
                 },
             )
