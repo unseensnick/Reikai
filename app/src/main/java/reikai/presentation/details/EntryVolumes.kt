@@ -235,6 +235,16 @@ class VolumePicking(
         return combine.removeMember(entry.contentType, own, member)
     }
 
+    /** Whether [entry]'s group is refused until an organize or an import Replace that cannot finish is resolved. */
+    suspend fun waitsForRepair(entry: EntryId): Boolean =
+        series(entry)?.let { combine.waitsForRepair(entry.contentType, it) } == true
+
+    /** Forgets what [entry] waits on, moving no file; on the app scope, so closing the screen does not cut it off. */
+    suspend fun forgetUnfinished(entry: EntryId) {
+        val own = series(entry) ?: return
+        appScope.async { combine.forgetUnfinished(entry.contentType, own) }.await()
+    }
+
     /** Whether [entry]'s storage can move and rename files, without which Organize files is not offered. */
     suspend fun canOrganize(entry: EntryId): Boolean = withIOContext {
         series(entry)?.let { combine.canOrganize(entry.contentType, it) } == true

@@ -336,6 +336,10 @@
     <string name="local_series_missing_message">Pick the folder that now holds the files of %1$s</string>
     <string name="action_link_folder">Link</string>
     <string name="local_volume_missing">%1$s\'s folder is missing</string>
+    <string name="local_series_waits_for_repair">An unfinished organize holds this series</string>
+    <string name="local_series_forget_unfinished">Forget the unfinished organize?</string>
+    <string name="local_series_forget_unfinished_message">Files are left as they are, and the next refresh lists what is there</string>
+    <string name="action_forget">Forget</string>
     <string name="local_volume_missing_file">%1$s\'s file is missing</string>
     <string name="action_choose_folder">Choose folder</string>
     <string name="action_remove_from_series">Remove from series</string>

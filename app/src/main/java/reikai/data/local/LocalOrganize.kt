@@ -59,6 +59,9 @@ class LocalOrganizer(
     // Journal rows a retry is waiting on, so a block met again inside a retry does not start a second one.
     private val retrying = ConcurrentHashMap.newKeySet<Long>()
 
+    // The folders each unresolved journal row refuses, by row, which is how [forget] finds the rows a series waits on.
+    private val holding = ConcurrentHashMap<Long, Pair<ContentType, List<String>>>()
+
     /** Runs [plan] from its first step; the caller holds the lock on every folder it names. */
     suspend fun run(type: ContentType, plan: Organize): LocalMoveResult {
         // Before the journal, so a folder whose query hiccups fails the organize with nothing to put back.
@@ -142,6 +145,21 @@ class LocalOrganizer(
     }
 
     /**
+     * Drops every unresolved journal row refusing any of [folders] and lets its folders be held again, moving no file,
+     * so the next listing reads the files where they are. Under the rows' own repair hold, so a retry already running
+     * finishes first. The user's way out of a row no retry can resolve.
+     */
+    suspend fun forget(type: ContentType, folders: Collection<String>) {
+        val wanted = folders.mapTo(HashSet()) { it.lowercase() }
+        holding.filter { (_, held) -> held.first == type && held.second.any { it.lowercase() in wanted } }
+            .forEach { (id, held) ->
+                locks.repairing(type, held.second) { journal.delete(id) }
+                holding -= id
+                locks.unblock(type, held.second)
+            }
+    }
+
+    /**
      * Refuses [folders] and takes journal row [id] up again in this process through [repair], given the row as it
      * stands, after a wait that doubles each time it is still unresolved, up to [LAST_RETRY]; the folders open again
      * once the row is gone. Any journal row whose files and rows disagree is held this way: an organize's, and an
@@ -154,6 +172,7 @@ class LocalOrganizer(
         repair: suspend (LocalFileJournalPlan) -> Unit,
     ) {
         locks.block(type, folders)
+        holding[id] = type to folders
         if (!retrying.add(id)) return
         scope.launch {
             try {
@@ -172,6 +191,7 @@ class LocalOrganizer(
                     if (resolved) break
                     wait = (wait * 2).coerceAtMost(LAST_RETRY)
                 }
+                holding -= id
                 locks.unblock(type, folders)
             } finally {
                 retrying -= id

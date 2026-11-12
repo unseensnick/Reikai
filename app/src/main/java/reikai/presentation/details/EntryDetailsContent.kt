@@ -195,11 +195,17 @@ fun EntryDetailsContent(
     val missing =
         remember(missingFolders, volumes) { missingVolumes(type, missingFolders, structural?.chips.orEmpty()) }
     var fixing by remember { mutableStateOf<MissingVolume?>(null) }
+    // A refresh is what meets the refusal, so it is asked again after each one.
+    val waitsForRepair by produceState(false, state.entryId, ownLocal, state.isRefreshing) {
+        value = ownLocal && behavior.volumePicking.waitsForRepair(state.entryId)
+    }
+    var forgetting by remember { mutableStateOf(false) }
     val extras = ChapterListExtras(
         copies = copies,
         volumes = volumes,
         missing = missing,
         onFixMissing = { fixing = it },
+        onForgetUnfinished = { forgetting = true }.takeIf { waitsForRepair },
         shownChapterIds = shownChapterIds,
         // A picked volume hides the others' rows, so a selection among them would act out of sight.
         onPickVolume = {
@@ -374,6 +380,18 @@ fun EntryDetailsContent(
             },
         )
     }
+    if (forgetting) {
+        ForgetUnfinishedDialog(
+            onDismissRequest = { forgetting = false },
+            onConfirm = {
+                forgetting = false
+                scope.launch {
+                    behavior.volumePicking.forgetUnfinished(state.entryId)
+                    behavior.refresh()
+                }
+            },
+        )
+    }
     deletingVolumes?.let { keys ->
         DeleteVolumesDialog(
             volumes = (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }.filter {
@@ -415,6 +433,8 @@ private data class ChapterListExtras(
     // Folders of the series' group gone from the local folder, each tapped to link or take out.
     val missing: List<MissingVolume>,
     val onFixMissing: (MissingVolume) -> Unit,
+    // Set while the series waits on an organize no retry resolves, which the user may forget.
+    val onForgetUnfinished: (() -> Unit)?,
 )
 
 /** Where the details chrome sits (the scroll actions, the Start/Resume button), and whether the description shows images. */
@@ -502,6 +522,7 @@ private fun EntryDetailsSmallContent(
         state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = true) }
         state.capabilities.mangaPagePreviews?.let { pagePreviewsItem(it, nav) }
         chapterHeaderItem(state, nav, extras.copies)
+        unfinishedOrganizeItem(extras.onForgetUnfinished)
         missingVolumesItem(extras.missing, extras.onFixMissing)
         extras.volumes?.let {
             volumeChipsItem(
@@ -577,6 +598,7 @@ private fun EntryDetailsLargeContent(
             state.capabilities.mangaRelatedCarousel?.let { relatedCarouselItem(it, nav, topDivider = false) }
             if (state.isMerged) mergeSourceChipsItem(state, behavior)
             chapterHeaderItem(state, nav, extras.copies)
+            unfinishedOrganizeItem(extras.onForgetUnfinished)
             missingVolumesItem(extras.missing, extras.onFixMissing)
             extras.volumes?.let {
                 volumeChipsItem(

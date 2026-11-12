@@ -91,6 +91,10 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
         folders.forEach { blocked += type to it.lowercase() }
     }
 
+    /** Whether any folder of [folders]' groups is refused ([block]). */
+    suspend fun isBlocked(type: ContentType, folders: Collection<String>): Boolean =
+        keysOf(type, folders).any { it in blocked }
+
     /** Lets [folders] be held again, once the organize that blocked them has been finished or put back. */
     fun unblock(type: ContentType, folders: Collection<String>) {
         folders.forEach { blocked -= type to it.lowercase() }

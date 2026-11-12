@@ -262,6 +262,14 @@ class CombineLocalVolumes(
         }
     }
 
+    /** Whether [series]' group waits on an organize or an import Replace that could neither finish nor be put back. */
+    suspend fun waitsForRepair(type: ContentType, series: CombinableSeries): Boolean =
+        seriesLocks.isBlocked(type, listOf(series.folder))
+
+    /** Forgets what [series]' group waits on ([waitsForRepair]), leaving every file where it is. */
+    suspend fun forgetUnfinished(type: ContentType, series: CombinableSeries) =
+        organizer.forget(type, LocalGroups(localVolumes.all(type)).closure(listOf(series.folder)))
+
     /** Takes [series]' volumes [volumeKeys] out into one series of their own named [title], in the library. */
     suspend fun splitOut(
         type: ContentType,

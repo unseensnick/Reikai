@@ -1082,6 +1082,37 @@ class LocalMovesUnderLockTest {
             listOf(true, true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
+    /** Storage that keeps refusing the put back, so no retry resolves the row: only the user can let it go. */
+    @Test
+    fun `forgetting an unfinished organize lets the series list again and moves no file`() = runTest {
+        combined()
+        var failing = false
+        FakeSafProvider.onCall = { call, _ ->
+            if (call == "moveDocument") {
+                failing = true
+                error("move failed")
+            }
+            if (failing && call == "renameDocument") error("rename failed")
+        }
+        organized()
+        val stuck = files()
+        val waitedBefore = combine.waitsForRepair(ContentType.MANGA, series(KEPT))
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.forgetUnfinished(ContentType.MANGA, series(KEPT)) }
+        }
+        val listed = refresh(series(KEPT).toManga(), fetchChapters = true).isSuccess
+
+        listOf(
+            waitedBefore,
+            combine.waitsForRepair(ContentType.MANGA, series(KEPT)),
+            listed,
+            journalRows(),
+            files() == stuck,
+        )
+            .shouldBe(listOf(true, false, true, 0L, true))
+    }
+
     @Test
     fun `a blocked organize's retry outlives a journal read that fails`() = runTest {
         markRead("Other/Vol 1/Ch 1")

@@ -57,6 +57,8 @@ class LocalImportTest(private val type: ContentType) {
     private val journal = InMemoryLocalFileJournal()
     private var owners = emptyList<VolumeOwner>()
     private val seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
+    private val organizer =
+        LocalOrganizer(context, journal, mockk(), seriesLocks, CoroutineScope(Dispatchers.Unconfined))
 
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
@@ -83,7 +85,7 @@ class LocalImportTest(private val type: ContentType) {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
         },
         seriesLocks = seriesLocks,
-        organizer = LocalOrganizer(context, journal, mockk(), seriesLocks, CoroutineScope(Dispatchers.Unconfined)),
+        organizer = organizer,
         owners = object : LocalVolumeOwnerRepository {
             override suspend fun all(type: ContentType) = owners
         },
@@ -271,6 +273,31 @@ class LocalImportTest(private val type: ContentType) {
 
         runCatching { seriesLocks.withSeries(type, "Foo") {} }.exceptionOrNull() should
             beInstanceOf<LocalSeriesBlockedException>()
+    }
+
+    /** The user's way out when no retry can mend the row: the files stay as the failed Replace left them. */
+    @Test
+    fun `forgetting a stranded replace lets the series be held again and moves no file`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+        FakeSafProvider.onCall = { call, target -> if (call == "renameDocument" && target.name == "old") error("no") }
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+        val stranded = File(root, "Foo").list()!!.sorted()
+
+        organizer.forget(type, listOf("Foo"))
+        FakeSafProvider.onCall = null
+
+        Triple(
+            runCatching {
+                seriesLocks.withSeries(type, "Foo") {}
+            }.isSuccess,
+            journal.all(),
+            File(root, "Foo").list()!!.sorted(),
+        )
+            .shouldBe(Triple(true, emptyList(), stranded))
     }
 
     /** A kill mid-copy must not leave a cut-off book under a name the series lists. */
