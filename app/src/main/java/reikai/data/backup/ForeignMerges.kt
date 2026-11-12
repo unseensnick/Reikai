@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.models.customInfo
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoBuf
 import kotlinx.serialization.protobuf.ProtoNumber
+import reikai.domain.backup.KitsuBackupScoreScale
 
 /** The source TachiyomiSY and Komikku give a merged entry; Reikai has no such source. */
 const val FOREIGN_MERGED_SOURCE_ID = 6969L
@@ -50,6 +51,9 @@ class ForeignMerge private constructor(private val row: BackupForeignMergeRow, p
 
     private fun isInfo(ref: BackupForeignMergedEntry): Boolean = ref.isInfoManga ||
         row.settings?.let { it.infoMangaSourceId == ref.mangaSourceId && it.infoMangaUrl == ref.mangaUrl } == true
+
+    /** Its tracks on the file's Kitsu scale, which pass 1 decides only after it has decoded this entry. */
+    fun rescaleKitsu(scale: KitsuBackupScoreScale): ForeignMerge = apply { entry.rescaleKitsu(scale) }
 
     /** Puts [member] in the library the way the merged entry was, and gives the Primary its own data. */
     fun applyTo(member: BackupManga, isPrimary: Boolean) {

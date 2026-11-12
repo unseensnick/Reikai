@@ -43,11 +43,33 @@ suspend fun restoreEncoded(
     trusted: ApprovedRepos = ApprovedRepos(),
     combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
     novelFonts: NovelFontManager = mockk(relaxed = true),
+) = restoreFile(
+    ProtoBuf.encodeToByteArray(Backup.serializer(), backup), options, categoriesRestorer, mangaRestorer,
+    novelRestorer, sourceManager, stubSourceRepository, novelSourceManager, alignGroupCategories, manualOrder,
+    restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts,
+)
+
+/** Runs the real [BackupRestorer] over the backup file [file], as another app may have written it. */
+suspend fun restoreFile(
+    file: ByteArray,
+    options: RestoreOptions,
+    categoriesRestorer: CategoriesRestorer = mockk(relaxed = true),
+    mangaRestorer: MangaRestorer = mockk(relaxed = true),
+    novelRestorer: NovelRestorer = mockk(relaxed = true),
+    sourceManager: SourceManager = mockk(relaxed = true),
+    stubSourceRepository: StubSourceRepository = mockk(relaxed = true),
+    novelSourceManager: NovelSourceManager = mockk(relaxed = true),
+    alignGroupCategories: AlignGroupCategories = mockk(relaxed = true),
+    manualOrder: LibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
+    restoreExtensionInstaller: RestoreExtensionInstaller = mockk(relaxed = true),
+    trusted: ApprovedRepos = ApprovedRepos(),
+    combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
+    novelFonts: NovelFontManager = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
         every { contentResolver.openInputStream(uri) } answers {
-            ProtoBuf.encodeToByteArray(Backup.serializer(), backup).inputStream()
+            file.inputStream()
         }
     }
     BackupRestorer(

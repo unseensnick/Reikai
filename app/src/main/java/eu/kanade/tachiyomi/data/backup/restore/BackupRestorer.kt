@@ -342,6 +342,9 @@ class BackupRestorer(
             }
         }
 
+        // 38.sqm moved Kitsu to the native scale before either of the other two markers was written.
+        val kitsuScoreScale =
+            KitsuBackupScoreScale.of(kitsuNativeScale || sortOverridesStored || mergeGroupsStored, trackScores)
         return BackupSummary(
             mangaCount = mangaCount,
             novelCount = novelCount,
@@ -363,14 +366,10 @@ class BackupRestorer(
                 backupExtensions.isNotEmpty() || backupMangaMerges.isNotEmpty() || backupNovelMerges.isNotEmpty() ||
                 backupMangaUnmerges.isNotEmpty() || backupNovelUnmerges.isNotEmpty(),
             novelDisplayBitStored = sortOverridesStored || novelSourceNames.isNotEmpty(),
-            // 38.sqm moved Kitsu to the native scale before either of the other two markers was written.
-            kitsuScoreScale = KitsuBackupScoreScale.of(
-                kitsuNativeScale || sortOverridesStored || mergeGroupsStored,
-                trackScores,
-            ),
+            kitsuScoreScale = kitsuScoreScale,
             backupMangaUnmerges = backupMangaUnmerges,
             backupNovelUnmerges = backupNovelUnmerges,
-            foreignMerges = ForeignMerges(foreignMerges),
+            foreignMerges = ForeignMerges(foreignMerges.map { it.rescaleKitsu(kitsuScoreScale) }),
         )
     }
 

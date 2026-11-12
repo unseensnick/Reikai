@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
+import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -29,7 +30,12 @@ class ForeignMergeRestoreTest {
 
     private val proto = ProtoBuf
 
-    private fun mergedRow(layout: Layout, favorite: Boolean = true, infoMarked: Boolean = true): ByteArray {
+    private fun mergedRow(
+        layout: Layout,
+        favorite: Boolean = true,
+        infoMarked: Boolean = true,
+        tracking: List<BackupTracking> = listOf(BackupTracking(syncId = 2, libraryId = 0)),
+    ): ByteArray {
         val self = Triple(MERGED_URL, FOREIGN_MERGED_SOURCE_ID, -1)
         // Listed info, self, other, with the info entry ranked last: only its mark puts it first, and
         // without one only the priority sort and the self filter put the other member first.
@@ -39,7 +45,7 @@ class ForeignMergeRestoreTest {
                 SyManga.serializer(),
                 SyManga(
                     source = FOREIGN_MERGED_SOURCE_ID, url = MERGED_URL, title = TITLE, dateAdded = DATE_ADDED,
-                    categories = listOf(1L), tracking = listOf(BackupTracking(syncId = 2, libraryId = 0)),
+                    categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
                     mergedEntries = members.map { (url, source, priority) -> SyMergedEntry(priority, url, source) },
                     mergeSettings = SyMergeSettings(INFO_URL, INFO_SOURCE).takeIf { infoMarked },
@@ -49,7 +55,7 @@ class ForeignMergeRestoreTest {
                 KomikkuManga.serializer(),
                 KomikkuManga(
                     source = FOREIGN_MERGED_SOURCE_ID, url = MERGED_URL, title = TITLE, dateAdded = DATE_ADDED,
-                    categories = listOf(1L), tracking = listOf(BackupTracking(syncId = 2, libraryId = 0)),
+                    categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
                     mergedMangaReferences = members.map { (url, source, priority) ->
                         KomikkuMergedRef(infoMarked && url == INFO_URL, priority, MERGED_URL, url, source)
@@ -77,13 +83,14 @@ class ForeignMergeRestoreTest {
 
     private fun merges(rows: List<ByteArray>) = ForeignMerges(rows.mapNotNull { ForeignMerge.of(proto, it) })
 
+    // Through the real restore, as the fork wrote the file: its rows are the backup's field 1, and nothing else.
     private suspend fun <T> restored(rows: List<ByteArray>, read: suspend MangaRestoreHarness.() -> T): T =
         MangaRestoreHarness.create().use { harness ->
-            val merges = merges(rows)
-            val mangas = rows.map { merges.applyTo(proto.decodeFromByteArray(BackupManga.serializer(), it)) }
-            val restorer = harness.restorer(mergeGroups = MergeGroupRepositoryImpl(harness.database))
-            restorer.restore(mangas.filterNot { it.isForeignMergedRow }, emptyList())
-            restorer.restoreMerges(emptyList(), prefEra = null, ranked = merges.groups)
+            restoreFile(
+                proto.encodeToByteArray(ForkBackup.serializer(), ForkBackup(rows)),
+                RestoreOptions(appSettings = false, sourceSettings = false),
+                mangaRestorer = harness.restorer(mergeGroups = MergeGroupRepositoryImpl(harness.database)),
+            )
             harness.read()
         }
 
@@ -125,6 +132,22 @@ class ForeignMergeRestoreTest {
         restored(rows(layout)) {
             tracks.getTracksByMangaId(idOf(INFO_URL, INFO_SOURCE)!!).map { it.trackerId }
         } shouldBe listOf(2L)
+    }
+
+    // A fork's file carries none of the native-scale markers, so a Kitsu score of 10 or less is doubled.
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `a Kitsu track the Primary takes is rescaled like every other`(layout: Layout) = runTest {
+        val kitsu = listOf(BackupTracking(syncId = 3, libraryId = 0, score = 4f))
+        val rows =
+            listOf(
+                mergedRow(layout, tracking = kitsu),
+                memberRow(OTHER_URL, OTHER_SOURCE),
+                memberRow(INFO_URL, INFO_SOURCE),
+            )
+
+        restored(rows) { tracks.getTracksByMangaId(idOf(INFO_URL, INFO_SOURCE)!!).map { it.score } } shouldBe
+            listOf(8.0)
     }
 
     @ParameterizedTest
@@ -202,6 +225,9 @@ class ForeignMergeRestoreTest {
 }
 
 // The forks' own BackupManga shapes, on their field numbers, so the bytes are what they write.
+
+@Serializable
+private class ForkBackup(@ProtoNumber(1) val manga: List<ByteArray>)
 
 @Serializable
 private class SyMergedEntry(
