@@ -205,6 +205,7 @@ class NovelWebDocumentTest {
         snippetCss: String = "",
     ): String = NovelWebDocument.build(
         context = instrumentation.targetContext,
+        uiPreferences = instrumentation.targetContext.appGraph.uiPreferences,
         chapterId = CHAPTER_ID,
         documentToken = DOCUMENT_TOKEN,
         chapterHtml = chapterHtml,

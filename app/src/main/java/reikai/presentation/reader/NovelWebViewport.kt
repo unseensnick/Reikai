@@ -35,6 +35,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import mihon.app.di.appGraph
 import org.json.JSONArray
 import org.json.JSONObject
 import reikai.data.coil.fetchNovelImage
@@ -475,6 +476,7 @@ class NovelWebViewport(
         val html = withContext(Dispatchers.Default) {
             NovelWebDocument.build(
                 context = context,
+                uiPreferences = context.appGraph.uiPreferences,
                 chapterId = chapter.chapterId,
                 documentToken = token,
                 chapterHtml = webImages.rewrite(chapter.html, chapter.baseUrl, chapter.sourceId),

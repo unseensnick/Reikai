@@ -7,6 +7,7 @@ import android.webkit.WebViewClient
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
+import mihon.app.di.appGraph
 import org.junit.After
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -449,6 +450,7 @@ class WebViewSeamPositionTest {
         load(
             NovelWebDocument.build(
                 context = instrumentation.targetContext,
+                uiPreferences = instrumentation.targetContext.appGraph.uiPreferences,
                 chapterId = 1L,
                 documentToken = "seam-test",
                 chapterHtml = chapterBody(marker = true),

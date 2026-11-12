@@ -1,6 +1,7 @@
 package eu.kanade.presentation.theme
 
 import android.content.Context
+import android.content.res.Configuration
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialExpressiveTheme
@@ -12,6 +13,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
 import com.materialkolor.DynamicMaterialExpressiveTheme
+import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.AppTheme
 import eu.kanade.presentation.theme.colorscheme.BaseColorScheme
 import eu.kanade.presentation.theme.colorscheme.CatppuccinColorScheme
@@ -99,7 +101,12 @@ private fun BaseTachiyomiTheme(
 ) {
     val context = LocalContext.current
     val isDark = isSystemInDarkTheme()
-    val isPreview = LocalInspectionMode.current // RK
+    // RK --> only Custom reads the graph, which a preview and a test without the app do not have
+    val isPreview = LocalInspectionMode.current
+    val uiPreferences = remember(appTheme, isPreview) {
+        if (appTheme == AppTheme.CUSTOM && !isPreview) context.appGraph.uiPreferences else null
+    }
+    // RK <--
     MaterialExpressiveTheme(
         colorScheme = remember(appTheme, isDark, isAmoled) {
             getThemeColorScheme(
@@ -107,7 +114,7 @@ private fun BaseTachiyomiTheme(
                 appTheme = appTheme,
                 isDark = isDark,
                 isAmoled = isAmoled,
-                isPreview = isPreview, // RK
+                uiPreferences = uiPreferences, // RK
             )
         },
         content = content,
@@ -119,13 +126,12 @@ private fun getThemeColorScheme(
     appTheme: AppTheme,
     isDark: Boolean,
     isAmoled: Boolean,
-    isPreview: Boolean, // RK
+    uiPreferences: UiPreferences?, // RK: null in a preview, which has no graph
 ): ColorScheme {
     val colorScheme = if (appTheme == AppTheme.MONET) {
         MonetColorScheme(context)
-        // RK --> Custom is generated from the user's seed; a preview has no graph to read it from
-    } else if (appTheme == AppTheme.CUSTOM && !isPreview) {
-        val uiPreferences = context.appGraph.uiPreferences
+        // RK --> Custom is generated from the user's seed
+    } else if (appTheme == AppTheme.CUSTOM && uiPreferences != null) {
         CustomColorScheme(Color(uiPreferences.customThemeSeed.get()), uiPreferences.customThemeStyle.get())
         // RK <--
     } else {
@@ -137,6 +143,18 @@ private fun getThemeColorScheme(
         overrideDarkSurfaceContainers = appTheme != AppTheme.MONET,
     )
 }
+
+// RK --> the app theme's scheme outside composition, for a View that must draw what Compose draws (the novel
+// WebView reader's chrome); night is read off the configuration, as isSystemInDarkTheme does
+fun appColorScheme(context: Context, uiPreferences: UiPreferences): ColorScheme = getThemeColorScheme(
+    context = context,
+    appTheme = uiPreferences.appTheme.get(),
+    isDark = (context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK) ==
+        Configuration.UI_MODE_NIGHT_YES,
+    isAmoled = uiPreferences.themeDarkAmoled.get(),
+    uiPreferences = uiPreferences,
+)
+// RK <--
 
 private val colorSchemes: Map<AppTheme, BaseColorScheme> = mapOf(
     AppTheme.DEFAULT to TachiyomiColorScheme,

@@ -2,8 +2,10 @@ package reikai.presentation.reader.web
 
 import android.content.Context
 import android.view.ViewConfiguration
-import com.google.android.material.color.MaterialColors
+import androidx.compose.ui.graphics.toArgb
 import dev.icerock.moko.resources.StringResource
+import eu.kanade.domain.ui.UiPreferences
+import eu.kanade.presentation.theme.appColorScheme
 import org.json.JSONObject
 import reikai.presentation.components.toHexRgb
 import reikai.presentation.reader.NovelReaderSettings
@@ -31,6 +33,8 @@ object NovelWebDocument {
 
     fun build(
         context: Context,
+        /** The app theme, whose scheme the page's own markers are drawn in. */
+        uiPreferences: UiPreferences,
         chapterId: Long,
         /** Echoed by the page's ready report, so only this document's engine can open the host's gate. */
         documentToken: String,
@@ -104,7 +108,7 @@ object NovelWebDocument {
             appendLine("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1, maximum-scale=1\">")
             appendLine("<style id=\"rk-font-face\">${fontFace(settings.fontFamily, fontSource)}</style>")
             appendLine("<style>")
-            appendLine(":root { ${variables(settings, statusBarHeightPx)} ${chromeVariables(context)} }")
+            appendLine(":root { ${variables(settings, statusBarHeightPx)} ${chromeVariables(context, uiPreferences)} }")
             appendLine(css)
             appendLine(overrides(useOriginalFonts, sourceCssPriority))
             appendLine(if (textSelectable) "" else "body { -webkit-user-select: none; user-select: none; }")
@@ -161,24 +165,14 @@ object NovelWebDocument {
      * seam view), written once; the error and primary colours are the app theme's, as the text
      * renderer's gap warning and no-next notice draw their icons in them.
      */
-    private fun chromeVariables(context: Context): String = buildString {
+    internal fun chromeVariables(context: Context, uiPreferences: UiPreferences): String = buildString {
         append("--rk-seam-padding-vertical:").append(NovelChapterSeamView.PADDING_VERTICAL_DP).append("px;")
         append("--rk-seam-padding-horizontal:").append(NovelChapterSeamView.PADDING_HORIZONTAL_DP).append("px;")
-        // Both attrs are read off appcompat rather than material: material 1.14.0 stopped declaring
-        // colorError and colorPrimary in its own R, keeping only the ones it owns (colorOnBackground).
-        val error = MaterialColors.getColor(context, androidx.appcompat.R.attr.colorError, FALLBACK_ERROR)
-        append("--rk-error:").append(error.toHexRgb()).append(';')
-        val primary = MaterialColors.getColor(
-            context,
-            androidx.appcompat.R.attr.colorPrimary,
-            FALLBACK_PRIMARY,
-        )
-        append("--rk-primary:").append(primary.toHexRgb()).append(';')
+        // Off the Compose scheme, not the View theme: Custom exists only in Compose, its View theme the default.
+        val colors = appColorScheme(context, uiPreferences)
+        append("--rk-error:").append(colors.error.toArgb().toHexRgb()).append(';')
+        append("--rk-primary:").append(colors.primary.toArgb().toHexRgb()).append(';')
     }
-
-    /** Material's baseline error red and primary purple, for a context whose theme names neither. */
-    private const val FALLBACK_ERROR = 0xFFB3261E.toInt()
-    private const val FALLBACK_PRIMARY = 0xFF6750A4.toInt()
 
     /**
      * How the reader's display settings hold their ground against a chapter's own CSS, which wins a tie
