@@ -58,4 +58,16 @@ class OrganizedUrlTest {
         ) shouldBe
             LocalNovelSource.chapterPath("Saga", "Saga - 2.epub", key)
     }
+
+    /** A relink and a group member's relink both rename a loose book by this rule, its one volume with it. */
+    @Test
+    fun `a renamed loose book's chapters take the new book name as their volume too`() {
+        val key = EpubChapterKey("ch1.xhtml")
+        val url = LocalNovelSource.chapterPath("Saga.epub", "Saga.epub", key)
+
+        val rules = looseBookRules(ContentType.NOVELS, "Saga.epub", "Saga 2.epub")
+
+        organizedUrl(ContentType.NOVELS, url, rules, "Saga.epub", "Saga 2.epub") shouldBe
+            LocalNovelSource.chapterPath("Saga 2.epub", "Saga 2.epub", key)
+    }
 }

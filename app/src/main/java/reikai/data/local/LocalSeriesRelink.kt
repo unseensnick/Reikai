@@ -6,7 +6,6 @@ import dev.zacsweers.metro.Inject
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
-import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
@@ -166,7 +165,7 @@ class LocalSeriesRelink(
                 if (folder != member) return@mapNotNull null
                 key to localGroupKey(series, to, if (book && volume == member) to else volume)
             }.toMap()
-            val rules = if (book) listOf(UrlRule(member, member, to, to)) else emptyList()
+            val rules = looseBookRules(type, member, to)
             chapterMoves.relinkMember(type, SeriesRename(id, series, series, keys), member, to) {
                 organizedUrl(type, it, rules, member, to)
             }

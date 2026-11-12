@@ -279,6 +279,10 @@ internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, 
     }
 }
 
+/** A loose book's one volume is the book itself, so it takes the new name along with its folder. */
+internal fun looseBookRules(type: ContentType, from: String, to: String): List<UrlRule> =
+    if (isLooseBook(type, from)) listOf(UrlRule(from, from, to, to)) else emptyList()
+
 /**
  * Whether a file left in a series folder is only its cover or details: the local source writes a ComicInfo.xml
  * into a series folder when it reads one from an archive, and a relist writes a cover.
