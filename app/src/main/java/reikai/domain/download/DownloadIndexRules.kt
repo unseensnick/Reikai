@@ -22,8 +22,9 @@ object DownloadIndexRules {
     }
 
     /**
-     * A half-written chapter, which both downloaders mark with the same suffix, is never counted, nor is a
-     * chapter folder a merge copied on and set aside, which would read as a second download of its chapter.
+     * A half-written chapter is never counted, nor is a chapter folder a merge copied on and set aside, which would
+     * read as a second download of its chapter. The manga downloader marks a file in flight with upstream's
+     * suffix, the novel writer and the merge with the storage gateway's; DownloadIndexRulesTest holds them equal.
      */
     fun isIndexed(name: String): Boolean = !name.endsWith(Downloader.TMP_DIR_SUFFIX) && !name.startsWith(PARKED_PREFIX)
 }

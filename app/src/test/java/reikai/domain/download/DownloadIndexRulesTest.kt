@@ -1,10 +1,12 @@
 package reikai.domain.download
 
+import eu.kanade.tachiyomi.data.download.Downloader
 import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.ValueSource
+import reikai.storage.IN_FLIGHT_SUFFIX
 import kotlin.time.Duration.Companion.hours
 
 /** The rules both download indexes share, the manga cache and the novel one. */
@@ -51,6 +53,16 @@ class DownloadIndexRulesTest {
     @DisplayName("a chapter folder a move set aside is not counted as a second download")
     fun parkedChapterIsSkipped() {
         DownloadIndexRules.isIndexed(".moved-Chapter 1_a1b2c3") shouldBe false
+    }
+
+    /**
+     * The manga downloader writes upstream's suffix and the novel writer and the merge write the gateway's, while
+     * [DownloadIndexRules.isIndexed] reads one: the two must stay one string, or a half-written file reads as done.
+     */
+    @Test
+    @DisplayName("every writer marks a file in flight with the suffix the indexes skip")
+    fun inFlightSuffixesAgree() {
+        IN_FLIGHT_SUFFIX shouldBe Downloader.TMP_DIR_SUFFIX
     }
 
     @Test
