@@ -9,8 +9,8 @@ import reikai.domain.library.ContentType
  * ONE snapshot of local membership so the result cannot depend on write order.
  *
  * The backup is authoritative for the entries it names; local members it does not name keep their own
- * group while two or more remain. Order and the ranking flag come from the surviving local group,
- * since the backup format carries neither. Rules: docs/dev/subsystems/merged-series.md.
+ * group while two or more remain. Order and the ranking flag come from the surviving local group, except
+ * for another app's merges, which arrive ranked. Rules: docs/dev/subsystems/merged-series.md.
  */
 @Inject
 class RestoreMergeGroups(
@@ -21,39 +21,51 @@ class RestoreMergeGroups(
     /**
      * Restore a backup's groups from their refs, each resolved to a local id through [resolve]. [prefEra]
      * is null for a backup that stores every group; a 0.3.x one never wrote its same-title groups, so
-     * they are rebuilt here by the upgrade migration's rule.
+     * they are rebuilt here by the upgrade migration's rule. [ranked] groups are another app's merges.
      */
     suspend fun <R> fromBackup(
         contentType: ContentType,
         groups: List<List<R>>,
         prefEra: PrefEraGrouping<R>?,
+        ranked: List<List<R>> = emptyList(),
         resolve: suspend (R) -> Long?,
     ) {
         val manual = groups.map { refs -> refs.mapNotNull { resolve(it) } }
-        if (prefEra == null) return invoke(contentType, manual)
+        val rankedIds = ranked.map { refs -> refs.mapNotNull { resolve(it) } }
+        if (prefEra == null) return invoke(contentType, manual, rankedIds)
         val candidates = prefEra.favorites.mapNotNull { favorite ->
             resolve(favorite.ref)?.let { MergeGroupReconstruction.Candidate(it, favorite.title, favorite.author) }
         }
         val unmerges = prefEra.unmerges.map { refs -> refs.mapNotNull { resolve(it) } }
-        invoke(contentType, MergeGroupReconstruction.reconstruct(candidates, manual, unmerges, prefEra.switches))
+        invoke(
+            contentType,
+            MergeGroupReconstruction.reconstruct(candidates, manual, unmerges, prefEra.switches),
+            rankedIds,
+        )
     }
 
     /**
      * [groups] is one list of already-resolved local ids per backed-up group, in ref order. Groups
      * with fewer than two resolvable members are dropped by the caller or here; either way they
-     * cannot form a group.
+     * cannot form a group. A [ranked] group keeps its own order as the user's, and claims its members
+     * before [groups] do, so a same-title group rebuilt beside it cannot split it.
      */
-    suspend operator fun invoke(contentType: ContentType, groups: List<List<Long>>) {
-        if (groups.isEmpty()) return
+    suspend operator fun invoke(
+        contentType: ContentType,
+        groups: List<List<Long>>,
+        ranked: List<List<Long>> = emptyList(),
+    ) {
+        val tagged = ranked.map { it to true } + groups.map { it to false }
+        if (tagged.isEmpty()) return
         val memberships = repository.getAllMemberships(contentType)
 
         // First backup group to name an entry keeps it: an entry can only be in one group, and
         // deciding that here rather than letting the writes fight means the result does not depend
         // on which order they happen to run in.
         val claimed = HashSet<Long>()
-        val restored = groups.mapNotNull { group ->
+        val restored = tagged.mapNotNull { (group, isRanked) ->
             val ids = group.distinct().filterNot { it in claimed }
-            ids.takeIf { it.size >= 2 }?.also { claimed += it }
+            ids.takeIf { it.size >= 2 }?.also { claimed += it }?.let { it to isRanked }
         }
         if (restored.isEmpty()) return
 
@@ -77,7 +89,8 @@ class RestoreMergeGroups(
 
         // Resolved BEFORE anything is written, like the remainders above: the first write deletes the
         // very group rows the rest would read their order and flag from.
-        val plans = restored.map { ids ->
+        val plans = restored.map { (ids, isRanked) ->
+            if (isRanked) return@map ids to true
             val localGroupId = ids.firstNotNullOfOrNull { memberships[it] }
             val localOrder = localGroupId?.let { repository.getMembers(contentType, it) }.orEmpty()
             val local = localOrder.toHashSet()

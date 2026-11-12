@@ -42,9 +42,12 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
+import reikai.data.backup.ForeignMerge
+import reikai.data.backup.ForeignMerges
 import reikai.data.backup.RestoreExtensionInstaller
 import reikai.data.backup.RestoreInstallSources
 import reikai.data.backup.backedUpNovelSources
+import reikai.data.backup.isForeignMergedRow
 import reikai.data.backup.mangaTrackScores
 import reikai.data.backup.novelTrackScores
 import reikai.data.backup.rescaleKitsu
@@ -290,6 +293,7 @@ class BackupRestorer(
         var sortOverridesStored = false
         var kitsuNativeScale = false
         val trackScores = mutableListOf<Pair<Long, Double>>()
+        val foreignMerges = mutableListOf<ForeignMerge>()
         var mangaCount = 0
         var novelCount = 0
 
@@ -298,6 +302,7 @@ class BackupRestorer(
                 BackupFields.MANGA -> {
                     mangaCount++
                     trackScores += parser.mangaTrackScores(data)
+                    ForeignMerge.of(parser, data)?.let { foreignMerges += it }
                 }
                 BackupFields.NOVELS -> {
                     novelCount++
@@ -371,6 +376,7 @@ class BackupRestorer(
             ),
             backupMangaUnmerges = backupMangaUnmerges,
             backupNovelUnmerges = backupNovelUnmerges,
+            foreignMerges = ForeignMerges(foreignMerges),
         )
     }
 
@@ -406,6 +412,8 @@ class BackupRestorer(
         val kitsuScoreScale: KitsuBackupScoreScale,
         val backupMangaUnmerges: List<BackupMangaMergeGroup>,
         val backupNovelUnmerges: List<BackupNovelMergeGroup>,
+        // Another app's merged entries, applied to their members as the stream decodes them.
+        val foreignMerges: ForeignMerges,
     ) {
         /**
          * The pref-era grouping inputs for [contentType], or null when this backup stores every group.
@@ -537,17 +545,18 @@ class BackupRestorer(
             uri,
             fieldNumber = BackupFields.MANGA,
             decode = {
-                legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale).also { manga ->
-                    if (!summary.mergeGroupsStored && manga.favorite) {
-                        favorites += PrefEraGrouping.Favorite(
-                            BackupMangaSourceRef(manga.url, manga.source),
-                            manga.title,
-                            manga.author,
-                        )
+                legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
+                    .let(summary.foreignMerges::applyTo).also { manga ->
+                        if (!summary.mergeGroupsStored && manga.favorite && !manga.isForeignMergedRow) {
+                            favorites += PrefEraGrouping.Favorite(
+                                BackupMangaSourceRef(manga.url, manga.source),
+                                manga.title,
+                                manga.author,
+                            )
+                        }
                     }
-                }
             },
-            restore = { mangaRestorer.restore(listOf(it), backupCategories) },
+            restore = { if (!it.isForeignMergedRow) mangaRestorer.restore(listOf(it), backupCategories) },
             title = { it.title },
             sourceName = { sourceMapping.backedUpSourceName(it.source) },
             isAdult = { adultContentChecker.adultIdsAmong(listOf(it.getMangaImpl())).isNotEmpty() },
@@ -571,6 +580,7 @@ class BackupRestorer(
                     favorites,
                     summary.backupMangaUnmerges.map { it.refs },
                 ),
+                summary.foreignMerges.groups,
             )
             // RK: entries were filed one at a time from the backup, so a group can come back disagreeing
             alignGroupCategories.align(ContentType.MANGA)

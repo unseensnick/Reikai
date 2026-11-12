@@ -67,7 +67,10 @@ With it off, adding a matching series never offers to group it.
 
 ### Restoring a backup from another app
 
-Reikai keeps no merged series from a backup made in another app, so restoring one groups the series in that backup's library that share a title.
+A merged series in a TachiyomiSY or Komikku backup comes back as a merged series, with its sources in the order set there.
+Its categories, tracking, edited details and notes come with it. That app's per-source switches for updates and downloads, and its chapter sorting, do not: every source in a group checks for updates.
+
+Restoring a backup from another app, those two included, also groups the other series in its library that share a title.
 This happens whatever **Suggest merging same-titled series** is set to.
 Titles have to match apart from upper and lower case, so two spellings of one series stay apart until you [merge them yourself](#merging-entries-yourself).
 [Split](#splitting-a-group-up) any group you did not want. A backup made in Reikai restores its groups as they were saved.

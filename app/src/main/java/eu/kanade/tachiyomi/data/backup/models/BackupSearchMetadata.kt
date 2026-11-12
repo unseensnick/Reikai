@@ -30,3 +30,16 @@ data class BackupSearchTitle(
     @ProtoNumber(1) var title: String = "",
     @ProtoNumber(2) var type: Int = 0,
 )
+
+/**
+ * The same metadata as TachiyomiSY and Komikku write it, BackupManga field 601: the tags and titles beside
+ * the metadata rather than inside it. Its fields 1 to 4 are [BackupSearchMetadata]'s own.
+ */
+@Serializable
+class BackupFlatMetadata(
+    @ProtoNumber(1) var searchMetadata: BackupSearchMetadata = BackupSearchMetadata(),
+    @ProtoNumber(2) var searchTags: List<BackupSearchTag> = emptyList(),
+    @ProtoNumber(3) var searchTitles: List<BackupSearchTitle> = emptyList(),
+) {
+    fun toSearchMetadata() = searchMetadata.copy(tags = searchTags, titles = searchTitles)
+}

@@ -81,7 +81,8 @@ class MangaRestorer(
                 tracks = backupManga.tracking.map { it.getTrackImpl() },
                 excludedScanlators = backupManga.excludedScanlators,
                 // RK --> adult gallery metadata and custom info, keyed to the restored id in the repository
-                searchMetadata = backupManga.searchMetadata?.toFlatMetadata(),
+                searchMetadata = (backupManga.searchMetadata ?: backupManga.flatMetadata?.toSearchMetadata())
+                    ?.toFlatMetadata(),
                 customInfo = backupManga.customInfo?.toCustomMangaInfo(mangaId = 0L),
                 chapterNumberOverrides = backedUpOverrides(
                     backupManga.chapters,
@@ -118,13 +119,14 @@ class MangaRestorer(
      * RK: materialize the backup's manga merge groups into the merge_group tables once the manga have
      * been restored (their ids differ from the source device). Members resolve from the backup's stable
      * {url, source} refs; the shared [RestoreMergeGroups] decides the rest. Call this AFTER the manga
-     * loop completes.
+     * loop completes. [ranked] groups, another app's merges, keep their member order as the user's own.
      */
     suspend fun restoreMerges(
         merges: List<BackupMangaMergeGroup>,
         prefEra: PrefEraGrouping<BackupMangaSourceRef>?,
+        ranked: List<List<BackupMangaSourceRef>> = emptyList(),
     ) {
-        restoreMergeGroups.fromBackup(ContentType.MANGA, merges.map { it.refs }, prefEra) {
+        restoreMergeGroups.fromBackup(ContentType.MANGA, merges.map { it.refs }, prefEra, ranked) {
             getMangaByUrlAndSourceId.await(it.url, it.source)?.id
         }
     }

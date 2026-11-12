@@ -242,6 +242,25 @@ class RestoreMergeGroupsTest {
     }
 
     @Test
+    fun `another app's merge keeps its order as the user's ranking`() = runTest {
+        (1L..2L).forEach { insertManga(it) }
+
+        restore(ContentType.MANGA, emptyList(), ranked = listOf(listOf(2, 1)))
+
+        val restored = repository.getGroupId(ContentType.MANGA, 1)!!
+        (groupOf(1) to repository.getGroup(restored)!!.overrideSourceRanking) shouldBe (listOf(2L, 1L) to true)
+    }
+
+    @Test
+    fun `another app's merge claims its members before a same-title group`() = runTest {
+        (1L..3L).forEach { insertManga(it) }
+
+        restore(ContentType.MANGA, listOf(listOf(1, 2, 3)), ranked = listOf(listOf(2, 1)))
+
+        (groupOf(1) to repository.getGroupId(ContentType.MANGA, 3)) shouldBe (listOf(2L, 1L) to null)
+    }
+
+    @Test
     fun `a group with fewer than two resolvable members is not created`() = runTest {
         insertManga(1)
 

@@ -131,7 +131,7 @@ class RestorePrefEraGroupsConformanceTest {
         val titleSwitches = MergeGroupReconstruction.titleSwitches(type, prefs) { pref ->
             switches[pref.key()] ?: pref.defaultValue()
         }
-        restore.fromBackup(type, groups, PrefEraGrouping(favorites, unmerges, titleSwitches), REFS::get)
+        restore.fromBackup(type, groups, PrefEraGrouping(favorites, unmerges, titleSwitches), resolve = REFS::get)
     }
 
     // One shared author by default, so the novels author guard (on by default) is not what splits a pair.
