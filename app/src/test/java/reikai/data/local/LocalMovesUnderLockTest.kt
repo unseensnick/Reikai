@@ -1078,6 +1078,34 @@ class LocalMovesUnderLockTest {
         ((organize.getOrNull()?.result is LocalMoveResult.Failed) to refused) shouldBe (true to true)
     }
 
+    /** A row written before the root is reached would be replayed later, carrying out an organize reported failed. */
+    @Test
+    fun `an organize whose local folder cannot be reached fails with no journal row and no folder refused`() = runTest {
+        combined()
+        val names = combine.organizePlan(
+            ContentType.MANGA,
+            series(KEPT),
+            "Kept",
+            listOf("Vol 1" to "Vol. 1", "Other/Vol 1" to "Vol. 2"),
+        )
+        // The organizer's first look at the root, after the plan has been read whole.
+        var hiccups = 1
+        FakeSafProvider.onCall = { call, target ->
+            val byOrganizer = Thread.currentThread().stackTrace.any {
+                it.className.startsWith(LocalOrganizer::class.qualifiedName!!)
+            }
+            if (call == "queryDocument" && target == local && byOrganizer && hiccups-- > 0) error("the provider died")
+        }
+
+        val move = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.organizeFiles(ContentType.MANGA, series(KEPT), names) }
+        }
+        FakeSafProvider.onCall = null
+        val refused = refresh(series(KEPT).toManga(), fetchChapters = true).isFailure
+
+        listOf(move.result is LocalMoveResult.Failed, journalRows(), refused) shouldBe listOf(true, 0L, false)
+    }
+
     /** Found by the randomized test: a split-out volume the organize's listing missed whole lost its owner row. */
     @Test
     fun `a borrowed volume the organize's listing missed stays with the series that lists it`() = runTest {
