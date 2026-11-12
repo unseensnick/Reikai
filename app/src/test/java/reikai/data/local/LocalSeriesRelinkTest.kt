@@ -361,11 +361,11 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     }
 
     private fun tombstone(owner: Long, url: String) = if (type == ContentType.NOVELS) {
-        "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, last_text_progress, " +
-            "date_fetch, removed_at) VALUES ($owner, '$url', 1.0, 1, 0, 0, 0, 0)"
+        "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, last_text_progress, " +
+            "date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0)"
     } else {
-        "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
-            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1.0, 1, 0, 0, 0, 0, 0)"
+        "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, " +
+            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0, 0)"
     }
 
     private fun tombstoneUrls(owner: Long) = if (type == ContentType.NOVELS) {

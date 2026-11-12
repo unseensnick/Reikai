@@ -15,7 +15,7 @@ import kotlin.time.Instant
 @Serializable
 class BackupChapterTombstone(
     @ProtoNumber(1) var url: String,
-    @ProtoNumber(2) var chapterNumber: Double = 0.0,
+    // 2 held the chapter number, never read back; an older backup's value is skipped. Do not reuse it.
     @ProtoNumber(3) var read: Boolean = false,
     @ProtoNumber(4) var bookmark: Boolean = false,
     @ProtoNumber(5) var progress: Long = 0,
@@ -29,7 +29,6 @@ class BackupChapterTombstone(
 ) {
     fun toChapterTombstone() = ChapterTombstone(
         url = url,
-        number = chapterNumber,
         read = read,
         bookmark = bookmark,
         progress = progress,
@@ -52,7 +51,6 @@ class BackupTombstoneSession(
 // Its history, sessions and listened time go in only with the History option, which carries a live chapter's.
 fun ChapterTombstone.toBackup(withHistory: Boolean) = BackupChapterTombstone(
     url = url,
-    chapterNumber = number,
     read = read,
     bookmark = bookmark,
     progress = progress,

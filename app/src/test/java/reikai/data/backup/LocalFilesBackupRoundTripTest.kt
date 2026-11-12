@@ -160,9 +160,9 @@ class LocalFilesBackupRoundTripTest {
             }
 
             override fun tombstoneStatements(ownerId: Long) = listOf(
-                "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
+                "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, " +
                     "page_count, date_fetch, history_read_at, history_read_duration, removed_at) " +
-                    "VALUES ($ownerId, '$SERIES/vol1/c5.cbz', 5.0, 1, 1, 3, 20, 500, 200, 90, 7)",
+                    "VALUES ($ownerId, '$SERIES/vol1/c5.cbz', 1, 1, 3, 20, 500, 200, 90, 7)",
                 "INSERT INTO manga_chapter_tombstone_session(manga_id, url, ended_at, duration) " +
                     "VALUES ($ownerId, '$SERIES/vol1/c5.cbz', 2000, 40)",
             )
@@ -220,9 +220,9 @@ class LocalFilesBackupRoundTripTest {
             }
 
             override fun tombstoneStatements(ownerId: Long) = listOf(
-                "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, " +
+                "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, " +
                     "last_text_progress, words, listened_ms, date_fetch, history_last_read, history_time_read, " +
-                    "removed_at) VALUES ($ownerId, '$SERIES/book.epub#5', 5.0, 1, 1, 3, 20, 5, 500, 200, 90, 7)",
+                    "removed_at) VALUES ($ownerId, '$SERIES/book.epub#5', 1, 1, 3, 20, 5, 500, 200, 90, 7)",
                 "INSERT INTO novel_chapter_tombstone_session(novel_id, url, ended_at, duration) " +
                     "VALUES ($ownerId, '$SERIES/book.epub#5', 2000, 40)",
             )

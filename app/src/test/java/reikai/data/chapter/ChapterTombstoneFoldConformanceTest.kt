@@ -168,7 +168,6 @@ class ChapterTombstoneFoldConformanceTest {
     ) {
         fun tombstone(type: Type? = null) = ChapterTombstone(
             url = URL,
-            number = 1.0,
             read = read,
             bookmark = bookmark,
             progress = progress,
@@ -214,10 +213,10 @@ class ChapterTombstoneFoldConformanceTest {
 
             override suspend fun seedTombstone(driver: JdbcSqliteDriver, url: String, state: State) = with(state) {
                 driver.exec(
-                    "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, " +
+                    "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, " +
                         "last_page_read, page_count, date_fetch, history_read_at, history_read_duration, removed_at) " +
                         "VALUES " +
-                        "($OWNER, '$url', 1.0, ${read.bit()}, ${bookmark.bit()}, $progress, $length, $dateFetch, " +
+                        "($OWNER, '$url', ${read.bit()}, ${bookmark.bit()}, $progress, $length, $dateFetch, " +
                         "$historyReadAt, $historyDuration, 0)",
                 )
                 sessions.forEach { (at, duration) ->
@@ -292,9 +291,9 @@ class ChapterTombstoneFoldConformanceTest {
 
             override suspend fun seedTombstone(driver: JdbcSqliteDriver, url: String, state: State) = with(state) {
                 driver.exec(
-                    "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, " +
+                    "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, " +
                         "last_text_progress, words, listened_ms, date_fetch, history_last_read, history_time_read, " +
-                        "removed_at) VALUES ($OWNER, '$url', 1.0, ${read.bit()}, ${bookmark.bit()}, $progress, " +
+                        "removed_at) VALUES ($OWNER, '$url', ${read.bit()}, ${bookmark.bit()}, $progress, " +
                         "$length, $listened, $dateFetch, $historyReadAt, $historyDuration, 0)",
                 )
                 sessions.forEach { (at, duration) ->

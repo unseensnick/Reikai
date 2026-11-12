@@ -410,11 +410,11 @@ class LocalChapterMoveRepositoryTest {
         fun tombstone(owner: Long, url: String, read: Int = 0, progress: Int = 0) = if (contentType ==
             ContentType.NOVELS
         ) {
-            "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, last_text_progress, " +
-                "date_fetch, removed_at) VALUES ($owner, '$url', 1.0, $read, 0, $progress, 0, 0)"
+            "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, last_text_progress, " +
+                "date_fetch, removed_at) VALUES ($owner, '$url', $read, 0, $progress, 0, 0)"
         } else {
-            "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
-                "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1.0, $read, 0, $progress, 0, 0, 0)"
+            "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, " +
+                "page_count, date_fetch, removed_at) VALUES ($owner, '$url', $read, 0, $progress, 0, 0, 0)"
         }
 
         fun unreadChapter(id: Long, owner: Long, url: String) = if (contentType == ContentType.NOVELS) {

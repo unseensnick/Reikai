@@ -68,6 +68,15 @@ class ChapterTombstoneBackupTest {
     @AfterEach
     fun tearDown() = driver.close()
 
+    /** Field 2 held the chapter number, which kept states no longer store. */
+    @Test
+    fun `an older backup's kept state that carries a chapter number still reads`() {
+        val older = ProtoBuf.encodeToByteArray(OlderTombstone.serializer(), OlderTombstone("/c5", 5.0, true))
+
+        ProtoBuf.decodeFromByteArray(BackupChapterTombstone.serializer(), older).let { it.url to it.read } shouldBe
+            ("/c5" to true)
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a backup carries a kept state with its history and sessions`(type: Type) = runTest {
@@ -143,7 +152,6 @@ class ChapterTombstoneBackupTest {
         type.seed(driver)
         val corrupt = BackupChapterTombstone(
             url = "/c5",
-            chapterNumber = 5.0,
             sessions = listOf(
                 BackupTombstoneSession(2_000, 40),
                 BackupTombstoneSession(3_000, -1),
@@ -210,9 +218,9 @@ class ChapterTombstoneBackupTest {
                     "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
                     "(1, 1, 'u', 'T', 0, 0, 0, 0, 0, 0, 0, 0, '', '{}')"
             override val tombstoneStatements = listOf(
-                "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
+                "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, " +
                     "page_count, date_fetch, history_read_at, history_read_duration, removed_at) " +
-                    "VALUES (1, '/c5', 5.0, 1, 0, 3, 20, 500, 200, 90, 7)",
+                    "VALUES (1, '/c5', 1, 0, 3, 20, 500, 200, 90, 7)",
                 "INSERT INTO manga_chapter_tombstone_session(manga_id, url, ended_at, duration) " +
                     "VALUES (1, '/c5', 2000, 40)",
             )
@@ -277,10 +285,10 @@ class ChapterTombstoneBackupTest {
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES (1, 'src', 'u', 'T', 0, 0, 0, 0)"
             override val tombstoneStatements = listOf(
-                "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, " +
+                "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, " +
                     "last_text_progress, words, listened_ms, date_fetch, history_last_read, history_time_read, " +
                     "removed_at) " +
-                    "VALUES (1, '/c5', 5.0, 1, 0, 3, 20, 5, 500, 200, 90, 7)",
+                    "VALUES (1, '/c5', 1, 0, 3, 20, 5, 500, 200, 90, 7)",
                 "INSERT INTO novel_chapter_tombstone_session(novel_id, url, ended_at, duration) " +
                     "VALUES (1, '/c5', 2000, 40)",
             )
@@ -400,7 +408,6 @@ class ChapterTombstoneBackupTest {
     companion object {
         private val TOMBSTONE = BackupChapterTombstone(
             url = "/c5",
-            chapterNumber = 5.0,
             read = true,
             progress = 3,
             length = 20,
@@ -412,3 +419,10 @@ class ChapterTombstoneBackupTest {
         )
     }
 }
+
+@Serializable
+private class OlderTombstone(
+    @ProtoNumber(1) val url: String,
+    @ProtoNumber(2) val chapterNumber: Double,
+    @ProtoNumber(3) val read: Boolean,
+)

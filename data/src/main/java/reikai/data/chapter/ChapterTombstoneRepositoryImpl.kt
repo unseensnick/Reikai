@@ -45,7 +45,6 @@ class ChapterTombstoneRepositoryImpl(
             queries.novelOfOwners(ownerIds) {
                     owner,
                     url,
-                    number,
                     read,
                     bookmark,
                     progress,
@@ -57,7 +56,7 @@ class ChapterTombstoneRepositoryImpl(
                     removedAt,
                 ->
                 owner to ChapterTombstone(
-                    url, number, read != 0L, bookmark != 0L, progress, words, listened,
+                    url, read != 0L, bookmark != 0L, progress, words, listened,
                     Instant.fromEpochMilliseconds(fetch), readAt?.let(Instant::fromEpochMilliseconds), time,
                     sessions[owner to url].orEmpty(), removedAt,
                 )
@@ -66,7 +65,6 @@ class ChapterTombstoneRepositoryImpl(
             queries.mangaOfOwners(ownerIds) {
                     owner,
                     url,
-                    number,
                     read,
                     bookmark,
                     page,
@@ -77,7 +75,7 @@ class ChapterTombstoneRepositoryImpl(
                     removedAt,
                 ->
                 owner to ChapterTombstone(
-                    url, number, read != 0L, bookmark != 0L, page, pages, null,
+                    url, read != 0L, bookmark != 0L, page, pages, null,
                     Instant.fromEpochMilliseconds(fetch), readAt?.let(Instant::fromEpochMilliseconds), time,
                     sessions[owner to url].orEmpty(), removedAt,
                 )
@@ -162,13 +160,13 @@ class ChapterTombstoneRepositoryImpl(
         val readAt = historyReadAt?.toEpochMilliseconds()
         if (type == ContentType.NOVELS) {
             queries.foldNovel(
-                ownerId, url, number, read.toLong(), bookmark.toLong(), progress, length, listenedMs, fetch,
+                ownerId, url, read.toLong(), bookmark.toLong(), progress, length, listenedMs, fetch,
                 readAt, historyDuration, removedAt,
             )
             sessions.forEach { queries.foldNovelSession(ownerId, url, it.endedAt, it.duration) }
         } else {
             queries.foldManga(
-                ownerId, url, number, read.toLong(), bookmark.toLong(), progress, length ?: 0L, fetch, readAt,
+                ownerId, url, read.toLong(), bookmark.toLong(), progress, length ?: 0L, fetch, readAt,
                 historyDuration, removedAt,
             )
             sessions.forEach { queries.foldMangaSession(ownerId, url, it.endedAt, it.duration) }

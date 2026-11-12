@@ -1261,8 +1261,8 @@ class LocalMovesUnderLockTest {
         driver.rows("SELECT remote_url FROM chapter WHERE manga_id = $owner ORDER BY remote_url") { it.getString(0)!! }
 
     private suspend fun tombstone(owner: Long, url: String) = driver.exec(
-        "INSERT INTO manga_chapter_tombstone(manga_id, url, chapter_number, read, bookmark, last_page_read, " +
-            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 9.0, 1, 0, 0, 0, 0, 0)",
+        "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, " +
+            "page_count, date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0, 0)",
     )
 
     private suspend fun tombstoneUrls(owner: Long) =

@@ -409,8 +409,8 @@ class LocalNovelVolumesTest {
             .forEach { driver.exec("UPDATE novel_chapters SET read = 1, last_text_progress = 3 WHERE url = '$it'") }
 
     private suspend fun tombstone(owner: Long, url: String) = driver.exec(
-        "INSERT INTO novel_chapter_tombstone(novel_id, url, chapter_number, read, bookmark, last_text_progress, " +
-            "date_fetch, removed_at) VALUES ($owner, '$url', 9.0, 1, 0, 0, 0, 0)",
+        "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, last_text_progress, " +
+            "date_fetch, removed_at) VALUES ($owner, '$url', 1, 0, 0, 0, 0)",
     )
 
     private suspend fun tombstones(owner: Long) =

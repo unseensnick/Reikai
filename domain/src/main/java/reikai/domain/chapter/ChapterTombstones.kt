@@ -23,7 +23,6 @@ data class TombstoneSession(val endedAt: Long, val duration: Long)
  */
 data class ChapterTombstone(
     val url: String,
-    val number: Double,
     val read: Boolean,
     val bookmark: Boolean,
     val progress: Long,
