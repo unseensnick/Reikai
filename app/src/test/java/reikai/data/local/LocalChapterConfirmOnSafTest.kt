@@ -124,6 +124,13 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
         FakeSafProvider.queryCount - before shouldBe 0
     }
 
+    @Test
+    fun `a chapter read out of a container still on disk is kept when the refresh lists nothing of it`() = runTest {
+        type.chapter(root, 1)
+
+        shouldThrow<LocalChapterStillPresentException> { confirm(listOf(type.containedUrl())) }
+    }
+
     companion object {
         @JvmStatic
         @Parameters(name = "{0}")

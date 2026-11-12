@@ -4,8 +4,12 @@ import android.content.Context
 import com.hippo.unifile.UniFile
 import dev.zacsweers.metro.Inject
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localVolumeContainer
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.localChapterFile
+import reikai.source.local.localChapterUnit
+import reikai.source.local.localVolumeChapter
 import reikai.storage.FolderUnreadableException
 import reikai.storage.list
 import tachiyomi.core.common.util.lang.withIOContext
@@ -28,7 +32,7 @@ class LocalChapterFiles(
     fun containerOf(type: ContentType, url: String): String? = when (type) {
         ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)
             ?.let { (series, volume) -> LocalNovelSource.volumePathPrefix(series, volume) }
-        else -> url.takeIf { it.endsWith('/') }
+        else -> url.takeIf { localVolumeChapter(it)?.file?.isEmpty() == true }
     }
 
     /** The names in the type's local folder, from a listing trusted whole; one that cannot be trusted fails the refresh. */
@@ -75,9 +79,14 @@ class LocalChapterFiles(
             localVolumeContainer(type, series, volume) to volume
         }
         else -> {
-            val parts = url.split('/').filter { it.isNotEmpty() }
-            if (parts.isEmpty()) return null
-            parts.dropLast(1) to parts.last()
+            val (folder, volume) = localChapterUnit(url)
+            val file = localChapterFile(url)
+            when {
+                volume == VolumeOwner.LOOSE -> listOf(folder) to file
+                // A volume's Extras chapter is read from the volume folder itself
+                file.isEmpty() -> listOf(folder) to volume
+                else -> listOf(folder, volume) to file
+            }
         }
     }
 }
