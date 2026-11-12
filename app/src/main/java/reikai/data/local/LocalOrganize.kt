@@ -19,7 +19,9 @@ import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeOwner
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.localChapterFile
 import reikai.source.local.localChapterUnit
+import reikai.source.local.localChapterUrl
 import reikai.storage.createNew
 import reikai.storage.listOrNull
 import reikai.storage.moveTo
@@ -263,7 +265,7 @@ internal fun chapterVolumeUnit(type: ContentType, url: String): Pair<String, Str
  */
 internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, from: String, to: String): String {
     val (folder, volume) = chapterVolumeUnit(type, url) ?: return url
-    val file = url.split('/').last()
+    val file = localChapterFile(url)
     val rule = rules.firstOrNull {
         it.fromFolder == folder && it.fromVolume == volume && (it.file == null || it.file == file)
     }
@@ -273,10 +275,7 @@ internal fun organizedUrl(type: ContentType, url: String, rules: List<UrlRule>, 
         ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.let { (_, _, key) ->
             LocalNovelSource.chapterPath(rule.toFolder, rule.toVolume, key)
         } ?: url
-        else -> {
-            val file = url.split('/').last()
-            listOfNotNull(rule.toFolder, rule.toVolume.takeIf { it != VolumeOwner.LOOSE }, file).joinToString("/")
-        }
+        else -> localChapterUrl(rule.toFolder, rule.toVolume, file)
     }
 }
 

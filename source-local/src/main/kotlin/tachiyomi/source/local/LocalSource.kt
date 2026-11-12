@@ -39,6 +39,7 @@ import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localVolumeKey
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
+import reikai.source.local.localChapterUrl
 import reikai.source.local.volumeExtras
 import reikai.storage.listOrNull
 import reikai.storage.localCover
@@ -341,11 +342,11 @@ class LocalSource(
                 val isExtras = chapterFile === volume
                 SChapter.create().apply {
                     // RK --> the folder the file sits in, which is the series' own unless a group lists it
-                    url = if (isExtras) {
-                        "$folder/${volume.name}/"
-                    } else {
-                        listOfNotNull(folder, volume?.name, chapterFile.name).joinToString("/")
-                    }
+                    url = localChapterUrl(
+                        folder,
+                        volume?.name ?: VolumeOwner.LOOSE,
+                        if (isExtras) "" else chapterFile.name.orEmpty(),
+                    )
                     // RK <--
                     name = if (chapterFile.isDirectory) {
                         chapterFile.name

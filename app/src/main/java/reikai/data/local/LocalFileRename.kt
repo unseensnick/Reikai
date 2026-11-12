@@ -3,7 +3,10 @@ package reikai.data.local
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.SeriesRename
+import reikai.domain.local.VolumeOwner
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.localChapterFile
+import reikai.source.local.localChapterUrl
 import reikai.source.local.localVolumeChapter
 import reikai.storage.IN_FLIGHT_SUFFIX
 
@@ -35,7 +38,7 @@ internal fun renamedChapterUrl(
         LocalNovelSource.chapterPath(target, renamed, key)
     } ?: url
     else -> localVolumeChapter(url)?.let { it.copy(series = target, volume = volumeNames[it.volume] ?: it.volume).url }
-        ?: (listOf(target) + url.split('/').drop(1)).joinToString("/")
+        ?: localChapterUrl(target, VolumeOwner.LOOSE, localChapterFile(url))
 }
 
 /** The name a case-only rename goes through, which a kill can leave a folder at. */

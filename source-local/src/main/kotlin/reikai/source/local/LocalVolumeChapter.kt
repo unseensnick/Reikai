@@ -4,8 +4,8 @@ import reikai.domain.local.VolumeOwner
 
 /**
  * A local manga chapter inside a volume folder, whose address is series/volume/file. A volume's Extras chapter
- * is the volume folder itself, so its [file] is empty. Every reader of that address shape goes through
- * [localVolumeChapter], so a change to the layout is made here once.
+ * is the volume folder itself, so its [file] is empty. Every address of that shape is built by [localChapterUrl]
+ * and read by [localVolumeChapter], so a change to the layout is made here once.
  */
 data class LocalVolumeChapter(val series: String, val volume: String, val file: String) {
     val url get() = "$series/$volume/$file"
@@ -17,6 +17,13 @@ data class LocalVolumeChapter(val series: String, val volume: String, val file: 
  */
 fun localChapterUnit(url: String): Pair<String, String> =
     localVolumeChapter(url)?.let { it.series to it.volume } ?: (url.substringBefore('/') to VolumeOwner.LOOSE)
+
+/** The address of chapter [file] in [volume] of folder [series], straight in the folder for [VolumeOwner.LOOSE]. */
+fun localChapterUrl(series: String, volume: String, file: String): String =
+    if (volume == VolumeOwner.LOOSE) "$series/$file" else LocalVolumeChapter(series, volume, file).url
+
+/** The chapter file [url] names, empty for a volume's Extras chapter. */
+fun localChapterFile(url: String): String = localVolumeChapter(url)?.file ?: url.substringAfter('/')
 
 /** [url] as a chapter inside a volume folder, or null for a chapter that sits in the series folder itself. */
 fun localVolumeChapter(url: String): LocalVolumeChapter? =
