@@ -22,6 +22,7 @@ import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import mihon.domain.chapter.interactor.FilterChaptersForDownload
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import reikai.data.local.LocalSeriesRelink
 import reikai.domain.chapter.EditChapterNumber
 import reikai.domain.download.SourceContacts
 import reikai.domain.manga.MangaChapterSettings
@@ -73,6 +74,7 @@ internal fun mangaDetailsModel(
     editChapterNumber: EditChapterNumber = mockk(relaxed = true),
     removeMangaFromLibrary: RemoveMangaFromLibrary = mockk(relaxed = true),
     sourceContacts: SourceContacts = SourceContacts { 0L },
+    localSeriesRelink: LocalSeriesRelink = mockk(),
     beforeModel: () -> Unit = {},
 ): MangaViewModel {
     // Built ahead of the hook: recording a coEvery reads Dispatchers.Default, which undoes a static stub of it
@@ -156,7 +158,7 @@ internal fun mangaDetailsModel(
         editChapterNumber = editChapterNumber,
         chapterSettings = MangaChapterSettings(mangas),
         sourceContacts = sourceContacts,
-        localSeriesRelink = mockk(),
+        localSeriesRelink = localSeriesRelink,
     )
 }
 

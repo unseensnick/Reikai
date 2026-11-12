@@ -784,7 +784,7 @@ class MangaViewModel(
     }
 
     // RK --> links the series to the folder the user picked, on the app scope so a closed page does not cut the
-    // write off, then refreshes it there
+    // write off, then refreshes it there as a pull to refresh does, which reads the row the link wrote
     fun relinkSeries(folder: String) {
         val manga = successState?.manga ?: return
         appScope.launch {
@@ -792,12 +792,7 @@ class MangaViewModel(
                 ContentType.MANGA,
                 manga.id,
                 folder,
-                refresh = {
-                    viewModelScope.launchIO {
-                        val relinked = getMangaAndChapters.awaitManga(manga.id)
-                        fetchAllFromSource(relinked, manualFetch = true, fetchDetails = true, fetchChapters = true)
-                    }
-                },
+                refresh = { fetchAllFromSource() },
                 failed = {
                     viewModelScope.launchIO {
                         snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
