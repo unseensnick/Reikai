@@ -183,8 +183,8 @@ Each refuted finding goes to the one place that keeps it, by why it was refuted:
 Write rows with `pwsh .claude/skills/deep-audit/ledger.ps1 add -Path <rows.json>`, a JSON array of
 `{file, symbol, line, claim, reason, kind, doc, range}` with `file` repo-relative and `symbol` the
 function or class the finding is about (it survives edits a line number does not). The script hashes
-each file and refuses a `design` row without `doc`. **Leave the ledger uncommitted**; committing it is
-the owner's call. `ledger.ps1 prune` drops rows whose file is gone, and `ledger.ps1 render` prints the
+each file and refuses a `design` row without `doc`. **Commit the ledger as soon as a run changes it**, in
+a commit of its own (owner ruling). `ledger.ps1 prune` drops rows whose file is gone, and `ledger.ps1 render` prints the
 whole ledger as a table with each row's status.
 
 ## Rules
