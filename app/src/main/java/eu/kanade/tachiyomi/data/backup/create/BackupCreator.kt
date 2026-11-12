@@ -37,6 +37,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.yield
 import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -168,6 +169,17 @@ class BackupCreator(
                     }
                 }
 
+                // RK: streamed too, since a reader font runs to megabytes
+                if (options.appSettings) {
+                    writeEntries(
+                        out,
+                        gzipOut,
+                        BackupFields.NOVEL_FONTS,
+                        BackupNovelFont.serializer(),
+                        novelFonts.backedUp().map { (name, bytes) -> BackupNovelFont(name, bytes) },
+                    ) {}
+                }
+
                 // Remaining fields are small (no per-entry chapter payload), so they are gathered and
                 // written after the streamed entries. Field order is irrelevant to the decoder.
                 writeEach(out, BackupFields.CATEGORIES, BackupCategory.serializer(), backupCategories(options))
@@ -191,7 +203,6 @@ class BackupCreator(
                     backupExtensionStores(options),
                 )
                 writeEach(out, BackupFields.EXTENSIONS, BackupExtension.serializer(), backupExtensions(options))
-                writeEach(out, BackupFields.NOVEL_FONTS, BackupNovelFont.serializer(), backupNovelFonts(options))
                 writeEach(
                     out,
                     BackupFields.NOVEL_SOURCES,
@@ -364,12 +375,6 @@ class BackupCreator(
         if (!options.extensionStores) return emptyList()
 
         return extensionBackupCreator()
-    }
-
-    // RK: the reader fonts the user added, with the App settings that name them
-    private suspend fun backupNovelFonts(options: BackupOptions): List<BackupNovelFont> {
-        if (!options.appSettings) return emptyList()
-        return novelFonts.backedUp().map { (name, bytes) -> BackupNovelFont(name, bytes) }
     }
 
     private suspend fun backupSourcePreferences(options: BackupOptions): List<BackupSourcePreferences> {

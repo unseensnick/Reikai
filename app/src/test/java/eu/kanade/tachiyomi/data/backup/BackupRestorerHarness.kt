@@ -21,6 +21,7 @@ import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.ReconcileMergedChapters
+import reikai.novel.font.NovelFontManager
 import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.source.repository.StubSourceRepository
@@ -41,6 +42,7 @@ suspend fun restoreEncoded(
     restoreExtensionInstaller: RestoreExtensionInstaller = mockk(relaxed = true),
     trusted: ApprovedRepos = ApprovedRepos(),
     combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
+    novelFonts: NovelFontManager = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -76,7 +78,7 @@ suspend fun restoreEncoded(
         restoreExtensionInstaller = restoreExtensionInstaller,
         restoreInstallSources = mockk(relaxed = true),
         manualOrder = manualOrder,
-        novelFonts = mockk(relaxed = true),
+        novelFonts = novelFonts,
         combineLocalVolumes = combineLocalVolumes,
     ).restore(uri, options, trusted)
 }

@@ -220,13 +220,7 @@ class BackupRestorer(
             }
             // RK: the fonts the restored reader settings name
             if (options.appSettings) {
-                restoreIsolated("reader fonts") {
-                    summary.backupNovelFonts.forEach {
-                        if (!novelFonts.restore(it.fileName, it.bytes)) {
-                            errors.add(Date() to "Font not restored: ${it.fileName}")
-                        }
-                    }
-                }
+                restoreIsolated("reader fonts") { restoreNovelFonts(uri) }
             }
             if (options.libraryEntries) {
                 restoreMangaStream(
@@ -289,7 +283,6 @@ class BackupRestorer(
         val backupCustomNovelInfo = mutableListOf<BackupCustomNovelInfo>()
         val backupSavedSearches = mutableListOf<BackupSavedSearch>()
         val backupFeedRows = mutableListOf<BackupFeedRow>()
-        val backupNovelFonts = mutableListOf<BackupNovelFont>() // RK
         val novelSourceNames = mutableMapOf<String, String>()
         val backupMangaUnmerges = mutableListOf<BackupMangaMergeGroup>()
         val backupNovelUnmerges = mutableListOf<BackupNovelMergeGroup>()
@@ -346,8 +339,6 @@ class BackupRestorer(
                 BackupFields.MERGE_GROUPS_STORED -> mergeGroupsStored = true
                 BackupFields.SORT_OVERRIDES_STORED -> sortOverridesStored = true
                 BackupFields.KITSU_NATIVE_SCALE -> kitsuNativeScale = true
-                BackupFields.NOVEL_FONTS -> // RK
-                    backupNovelFonts.add(parser.decodeFromByteArray(BackupNovelFont.serializer(), data))
             }
         }
 
@@ -365,7 +356,6 @@ class BackupRestorer(
             backupNovelMerges = backupNovelMerges,
             backupSavedSearches = backupSavedSearches,
             backupFeedRows = backupFeedRows,
-            backupNovelFonts = backupNovelFonts, // RK
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
@@ -399,7 +389,6 @@ class BackupRestorer(
         val backupNovelMerges: List<BackupNovelMergeGroup>,
         val backupSavedSearches: List<BackupSavedSearch>,
         val backupFeedRows: List<BackupFeedRow>,
-        val backupNovelFonts: List<BackupNovelFont>, // RK
         // Absent from a backup made before novels recorded their source names.
         val novelSourceNames: Map<String, String>,
         // False for a 0.3.x backup, whose same-title groups were never stored; the unmerges are its own.
@@ -635,6 +624,17 @@ class BackupRestorer(
             if (batch.size >= RESTORE_CHUNK) flush()
         }
         flush()
+    }
+
+    // RK: a font runs to megabytes, so each is read from the file and restored on its own, never all held at once
+    private suspend fun restoreNovelFonts(uri: Uri) {
+        BackupProtoReader(context).read(uri) { field, data ->
+            if (field != BackupFields.NOVEL_FONTS) return@read
+            val font = parser.decodeFromByteArray(BackupNovelFont.serializer(), data)
+            if (!novelFonts.restore(font.fileName, font.bytes)) {
+                errors.add(Date() to "Font not restored: ${font.fileName}")
+            }
+        }
     }
 
     // RK: run a post-loop restore phase, recording a failure instead of taking the whole restore down.

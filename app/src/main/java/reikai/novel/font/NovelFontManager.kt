@@ -11,6 +11,10 @@ import eu.kanade.tachiyomi.BuildConfig
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.network.awaitSuccess
 import eu.kanade.tachiyomi.util.storage.DiskUtil
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
@@ -138,17 +142,17 @@ class NovelFontManager(
     }
 
     /**
-     * The fonts the user added, file name and bytes, for a backup. A file over [BACKUP_FONT_CAP] is left out, so a
-     * stray huge file in the fonts folder cannot swell every backup.
+     * The fonts the user added, file name and bytes, for a backup, each read only as it is collected, so a backup
+     * holds one font at a time. A file over [BACKUP_FONT_CAP] is left out, so a stray huge file in the fonts folder
+     * cannot swell every backup.
      */
-    suspend fun backedUp(): List<Pair<String, ByteArray>> = withIOContext {
-        val dir = storageManager.getFontsDirectory() ?: return@withIOContext emptyList()
-        installed().mapNotNull { font ->
-            val file =
-                dir.findFile(font.fileName)?.takeIf { it.length() in 1..BACKUP_FONT_CAP } ?: return@mapNotNull null
-            runCatching { file.openInputStream().use { it.readBytes() } }.getOrNull()?.let { font.fileName to it }
+    fun backedUp(): Flow<Pair<String, ByteArray>> = flow {
+        val dir = storageManager.getFontsDirectory() ?: return@flow
+        installed().forEach { font ->
+            val file = dir.findFile(font.fileName)?.takeIf { it.length() in 1..BACKUP_FONT_CAP } ?: return@forEach
+            runCatching { file.openInputStream().use { it.readBytes() } }.getOrNull()?.let { emit(font.fileName to it) }
         }
-    }
+    }.flowOn(Dispatchers.IO)
 
     /**
      * Puts back a font a backup carried, through the same checked write an import uses, so a failed write keeps the

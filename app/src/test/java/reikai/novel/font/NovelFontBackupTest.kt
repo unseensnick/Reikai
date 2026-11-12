@@ -6,6 +6,7 @@ import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
 import org.junit.Test
@@ -15,7 +16,10 @@ import org.robolectric.RobolectricTestRunner
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 
-/** A reader font the user added goes into a backup whole and comes back on another device, so its setting finds it. */
+/**
+ * What the font manager hands a backup and takes back from one: the fonts in the folder, whole, and nothing that is not
+ * one. The backup file itself carries them through NovelFontRestoreTest.
+ */
 @RunWith(RobolectricTestRunner::class)
 class NovelFontBackupTest {
 
@@ -37,7 +41,7 @@ class NovelFontBackupTest {
         File(before, "Literata.ttf").writeBytes(FONT)
         File(before, "notes.txt").writeText("not a font")
 
-        manager(before).backedUp().forEach { (name, bytes) -> manager(after).restore(name, bytes) }
+        manager(before).backedUp().collect { (name, bytes) -> manager(after).restore(name, bytes) }
 
         after.listFiles()!!.associate { it.name to it.readBytes().toList() } shouldBe
             mapOf("Literata.ttf" to FONT.toList())
@@ -49,7 +53,7 @@ class NovelFontBackupTest {
         File(fonts, "Literata.ttf").writeBytes(FONT)
         File(fonts, "notes.txt").writeText("not a font")
 
-        manager(fonts).backedUp().map { it.first } shouldBe listOf("Literata.ttf")
+        manager(fonts).backedUp().toList().map { it.first } shouldBe listOf("Literata.ttf")
     }
 
     @Test
@@ -58,6 +62,14 @@ class NovelFontBackupTest {
 
         manager(after).restore("Evil.ttf", "<html>".toByteArray()) to after.list()!!.toList() shouldBe
             (false to emptyList<String>())
+    }
+
+    /** The bytes start like a TrueType font; the name says it is not one. */
+    @Test
+    fun `a file not named as a font is refused on restore`() = runTest {
+        val after = tmp.newFolder("after")
+
+        manager(after).restore("x.html", FONT) to after.list()!!.toList() shouldBe (false to emptyList<String>())
     }
 
     private companion object {

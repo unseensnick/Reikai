@@ -24,6 +24,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.mockkStatic
 import io.mockk.unmockkStatic
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -229,7 +230,7 @@ class BackupCustomInfoConformanceTest {
                 extensionBackupCreator = mockk(relaxed = true),
                 feedBackupCreator = mockk(relaxed = true),
                 novelPreferences = mockk(relaxed = true),
-                novelFonts = mockk { coEvery { backedUp() } returns emptyList() },
+                novelFonts = mockk { every { backedUp() } returns emptyFlow() },
             )
 
             creator.backup(uri, options)
