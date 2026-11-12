@@ -210,6 +210,16 @@ class LocalFilesPrimitivesTest {
         (file.rename("b.cbz") to names()) shouldBe (false to listOf("a.cbz", "b.cbz"))
     }
 
+    /** Another writer takes the old name while the rename is dodged: the put back is dodged too, and false says so. */
+    @Test
+    fun `rename that cannot be put back reports failed and the file names where it stayed`() {
+        val file = picked().findFile("a.cbz")!!
+        FakeSafProvider.beforeRename = { File(series, "a.cbz").takeUnless { it.exists() }?.writeText("theirs") }
+
+        listOf(file.rename("b.cbz"), file.name, names()) shouldBe
+            listOf(false, "a (1).cbz", listOf("a (1).cbz", "a.cbz", "b.cbz"))
+    }
+
     @Test
     fun `rename changes letter case alone`() {
         val file = picked().findFile("a.cbz")!!

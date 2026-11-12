@@ -188,7 +188,8 @@ fun replaceFile(old: UniFile, replacement: UniFile, name: String, aside: String)
  * Renames this file or folder to [newName], true only when it holds exactly that name afterwards. A change of
  * letter case alone goes through an in-flight name, since a case-blind disk finds the file itself under [newName]
  * and the provider would dodge to "name (1)"; a rename the provider dodged that way, or one that failed after the
- * hop, is put back under the old name.
+ * hop, is put back under the old name. False never says where the file is: a put back onto an old name another
+ * writer took meanwhile is dodged in turn, so a caller that needs the name reads it from the file again.
  */
 fun UniFile.rename(newName: String): Boolean {
     val from = name ?: return false
