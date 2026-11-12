@@ -113,6 +113,15 @@ sites, with some of them wrong. Neither class shows up in the other's review.
 - **Verify by mutation.** A new test is not done until the production clause it names has been
   deleted, the test seen red, and the clause restored.
 
+## A third type: anime is a lighter one
+
+**Anime, when it lands, is a lighter type, not a full peer** (owner ruling, 2026-11-12). It shares the
+structure of the shared surfaces (library, browse, details, history, migrate, backup), and a change to
+one of those lands for anime where anime can use it. Reading behaviour (the reader, tap zones, spreads,
+page layouts, typography, read aloud) has no video meaning and stays manga and novels only; a shared
+capability anime cannot use is answered unsupported and hidden, as above. Plan:
+[anime-mvp.md](../../docs/dev/plans/anime-mvp.md).
+
 ## Replaced Mihon files: delete and manifest
 
 - A pure-UI Mihon file fully replaced by a shared component is **deleted** and given a row in

@@ -14,6 +14,10 @@ Backlog, grouped by area. Unordered within an area.
 
 - **Centre margin between a spread's pages in the high quality renderer** `[M]` - an adjustable gap between the two pages of a dual page spread, filled with the background colour, as TachiyomiSY and Komikku offer (`center_margin_type`). Asked for in a GitHub discussion and ruled in by the owner, so it joins the image-viewer divergences content-layer.md names. [Doc](docs/dev/subsystems/reader.md).
 
+### Anime
+
+- **Anime as a third, lighter content type** `[XL]` - browse anime extensions built for Aniyomi, add series to the library and play episodes in an outside video player, with what was watched kept in backups; the built-in player, episode downloads and anime tracking come after. Not in 0.6.0, no date set. [Plan](docs/dev/plans/anime-mvp.md).
+
 ## Parked and not building
 
 Not forward work, so it lives in [docs/dev/parked.md](docs/dev/parked.md): what each item is, why it
