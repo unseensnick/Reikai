@@ -4,7 +4,7 @@ import reikai.domain.library.ContentType
 
 /** Tombstone tables that hold nothing and keep nothing, for a test about something else. */
 object NoChapterTombstoneRepository : ChapterTombstoneRepository {
-    override suspend fun byOwner(type: ContentType, ownerId: Long) = emptyList<SyncedChapter>()
+    override suspend fun byOwner(type: ContentType, ownerId: Long) = emptyList<String>()
 
     override suspend fun getByOwners(type: ContentType, ownerIds: List<Long>) = emptyMap<Long, List<ChapterTombstone>>()
 

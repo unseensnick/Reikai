@@ -164,14 +164,15 @@ foldNovelSession:
 INSERT OR IGNORE INTO novel_chapter_tombstone_session(novel_id, url, ended_at, duration)
 VALUES (:ownerId, :url, :endedAt, :duration);
 
--- What an arriving chapter is matched against: the owner's tombstones by url and number.
+-- The urls an arriving chapter is matched against. A tombstone's stored number takes no part: only a chapter
+-- this same sync removes is matched by number (tombstoneRevivals).
 mangaByOwner:
-SELECT url, chapter_number
+SELECT url
 FROM manga_chapter_tombstone
 WHERE manga_id = :ownerId;
 
 novelByOwner:
-SELECT url, chapter_number
+SELECT url
 FROM novel_chapter_tombstone
 WHERE novel_id = :ownerId;
 

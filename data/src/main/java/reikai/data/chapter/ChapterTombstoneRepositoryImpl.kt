@@ -8,7 +8,6 @@ import dev.zacsweers.metro.SingleIn
 import reikai.domain.chapter.ChapterTombstone
 import reikai.domain.chapter.ChapterTombstoneRepository
 import reikai.domain.chapter.Revival
-import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.TombstoneSession
 import reikai.domain.library.ContentType
 import reikai.domain.readinglog.isLoggableSession
@@ -26,13 +25,10 @@ class ChapterTombstoneRepositoryImpl(
 
     private val queries = database.chapter_tombstoneQueries
 
-    override suspend fun byOwner(type: ContentType, ownerId: Long): List<SyncedChapter> {
-        val row = { url: String, number: Double -> SyncedChapter(-1L, url, number) }
-        return when (type) {
-            ContentType.NOVELS -> queries.novelByOwner(ownerId, row)
-            else -> queries.mangaByOwner(ownerId, row)
-        }.awaitAsList()
-    }
+    override suspend fun byOwner(type: ContentType, ownerId: Long): List<String> = when (type) {
+        ContentType.NOVELS -> queries.novelByOwner(ownerId)
+        else -> queries.mangaByOwner(ownerId)
+    }.awaitAsList()
 
     override suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>> {
         if (ownerIds.isEmpty()) return emptyMap()

@@ -69,7 +69,7 @@ class LocalChapterMoveRepositoryImpl(
             suspend fun idOf(address: String): Long? =
                 ids[address] ?: database.localSeriesId(type, address)?.also { ids[address] = it }
             val moves = series.values.flatMap { id ->
-                (chapterUrls(type, id) + tombstones.byOwner(type, id).map { it.url }).distinct().mapNotNull { url ->
+                (chapterUrls(type, id) + tombstones.byOwner(type, id)).distinct().mapNotNull { url ->
                     val (folder, volume) = unitOf(url) ?: return@mapNotNull null
                     idOf(groups.ownerOf(folder, volume))?.takeIf { it != id }?.let { Triple(id, it, url) }
                 }
@@ -142,7 +142,7 @@ class LocalChapterMoveRepositoryImpl(
         setAddress(type, rename.id, rename.toSeries)
         ownerQueries.renameOwner(rename.toSeries, dbType, rename.fromSeries)
         // A kept state's address follows the rename as a row's does, so a chapter that comes back finds it.
-        val urls = chapterUrls(type, rename.id) + tombstones.byOwner(type, rename.id).map { it.url }
+        val urls = chapterUrls(type, rename.id) + tombstones.byOwner(type, rename.id)
         val moves = urls.distinct().map { ChapterMove(it, movedUrl(it)) }.filter { it.fromUrl != it.toUrl }
         moves.forEach { moveChapter(type, rename.id, rename.id, it) }
         rename.volumes.forEach { (from, to) ->

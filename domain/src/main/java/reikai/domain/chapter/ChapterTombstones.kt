@@ -37,34 +37,34 @@ data class ChapterTombstone(
 )
 
 /** A local refresh listed no file for these chapters, yet the files are there: the listing was short. */
-class LocalChapterStillPresentException(val urls: List<String>) :
+class LocalChapterStillPresentException(urls: List<String>) :
     Exception("A local refresh dropped chapters whose files still exist: ${urls.joinToString()}")
 
 /**
- * Which tombstone each [arriving] chapter takes, from the owner's [tombstoned] and this run's [removed]
- * chapters, which become tombstones in the same write: its exact url, else the one url equal ignoring
- * case, else the one [removed] chapter it alone shares a recognized number with. Each tombstone revives
- * once, onto one arrival; a pair that is not unique on both sides takes nothing here, and the number
+ * Which tombstone each [arriving] chapter takes, from the urls the owner's tombstones hold ([tombstoned]) and
+ * this run's [removed] chapters, which become tombstones in the same write: its exact url, else the one url
+ * equal ignoring case, else the one [removed] chapter it alone shares a recognized number with. Each tombstone
+ * revives once, onto one arrival; a pair that is not unique on both sides takes nothing here, and the number
  * twins in [chapterArrivals] still give it read, bookmark and fetch date.
  */
 fun tombstoneRevivals(
     arriving: List<SyncedChapter>,
-    tombstoned: List<SyncedChapter>,
+    tombstoned: List<String>,
     removed: List<SyncedChapter>,
 ): List<Revival> {
-    val pool = (tombstoned + removed).associateByTo(LinkedHashMap()) { it.url }
+    val pool = LinkedHashSet(tombstoned + removed.map { it.url })
     val revivals = mutableListOf<Revival>()
     val unmatched = arriving.filter { chapter ->
-        pool.remove(chapter.url)?.also { revivals += Revival(chapter.url, it.url) } == null
+        !pool.remove(chapter.url).also { if (it) revivals += Revival(chapter.url, chapter.url) }
     }
-    val poolByFold = pool.values.groupBy { it.url.lowercase() }
+    val poolByFold = pool.groupBy { it.lowercase() }
     val arrivingByFold = unmatched.groupBy { it.url.lowercase() }
     val unmatchedByCase = unmatched.filter { chapter ->
         val fold = chapter.url.lowercase()
         val twin = poolByFold[fold]?.singleOrNull()?.takeIf { arrivingByFold.getValue(fold).size == 1 }
         twin?.also {
-            pool.remove(it.url)
-            revivals += Revival(chapter.url, it.url)
+            pool.remove(it)
+            revivals += Revival(chapter.url, it)
         } == null
     }
     val removedByNumber = removed.filter {
@@ -106,8 +106,8 @@ suspend fun unconfirmedRemovals(
  * the later read, sessions the union.
  */
 interface ChapterTombstoneRepository {
-    /** The tombstones [ownerId] holds, by url and number. */
-    suspend fun byOwner(type: ContentType, ownerId: Long): List<SyncedChapter>
+    /** The urls of the tombstones [ownerId] holds. */
+    suspend fun byOwner(type: ContentType, ownerId: Long): List<String>
 
     /** Every tombstone of each of [ownerIds], whole. */
     suspend fun getByOwners(type: ContentType, ownerIds: List<Long>): Map<Long, List<ChapterTombstone>>
