@@ -230,6 +230,28 @@ fun UniFile.rename(newName: String): Boolean {
 }
 
 /**
+ * [listed], one folder's listing, with each folder a [rename] killed between its two letter-case steps left under
+ * its in-flight name renamed back, where no entry holds its own name in any letter case. Only for a level whose
+ * folders are renamed whole (the download root, a source's folder): inside a series' folder an in-flight name is a
+ * chapter the downloader has not finished, and the downloader deletes or resumes it.
+ */
+fun recoverInFlightRenames(listed: List<UniFile>): List<UniFile> {
+    val names = listed.mapNotNullTo(HashSet()) { it.name?.lowercase() }
+    listed.forEach { file ->
+        val own = file.name?.removeSuffix(IN_FLIGHT_SUFFIX)?.takeIf { it.isNotEmpty() && it != file.name }
+        if (own != null && own.lowercase() !in names && file.isDirectory) file.rename(own)
+    }
+    return listed
+}
+
+/** This folder's subfolder [name], recovered by [recoverInFlightRenames] when a killed rename left it in flight. */
+fun UniFile.findFolderRecovering(name: String): UniFile? {
+    findFile(name)?.let { return it }
+    findFile(name + IN_FLIGHT_SUFFIX) ?: return null
+    return recoverInFlightRenames(listFiles().orEmpty().toList()).firstOrNull { it.name == name }
+}
+
+/**
  * Whether the provider lets this document be moved ([DocumentsContract.Document.FLAG_SUPPORTS_MOVE]) and renamed
  * ([DocumentsContract.Document.FLAG_SUPPORTS_RENAME]), read from its own flags. False off a picked folder (unifile
  * has no move) and when the query fails, so an operation that needs both is not offered rather than tried.

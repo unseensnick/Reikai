@@ -30,6 +30,7 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.domain.download.DownloadIndexRules
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.storage.recoverInFlightRenames
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.download.service.DownloadPreferences
 import tachiyomi.domain.storage.service.StorageManager
@@ -250,11 +251,12 @@ class NovelDownloadCache(
     }
 
     private fun scan(root: UniFile?): Map<String, Map<String, Set<String>>> = buildMap {
-        root?.listFiles().orEmpty()
+        // A source or novel folder a killed case-only rename left in flight is put back before it is read.
+        recoverInFlightRenames(root?.listFiles().orEmpty().toList())
             .filter { it.isDirectory && !it.name.isNullOrBlank() }
             .forEach { sourceDir ->
                 val novels = buildMap<String, Set<String>> {
-                    sourceDir.listFiles().orEmpty()
+                    recoverInFlightRenames(sourceDir.listFiles().orEmpty().toList())
                         .filter { it.isDirectory && !it.name.isNullOrBlank() }
                         .forEach { novelDir ->
                             val files = novelDir.listFiles().orEmpty()

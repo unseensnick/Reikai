@@ -16,6 +16,7 @@ import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import reikai.domain.download.filesByName
 import reikai.domain.download.listsForLookups
+import reikai.storage.findFolderRecovering
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.storage.displayablePath
 import tachiyomi.core.common.util.lang.withIOContext
@@ -63,7 +64,8 @@ class DownloadProvider(
         }
 
         val sourceDirName = getSourceDirName(source)
-        val sourceDir = downloadsDir.createDirectory(sourceDirName)
+        // RK: a folder a killed case-only rename left in flight takes the new chapters, never a twin beside it
+        val sourceDir = downloadsDir.findFolderRecovering(sourceDirName) ?: downloadsDir.createDirectory(sourceDirName)
         if (sourceDir == null) {
             val displayablePath = downloadsDir.displayablePath + "/$sourceDirName"
             logcat(LogPriority.ERROR) { "Failed to create source download directory: $displayablePath" }
@@ -73,7 +75,7 @@ class DownloadProvider(
         }
 
         val mangaDirName = getMangaDirName(mangaTitle)
-        val mangaDir = sourceDir.createDirectory(mangaDirName)
+        val mangaDir = sourceDir.findFolderRecovering(mangaDirName) ?: sourceDir.createDirectory(mangaDirName) // RK
         if (mangaDir == null) {
             val displayablePath = sourceDir.displayablePath + "/$mangaDirName"
             logcat(LogPriority.ERROR) { "Failed to create manga download directory: $displayablePath" }
@@ -91,7 +93,7 @@ class DownloadProvider(
      * @param source the source to query.
      */
     suspend fun findSourceDir(source: Source): UniFile? = withIOContext {
-        downloadsDir?.findFile(getSourceDirName(source))
+        downloadsDir?.findFolderRecovering(getSourceDirName(source)) // RK: as a killed case-only rename left it
     }
 
     /**
@@ -101,7 +103,7 @@ class DownloadProvider(
      * @param source the source of the manga.
      */
     suspend fun findMangaDir(mangaTitle: String, source: Source): UniFile? = withIOContext {
-        findSourceDir(source)?.findFile(getMangaDirName(mangaTitle))
+        findSourceDir(source)?.findFolderRecovering(getMangaDirName(mangaTitle)) // RK: as findSourceDir
     }
 
     /**

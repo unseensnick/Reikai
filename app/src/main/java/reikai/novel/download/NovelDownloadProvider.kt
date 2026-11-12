@@ -28,6 +28,7 @@ import reikai.novel.source.isNovelAppSourceId
 import reikai.storage.deleteFile
 import reikai.storage.deleteIfEmpty
 import reikai.storage.deleteTree
+import reikai.storage.findFolderRecovering
 import reikai.storage.listOrNull
 import reikai.storage.parkIfSpent
 import reikai.storage.rename
@@ -99,7 +100,8 @@ class NovelDownloadProvider(
         val root = downloadsDir ?: return
         sources.forEach { source ->
             val target = folderName(to(source))
-            val folder = root.findFile(folderName(from(source)))?.takeIf { it.isDirectory } ?: return@forEach
+            val folder = root.findFolderRecovering(folderName(from(source)))?.takeIf { it.isDirectory }
+                ?: return@forEach
             // No other entry is named onto a source folder, so only a taken name keeps it in place
             if (folder.name == target || !movesDownloadFolder(folder, target, emptyList())) return@forEach
             folder.rename(target)
@@ -118,8 +120,8 @@ class NovelDownloadProvider(
             val target = folderName(to(source))
             val name = folderName(from(source))
             if (name.equals(target, ignoreCase = true)) return@forEach
-            val folder = root.findFile(name)?.takeIf { it.isDirectory } ?: return@forEach
-            val into = root.findFile(target)?.takeIf { it.isDirectory } ?: return@forEach
+            val folder = root.findFolderRecovering(name)?.takeIf { it.isDirectory } ?: return@forEach
+            val into = root.findFolderRecovering(target)?.takeIf { it.isDirectory } ?: return@forEach
             DownloadFolderMerge.merge(context, from = folder, into = into)
             // The titles both hold, which the merge above leaves; one it set aside is no title any more
             val merged = folder.listFiles().orEmpty().filter { it.isDirectory }.map { title ->
@@ -162,12 +164,15 @@ class NovelDownloadProvider(
         validChapterFileNames(chapter.name, chapter.url)
 
     private fun novelDir(novel: Novel): UniFile? =
-        downloadsDir?.createDirectory(sourceDirName(novel))?.createDirectory(novelDirName(novel))
+        downloadsDir?.madeFolder(sourceDirName(novel))?.madeFolder(novelDirName(novel))
+
+    /** [name] here, made when missing; one a killed rename left in flight is taken back rather than twinned. */
+    private fun UniFile.madeFolder(name: String): UniFile? = findFolderRecovering(name) ?: createDirectory(name)
 
     /** The novel's download directory, or null when nothing has been downloaded yet. Public for the
      *  details overflow's Open folder, through [NovelDownloadManager.findNovelDir]. */
     fun findNovelDir(novel: Novel): UniFile? =
-        downloadsDir?.findFile(sourceDirName(novel))?.findFile(novelDirName(novel))
+        downloadsDir?.findFolderRecovering(sourceDirName(novel))?.findFolderRecovering(novelDirName(novel))
 
     fun findChapterFile(novel: Novel, chapter: NovelChapter): UniFile? {
         val dir = findNovelDir(novel) ?: return null

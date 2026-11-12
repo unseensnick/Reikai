@@ -46,6 +46,7 @@ import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.domain.download.DownloadIndexRules
+import reikai.storage.recoverInFlightRenames
 import tachiyomi.core.common.storage.extension
 import tachiyomi.core.common.storage.nameWithoutExtension
 import tachiyomi.core.common.util.lang.launchIO
@@ -414,7 +415,8 @@ class DownloadCache(
             rootDownloadsDirMutex.withLock {
                 val updatedRootDir = RootDirectory(storageManager.getDownloadsDirectory())
 
-                updatedRootDir.sourceDirs = updatedRootDir.dir?.listFiles().orEmpty()
+                // RK: a source or series folder a killed case-only rename left in flight is put back first
+                updatedRootDir.sourceDirs = recoverInFlightRenames(updatedRootDir.dir?.listFiles().orEmpty().toList())
                     .filter { it.isDirectory && !it.name.isNullOrBlank() }
                     .flatMap { dir ->
                         val sourceDir = SourceDirectory(dir)
@@ -424,7 +426,8 @@ class DownloadCache(
 
                 updatedRootDir.sourceDirs.values.distinct().map { sourceDir ->
                     async {
-                        sourceDir.mangaDirs = sourceDir.dir?.listFiles().orEmpty()
+                        // RK: as the source folders above
+                        sourceDir.mangaDirs = recoverInFlightRenames(sourceDir.dir?.listFiles().orEmpty().toList())
                             .filter { it.isDirectory && !it.name.isNullOrBlank() }
                             .associate { it.name!! to MangaDirectory(it) }
 
