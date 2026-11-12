@@ -12,6 +12,7 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
+import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalFileJournalPlan.FileStep
 import reikai.domain.local.LocalFileJournalPlan.Organize
 import reikai.domain.local.LocalFileJournalPlan.UrlRule
@@ -129,12 +130,30 @@ class LocalOrganizer(
         return LocalMoveResult.Failed(failure)
     }
 
+    private fun block(type: ContentType, id: Long, plan: Organize) = holdUntilRepaired(type, id, plan.folders()) {
+        val left = it as? Organize ?: return@holdUntilRepaired
+        locks.repairing(type, left.folders()) { replay(type, id, left) }
+    }
+
+    /** Holds series folder [series] until import Replace row [id], whose old book was left aside, is mended. */
+    fun holdReplace(type: ContentType, id: Long, series: String) = holdUntilRepaired(type, id, listOf(series)) {
+        val left = it as? LocalFileJournalPlan.Replace ?: return@holdUntilRepaired
+        locks.repairing(type, listOf(series)) { replayReplace(context, journal, id, left) }
+    }
+
     /**
-     * Refuses [plan]'s folders and takes journal row [id] up again in this process, after a wait that doubles each
-     * time it is still unresolved, up to [LAST_RETRY]; the folders open again once the row is gone.
+     * Refuses [folders] and takes journal row [id] up again in this process through [repair], given the row as it
+     * stands, after a wait that doubles each time it is still unresolved, up to [LAST_RETRY]; the folders open again
+     * once the row is gone. Any journal row whose files and rows disagree is held this way: an organize's, and an
+     * import Replace whose old book was left aside.
      */
-    private fun block(type: ContentType, id: Long, plan: Organize) {
-        locks.block(type, plan.folders())
+    private fun holdUntilRepaired(
+        type: ContentType,
+        id: Long,
+        folders: List<String>,
+        repair: suspend (LocalFileJournalPlan) -> Unit,
+    ) {
+        locks.block(type, folders)
         if (!retrying.add(id)) return
         scope.launch {
             try {
@@ -143,18 +162,17 @@ class LocalOrganizer(
                     delay(wait)
                     // The journal reads too, so a database hiccup costs one round rather than the retry.
                     val resolved = try {
-                        val left = journal.all().firstOrNull { it.id == id }?.plan as? Organize
-                        if (left != null) locks.repairing(type, left.folders()) { replay(type, id, left) }
+                        journal.all().firstOrNull { it.id == id }?.plan?.let { repair(it) }
                         journal.all().none { it.id == id }
                     } catch (e: Exception) {
                         if (e is CancellationException) throw e
-                        logcat(LogPriority.WARN, e) { "Retrying organize $id failed" }
+                        logcat(LogPriority.WARN, e) { "Retrying local file journal row $id failed" }
                         false
                     }
                     if (resolved) break
                     wait = (wait * 2).coerceAtMost(LAST_RETRY)
                 }
-                locks.unblock(type, plan.folders())
+                locks.unblock(type, folders)
             } finally {
                 retrying -= id
             }

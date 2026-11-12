@@ -212,6 +212,7 @@ class LocalMovesUnderLockTest {
             seriesLocks = locks,
             appScope = appScope,
         )
+        val importJournal = InMemoryLocalFileJournal()
         import = LocalImport(
             context = context,
             storageManager = storage,
@@ -220,7 +221,7 @@ class LocalMovesUnderLockTest {
             novelChapterRepository = mockk(),
             libraryPreferences = libraryPreferences,
             syncRules = NovelChapterSyncRules(numberOverrides, copyMarks, tombstones),
-            journal = InMemoryLocalFileJournal(),
+            journal = importJournal,
             novelAdder = mockk(),
             mangaAdder = mangaAdder,
             networkToLocalManga = NetworkToLocalManga(mangaRepository),
@@ -235,6 +236,7 @@ class LocalMovesUnderLockTest {
                 }
             },
             seriesLocks = locks,
+            organizer = LocalOrganizer(context, importJournal, chapterMoves, locks, appScope),
             owners = volumes,
         )
         relink = LocalSeriesRelink(

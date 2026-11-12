@@ -3,7 +3,9 @@ package reikai.data.local
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
+import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.beInstanceOf
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -18,7 +20,9 @@ import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
+import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
+import reikai.storage.FakeSafProvider
 import java.io.File
 
 /**
@@ -116,6 +120,23 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         replay().replay()
 
         journal.entries.map { it.id } shouldBe listOf(id)
+    }
+
+    /** Left as it is, the old book is in no listing, so the series waits on a repair as an organize's does. */
+    @Test
+    fun `a replace that cannot be finished at start holds its series for a repair`() = runTest {
+        FakeSafProvider.install(context, tmp.root)
+        val folder = FakeSafProvider.picked(context, old.parentFile).uri.toString()
+        journal.insert(type, LocalFileJournalPlan.Replace(folder, old.name, aside.name, part.name, uri(part)))
+        old.renameTo(aside)
+        part.delete()
+        FakeSafProvider.onCall = { call, _ -> if (call == "renameDocument") error("no") }
+
+        replay().replay()
+        FakeSafProvider.onCall = null
+
+        runCatching { locks.withSeries(type, "Series") {} }.exceptionOrNull() should
+            beInstanceOf<LocalSeriesBlockedException>()
     }
 
     companion object {

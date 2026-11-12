@@ -83,8 +83,9 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
 
     /**
      * Refuses every later hold on [folders] in this process: their files and rows disagree after an organize that
-     * could neither finish nor be put back, and a listing would read that as chapters gone. The journal keeps the
-     * organize, which a retry in this process ([repairing]) or the next start's replay finishes or reverses.
+     * could neither finish nor be put back, or an import Replace that left the old book aside, and a listing would
+     * read that as chapters gone. The journal keeps the row, which a retry in this process ([repairing]) or the next
+     * start's replay finishes or reverses.
      */
     fun block(type: ContentType, folders: Collection<String>) {
         folders.forEach { blocked += type to it.lowercase() }

@@ -3,7 +3,9 @@ package reikai.data.local
 import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.hippo.unifile.UniFile
+import io.kotest.matchers.should
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.types.beInstanceOf
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -23,6 +25,7 @@ import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
+import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
@@ -51,6 +54,7 @@ class LocalImportTest(private val type: ContentType) {
     private var storageRoot: UniFile = UniFile.fromFile(root)!!
     private val journal = InMemoryLocalFileJournal()
     private var owners = emptyList<VolumeOwner>()
+    private val seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
 
     // Storage, the source's own parse and the database are the boundary; each add's favorite write is refused.
     private val localImport = LocalImport(
@@ -76,7 +80,8 @@ class LocalImportTest(private val type: ContentType) {
         updateMangaFromRemote = mockk {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
         },
-        seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
+        seriesLocks = seriesLocks,
+        organizer = LocalOrganizer(context, journal, mockk(), seriesLocks, CoroutineScope(Dispatchers.Unconfined)),
         owners = object : LocalVolumeOwnerRepository {
             override suspend fun all(type: ContentType) = owners
         },
@@ -204,6 +209,23 @@ class LocalImportTest(private val type: ContentType) {
         LocalFileJournalReplay(context, journal, locks, organizer).replay()
 
         (File(root, "Foo").list()!!.toList() to File(root, "Foo/old").readText()) shouldBe (listOf("old") to "abc")
+    }
+
+    /** An Organize would rename the folder under the row, which names the folder's document and so never finds it. */
+    @Test
+    fun `a replace that strands the old book aside refuses the series until it is mended`() = runTest {
+        File(root, "Foo").mkdirs()
+        File(root, "Foo/old").writeText("xyz")
+        FakeSafProvider.install(context, context.cacheDir)
+        storageRoot = FakeSafProvider.picked(context, root)
+        val replacing = localImport.inspect(group("Foo")).copy(onDuplicate = DuplicateChoice.Replace)
+        FakeSafProvider.onCall = { call, target -> if (call == "renameDocument" && target.name == "old") error("no") }
+
+        localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
+        FakeSafProvider.onCall = null
+
+        runCatching { seriesLocks.withSeries(type, "Foo") {} }.exceptionOrNull() should
+            beInstanceOf<LocalSeriesBlockedException>()
     }
 
     @Test

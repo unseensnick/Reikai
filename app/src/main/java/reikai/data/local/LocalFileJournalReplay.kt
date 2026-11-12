@@ -22,7 +22,8 @@ import kotlin.coroutines.cancellation.CancellationException
  * under the series' lock and before any listing can read the half-done state: the locks open only once [replay] has
  * run. A replace promotes its whole copy when the old file has stepped aside, and otherwise keeps the old file; one
  * whose name another writer took meanwhile keeps both beside it. A row whose folder cannot be reached is kept for a
- * later start. Nothing is touched before it is found where the plan says.
+ * later start, and one that fails holds its series as an organize does. Nothing is touched before it is found where the
+ * plan says.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -50,38 +51,54 @@ class LocalFileJournalReplay(
 
     private suspend fun replay(entry: LocalFileJournalEntry) {
         when (val plan = entry.plan) {
-            is LocalFileJournalPlan.Replace -> replayReplace(entry.id, plan)
+            is LocalFileJournalPlan.Replace -> try {
+                replayReplace(context, journal, entry.id, plan)
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                // Left, the old book is in no listing, so the series waits on its repair as an organize's does.
+                UniFile.fromUri(context, Uri.parse(plan.folder))?.name?.let {
+                    organizer.holdReplace(entry.type, entry.id, it)
+                }
+                throw e
+            }
             is LocalFileJournalPlan.Organize -> locks.locked(entry.type, plan.folders()) {
                 organizer.replay(entry.type, entry.id, plan)
             }
         }
     }
+}
 
-    private suspend fun replayReplace(id: Long, plan: LocalFileJournalPlan.Replace) {
-        val folder = reach(plan.folder) ?: return
-        val name = folder.findFile(plan.name)
-        val part = folder.findFile(plan.part)?.takeIf { it.uri.toString() == plan.partUri }
-        val aside = folder.findFile(plan.aside)
-        when {
-            // Another writer took the name while the old book stood aside, so the replace never finished: the old
-            // book and the copy both list beside that file, at free names as an import's Keep both gives them.
-            name != null && part != null && aside != null -> {
-                val taken = folder.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
-                check(aside.rename(freeName(plan.name, taken))) { "Could not keep ${plan.aside}" }
-                check(part.rename(freeName(plan.name, taken))) { "Could not keep ${plan.part}" }
-            }
-            name != null -> {
-                part?.deleteFile()
-                aside?.deleteFile()
-            }
-            part != null -> {
-                check(part.rename(plan.name)) { "Could not promote ${plan.part}" }
-                aside?.deleteFile()
-            }
-            aside != null -> check(aside.rename(plan.name)) { "Could not put back ${plan.aside}" }
+/**
+ * Finishes or reverses import Replace row [id], [plan]: at start before the locks open, or under the series' lock when
+ * a Replace left in this process is retried ([LocalOrganizer.holdUntilRepaired]).
+ */
+internal suspend fun replayReplace(
+    context: Context,
+    journal: LocalFileJournal,
+    id: Long,
+    plan: LocalFileJournalPlan.Replace,
+) {
+    val folder = UniFile.fromUri(context, Uri.parse(plan.folder))?.takeIf { it.exists() } ?: return
+    val name = folder.findFile(plan.name)
+    val part = folder.findFile(plan.part)?.takeIf { it.uri.toString() == plan.partUri }
+    val aside = folder.findFile(plan.aside)
+    when {
+        // Another writer took the name while the old book stood aside, so the replace never finished: the old
+        // book and the copy both list beside that file, at free names as an import's Keep both gives them.
+        name != null && part != null && aside != null -> {
+            val taken = folder.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
+            check(aside.rename(freeName(plan.name, taken))) { "Could not keep ${plan.aside}" }
+            check(part.rename(freeName(plan.name, taken))) { "Could not keep ${plan.part}" }
         }
-        journal.delete(id)
+        name != null -> {
+            part?.deleteFile()
+            aside?.deleteFile()
+        }
+        part != null -> {
+            check(part.rename(plan.name)) { "Could not promote ${plan.part}" }
+            aside?.deleteFile()
+        }
+        aside != null -> check(aside.rename(plan.name)) { "Could not put back ${plan.aside}" }
     }
-
-    private fun reach(uri: String): UniFile? = UniFile.fromUri(context, Uri.parse(uri))?.takeIf { it.exists() }
+    journal.delete(id)
 }

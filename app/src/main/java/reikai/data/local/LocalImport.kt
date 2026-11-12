@@ -156,6 +156,7 @@ class LocalImport(
     private val networkToLocalManga: NetworkToLocalManga,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
     private val seriesLocks: LocalSeriesLocks,
+    private val organizer: LocalOrganizer,
     private val owners: LocalVolumeOwnerRepository,
 ) {
 
@@ -388,8 +389,12 @@ class LocalImport(
                 ),
             )
             if (!replaceFile(replacing, target, name, aside)) {
-                // Left at its aside name, the old book is in no listing: the row and the copy stay for the replay.
-                if (replacing.name != name) throw IOException("Could not replace $name, left for the next start")
+                // Left at its aside name, the old book is in no listing: the row and the copy stay for the replay,
+                // and the series is held until then, since an Organize would move the folder the row names.
+                if (replacing.name != name) {
+                    organizer.holdReplace(type, journaled, folder.name.orEmpty())
+                    throw IOException("Could not replace $name, left for a repair")
+                }
                 journal.delete(journaled)
                 target.delete()
                 throw IOException("Could not replace $name")
