@@ -14,6 +14,7 @@ import mihon.domain.source.models.RemoteMangaUpdate
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.lockedAtCurrentAddress
 import reikai.domain.source.keptCover
 import reikai.domain.source.keptDetail
 import reikai.domain.source.keptGenres
@@ -71,8 +72,8 @@ class UpdateMangaFromRemote(
         // RK --> a local series' listing and its row sync run under the series' lock as one, so a move of its
         // files cannot land between them and have the sync write rows for files that moved; the body below is
         // upstream's, untouched
-    ): Result<RemoteMangaUpdate> = underSeriesLock(source, manga) {
-        refresh(source, manga, fetchDetails, fetchChapters, manualFetch, fetchWindow)
+    ): Result<RemoteMangaUpdate> = underSeriesLock(source, manga) { current ->
+        refresh(source, current, fetchDetails, fetchChapters, manualFetch, fetchWindow)
     }
 
     private suspend fun refresh(
@@ -116,20 +117,30 @@ class UpdateMangaFromRemote(
         }
     }
 
-    // RK --> the series is the folder the manga's url names; any other source holds nothing on disk. A series
-    // waiting for an organize's repair fails its refresh, as an unreadable folder does.
+    // RK --> the series is the folder the manga's url names, its address read again once its lock is held, since an
+    // organize or relink it waited behind may have moved it; any other source holds nothing on disk. A series waiting for an
+    // organize's repair fails its refresh, as an unreadable folder does.
     private suspend fun underSeriesLock(
         source: Source,
         manga: Manga,
-        refresh: suspend () -> Result<RemoteMangaUpdate>,
+        refresh: suspend (Manga) -> Result<RemoteMangaUpdate>,
     ): Result<RemoteMangaUpdate> = if (source.isLocal()) {
         try {
-            seriesLocks.withSeries(ContentType.MANGA, manga.url, refresh)
+            lockedAtCurrentAddress(
+                manga,
+                Manga::url,
+                { held ->
+                    mangaRepository.getMangaById(held.id).url.takeIf { it != held.url }?.let { held.copy(url = it) }
+                        ?: held
+                },
+                { url, block -> seriesLocks.withSeries(ContentType.MANGA, url, block) },
+                refresh,
+            )
         } catch (e: LocalSeriesBlockedException) {
             Result.failure(e)
         }
     } else {
-        refresh()
+        refresh(manga)
     }
     // RK <--
 

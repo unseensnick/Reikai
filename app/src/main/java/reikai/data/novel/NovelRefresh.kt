@@ -5,6 +5,7 @@ import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.ChapterNumberOverrideRepository
 import reikai.domain.chapter.LocalChapterTombstones
+import reikai.domain.local.lockedAtCurrentAddress
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -120,9 +121,28 @@ suspend fun storeRefreshedNovel(
     return coverLastModified?.let { merged.copy(coverLastModified = it) } ?: merged
 }
 
-/** [block] under this source's hold on the novel at [novelPath] when it has one to give, else at once. */
-private suspend fun <T> NovelSource.seriesLocked(novelPath: String, block: suspend () -> T): T =
-    if (this is LockedSeriesSource) locked(novelPath, block) else block()
+/**
+ * [block] under this source's hold on [novel]'s series when it has one to give, at the address the series has once
+ * the hold is taken (an organize or relink it waited behind may have moved it), else at once. Only the address is
+ * read again: a caller may pass a novel it changed on purpose, such as [withoutPageCount].
+ */
+private suspend fun <T> NovelSource.seriesLocked(
+    novel: Novel,
+    novelRepository: NovelRepository,
+    block: suspend (Novel) -> T,
+): T = if (this is LockedSeriesSource) {
+    lockedAtCurrentAddress(
+        novel,
+        Novel::url,
+        { held ->
+            novelRepository.getById(held.id)?.url?.takeIf { it != held.url }?.let { held.copy(url = it) } ?: held
+        },
+        { url, run -> locked(url, run) },
+        block,
+    )
+} else {
+    block(novel)
+}
 
 /**
  * [this] for a write that syncs no chapters. The stored page count is the mark the next update walks from, so raising
@@ -153,13 +173,13 @@ suspend fun refreshNovelFromSource(
     manualFetch: Boolean = false,
     fetchWindow: ClosedRange<Instant>? = null,
     details: StoredDetails = StoredDetails.KEPT,
-): NovelRefreshResult = source.seriesLocked(novel.url) {
+): NovelRefreshResult = source.seriesLocked(novel, novelRepository) { current ->
     // The parse and every row write under one hold of a local series' lock, so a move of its files cannot
     // land between them; any other source runs this at once.
-    val sourceNovel = source.parseNovel(novel.url)
-    val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = novel.favorite)
+    val sourceNovel = source.parseNovel(current.url)
+    val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = current.favorite)
     val merged = storeRefreshedNovel(
-        novel,
+        current,
         parsed,
         novelRepository,
         libraryPreferences,
@@ -185,7 +205,7 @@ suspend fun refreshNovelFromSource(
         val walked = walkNovelPages(
             merged,
             source,
-            maxOf(2L, novel.totalPages),
+            maxOf(2L, current.totalPages),
             merged.totalPages,
             novelChapterRepository,
             novelRepository,

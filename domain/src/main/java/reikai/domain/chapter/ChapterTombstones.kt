@@ -81,8 +81,10 @@ fun tombstoneRevivals(
 /**
  * The [removed] chapters a local sync may not take, because their file is still there: the listing was
  * short. A chapter kept inside a container ([containerOf]: a volume folder's Extras, a book's chapter)
- * is confirmed gone once [listed] still reads that container, since the container itself was read; any
- * other is asked of [present], a trusted listing of its folder, never the file's own query.
+ * is confirmed gone once [listed] still reads that container, since the container itself was read. So is one
+ * whose own entry [listed] reads under its other shape (a folder of pages now a volume, a volume now a chapter),
+ * which leaves the name in its folder; any other is asked of [present], a trusted listing of its folder, never
+ * the file's own query.
  */
 suspend fun unconfirmedRemovals(
     removed: List<String>,
@@ -92,7 +94,9 @@ suspend fun unconfirmedRemovals(
 ): List<String> = removed.filter { url ->
     val container = containerOf(url)
     val containerRead = container != null && listed.any { it.startsWith(container) }
-    !containerRead && present(url)
+    val entry = url.trimEnd('/')
+    val reshaped = listed.any { it == entry || it.startsWith("$entry/") }
+    !containerRead && !reshaped && present(url)
 }
 
 /**

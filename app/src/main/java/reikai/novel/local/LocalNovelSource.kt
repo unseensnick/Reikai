@@ -132,13 +132,20 @@ class LocalNovelSource(
         } else {
             emptySet()
         }
-        val members = folders.filterNot { it in missing }.map { seriesAt(it) ?: throw LocalNovelMissingException(it) }
+        // A member folder listed whole with no book left gives no volume, as a manga member folder gives no
+        // chapter; one its query cannot find, or the series' own, fails the refresh, since a hiccup reads as absent.
+        val members = folders.filterNot { it in missing }.mapNotNull { folder ->
+            val entry = folder.takeIf(::isChildName)?.let { storageManager.getLocalNovelsDirectory()?.findFile(it) }
+                ?: throw LocalNovelMissingException(folder)
+            seriesOf(entry) ?: if (folder == novelPath) throw LocalNovelMissingException(folder) else null
+        }
         val series = members.firstOrNull { it.path == novelPath }
         val ordered = members.flatMap { member ->
             val books = member.volumes.filter { groups.ownerOf(member.path, it.name.orEmpty()) == novelPath }
+            if (books.isEmpty()) return@flatMap emptyList()
             val readable = readableVolumes(books.map { file -> file to runCatching { open(file) } }) {
                 LocalNovelMissingException(novelPath)
-            }.takeIf { books.isNotEmpty() }.orEmpty()
+            }
             inVolumeOrder(readable, { it.first.name.orEmpty() }) { it.second.book.metadata.seriesIndex }
                 .map { (file, opened) ->
                     Triple(localGroupKey(novelPath, member.path, file.name.orEmpty()), file, opened)

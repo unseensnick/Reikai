@@ -127,3 +127,34 @@ class LocalSeriesBlockedException(
 private object NoOwners : LocalVolumeOwnerRepository {
     override suspend fun all(type: ContentType): List<VolumeOwner> = emptyList()
 }
+
+/**
+ * [block] for [entry] under the lock of its address as it stands once that lock is held. A rename that landed while
+ * the caller waited (Organize files, a relink) moved the address, so the entry is read again and locked under the
+ * new one; both local sources' refreshes call this, so neither lists a folder that is gone.
+ */
+suspend fun <E, T> lockedAtCurrentAddress(
+    entry: E,
+    address: (E) -> String,
+    reread: suspend (E) -> E,
+    lock: suspend (String, suspend () -> Any?) -> Any?,
+    block: suspend (E) -> T,
+): T {
+    var held = entry
+    while (true) {
+        val outcome = lock(address(held)) {
+            val current = reread(held)
+            if (address(current) == address(held)) AddressLock.Ran(block(current)) else AddressLock.Moved(current)
+        }
+        @Suppress("UNCHECKED_CAST")
+        when (outcome) {
+            is AddressLock.Ran<*> -> return outcome.value as T
+            is AddressLock.Moved<*> -> held = outcome.entry as E
+        }
+    }
+}
+
+private sealed interface AddressLock {
+    class Ran<T>(val value: T) : AddressLock
+    class Moved<E>(val entry: E) : AddressLock
+}
