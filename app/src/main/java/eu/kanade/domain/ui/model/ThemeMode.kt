@@ -8,6 +8,10 @@ enum class ThemeMode {
     SYSTEM,
 }
 
+// RK --> Doki has no light palette, so it runs in night mode whatever the mode setting says, as in Yōkai
+fun ThemeMode.shownWith(appTheme: AppTheme): ThemeMode = if (appTheme == AppTheme.DOKI) ThemeMode.DARK else this
+// RK <--
+
 fun setAppCompatDelegateThemeMode(themeMode: ThemeMode) {
     AppCompatDelegate.setDefaultNightMode(
         when (themeMode) {

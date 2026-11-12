@@ -16,6 +16,7 @@ import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import com.hippo.unifile.UniFile
 import eu.kanade.domain.ui.model.ThemeMode
+import eu.kanade.domain.ui.model.shownWith
 import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.ui.base.delegate.ThemingDelegate
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
@@ -122,7 +123,7 @@ fun Context.createReaderThemeContext(): Context {
     val graph = appGraph
     val preferences = graph.uiPreferences
     val readerPreferences = graph.readerPreferences
-    val themeMode = preferences.themeMode.get()
+    val themeMode = preferences.themeMode.get().shownWith(preferences.appTheme.get()) // RK
     val isDarkBackground = when (ReaderPreferences.ReaderTheme.fromValue(readerPreferences.readerTheme.get())) {
         ReaderPreferences.ReaderTheme.BLACK, ReaderPreferences.ReaderTheme.GRAY -> true
         // Automatic bg uses activity background by default

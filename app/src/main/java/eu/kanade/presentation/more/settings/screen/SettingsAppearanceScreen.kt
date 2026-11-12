@@ -18,6 +18,7 @@ import eu.kanade.domain.ui.model.TabletUiMode
 import eu.kanade.domain.ui.model.ThemeMode
 import eu.kanade.domain.ui.model.TimeFormat
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
+import eu.kanade.domain.ui.model.shownWith
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.presentation.more.settings.screen.appearance.AppLanguageScreen
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
@@ -87,14 +88,18 @@ object SettingsAppearanceScreen : SearchableSettings {
                             value = themeMode,
                             onItemClick = {
                                 themeModePref.set(it)
-                                setAppCompatDelegateThemeMode(it)
+                                setAppCompatDelegateThemeMode(it.shownWith(appTheme)) // RK
                             },
                         )
 
                         AppThemePreferenceWidget(
                             value = appTheme,
                             amoled = amoled,
-                            onItemClick = { appThemePref.set(it) },
+                            // RK: picking or leaving Doki changes the night mode
+                            onItemClick = {
+                                appThemePref.set(it)
+                                setAppCompatDelegateThemeMode(themeMode.shownWith(it))
+                            },
                         )
                     }
                 },
@@ -119,7 +124,7 @@ object SettingsAppearanceScreen : SearchableSettings {
                 Preference.PreferenceItem.SwitchPreference(
                     preference = amoledPref,
                     title = stringResource(MR.strings.pref_dark_theme_pure_black),
-                    visible = themeMode != ThemeMode.LIGHT,
+                    visible = themeMode.shownWith(appTheme) != ThemeMode.LIGHT, // RK
                     onValueChanged = {
                         (context as? Activity)?.let { ActivityCompat.recreate(it) }
                         true

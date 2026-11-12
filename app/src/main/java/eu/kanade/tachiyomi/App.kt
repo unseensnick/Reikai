@@ -30,6 +30,7 @@ import dev.zacsweers.metro.createGraphFactory
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
+import eu.kanade.domain.ui.model.shownWith
 import eu.kanade.tachiyomi.core.security.PrivacyPreferences
 import eu.kanade.tachiyomi.crash.CrashActivity
 import eu.kanade.tachiyomi.crash.GlobalExceptionHandler
@@ -204,7 +205,7 @@ class App :
             LogcatLogger.loggers += AndroidLogcatLogger(minLogPriority)
         }
 
-        setAppCompatDelegateThemeMode(uiPreferences.themeMode.get())
+        setAppCompatDelegateThemeMode(uiPreferences.themeMode.get().shownWith(uiPreferences.appTheme.get())) // RK
 
         // RK --> everything below belongs to the main process. CrashActivity runs in :error_handler,
         // so this method runs a second time there: the migrator would stamp a version for migrations

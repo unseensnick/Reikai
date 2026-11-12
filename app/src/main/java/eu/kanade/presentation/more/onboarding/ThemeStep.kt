@@ -6,6 +6,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import eu.kanade.domain.ui.model.setAppCompatDelegateThemeMode
+import eu.kanade.domain.ui.model.shownWith
 import eu.kanade.presentation.more.settings.widget.AppThemeModePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.AppThemePreferenceWidget
 import eu.kanade.presentation.more.settings.widget.ShownContentPreferenceWidget
@@ -40,14 +41,18 @@ internal class ThemeStep : OnboardingStep {
                 value = themeMode,
                 onItemClick = {
                     themeModePref.set(it)
-                    setAppCompatDelegateThemeMode(it)
+                    setAppCompatDelegateThemeMode(it.shownWith(appTheme)) // RK
                 },
             )
 
             AppThemePreferenceWidget(
                 value = appTheme,
                 amoled = amoled,
-                onItemClick = { appThemePref.set(it) },
+                // RK: picking or leaving Doki changes the night mode
+                onItemClick = {
+                    appThemePref.set(it)
+                    setAppCompatDelegateThemeMode(themeMode.shownWith(it))
+                },
             )
 
             ShownContentPreferenceWidget(value = shownContent, onItemClick = shownContentPref::set) // RK
