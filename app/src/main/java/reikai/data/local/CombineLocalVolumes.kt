@@ -309,6 +309,9 @@ class CombineLocalVolumes(
             if (e is CancellationException) throw e
             return failed(LocalMoveResult.Failed(e))
         }
+        // Who owns what in the folders the Undo gives volumes back to: it writes its rows only over this same state.
+        val handed = remove.mapTo(HashSet()) { it.folder }
+        val left = localVolumes.all(type).filterTo(HashSet()) { it.folder in handed }
         // The rows have moved, so a failure in the library steps after them must not lose the Undo.
         var tookOut = emptyMap<Long, Instant>()
         try {
@@ -324,9 +327,10 @@ class CombineLocalVolumes(
             undoing = {
                 seriesLocks.withSeries(type, folders) undo@{
                     // A later change to these volumes (a combine built on this one, an organize) makes this Undo's
-                    // rows not the ones to put back, and writing them would take that change's chapters too.
+                    // rows not the ones to put back, and writing them would take that change's chapters too. A move
+                    // that added no row (a split-out series combined back home) shows that only in its folders.
                     val now = localVolumes.all(type)
-                    if (!now.containsAll(add)) {
+                    if (!now.containsAll(add) || now.filterTo(HashSet()) { it.folder in handed } != left) {
                         return@undo LocalMoveResult.Failed(IllegalStateException("The volumes changed since"))
                     }
                     try {

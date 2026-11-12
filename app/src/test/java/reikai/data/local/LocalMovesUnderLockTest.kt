@@ -541,6 +541,36 @@ class LocalMovesUnderLockTest {
             listOf(true, true, listOf("Other/Vol 1/Ch 1"))
     }
 
+    /** Combining a split-out series back home removes its rows and adds none, so present rows prove nothing. */
+    @Test
+    fun `an Undo of a combine that wrote no row is refused once a later combine moved its volumes on`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+        val home = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(KEPT), listOf(series(split))) }
+        }
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.combine(ContentType.MANGA, series(OTHER), listOf(series(KEPT))) }
+        }
+        markRead("Kept/Vol 2/Ch 2")
+        val owners = volumes.all(ContentType.MANGA)
+
+        val undone = withContext(Dispatchers.Default) { withTimeout(20_000) { home.undo() } }
+        val relisted = runCatching { refreshed(OTHER) }.isSuccess
+
+        listOf(
+            undone is LocalMoveResult.Failed,
+            volumes.all(ContentType.MANGA) == owners,
+            relisted,
+            readUrls(OTHER),
+        ) shouldBe
+            listOf(true, true, true, listOf("Kept/Vol 2/Ch 2"))
+    }
+
     /** Found by the randomized test: Other's folder lists under Kept already, with Other's chapters on Kept's rows. */
     @Test
     fun `combining a series whose folder another holds whole moves none of its chapters away from that one`() =
