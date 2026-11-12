@@ -1,6 +1,7 @@
 package reikai.domain.library
 
 import reikai.domain.entry.EntryId
+import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.track.source.SourceTrackerDispatcher
 import kotlin.time.Instant
@@ -9,15 +10,17 @@ import kotlin.time.Instant
  * Taking entries out of the library, one sequence for both content types and every surface, in the
  * order of Mihon's details heart: one all-or-nothing favourite write, then the covers. Each leaving entry first gets its own copy of its group's shared tracker, since the
  * hand-out skips non-favourites. Manage sources splits the steps around its Undo window: [takeOut]
- * at once, then [restore] or [dropCovers] when the window closes.
+ * at once, then [restore] or [finish] when the window closes.
  */
 abstract class EntryLibraryRemoval(
     private val mergeManager: EntryMergeManager,
     private val sourceTracker: SourceTrackerDispatcher,
+    // Deferred: the local volume steps take entries out of the library through this class themselves.
+    private val localVolumes: () -> LocalVolumeHandBack,
 ) {
 
-    /** Takes [ids] out of the library and drops their covers, answering the ids that left. */
-    suspend fun await(ids: List<Long>): List<Long> = takeOut(ids).keys.toList().also { dropCovers(it) }
+    /** Takes [ids] out of the library and finishes the removal, answering the ids that left. */
+    suspend fun await(ids: List<Long>): List<Long> = takeOut(ids).keys.toList().also { finish(it) }
 
     /**
      * Takes those of [ids] still in the library out in one write, answering when each had joined it
@@ -35,8 +38,13 @@ abstract class EntryLibraryRemoval(
         write(joined)
     }
 
-    suspend fun dropCovers(ids: List<Long>) {
+    /**
+     * What a removal does once it is final, after any Undo window: drops the covers, and hands a local series'
+     * volumes in other folders back to those folders' own series.
+     */
+    suspend fun finish(ids: List<Long>) {
         ids.forEach { deleteCovers(it) }
+        if (ids.isNotEmpty()) localVolumes().handBack(contentType, ids)
     }
 
     private suspend fun write(favoriteAt: Map<Long, Instant?>): Boolean = writeFavoriteAt(favoriteAt).also { written ->
@@ -48,6 +56,8 @@ abstract class EntryLibraryRemoval(
     }
 
     abstract fun entryId(id: Long): EntryId
+
+    protected abstract val contentType: ContentType
 
     /** When the stored row joined the library, null when it is not in it or is gone. */
     protected abstract suspend fun favoriteAt(id: Long): Instant?

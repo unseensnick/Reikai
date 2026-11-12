@@ -110,7 +110,7 @@ class EntryMergeActionHost(
             try {
                 undone = undoRequested(MR.strings.merge_sources_removed)
             } finally {
-                if (!undone) withContext(NonCancellable) { removal.dropCovers(joined.keys.toList()) }
+                if (!undone) withContext(NonCancellable) { removal.finish(joined.keys.toList()) }
             }
             if (undone) {
                 mergeManager.restoreGroup(snapshot)

@@ -27,6 +27,7 @@ import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalVolumeMove
 import reikai.domain.entry.EntryId
+import reikai.domain.library.ContentType
 import reikai.domain.library.EntryLibraryRemoval
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.merge.GroupSnapshot
@@ -182,7 +183,11 @@ class EntryMergeActionHostTest {
         withContext(Dispatchers.Default) { withTimeout(5_000) { restoredGroup.await() } } shouldBe GROUP
     }
 
-    private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true)) {
+    private class MemoryRemoval : EntryLibraryRemoval(mockk(relaxed = true), mockk(relaxed = true), {
+        mockk(relaxed = true)
+    }) {
+        override val contentType = ContentType.MANGA
+
         val favoriteAt: MutableMap<Long, Instant?> = Collections.synchronizedMap(
             mutableMapOf<Long, Instant?>(
                 1L to Instant.fromEpochMilliseconds(100L),

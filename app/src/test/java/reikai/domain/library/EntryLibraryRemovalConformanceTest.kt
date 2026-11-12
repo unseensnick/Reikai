@@ -12,6 +12,7 @@ import org.junit.jupiter.api.io.TempDir
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.entry.EntryId
+import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.manga.MangaMergeManager
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.novel.NovelMergeManager
@@ -181,6 +182,26 @@ class EntryLibraryRemovalConformanceTest {
         table.favoriteAt(ID) shouldBe JOINED_AT
     }
 
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a removal made final hands a local series' volumes in other folders back`(type: ContentType) = runTest {
+        val table = table(type).apply { put(ID) }
+
+        table.removal.await(listOf(ID))
+
+        table.handedBack shouldBe listOf(type to listOf(ID))
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `an undone removal hands nothing back`(type: ContentType) = runTest {
+        val table = table(type).apply { put(ID) }
+
+        table.removal.restore(table.removal.takeOut(listOf(ID)))
+
+        table.handedBack shouldBe emptyList()
+    }
+
     private fun table(type: ContentType): Table = when (type) {
         ContentType.MANGA -> MangaTable(coverCache())
         else -> NovelTable(coverCache())
@@ -199,6 +220,13 @@ class EntryLibraryRemovalConformanceTest {
         val coverStamps = mutableListOf<Long>()
         val inLibraryAtHandOut = mutableListOf<Boolean>()
         val toldSourceTracker = mutableListOf<Pair<EntryId, Boolean>>()
+        val handedBack = mutableListOf<Pair<ContentType, List<Long>>>()
+
+        protected val localVolumes = object : LocalVolumeHandBack {
+            override suspend fun handBack(type: ContentType, ids: List<Long>) {
+                handedBack += type to ids
+            }
+        }
 
         protected val sourceTracker = mockk<SourceTrackerDispatcher> {
             every { favoriteChanged(any(), any()) } answers { toldSourceTracker += firstArg<EntryId>() to secondArg() }
@@ -240,6 +268,7 @@ class EntryLibraryRemovalConformanceTest {
             getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
             updateManga = UpdateManga(repository, mockk(), mockk(relaxed = true)),
             coverCache = cache,
+            localVolumes = { localVolumes },
         )
 
         override fun entryId(id: Long) = EntryId.Manga(id)
@@ -284,6 +313,7 @@ class EntryLibraryRemovalConformanceTest {
             sourceTracker = sourceTracker,
             novelRepository = repository,
             coverCache = cache,
+            localVolumes = { localVolumes },
         )
 
         override fun entryId(id: Long) = EntryId.Novel(id)

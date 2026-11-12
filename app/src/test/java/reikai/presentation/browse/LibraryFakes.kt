@@ -144,6 +144,7 @@ class FakeMangaLibrary(
         getManga = getManga,
         updateManga = updateManga,
         coverCache = mockk(relaxed = true),
+        localVolumes = { mockk(relaxed = true) },
     )
 
     val adder = MangaLibraryAdder(

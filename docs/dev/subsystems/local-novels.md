@@ -67,6 +67,7 @@ Local is a source state like manga's (`EntrySourceState.Local`): no download con
 
 ## Decisions
 
+- **A local series that leaves the library for good hands its volumes in other folders back** (`EntryLibraryRemoval.finish`, `CombineLocalVolumes.handBack`), to the series whose folders hold them, with their chapters and reading state, once any Undo window has closed. Owner rows that outlived their series hid those folders from Browse with nothing to reach them; an Undo before then takes nothing back, since nothing was handed back.
 - **A restored owner row wins over the device, applied as a combine.** A backup that lists a folder in another series moves that folder's chapters and kept state there and takes its own series out of the library, as a combine does and as a restore wins for merge groups. The row alone would leave that series listing nothing beside duplicate chapter rows.
 - **Open with and Share register EPUB and comic archives, not generic archive types.** Registering zip, rar, 7z, tar or octet-stream would offer Reikai for every archive on the device.
 - **Loose files is not offered for novels.** In a local novel every book is a volume, whether in a series folder or loose as a series of one, so a novel has no loose files to show any other way.

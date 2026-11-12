@@ -2,6 +2,8 @@ package reikai.data.local
 
 import android.content.Context
 import com.hippo.unifile.UniFile
+import dev.zacsweers.metro.AppScope
+import dev.zacsweers.metro.ContributesBinding
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.source.model.SManga
@@ -29,6 +31,7 @@ import reikai.domain.local.LocalFileJournalPlan.UrlRule
 import reikai.domain.local.LocalGroups
 import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.LocalVolumeHandBack
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
 import reikai.domain.local.localGroupKey
@@ -95,6 +98,7 @@ sealed interface LocalMoveResult {
  * step undoable. Files move only by Organize files ([organizeFiles]), on the user's word.
  */
 @Inject
+@ContributesBinding(AppScope::class)
 class CombineLocalVolumes(
     private val mangaRepository: MangaRepository,
     private val localFiles: LocalSourceFileSystem,
@@ -122,7 +126,7 @@ class CombineLocalVolumes(
     private val seriesLocks: LocalSeriesLocks,
     private val context: Context,
     @AppCoroutineScope private val appScope: CoroutineScope,
-) {
+) : LocalVolumeHandBack {
 
     /** The local series of [type] in the library, which a series can be added to as a volume. */
     suspend fun library(type: ContentType): List<CombinableSeries> = when (type) {
@@ -343,7 +347,7 @@ class CombineLocalVolumes(
                     LocalMoveResult.Moved(emptyList())
                 }
             },
-            finishing = { removal.dropCovers(tookOut.keys.toList()) },
+            finishing = { removal.finish(tookOut.keys.toList()) },
             appScope = appScope,
             created = joining,
         )
@@ -488,15 +492,8 @@ class CombineLocalVolumes(
                 if (member in names || rows.isEmpty()) {
                     return@withSeries LocalMoveResult.Failed(IllegalStateException("$member is not a missing member"))
                 }
-                // Its volumes' saved order and names go home with it, keyed as its own folder keys them.
-                val volumes = localVolumes.loadedVolumes(type)[series.folder].orEmpty().mapNotNull { row ->
-                    val (folder, volume) = localGroupUnit(series.folder, row.key)
-                    VolumeRowMove(series.folder, row.key, member, volume, row.position).takeIf { folder == member }
-                }
                 try {
-                    chapterMoves.regroup(type, mapOf(series.folder to series.id), rows, emptyList(), volumes) {
-                        chapterVolumeUnit(type, it)
-                    }
+                    handBackRows(type, series, rows)
                 } catch (e: Exception) {
                     if (e is CancellationException) throw e
                     return@withSeries LocalMoveResult.Failed(e)
@@ -505,6 +502,46 @@ class CombineLocalVolumes(
                 LocalMoveResult.Moved(emptyList())
             }
         }
+
+    /**
+     * Hands every volume each of [ids] lists from other folders back to the folders' own series, once it has left
+     * the library for good; a split-out series' own marker goes with them. Those series list again, so the
+     * folders show in Browse and their chapters carry their reading state.
+     */
+    override suspend fun handBack(type: ContentType, ids: List<Long>) {
+        val local = when (type) {
+            ContentType.NOVELS -> ids.mapNotNull { id -> novelRepository.getById(id) }
+                .filter { LocalNovelSource.isLocal(it.source) }.map { CombinableSeries(it.id, it.title, it.url) }
+            else -> ids.map { id -> mangaRepository.getMangaById(id) }
+                .filter { it.source == LocalSource.ID }.map { CombinableSeries(it.id, it.title, it.url) }
+        }
+        for (owner in local) {
+            seriesLocks.withSeries(type, owner.folder) {
+                val rows = localVolumes.all(type).filter { it.owner == owner.folder }
+                if (rows.isEmpty()) return@withSeries
+                handBackRows(type, owner, rows)
+                rows.map { it.folder }.distinct().filter { it != owner.folder }
+                    .mapNotNull { heldBy(type, it) }.forEach { relist(type, it) }
+            }
+        }
+    }
+
+    /**
+     * Takes [rows] of [owner] out of the group: the chapters' rows and kept states go to each folder's own series
+     * where it has one, as a combine's Undo hands them back, and the volumes' saved order and names go with them,
+     * keyed as their own folder keys them. Called under the series' lock.
+     */
+    private suspend fun handBackRows(type: ContentType, owner: CombinableSeries, rows: List<VolumeOwner>) {
+        val members = rows.mapTo(HashSet()) { it.folder } - owner.folder
+        val volumes = localVolumes.loadedVolumes(type)[owner.folder].orEmpty().mapNotNull { row ->
+            val (folder, volume) = localGroupUnit(owner.folder, row.key)
+            VolumeRowMove(owner.folder, row.key, folder, volume, row.position).takeIf { folder in members }
+        }
+        // The owner's chapters are the ones that move; each goes to the series its folder now lists under.
+        chapterMoves.regroup(type, mapOf(owner.folder to owner.id), rows, emptyList(), volumes) {
+            chapterVolumeUnit(type, it)
+        }
+    }
 
     private fun containerOf(type: ContentType, parent: UniFile, folder: String, volume: String): UniFile? =
         localVolumeContainer(type, folder, volume).fold(parent as UniFile?) { dir, name ->

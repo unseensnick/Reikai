@@ -55,6 +55,7 @@ class RemoveNovelsFromLibraryTest {
             sourceTracker = mockk(relaxed = true),
             novelRepository = repository,
             coverCache = coverCache,
+            localVolumes = { mockk(relaxed = true) },
         )
     }
 }

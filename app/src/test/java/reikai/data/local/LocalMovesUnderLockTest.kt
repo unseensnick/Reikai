@@ -169,7 +169,7 @@ class LocalMovesUnderLockTest {
         removal = mockk<RemoveMangaFromLibrary> {
             coEvery { takeOut(any()) } returns emptyMap()
             coEvery { restore(any()) } returns Unit
-            coEvery { dropCovers(any()) } returns Unit
+            coEvery { finish(any()) } returns Unit
             coEvery { await(any()) } returns emptyList()
         }
         val mangaAdder = mockk<MangaLibraryAdder> { coEvery { addToBatch(any(), any()) } returns AddOutcome.Added }
@@ -579,6 +579,22 @@ class LocalMovesUnderLockTest {
             "remote_update_strategy, state_chapter_fetch_interval, user_notes, remote_memo) VALUES " +
             "($id, ${LocalSource.ID}, '$folder', '$folder', 'cover.jpg', 0, 0, 0, 0, 0, 0, 0, '', '{}')",
     )
+
+    /** A split-out series has no folder, so once it leaves the library nothing else could list its volume. */
+    @Test
+    fun `a split-out series leaving the library hands its volume back with its reading state`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        markRead("Kept/Vol 2/Ch 2")
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Split") }
+        }
+        val split = MangaRepositoryImpl(database).getMangaByUrlAndSourceId("Split", LocalSource.ID)!!.id
+
+        withContext(Dispatchers.Default) { withTimeout(20_000) { combine.handBack(ContentType.MANGA, listOf(split)) } }
+
+        listOf(readUrls(KEPT), volumes.all(ContentType.MANGA)) shouldBe listOf(listOf("Kept/Vol 2/Ch 2"), emptyList())
+    }
 
     /** A split-out series has no folder, so combining it lists no folder of its name: that would read as missing. */
     @Test
