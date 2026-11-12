@@ -51,6 +51,19 @@ class LocalFilesMoveTest {
         (moved to File(root, "A/Vol 1/Ch 1/001.jpg").exists()) shouldBe (null to true)
     }
 
+    /** Nothing could find it under the dodged name, so it goes back to where it was. */
+    @Test
+    fun `a move a provider landed under another name is moved back and answers null`() {
+        FakeSafProvider.moveDodgesTakenName = true
+        File(root, "B/Vol 1").mkdirs()
+        val a = tree().findFile("A")!!
+
+        val moved = a.findFile("Vol 1")!!.moveTo(context, a, tree().findFile("B")!!)
+
+        (moved to File(root, "A/Vol 1/Ch 1/001.jpg").exists() to File(root, "B").list()!!.toList()) shouldBe
+            (null to true to listOf("Vol 1"))
+    }
+
     @Test
     fun `the tree root is never moved`() {
         val inner = UniFile.fromUri(context, FakeSafProvider.treeUri(File(root, "A")))!!

@@ -237,7 +237,10 @@ fun UniFile.moveTo(context: Context, from: UniFile, into: UniFile): UniFile? {
     val landed = UniFile.fromUri(context, moved) ?: return null
     if (landed.name == name) return landed
     try {
+        // It goes back under the dodged name it carries now, so it takes its own name again there.
         DocumentsContract.moveDocument(context.contentResolver, moved, into.uri, from.uri)
+            ?.let { UniFile.fromUri(context, it) }
+            ?.rename(name)
     } catch (e: Exception) {
         // Left where it landed: the caller's reversal finds it by its document, not its name.
     }

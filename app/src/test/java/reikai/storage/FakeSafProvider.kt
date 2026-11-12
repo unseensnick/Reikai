@@ -175,8 +175,13 @@ class FakeSafProvider : ContentProvider() {
         ): String {
             if (!supportsMove) throw UnsupportedOperationException("Move not supported")
             val before = existing(sourceDocumentId)
-            val after = File(existing(targetParentDocumentId), before.name)
-            onCall?.invoke("moveDocument", after)
+            val asked = File(existing(targetParentDocumentId), before.name)
+            onCall?.invoke("moveDocument", asked)
+            val after = if (moveDodgesTakenName) {
+                uniqueFile(asked.parentFile, before.nameWithoutExtension, before.extension)
+            } else {
+                asked
+            }
             check(!after.exists()) { "Already exists $after" }
             check(before.renameTo(after)) { "Failed to move to $after" }
             return docIdFor(after)
@@ -282,6 +287,9 @@ class FakeSafProvider : ContentProvider() {
         /** Whether documents move, as the device's own provider's do; many others' do not. */
         var supportsMove = true
 
+        /** Whether a move onto a taken name lands under "name (1)" as some providers' do, rather than throwing. */
+        var moveDodgesTakenName = false
+
         /** What a child query of a folder does when [childListingFaults] holds nothing for it. */
         var listingFault: ((File) -> ChildListingFault?)? = null
 
@@ -309,6 +317,7 @@ class FakeSafProvider : ContentProvider() {
             failingDocuments.clear()
             createReturnsExisting = false
             supportsMove = true
+            moveDodgesTakenName = false
             beforeCreate = null
             beforeRename = null
             listingFault = null
