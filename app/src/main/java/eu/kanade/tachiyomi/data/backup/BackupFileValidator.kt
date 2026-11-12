@@ -13,6 +13,7 @@ import eu.kanade.tachiyomi.data.backup.models.PreferenceValue
 import eu.kanade.tachiyomi.data.track.TrackerManager
 import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.protobuf.ProtoBuf
+import reikai.data.backup.FOREIGN_MERGED_SOURCE_ID
 import reikai.data.backup.RestoreInstallPlan
 import reikai.data.backup.RestoreInstallSources
 import reikai.data.backup.mangaTrackScores
@@ -52,7 +53,8 @@ class BackupFileValidator(
 
         val sources = backupSources.associate { it.sourceId to it.name } // RK: streamed
         val missingSources = sources
-            .filterKeys { sourceManager.get(it) == null }
+            // RK: a TachiyomiSY or Komikku merged series' source, which no install provides and the restore leaves out
+            .filterKeys { it != FOREIGN_MERGED_SOURCE_ID && sourceManager.get(it) == null }
             .map { (id, name) ->
                 // Some backups store the id as the name, and sources without a stub were backed up with no name
                 if (name.isBlank() || name.toLongOrNull() != null) {
