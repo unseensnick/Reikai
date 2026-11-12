@@ -12,10 +12,9 @@ import kotlinx.serialization.protobuf.ProtoNumber
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.backup.FOREIGN_MERGED_SOURCE_ID
-import reikai.data.backup.ForeignMerge
-import reikai.data.backup.ForeignMerges
-import reikai.data.backup.isForeignMergedRow
+import reikai.data.backup.ForeignMergeReader
 import reikai.data.merge.MergeGroupRepositoryImpl
+import reikai.domain.backup.KitsuBackupScoreScale
 import reikai.domain.library.ContentType
 
 /**
@@ -35,11 +34,13 @@ class ForeignMergeRestoreTest {
         favorite: Boolean = true,
         infoMarked: Boolean = true,
         tracking: List<BackupTracking> = listOf(BackupTracking(syncId = 2, libraryId = 0)),
+        info: Pair<String, Long> = INFO_URL to INFO_SOURCE,
+        other: Pair<String, Long> = OTHER_URL to OTHER_SOURCE,
     ): ByteArray {
         val self = Triple(MERGED_URL, FOREIGN_MERGED_SOURCE_ID, -1)
         // Listed info, self, other, with the info entry ranked last: only its mark puts it first, and
         // without one only the priority sort and the self filter put the other member first.
-        val members = listOf(Triple(INFO_URL, INFO_SOURCE, 1), self, Triple(OTHER_URL, OTHER_SOURCE, 0))
+        val members = listOf(Triple(info.first, info.second, 1), self, Triple(other.first, other.second, 0))
         return when (layout) {
             Layout.TACHIYOMI_SY -> proto.encodeToByteArray(
                 SyManga.serializer(),
@@ -48,7 +49,7 @@ class ForeignMergeRestoreTest {
                     categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
                     mergedEntries = members.map { (url, source, priority) -> SyMergedEntry(priority, url, source) },
-                    mergeSettings = SyMergeSettings(INFO_URL, INFO_SOURCE).takeIf { infoMarked },
+                    mergeSettings = SyMergeSettings(info.first, info.second).takeIf { infoMarked },
                 ),
             )
             Layout.KOMIKKU -> proto.encodeToByteArray(
@@ -58,7 +59,7 @@ class ForeignMergeRestoreTest {
                     categories = listOf(1L), tracking = tracking,
                     favorite = favorite, notes = NOTES, customTitle = CUSTOM_TITLE,
                     mergedMangaReferences = members.map { (url, source, priority) ->
-                        KomikkuMergedRef(infoMarked && url == INFO_URL, priority, MERGED_URL, url, source)
+                        KomikkuMergedRef(infoMarked && url == info.first, priority, MERGED_URL, url, source)
                     },
                 ),
             )
@@ -81,7 +82,9 @@ class ForeignMergeRestoreTest {
         mergedRow(layout),
     )
 
-    private fun merges(rows: List<ByteArray>) = ForeignMerges(rows.mapNotNull { ForeignMerge.of(proto, it) })
+    private fun merges(rows: List<ByteArray>) = ForeignMergeReader()
+        .apply { rows.forEach { read(proto, it) } }
+        .merges(KitsuBackupScoreScale.of(nativeScaleMarked = true, tracks = emptyList()))
 
     // Through the real restore, as the fork wrote the file: its rows are the backup's field 1, and nothing else.
     private suspend fun <T> restored(rows: List<ByteArray>, read: suspend MangaRestoreHarness.() -> T): T =
@@ -132,6 +135,37 @@ class ForeignMergeRestoreTest {
         restored(rows(layout)) {
             tracks.getTracksByMangaId(idOf(INFO_URL, INFO_SOURCE)!!).map { it.trackerId }
         } shouldBe listOf(2L)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `with the info entry missing from the file, the next member takes the tracks`(layout: Layout) = runTest {
+        val rows = listOf(mergedRow(layout), memberRow(OTHER_URL, OTHER_SOURCE))
+
+        restored(rows) { tracks.getTracksByMangaId(idOf(OTHER_URL, OTHER_SOURCE)!!).map { it.trackerId } } shouldBe
+            listOf(2L)
+    }
+
+    // Merge A is [other, info] and B is [info, third]: info goes to A, the first to claim it, so B's own
+    // data has only third left to land on.
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `a merge whose Primary an earlier merge took gives its tracks to its next member`(layout: Layout) = runTest {
+        val rows = listOf(
+            mergedRow(
+                layout,
+                tracking = emptyList(),
+                info = OTHER_URL to OTHER_SOURCE,
+                other = INFO_URL to INFO_SOURCE,
+            ),
+            mergedRow(layout, other = THIRD_URL to THIRD_SOURCE),
+            memberRow(OTHER_URL, OTHER_SOURCE),
+            memberRow(INFO_URL, INFO_SOURCE),
+            memberRow(THIRD_URL, THIRD_SOURCE),
+        )
+
+        restored(rows) { tracks.getTracksByMangaId(idOf(THIRD_URL, THIRD_SOURCE)!!).map { it.trackerId } } shouldBe
+            listOf(2L)
     }
 
     // A fork's file carries none of the native-scale markers, so a Kitsu score of 10 or less is doubled.
@@ -220,6 +254,8 @@ class ForeignMergeRestoreTest {
         const val INFO_SOURCE = 11L
         const val OTHER_URL = "/manga/other"
         const val OTHER_SOURCE = 22L
+        const val THIRD_URL = "/manga/third"
+        const val THIRD_SOURCE = 33L
         const val MERGED_URL = INFO_URL
     }
 }

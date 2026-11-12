@@ -28,10 +28,11 @@ class BackupForeignMergeSettings(
     @ProtoNumber(3) var infoMangaSourceId: Long = 0,
 )
 
-// A merged entry's merge fields alone, so the summary pass skips every other row's chapters.
+// A manga row's key and, on a merged entry, its merge fields alone, so the summary pass skips every row's chapters.
 @Serializable
-private class BackupForeignMergeRow(
+internal class BackupForeignMergeRow(
     @ProtoNumber(1) val source: Long = 0,
+    @ProtoNumber(2) val url: String = "",
     @ProtoNumber(600) val members: List<BackupForeignMergedEntry> = emptyList(),
     @ProtoNumber(604) val settings: BackupForeignMergeSettings? = null,
 )
@@ -40,7 +41,7 @@ private class BackupForeignMergeRow(
  * A TachiyomiSY or Komikku merged entry as Reikai restores it: its members, Primary first, become one
  * group in the library, and the entry's own row, whose source Reikai lacks, is left out.
  */
-class ForeignMerge private constructor(private val row: BackupForeignMergeRow, private val entry: BackupManga) {
+class ForeignMerge internal constructor(private val row: BackupForeignMergeRow, private val entry: BackupManga) {
 
     /** Members in the order the fork showed them: its info entry first, then by chapter priority. */
     val members: List<Pair<Long, String>> = row.members
@@ -70,38 +71,64 @@ class ForeignMerge private constructor(private val row: BackupForeignMergeRow, p
         if (member.customInfo == null) member.customInfo = entry.customInfo
         if (member.notes.isBlank()) member.notes = entry.notes
     }
+}
 
-    companion object {
-        /** The merged entry the encoded manga row [data] is, or null for any other row. */
-        fun of(parser: ProtoBuf, data: ByteArray): ForeignMerge? {
-            val row = parser.decodeFromByteArray(BackupForeignMergeRow.serializer(), data)
-            if (row.source != FOREIGN_MERGED_SOURCE_ID) return null
-            // The full entry only for a merged row, which carries no chapters of its own.
-            val entry = parser.decodeFromByteArray(BackupManga.serializer(), data)
-            return ForeignMerge(row, entry).takeIf { it.members.isNotEmpty() }
+/**
+ * Pass 1's reading of a backup's manga rows: each merged entry, and which rows the file holds, since a member
+ * the file lacks restores nowhere and so cannot be its group's Primary. The keys go once [merges] is built.
+ */
+class ForeignMergeReader {
+    private val merges = mutableListOf<ForeignMerge>()
+    private val rows = HashSet<Pair<Long, String>>()
+
+    fun read(parser: ProtoBuf, data: ByteArray) {
+        val row = parser.decodeFromByteArray(BackupForeignMergeRow.serializer(), data)
+        if (row.source != FOREIGN_MERGED_SOURCE_ID) {
+            rows += row.source to row.url
+            return
         }
+        // The full entry only for a merged row, which carries no chapters of its own.
+        val merge = ForeignMerge(row, parser.decodeFromByteArray(BackupManga.serializer(), data))
+        if (merge.members.isNotEmpty()) merges += merge
     }
+
+    /** The merged entries read, their tracks on the file's Kitsu [scale]. */
+    fun merges(scale: KitsuBackupScoreScale) = ForeignMerges(merges.map { it.rescaleKitsu(scale) }, rows)
 }
 
 /** Every merged entry one backup holds, keyed so the restore can find a member as it decodes it. */
-class ForeignMerges(merges: List<ForeignMerge>) {
+class ForeignMerges(merges: List<ForeignMerge>, inFile: Set<Pair<Long, String>>) {
 
     // Komikku lists a merged entry twice, once as a favourite and once as a merge.
     private val distinct = merges.distinctBy { it.members }
 
-    // A member of two merges is placed by the first, the rule the group restore applies.
+    // Each merge's members the file holds that no earlier merge took, as the group restore claims a group's
+    // members only once it has two (RestoreMergeGroups). Its first is the group's lead, so the one that takes
+    // the merged entry's own data, even when the fork's info entry is absent or already in another group.
+    private val placed = HashSet<Pair<Long, String>>().let { claimed ->
+        distinct.map { merge ->
+            merge to merge.members.filter { it in inFile && it !in claimed }.also { if (it.size >= 2) claimed += it }
+        }
+    }
+
+    // A member of two merges joins the library the way the first one was.
     private val byMember = buildMap {
         distinct.forEach { merge -> merge.members.forEach { putIfAbsent(it, merge) } }
     }
 
+    private val byPrimary = buildMap {
+        placed.forEach { (merge, members) -> members.firstOrNull()?.let { putIfAbsent(it, merge) } }
+    }
+
     /** The groups to restore, in each merge's member order. */
     val groups: List<List<BackupMangaSourceRef>> =
-        distinct.map { merge -> merge.members.map { (source, url) -> BackupMangaSourceRef(url, source) } }
+        placed.map { (_, members) -> members.map { (source, url) -> BackupMangaSourceRef(url, source) } }
 
     fun applyTo(manga: BackupManga): BackupManga = manga.also {
         val key = it.source to it.url
-        val merge = byMember[key] ?: return@also
-        merge.applyTo(it, isPrimary = merge.members.first() == key)
+        val primaryOf = byPrimary[key]
+        byMember[key]?.takeIf { merge -> merge !== primaryOf }?.applyTo(it, isPrimary = false)
+        primaryOf?.applyTo(it, isPrimary = true)
     }
 }
 

@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
-import reikai.data.backup.ForeignMerge
+import reikai.data.backup.ForeignMergeReader
 import reikai.data.backup.ForeignMerges
 import reikai.data.backup.RestoreExtensionInstaller
 import reikai.data.backup.RestoreInstallSources
@@ -290,7 +290,7 @@ class BackupRestorer(
         var sortOverridesStored = false
         var kitsuNativeScale = false
         val trackScores = mutableListOf<Pair<Long, Double>>()
-        val foreignMerges = mutableListOf<ForeignMerge>()
+        val foreignMerges = ForeignMergeReader()
         var mangaCount = 0
         var novelCount = 0
 
@@ -299,7 +299,7 @@ class BackupRestorer(
                 BackupFields.MANGA -> {
                     mangaCount++
                     trackScores += parser.mangaTrackScores(data)
-                    ForeignMerge.of(parser, data)?.let { foreignMerges += it }
+                    foreignMerges.read(parser, data)
                 }
                 BackupFields.NOVELS -> {
                     novelCount++
@@ -369,7 +369,7 @@ class BackupRestorer(
             kitsuScoreScale = kitsuScoreScale,
             backupMangaUnmerges = backupMangaUnmerges,
             backupNovelUnmerges = backupNovelUnmerges,
-            foreignMerges = ForeignMerges(foreignMerges.map { it.rescaleKitsu(kitsuScoreScale) }),
+            foreignMerges = foreignMerges.merges(kitsuScoreScale),
         )
     }
 
