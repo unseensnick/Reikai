@@ -108,11 +108,9 @@ class LocalChapterMoveRepositoryImpl(
     override suspend fun rename(
         type: ContentType,
         rename: SeriesRename,
-        journalId: Long?,
         movedUrl: (String) -> String,
     ) {
         database.transaction {
-            journalId?.let { database.local_file_journalQueries.delete(it) }
             renameRows(type, rename, movedUrl)
         }
     }

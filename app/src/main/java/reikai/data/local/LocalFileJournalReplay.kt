@@ -7,25 +7,21 @@ import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import logcat.LogPriority
-import reikai.domain.library.ContentType
-import reikai.domain.local.LocalChapterMoveRepository
 import reikai.domain.local.LocalFileJournal
 import reikai.domain.local.LocalFileJournalEntry
 import reikai.domain.local.LocalFileJournalPlan
-import reikai.domain.local.LocalFileJournalPlan.Step
 import reikai.domain.local.LocalSeriesLocks
-import reikai.domain.local.SeriesRename
 import reikai.storage.deleteFile
 import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * Finishes or reverses, at start, an Organize files ([LocalOrganizer.replay]), an older build's Rename files or an
- * import Replace a kill cut off, under the series' lock and before any listing can read the half-done state: the
- * locks open only once [replay] has run. A rename whose every step took on disk gets its row step; one that took
- * in part is renamed back. A replace promotes its whole copy when the old file has stepped aside. A row whose
- * folder cannot be reached is kept for a later start. Nothing is touched before it is found where the plan says.
+ * Finishes or reverses, at start, an Organize files ([LocalOrganizer.replay]) or an import Replace a kill cut off,
+ * under the series' lock and before any listing can read the half-done state: the locks open only once [replay] has
+ * run. A replace promotes its whole copy when the old file has stepped aside, and otherwise keeps the old file. A
+ * row whose folder cannot be reached is kept for a later start. Nothing is touched before it is found where the
+ * plan says.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -33,7 +29,6 @@ class LocalFileJournalReplay(
     private val context: Context,
     private val journal: LocalFileJournal,
     private val locks: LocalSeriesLocks,
-    private val chapterMoves: LocalChapterMoveRepository,
     private val organizer: LocalOrganizer,
 ) {
 
@@ -54,39 +49,11 @@ class LocalFileJournalReplay(
 
     private suspend fun replay(entry: LocalFileJournalEntry) {
         when (val plan = entry.plan) {
-            is LocalFileJournalPlan.Rename -> locks.locked(entry.type, plan.folder) {
-                replayRename(entry.id, entry.type, plan)
-            }
             is LocalFileJournalPlan.Replace -> replayReplace(entry.id, plan)
             is LocalFileJournalPlan.Organize -> locks.locked(entry.type, plan.folders()) {
                 organizer.replay(entry.type, entry.id, plan)
             }
         }
-    }
-
-    private suspend fun replayRename(id: Long, type: ContentType, plan: LocalFileJournalPlan.Rename) {
-        val parent = reach(plan.parent) ?: return
-        val series = plan.series?.let { parent.find(it) }
-        val seriesFile = series?.file ?: parent.findFile(plan.folder)
-        if (seriesFile == null) {
-            journal.delete(id)
-            return
-        }
-        val volumes = plan.volumes.map { seriesFile.find(it) }
-        val steps = volumes + listOfNotNull(series)
-        if (steps.all { it is Found.NotYet }) {
-            journal.delete(id)
-            return
-        }
-        if (steps.none { it is Found.NotYet }) {
-            steps.forEach { if (it is Found.InFlight) check(it.file.rename(it.step.to)) }
-            val target = plan.series?.to ?: plan.folder
-            val volumeNames = plan.volumes.associate { it.from to it.to }
-            chapterMoves.renameSeries(type, SeriesRename(plan.entryId, plan.folder, target, volumeNames), id)
-            return
-        }
-        steps.asReversed().forEach { found -> found.file?.let { it.rename(found.step.from) } }
-        journal.delete(id)
     }
 
     private suspend fun replayReplace(id: Long, plan: LocalFileJournalPlan.Replace) {
@@ -109,31 +76,4 @@ class LocalFileJournalReplay(
     }
 
     private fun reach(uri: String): UniFile? = UniFile.fromUri(context, Uri.parse(uri))?.takeIf { it.exists() }
-
-    /** What [step] came to on disk, by the names it goes from and to and the uri it took. */
-    private fun UniFile.find(step: Step): Found {
-        val from = findFile(step.from)
-        val to = findFile(step.to)
-        val sameName = step.from.equals(step.to, ignoreCase = true)
-        return when {
-            // A case-only rename finds the same file under both names; its new spelling says whether it took.
-            sameName && to != null -> if (to.name == step.to) Found.Took(step, to) else Found.NotYet(step)
-            to != null && (from == null || to.uri.toString() == step.toUri) -> Found.Took(step, to)
-            from != null -> Found.NotYet(step)
-            else -> findFile(step.to.inFlightName())?.let { Found.InFlight(step, it) } ?: Found.NotYet(step)
-        }
-    }
-
-    /** [file] is the document where the step left it: at its new name, or at the in-flight one; null before it took. */
-    private sealed interface Found {
-        val step: Step
-        val file: UniFile?
-
-        data class NotYet(override val step: Step) : Found {
-            override val file: UniFile? get() = null
-        }
-
-        data class Took(override val step: Step, override val file: UniFile) : Found
-        data class InFlight(override val step: Step, override val file: UniFile) : Found
-    }
 }

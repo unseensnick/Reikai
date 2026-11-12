@@ -7,25 +7,13 @@ import reikai.domain.library.ContentType
 /**
  * A local file operation whose disk step and row step cannot share a transaction, written down before the
  * disk step so a kill between the two is repaired at the next start, before any listing can read the half-done
- * state. Organize files, the Rename files it took over from and import Replace have such a window; grouping
- * volumes changes no file. Each plan names its files by name and path (and Rename's by document uri too), so a
- * replay touches a file only after it has found it where, and as, the plan says.
+ * state. Organize files and import Replace have such a window; grouping volumes changes no file. Each plan names
+ * its files by name and path, so a replay touches a file only after it has found it where, and as, the plan says.
  */
 @Serializable
 sealed interface LocalFileJournalPlan {
 
-    /** Series [folder]'s volumes' renames, [volumes] first, then its own as [series] when it changes. */
-    @Serializable
-    @SerialName("rename")
-    data class Rename(
-        val parent: String,
-        val folder: String,
-        val entryId: Long,
-        val series: Step?,
-        val volumes: List<Step>,
-    ) : LocalFileJournalPlan
-
-    /** [old] in [folder] stepping aside as [aside] so [part] can take [name]; [old] goes once it has. */
+    /** The file [name] in [folder] stepping aside as [aside] so [part] can take [name]; it goes once that has. */
     @Serializable
     @SerialName("replace")
     data class Replace(
@@ -33,13 +21,8 @@ sealed interface LocalFileJournalPlan {
         val name: String,
         val aside: String,
         val part: String,
-        val old: String,
         val partUri: String,
     ) : LocalFileJournalPlan
-
-    /** One rename, [from] to [to]; [toUri] is the document's uri once the rename took, null until then. */
-    @Serializable
-    data class Step(val from: String, val to: String, val fromUri: String, val toUri: String? = null)
 
     /**
      * Organize files over series [entryId], whose address goes from [fromSeries] to [toSeries] under the local

@@ -11,7 +11,6 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.domain.library.ContentType
-import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.VolumeRowMove
@@ -138,7 +137,7 @@ class LocalChapterMoveRepositoryTest {
             )
             exec("INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES ($dbType, 2, 'v1')")
 
-            repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), null, ::toBee)
+            repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), ::toBee)
 
             listOf(
                 one(type.seriesQuery),
@@ -209,35 +208,9 @@ class LocalChapterMoveRepositoryTest {
             )
         }
 
-        repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), null, ::toBee)
+        repository().rename(type.contentType, SeriesRename(2, "B", "Bee", mapOf("v1" to "Vol. 1")), ::toBee)
 
         rows("SELECT series || '|' || volume_key || '|' || label FROM local_volume") shouldBe listOf("Bee|Vol. 1|One")
-    }
-
-    @ParameterizedTest
-    @EnumSource(Type::class)
-    fun `a rename takes its journal row with it`(type: Type) = runTest {
-        type.seed.forEach { exec(it) }
-        val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
-
-        repository().rename(type.contentType, RENAME, journalId, ::toBee)
-
-        rows("SELECT _id FROM local_file_journal") shouldBe emptyList()
-    }
-
-    @ParameterizedTest
-    @EnumSource(Type::class)
-    fun `a rename that fails leaves its journal row for the replay`(type: Type) = runTest {
-        type.seed.forEach { exec(it) }
-        // A chapter already at the address the rename takes, which the owner's unique address refuses.
-        exec(type.seed.first { "'B/c1', 'C'" in it }.replace("(10, 2, 'B/c1'", "(11, 2, 'Bee/c1'"))
-        val journalId = LocalFileJournalRepositoryImpl(database).insert(type.contentType, REPLACE_PLAN)
-
-        runCatching {
-            repository().rename(type.contentType, RENAME, journalId, ::toBee)
-        }
-
-        rows("SELECT _id FROM local_file_journal") shouldBe listOf(journalId.toString())
     }
 
     @ParameterizedTest
@@ -338,7 +311,7 @@ class LocalChapterMoveRepositoryTest {
         // A chapter with no row, only its kept state, which no caller names: the row step must find it.
         exec(type.tombstone(2, "B/c9"))
 
-        repository().rename(type.contentType, RENAME, null, ::toBee)
+        repository().rename(type.contentType, RENAME, ::toBee)
 
         rows(type.tombstoneUrls) shouldBe listOf("Bee/c9")
     }
@@ -366,7 +339,6 @@ class LocalChapterMoveRepositoryTest {
         val SERIES = mapOf("A" to 1L, "B" to 2L)
         val B_IN_A = VolumeOwner("B", VolumeOwner.WHOLE, "A")
         val RENAME = SeriesRename(2, "B", "Bee", emptyMap())
-        val REPLACE_PLAN = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
     }
 
     enum class Type(

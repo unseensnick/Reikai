@@ -367,7 +367,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             seriesLocks = locks,
             owners = volumes,
         )
-        val replay = LocalFileJournalReplay(context, journal, locks, chapterMoves, organizer)
+        val replay = LocalFileJournalReplay(context, journal, locks, organizer)
 
         suspend fun settle() = scope.coroutineContext.job.children.forEach { it.join() }
     }

@@ -8,14 +8,13 @@ import reikai.source.local.localVolumeChapter
 import reikai.storage.IN_FLIGHT_SUFFIX
 
 /**
- * The row step of [rename], the old Rename files replay's and the relink's one path: the repository reads every
+ * The row step of [rename], the relink's path: the repository reads every
  * chapter address the series holds, a row's or a kept state's, and takes each through [renamedChapterUrl].
  */
 internal suspend fun LocalChapterMoveRepository.renameSeries(
     type: ContentType,
     rename: SeriesRename,
-    journalId: Long? = null,
-) = rename(type, rename, journalId) { renamedChapterUrl(type, it, rename.fromSeries, rename.toSeries, rename.volumes) }
+) = rename(type, rename) { renamedChapterUrl(type, it, rename.fromSeries, rename.toSeries, rename.volumes) }
 
 /**
  * A local series' chapter [url] at its address once the series folder is [target] and each volume in

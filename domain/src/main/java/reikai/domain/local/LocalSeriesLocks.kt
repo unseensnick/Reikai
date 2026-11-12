@@ -39,9 +39,6 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
     }
 
     /** [withSeries] for the replay itself, which runs before [open] and so cannot wait on it. */
-    suspend fun <T> locked(type: ContentType, folder: String, block: suspend () -> T): T =
-        locked(type, listOf(folder), block)
-
     suspend fun <T> locked(type: ContentType, folders: Collection<String>, block: suspend () -> T): T {
         val held = currentCoroutineContext()[HeldSeries]?.keys.orEmpty()
         while (true) {

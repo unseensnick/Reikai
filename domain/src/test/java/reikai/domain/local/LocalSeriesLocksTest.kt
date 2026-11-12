@@ -53,7 +53,7 @@ class LocalSeriesLocksTest {
     fun `the replay's own lock does not wait for the opening it brings`() = runTest {
         val locks = LocalSeriesLocks()
 
-        locks.locked(ContentType.NOVELS, "Saga") { "replayed" } shouldBe "replayed"
+        locks.locked(ContentType.NOVELS, listOf("Saga")) { "replayed" } shouldBe "replayed"
     }
 
     @Test

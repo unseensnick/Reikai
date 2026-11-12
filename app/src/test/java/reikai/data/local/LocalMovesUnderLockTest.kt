@@ -702,7 +702,7 @@ class LocalMovesUnderLockTest {
         FakeSafProvider.onCall = null
 
         val moves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database))
-        LocalFileJournalReplay(context, journal, locks, moves, LocalOrganizer(context, journal, moves, locks, appScope))
+        LocalFileJournalReplay(context, journal, locks, LocalOrganizer(context, journal, moves, locks, appScope))
             .replay()
         refreshed(KEPT)
 

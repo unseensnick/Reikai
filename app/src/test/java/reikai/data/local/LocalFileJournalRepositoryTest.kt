@@ -10,7 +10,6 @@ import org.junit.jupiter.api.Test
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalFileJournalEntry
 import reikai.domain.local.LocalFileJournalPlan
-import reikai.domain.local.LocalFileJournalPlan.Step
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 
@@ -33,30 +32,24 @@ class LocalFileJournalRepositoryTest {
     fun tearDown() = driver.close()
 
     @Test
-    fun `a rename plan reads back as updated, beside a replace plan, in the order written`() = runTest {
-        val rename = LocalFileJournalPlan.Rename(
-            parent = "file:///local",
-            folder = "Series",
-            entryId = 1,
-            series = Step("Series", "Saga", "file:///local/Series"),
-            volumes = listOf(Step("Vol 1", "Vol 2", "file:///local/Series/Vol%201")),
-        )
-        val replace = LocalFileJournalPlan.Replace("file:///local/Series", "a.cbz", "a.cbz.old", "a.cbz.part", "o", "p")
-        val id = journal.insert(ContentType.MANGA, rename)
-        journal.insert(ContentType.NOVELS, replace)
-        val took = rename.copy(volumes = listOf(rename.volumes.single().copy(toUri = "file:///local/Series/Vol%202")))
+    fun `a plan reads back as updated, beside another, in the order written`() = runTest {
+        val first = LocalFileJournalPlan.Replace("file:///local/Series", "a.cbz", "a.cbz.old", "a.cbz_tmp", "p")
+        val second = first.copy(name = "b.cbz")
+        val id = journal.insert(ContentType.MANGA, first)
+        journal.insert(ContentType.NOVELS, second)
+        val updated = first.copy(aside = "a (2).cbz.old")
 
-        journal.update(id, took)
+        journal.update(id, updated)
 
         journal.all() shouldBe listOf(
-            LocalFileJournalEntry(id, ContentType.MANGA, took),
-            LocalFileJournalEntry(id + 1, ContentType.NOVELS, replace),
+            LocalFileJournalEntry(id, ContentType.MANGA, updated),
+            LocalFileJournalEntry(id + 1, ContentType.NOVELS, second),
         )
     }
 
     @Test
     fun `a deleted row is gone`() = runTest {
-        val id = journal.insert(ContentType.MANGA, LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u"))
+        val id = journal.insert(ContentType.MANGA, LocalFileJournalPlan.Replace("f", "n", "a", "p", "u"))
 
         journal.delete(id)
 
@@ -67,7 +60,7 @@ class LocalFileJournalRepositoryTest {
     @Test
     fun `a row this build cannot read is passed over and the rest still read`() = runTest {
         database.local_file_journalQueries.insert(0L, """{"type":"future"}""").awaitAsOne()
-        val replace = LocalFileJournalPlan.Replace("f", "n", "a", "p", "o", "u")
+        val replace = LocalFileJournalPlan.Replace("f", "n", "a", "p", "u")
         val id = journal.insert(ContentType.MANGA, replace)
 
         journal.all() shouldBe listOf(LocalFileJournalEntry(id, ContentType.MANGA, replace))
