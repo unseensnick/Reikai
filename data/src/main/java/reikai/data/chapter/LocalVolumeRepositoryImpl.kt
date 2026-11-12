@@ -1,7 +1,6 @@
 package reikai.data.chapter
 
 import app.cash.sqldelight.async.coroutines.awaitAsList
-import app.cash.sqldelight.async.coroutines.awaitAsOneOrNull
 import app.cash.sqldelight.coroutines.asFlow
 import dev.zacsweers.metro.AppScope
 import dev.zacsweers.metro.ContributesBinding
@@ -14,6 +13,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.HeldRows
+import reikai.data.local.localSeriesId
 import reikai.data.toContentType
 import reikai.data.toDbValue
 import reikai.domain.chapter.LocalVolume
@@ -92,10 +92,7 @@ class LocalVolumeRepositoryImpl(
 
     override suspend fun restorePick(type: ContentType, series: String, key: String) {
         // By the series' address, since the restore gave it a new id.
-        val id = when (type) {
-            ContentType.NOVELS -> database.local_moveQueries.localNovelId(series)
-            else -> database.local_moveQueries.localMangaId(series)
-        }.awaitAsOneOrNull() ?: return
+        val id = database.localSeriesId(type, series) ?: return
         database.local_volume_pickQueries.setIfAbsent(type.toDbValue(), id, key)
     }
 

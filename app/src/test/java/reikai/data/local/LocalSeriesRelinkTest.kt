@@ -35,7 +35,6 @@ import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.domain.chapter.model.Chapter
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 import kotlin.time.Instant
 
@@ -76,7 +75,6 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             chapterRepository = ChapterRepositoryImpl(database),
             novelRepository = NovelRepositoryImpl(database),
             novelChapterRepository = NovelChapterRepositoryImpl(database),
-            localFiles = LocalSourceFileSystem(storage),
             storageManager = storage,
             chapterMoves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)),
             seriesLocks = LocalSeriesLocks().apply { open() },

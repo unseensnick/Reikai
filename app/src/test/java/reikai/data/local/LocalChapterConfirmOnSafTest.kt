@@ -27,7 +27,6 @@ import reikai.storage.FakeSafProvider
 import reikai.storage.FakeSafProvider.ChildListingFault
 import reikai.storage.FolderUnreadableException
 import tachiyomi.domain.storage.service.StorageManager
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 
 /**
@@ -54,7 +53,7 @@ class LocalChapterConfirmOnSafTest(private val type: Type) {
         }
         tombstones = LocalChapterTombstonesImpl(
             mockk(),
-            LocalChapterFiles(context, LocalSourceFileSystem(storage), storage),
+            LocalChapterFiles(context, storage),
             NoLocalVolumes,
         )
     }

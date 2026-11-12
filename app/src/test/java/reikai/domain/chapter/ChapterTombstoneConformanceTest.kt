@@ -51,7 +51,6 @@ import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 import kotlin.time.measureTime
 
@@ -94,7 +93,7 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
         }
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
-            LocalChapterFiles(context, LocalSourceFileSystem(storage), storage),
+            LocalChapterFiles(context, storage),
             owners,
         )
     }

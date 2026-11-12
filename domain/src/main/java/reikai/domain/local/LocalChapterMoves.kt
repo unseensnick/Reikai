@@ -85,4 +85,7 @@ interface LocalChapterMoveRepository {
 
     /** The address of every local series of [type] in the database, in the library or not. */
     suspend fun localAddresses(type: ContentType): Set<String>
+
+    /** The id of the local series of [type] at [address], in the library or not, or null where none is. */
+    suspend fun localSeriesId(type: ContentType, address: String): Long?
 }

@@ -262,7 +262,7 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         private val numberOverrides = ChapterNumberOverrideRepositoryImpl(database)
         private val copyMarks = InMemoryChapterCopyMarks()
         private val tombstones =
-            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, fileSystem, storage), volumes)
+            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, storage), volumes)
         val source = LocalSource(
             context,
             fileSystem,
@@ -315,7 +315,6 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         val combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
-            localFiles = fileSystem,
             localManga = source,
             localNovels = mockk(),
             updateMangaFromRemote = refresh,
@@ -361,7 +360,6 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             chapterRepository = chapterRepository,
             novelRepository = NovelRepositoryImpl(database),
             novelChapterRepository = NovelChapterRepositoryImpl(database),
-            localFiles = fileSystem,
             storageManager = storage,
             chapterMoves = chapterMoves,
             seriesLocks = locks,

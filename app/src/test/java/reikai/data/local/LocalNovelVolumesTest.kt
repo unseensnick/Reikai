@@ -56,7 +56,6 @@ import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.storage.service.StorageManager
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import java.io.File
 import kotlin.time.Duration.Companion.milliseconds
 
@@ -102,7 +101,6 @@ class LocalNovelVolumesTest {
             every { getLocalNovelsDirectory() } answers { picked(root) }
             every { getLocalSourceDirectory() } returns null
         }
-        val fileSystem = LocalSourceFileSystem(storage)
         novels = NovelRepositoryImpl(database)
         chapters = NovelChapterRepositoryImpl(database)
         val libraryPreferences = LibraryPreferences(InMemoryPreferenceStore())
@@ -110,7 +108,7 @@ class LocalNovelVolumesTest {
         val syncRules = NovelChapterSyncRules(
             ChapterNumberOverrideRepositoryImpl(database),
             InMemoryChapterCopyMarks(),
-            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, fileSystem, storage), volumes),
+            LocalChapterTombstonesImpl(tombstoneRepository, LocalChapterFiles(context, storage), volumes),
         )
         source = LocalNovelSource(context, storage, Json, mockk(relaxed = true), volumes, locks)
         // Stores the new title as the real manager does around its folder move; nothing is downloaded here.
@@ -145,7 +143,6 @@ class LocalNovelVolumesTest {
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mockk(),
-            localFiles = fileSystem,
             localManga = mockk(),
             localNovels = source,
             updateMangaFromRemote = mockk(),

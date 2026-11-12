@@ -94,7 +94,7 @@ class LocalRenameVsSyncRaceTest {
         val fileSystem = LocalSourceFileSystem(storage)
         tombstones = LocalChapterTombstonesImpl(
             ChapterTombstoneRepositoryImpl(database),
-            LocalChapterFiles(context, fileSystem, storage),
+            LocalChapterFiles(context, storage),
             NoLocalVolumes,
         )
         source = LocalSource(context, fileSystem, mockk(relaxed = true), Json, XML.v1 {}, NoLocalVolumes, locks)

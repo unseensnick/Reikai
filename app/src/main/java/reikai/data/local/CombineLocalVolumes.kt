@@ -59,7 +59,6 @@ import tachiyomi.domain.manga.interactor.NetworkToLocalManga
 import tachiyomi.domain.manga.repository.MangaRepository
 import tachiyomi.domain.storage.service.StorageManager
 import tachiyomi.source.local.LocalSource
-import tachiyomi.source.local.io.LocalSourceFileSystem
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Instant
 
@@ -102,7 +101,6 @@ sealed interface LocalMoveResult {
 @ContributesBinding(AppScope::class)
 class CombineLocalVolumes(
     private val mangaRepository: MangaRepository,
-    private val localFiles: LocalSourceFileSystem,
     private val localManga: LocalSource,
     private val localNovels: LocalNovelSource,
     private val updateMangaFromRemote: UpdateMangaFromRemote,
@@ -204,7 +202,9 @@ class CombineLocalVolumes(
         seriesLocks.withSeries(type, folders) {
             val now = localVolumes.all(type)
             val replaced = now.filter { (it.folder to it.volume) in units && it !in fresh }
-            val series = folders.mapNotNull { folder -> heldBy(type, folder)?.let { folder to it } }.toMap()
+            val series = folders.mapNotNull { folder ->
+                chapterMoves.localSeriesId(type, folder)?.let { folder to it }
+            }.toMap()
             val leaving = fresh.filter { it.volume == VolumeOwner.WHOLE && it.folder != it.owner }
                 .mapNotNull { series[it.folder] }
             regroup(
@@ -233,8 +233,9 @@ class CombineLocalVolumes(
             seriesLocks.withSeries(type, folders) {
                 // A name a folder or another series holds would list as this series' own folder, or meet that
                 // series' rows.
-                val names = parent(type)?.listOrNull(context) ?: return@withSeries failed(missing(series))
-                if (names.any { it.name.equals(folder, true) } || heldBy(type, folder) != null) {
+                val names =
+                    storageManager.localRoot(type)?.listOrNull(context) ?: return@withSeries failed(missing(series))
+                if (names.any { it.name.equals(folder, true) } || chapterMoves.localSeriesId(type, folder) != null) {
                     return@withSeries failed(taken(folder))
                 }
                 val before = localVolumes.all(type)
@@ -415,12 +416,15 @@ class CombineLocalVolumes(
         labels: List<Pair<String, String>>,
     ) =
         localFileNames(type, series.folder, title, labels).let { names ->
-            val parent = parent(type)
+            val parent = storageManager.localRoot(type)
             val lent = localVolumes.all(type).any { it.folder == series.folder && it.owner != series.folder }
             if (lent) return@let names.copy(series = names.series.copy(to = series.folder))
             val free = freeNames(names.series.to).first { name ->
                 name.equals(series.folder, ignoreCase = true) ||
-                    (parent?.findFile(name) == null && heldBy(type, name).let { it == null || it == series.id })
+                    (
+                        parent?.findFile(name) == null &&
+                            chapterMoves.localSeriesId(type, name).let { it == null || it == series.id }
+                        )
             }
             names.copy(series = names.series.copy(to = free), taken = names.series.to.takeIf { it != free })
         }
@@ -430,7 +434,7 @@ class CombineLocalVolumes(
      * and the action is hidden where it cannot.
      */
     suspend fun canOrganize(type: ContentType, series: CombinableSeries): Boolean {
-        val parent = parent(type) ?: return false
+        val parent = storageManager.localRoot(type) ?: return false
         val folders = LocalGroups(localVolumes.all(type)).foldersOf(series.folder)
         return folders.isNotEmpty() && folders.all { parent.findFile(it)?.canMoveAndRename(context) == true }
     }
@@ -442,7 +446,7 @@ class CombineLocalVolumes(
      */
     suspend fun folderOf(type: ContentType, id: Long): UniFile? {
         val series = series(type, listOf(id)).firstOrNull() ?: return null
-        val parent = parent(type) ?: return null
+        val parent = storageManager.localRoot(type) ?: return null
         return parent.findFile(series.folder)?.let { if (it.isFile) parent else it }
     }
 
@@ -455,7 +459,9 @@ class CombineLocalVolumes(
         val series = series(type, listOf(id)).firstOrNull()
             ?: return@onAppResult LocalMoveResult.Failed(IllegalStateException("No folder"))
         seriesLocks.withSeries(type, series.folder) {
-            val parent = parent(type) ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No folder"))
+            val parent =
+                storageManager.localRoot(type)
+                    ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("No folder"))
             // Only a volume this call deleted counts: one it could not find may be there all the same, since a
             // failed query reads as absent, and forgetting its kept state would then lose it for good.
             val gone = keys.takeWhile { key ->
@@ -487,7 +493,7 @@ class CombineLocalVolumes(
     suspend fun removeMember(type: ContentType, series: CombinableSeries, member: String): LocalMoveResult =
         onAppResult {
             seriesLocks.withSeries(type, series.folder) {
-                val names = parent(type)?.listOrNull(context)?.mapNotNull { it.name }
+                val names = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }
                     ?: return@withSeries missing(series)
                 val rows = localVolumes.all(type).filter { it.folder == member && it.owner == series.folder }
                 if (member in names || rows.isEmpty()) {
@@ -522,7 +528,7 @@ class CombineLocalVolumes(
                 if (rows.isEmpty()) return@withSeries
                 handBackRows(type, owner, rows)
                 rows.map { it.folder }.distinct().filter { it != owner.folder }
-                    .mapNotNull { heldBy(type, it) }.forEach { relist(type, it) }
+                    .mapNotNull { chapterMoves.localSeriesId(type, it) }.forEach { relist(type, it) }
             }
         }
     }
@@ -558,14 +564,6 @@ class CombineLocalVolumes(
     private suspend fun onAppResult(work: suspend () -> LocalMoveResult) = appScope.async {
         blockedAs({ it }, work)
     }.await()
-
-    private suspend fun heldBy(type: ContentType, url: String): Long? = when (type) {
-        ContentType.NOVELS -> novelRepository.getByUrlAndSource(url, LocalNovelSource.ID)?.id
-        else -> mangaRepository.getMangaByUrlAndSourceId(url, LocalSource.ID)?.id
-    }
-
-    private fun parent(type: ContentType) =
-        if (type == ContentType.NOVELS) storageManager.getLocalNovelsDirectory() else localFiles.getBaseDirectory()
 
     /**
      * Moves [series]' files, wherever its group keeps them, into its own folder named as [names] gives them, with
@@ -623,7 +621,7 @@ class CombineLocalVolumes(
      * when the series holds more than them. Read from a fresh listing, so only what the series lists moves.
      */
     private suspend fun organizePlanFor(type: ContentType, series: CombinableSeries, names: LocalFileNames): Organize? {
-        val root = parent(type) ?: return null
+        val root = storageManager.localRoot(type) ?: return null
         val own = series.folder
         val target = names.series.to
         val ownEntry = root.findFile(own)

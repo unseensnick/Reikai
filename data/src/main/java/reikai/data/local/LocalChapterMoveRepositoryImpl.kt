@@ -65,10 +65,8 @@ class LocalChapterMoveRepositoryImpl(
             )
             // The owner may be a series this regroup did not name, when a change since has moved the folder's.
             val ids = HashMap(series)
-            suspend fun idOf(address: String): Long? = ids[address] ?: when (type) {
-                ContentType.NOVELS -> queries.localNovelId(address).awaitAsOneOrNull()
-                else -> queries.localMangaId(address).awaitAsOneOrNull()
-            }?.also { ids[address] = it }
+            suspend fun idOf(address: String): Long? =
+                ids[address] ?: database.localSeriesId(type, address)?.also { ids[address] = it }
             val moves = series.values.flatMap { id ->
                 (chapterUrls(type, id) + tombstones.byOwner(type, id).map { it.url }).distinct().mapNotNull { url ->
                     val (folder, volume) = unitOf(url) ?: return@mapNotNull null
@@ -133,6 +131,11 @@ class LocalChapterMoveRepositoryImpl(
         else -> queries.localMangaUrls()
     }.awaitAsList().toSet()
 
+    override suspend fun localSeriesId(type: ContentType, address: String): Long? = database.localSeriesId(
+        type,
+        address,
+    )
+
     private suspend fun renameRows(type: ContentType, rename: SeriesRename, movedUrl: (String) -> String) {
         val dbType = type.toDbValue()
         setAddress(type, rename.id, rename.toSeries)
@@ -186,3 +189,9 @@ class LocalChapterMoveRepositoryImpl(
         tombstones.move(type, fromOwner, fromUrl, toOwner, toUrl)
     }
 }
+
+/** The id of the local series of [type] at [address]; every reader of a local series by its address asks this. */
+internal suspend fun Database.localSeriesId(type: ContentType, address: String): Long? = when (type) {
+    ContentType.NOVELS -> local_moveQueries.localNovelId(address)
+    else -> local_moveQueries.localMangaId(address)
+}.awaitAsOneOrNull()

@@ -139,7 +139,7 @@ class LocalMovesUnderLockTest {
         tombstones = PausableTombstones(
             LocalChapterTombstonesImpl(
                 tombstoneRepository,
-                LocalChapterFiles(context, fileSystem, storage),
+                LocalChapterFiles(context, storage),
                 volumes,
             ),
         )
@@ -181,7 +181,6 @@ class LocalMovesUnderLockTest {
         combine = CombineLocalVolumes(
             context = context,
             mangaRepository = mangaRepository,
-            localFiles = fileSystem,
             localManga = source,
             localNovels = mockk(),
             updateMangaFromRemote = refresh,
@@ -238,7 +237,6 @@ class LocalMovesUnderLockTest {
             chapterRepository = chapterRepository,
             novelRepository = mockk(),
             novelChapterRepository = mockk(),
-            localFiles = fileSystem,
             storageManager = storage,
             chapterMoves = chapterMoves,
             seriesLocks = locks,

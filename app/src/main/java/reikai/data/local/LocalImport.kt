@@ -175,7 +175,7 @@ class LocalImport(
      * size, are its duplicates, and its books that are another version of one there are its newer copies.
      */
     suspend fun inspect(group: ImportGroup, target: String? = null): ImportGroup = withIOContext {
-        val root = rootOf(group.type) ?: return@withIOContext group
+        val root = storageManager.localRoot(group.type) ?: return@withIOContext group
         // Only a folder takes files in: a loose book of that name is a file.
         val folder = if (target != null) {
             root.findFile(target)?.takeIf { it.isDirectory }
@@ -208,11 +208,6 @@ class LocalImport(
         }
         .toMap()
 
-    private fun rootOf(type: ContentType) = when (type) {
-        ContentType.NOVELS -> storageManager.getLocalNovelsDirectory()
-        else -> storageManager.getLocalSourceDirectory()
-    }
-
     /**
      * Copies each group into its folder and, with [addToLibrary], adds it under [categoryIds]. A series
      * folder that exists already takes the new files beside its own, so a later volume joins its series.
@@ -221,7 +216,7 @@ class LocalImport(
         withIOContext {
             val problems = mutableListOf<ImportProblem>()
             val series = groups.mapNotNull { group ->
-                val root = rootOf(group.type)
+                val root = storageManager.localRoot(group.type)
                 if (root == null) {
                     problems += ImportProblem(group.title, ImportProblem.Reason.NoStorage)
                     return@mapNotNull null

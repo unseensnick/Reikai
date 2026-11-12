@@ -10,7 +10,6 @@ import reikai.storage.FolderUnreadableException
 import reikai.storage.list
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.storage.service.StorageManager
-import tachiyomi.source.local.io.LocalSourceFileSystem
 
 /**
  * Whether the file a local chapter row names is still in its folder, for both local sources' address shapes: a
@@ -22,7 +21,6 @@ import tachiyomi.source.local.io.LocalSourceFileSystem
 @Inject
 class LocalChapterFiles(
     private val context: Context,
-    private val fileSystem: LocalSourceFileSystem,
     private val storageManager: StorageManager,
 ) {
 
@@ -35,7 +33,11 @@ class LocalChapterFiles(
 
     /** The names in the type's local folder, from a listing trusted whole; one that cannot be trusted fails the refresh. */
     fun rootNames(type: ContentType): Set<String> =
-        (root(type) ?: throw FolderUnreadableException("No local folder")).list(context).mapTo(HashSet()) {
+        (
+            storageManager.localRoot(
+                type,
+            ) ?: throw FolderUnreadableException("No local folder")
+            ).list(context).mapTo(HashSet()) {
             it.name.orEmpty()
         }
 
@@ -57,17 +59,12 @@ class LocalChapterFiles(
             // Not getOrPut, which re-runs its body for a stored null, and an absent folder is stored as null.
             if (key in entries) return entries[key]
             val folder = if (path.isEmpty()) {
-                root(type) ?: throw FolderUnreadableException("No local folder")
+                storageManager.localRoot(type) ?: throw FolderUnreadableException("No local folder")
             } else {
                 entriesOf(type, path.dropLast(1))?.get(path.last())
             }
             return folder?.list(context)?.associateBy { it.name.orEmpty() }.also { entries[key] = it }
         }
-    }
-
-    private fun root(type: ContentType): UniFile? = when (type) {
-        ContentType.NOVELS -> storageManager.getLocalNovelsDirectory()
-        else -> fileSystem.getBaseDirectory()
     }
 
     /** The folder path and the name of the file [url] is read from, or null for an address no local file has. */
