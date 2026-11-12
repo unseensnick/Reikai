@@ -149,15 +149,15 @@ class NovelRefreshTest {
         novels.getById(novel.id)!!.let { it.favorite to it.notes } shouldBe (false to "x")
     }
 
-    /** A local series' parse and its row sync run inside one hold of the source's lock, so no move lands between. */
+    /** A local series' parse and row sync run inside one hold of its own folder's lock, so no move lands between. */
     @Test
-    fun `a refresh parses and writes its chapters inside the source's lock`() = runTest {
+    fun `a refresh parses and writes its chapters inside the lock on its own folder`() = runTest {
         val novel = storedNovel()
         val source = LockedSource(PagedSource(oneChapter)) { chapters.getByNovelId(novel.id).size }
 
         refresh(novel, source)
 
-        (source.parsedInside to source.rowsAtRelease) shouldBe (true to 1)
+        Triple(source.parsedInside, source.rowsAtRelease, source.lockedPaths) shouldBe Triple(true, 1, listOf("/novel"))
     }
 
     /** A relink moves the stored address while the screen still holds the novel it showed before. */
@@ -502,10 +502,12 @@ private class LockedSource(
     var parsedInside = false
     var rowsAtRelease = -1
     val parsedPaths = mutableListOf<String>()
+    val lockedPaths = mutableListOf<String>()
     private var holds = 0
 
     override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T {
         holds++
+        lockedPaths += novelPath
         try {
             return block()
         } finally {
