@@ -143,6 +143,17 @@ class LocalFilesPrimitivesTest {
         names() shouldBe listOf("B.CBZ", "a.cbz")
     }
 
+    /** The earlier file steps aside as "B.CBZ.old", a name the disk already holds as "b.cbz.old". */
+    @Test
+    fun `replace in another letter case steps aside past an old file held in any case`() {
+        FakeSafProvider.caseBlind = true
+        File(series, "b.cbz.old").writeText("older")
+
+        picked().replace(context, "B.CBZ") { it.write("X".toByteArray()) }
+
+        names() shouldBe listOf("B.CBZ", "a.cbz", "b.cbz.old")
+    }
+
     @Test
     fun `replace reuses the in-flight name a killed write left`() {
         File(series, "b.cbz_tmp").writeText("half of a much longer earlier attempt")

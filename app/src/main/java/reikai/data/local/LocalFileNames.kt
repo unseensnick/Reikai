@@ -3,7 +3,7 @@ package reikai.data.local
 import eu.kanade.tachiyomi.util.storage.DiskUtil
 import reikai.domain.library.ContentType
 import reikai.novel.export.epubFileName
-import reikai.storage.freeNames
+import reikai.storage.freeName
 
 /**
  * A local series' names on disk, [from] each one now [to] what Organize files gives it. [taken] is the series
@@ -55,9 +55,5 @@ fun organizedLabel(name: String, title: String, folder: String): String =
     listOf(DiskUtil.buildValidFilename(title), folder).firstNotNullOfOrNull { series ->
         name.removePrefix("$series - ").takeIf { it != name && it.isNotBlank() }
     } ?: name
-
-/** [name], or "name (2)" and up when [taken] holds it, taken for the next caller. */
-internal fun freeName(name: String, taken: MutableSet<String>): String =
-    freeNames(name).first { candidate -> taken.none { it.equals(candidate, ignoreCase = true) } }.also { taken += it }
 
 internal const val EPUB = ".epub"

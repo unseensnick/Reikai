@@ -246,7 +246,9 @@ class FakeSafProvider : ContentProvider() {
         // host running the test may not be.
         private fun uniqueFile(parent: File, name: String, ext: String, self: File? = null): File {
             fun build(stem: String) = File(parent, if (ext.isEmpty()) stem else "$stem.$ext")
-            fun taken(file: File) = file.exists() && file.canonicalFile != self?.canonicalFile
+            fun taken(file: File) = file.canonicalFile != self?.canonicalFile && (
+                file.exists() || (caseBlind && parent.list().orEmpty().any { it.equals(file.name, ignoreCase = true) })
+                )
             var file = build(name)
             var n = 0
             while (taken(file)) file = build("$name (${++n})")
@@ -287,6 +289,9 @@ class FakeSafProvider : ContentProvider() {
         /** Whether documents move, as the device's own provider's do; many others' do not. */
         var supportsMove = true
 
+        /** Whether a name is taken in any letter case, as on shared storage, whatever the host's disk does. */
+        var caseBlind = false
+
         /** Whether a move onto a taken name lands under "name (1)" as some providers' do, rather than throwing. */
         var moveDodgesTakenName = false
 
@@ -318,6 +323,7 @@ class FakeSafProvider : ContentProvider() {
             createReturnsExisting = false
             supportsMove = true
             moveDodgesTakenName = false
+            caseBlind = false
             beforeCreate = null
             beforeRename = null
             listingFault = null

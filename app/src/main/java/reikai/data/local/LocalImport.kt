@@ -39,6 +39,7 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.createNew
 import reikai.storage.deleteFile
 import reikai.storage.deleteIfEmpty
+import reikai.storage.freeName
 import reikai.storage.list
 import reikai.storage.listOrNull
 import reikai.storage.replaceFile

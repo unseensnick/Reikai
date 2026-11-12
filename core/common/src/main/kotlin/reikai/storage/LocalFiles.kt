@@ -66,6 +66,10 @@ fun freeNames(name: String): Sequence<String> {
     return generateSequence(1) { it + 1 }.map { if (it == 1) name else "$stem ($it)$extension" }
 }
 
+/** [name], or "name (2)" and up when [taken] holds it in any letter case, taken for the next caller. */
+fun freeName(name: String, taken: MutableSet<String>): String =
+    freeNames(name).first { candidate -> taken.none { it.equals(candidate, ignoreCase = true) } }.also { taken += it }
+
 /** The downloaders' suffix for a file not finished yet, which neither download index lists. */
 const val IN_FLIGHT_SUFFIX = "_tmp"
 
@@ -155,7 +159,7 @@ internal inline fun UniFile.replace(
     val placed = if (earlier == null) {
         part.rename(name)
     } else {
-        replaceFile(earlier, part, name, freeNames("$name.old").first { it !in names })
+        replaceFile(earlier, part, name, freeName("$name.old", names))
     }
     if (!placed) {
         part.delete()

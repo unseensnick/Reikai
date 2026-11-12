@@ -50,6 +50,7 @@ import reikai.presentation.browse.MangaLibraryAdder
 import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.canMoveAndRename
 import reikai.storage.deleteTree
+import reikai.storage.freeName
 import reikai.storage.freeNames
 import reikai.storage.listOrNull
 import tachiyomi.core.common.util.system.logcat
