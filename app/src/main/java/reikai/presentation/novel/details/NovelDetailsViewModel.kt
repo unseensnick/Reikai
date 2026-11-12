@@ -55,7 +55,6 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.local.CombineLocalVolumes
-import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalSeriesRelink
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.data.novel.NovelStatusCode
@@ -1075,12 +1074,12 @@ class NovelDetailsViewModel(
                     // holding its files are offered in place of the failure, as the manga details do; a failure
                     // of that question itself falls back to the refresh's own message.
                     val anchor = loaded.novel
-                    val candidates = if (LocalNovelSource.isLocal(anchor.source)) {
-                        runCatching { localSeriesRelink.candidates(ContentType.NOVELS, anchor.id) }.getOrNull()
-                    } else {
-                        null
-                    }
-                    if (!candidates.isNullOrEmpty()) {
+                    val candidates = localSeriesRelink.offerAfterFailure(
+                        ContentType.NOVELS,
+                        anchor.id,
+                        LocalNovelSource.isLocal(anchor.source),
+                    )
+                    if (candidates != null) {
                         showDialog(NovelDetailsDialog.RelinkSeries(anchor.title, candidates))
                         return@let
                     }
@@ -1311,14 +1310,17 @@ class NovelDetailsViewModel(
     fun relinkSeries(folder: String) {
         val novel = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         appScope.launch {
-            val result = localSeriesRelink.relink(ContentType.NOVELS, novel.id, folder)
-            if (result is LocalMoveResult.Moved) {
-                refresh()
-            } else {
-                viewModelScope.launchUI {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
-                }
-            }
+            localSeriesRelink.relinkThenRefresh(
+                ContentType.NOVELS,
+                novel.id,
+                folder,
+                refresh = { refresh() },
+                failed = {
+                    viewModelScope.launchUI {
+                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
+                    }
+                },
+            )
         }
     }
 

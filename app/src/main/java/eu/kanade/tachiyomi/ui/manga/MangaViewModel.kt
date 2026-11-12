@@ -98,7 +98,6 @@ import mihon.domain.source.interactor.UpdateMangaFromRemote
 import reikai.data.coil.extractCoverColor
 import reikai.data.coil.seedColor
 import reikai.data.local.CombineLocalVolumes
-import reikai.data.local.LocalMoveResult
 import reikai.data.local.LocalSeriesRelink
 import reikai.data.updateerror.refreshFailureMessage
 import reikai.domain.chapter.ChapterNumberEdit
@@ -769,12 +768,8 @@ class MangaViewModel(
             // RK --> a local series whose folder is gone may have been renamed outside the app, so the
             // folders holding its files are offered in place of the failure; a failure of that question
             // itself must not throw out of this handler, so it falls back to the message
-            val candidates = if (manga.isLocal()) {
-                runCatching { localSeriesRelink.candidates(ContentType.MANGA, manga.id) }.getOrNull()
-            } else {
-                null
-            }
-            if (!candidates.isNullOrEmpty()) {
+            val candidates = localSeriesRelink.offerAfterFailure(ContentType.MANGA, manga.id, manga.isLocal())
+            if (candidates != null) {
                 dialog.value = Dialog.RelinkSeries(manga.title, candidates)
                 return
             }
@@ -793,15 +788,22 @@ class MangaViewModel(
     fun relinkSeries(folder: String) {
         val manga = successState?.manga ?: return
         appScope.launch {
-            val result = localSeriesRelink.relink(ContentType.MANGA, manga.id, folder)
-            viewModelScope.launchIO {
-                if (result is LocalMoveResult.Moved) {
-                    val relinked = getMangaAndChapters.awaitManga(manga.id)
-                    fetchAllFromSource(relinked, manualFetch = true, fetchDetails = true, fetchChapters = true)
-                } else {
-                    snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
-                }
-            }
+            localSeriesRelink.relinkThenRefresh(
+                ContentType.MANGA,
+                manga.id,
+                folder,
+                refresh = {
+                    viewModelScope.launchIO {
+                        val relinked = getMangaAndChapters.awaitManga(manga.id)
+                        fetchAllFromSource(relinked, manualFetch = true, fetchDetails = true, fetchChapters = true)
+                    }
+                },
+                failed = {
+                    viewModelScope.launchIO {
+                        snackbarHostState.showSnackbar(context.stringResource(MR.strings.local_series_link_failed))
+                    }
+                },
+            )
         }
     }
     // RK <--

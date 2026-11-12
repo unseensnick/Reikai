@@ -2,16 +2,10 @@ package reikai.presentation.details
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
-import androidx.compose.foundation.lazy.items
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,7 +15,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import reikai.domain.local.localGroupUnit
@@ -81,44 +74,18 @@ internal fun MissingVolumeDialog(
     var choosing by remember { mutableStateOf(false) }
     val matched by produceState<List<String>?>(null) { value = candidates() }
     val all by produceState<List<String>?>(null, choosing) { if (choosing) value = choices() }
-    var picked by remember { mutableStateOf<String?>(null) }
-    val shown = if (choosing) all else matched
-    AlertDialog(
+    LinkFolderDialog(
+        message = stringResource(
+            MR.strings.local_series_missing_message,
+            missing.volume?.let { volumeName(it) } ?: missing.folder,
+        ),
+        folders = if (choosing) all else matched,
         onDismissRequest = onDismissRequest,
-        title = { Text(stringResource(MR.strings.local_series_missing_title)) },
-        text = {
-            Column {
-                Text(
-                    stringResource(
-                        MR.strings.local_series_missing_message,
-                        missing.volume?.let { volumeName(it) } ?: missing.folder,
-                    ),
-                )
-                LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 320.dp)) {
-                    items(shown.orEmpty(), key = { it }) { folder ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { picked = folder },
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            RadioButton(selected = folder == picked, onClick = { picked = folder })
-                            Text(folder)
-                        }
-                    }
-                }
-                if (!choosing) {
-                    TextButton(onClick = {
-                        choosing = true
-                        picked = null
-                    }) { Text(stringResource(MR.strings.action_choose_folder)) }
-                }
-                TextButton(onClick = onRemove) { Text(stringResource(MR.strings.action_remove_from_series)) }
-            }
-        },
-        confirmButton = {
-            TextButton(enabled = picked != null, onClick = { picked?.let(onLink) }) {
-                Text(stringResource(MR.strings.action_link_folder))
-            }
-        },
-        dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
-    )
+        onLink = onLink,
+    ) {
+        if (!choosing) {
+            TextButton(onClick = { choosing = true }) { Text(stringResource(MR.strings.action_choose_folder)) }
+        }
+        TextButton(onClick = onRemove) { Text(stringResource(MR.strings.action_remove_from_series)) }
+    }
 }

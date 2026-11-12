@@ -113,6 +113,55 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
                 )
         }
 
+    // The rule both details screens ask, so a refresh failure reads the same on each.
+    @Test
+    fun `a failed refresh of a renamed series offers the folder it moved to`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+
+        relink.offerAfterFailure(type, id, isLocal = true) shouldBe listOf("Saga Renamed")
+    }
+
+    @Test
+    fun `a failed refresh of a series that is not local offers no folder`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+
+        relink.offerAfterFailure(type, id, isLocal = false) shouldBe null
+    }
+
+    @Test
+    fun `a failed refresh with no folder holding the files shows the failure, not an empty offer`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").deleteRecursively()
+
+        relink.offerAfterFailure(type, id, isLocal = true) shouldBe null
+    }
+
+    @Test
+    fun `a picked folder is linked and then the series is refreshed`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Saga Renamed"))
+        val calls = mutableListOf<String>()
+
+        relink.relinkThenRefresh(type, id, "Saga Renamed", refresh = { calls += "refresh" }, failed = {
+            calls +=
+                "failed"
+        })
+
+        calls shouldBe listOf("refresh")
+    }
+
+    @Test
+    fun `a link that is refused reports the failure and refreshes nothing`() = runTest {
+        val id = seeded("Saga")
+        val calls = mutableListOf<String>()
+
+        relink.relinkThenRefresh(type, id, "Nowhere", refresh = { calls += "refresh" }, failed = { calls += "failed" })
+
+        calls shouldBe listOf("failed")
+    }
+
     @Test
     fun `a relinked series takes the kept state of a chapter whose file was already gone`() = runTest {
         val id = seeded("Saga")

@@ -19,6 +19,7 @@ import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
 import reikai.source.local.localVolumeChapter
 import reikai.storage.listOrNull
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.withIOContext
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -59,6 +60,28 @@ class LocalSeriesRelink(
         val listed = root(type)?.listOrNull(context) ?: return@withIOContext emptyList()
         if (listed.any { it.name == series }) return@withIOContext null
         candidatesIn(type, id, series, listed)
+    }
+
+    /**
+     * The folders to offer in place of a refresh's failure for series [id], or null to show the failure: a series
+     * that is not local ([isLocal]), one with no folder holding its files, or the question failing too, which must
+     * not throw out of the failure handler that asks it. Both details screens ask it.
+     */
+    suspend fun offerAfterFailure(type: ContentType, id: Long, isLocal: Boolean): List<String>? =
+        if (isLocal) runCatchingCancellable { candidates(type, id) }.getOrNull()?.takeIf { it.isNotEmpty() } else null
+
+    /**
+     * Links series [id] to the [folder] the user picked, then [refreshes][refresh] it there, or tells [failed]. The
+     * caller runs it on the app scope, so a closed screen does not cut the link off. Both details screens call it.
+     */
+    suspend fun relinkThenRefresh(
+        type: ContentType,
+        id: Long,
+        folder: String,
+        refresh: suspend () -> Unit,
+        failed: suspend () -> Unit,
+    ) {
+        if (relink(type, id, folder) is LocalMoveResult.Moved) refresh() else failed()
     }
 
     /**

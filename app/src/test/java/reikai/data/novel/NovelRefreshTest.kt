@@ -160,6 +160,17 @@ class NovelRefreshTest {
         (source.parsedInside to source.rowsAtRelease) shouldBe (true to 1)
     }
 
+    /** A relink moves the stored address while the screen still holds the novel it showed before. */
+    @Test
+    fun `a refresh handed the novel from before a relink parses its new address`() = runTest {
+        val novel = storedNovel()
+        val source = LockedSource(PagedSource(oneChapter)) { chapters.getByNovelId(novel.id).size }
+
+        refresh(novel.copy(url = "/old"), source)
+
+        source.parsedPaths shouldBe listOf("/novel")
+    }
+
     @Test
     fun `a refresh stores the source's new genres`() = runTest {
         val novel = storedNovel()
@@ -490,6 +501,7 @@ private class LockedSource(
     LockedSeriesSource {
     var parsedInside = false
     var rowsAtRelease = -1
+    val parsedPaths = mutableListOf<String>()
     private var holds = 0
 
     override suspend fun <T> locked(novelPath: String, block: suspend () -> T): T {
@@ -502,5 +514,8 @@ private class LockedSource(
         }
     }
 
-    override suspend fun parseNovel(novelPath: String) = inner.parseNovel(novelPath).also { parsedInside = holds > 0 }
+    override suspend fun parseNovel(novelPath: String) = inner.parseNovel(novelPath).also {
+        parsedInside = holds > 0
+        parsedPaths += novelPath
+    }
 }
