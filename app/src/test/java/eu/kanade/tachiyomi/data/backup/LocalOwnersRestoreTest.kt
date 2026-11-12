@@ -17,7 +17,7 @@ import reikai.domain.local.VolumeOwner
 class LocalOwnersRestoreTest {
 
     @Test
-    fun `a backup's owner rows reach the combine step for both content types`() = runTest {
+    fun `a backup's owner rows and local series reach the combine step for both content types`() = runTest {
         val combine = mockk<CombineLocalVolumes>(relaxed = true)
         val backup = Backup(
             backupManga = listOf(
@@ -43,8 +43,16 @@ class LocalOwnersRestoreTest {
         )
 
         coVerify {
-            combine.restoreOwners(ContentType.MANGA, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")))
-            combine.restoreOwners(ContentType.NOVELS, listOf(VolumeOwner("Side", VolumeOwner.WHOLE, "Saga")))
+            combine.restoreOwners(
+                ContentType.MANGA,
+                listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                listOf("Kept"),
+            )
+            combine.restoreOwners(
+                ContentType.NOVELS,
+                listOf(VolumeOwner("Side", VolumeOwner.WHOLE, "Saga")),
+                listOf("Saga"),
+            )
         }
     }
 }

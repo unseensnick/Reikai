@@ -392,12 +392,46 @@ class LocalMovesUnderLockTest {
 
         withContext(Dispatchers.Default) {
             withTimeout(20_000) {
-                combine.restoreOwners(ContentType.MANGA, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")))
+                combine.restoreOwners(
+                    ContentType.MANGA,
+                    listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                    emptyList(),
+                )
             }
         }
 
         urls(KEPT) to readUrls(KEPT) shouldBe
             (listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1") to listOf("Other/Vol 1/Ch 1"))
+    }
+
+    /** A backup with no owner rows, made before Other was combined into Kept, restored without wiping. */
+    @Test
+    fun `a restore from before a combine folds the combined series' chapters onto the kept one`() = runTest {
+        combined().finish()
+
+        restoredFromBeforeCombine()
+
+        urls(OTHER) to readUrls(KEPT) shouldBe (emptyList<String>() to listOf("Other/Vol 1/Ch 1"))
+    }
+
+    @Test
+    fun `a restore from before a combine takes the combined series out of the library again`() = runTest {
+        combined().finish()
+
+        restoredFromBeforeCombine()
+
+        coVerify(exactly = 2) { removal.takeOut(listOf(OTHER)) }
+    }
+
+    private suspend fun restoredFromBeforeCombine() {
+        ChapterRepositoryImpl(database).updateFromRemote(
+            emptyList(),
+            listOf(Chapter.create().copy(mangaId = OTHER, url = "Other/Vol 1/Ch 1", name = "Ch 1", read = true)),
+            emptyList(),
+        )
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.restoreOwners(ContentType.MANGA, emptyList(), listOf("Kept", "Other")) }
+        }
     }
 
     @Test
@@ -423,13 +457,18 @@ class LocalMovesUnderLockTest {
     private suspend fun restoreWithStuck() = combine.restoreOwners(
         ContentType.MANGA,
         listOf(VolumeOwner("Stuck", VolumeOwner.WHOLE, "Elsewhere"), VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+        emptyList(),
     )
 
     @Test
     fun `a restored owner row takes the series it lends whole out of the library, as a combine does`() = runTest {
         withContext(Dispatchers.Default) {
             withTimeout(20_000) {
-                combine.restoreOwners(ContentType.MANGA, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")))
+                combine.restoreOwners(
+                    ContentType.MANGA,
+                    listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                    emptyList(),
+                )
             }
         }
 

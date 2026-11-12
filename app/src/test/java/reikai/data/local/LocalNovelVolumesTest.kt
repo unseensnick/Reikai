@@ -265,11 +265,34 @@ class LocalNovelVolumesTest {
     fun `a restored owner row combines novels as a combine does`() = runTest {
         markRead("Other", "Other 1.epub")
 
-        onApp { combine.restoreOwners(ContentType.NOVELS, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept"))) }
+        onApp {
+            combine.restoreOwners(
+                ContentType.NOVELS,
+                listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+                emptyList(),
+            )
+        }
 
         books(KEPT) to readBooks(KEPT) shouldBe
             (listOf("Kept/Kept 1.epub", "Other/Other 1.epub") to listOf("Other/Other 1.epub"))
     }
+
+    /** A backup with no owner rows, made before Other was combined into Kept, restored without wiping. */
+    @Test
+    fun `a restore from before a combine folds the novels' chapters onto the kept series and keeps it out`() =
+        runTest {
+            onApp { combine.combine(ContentType.NOVELS, series(KEPT), listOf(series(OTHER))) }.finish()
+            val url = urls(KEPT, readOnly = false).single { it.startsWith("Other") }
+            driver.exec(
+                "INSERT INTO novel_chapters(novel_id, url, name, read, bookmark, chapter_number, source_order, " +
+                    "date_fetch) VALUES ($OTHER, '$url', 'c1', 1, 0, 1.0, 0, 0)",
+            )
+
+            onApp { combine.restoreOwners(ContentType.NOVELS, emptyList(), listOf("Kept", "Other")) }
+
+            Triple(books(OTHER), readBooks(KEPT), takenOut) shouldBe
+                Triple(emptyList(), listOf("Other/Other 1.epub"), listOf(OTHER, OTHER))
+        }
 
     @Test
     fun `deleting a book leaves no kept state for its chapters, read or lost before`() = runTest {

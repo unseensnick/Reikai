@@ -68,6 +68,7 @@ import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.novel.model.withDisplayBitFromSort
 import reikai.novel.download.NovelDownloadCache
 import reikai.novel.font.NovelFontManager
+import reikai.novel.local.LocalNovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
@@ -75,6 +76,7 @@ import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.source.service.SourceManager
 import tachiyomi.i18n.MR
+import tachiyomi.source.local.LocalSource
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -446,6 +448,7 @@ class BackupRestorer(
         if (options.libraryEntries) {
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
             val owners = mutableListOf<VolumeOwner>()
+            val localSeries = mutableListOf<String>()
             val kitsuScale = summary.kitsuScoreScale
             restoreEntryStream(
                 uri,
@@ -455,6 +458,7 @@ class BackupRestorer(
                         if (!summary.novelDisplayBitStored) chapterFlags = withDisplayBitFromSort(chapterFlags)
                     }.also { novel ->
                         owners += novel.restoredOwners(novel.url)
+                        if (LocalNovelSource.isLocal(novel.source)) localSeries += novel.url
                         if (!summary.mergeGroupsStored && novel.favorite) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupNovelSourceRef(novel.url, novel.source),
@@ -474,7 +478,9 @@ class BackupRestorer(
                     novelRestorer.restoreCustomInfo(ref.first, ref.second, info)
                 }
             }
-            restoreIsolated("local novel volumes") { combineLocalVolumes.restoreOwners(ContentType.NOVELS, owners) }
+            restoreIsolated("local novel volumes") {
+                combineLocalVolumes.restoreOwners(ContentType.NOVELS, owners, localSeries)
+            }
 
             // Isolated as the manga twin is: a failure here must not cancel the sibling stream or
             // escape before the error log is written.
@@ -544,6 +550,7 @@ class BackupRestorer(
         val legacyCustomInfo = summary.legacyCustomInfo
         val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
         val owners = mutableListOf<VolumeOwner>() // RK: applied once every series is back
+        val localSeries = mutableListOf<String>() // RK: settled against the device's grouping then
         restoreEntryStream(
             uri,
             fieldNumber = BackupFields.MANGA,
@@ -551,6 +558,7 @@ class BackupRestorer(
                 legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
                     .let(summary.foreignMerges::applyTo).also { manga ->
                         owners += manga.restoredOwners(manga.url) // RK
+                        if (manga.source == LocalSource.ID) localSeries += manga.url // RK
                         if (!summary.mergeGroupsStored && manga.favorite && !manga.isForeignMergedRow) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupMangaSourceRef(manga.url, manga.source),
@@ -571,7 +579,7 @@ class BackupRestorer(
             }
         }
         // RK: a local series' volumes from other folders regroup chapters across series, so once all are back
-        restoreIsolated("local volumes") { combineLocalVolumes.restoreOwners(ContentType.MANGA, owners) }
+        restoreIsolated("local volumes") { combineLocalVolumes.restoreOwners(ContentType.MANGA, owners, localSeries) }
 
         // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
         // like the entry loop above: a failure here would otherwise cancel the novel stream mid-batch

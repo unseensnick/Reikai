@@ -188,20 +188,49 @@ class CombineLocalVolumes(
      * leaves the library, and the owners list again. The backup wins over the device, as it does for merge groups,
      * and a restore offers no Undo. A row the device already holds changes nothing. Each series' rows come back
      * under their own lock, so one waiting for a repair, or failing, holds back only its own, and the throw names it.
+     * Then each [restored] series the device groups otherwise follows the device ([settleRestored]).
      */
-    suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
+    suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>, restored: List<String>) {
         val fresh = owners.distinct() - localVolumes.all(type).toSet()
-        val failed = fresh.groupBy { it.owner }.values.mapNotNull { rows ->
+        val steps = fresh.groupBy { it.owner }.values.map { rows ->
+            rows.flatMap { listOf(it.folder, it.owner) }.distinct() to suspend { restoreGroup(type, rows) }
+        } + restored.distinct().map { listOf(it) to suspend { settleRestored(type, it) } }
+        val failures = steps.mapNotNull { (folders, restore) ->
             val result = try {
-                restoreGroup(type, rows)
+                restore()
             } catch (e: LocalSeriesBlockedException) {
                 LocalMoveResult.Failed(e)
             }
-            (result as? LocalMoveResult.Failed)?.let {
-                "${rows.flatMap { listOf(it.folder, it.owner) }.distinct()}: ${it.error.message}"
-            }
+            (result as? LocalMoveResult.Failed)?.let { "$folders: ${it.error.message}" }
         }
-        check(failed.isEmpty()) { "Local volumes not restored: ${failed.joinToString("; ")}" }
+        check(failures.isEmpty()) { "Local volumes not restored: ${failures.joinToString("; ")}" }
+    }
+
+    /**
+     * A restored series whose folder or volumes the device lends to another series, as a backup made before a
+     * combine leaves it: the device's grouping wins, so a series lent whole leaves the library again and every
+     * restored chapter of a lent volume folds onto the row of the series that lists it, read state merged.
+     */
+    private suspend fun settleRestored(type: ContentType, folder: String): LocalMoveResult? {
+        val lentTo = localVolumes.all(type).filter { it.folder == folder && it.owner != folder }.map { it.owner }
+        if (lentTo.isEmpty() || chapterMoves.localSeriesId(type, folder) == null) return null
+        val folders = (listOf(folder) + lentTo).distinct()
+        return seriesLocks.withSeries(type, folders) {
+            val series = folders.mapNotNull { name ->
+                chapterMoves.localSeriesId(type, name)?.let { name to it }
+            }.toMap()
+            val restoredId = series[folder] ?: return@withSeries null
+            regroup(
+                type = type,
+                folders = folders,
+                series = series,
+                remove = emptyList(),
+                add = emptyList(),
+                volumes = emptyList(),
+                relist = (series - folder).values.toList(),
+                leaving = listOf(restoredId).filter { LocalGroups(localVolumes.all(type)).isLentWhole(folder) },
+            ).also { it.finish() }.result
+        }
     }
 
     private suspend fun restoreGroup(type: ContentType, fresh: List<VolumeOwner>): LocalMoveResult {

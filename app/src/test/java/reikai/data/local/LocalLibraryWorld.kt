@@ -970,7 +970,11 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         }
         mangaRestorer(database, localVolumes = app.volumes).restore(batch.map { it.second }, emptyList())
         // Owner rows regroup chapters across series, so the restore applies them once every series is back.
-        app.combine.restoreOwners(ContentType.MANGA, batch.flatMap { (_, backup) -> backup.restoredOwners(backup.url) })
+        app.combine.restoreOwners(
+            ContentType.MANGA,
+            batch.flatMap { (_, backup) -> backup.restoredOwners(backup.url) },
+            batch.map { (_, backup) -> backup.url },
+        )
     }
 
     private suspend fun mergeStep() {
