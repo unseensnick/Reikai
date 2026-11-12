@@ -84,6 +84,15 @@ class EmptiedFolderDeleteConformanceTest(private val half: Half) {
     }
 
     @Test
+    fun `deleting the last chapter takes the series folder with it`() = runTest {
+        half.chapter(downloads, "Ch 1")
+
+        half.deleteChapter(context, picked(), "Ch 1")
+
+        File(downloads, "src (EN)/Title").exists() shouldBe false
+    }
+
+    @Test
     fun `deleting a series while the source folder lists short keeps the source's other series`() = runTest {
         half.chapter(downloads, "Ch 1")
         File(downloads, "src (EN)/Other/Ch 1").mkdirs()

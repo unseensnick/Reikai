@@ -36,6 +36,15 @@ class LocalFilesOnSafTest {
 
     private fun picked(folder: File): UniFile = UniFile.fromUri(context, FakeSafProvider.treeUri(folder))!!
 
+    /** A failed listing reads as empty, so a tidy that took its word would set aside a folder still holding files. */
+    @Test
+    fun `a folder whose listing fails is not set aside`() {
+        val folder = picked(series.parentFile!!).findFile("Series")!!
+        FakeSafProvider.childListingFaults += ChildListingFault.Throw
+
+        (folder.parkIfSpent(context) to series.exists()) shouldBe (false to true)
+    }
+
     @Test
     fun `a whole listing is trusted`() {
         picked(series).listOrNull(context)!!.map { it.name } shouldBe listOf("a.cbz", "b.cbz")
