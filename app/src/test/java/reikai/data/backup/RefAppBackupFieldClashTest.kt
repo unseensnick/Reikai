@@ -27,7 +27,8 @@ class RefAppBackupFieldClashTest {
     class ForeignManga(
         @ProtoNumber(1) var source: Long,
         @ProtoNumber(2) var url: String,
-        // Komikku and TachiyomiSY: merged references, flat metadata, SY's merge settings.
+        // Komikku and TachiyomiSY: merged references, flat metadata, SY's merge settings. Reikai reads the flat
+        // metadata on purpose, as gallery metadata (ForeignMergeRestoreTest), so it is not one of the ignored fields.
         @ProtoNumber(600) var merged: List<String> = emptyList(),
         @ProtoNumber(601) var flatMetadata: String? = null,
         @ProtoNumber(604) var mergeSettings: String? = null,
@@ -89,7 +90,6 @@ class RefAppBackupFieldClashTest {
             source = 1L,
             url = "u",
             merged = listOf("m"),
-            flatMetadata = "f",
             mergeSettings = "s",
             isNovel = true,
             alternativeTitles = listOf("a"),

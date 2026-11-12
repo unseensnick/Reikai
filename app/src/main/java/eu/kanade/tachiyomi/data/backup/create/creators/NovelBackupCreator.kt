@@ -99,11 +99,15 @@ class NovelBackupCreator(
     override suspend fun base(entries: List<Novel>): List<BackupNovel> {
         // Keyed by series path alone, so only a local novel reads it.
         val languages = localNovelLanguages.getAll()
-        return entries.map { novel ->
+        val backups = entries.map { novel ->
             novel.toBackupNovel().apply {
                 if (LocalNovelSource.isLocal(novel.source)) language = languages[novel.url]
             }
         }
+        // A local series' grouping describes the series, not its chapters, so it rides with every entry.
+        val isLocal = { novel: Novel -> LocalNovelSource.isLocal(novel.source) }
+        entries.zip(backups).writeLocalVolumes(ContentType.NOVELS, localVolumes, isLocal, Novel::id, Novel::url)
+        return backups
     }
 
     override suspend fun chapters(batch: List<Pair<Novel, BackupNovel>>) {
@@ -128,9 +132,6 @@ class NovelBackupCreator(
         batch.writeRows(tombstones.getByOwners(ContentType.NOVELS, novelIds), Novel::id) { _, backup, kept ->
             backup.chapterTombstones = kept.map { it.toBackup() }
         }
-        // A pass of their own, so a local series with no chapter rows keeps its grouping, as the manga creator writes it.
-        val isLocal = { novel: Novel -> LocalNovelSource.isLocal(novel.source) }
-        batch.writeLocalVolumes(ContentType.NOVELS, localVolumes, isLocal, Novel::id, Novel::url)
     }
 
     override suspend fun categories(batch: List<Pair<Novel, BackupNovel>>) {

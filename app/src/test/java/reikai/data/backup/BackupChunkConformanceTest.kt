@@ -25,12 +25,16 @@ import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
 import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
+import reikai.domain.library.ContentType
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.ReadingPaceRepository
+import reikai.novel.local.LocalNovelSource
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.category.CategoryRepositoryImpl
@@ -40,6 +44,7 @@ import tachiyomi.data.manga.MangaRepositoryImpl
 import tachiyomi.data.track.TrackRepositoryImpl
 import tachiyomi.domain.chapter.repository.ChapterRepository
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.source.local.LocalSource
 
 /**
  * A chunk reads its rows for all its series at once, so a row has to land on the series it belongs to.
@@ -106,6 +111,15 @@ class BackupChunkConformanceTest {
             listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
     }
 
+    /** A local series' grouping describes the series, not its chapters, so a backup without Chapters keeps it. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a local series' grouping is backed up with Chapters unticked`(type: Type) = runTest {
+        type.seed(driver)
+
+        type.ownersWithoutChapters(database) shouldBe listOf(listOf("B"), emptyList())
+    }
+
     // Manga history keys by chapter url and novel history takes its read-aloud times from the pace rows, both
     // read for the chapters part already.
     @ParameterizedTest
@@ -153,6 +167,10 @@ class BackupChunkConformanceTest {
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
+            override suspend fun ownersWithoutChapters(database: Database) =
+                chunk(BackupOptions(chapters = false, customInfo = false), database, listOf(1L, 2L), local = true)
+                    .map { backup -> backup.volumeOwners.map { it.folder } }
+
             override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
                 var reads = 0
                 chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
@@ -163,6 +181,7 @@ class BackupChunkConformanceTest {
                 options: BackupOptions,
                 database: Database,
                 ids: List<Long>,
+                local: Boolean = false,
                 onSharedRead: () -> Unit = {},
             ): List<BackupManga> {
                 val chapters = ChapterRepositoryImpl(database)
@@ -184,10 +203,16 @@ class BackupChunkConformanceTest {
                     mergeGroupRepository = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
-                    localVolumes = NoLocalVolumes,
+                    localVolumes = if (local) grouped else NoLocalVolumes,
                     readingLog = ReadingLogRepositoryImpl(database),
                 )
-                return options.backupChunk(ids.map { Manga.create().copy(id = it, url = "u$it", source = 1L) }, creator)
+                val source = if (local) LocalSource.ID else 1L
+                return options.backupChunk(
+                    ids.map {
+                        Manga.create().copy(id = it, url = "u$it", source = source)
+                    },
+                    creator,
+                )
             }
         },
         NOVELS {
@@ -220,6 +245,10 @@ class BackupChunkConformanceTest {
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
+            override suspend fun ownersWithoutChapters(database: Database) =
+                chunk(BackupOptions(chapters = false, customInfo = false), database, listOf(1L, 2L), local = true)
+                    .map { backup -> backup.volumeOwners.map { it.folder } }
+
             override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
                 var reads = 0
                 chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
@@ -230,6 +259,7 @@ class BackupChunkConformanceTest {
                 options: BackupOptions,
                 database: Database,
                 ids: List<Long>,
+                local: Boolean = false,
                 onSharedRead: () -> Unit = {},
             ): List<BackupNovel> {
                 val pace = ReadingPaceRepositoryImpl(database)
@@ -246,7 +276,7 @@ class BackupChunkConformanceTest {
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
                     copyMarks = InMemoryChapterCopyMarks(),
-                    localVolumes = NoLocalVolumes,
+                    localVolumes = if (local) grouped else NoLocalVolumes,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = object : ReadingPaceRepository by pace {
                         override suspend fun novelChapterPace(novelIds: List<Long>) =
@@ -256,7 +286,7 @@ class BackupChunkConformanceTest {
                 )
                 return options.backupChunk(
                     ids.map {
-                        Novel.create().copy(id = it, url = "u$it", source = "src")
+                        Novel.create().copy(id = it, url = "u$it", source = if (local) LocalNovelSource.ID else "src")
                     },
                     creator,
                 )
@@ -280,6 +310,14 @@ class BackupChunkConformanceTest {
         /** How many times one chunk ran the read its chapters and history parts share. */
         abstract suspend fun sharedReads(database: Database, ids: List<Long>): Int
 
+        /** The folders each local series' backup says its group holds, from a backup made with Chapters unticked. */
+        abstract suspend fun ownersWithoutChapters(database: Database): List<List<String>>
+
         protected fun List<BackupReadingSession>.asTriples() = map { Triple(it.url, it.endedAt, it.duration) }
+
+        // Series u1's group holds folder B whole.
+        protected val grouped = object : LocalVolumeRepository by NoLocalVolumes {
+            override suspend fun all(type: ContentType) = listOf(VolumeOwner("B", VolumeOwner.WHOLE, "u1"))
+        }
     }
 }

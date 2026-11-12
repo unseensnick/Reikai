@@ -108,6 +108,27 @@ class ChapterTombstoneBackupTest {
         (type.tombstoneUrls(driver) to type.sessionCount(driver)) shouldBe (listOf("/c5") to 1L)
     }
 
+    /** A kept state's sessions come from a file, so they pass the reading log's own check, as restored sessions do. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a restore drops a kept state's sessions the reading log would not keep`(type: Type) = runTest {
+        type.seed(driver)
+        val corrupt = BackupChapterTombstone(
+            url = "/c5",
+            chapterNumber = 5.0,
+            sessions = listOf(
+                BackupTombstoneSession(2_000, 40),
+                BackupTombstoneSession(3_000, -1),
+                BackupTombstoneSession(4_000, Long.MAX_VALUE),
+                BackupTombstoneSession(Long.MAX_VALUE, 40),
+            ),
+        )
+
+        type.restore(database, tombstones = listOf(corrupt), chapters = emptyList())
+
+        type.sessionCount(driver) shouldBe 1L
+    }
+
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a restored chapter spends the kept state waiting at its url`(type: Type) = runTest {

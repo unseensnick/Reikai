@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
 import io.kotest.matchers.shouldBe
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.protobuf.ProtoBuf
@@ -160,15 +161,15 @@ class LocalFilesBackupRoundTripTest {
             )
 
             override suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray {
-                val backup = BackupManga(source = LocalSource.ID, url = SERIES, title = "T")
-                MangaBackupCreator(
+                val entry = Manga.create().copy(id = 1, source = LocalSource.ID, url = SERIES, title = "T")
+                val creator = MangaBackupCreator(
                     manualOrder = FakeLibraryManualOrderRepository(),
-                    mangaRepository = mockk(),
+                    mangaRepository = mockk { coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap() },
                     chapterRepository = ChapterRepositoryImpl(database),
                     trackRepository = mockk(),
                     categoryRepository = mockk(),
                     historyRepository = mockk(),
-                    mangaMetadataRepository = mockk(),
+                    mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
                     customMangaInfoRepository = mockk(),
                     getFavorites = mockk(),
                     getManga = mockk(),
@@ -178,7 +179,10 @@ class LocalFilesBackupRoundTripTest {
                     localVolumes = volumes,
                     readingLog = NoReadingLog,
                     tombstones = ChapterTombstoneRepositoryImpl(database),
-                ).chapters(listOf(Manga.create().copy(id = 1, source = LocalSource.ID, url = SERIES) to backup))
+                )
+                // The series' own fields first, then its chapters, as every backup writes them.
+                val backup = creator.base(listOf(entry)).single()
+                creator.chapters(listOf(entry to backup))
                 return ProtoBuf.encodeToByteArray(BackupManga.serializer(), backup)
             }
 
@@ -213,8 +217,8 @@ class LocalFilesBackupRoundTripTest {
             )
 
             override suspend fun backUp(database: Database, volumes: LocalVolumeRepositoryImpl): ByteArray {
-                val backup = BackupNovel(source = LOCAL_NOVEL, url = SERIES, title = "T")
-                NovelBackupCreator(
+                val entry = Novel.create().copy(id = 1, source = LOCAL_NOVEL, url = SERIES, title = "T")
+                val creator = NovelBackupCreator(
                     manualOrder = FakeLibraryManualOrderRepository(),
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
@@ -231,7 +235,9 @@ class LocalFilesBackupRoundTripTest {
                     readingPace = NoReadingPace,
                     localNovelLanguages = NoLocalNovelLanguages,
                     tombstones = ChapterTombstoneRepositoryImpl(database),
-                ).chapters(listOf(Novel.create().copy(id = 1, source = LOCAL_NOVEL, url = SERIES) to backup))
+                )
+                val backup = creator.base(listOf(entry)).single()
+                creator.chapters(listOf(entry to backup))
                 return ProtoBuf.encodeToByteArray(BackupNovel.serializer(), backup)
             }
 

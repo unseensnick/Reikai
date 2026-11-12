@@ -11,6 +11,7 @@ import reikai.domain.chapter.Revival
 import reikai.domain.chapter.SyncedChapter
 import reikai.domain.chapter.TombstoneSession
 import reikai.domain.library.ContentType
+import reikai.domain.readinglog.isLoggableSession
 import tachiyomi.core.common.util.lang.toLong
 import tachiyomi.data.Database
 import kotlin.time.Clock
@@ -159,6 +160,8 @@ class ChapterTombstoneRepositoryImpl(
 
     private suspend fun fold(type: ContentType, ownerId: Long, tombstone: ChapterTombstone) = with(tombstone) {
         val fetch = dateFetch.toEpochMilliseconds()
+        // From a file, so held to the reading log's own check, as every other restored session is.
+        val sessions = sessions.filter { isLoggableSession(Instant.fromEpochMilliseconds(it.endedAt), it.duration) }
         val readAt = historyReadAt?.toEpochMilliseconds()
         if (type == ContentType.NOVELS) {
             queries.foldNovel(

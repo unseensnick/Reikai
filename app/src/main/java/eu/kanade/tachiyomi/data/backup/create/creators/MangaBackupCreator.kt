@@ -90,7 +90,7 @@ class MangaBackupCreator(
 
     override suspend fun base(entries: List<Manga>): List<BackupManga> {
         val excludedScanlatorsByMangaId = mangaRepository.getExcludedScanlatorsByMangaIds(entries.map { it.id })
-        return entries.map { entry ->
+        val backups = entries.map { entry ->
             // Entry for this manga
             val mangaObject = entry.toBackupManga()
 
@@ -112,6 +112,12 @@ class MangaBackupCreator(
 
             mangaObject
         }
+        // A local series' grouping describes the series, not its chapters, so it rides with every entry.
+        val batch = entries.zip(backups)
+        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, { it.isLocal() }, Manga::id, Manga::url)
+        val looseBySeries = localVolumes.loadedLooseFiles()
+        batch.forEach { (entry, backup) -> if (entry.isLocal()) backup.looseFiles = looseBySeries[entry.url]?.stored }
+        return backups
     }
 
     override suspend fun chapters(batch: List<Pair<Manga, BackupManga>>) {
@@ -134,10 +140,6 @@ class MangaBackupCreator(
         batch.writeRows(tombstones.getByOwners(ContentType.MANGA, mangaIds), Manga::id) { _, backup, kept ->
             backup.chapterTombstones = kept.map { it.toBackup() }
         }
-        // RK: a pass of their own, so a local series with no chapter rows keeps its grouping
-        batch.writeLocalVolumes(ContentType.MANGA, localVolumes, { it.isLocal() }, Manga::id, Manga::url)
-        val looseBySeries = localVolumes.loadedLooseFiles()
-        batch.forEach { (entry, backup) -> if (entry.isLocal()) backup.looseFiles = looseBySeries[entry.url]?.stored }
     }
 
     override suspend fun categories(batch: List<Pair<Manga, BackupManga>>) {
