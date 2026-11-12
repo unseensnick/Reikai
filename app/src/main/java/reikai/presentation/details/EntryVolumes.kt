@@ -78,6 +78,13 @@ data class ChapterVolume(
         }
     }
 
+    /**
+     * This chapter's volume as its series heads it, on the details screen and in both readers' chapter sheets: under
+     * the series' [loose] files setting, then under the name the user gave it in [saved].
+     */
+    fun shown(loose: Map<String, LooseFiles>, saved: Map<String, List<LocalVolume>>): ChapterVolume? =
+        under(loose[series])?.named(saved)
+
     /** This volume under the name the user gave it in [saved], if they gave it one. */
     fun named(saved: Map<String, List<LocalVolume>>): ChapterVolume =
         saved[series]?.firstOrNull { it.key == key }?.label?.let { copy(label = VolumeLabel.Name(it)) } ?: this
@@ -299,21 +306,17 @@ fun List<EntryChapterListItem>.inVolumes(
     loose: Map<String, LooseFiles> = emptyMap(),
 ): VolumeView? {
     val runs = filterIsInstance<EntryChapterListItem.Chapter>()
-        .map { row -> row.volume?.let { row.copy(volume = it.under(loose[it.series])) } ?: row }
+        .map { row -> row.volume?.let { row.copy(volume = it.shown(loose, saved)) } ?: row }
         .volumeRuns { it.volume?.key } ?: return null
     val headers = runs.map { (key, rows) ->
-        val volume = rows.first().volume!!.named(saved)
+        val volume = rows.first().volume!!
         EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map { it.id }, rows.count { it.read })
     }
     val series = headers.first().series
     val shownByKey = headers.associateBy { it.key }
-    val all = every.mapNotNull {
-        it.under(loose[it.series])
-    }.filter { it.series == series }.distinctBy { it.key }.map { volume ->
-        shownByKey[volume.key] ?: volume.named(saved).let {
-            EntryChapterListItem.Volume(it.series, it.key, it.label, emptyList(), 0)
-        }
-    }.ifEmpty { headers }
+    val all = every.mapNotNull { it.shown(loose, saved) }.filter { it.series == series }.distinctBy { it.key }
+        .map { shownByKey[it.key] ?: EntryChapterListItem.Volume(it.series, it.key, it.label, emptyList(), 0) }
+        .ifEmpty { headers }
     val savedHere = saved[series]
     val numbers = all.map { (it.label as? VolumeLabel.Number)?.number }
     val chips = when {

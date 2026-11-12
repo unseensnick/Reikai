@@ -337,8 +337,7 @@ class ReaderViewModel(
     // it, for the chapter sheet
     fun chapterVolume(chapter: Chapter): ChapterVolume? =
         mangaChapterVolume(mangaForChapterId(chapter.mangaId), chapter.url, chapter.name)
-            ?.let { it.under(localVolumes.looseFiles().value[it.series]) }
-            ?.named(localVolumes.volumes(ContentType.MANGA).value)
+            ?.shown(localVolumes.looseFiles().value, localVolumes.volumes(ContentType.MANGA).value)
 
     // RK: the chapters paging steps through from [current], by the kernel the novel reader runs too:
     // hidden ones dropped (the details screen's key), then duplicates when skip-duplicate is on, keeping

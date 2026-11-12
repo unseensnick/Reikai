@@ -245,4 +245,12 @@ class EntryVolumesTest {
 
         (manga to novel) shouldBe (false to true)
     }
+
+    /** The details headers and both readers' chapter sheets all ask it, so a sheet heads a chapter as the screen does. */
+    @Test
+    fun `a loose file shown as its own volume takes the name the user gave it`() {
+        val saved = mapOf("Series" to listOf(LocalVolume("Ch 010.cbz", null, "Specials")))
+
+        loose1.shown(mapOf("Series" to LooseFiles.EACH_ITS_OWN), saved)?.label shouldBe VolumeLabel.Name("Specials")
+    }
 }

@@ -1210,7 +1210,12 @@ class NovelReaderViewModel(
                         id in fetchable
                     }.let { row ->
                         val volume = novelChapterVolume(novels[it.novelId]?.url, it.url, it.name)
-                        row.copy(volume = volume?.named(localVolumes.volumes(ContentType.NOVELS).value))
+                        row.copy(
+                            volume = volume?.shown(
+                                localVolumes.looseFiles().value,
+                                localVolumes.volumes(ContentType.NOVELS).value,
+                            ),
+                        )
                     }
                 }
             },
@@ -1617,7 +1622,6 @@ internal fun NovelChapter.toReaderChapterRow(
         // A novel chapter is one request, so there is no percentage to report while it runs.
         downloadProgress = 0,
         offersDownload = targets.offersDownload(id, downloadState, canFetch),
-        volume = novelChapterVolume(null, url, name),
     )
 }
 
