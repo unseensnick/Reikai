@@ -40,20 +40,26 @@ fun localFileNames(
         val name = if (type == ContentType.NOVELS) {
             epubFileName("$title - $label")
         } else {
-            DiskUtil.buildValidFilename("$title - $label")
+            organizedVolumeFolder(title, label)
         }
         LocalFileNames.Rename(key, freeName(name, taken))
     }
     return LocalFileNames(series, volumes)
 }
 
+/** A manga volume folder's name: the title and label sanitized together, so a title's own trailing dots stay. */
+private fun organizedVolumeFolder(title: String, label: String) = DiskUtil.buildValidFilename("$title - $label")
+
 /**
  * The label a volume named [name] in its series' own folder shows: the name less the `<title> - ` Organize files
  * gave it, read against the series' [title] and its [folder] (the title, unless another folder held that name).
+ * The title's prefix is read off a name built the way [organizedVolumeFolder] builds one.
  */
 fun organizedLabel(name: String, title: String, folder: String): String =
-    listOf(DiskUtil.buildValidFilename(title), folder).firstNotNullOfOrNull { series ->
-        name.removePrefix("$series - ").takeIf { it != name && it.isNotBlank() }
+    listOf(organizedVolumeFolder(title, LABEL_PROBE).removeSuffix(LABEL_PROBE), "$folder - ").firstNotNullOfOrNull {
+        name.removePrefix(it).takeIf { label -> label != name && label.isNotBlank() }
     } ?: name
+
+private const val LABEL_PROBE = "x"
 
 internal const val EPUB = ".epub"
