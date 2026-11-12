@@ -5,6 +5,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
+import reikai.domain.library.ContentType
 import tachiyomi.domain.manga.model.Manga
 
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
@@ -228,5 +229,14 @@ class EntryVolumesTest {
 
         listOf(row(1, book1), row(2, other1)).inVolumes(picked = null, saved, every = emptyList())!!.duplicates shouldBe
             emptyList()
+    }
+
+    /** Only a novel's group lists a book as a member; a manga folder is a folder whatever its name. */
+    @Test
+    fun `a missing member named like a book is a file only for a novel`() {
+        val manga = missingVolumes(ContentType.MANGA, listOf("Extras.epub"), emptyList()).single().isFile
+        val novel = missingVolumes(ContentType.NOVELS, listOf("Extras.epub"), emptyList()).single().isFile
+
+        (manga to novel) shouldBe (false to true)
     }
 }

@@ -788,6 +788,31 @@ class LocalMovesUnderLockTest {
         readUrls(split) shouldBe listOf("Third/Ch 4")
     }
 
+    /** A member renamed outside the app keeps its rows under its old name, which a new series there would meet. */
+    @Test
+    fun `a split is refused the name of a missing member's folder`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        refreshed(KEPT)
+        missingMember("Gone")
+
+        val result = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { combine.splitOut(ContentType.MANGA, series(KEPT), listOf("Vol 2"), "Gone") }
+        }
+
+        result.result::class shouldBe LocalMoveResult.Failed::class
+    }
+
+    @Test
+    fun `organize names a series past a missing member's folder`() = runTest {
+        missingMember("Gone")
+
+        combine.organizePlan(ContentType.MANGA, series(KEPT), "Gone", emptyList()).series.to shouldBe "Gone (2)"
+    }
+
+    private suspend fun missingMember(folder: String) = driver.exec(
+        "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) VALUES (0, '$folder', '/', 'Kept')",
+    )
+
     @Test
     fun `organize is not offered where the storage cannot move a file`() = runTest {
         FakeSafProvider.supportsMove = false

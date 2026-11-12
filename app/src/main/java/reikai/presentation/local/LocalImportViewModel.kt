@@ -19,11 +19,11 @@ import mihon.core.metro.AppCoroutineScope
 import reikai.data.local.CombinableSeries
 import reikai.data.local.CombineLocalVolumes
 import reikai.data.local.DuplicateChoice
-import reikai.data.local.EPUB
 import reikai.data.local.ImportGroup
 import reikai.data.local.ImportProblem
 import reikai.data.local.ImportResult
 import reikai.data.local.LocalImport
+import reikai.data.local.isLooseBook
 import reikai.domain.library.ContentType
 import reikai.presentation.browse.BatchCategories
 import reikai.presentation.browse.MangaLibraryAdder
@@ -94,7 +94,7 @@ class LocalImportViewModel(
      * not a folder to copy into; Add volumes on its details screen takes others in.
      */
     suspend fun librarySeries(type: ContentType): List<CombinableSeries> =
-        combineLocalVolumes.library(type).filterNot { it.folder.endsWith(EPUB, ignoreCase = true) }
+        combineLocalVolumes.library(type).filterNot { isLooseBook(type, it.folder) }
 
     /** Adds group [key]'s files to group [into] of this import, as more of its volumes. */
     fun addToGroup(key: String, into: String) {

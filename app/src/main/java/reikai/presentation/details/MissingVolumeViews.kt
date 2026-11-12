@@ -17,25 +17,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import reikai.data.local.isLooseBook
+import reikai.domain.library.ContentType
 import reikai.domain.local.localGroupUnit
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
  * A folder of a local series' group that is gone from the local folder: its [folder] name, and the one [volume] it
- * held where it held exactly one, which then names it. A loose novel book is a file, not a folder.
+ * held where it held exactly one, which then names it. A loose novel book [isFile], not a folder.
  */
 @Immutable
-data class MissingVolume(val folder: String, val volume: EntryChapterListItem.Volume?) {
-    val isFile: Boolean get() = folder.endsWith(".epub", ignoreCase = true)
-}
+data class MissingVolume(val folder: String, val volume: EntryChapterListItem.Volume?, val isFile: Boolean)
 
-/** [missing]'s folders, each named by its one volume on screen where it held one, else by the folder. */
-internal fun missingVolumes(missing: List<String>, chips: List<EntryChapterListItem.Volume>): List<MissingVolume> =
-    missing.map { folder ->
-        val held = chips.filter { chip -> localGroupUnit(chip.series, chip.key).first == folder }
-        MissingVolume(folder, held.singleOrNull())
-    }
+/** [missing]'s folders of a [type] series, each named by its one volume on screen where it held one, else by the folder. */
+internal fun missingVolumes(
+    type: ContentType,
+    missing: List<String>,
+    chips: List<EntryChapterListItem.Volume>,
+): List<MissingVolume> = missing.map { folder ->
+    val held = chips.filter { chip -> localGroupUnit(chip.series, chip.key).first == folder }
+    MissingVolume(folder, held.singleOrNull(), isLooseBook(type, folder))
+}
 
 /** A line per missing folder above the list; a tap asks what to do about it. */
 internal fun LazyListScope.missingVolumesItem(missing: List<MissingVolume>, onFix: (MissingVolume) -> Unit) {

@@ -51,7 +51,6 @@ import reikai.presentation.novel.browse.NovelLibraryAdder
 import reikai.storage.canMoveAndRename
 import reikai.storage.deleteTree
 import reikai.storage.freeName
-import reikai.storage.freeNames
 import reikai.storage.listOrNull
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -231,13 +230,12 @@ class CombineLocalVolumes(
         return onApp {
             val folders = listOf(series.folder, folder)
             seriesLocks.withSeries(type, folders) {
-                // A name a folder or another series holds would list as this series' own folder, or meet that
-                // series' rows.
+                // A name a folder, another series or a group's rows hold would list as this series' own folder, or
+                // meet those rows.
                 val names =
                     storageManager.localRoot(type)?.listOrNull(context) ?: return@withSeries failed(missing(series))
-                if (names.any { it.name.equals(folder, true) } || chapterMoves.localSeriesId(type, folder) != null) {
-                    return@withSeries failed(taken(folder))
-                }
+                val held = names.mapNotNull { it.name } + localNamesHeld(type, chapterMoves, localVolumes)
+                if (held.any { it.equals(folder, true) }) return@withSeries failed(taken(folder))
                 val before = localVolumes.all(type)
                 val units = volumeKeys.map { localGroupUnit(series.folder, it) }
                 val created = when (type) {
@@ -405,8 +403,8 @@ class CombineLocalVolumes(
 
     /**
      * What Organize files gives [series] from its [title] and volume [labels] (group key to label), the series'
-     * name made free of every folder and every other series of [type], since one in the database that is no
-     * longer in the library still holds its address. A folder another series lists volumes of keeps its name,
+     * name made free of every folder, every other series of [type] (one in the database that is no longer in the
+     * library still holds its address) and every folder a group's rows name. A folder another series lists volumes of keeps its name,
      * since that series' chapters are addressed by it.
      */
     suspend fun organizePlan(
@@ -416,16 +414,13 @@ class CombineLocalVolumes(
         labels: List<Pair<String, String>>,
     ) =
         localFileNames(type, series.folder, title, labels).let { names ->
-            val parent = storageManager.localRoot(type)
             val lent = localVolumes.all(type).any { it.folder == series.folder && it.owner != series.folder }
             if (lent) return@let names.copy(series = names.series.copy(to = series.folder))
-            val free = freeNames(names.series.to).first { name ->
-                name.equals(series.folder, ignoreCase = true) ||
-                    (
-                        parent?.findFile(name) == null &&
-                            chapterMoves.localSeriesId(type, name).let { it == null || it == series.id }
-                        )
-            }
+            val onDisk = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }.orEmpty()
+            // Its own name is its own to keep, in any letter case.
+            val held = (onDisk + localNamesHeld(type, chapterMoves, localVolumes))
+                .filterNotTo(HashSet()) { it.equals(series.folder, ignoreCase = true) }
+            val free = freeName(names.series.to, held)
             names.copy(series = names.series.copy(to = free), taken = names.series.to.takeIf { it != free })
         }
 

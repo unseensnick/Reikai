@@ -13,10 +13,12 @@ import reikai.domain.local.SeriesRename
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupKey
 import reikai.domain.local.localGroupUnit
+import reikai.domain.local.localVolumeContainer
 import reikai.domain.local.relinkCandidates
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.novel.local.LocalNovelSource
+import reikai.source.local.isLocalSeriesName
 import reikai.source.local.localVolumeChapter
 import reikai.storage.listOrNull
 import reikai.util.runCatchingCancellable
@@ -87,21 +89,18 @@ class LocalSeriesRelink(
      * the user may have put things back between the question and the answer.
      */
     suspend fun relink(type: ContentType, id: Long, folder: String): LocalMoveResult = withIOContext {
-        val series = address(type, id)
-            ?: return@withIOContext LocalMoveResult.Failed(IllegalStateException("No such series"))
+        val series = address(type, id) ?: return@withIOContext failed("No such series")
         seriesLocks.withSeries(type, listOf(series, folder)) {
             val listed = storageManager.localRoot(type)?.listOrNull(context)
-                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
-            if (listed.any { it.name == series }) {
-                return@withSeries LocalMoveResult.Failed(IllegalStateException("$series is back in the local folder"))
-            }
+                ?: return@withSeries failed("The local folder cannot be read")
+            if (listed.any { it.name == series }) return@withSeries failed("$series is back in the local folder")
             if (folder !in candidatesIn(type, id, series, listed)) {
-                return@withSeries LocalMoveResult.Failed(IllegalStateException("$folder does not hold $series' files"))
+                return@withSeries failed("$folder does not hold $series' files")
             }
             // Another series addresses the volumes it lists from this folder by the old name, which a link here
             // would leave behind.
             if (owners.all(type).any { it.folder == series && it.owner != series }) {
-                return@withSeries LocalMoveResult.Failed(IllegalStateException("Another series lists $series' volumes"))
+                return@withSeries failed("Another series lists $series' volumes")
             }
             chapterMoves.renameSeries(type, SeriesRename(id, series, folder, emptyMap()))
             LocalMoveResult.Moved(emptyList())
@@ -124,8 +123,7 @@ class LocalSeriesRelink(
      */
     suspend fun memberCandidates(type: ContentType, id: Long, member: String): List<String> = withIOContext {
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
-        val taken = taken(type)
-        candidatesIn(type, id, member, listed).filter { it !in taken }
+        candidatesIn(type, id, member, listed)
     }
 
     /**
@@ -134,10 +132,10 @@ class LocalSeriesRelink(
      */
     suspend fun memberChoices(type: ContentType, member: String): List<String> = withIOContext {
         val listed = storageManager.localRoot(type)?.listOrNull(context) ?: return@withIOContext emptyList()
-        val taken = taken(type)
-        val book = isBook(type, member)
-        listed.filter { if (book) it.isFile && it.name.orEmpty().endsWith(".epub", true) else it.isDirectory }
-            .mapNotNull { it.name }.filter { !it.startsWith('.') && it !in taken }.sorted()
+        val taken = localNamesHeld(type, chapterMoves, owners)
+        val book = isLooseBook(type, member)
+        listed.filter { if (book) it.isFile && isLooseBook(type, it.name.orEmpty()) else it.isDirectory }
+            .mapNotNull { it.name }.filter { isLocalSeriesName(it) && it !in taken }.sorted()
     }
 
     /**
@@ -147,19 +145,22 @@ class LocalSeriesRelink(
      * series' to link.
      */
     suspend fun relinkMember(type: ContentType, id: Long, member: String, to: String): LocalMoveResult = withIOContext {
-        val series = address(type, id)
-            ?: return@withIOContext LocalMoveResult.Failed(IllegalStateException("No such series"))
+        val series = address(type, id) ?: return@withIOContext failed("No such series")
         seriesLocks.withSeries(type, listOf(series, to)) {
             val names = storageManager.localRoot(type)?.listOrNull(context)?.mapNotNull { it.name }
-                ?: return@withSeries LocalMoveResult.Failed(IllegalStateException("The local folder cannot be read"))
+                ?: return@withSeries failed("The local folder cannot be read")
             val held = owners.all(type).filter { it.folder == member }
             when {
                 member in names -> return@withSeries failed("$member is back in the local folder")
-                to !in names || to in taken(type) -> return@withSeries failed("$to cannot take $member's place")
+                to !in names || to in localNamesHeld(
+                    type,
+                    chapterMoves,
+                    owners,
+                ) -> return@withSeries failed("$to cannot take $member's place")
                 held.any { it.owner != series } || held.none { it.volume == VolumeOwner.WHOLE } ->
                     return@withSeries failed("Another series lists $member's volumes")
             }
-            val book = isBook(type, member)
+            val book = isLooseBook(type, member)
             val keys = volumeKeys(type, id, series).mapNotNull { key ->
                 val (folder, volume) = localGroupUnit(series, key)
                 if (folder != member) return@mapNotNull null
@@ -172,13 +173,6 @@ class LocalSeriesRelink(
             LocalMoveResult.Moved(emptyList())
         }
     }
-
-    // Folders a series lists or holds, which a member cannot be linked to without meeting that series' rows.
-    private suspend fun taken(type: ContentType): Set<String> =
-        chapterMoves.localAddresses(type) + owners.all(type).flatMap { listOf(it.folder, it.owner) }
-
-    // A novel member that is a loose book, a series of one.
-    private fun isBook(type: ContentType, member: String) = type == ContentType.NOVELS && member.endsWith(".epub", true)
 
     // Every volume key series [id] keeps a saved order, name or picked chip under.
     private suspend fun volumeKeys(type: ContentType, id: Long, series: String): Set<String> =
@@ -195,12 +189,11 @@ class LocalSeriesRelink(
         if (paths.isEmpty()) return emptyList()
         val volumes = paths.mapNotNullTo(HashSet()) { it.substringBefore('/', "").lowercase().ifEmpty { null } }
         val folders = listed
-            .filter { it.isDirectory && !it.name.orEmpty().startsWith('.') }
+            .filter { it.isDirectory && isLocalSeriesName(it.name.orEmpty()) }
             .mapNotNull { folder -> contents(folder, volumes)?.let { folder.name.orEmpty() to it } }
             .toMap()
-        return relinkCandidates(paths, folders).filter {
-            chapterMoves.localSeriesId(type, it).let { owner -> owner == null || owner == id }
-        }
+        val held = localNamesHeld(type, chapterMoves, owners)
+        return relinkCandidates(paths, folders).filter { it !in held }
     }
 
     /**
@@ -221,7 +214,8 @@ class LocalSeriesRelink(
 
     /** A chapter [url]'s file under the series folder, or null for a loose book's, which is the series itself. */
     private fun relativePath(type: ContentType, series: String, url: String): String? = when (type) {
-        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)?.second?.takeIf { it != series }
+        ContentType.NOVELS -> LocalNovelSource.parseChapterPath(url)
+            ?.let { (folder, book) -> book.takeIf { localVolumeContainer(type, folder, book).isNotEmpty() } }
         else -> localVolumeChapter(url)?.let { "${it.volume}/${it.file}" } ?: url.substringAfter('/')
     }
 

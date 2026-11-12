@@ -31,7 +31,7 @@ fun localFileNames(
     labels: List<Pair<String, String>>,
 ): LocalFileNames {
     val base = DiskUtil.buildValidFilename(title)
-    val loneBook = type == ContentType.NOVELS && folder.endsWith(EPUB, ignoreCase = true) && labels.size <= 1
+    val loneBook = isLooseBook(type, folder) && labels.size <= 1
     val series = LocalFileNames.Rename(folder, if (loneBook) epubFileName(title) else base)
     if (loneBook) return LocalFileNames(series, emptyList())
     val taken = mutableSetOf<String>()

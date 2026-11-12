@@ -23,7 +23,7 @@ class MissingVolumeDialogTest {
     val compose = createComposeRule()
 
     private val vol3 = EntryChapterListItem.Volume("Saga", "Other/Vol 3", VolumeLabel.Number(3.0), listOf(1L), 0)
-    private val missing = MissingVolume("Other", vol3)
+    private val missing = MissingVolume("Other", vol3, isFile = false)
     private var linked: String? = null
     private var removed = false
 

@@ -37,6 +37,8 @@ import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.local.VolumeOwner
 import reikai.domain.local.localGroupUnit
 import reikai.domain.local.localVolumeKey
+import reikai.source.local.LOCAL_SYSTEM_FOLDERS
+import reikai.source.local.isLocalSeriesName
 import reikai.source.local.isVolumeCover
 import reikai.source.local.localChapterUnit
 import reikai.source.local.localChapterUrl
@@ -114,7 +116,7 @@ class LocalSource(
         val groups = LocalGroups(userVolumes.all(ContentType.MANGA)) // RK
         var mangaDirs = fileSystem.getFilesInBaseDirectory()
             // Filter out files that are hidden and is not a folder
-            .filter { it.isDirectory && !it.name.orEmpty().startsWith('.') && it.name !in SYSTEM_FOLDERS } // RK
+            .filter { it.isDirectory && isLocalSeriesName(it.name.orEmpty()) } // RK: nor a folder a system keeps
             .filterNot { groups.isLentWhole(it.name.orEmpty()) } // RK: a folder combined into another series
             .distinctBy { it.name }
             .filter {
@@ -500,7 +502,7 @@ class LocalSource(
         !file.name.orEmpty().startsWith('.') &&
             (
                 !file.isFolderName() ||
-                    (!ImageUtil.isImage(file.name) && file.name !in SYSTEM_FOLDERS && file.isDirectory)
+                    (!ImageUtil.isImage(file.name) && file.name !in LOCAL_SYSTEM_FOLDERS && file.isDirectory)
                 )
 
     // RK: a volume folder's chapter archives, read for the series' details when it has none of its own
@@ -567,10 +569,6 @@ class LocalSource(
     }
 
     companion object {
-        // RK: folders macOS, Synology and Windows leave beside files, which hold no chapter
-        private val SYSTEM_FOLDERS =
-            setOf("__MACOSX", "@eaDir", "#recycle", "\$RECYCLE.BIN", "System Volume Information")
-
         const val ID = 0L
         const val HELP_URL = "${Constants.URL_DOCS}/guides/local-source/" // RK: Reikai's docs
 

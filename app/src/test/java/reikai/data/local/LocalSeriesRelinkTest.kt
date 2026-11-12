@@ -9,6 +9,10 @@ import com.hippo.unifile.UniFile
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
@@ -18,9 +22,9 @@ import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
+import reikai.data.chapter.LocalVolumeRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelRepositoryImpl
-import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.model.Novel
@@ -55,6 +59,7 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
     private lateinit var database: Database
     private lateinit var relink: LocalSeriesRelink
     private var nextMangaId = 1L
+    private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
 
     @Before
     fun setUp() = runTest {
@@ -78,12 +83,15 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
             storageManager = storage,
             chapterMoves = LocalChapterMoveRepositoryImpl(database, ChapterTombstoneRepositoryImpl(database)),
             seriesLocks = LocalSeriesLocks().apply { open() },
-            owners = NoLocalVolumes,
+            owners = LocalVolumeRepositoryImpl(database, scope),
         )
     }
 
     @After
-    fun tearDown() = driver.close()
+    fun tearDown() {
+        scope.cancel()
+        driver.close()
+    }
 
     @Test
     fun `the folder a series was renamed to is offered and, once picked, takes the entry with its read state`() =
@@ -195,6 +203,27 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         relink.candidates(type, id) shouldBe listOf("Saga A")
     }
 
+    /** A missing group member keeps its rows under its old name, which a series linked there would meet. */
+    @Test
+    fun `a folder a group's owner row names is not offered, nor taken by a link`() = runTest {
+        val id = seeded("Saga")
+        File(root, "Saga").renameTo(File(root, "Gone"))
+        driver.exec(
+            "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) VALUES ($dbType, 'Gone', '/', 'Other')",
+        )
+
+        (relink.candidates(type, id) to (relink.relink(type, id, "Gone") is LocalMoveResult.Failed)) shouldBe
+            (emptyList<String>() to true)
+    }
+
+    @Test
+    fun `a folder a system keeps is no folder to link a missing member to`() = runTest {
+        File(root, "Free").mkdirs()
+        File(root, "@eaDir").mkdirs()
+
+        relink.memberChoices(type, "Gone") shouldBe listOf("Free")
+    }
+
     /** The question is asked from a refresh's failure handler, so it answers "nothing to offer" rather than throwing. */
     @Test
     fun `a local folder that cannot be listed whole offers nothing instead of failing`() = runTest {
@@ -236,6 +265,8 @@ class LocalSeriesRelinkTest(private val type: ContentType) {
         listOf(offered, result is LocalMoveResult.Failed, urls(id)) shouldBe
             listOf(listOf("Saga Renamed"), true, chapterUrls("Saga").sorted())
     }
+
+    private val dbType get() = if (type == ContentType.NOVELS) 1 else 0
 
     /** Series [folder] on disk and in the database, with a row for each of its chapter files. */
     private suspend fun seeded(folder: String): Long {

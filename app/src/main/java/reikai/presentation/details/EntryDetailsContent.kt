@@ -191,7 +191,8 @@ fun EntryDetailsContent(
     val missingFolders by produceState(emptyList<String>(), state.entryId, ownLocal, state.chapters.items) {
         value = if (ownLocal) behavior.volumePicking.missingMembers(state.entryId) else emptyList()
     }
-    val missing = remember(missingFolders, volumes) { missingVolumes(missingFolders, structural?.chips.orEmpty()) }
+    val missing =
+        remember(missingFolders, volumes) { missingVolumes(type, missingFolders, structural?.chips.orEmpty()) }
     var fixing by remember { mutableStateOf<MissingVolume?>(null) }
     val extras = ChapterListExtras(
         copies = copies,
