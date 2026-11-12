@@ -93,6 +93,22 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         (folder() to journal.entries) shouldBe ((listOf(old.name) to "older") to emptyList<Any>())
     }
 
+    /** Another writer took the name meanwhile, which the replace leaves for its row: each book lists at a free name. */
+    @Test
+    fun `a replace whose name another writer took meanwhile loses neither the old book nor the copy`() = runTest {
+        journaled()
+        old.renameTo(aside)
+        File(old.parentFile, old.name).writeText("theirs")
+
+        replay().replay()
+
+        old.parentFile.listFiles()!!.map { it.name to it.readText() }.sortedBy { it.second } shouldBe listOf(
+            old.name.replace(".", " (3).") to "newer",
+            old.name.replace(".", " (2).") to "older",
+            old.name to "theirs",
+        )
+    }
+
     @Test
     fun `a replace whose folder cannot be reached keeps its row for a later start`() = runTest {
         val id = journaled(folder = uri(File(old.parentFile.parentFile, "Gone")))

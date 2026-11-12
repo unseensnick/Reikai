@@ -12,6 +12,7 @@ import reikai.domain.local.LocalFileJournalEntry
 import reikai.domain.local.LocalFileJournalPlan
 import reikai.domain.local.LocalSeriesLocks
 import reikai.storage.deleteFile
+import reikai.storage.freeName
 import reikai.storage.rename
 import tachiyomi.core.common.util.system.logcat
 import kotlin.coroutines.cancellation.CancellationException
@@ -19,9 +20,9 @@ import kotlin.coroutines.cancellation.CancellationException
 /**
  * Finishes or reverses, at start, an Organize files ([LocalOrganizer.replay]) or an import Replace a kill cut off,
  * under the series' lock and before any listing can read the half-done state: the locks open only once [replay] has
- * run. A replace promotes its whole copy when the old file has stepped aside, and otherwise keeps the old file. A
- * row whose folder cannot be reached is kept for a later start. Nothing is touched before it is found where the
- * plan says.
+ * run. A replace promotes its whole copy when the old file has stepped aside, and otherwise keeps the old file; one
+ * whose name another writer took meanwhile keeps both beside it. A row whose folder cannot be reached is kept for a
+ * later start. Nothing is touched before it is found where the plan says.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -62,6 +63,13 @@ class LocalFileJournalReplay(
         val part = folder.findFile(plan.part)?.takeIf { it.uri.toString() == plan.partUri }
         val aside = folder.findFile(plan.aside)
         when {
+            // Another writer took the name while the old book stood aside, so the replace never finished: the old
+            // book and the copy both list beside that file, at free names as an import's Keep both gives them.
+            name != null && part != null && aside != null -> {
+                val taken = folder.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name }
+                check(aside.rename(freeName(plan.name, taken))) { "Could not keep ${plan.aside}" }
+                check(part.rename(freeName(plan.name, taken))) { "Could not keep ${plan.part}" }
+            }
             name != null -> {
                 part?.deleteFile()
                 aside?.deleteFile()
