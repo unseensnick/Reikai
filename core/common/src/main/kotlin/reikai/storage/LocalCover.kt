@@ -9,10 +9,14 @@ import java.io.InputStream
 
 /**
  * The cover a user put in a local series' folder: the first file named `cover`, in any case and with any
- * extension, that is a picture. The manga and novel local sources both read it here.
+ * extension, that is a picture. One still in flight is not: a killed write leaves `cover.jpg_tmp`, which reads as
+ * "cover" and sniffs as a picture, and taking it would aim every later write at it. Both local sources read it here.
  */
 fun Iterable<UniFile>.localCover(): UniFile? =
-    filter { it.isFile && it.nameWithoutExtension.equals("cover", ignoreCase = true) }
+    filter {
+        it.isFile && !it.name.orEmpty().endsWith(IN_FLIGHT_SUFFIX) &&
+            it.nameWithoutExtension.equals("cover", ignoreCase = true)
+    }
         .firstOrNull { ImageUtil.isImage(it.name) { it.openInputStream() } }
 
 /**

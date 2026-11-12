@@ -154,6 +154,18 @@ class LocalFilesPrimitivesTest {
         (File(series, "b.cbz").readText() to names()) shouldBe ("bbbb" to listOf("a.cbz", "b.cbz"))
     }
 
+    // writeLocalCover
+
+    /** The provider writes plain "w" in place, which kept a bigger old cover's tail. */
+    @Test
+    fun `writeLocalCover leaves none of a bigger old cover behind`() {
+        File(series, "cover.jpg").writeBytes(ByteArray(64) { 7 })
+
+        writeLocalCover(context, picked(), byteArrayOf(1).inputStream())
+
+        File(series, "cover.jpg").readBytes().toList() shouldBe listOf<Byte>(1)
+    }
+
     // rename
 
     @Test

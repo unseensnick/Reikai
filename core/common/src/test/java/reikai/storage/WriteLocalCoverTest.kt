@@ -10,14 +10,18 @@ import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.just
 import io.mockk.mockk
+import io.mockk.mockkObject
 import io.mockk.mockkStatic
 import io.mockk.runs
+import io.mockk.unmockkObject
 import io.mockk.unmockkStatic
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import tachiyomi.core.common.util.system.ImageUtil
 import java.io.File
+import java.io.InputStream
 
 /** A local series' cover, as both local sources write it, over a real folder. */
 class WriteLocalCoverTest {
@@ -35,15 +39,16 @@ class WriteLocalCoverTest {
         every { TextUtils.isEmpty(any()) } answers { firstArg<CharSequence?>().isNullOrEmpty() }
         every { Uri.fromFile(any()) } returns mockk(relaxed = true)
         every { DocumentsContract.isTreeUri(any()) } returns false
+        // The content sniff decodes natively; here every sniffed file reads as a JPEG, as a partly written one does.
+        mockkObject(ImageUtil)
+        every { ImageUtil.findImageType(any<() -> InputStream>()) } returns ImageUtil.ImageType.JPEG
     }
 
     @AfterEach
-    fun tearDown() = unmockkStatic(
-        MediaScannerConnection::class,
-        TextUtils::class,
-        Uri::class,
-        DocumentsContract::class,
-    )
+    fun tearDown() {
+        unmockkStatic(MediaScannerConnection::class, TextUtils::class, Uri::class, DocumentsContract::class)
+        unmockkObject(ImageUtil)
+    }
 
     private fun write(bytes: ByteArray) = writeLocalCover(context, UniFile.fromFile(folder)!!, bytes.inputStream())
 
@@ -54,15 +59,14 @@ class WriteLocalCoverTest {
         File(folder, "cover.jpg").readBytes().toList() shouldBe listOf<Byte>(1, 2, 3)
     }
 
-    /** A document provider takes plain "w" as write in place, which left a bigger old cover's tail. */
+    /** A partly written JPEG still sniffs as one, and would take every later write. */
     @Test
-    fun `a smaller cover leaves none of the old one behind`() {
-        write(ByteArray(64) { 7 })
+    fun `a cover a killed write left in flight gives way to a new one`() {
+        File(folder, "cover.jpg_tmp").writeBytes(ByteArray(64) { 7 })
 
         write(byteArrayOf(1))
 
-        (File(folder, "cover.jpg").readBytes().toList() to folder.list()!!.sorted()) shouldBe
-            (listOf<Byte>(1) to listOf(".nomedia", "cover.jpg"))
+        folder.list()!!.sorted() shouldBe listOf(".nomedia", "cover.jpg")
     }
 
     @Test

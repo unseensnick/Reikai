@@ -36,4 +36,12 @@ class LocalCoverTest {
 
         listOf(file("cover.txt"), picture).localCover() shouldBe picture
     }
+
+    /** A partly written JPEG still sniffs as one. */
+    @Test
+    fun `a cover a killed write left in flight is passed over`() {
+        every { ImageUtil.findImageType(any<() -> InputStream>()) } returns ImageUtil.ImageType.JPEG
+
+        listOf(file("cover.jpg_tmp")).localCover() shouldBe null
+    }
 }
