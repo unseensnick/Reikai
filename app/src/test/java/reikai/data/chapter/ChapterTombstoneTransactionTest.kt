@@ -88,7 +88,7 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
 
     /**
      * The owner and one chapter, written as rows: the manga sync's own insert runs RETURNING, which the
-     * framework's statement API under Robolectric refuses, and the write under test is the delete.
+     * framework's statement API under Robolectric refuses, and the write under test is the delete, nested.
      */
     private suspend fun seedChapter(): Long {
         if (type == ContentType.NOVELS) {
@@ -120,7 +120,8 @@ class ChapterTombstoneTransactionTest(private val type: ContentType) {
         driver.execute(null, sql, 0).await()
     }
 
-    private suspend fun deleteRow(id: Long) {
+    /** The delete inside a transaction of its own, as the sync's `updateFromRemote` writes it, so it nests. */
+    private suspend fun deleteRow(id: Long) = database.transactionWithResult {
         if (type == ContentType.NOVELS) {
             database.novel_chaptersQueries.delete(id)
         } else {

@@ -226,7 +226,8 @@ class ChapterTombstoneConformanceTest(private val type: Type) {
 
         runCatching {
             ChapterTombstoneRepositoryImpl(database).capturing(type.contentType, OWNER, listOf(id), emptyList()) {
-                type.deleteRow(database, id)
+                // In a transaction of its own, as the sync's write is, so the failure after it must undo a nested commit
+                database.transactionWithResult { type.deleteRow(database, id) }
                 error("the write failed after the delete")
             }
         }
