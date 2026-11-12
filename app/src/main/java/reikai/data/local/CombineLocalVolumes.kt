@@ -186,11 +186,25 @@ class CombineLocalVolumes(
      * Applies a backup's owner rows as a combine applies its own: a volume the backup puts in another series moves
      * there with its chapters' rows and kept state, a series whose own folder the backup lends whole to another
      * leaves the library, and the owners list again. The backup wins over the device, as it does for merge groups,
-     * and a restore offers no Undo. A row the device already holds changes nothing.
+     * and a restore offers no Undo. A row the device already holds changes nothing. Each series' rows come back
+     * under their own lock, so one waiting for a repair, or failing, holds back only its own, and the throw names it.
      */
     suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
         val fresh = owners.distinct() - localVolumes.all(type).toSet()
-        if (fresh.isEmpty()) return
+        val failed = fresh.groupBy { it.owner }.values.mapNotNull { rows ->
+            val result = try {
+                restoreGroup(type, rows)
+            } catch (e: LocalSeriesBlockedException) {
+                LocalMoveResult.Failed(e)
+            }
+            (result as? LocalMoveResult.Failed)?.let {
+                "${rows.flatMap { listOf(it.folder, it.owner) }.distinct()}: ${it.error.message}"
+            }
+        }
+        check(failed.isEmpty()) { "Local volumes not restored: ${failed.joinToString("; ")}" }
+    }
+
+    private suspend fun restoreGroup(type: ContentType, fresh: List<VolumeOwner>): LocalMoveResult {
         val units = fresh.mapTo(HashSet()) { it.folder to it.volume }
         val before = localVolumes.all(type)
         val folders = (
@@ -198,7 +212,7 @@ class CombineLocalVolumes(
                 before.any { it.owner == owner && (it.folder to it.volume) in units }
             }
             ).distinct()
-        seriesLocks.withSeries(type, folders) {
+        return seriesLocks.withSeries(type, folders) {
             val now = localVolumes.all(type)
             val replaced = now.filter { (it.folder to it.volume) in units && it !in fresh }
             val series = folders.mapNotNull { folder ->
@@ -215,7 +229,7 @@ class CombineLocalVolumes(
                 volumes = emptyList(),
                 relist = (fresh.map { it.owner } + replaced.map { it.owner }).distinct().mapNotNull { series[it] },
                 leaving = leaving,
-            ).finish()
+            ).also { it.finish() }.result
         }
     }
 

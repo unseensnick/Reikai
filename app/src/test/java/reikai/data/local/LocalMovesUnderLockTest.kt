@@ -398,6 +398,31 @@ class LocalMovesUnderLockTest {
     }
 
     @Test
+    fun `a series waiting for a repair keeps no other group of a restored backup from coming back`() = runTest {
+        locks.block(ContentType.MANGA, listOf("Stuck"))
+
+        withContext(Dispatchers.Default) { withTimeout(20_000) { runCatching { restoreWithStuck() } } }
+
+        urls(KEPT) shouldBe listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1")
+    }
+
+    @Test
+    fun `a restored group a repair holds back fails the restore phase, naming its folder`() = runTest {
+        locks.block(ContentType.MANGA, listOf("Stuck"))
+
+        val failure = withContext(Dispatchers.Default) {
+            withTimeout(20_000) { runCatching { restoreWithStuck() }.exceptionOrNull() }
+        }
+
+        failure?.message.orEmpty().contains("Stuck") shouldBe true
+    }
+
+    private suspend fun restoreWithStuck() = combine.restoreOwners(
+        ContentType.MANGA,
+        listOf(VolumeOwner("Stuck", VolumeOwner.WHOLE, "Elsewhere"), VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")),
+    )
+
+    @Test
     fun `a restored owner row takes the series it lends whole out of the library, as a combine does`() = runTest {
         withContext(Dispatchers.Default) {
             withTimeout(20_000) {
