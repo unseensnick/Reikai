@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupVolumeOwner
 import eu.kanade.tachiyomi.data.backup.models.toBackup
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
 
 /**
  * Writes each local series' own volume rows (saved order and names, the volumes it lists from other folders, the
@@ -31,13 +32,19 @@ suspend fun <E, B : BackupLocalVolumeFields> List<Pair<E, B>>.writeLocalVolumes(
     }
 }
 
-/** Stores what [writeLocalVolumes] carried for the local series at [url], both content types. */
+/**
+ * Stores what [writeLocalVolumes] carried for the local series at [url], both content types, except the volumes it
+ * lists from other folders: those regroup chapters across series, so the restore applies them once every series
+ * is back ([restoredOwners], CombineLocalVolumes.restoreOwners).
+ */
 suspend fun BackupLocalVolumeFields.restoreLocalVolumes(
     type: ContentType,
     volumes: LocalVolumeRepository,
     url: String,
 ) {
     volumes.restore(type, url, localVolumes.map { it.toLocalVolume() })
-    volumes.restoreOwners(type, volumeOwners.map { it.toOwner(url) })
     volumePick?.let { volumes.restorePick(type, url, it) }
 }
+
+/** The owner rows the local series at [url] carried: the volumes it lists from other folders. */
+fun BackupLocalVolumeFields.restoredOwners(url: String): List<VolumeOwner> = volumeOwners.map { it.toOwner(url) }

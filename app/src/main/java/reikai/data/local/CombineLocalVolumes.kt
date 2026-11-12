@@ -178,6 +178,41 @@ class CombineLocalVolumes(
             }
         }
 
+    /**
+     * Applies a backup's owner rows as a combine applies its own: a volume the backup puts in another series moves
+     * there with its chapters' rows and kept state, a series whose own folder the backup lends whole to another
+     * leaves the library, and the owners list again. The backup wins over the device, as it does for merge groups,
+     * and a restore offers no Undo. A row the device already holds changes nothing.
+     */
+    suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
+        val fresh = owners.distinct() - localVolumes.all(type).toSet()
+        if (fresh.isEmpty()) return
+        val units = fresh.mapTo(HashSet()) { it.folder to it.volume }
+        val before = localVolumes.all(type)
+        val folders = (
+            fresh.flatMap { listOf(it.folder, it.owner) } + before.map { it.owner }.filter { owner ->
+                before.any { it.owner == owner && (it.folder to it.volume) in units }
+            }
+            ).distinct()
+        seriesLocks.withSeries(type, folders) {
+            val now = localVolumes.all(type)
+            val replaced = now.filter { (it.folder to it.volume) in units && it !in fresh }
+            val series = folders.mapNotNull { folder -> heldBy(type, folder)?.let { folder to it } }.toMap()
+            val leaving = fresh.filter { it.volume == VolumeOwner.WHOLE && it.folder != it.owner }
+                .mapNotNull { series[it.folder] }
+            regroup(
+                type = type,
+                folders = folders,
+                series = series,
+                remove = replaced,
+                add = fresh,
+                volumes = emptyList(),
+                relist = (fresh.map { it.owner } + replaced.map { it.owner }).distinct().mapNotNull { series[it] },
+                leaving = leaving,
+            ).finish()
+        }
+    }
+
     /** Takes [series]' volumes [volumeKeys] out into one series of their own named [title], in the library. */
     suspend fun splitOut(
         type: ContentType,

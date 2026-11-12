@@ -14,7 +14,6 @@ import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.data.backup.create.creators.MangaBackupCreator
 import eu.kanade.tachiyomi.data.backup.mangaRestorer
-import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -32,6 +31,7 @@ import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.Json
 import mihon.domain.source.interactor.UpdateMangaFromRemote
 import nl.adaptivity.xmlutil.serialization.XML
+import reikai.data.backup.restoredOwners
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
 import reikai.data.chapter.ChapterTombstoneRepositoryImpl
 import reikai.data.chapter.LocalChapterTombstonesImpl
@@ -938,12 +938,12 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
         trace += "  backup, ${if (wipe) "clear the library, " else ""}restore"
         val creator = MangaBackupCreator(
             manualOrder = FakeLibraryManualOrderRepository(),
-            mangaRepository = mockk(),
+            mangaRepository = mockk { coEvery { getExcludedScanlatorsByMangaIds(any()) } returns emptyMap() },
             chapterRepository = app.chapterRepository,
             trackRepository = mockk(),
             categoryRepository = mockk(),
             historyRepository = mockk(),
-            mangaMetadataRepository = mockk(),
+            mangaMetadataRepository = mockk { coEvery { getMetadataById(any()) } returns null },
             customMangaInfoRepository = mockk(),
             getFavorites = mockk(),
             getManga = mockk(),
@@ -954,10 +954,9 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             readingLog = NoReadingLog,
             tombstones = app.tombstoneRepository,
         )
-        val batch = localManga().map { (id, url) ->
-            Manga.create().copy(id = id, source = LocalSource.ID, url = url) to
-                BackupManga(source = LocalSource.ID, url = url, title = url)
-        }
+        // The series' own fields, then its chapters, as every backup writes them.
+        val entries = localManga().map { (id, url) -> Manga.create().copy(id = id, source = LocalSource.ID, url = url) }
+        val batch = entries.zip(creator.base(entries))
         creator.chapters(batch)
         if (wipe) {
             real.exec("DELETE FROM manga WHERE source_id = 0")
@@ -967,6 +966,8 @@ class LocalLibraryWorld(private val context: Context, private val root: File, pr
             pending.clear()
         }
         mangaRestorer(database, localVolumes = app.volumes).restore(batch.map { it.second }, emptyList())
+        // Owner rows regroup chapters across series, so the restore applies them once every series is back.
+        app.combine.restoreOwners(ContentType.MANGA, batch.flatMap { (_, backup) -> backup.restoredOwners(backup.url) })
     }
 
     private suspend fun mergeStep() {
@@ -1238,10 +1239,6 @@ private class DirectLocalVolumes(private val database: Database) : LocalVolumeRe
 
     override suspend fun all(type: ContentType): List<VolumeOwner> =
         owners.getAll(type.db()) { folder, volume, owner -> VolumeOwner(folder, volume, owner) }.awaitAsList()
-
-    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
-        owners.forEach { this.owners.setOwner(type.db(), it.folder, it.volume, it.owner) }
-    }
 
     override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
 

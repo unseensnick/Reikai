@@ -11,6 +11,7 @@ import eu.kanade.domain.manga.interactor.GetExcludedScanlators
 import eu.kanade.domain.manga.interactor.UpdateManga
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.CompletableDeferred
@@ -47,6 +48,7 @@ import reikai.domain.chapter.SyncedChapter
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
+import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.presentation.browse.AddOutcome
 import reikai.presentation.browse.MangaLibraryAdder
@@ -84,6 +86,7 @@ class LocalMovesUnderLockTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
     private lateinit var locks: LocalSeriesLocks
+    private lateinit var removal: RemoveMangaFromLibrary
     private lateinit var volumes: LocalVolumeRepositoryImpl
     private lateinit var journal: LocalFileJournalRepositoryImpl
     private val appScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
@@ -163,7 +166,7 @@ class LocalMovesUnderLockTest {
             downloadManager = mockk(relaxed = true),
             seriesLocks = locks,
         )
-        val removal = mockk<RemoveMangaFromLibrary> {
+        removal = mockk<RemoveMangaFromLibrary> {
             coEvery { takeOut(any()) } returns emptyMap()
             coEvery { restore(any()) } returns Unit
             coEvery { dropCovers(any()) } returns Unit
@@ -354,6 +357,32 @@ class LocalMovesUnderLockTest {
         }
 
         urls(KEPT) to tombstoneUrls(KEPT) shouldBe (listOf("Kept/Vol 1/Ch 1") to emptyList())
+    }
+
+    /** A backup made after Other was combined into Kept, restored where Other is still a series of its own. */
+    @Test
+    fun `a restored owner row combines as a combine does`() = runTest {
+        markRead("Other/Vol 1/Ch 1")
+
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) {
+                combine.restoreOwners(ContentType.MANGA, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")))
+            }
+        }
+
+        urls(KEPT) to readUrls(KEPT) shouldBe
+            (listOf("Kept/Vol 1/Ch 1", "Other/Vol 1/Ch 1") to listOf("Other/Vol 1/Ch 1"))
+    }
+
+    @Test
+    fun `a restored owner row takes the series it lends whole out of the library, as a combine does`() = runTest {
+        withContext(Dispatchers.Default) {
+            withTimeout(20_000) {
+                combine.restoreOwners(ContentType.MANGA, listOf(VolumeOwner("Other", VolumeOwner.WHOLE, "Kept")))
+            }
+        }
+
+        coVerify { removal.takeOut(listOf(OTHER)) }
     }
 
     @Test

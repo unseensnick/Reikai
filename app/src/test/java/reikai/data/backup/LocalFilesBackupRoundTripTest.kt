@@ -59,7 +59,12 @@ class LocalFilesBackupRoundTripTest {
             type.seedSeries(before.driver, id = 1, url = SERIES)
             volumes.setOrder(type.contentType, SERIES, listOf("vol2", "vol1"))
             volumes.setLabel(type.contentType, SERIES, "vol1", "First")
-            volumes.restoreOwners(type.contentType, OWNERS + VolumeOwner("C", "x", "Elsewhere"))
+            (OWNERS + VolumeOwner("C", "x", "Elsewhere")).forEach {
+                before.exec(
+                    "INSERT INTO local_volume_owner(content_type, folder, volume_key, owner) " +
+                        "VALUES (${type.db}, '${it.folder}', '${it.volume}', '${it.owner}')",
+                )
+            }
             before.exec(
                 "INSERT INTO local_volume_pick(content_type, entry_id, volume_key) VALUES (${type.db}, 1, 'vol2')",
             )
@@ -76,7 +81,8 @@ class LocalFilesBackupRoundTripTest {
             Restored(
                 newId = newId,
                 volumes = restoredVolumes.loadedVolumes(type.contentType)[SERIES],
-                owners = restoredVolumes.all(type.contentType),
+                // Applied once every series is back, by CombineLocalVolumes.restoreOwners, so read from the wire here.
+                owners = type.carriedOwners(wire),
                 pick = restoredVolumes.loadedPicks(type.contentType)[newId],
                 kept = ChapterTombstoneRepositoryImpl(
                     after.database,
@@ -197,6 +203,9 @@ class LocalFilesBackupRoundTripTest {
 
             override suspend fun idOf(database: Database, url: String) =
                 MangaRepositoryImpl(database).getMangaByUrlAndSourceId(url, LocalSource.ID)!!.id
+
+            override fun carriedOwners(wire: ByteArray) =
+                ProtoBuf.decodeFromByteArray(BackupManga.serializer(), wire).restoredOwners(SERIES)
         },
         NOVEL(ContentType.NOVELS, 1) {
             override suspend fun seedSeries(driver: JdbcSqliteDriver, id: Long, url: String) {
@@ -267,6 +276,9 @@ class LocalFilesBackupRoundTripTest {
 
             override suspend fun idOf(database: Database, url: String) =
                 NovelRepositoryImpl(database).getByUrlAndSource(url, LOCAL_NOVEL)!!.id
+
+            override fun carriedOwners(wire: ByteArray) =
+                ProtoBuf.decodeFromByteArray(BackupNovel.serializer(), wire).restoredOwners(SERIES)
         },
         ;
 
@@ -279,6 +291,9 @@ class LocalFilesBackupRoundTripTest {
             volumes: LocalVolumeRepositoryImpl,
         )
         abstract suspend fun idOf(database: Database, url: String): Long
+
+        /** The owner rows the backup carried for the series. */
+        abstract fun carriedOwners(wire: ByteArray): List<VolumeOwner>
     }
 
     companion object {

@@ -14,6 +14,7 @@ import io.mockk.mockk
 import kotlinx.serialization.protobuf.ProtoBuf
 import reikai.data.backup.ApprovedRepos
 import reikai.data.backup.RestoreExtensionInstaller
+import reikai.data.local.CombineLocalVolumes
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.library.LibraryManualOrderRepository
@@ -39,6 +40,7 @@ suspend fun restoreEncoded(
     manualOrder: LibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
     restoreExtensionInstaller: RestoreExtensionInstaller = mockk(relaxed = true),
     trusted: ApprovedRepos = ApprovedRepos(),
+    combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -75,5 +77,6 @@ suspend fun restoreEncoded(
         restoreInstallSources = mockk(relaxed = true),
         manualOrder = manualOrder,
         novelFonts = mockk(relaxed = true),
+        combineLocalVolumes = combineLocalVolumes,
     ).restore(uri, options, trusted)
 }

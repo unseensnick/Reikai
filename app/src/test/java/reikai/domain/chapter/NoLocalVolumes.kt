@@ -18,8 +18,6 @@ object NoLocalVolumes : LocalVolumeRepository {
 
     override suspend fun all(type: ContentType) = emptyList<VolumeOwner>()
 
-    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) = Unit
-
     override suspend fun loadedPicks(type: ContentType) = emptyMap<Long, String>()
 
     override suspend fun restorePick(type: ContentType, series: String, key: String) = Unit

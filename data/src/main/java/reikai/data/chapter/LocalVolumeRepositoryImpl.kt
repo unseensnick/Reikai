@@ -66,15 +66,6 @@ class LocalVolumeRepositoryImpl(
             VolumeOwner(folder, volume, owner)
         }.awaitAsList()
 
-    override suspend fun restoreOwners(type: ContentType, owners: List<VolumeOwner>) {
-        if (owners.isEmpty()) return
-        database.transaction {
-            owners.forEach {
-                database.local_volume_ownerQueries.setOwner(type.toDbValue(), it.folder, it.volume, it.owner)
-            }
-        }
-    }
-
     private val loose = HeldRows(
         database.local_manga_looseQueries.getAll().asFlow()
             .map { query -> query.awaitAsList().associate { it.series to LooseFiles.of(it.mode) } },

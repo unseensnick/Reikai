@@ -52,11 +52,14 @@ import reikai.data.backup.mangaTrackScores
 import reikai.data.backup.novelTrackScores
 import reikai.data.backup.rescaleKitsu
 import reikai.data.backup.restoreBatch
+import reikai.data.backup.restoredOwners
+import reikai.data.local.CombineLocalVolumes
 import reikai.domain.backup.KitsuBackupScoreScale
 import reikai.domain.db.Transactions
 import reikai.domain.library.ContentType
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ReikaiLibraryPreferences
+import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.AlignGroupCategories
 import reikai.domain.merge.MergeGroupReconstruction
@@ -109,6 +112,7 @@ class BackupRestorer(
     private val restoreInstallSources: RestoreInstallSources,
     private val manualOrder: LibraryManualOrderRepository,
     private val novelFonts: NovelFontManager,
+    private val combineLocalVolumes: CombineLocalVolumes,
     // RK <--
 ) {
 
@@ -446,6 +450,7 @@ class BackupRestorer(
         val membershipCategories = if (options.categories) summary.backupNovelCategories else emptyList()
         if (options.libraryEntries) {
             val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupNovelSourceRef>>()
+            val owners = mutableListOf<VolumeOwner>()
             val kitsuScale = summary.kitsuScoreScale
             restoreEntryStream(
                 uri,
@@ -454,6 +459,7 @@ class BackupRestorer(
                     summary.legacyCustomInfo.decodeNovel(parser, it).rescaleKitsu(kitsuScale).apply {
                         if (!summary.novelDisplayBitStored) chapterFlags = withDisplayBitFromSort(chapterFlags)
                     }.also { novel ->
+                        owners += novel.restoredOwners(novel.url)
                         if (!summary.mergeGroupsStored && novel.favorite) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupNovelSourceRef(novel.url, novel.source),
@@ -473,6 +479,7 @@ class BackupRestorer(
                     novelRestorer.restoreCustomInfo(ref.first, ref.second, info)
                 }
             }
+            restoreIsolated("local novel volumes") { combineLocalVolumes.restoreOwners(ContentType.NOVELS, owners) }
 
             // Isolated as the manga twin is: a failure here must not cancel the sibling stream or
             // escape before the error log is written.
@@ -541,12 +548,14 @@ class BackupRestorer(
     ) = launch {
         val legacyCustomInfo = summary.legacyCustomInfo
         val favorites = mutableListOf<PrefEraGrouping.Favorite<BackupMangaSourceRef>>()
+        val owners = mutableListOf<VolumeOwner>() // RK: applied once every series is back
         restoreEntryStream(
             uri,
             fieldNumber = BackupFields.MANGA,
             decode = {
                 legacyCustomInfo.decodeManga(parser, it).rescaleKitsu(summary.kitsuScoreScale)
                     .let(summary.foreignMerges::applyTo).also { manga ->
+                        owners += manga.restoredOwners(manga.url) // RK
                         if (!summary.mergeGroupsStored && manga.favorite && !manga.isForeignMergedRow) {
                             favorites += PrefEraGrouping.Favorite(
                                 BackupMangaSourceRef(manga.url, manga.source),
@@ -566,6 +575,8 @@ class BackupRestorer(
                 mangaRestorer.restoreCustomInfo(ref.first, ref.second, info)
             }
         }
+        // RK: a local series' volumes from other folders regroup chapters across series, so once all are back
+        restoreIsolated("local volumes") { combineLocalVolumes.restoreOwners(ContentType.MANGA, owners) }
 
         // RK: with every manga restored (fresh IDs), materialize the backup's merge groups. Isolated
         // like the entry loop above: a failure here would otherwise cancel the novel stream mid-batch
