@@ -9,5 +9,6 @@ object Location : TagList {
         "location:onsen",
         "location:sauna",
         "location:sentou",
+        "location:swimming pool",
     )
 }

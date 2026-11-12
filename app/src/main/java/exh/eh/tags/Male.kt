@@ -193,6 +193,7 @@ object Male : TagList {
         "male:fisting",
         "male:focus anal",
         "male:focus blowjob",
+        "male:focus handjob",
         "male:focus paizuri",
         "male:food on body",
         "male:foot insertion",

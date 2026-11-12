@@ -210,6 +210,7 @@ object Female : TagList {
         "female:fisting",
         "female:focus anal",
         "female:focus blowjob",
+        "female:focus handjob",
         "female:focus paizuri",
         "female:food on body",
         "female:foot insertion",
