@@ -16,6 +16,7 @@ import org.junit.After
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.LocalSeriesLocks
 import tachiyomi.domain.storage.service.StorageManager
@@ -53,7 +54,7 @@ class LocalNovelFolderTest {
             Json,
             mockk(relaxed = true),
             mockk(relaxed = true),
-            LocalSeriesLocks().apply { open() },
+            LocalSeriesLocks(NoLocalVolumes).apply { open() },
         )
 
         runCatching { source.parseNovel("Saga") }.exceptionOrNull()?.javaClass?.simpleName shouldBe
@@ -63,7 +64,7 @@ class LocalNovelFolderTest {
     /** The hold a refresh takes through the source is the series' own lock, so a move of the series waits on it. */
     @Test
     fun `the source's hold on a series keeps another holder of it waiting until the hold ends`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
         val source = LocalNovelSource(
             context,
             mockk<StorageManager> { every { getLocalNovelsDirectory() } returns UniFile.fromFile(root) },

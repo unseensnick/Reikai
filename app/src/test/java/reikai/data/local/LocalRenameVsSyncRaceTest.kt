@@ -68,7 +68,7 @@ class LocalRenameVsSyncRaceTest {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val locks = LocalSeriesLocks().apply { open() }
+    private val locks = LocalSeriesLocks(NoLocalVolumes).apply { open() }
     private lateinit var local: File
     private lateinit var driver: JdbcSqliteDriver
     private lateinit var database: Database

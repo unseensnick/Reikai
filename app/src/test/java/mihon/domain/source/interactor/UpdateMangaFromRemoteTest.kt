@@ -9,6 +9,7 @@ import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.entry.EntryId
 import reikai.domain.entry.signedKey
 import reikai.domain.local.LocalSeriesLocks
@@ -27,7 +28,7 @@ class UpdateMangaFromRemoteTest {
         coverCache = mockk(relaxed = true),
         libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
         downloadManager = mockk(relaxed = true),
-        seriesLocks = LocalSeriesLocks().apply { open() },
+        seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
     )
 
     @Test

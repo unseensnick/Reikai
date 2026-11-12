@@ -20,6 +20,7 @@ import reikai.data.novel.refreshNovelFromSource
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterNumberOverrides
 import reikai.domain.chapter.NoChapterTombstones
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.local.LocalSeriesLocks
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.ChapterItem
@@ -140,7 +141,7 @@ class MangaRefreshHalf : RefreshHalf {
             coverCache = mockk(relaxed = true),
             libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
             downloadManager = mockk(relaxed = true),
-            seriesLocks = LocalSeriesLocks().apply { open() },
+            seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
         )
 
         update(source, manga, fetchDetails = true).getOrThrow()

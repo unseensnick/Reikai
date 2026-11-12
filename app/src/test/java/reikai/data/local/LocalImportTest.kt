@@ -20,6 +20,7 @@ import org.robolectric.Robolectric
 import reikai.data.novel.NovelChapterSyncRules
 import reikai.domain.chapter.InMemoryChapterCopyMarks
 import reikai.domain.chapter.NoChapterTombstones
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalSeriesLocks
@@ -72,7 +73,7 @@ class LocalImportTest(private val type: ContentType) {
         updateMangaFromRemote = mockk {
             coEvery { this@mockk.invoke(any<Manga>(), any(), any(), any(), any()) } returns Result.success(mockk())
         },
-        seriesLocks = LocalSeriesLocks().apply { open() },
+        seriesLocks = LocalSeriesLocks(NoLocalVolumes).apply { open() },
     )
 
     @Before
@@ -182,7 +183,7 @@ class LocalImportTest(private val type: ContentType) {
 
         localImport.import(listOf(replacing), addToLibrary = false, categoryIds = emptyList())
         FakeSafProvider.onCall = null
-        val locks = LocalSeriesLocks()
+        val locks = LocalSeriesLocks(NoLocalVolumes)
         val organizer = LocalOrganizer(context, journal, mockk(), locks, CoroutineScope(Dispatchers.Unconfined))
         LocalFileJournalReplay(context, journal, locks, organizer).replay()
 

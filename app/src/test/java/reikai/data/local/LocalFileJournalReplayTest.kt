@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
+import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.library.ContentType
 import reikai.domain.local.InMemoryLocalFileJournal
 import reikai.domain.local.LocalFileJournalPlan
@@ -32,7 +33,7 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
     val tmp = TemporaryFolder()
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
-    private val locks = LocalSeriesLocks()
+    private val locks = LocalSeriesLocks(NoLocalVolumes)
     private val journal = InMemoryLocalFileJournal()
     private lateinit var old: File
     private lateinit var part: File

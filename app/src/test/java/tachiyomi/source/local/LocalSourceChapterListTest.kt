@@ -41,7 +41,7 @@ class LocalSourceChapterListTest {
         root.deleteRecursively()
     }
 
-    private fun openLocks() = LocalSeriesLocks().apply { open() }
+    private fun openLocks() = LocalSeriesLocks(NoLocalVolumes).apply { open() }
 
     private suspend fun chapterUrls(series: String) = source.getMangaUpdate(
         SManga.create().apply {

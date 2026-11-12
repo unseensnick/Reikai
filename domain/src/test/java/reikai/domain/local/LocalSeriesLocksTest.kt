@@ -22,7 +22,7 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `a listing waits until the journal replay has opened the locks`() = runTest {
-        val locks = LocalSeriesLocks()
+        val locks = LocalSeriesLocks(Owners())
 
         val listing = async { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } }
         repeat(3) { yield() }
@@ -34,7 +34,7 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `the same folder in another case waits for the holder, another folder does not`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
         val held = CompletableDeferred<Unit>()
         launch { locks.withSeries(ContentType.MANGA, "Saga") { held.await() } }
         repeat(3) { yield() }
@@ -51,14 +51,14 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `the replay's own lock does not wait for the opening it brings`() = runTest {
-        val locks = LocalSeriesLocks()
+        val locks = LocalSeriesLocks(Owners())
 
         locks.locked(ContentType.NOVELS, listOf("Saga")) { "replayed" } shouldBe "replayed"
     }
 
     @Test
     fun `a holder lists the series it holds without waiting on itself`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
 
         val listed = withTimeout(1000) {
             locks.withSeries(ContentType.MANGA, "Saga") {
@@ -71,7 +71,7 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `the series a holder took are free again once its block ends`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
         locks.withSeries(ContentType.MANGA, listOf("Saga", "Other")) { }
 
         val again = withTimeout(1000) { locks.withSeries(ContentType.MANGA, "Other") { "free" } }
@@ -81,7 +81,7 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `two moves naming the same two series in opposite orders both finish`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
         // A third holder keeps Kept while both moves queue up, so each has taken what it could before the
         // other: in the caller's order the second would hold Other and wait on Kept while the first holds
         // Kept and waits on Other.
@@ -103,7 +103,7 @@ class LocalSeriesLocksTest {
     @Test
     fun `a holder asking for a series it did not name up front is refused rather than left to deadlock`() =
         runTest {
-            val locks = LocalSeriesLocks().apply { open() }
+            val locks = LocalSeriesLocks(Owners()).apply { open() }
 
             shouldThrow<IllegalStateException> {
                 locks.withSeries(ContentType.MANGA, "Saga") {
@@ -114,7 +114,7 @@ class LocalSeriesLocksTest {
 
     @Test
     fun `a holder's series are held by its coroutine alone, not by one it starts on another scope`() = runTest {
-        val locks = LocalSeriesLocks().apply { open() }
+        val locks = LocalSeriesLocks(Owners()).apply { open() }
         val holderDone = CompletableDeferred<Unit>()
         val outsider = CompletableDeferred<Boolean>()
 
@@ -129,5 +129,31 @@ class LocalSeriesLocksTest {
         }
 
         outsider.await() shouldBe true
+    }
+
+    /** A combine that takes a folder into the group while a listing waits leaves that folder for it to take too. */
+    @Test
+    fun `a listing whose group grew while it waited also waits for the folder that joined`() = runTest {
+        val owners = Owners()
+        val locks = LocalSeriesLocks(owners).apply { open() }
+        val releaseSaga = CompletableDeferred<Unit>()
+        val releaseExtra = CompletableDeferred<Unit>()
+        launch { locks.withSeries(ContentType.MANGA, "Saga") { releaseSaga.await() } }
+        launch { locks.withSeries(ContentType.MANGA, "Extra") { releaseExtra.await() } }
+        repeat(3) { yield() }
+        val listing = async { locks.withSeries(ContentType.MANGA, "Saga") { "listed" } }
+        repeat(3) { yield() }
+
+        owners.rows = listOf(VolumeOwner("Extra", VolumeOwner.WHOLE, "Saga"))
+        releaseSaga.complete(Unit)
+        repeat(3) { yield() }
+        val beforeExtra = listing.isCompleted
+        releaseExtra.complete(Unit)
+
+        (beforeExtra to listing.await()) shouldBe (false to "listed")
+    }
+
+    private class Owners(var rows: List<VolumeOwner> = emptyList()) : LocalVolumeOwnerRepository {
+        override suspend fun all(type: ContentType) = rows
     }
 }

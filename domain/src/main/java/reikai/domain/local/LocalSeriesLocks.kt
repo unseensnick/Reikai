@@ -24,9 +24,6 @@ import kotlin.coroutines.CoroutineContext
 @SingleIn(AppScope::class)
 class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerRepository) {
 
-    /** Locks with no grouping, every series its own folder only: for tests that do not group volumes. */
-    constructor() : this(NoOwners)
-
     private val locks = ConcurrentHashMap<Pair<ContentType, String>, Mutex>()
     private val replayed = CompletableDeferred<Unit>()
 
@@ -120,10 +117,6 @@ class LocalSeriesLocks @Inject constructor(private val owners: LocalVolumeOwnerR
 class LocalSeriesBlockedException(
     folders: List<String>,
 ) : IllegalStateException("Local series $folders wait for a repair")
-
-private object NoOwners : LocalVolumeOwnerRepository {
-    override suspend fun all(type: ContentType): List<VolumeOwner> = emptyList()
-}
 
 /**
  * [block] for [entry] under the lock of its address as it stands once that lock is held. A rename that landed while

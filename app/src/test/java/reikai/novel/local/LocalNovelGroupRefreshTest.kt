@@ -77,7 +77,7 @@ class LocalNovelGroupRefreshTest {
         object : LocalVolumeRepository by NoLocalVolumes {
             override suspend fun all(type: ContentType) = owners
         },
-        LocalSeriesLocks().apply { open() },
+        LocalSeriesLocks(NoLocalVolumes).apply { open() },
     )
 
     @Test
