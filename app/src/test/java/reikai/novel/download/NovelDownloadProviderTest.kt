@@ -2,9 +2,12 @@ package reikai.novel.download
 
 import com.hippo.unifile.UniFile
 import eu.kanade.tachiyomi.data.download.DownloadProvider
+import eu.kanade.tachiyomi.util.storage.DiskUtil
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.mockkObject
+import io.mockk.unmockkObject
 import kotlinx.coroutines.flow.MutableSharedFlow
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
@@ -34,10 +37,17 @@ class NovelDownloadProviderTest {
     lateinit var root: File
 
     @BeforeEach
-    fun stubStatics() = stubUniFileStatics()
+    fun stubStatics() {
+        stubUniFileStatics()
+        mockkObject(DiskUtil)
+        every { DiskUtil.getAvailableStorageSpace(any<UniFile>()) } returns Long.MAX_VALUE
+    }
 
     @AfterEach
-    fun restoreStatics() = unstubUniFileStatics()
+    fun restoreStatics() {
+        unstubUniFileStatics()
+        unmockkObject(DiskUtil)
+    }
 
     private val libraryPreferences = LibraryPreferences(EmittingPreferenceStore())
     private val novelPreferences = NovelPreferences(EmittingPreferenceStore()).apply {
@@ -101,6 +111,18 @@ class NovelDownloadProviderTest {
         )
 
         disk.names() shouldBe listOf("plugin (Plugin Site)")
+    }
+
+    /** A title both folders hold is merged on its own; once every title is set aside, so is the old folder. */
+    @Test
+    fun `merging a source folder that shares a title with its new one leaves no visible folder behind`() {
+        File(root, "tachiyomi_123/X/c1.html").apply { parentFile!!.mkdirs() }.writeText("x")
+        File(root, "tachiyomi_123/Y/c2.html").apply { parentFile!!.mkdirs() }.writeText("y")
+        File(root, "Novel Site (EN)/Y").mkdirs()
+
+        provider.mergeSourceFolders(listOf("tachiyomi:123"), from = { it }, to = provider::sourceFolderLabel)
+
+        root.list()!!.filterNot { it.startsWith('.') } shouldBe listOf("Novel Site (EN)")
     }
 
     private val novel = Novel.create().copy(id = 1L, source = "src", url = "/n", title = "Old Title")

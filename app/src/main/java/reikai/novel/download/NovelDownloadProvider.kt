@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.data.dedupe.DownloadFolderMerge
+import reikai.domain.download.DownloadIndexRules
 import reikai.domain.download.chapterFileLookup
 import reikai.domain.download.movesDownloadFolder
 import reikai.domain.novel.LnSourceIdentity
@@ -28,6 +29,7 @@ import reikai.storage.deleteFile
 import reikai.storage.deleteIfEmpty
 import reikai.storage.deleteTree
 import reikai.storage.listOrNull
+import reikai.storage.parkIfSpent
 import reikai.storage.rename
 import reikai.storage.replace
 import reikai.util.runCatchingCancellable
@@ -107,7 +109,8 @@ class NovelDownloadProvider(
     /**
      * Merges each of [sources]' folders at [from]'s label into the folder at [to]'s, where [renameSourceFolders] left
      * it because that name was taken: two catalogues of one name and language share one folder, as manga's do. A
-     * title both hold gets the chapters it lacks, and a chapter both hold stays in both.
+     * title both hold gets the chapters it lacks, and a chapter both hold stays in both. The old folder is set aside,
+     * never deleted, once nothing in it is left visible.
      */
     fun mergeSourceFolders(sources: Collection<String>, from: (String) -> String, to: (String) -> String) {
         val root = downloadsDir ?: return
@@ -118,11 +121,13 @@ class NovelDownloadProvider(
             val folder = root.findFile(name)?.takeIf { it.isDirectory } ?: return@forEach
             val into = root.findFile(target)?.takeIf { it.isDirectory } ?: return@forEach
             DownloadFolderMerge.merge(context, from = folder, into = into)
-            folder.listFiles().orEmpty().filter { it.isDirectory }.forEach { title ->
-                into.findFile(title.name ?: return@forEach)?.takeIf { it.isDirectory }
-                    ?.let { DownloadFolderMerge.merge(context, from = title, into = it) }
+            // The titles both hold, which the merge above leaves; one it set aside is no title any more
+            val merged = folder.listFiles().orEmpty().filter { it.isDirectory }.map { title ->
+                val titleName = title.name?.takeIf(DownloadIndexRules::isIndexed) ?: return@map false
+                val twin = into.findFile(titleName)?.takeIf { it.isDirectory } ?: return@map false
+                DownloadFolderMerge.merge(context, from = title, into = twin).changed
             }
-            folder.deleteIfEmpty(context)
+            if (merged.any { it }) folder.parkIfSpent(context)
         }
     }
 

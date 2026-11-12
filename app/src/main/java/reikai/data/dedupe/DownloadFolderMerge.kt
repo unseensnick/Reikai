@@ -34,9 +34,8 @@ internal object DownloadFolderMerge {
         // A copy an interrupted run left behind, whose source it never deleted
         into.listFiles().orEmpty().filter { it.name.orEmpty().endsWith(COPY_SUFFIX) }.forEach { it.deleteTree() }
         val kept = into.listFiles().orEmpty().mapNotNullTo(HashSet()) { it.name?.lowercase() }
-        val entries = from.listFiles().orEmpty()
         // A half-written download is no chapter yet, and a name the survivor has is its own download of the chapter
-        val chapters = entries.filter { entry ->
+        val chapters = from.listFiles().orEmpty().filter { entry ->
             val name = entry.name ?: return@filter false
             DownloadIndexRules.isIndexed(name) && name.lowercase() !in kept
         }
@@ -48,10 +47,10 @@ internal object DownloadFolderMerge {
 
         val results = chapters.map { move(context, it, into) }
         val placed = results.count { it == Moved.PLACED }
-        // Only a folder this run emptied is set aside, and only once a trusted listing shows it spent
-        if (placed == entries.size && placed > 0) {
-            from.parkIfSpent(context)
-        } else if (placed > 0 || results.any { it == Moved.LEFT }) {
+        // Only a folder this run took chapters from is set aside, and only once a trusted listing shows it spent: what
+        // an earlier run set aside in it counts as spent, anything else still listed keeps it
+        val parked = placed > 0 && from.parkIfSpent(context)
+        if (!parked && (placed > 0 || results.any { it == Moved.LEFT })) {
             logcat { "Merged ${from.name} into ${into.name}; the chapters the survivor already had stay in it" }
         }
         return FolderCarry(finished = Moved.FAILED !in results, changed = placed > 0)

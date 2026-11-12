@@ -78,4 +78,15 @@ class DownloadFolderMergeOnSafTest {
         (carry.finished to File(into, "Ch 1").list()!!.sorted() to from.walk().filter { it.isFile }.count()) shouldBe
             (true to listOf("001.jpg", "002.jpg") to 0)
     }
+
+    /** An earlier run set its placed chapter aside in the folder; the retry that places the rest finishes the tidy. */
+    @Test
+    fun `a retry that places the last chapter sets aside the folder an earlier run began emptying`() {
+        File(from, ".moved-Ch 0/001.jpg").apply { parentFile!!.mkdirs() }.writeText("zero")
+        val parent = picked(from.parentFile!!)
+
+        DownloadFolderMerge.merge(context, parent.findFile("Old")!!, parent.findFile("New")!!)
+
+        from.parentFile!!.list()!!.sorted() shouldBe listOf(".moved-Old", "New")
+    }
 }
