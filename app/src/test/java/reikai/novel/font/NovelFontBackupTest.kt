@@ -13,6 +13,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.domain.novel.NovelPreferences
+import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.domain.storage.service.StorageManager
 import java.io.File
 
@@ -28,11 +30,38 @@ class NovelFontBackupTest {
 
     private val context = ApplicationProvider.getApplicationContext<Context>()
 
+    private val preferences =
+        NovelPreferences(AndroidPreferenceStore(context.getSharedPreferences("fonts", Context.MODE_PRIVATE)))
+
     private fun manager(fonts: File) = NovelFontManager(
         context,
         mockk<StorageManager> { every { getFontsDirectory() } answers { UniFile.fromFile(fonts) } },
         mockk(),
+        preferences,
     )
+
+    /** A leading dot is a name the folder takes, so the font comes back under it and the setting still finds it. */
+    @Test
+    fun `a font restores under its own name when the folder takes it`() = runTest {
+        val after = tmp.newFolder("after")
+        preferences.readerFontFamily().set(".Literata.ttf")
+
+        manager(after).restore(".Literata.ttf", FONT)
+
+        after.list()!!.toList() to preferences.readerFontFamily().get() shouldBe
+            (listOf(".Literata.ttf") to ".Literata.ttf")
+    }
+
+    @Test
+    fun `a font whose name cannot be a file restores cleaned and the setting follows it`() = runTest {
+        val after = tmp.newFolder("after")
+        preferences.readerFontFamily().set("Lit/erata.ttf")
+
+        manager(after).restore("Lit/erata.ttf", FONT)
+
+        after.list()!!.toList() to preferences.readerFontFamily().get() shouldBe
+            (listOf("Lit_erata.ttf") to "Lit_erata.ttf")
+    }
 
     @Test
     fun `an added font comes back whole and nothing else in the folder rides along`() = runTest {

@@ -208,19 +208,26 @@ class BackupRestorer(
                     summary.backupPreferences.takeIf { options.appSettings },
                 ).join()
             }
-            if (options.appSettings) {
+            // RK: held, so the fonts below restore after the reader setting that names them
+            val appPreferences = if (options.appSettings) {
                 restoreAppPreferences(
                     summary.backupPreferences,
                     summary.backupCategories.takeIf { options.categories },
                     summary.backupNovelCategories.takeIf { options.categories }, // RK
                 )
+            } else {
+                null
             }
             if (options.sourceSettings) {
                 restoreSourcePreferences(summary.backupSourcePreferences) // RK: from the pass-1 summary
             }
-            // RK: the fonts the restored reader settings name
-            if (options.appSettings) {
-                restoreIsolated("reader fonts") { restoreNovelFonts(uri) }
+            // RK: the fonts the restored reader settings name, after them, since a font restored under a cleaned
+            // name rewrites the setting
+            if (appPreferences != null) {
+                restoreIsolated("reader fonts") {
+                    appPreferences.join()
+                    restoreNovelFonts(uri)
+                }
             }
             if (options.libraryEntries) {
                 restoreMangaStream(

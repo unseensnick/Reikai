@@ -38,7 +38,7 @@ class NovelFontManagerOnSafTest {
         val storage = mockk<StorageManager> {
             every { getFontsDirectory() } answers { FakeSafProvider.picked(context, fonts) }
         }
-        manager = NovelFontManager(context, storage, mockk())
+        manager = NovelFontManager(context, storage, mockk(), mockk())
     }
 
     private fun pickedFont(bytes: ByteArray): Uri {

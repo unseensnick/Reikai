@@ -19,6 +19,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import okhttp3.Request
+import reikai.domain.novel.NovelPreferences
 import reikai.storage.deleteFile
 import reikai.storage.replace
 import reikai.util.runCatchingCancellable
@@ -42,6 +43,7 @@ class NovelFontManager(
     private val context: Context,
     private val storageManager: StorageManager,
     private val networkHelper: NetworkHelper,
+    private val novelPreferences: NovelPreferences,
 ) {
 
     private val mirrorDir: File by lazy { File(context.filesDir, "fonts").apply { mkdirs() } }
@@ -156,13 +158,23 @@ class NovelFontManager(
 
     /**
      * Puts back a font a backup carried, through the same checked write an import uses, so a failed write keeps the
-     * one already there. One already here at the same size is left alone.
+     * one already there. One already here at the same size is left alone. It keeps the name the restored reader
+     * setting names unless the folder refuses it; a cleaned name then takes the setting with it, so the two match.
      */
     suspend fun restore(fileName: String, bytes: ByteArray): Boolean = withIOContext {
         if (!isSupportedFontFile(fileName) || !isSfntHeader(bytes)) return@withIOContext false
-        val existing = storageManager.getFontsDirectory()?.findFile(DiskUtil.buildValidFilename(fileName))
-        if (existing != null && existing.length() == bytes.size.toLong()) return@withIOContext true
-        write(fileName, bytes).isSuccess
+        val dir = storageManager.getFontsDirectory() ?: return@withIOContext false
+        // The extension check already rules out "." and "..".
+        val names = listOfNotNull(
+            fileName.takeIf { '/' !in it && '\\' !in it },
+            DiskUtil.buildValidFilename(fileName),
+        ).distinct()
+        val stored = names.firstOrNull { dir.findFile(it)?.length() == bytes.size.toLong() }
+            ?: names.firstNotNullOfOrNull { store(dir, it, bytes).getOrNull()?.fileName }
+            ?: return@withIOContext false
+        val family = novelPreferences.readerFontFamily()
+        if (stored != fileName && family.get() == fileName) family.set(stored)
+        true
     }
 
     suspend fun delete(font: NovelFont): Boolean = withIOContext {
@@ -225,17 +237,19 @@ class NovelFontManager(
      */
     private fun write(fileName: String, bytes: ByteArray): Result<NovelFont> {
         val dir = storageManager.getFontsDirectory() ?: return Result.failure(FontError.NoStorage)
-        val name = DiskUtil.buildValidFilename(fileName)
-        return runCatching {
+        return store(dir, DiskUtil.buildValidFilename(fileName), bytes)
+    }
+
+    private fun store(dir: UniFile, name: String, bytes: ByteArray): Result<NovelFont> =
+        runCatching {
             val stored = dir.replace(context, name) { it.write(bytes) }.name ?: name
             // The mirror and the cached face are stale the moment the file behind them changes.
             File(mirrorDir, stored).delete()
             typefaces.remove(stored)
             NovelFont(stored, fontDisplayName(stored))
         }.onFailure {
-            logcat(LogPriority.WARN, it) { "Could not save reader font: $fileName" }
+            logcat(LogPriority.WARN, it) { "Could not save reader font: $name" }
         }
-    }
 
     private companion object {
         const val CSS_URL = "https://fonts.googleapis.com/css2?family=%s:wght@400&display=swap"

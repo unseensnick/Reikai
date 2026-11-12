@@ -26,7 +26,7 @@ class NovelFontManagerTest {
         val context = mockk<Context> { every { filesDir } returns appFiles }
         val storage = mockk<StorageManager> { every { getFontsDirectory() } returns null }
 
-        NovelFontManager(context, storage, mockk()).installed()
+        NovelFontManager(context, storage, mockk(), mockk()).installed()
 
         mirrored.exists() shouldBe true
     }

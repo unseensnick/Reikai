@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.data.backup.restore.restorers.CategoriesRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
+import eu.kanade.tachiyomi.data.backup.restore.restorers.PreferenceRestorer
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -43,10 +44,11 @@ suspend fun restoreEncoded(
     trusted: ApprovedRepos = ApprovedRepos(),
     combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
     novelFonts: NovelFontManager = mockk(relaxed = true),
+    preferenceRestorer: PreferenceRestorer = mockk(relaxed = true),
 ) = restoreFile(
     ProtoBuf.encodeToByteArray(Backup.serializer(), backup), options, categoriesRestorer, mangaRestorer,
     novelRestorer, sourceManager, stubSourceRepository, novelSourceManager, alignGroupCategories, manualOrder,
-    restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts,
+    restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts, preferenceRestorer,
 )
 
 /** Runs the real [BackupRestorer] over the backup file [file], as another app may have written it. */
@@ -65,6 +67,7 @@ suspend fun restoreFile(
     trusted: ApprovedRepos = ApprovedRepos(),
     combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
     novelFonts: NovelFontManager = mockk(relaxed = true),
+    preferenceRestorer: PreferenceRestorer = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -78,7 +81,7 @@ suspend fun restoreFile(
         context = context,
         downloadCache = mockk(relaxed = true),
         categoriesRestorer = categoriesRestorer,
-        preferenceRestorer = mockk(relaxed = true),
+        preferenceRestorer = preferenceRestorer,
         mangaRestorer = mangaRestorer,
         parser = ProtoBuf,
         sourceManager = sourceManager,
