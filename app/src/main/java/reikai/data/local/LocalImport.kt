@@ -428,6 +428,7 @@ class LocalImport(
                     aside = aside,
                     part = target.name.orEmpty(),
                     partUri = target.uri.toString(),
+                    series = folder.name,
                 ),
             )
             if (!replaceFile(replacing, target, name, aside)) {

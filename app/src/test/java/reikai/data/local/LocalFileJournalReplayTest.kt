@@ -8,7 +8,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.beInstanceOf
 import io.mockk.mockk
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Rule
@@ -24,11 +25,12 @@ import reikai.domain.local.LocalSeriesBlockedException
 import reikai.domain.local.LocalSeriesLocks
 import reikai.storage.FakeSafProvider
 import java.io.File
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * An import Replace killed between its old book stepping aside and its copy taking the name is finished or put
- * back at the next start, with no file lost, for both content types; one whose folder cannot be reached waits for
- * a later start. Organize files' own replay is LocalOrganizer's, pinned in LocalMovesUnderLockTest.
+ * back at the next start, with no file lost, for both content types; one whose folder cannot be reached holds its
+ * series until a retry finds it. Organize files' own replay is LocalOrganizer's, pinned in LocalMovesUnderLockTest.
  */
 @RunWith(ParameterizedRobolectricTestRunner::class)
 class LocalFileJournalReplayTest(private val type: ContentType) {
@@ -51,11 +53,15 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
         aside = File(old.parentFile, "$book.old")
     }
 
+    // Retries run on a clock of their own, which only a test that wants one advances: runTest's would run an
+    // unreachable row's retry forever.
+    private val retries = TestCoroutineScheduler()
+
     private fun replay() = LocalFileJournalReplay(
         context,
         journal,
         locks,
-        LocalOrganizer(context, journal, mockk(), locks, CoroutineScope(Dispatchers.Unconfined)),
+        LocalOrganizer(context, journal, mockk(), locks, CoroutineScope(StandardTestDispatcher(retries))),
     )
 
     private fun uri(file: File) = UniFile.fromFile(file)!!.uri.toString()
@@ -137,6 +143,55 @@ class LocalFileJournalReplayTest(private val type: ContentType) {
 
         runCatching { locks.withSeries(type, "Series") {} }.exceptionOrNull() should
             beInstanceOf<LocalSeriesBlockedException>()
+    }
+
+    /** A replace swapped but not yet cleaned up, in a series folder the provider cannot reach at start. */
+    private suspend fun unreachable(series: String?) {
+        FakeSafProvider.install(context, tmp.root)
+        val folder = FakeSafProvider.picked(context, old.parentFile)
+        val partUri = folder.findFile(part.name)!!.uri.toString()
+        journal.insert(
+            type,
+            LocalFileJournalPlan.Replace(folder.uri.toString(), old.name, aside.name, part.name, partUri, series),
+        )
+        old.renameTo(aside)
+        check(old.parentFile.renameTo(File(old.parentFile.parentFile, "Away")))
+    }
+
+    private suspend fun isHeld() =
+        runCatching { locks.withSeries(type, "Series") {} }.exceptionOrNull() is LocalSeriesBlockedException
+
+    /** A later import of the same name would take the copy for stale and the replay would then drop the old book. */
+    @Test
+    fun `a replace whose folder cannot be reached at start holds its series`() = runTest {
+        unreachable(series = "Series")
+
+        replay().replay()
+
+        isHeld() shouldBe true
+    }
+
+    @Test
+    fun `a held replace is finished by its retry once the folder is back and the series opens`() = runTest {
+        unreachable(series = "Series")
+        replay().replay()
+
+        check(File(old.parentFile.parentFile, "Away").renameTo(old.parentFile))
+        retries.advanceTimeBy(3.seconds)
+        retries.runCurrent()
+
+        Triple(folder(), journal.entries, isHeld()) shouldBe
+            Triple(listOf(old.name) to "newer", emptyList<Any>(), false)
+    }
+
+    /** The folder's name then comes from the folder's own address. */
+    @Test
+    fun `a replace written before its series name was kept still holds its series`() = runTest {
+        unreachable(series = null)
+
+        replay().replay()
+
+        isHeld() shouldBe true
     }
 
     companion object {

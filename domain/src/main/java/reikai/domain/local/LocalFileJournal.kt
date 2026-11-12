@@ -13,7 +13,11 @@ import reikai.domain.library.ContentType
 @Serializable
 sealed interface LocalFileJournalPlan {
 
-    /** The file [name] in [folder] stepping aside as [aside] so [part] can take [name]; it goes once that has. */
+    /**
+     * The file [name] in [folder] stepping aside as [aside] so [part] can take [name]; it goes once that has.
+     * [series] is the folder's name, which holds the series while the folder cannot be reached; null on a row
+     * written before it.
+     */
     @Serializable
     @SerialName("replace")
     data class Replace(
@@ -22,6 +26,7 @@ sealed interface LocalFileJournalPlan {
         val aside: String,
         val part: String,
         val partUri: String,
+        val series: String? = null,
     ) : LocalFileJournalPlan
 
     /**

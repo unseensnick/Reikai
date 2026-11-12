@@ -56,6 +56,16 @@ class LocalFileJournalRepositoryTest {
         journal.all() shouldBe emptyList()
     }
 
+    @Test
+    fun `a replace written before its series name was kept reads back without one`() = runTest {
+        database.local_file_journalQueries.insert(
+            0L,
+            """{"type":"replace","folder":"f","name":"n","aside":"a","part":"p","partUri":"u"}""",
+        ).awaitAsOne()
+
+        journal.all().map { it.plan } shouldBe listOf(LocalFileJournalPlan.Replace("f", "n", "a", "p", "u", null))
+    }
+
     /** A row from a newer build, read by an older one after a downgrade, must not stop every other row's replay. */
     @Test
     fun `a row this build cannot read is passed over and the rest still read`() = runTest {

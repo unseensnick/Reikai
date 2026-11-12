@@ -21,9 +21,9 @@ import kotlin.coroutines.cancellation.CancellationException
  * Finishes or reverses, at start, an Organize files ([LocalOrganizer.replay]) or an import Replace a kill cut off,
  * under the series' lock and before any listing can read the half-done state: the locks open only once [replay] has
  * run. A replace promotes its whole copy when the old file has stepped aside, and otherwise keeps the old file; one
- * whose name another writer took meanwhile keeps both beside it. A row whose folder cannot be reached is kept for a
- * later start, and one that fails holds its series as an organize does. Nothing is touched before it is found where the
- * plan says.
+ * whose name another writer took meanwhile keeps both beside it. A row that fails, or whose folder cannot be reached,
+ * holds its series as an organize does until a retry mends it, since an import of the same name meanwhile would take
+ * the copy for stale. Nothing is touched before it is found where the plan says.
  */
 @Inject
 @SingleIn(AppScope::class)
@@ -56,9 +56,7 @@ class LocalFileJournalReplay(
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 // Left, the old book is in no listing, so the series waits on its repair as an organize's does.
-                UniFile.fromUri(context, Uri.parse(plan.folder))?.name?.let {
-                    organizer.holdReplace(entry.type, entry.id, it)
-                }
+                plan.seriesFolder()?.let { organizer.holdReplace(entry.type, entry.id, it) }
                 throw e
             }
             is LocalFileJournalPlan.Organize -> locks.locked(entry.type, plan.folders()) {
@@ -78,7 +76,8 @@ internal suspend fun replayReplace(
     id: Long,
     plan: LocalFileJournalPlan.Replace,
 ) {
-    val folder = UniFile.fromUri(context, Uri.parse(plan.folder))?.takeIf { it.exists() } ?: return
+    val folder = UniFile.fromUri(context, Uri.parse(plan.folder))?.takeIf { it.exists() }
+        ?: error("The folder of ${plan.name} cannot be reached")
     val name = folder.findFile(plan.name)
     val part = folder.findFile(plan.part)?.takeIf { it.uri.toString() == plan.partUri }
     val aside = folder.findFile(plan.aside)
@@ -102,3 +101,8 @@ internal suspend fun replayReplace(
     }
     journal.delete(id)
 }
+
+// A row written before [LocalFileJournalPlan.Replace.series] names its folder only by address, whose last segment
+// ends in the folder's name for a file and for a storage document alike.
+private fun LocalFileJournalPlan.Replace.seriesFolder() =
+    series ?: Uri.parse(folder).lastPathSegment?.substringAfterLast('/')?.takeIf { it.isNotEmpty() }
