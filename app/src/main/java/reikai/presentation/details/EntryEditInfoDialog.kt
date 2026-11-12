@@ -86,7 +86,6 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.track.model.Track
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /**
@@ -192,13 +191,7 @@ fun EntryEditInfoDialog(
                 )
                 StatusField(selected = form.status, onSelect = { form.status = it })
                 InfoField(form.title, stringResource(MR.strings.title))
-                if (canRenameFiles && titleChanged) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.edit_info_also_rename_files),
-                        checked = alsoRenameFiles,
-                        onCheckedChange = { alsoRenameFiles = it },
-                    )
-                }
+                AlsoOrganizeFiles(canRenameFiles && titleChanged, alsoRenameFiles) { alsoRenameFiles = it }
                 InfoField(form.author, stringResource(MR.strings.author))
                 InfoField(form.artist, stringResource(MR.strings.artist))
                 InfoField(

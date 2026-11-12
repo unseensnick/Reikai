@@ -5,7 +5,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -96,10 +95,8 @@ fun Screen.EntryDetailsDialogHost(
         null -> {}
         is EntryDetailsDialog.EditInfo -> {
             val loaded = behavior.state.value as? EntryDetailsScreenState.Loaded
-            // Hidden, never shown disabled, where the storage cannot move or rename a file.
-            val canOrganize by produceState(false, loaded?.entryId) {
-                value = loaded?.ownsLocalFiles == true && behavior.volumePicking.canOrganize(loaded.entryId)
-            }
+            val canOrganize =
+                behavior.rememberCanOrganize(loaded?.entryId, loaded?.ownsLocalFiles == true, null) == true
             EntryEditInfoDialog(
                 initial = dialog.initial,
                 source = dialog.source,

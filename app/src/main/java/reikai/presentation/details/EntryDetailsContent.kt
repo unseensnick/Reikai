@@ -182,13 +182,14 @@ fun EntryDetailsContent(
     var volumeDialog by remember { mutableStateOf<VolumeDialog?>(null) }
     var deletingVolumes by remember { mutableStateOf<List<String>?>(null) }
     val ownLocal = state.ownsLocalFiles
+    // The volumes the files hold, which only a regrouping or a refresh changes, never a read mark: each listing of
+    // the local folder below waits for one of those.
+    val layout = remember(structural) { structural?.chips?.map { it.key } }
     // Hidden, never shown disabled, where the storage cannot move or rename a file; null until it is known.
-    val canOrganizeOrNull by produceState<Boolean?>(null, state.entryId, ownLocal) {
-        value = ownLocal && behavior.volumePicking.canOrganize(state.entryId)
-    }
+    val canOrganizeOrNull = behavior.rememberCanOrganize(state.entryId, ownLocal, layout)
     val canOrganize = canOrganizeOrNull == true
-    // Read again whenever the list changes, since a refresh is what finds a member folder gone or back.
-    val missingFolders by produceState(emptyList<String>(), state.entryId, ownLocal, state.chapters.items) {
+    // A refresh is what finds a member folder gone or back, and its sync keeps the rows, so the layout may not change.
+    val missingFolders by produceState(emptyList<String>(), state.entryId, ownLocal, layout, state.isRefreshing) {
         value = if (ownLocal) behavior.volumePicking.missingMembers(state.entryId) else emptyList()
     }
     val missing =
@@ -208,7 +209,7 @@ fun EntryDetailsContent(
         onReorderVolumes = { reorderingVolumes = true }.takeIf { structural != null },
         onAddVolumes = { volumeDialog = VolumeDialog.AddVolumes }.takeIf { ownLocal },
         onSplitOut = { volumeDialog = VolumeDialog.SplitOut }.takeIf { ownLocal && structural != null },
-        onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { ownLocal && canOrganize },
+        onRenameFiles = { volumeDialog = VolumeDialog.RenameFiles }.takeIf { canOrganize },
         onDeleteVolumes = { keys: List<String>? -> deletingVolumes = keys ?: structural?.chips?.map { it.key } }
             .takeIf { ownLocal && structural != null },
         onKeepDuplicates = { renames: List<Pair<String, String>> ->
@@ -267,13 +268,14 @@ fun EntryDetailsContent(
     }
     if (reorderingVolumes && structural != null) {
         val series = structural.chips.first().series
-        // A manga's own loose files have a setting of their own; a local novel has none, every book being a volume.
-        val hasLoose = type == ContentType.MANGA && structural.chips.any { it.key == VolumeOwner.LOOSE }
+        // A series' own loose files have a setting of their own. Only a manga folder has them: every novel book is a
+        // volume keyed by its file name, so no novel chip carries the loose key.
+        val hasLoose = structural.chips.any { it.key == VolumeOwner.LOOSE }
         ReorderVolumesDialog(
             volumes = (volumes ?: structural).chips,
             looseFiles = (looseFiles[series] ?: LooseFiles.ONE_VOLUME).takeIf { hasLoose },
             onLooseFiles = { behavior.volumePicking.setLooseFiles(series, it, behavior::refresh) },
-            canRenameFiles = ownLocal && canOrganize,
+            canRenameFiles = canOrganize,
             onDismissRequest = { renameFiles ->
                 reorderingVolumes = false
                 if (renameFiles) volumeDialog = VolumeDialog.RenameFiles

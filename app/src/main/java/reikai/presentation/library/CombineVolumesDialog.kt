@@ -17,8 +17,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import reikai.data.local.CombinableSeries
+import reikai.presentation.details.AlsoOrganizeFiles
 import tachiyomi.i18n.MR
-import tachiyomi.presentation.core.components.LabeledCheckbox
 import tachiyomi.presentation.core.i18n.stringResource
 
 /** Pick the series the others join as volumes, and see what happens to them before anything moves. */
@@ -52,13 +52,7 @@ fun CombineVolumesDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (canOrganize) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.edit_info_also_rename_files),
-                        checked = alsoOrganize,
-                        onCheckedChange = { alsoOrganize = it },
-                    )
-                }
+                AlsoOrganizeFiles(canOrganize, alsoOrganize) { alsoOrganize = it }
             }
         },
         confirmButton = {

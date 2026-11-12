@@ -48,6 +48,7 @@ import mihon.icons.materialsymbols.rounded.RemoveDone
 import reikai.data.local.CombinableSeries
 import reikai.data.local.LocalFileNames
 import reikai.domain.chapter.LooseFiles
+import reikai.domain.entry.EntryId
 import reikai.presentation.components.NameDialog
 import reikai.presentation.components.rememberSettledReorder
 import sh.calvin.reorderable.ReorderableItem
@@ -299,13 +300,7 @@ internal fun ReorderVolumesDialog(
                     }
                 }
                 looseFiles?.let { LooseFilesChoice(it, onLooseFiles) }
-                if (canRenameFiles && renamed) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.edit_info_also_rename_files),
-                        checked = alsoRenameFiles,
-                        onCheckedChange = { alsoRenameFiles = it },
-                    )
-                }
+                AlsoOrganizeFiles(canRenameFiles && renamed, alsoRenameFiles) { alsoRenameFiles = it }
             }
         },
         confirmButton = {
@@ -403,13 +398,7 @@ internal fun AddVolumesDialog(
                         }
                     }
                 }
-                if (canOrganize) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.edit_info_also_rename_files),
-                        checked = alsoOrganize,
-                        onCheckedChange = { alsoOrganize = it },
-                    )
-                }
+                AlsoOrganizeFiles(canOrganize, alsoOrganize) { alsoOrganize = it }
             }
         },
         confirmButton = {
@@ -466,13 +455,7 @@ internal fun SplitOutDialog(
                     enabled = picked.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth(),
                 )
-                if (canOrganize) {
-                    LabeledCheckbox(
-                        label = stringResource(MR.strings.edit_info_also_rename_files),
-                        checked = alsoOrganize,
-                        onCheckedChange = { alsoOrganize = it },
-                    )
-                }
+                AlsoOrganizeFiles(canOrganize, alsoOrganize) { alsoOrganize = it }
             }
         },
         confirmButton = {
@@ -582,4 +565,34 @@ internal fun RenameFilesDialog(
         },
         dismissButton = { TextButton(onClick = onDismissRequest) { Text(stringResource(MR.strings.action_cancel)) } },
     )
+}
+
+/**
+ * Also organize files: every dialog that can move a series' files offers it the same way, unticked until the user
+ * ticks it and [shown] only where the storage can move them, since a box shown disabled explains nothing.
+ */
+@Composable
+fun AlsoOrganizeFiles(shown: Boolean, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+    if (!shown) return
+    LabeledCheckbox(
+        label = stringResource(MR.strings.edit_info_also_rename_files),
+        checked = checked,
+        onCheckedChange = onCheckedChange,
+    )
+}
+
+/**
+ * Whether [entry]'s files can be organized, null until it is known: only a series that [ownsLocalFiles], on storage
+ * that moves and renames files. Asked again when [layout] changes, since a volume brought in may sit elsewhere.
+ */
+@Composable
+internal fun EntryDetailsBehavior.rememberCanOrganize(
+    entry: EntryId?,
+    ownsLocalFiles: Boolean,
+    layout: Any?,
+): Boolean? {
+    val known by produceState<Boolean?>(null, entry, ownsLocalFiles, layout) {
+        value = entry != null && ownsLocalFiles && volumePicking.canOrganize(entry)
+    }
+    return known
 }
