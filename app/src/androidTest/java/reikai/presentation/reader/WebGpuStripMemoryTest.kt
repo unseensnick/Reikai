@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import ca.mpreg.webgpuviewer.viewer.ComposePageSize
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuous
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
@@ -47,6 +48,27 @@ class WebGpuStripMemoryTest {
         }
     }
 
+    /** The library's own bound, with no capture size from Reikai: every page shares one page's scratch. */
+    @Test
+    fun aFullReachOfFullSizeChromePagesHoldsOnePagesBuffer() {
+        val state = ImageViewerContinuousState()
+        val pages = List(PAGES) {
+            ImagePage.Compose(ComposePageSize.Of(WINDOW_WIDTH, WINDOW_HEIGHT), 0) { Box(Modifier.fillMaxSize()) }
+        }
+        state.fetchPage = { pages.getOrNull(it) }
+        state.minScale = MIN_SCALE
+
+        ActivityScenario.launch(WebViewHostActivity::class.java).use { scenario ->
+            scenario.onActivity { it.setContent { ImageViewerContinuous(Modifier.fillMaxSize(), state) } }
+            state.scale = MIN_SCALE
+            val peak = peakBufferBytes(scenario)
+            val limit = WINDOW_WIDTH.toLong() * WINDOW_HEIGHT * 4
+
+            assertTrue("no capture ran, so this measured nothing", peak > 0)
+            assertTrue("capture buffers peaked at $peak of $limit", peak <= limit)
+        }
+    }
+
     private fun peakBufferBytes(scenario: ActivityScenario<WebViewHostActivity>): Long {
         val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(WATCH_S)
         var peak = 0L
@@ -67,17 +89,13 @@ class WebGpuStripMemoryTest {
     }
 
     /**
-     * The library's own field, since it reports no total. A rename fails the read, not the bound. Only the
-     * direct buffers count: ART takes those from the Java heap, which is what ran out, where each page's
-     * scratch bitmap of the same size is native memory.
+     * The library's shared scratch buffer, since it reports no total; a rename or a return to per-page buffers
+     * fails the read. Only the direct buffer counts: ART takes it from the Java heap, which is what ran out,
+     * where the scratch bitmap is native memory.
      */
     private fun bufferBytes(host: View): Long {
-        val renderers = host.javaClass.getDeclaredField("renderers")
-            .apply { isAccessible = true }.get(host) as Map<*, *>
-        return renderers.values.filterNotNull().sumOf { renderer ->
-            val pixels = renderer.javaClass.getDeclaredField("pixels").apply { isAccessible = true }.get(renderer)
-            ((pixels as ByteBuffer?)?.capacity() ?: 0).toLong()
-        }
+        val pixels = host.javaClass.getDeclaredField("pixels").apply { isAccessible = true }.get(host)
+        return ((pixels as ByteBuffer?)?.capacity() ?: 0).toLong()
     }
 
     private companion object {

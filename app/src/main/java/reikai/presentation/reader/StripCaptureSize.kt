@@ -7,8 +7,9 @@ internal const val STRIP_CAPTURE_SCALE = 2
 
 /**
  * The size a long strip's loading or error page is captured at. Up to 27 such pages are in reach zoomed out,
- * each keeping a snapshot texture of this size, and the library's capture budget fits four times as many
- * captures at once at half size. The strip stretches the page to its width, so the slot keeps its shape.
+ * each keeping a snapshot texture of this size, and they take turns at one shared capture, so a quarter of the
+ * pixels is a quarter of the texture memory and turns four times as fast. The strip stretches the page to its
+ * width, so the slot keeps its shape.
  */
 internal fun stripCaptureSize(viewerWidth: Int, viewerHeight: Int, heightFraction: Float): ComposePageSize.Of =
     ComposePageSize.Of(
