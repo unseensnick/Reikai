@@ -3,6 +3,7 @@ package reikai.presentation.reader
 import eu.kanade.tachiyomi.ui.reader.viewer.DualPageSettings
 import tachiyomi.core.common.util.system.ImageUtil
 import java.nio.ByteBuffer
+import ca.mpreg.webgpuviewer.ImageUtil as LibraryImageUtil
 
 /*
  * Split wide pages and Rotate to fit, as one rule for every viewer: the classic ones apply it to a re-encoded
@@ -81,27 +82,27 @@ fun reshapePixels(
             ReshapedPixels(out, half, height * 2)
         }
         is WidePageShape.Rotated -> {
-            val out = newPixels(width * height * bytesPerPixel, pixels)
-            val clockwise = shape.degrees > 0f
-            for (y in 0 until width) {
-                for (x in 0 until height) {
-                    val srcX = if (clockwise) y else width - 1 - y
-                    val srcY = if (clockwise) height - 1 - x else x
-                    copyPixel(
-                        pixels,
-                        (srcY * width + srcX) * bytesPerPixel,
-                        out,
-                        (y * height + x) * bytesPerPixel,
-                        bytesPerPixel,
-                    )
-                }
-            }
-            ReshapedPixels(out, height, width)
+            // The library's native turn reads only a direct buffer and leaves the output blank for any other.
+            val source = if (pixels.isDirect) pixels else directCopyOf(pixels)
+            // The native turn also writes nothing into a buffer short of this, which would show a blank page.
+            require(source.capacity() >= width * height * bytesPerPixel) { "Short pixel buffer for $width x $height" }
+            val out = LibraryImageUtil.rotateQuarter(source, width, height, bytesPerPixel, shape.degrees > 0f)
+            ReshapedPixels(out.order(pixels.order()), height, width)
         }
     }
 }
 
 private fun newPixels(size: Int, like: ByteBuffer): ByteBuffer = ByteBuffer.allocateDirect(size).order(like.order())
+
+private fun directCopyOf(pixels: ByteBuffer): ByteBuffer {
+    val src = pixels.duplicate()
+    src.position(0)
+    src.limit(src.capacity())
+    val out = newPixels(src.capacity(), pixels)
+    out.put(src)
+    out.position(0)
+    return out
+}
 
 /** Copies [columns] columns from [fromX] of every row into [out], starting at row [toRow] of a [columns]-wide image. */
 private fun copyColumns(
@@ -123,13 +124,5 @@ private fun copyColumns(
         src.position(start)
         dst.position((toRow + y) * rowBytes)
         dst.put(src)
-    }
-}
-
-private fun copyPixel(src: ByteBuffer, from: Int, out: ByteBuffer, to: Int, bytesPerPixel: Int) {
-    when (bytesPerPixel) {
-        4 -> out.putInt(to, src.getInt(from))
-        8 -> out.putLong(to, src.getLong(from))
-        else -> repeat(bytesPerPixel) { out.put(to + it, src.get(from + it)) }
     }
 }

@@ -120,44 +120,14 @@ class WidePagesTest {
         WidePageShape.Stacked(ImageUtil.Side.RIGHT).pixels() shouldBe Triple(2, 4, listOf(2, 3, 6, 7, 0, 1, 4, 5))
     }
 
-    @Test
-    fun `a clockwise turn puts the bottom left corner at the top left`() {
-        WidePageShape.Rotated(90f).pixels() shouldBe Triple(2, 4, listOf(4, 0, 5, 1, 6, 2, 7, 3))
-    }
-
-    @Test
-    fun `a counterclockwise turn puts the top right corner at the top left`() {
-        WidePageShape.Rotated(-90f).pixels() shouldBe Triple(2, 4, listOf(3, 7, 2, 6, 1, 5, 0, 4))
-    }
-
-    // A gain map is one or three bytes a pixel, so it reshapes byte by byte with its page.
+    // A gain map is one or three bytes a pixel, so it reshapes byte by byte with its page; turning it is checked
+    // on a device (WidePagesRotateTest), where the library's native turn runs.
     private val gainMap: ByteBuffer = ByteBuffer.allocateDirect(4 * 2).apply { repeat(8) { put(it, it.toByte()) } }
-
-    @Test
-    fun `a one-channel gain map turns with its page`() {
-        val out = reshapePixels(gainMap, 4, 2, 1, WidePageShape.Rotated(90f))
-        List(8) { out.pixels.get(it).toInt() } shouldBe listOf(4, 0, 5, 1, 6, 2, 7, 3)
-    }
-
-    @Test
-    fun `a three-channel gain map turns whole pixels`() {
-        // The same 2 x 1 map turned counterclockwise: (3,4,5) above (0,1,2).
-        val out = reshapePixels(gainMap, 2, 1, 3, WidePageShape.Rotated(-90f))
-        List(6) { out.pixels.get(it).toInt() } shouldBe listOf(3, 4, 5, 0, 1, 2)
-    }
 
     @Test
     fun `a three-channel gain map splits with its page`() {
         // Read as three-byte pixels, the first six bytes are a 2 x 1 map: (0,1,2) (3,4,5).
         val out = reshapePixels(gainMap, 2, 1, 3, WidePageShape.Half(ImageUtil.Side.RIGHT))
         Triple(out.width, out.height, List(3) { out.pixels.get(it).toInt() }) shouldBe Triple(1, 1, listOf(3, 4, 5))
-    }
-
-    @Test
-    fun `half-float pixels turn whole, eight bytes at a time`() {
-        // Read as eight-byte pixels the same buffer is 2 x 2: (0,1) (2,3) / (4,5) (6,7).
-        val out = reshapePixels(image, 2, 2, 8, WidePageShape.Rotated(90f))
-        val ints = List(8) { out.pixels.order(ByteOrder.nativeOrder()).getInt(it * 4) }
-        ints shouldBe listOf(4, 5, 0, 1, 6, 7, 2, 3)
     }
 }
