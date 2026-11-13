@@ -68,10 +68,17 @@ for coord in "${COORDS[@]}"; do
     rest="${coord#*:}"
     artifact="${rest%%:*}"
     version="${rest#*:}"
+    pom="${group//./\/}/$artifact/$version/$artifact-$version.pom"
+    # Some com.github.* groups publish to Maven Central, which settings.gradle.kts asks before JitPack.
+    if [ "$group:$artifact" != ca.mpreg:webgpuviewer ] && [ "$(curl -s -o /dev/null -w '%{http_code}' -m 30 \
+        "https://repo1.maven.org/maven2/$pom" || echo 000)" = 200 ]; then
+        printf '  ok (Central)  %s\n' "$coord"
+        continue
+    fi
     if [ "$group:$artifact" = ca.mpreg:webgpuviewer ]; then
         url="https://github.com/unseensnick/webgpuviewer/releases/download/v$version/ivy-$version.xml"
     else
-        url="https://jitpack.io/${group//./\/}/$artifact/$version/$artifact-$version.pom"
+        url="https://jitpack.io/$pom"
     fi
     status=$(curl -sL -o /dev/null -w '%{http_code}' -m 30 --retry 2 --retry-delay 3 "$url" || echo 000)
     case "$status" in
