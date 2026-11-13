@@ -40,6 +40,9 @@ interface MangaRepository {
 
     suspend fun resetViewerFlags(): Boolean
 
+    // RK: writes [flag] into the [mask] bits of one manga's viewer flags in one statement; false when it failed
+    suspend fun setViewerFlags(id: Long, flag: Long, mask: Long): Boolean
+
     suspend fun deleteNonLibraryManga(sourceIds: List<Long>, keepReadManga: Boolean)
 
     suspend fun setMangaCategories(mangaId: Long, categoryIds: List<Long>)

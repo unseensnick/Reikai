@@ -131,6 +131,18 @@ class MangaRepositoryImpl(
         }
     }
 
+    // RK -->
+    override suspend fun setViewerFlags(id: Long, flag: Long, mask: Long): Boolean {
+        return try {
+            database.mangaQueries.setViewerFlagBits(mask = mask, flag = flag, id = id)
+            true
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e)
+            false
+        }
+    }
+    // RK <--
+
     override suspend fun deleteNonLibraryManga(sourceIds: List<Long>, keepReadManga: Boolean) {
         database.mangaQueries.deleteNonLibraryManga(sourceIds, keepReadManga.toLong())
     }

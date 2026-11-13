@@ -191,6 +191,10 @@ UPDATE manga
 SET user_reader_flags = 0
 WHERE user_reader_flags != 0;
 
+-- RK: one statement, so two quick picks in the reader's sheet (reading mode, rotation) cannot undo each other.
+setViewerFlagBits:
+UPDATE manga SET user_reader_flags = (user_reader_flags & ~:mask) | (:flag & :mask) WHERE id = :id;
+
 getSourceIdsWithNonLibraryManga:
 SELECT source_id, count(*) AS manga_count
 FROM manga

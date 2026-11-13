@@ -187,6 +187,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **Changing a series' reading mode and rotation in quick succession no longer loses one of them.**
 - **A slow find-and-replace rule or chapter text search no longer stalls a novel chapter or the search.** A slow rule is skipped, and a slow search says so.
 - **Adding a reader font over one of the same name now replaces it whole, and keeps the old one if the copy fails or the folder cannot be read.**
 - **Auto-split no longer puts a blank line inside a novel chapter's list items, headings or quotes.**
