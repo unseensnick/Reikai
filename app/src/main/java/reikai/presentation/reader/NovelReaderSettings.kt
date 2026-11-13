@@ -2,6 +2,7 @@ package reikai.presentation.reader
 
 import dev.icerock.moko.resources.StringResource
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelTextAlign
 import reikai.domain.novel.tts.TtsHighlightStyle
@@ -67,8 +68,13 @@ data class NovelReaderSettings(
     val webSnippets: NovelWebSnippets = NovelWebSnippets(),
 ) {
     companion object {
-        /** The settings as stored now, for a novel whose own orientation flag is [orientation]. */
-        fun read(preferences: NovelPreferences, orientation: Int): NovelReaderSettings = with(preferences) {
+        /** The settings as stored now, for a novel whose own orientation flag is [orientation] and whose own
+         *  reading mode, which wins over the setting, is [pageLayout]. */
+        fun read(
+            preferences: NovelPreferences,
+            orientation: Int,
+            pageLayout: NovelPageLayout? = null,
+        ): NovelReaderSettings = with(preferences) {
             NovelReaderSettings(
                 fontSize = readerFontSize().get(),
                 lineHeight = readerLineSpacing().get(),
@@ -94,7 +100,7 @@ data class NovelReaderSettings(
                 ttsHighlightTextColor = readerTtsHighlightTextColor().get(),
                 ttsKeepInView = readerTtsKeepInView().get(),
                 bionicReading = readerBionicReading().get(),
-                tapZones = readerPageLayout().get().isPaged.let { paged ->
+                tapZones = (pageLayout ?: readerPageLayout().get()).isPaged.let { paged ->
                     NovelTapZones(
                         readerTapLayout(paged).get(),
                         readerTapInvert(paged).get(),

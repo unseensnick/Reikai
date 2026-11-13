@@ -66,6 +66,7 @@ import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.mergeMemberName
 import reikai.domain.merge.withOpenedChapter
 import reikai.domain.novel.NovelChapterRepository
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
@@ -345,14 +346,32 @@ class NovelReaderViewModel(
     val renderingMode: StateFlow<NovelRenderingMode?>
         field = MutableStateFlow<NovelRenderingMode?>(null)
 
-    /** Completes once [renderingMode] holds the novel's own choice, which the first viewport is built with. */
-    val renderingModeLoaded: Deferred<Unit>
+    /** The reading mode this novel keeps for itself over the setting, null to follow it; on the opened entry, as
+     *  rotation. */
+    val pageLayout: StateFlow<NovelPageLayout?>
+        field = MutableStateFlow<NovelPageLayout?>(null)
+
+    /** The novel's own layout, else the setting: what every "paged?" in this session asks. */
+    val effectivePageLayout: StateFlow<NovelPageLayout> = combine(
+        pageLayout,
+        novelPreferences.readerPageLayout().changes(),
+    ) { own, setting -> own ?: setting }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, novelPreferences.readerPageLayout().get())
+
+    /** Completes once [renderingMode] and [pageLayout] hold the novel's own choices, which the first viewport is
+     *  built with. */
+    val viewerFlagsLoaded: Deferred<Unit>
         field = CompletableDeferred<Unit>()
 
     fun setRenderingMode(mode: NovelRenderingMode?) {
         renderingMode.value = mode
         textLoader.renderingMode = mode
         appScope.launchIO { setNovelViewerFlags.awaitSetRenderingMode(novelId, mode) }
+    }
+
+    fun setPageLayout(layout: NovelPageLayout?) {
+        pageLayout.value = layout
+        appScope.launchIO { setNovelViewerFlags.awaitSetPageLayout(novelId, layout) }
     }
 
     fun setKeepScreenOn(enabled: Boolean) = novelPreferences.readerKeepScreenOn().set(enabled)
@@ -371,8 +390,10 @@ class NovelReaderViewModel(
     }
 
     /** Reactive reader display settings; the screen resolves follow-system into colors. */
-    val settings: StateFlow<NovelReaderSettings> = (NovelReaderSettings.watched(novelPreferences) + orientationOverride)
-        .snapshotOnChange { NovelReaderSettings.read(novelPreferences, orientationOverride.value) }
+    val settings: StateFlow<NovelReaderSettings> = (
+        NovelReaderSettings.watched(novelPreferences) + orientationOverride + pageLayout
+        )
+        .snapshotOnChange { NovelReaderSettings.read(novelPreferences, orientationOverride.value, pageLayout.value) }
         .stateIn(
             viewModelScope,
             SharingStarted.Eagerly,
@@ -770,10 +791,11 @@ class NovelReaderViewModel(
                         textLoader.renderingMode = mode
                         renderingMode.value = mode
                     }
+                    pageLayout.value = NovelPageLayout.ofFlags(it.viewerFlags)
                 }
             } finally {
                 // Also on a failed read, which leaves the default, so the reader still opens.
-                renderingModeLoaded.complete(Unit)
+                viewerFlagsLoaded.complete(Unit)
             }
             novel?.let {
                 orientationOverride.value = it.readerOrientation.toInt()

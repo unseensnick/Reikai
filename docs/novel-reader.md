@@ -45,7 +45,7 @@ A novel can keep its own mode from the reader's settings sheet, under **For this
 
 ## Read a page at a time
 
-**Reading mode**, beside **Chapter display**, turns a chapter into pages, as an e-book reader does.
+**Reading mode**, beside **Chapter display**, turns a chapter into pages, as an e-book reader does. A novel can keep its own mode from the reader's settings sheet, under **For this series**, where **Default** follows the setting. Switching there rebuilds the reader at the same place in the chapter.
 
 <img
   src="/docs/novel-reader/paged.webp"

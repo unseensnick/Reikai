@@ -2,10 +2,13 @@ package reikai.presentation.reader
 
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.collections.shouldContainAll
+import io.kotest.matchers.shouldBe
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelTapLayout
 import reikai.presentation.recents.EmittingPreferenceStore
 
 class NovelReaderSettingsTest {
@@ -30,5 +33,17 @@ class NovelReaderSettingsTest {
 
         // A superset, not equal: the reader watches both modes' tap layouts and reads the one its page layout picks.
         watched.getAll().keys shouldContainAll read.getAll().keys
+    }
+
+    /** A novel kept paged gets the pager's tap zones while every other novel scrolls. */
+    @Test
+    fun `a novel's own reading mode picks its tap layout over the setting`() {
+        val preferences = NovelPreferences(EmittingPreferenceStore())
+        preferences.readerTapLayout(paged = true).set(NovelTapLayout.KINDLISH)
+        val own = NovelPageLayout.PAGED_LTR
+
+        val settings = NovelReaderSettings.read(preferences, ReaderOrientation.DEFAULT.flagValue, own)
+
+        settings.tapZones.layout shouldBe NovelTapLayout.KINDLISH
     }
 }

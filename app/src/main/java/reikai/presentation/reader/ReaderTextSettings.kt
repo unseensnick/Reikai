@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.Stable
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelRenderingMode
 
 /** What the typography controls show while they are open. */
@@ -36,4 +38,12 @@ interface ReaderTextSettings {
     val renderingMode: Flow<NovelRenderingMode?>
 
     fun setRenderingMode(mode: NovelRenderingMode?)
+
+    /** The reading mode this novel keeps for itself, null when it follows the reading-mode setting. */
+    val pageLayout: Flow<NovelPageLayout?>
+
+    /** What the open novel reads in, its own mode or the setting, which the paged-only rows follow. */
+    val effectivePageLayout: StateFlow<NovelPageLayout>
+
+    fun setPageLayout(layout: NovelPageLayout?)
 }

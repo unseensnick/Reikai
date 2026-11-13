@@ -2,6 +2,7 @@ package reikai.domain.novel.interactor
 
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.NovelUpdate
@@ -10,8 +11,7 @@ import reikai.domain.novel.model.setNovelFlag
 /**
  * Per-novel reader viewer-flag writes, the novel twin of
  * [eu.kanade.domain.manga.interactor.SetMangaViewerFlags], pinned by ViewerOrientationConformanceTest.
- * Novels carry the orientation bits and their own rendering mode (the reader is text-based, so there is
- * no reading-mode).
+ * Novels carry the orientation bits, their own rendering mode and their own reading mode ([NovelPageLayout]).
  * Reads the current flags and writes only the [viewer_flags] column via a [NovelUpdate].
  */
 @Inject
@@ -32,6 +32,16 @@ class SetNovelViewerFlags(
         novelRepository.update(
             NovelUpdate(id) {
                 viewerFlags = setNovelFlag(novel.viewerFlags, NovelRenderingMode.flagOf(mode), NovelRenderingMode.MASK)
+            },
+        )
+    }
+
+    /** Keeps [layout] for this novel, or follows the reading-mode setting again when it is null. */
+    suspend fun awaitSetPageLayout(id: Long, layout: NovelPageLayout?) {
+        val novel = novelRepository.getById(id) ?: return
+        novelRepository.update(
+            NovelUpdate(id) {
+                viewerFlags = setNovelFlag(novel.viewerFlags, NovelPageLayout.flagOf(layout), NovelPageLayout.MASK)
             },
         )
     }

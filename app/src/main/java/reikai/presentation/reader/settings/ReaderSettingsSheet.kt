@@ -157,7 +157,7 @@ fun ReaderSettingsSheet(
                         AutoScrollRows(autoScrollRunning, onToggleAutoScroll, autoScroll)
                         when (pages) {
                             is ReaderSettingsPages.Manga -> MangaControlsPage(pages.viewModel, pages.viewer)
-                            is ReaderSettingsPages.Novel -> NovelControlsPage(pages.preferences)
+                            is ReaderSettingsPages.Novel -> NovelControlsPage(pages)
                         }
                     }
                     ReaderSettingsTab.ReadAloud -> if (pages is ReaderSettingsPages.Novel) {

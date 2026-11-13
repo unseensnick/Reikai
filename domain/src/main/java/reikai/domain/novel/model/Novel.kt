@@ -9,8 +9,8 @@ import kotlin.time.Instant
 /**
  * Domain mirror of the `novels` SQLDelight table. Held disjoint from [tachiyomi.domain.manga.model.Manga]
  * because the source-id space differs (lnreader plugin.id is a [String], not a [Long]) and the
- * content is text rather than images, so manga-only fields (scanlators, reading mode) don't apply.
- * [viewerFlags] carries the per-novel reader orientation and rendering mode.
+ * content is text rather than images, so manga-only fields (scanlators) don't apply.
+ * [viewerFlags] carries the per-novel reader orientation, rendering mode and reading mode.
  */
 @Immutable
 data class Novel(
@@ -41,8 +41,9 @@ data class Novel(
     val notes: String,
     /**
      * Reader viewer-flags bitmask, the novel twin of `Manga.viewerFlags`, type only: the
-     * `ReaderOrientation` bits and the novel's own `NovelRenderingMode` bits (novels have no reading mode);
-     * 0 in either means "follow the global setting". See `readerOrientation`.
+     * `ReaderOrientation` bits and the novel's own `NovelRenderingMode` and `NovelPageLayout` bits
+     * (its reading mode, not manga's `ReadingMode`); 0 in any means "follow the global setting".
+     * See `readerOrientation`.
      */
     val viewerFlags: Long,
     /** When smart update next fetches this novel; null until one is predicted. */

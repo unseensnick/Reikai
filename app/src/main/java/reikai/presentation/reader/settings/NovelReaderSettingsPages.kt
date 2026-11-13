@@ -87,26 +87,42 @@ import tachiyomi.presentation.core.util.collectAsState
 /*
  * The novel half of the reader's settings sheet, in tsundoku's look: the rows a reader adjusts while
  * looking at the page. Settings -> Novel reader writes the same values for every row except this novel's
- * rotation, the text size and the page colours, which live here and on the reader's Theme and Text size
- * bar buttons. Read aloud is a novel's tab alone.
+ * own reading mode, rotation and chapter display, the text size and the page colours, which live here and on
+ * the reader's Theme and Text size bar buttons. Read aloud is a novel's tab alone.
  */
 
 /** Words the split threshold steps by, across its 20 to 2000 range. */
 private const val AUTO_SPLIT_STEP = 10
 
 /**
- * This novel's rotation, then how the text is drawn: the renderer, the font and its size, the paragraphs
- * and the margins around them.
+ * This novel's reading mode, rotation and renderer, then how the text is drawn: the font and its size, the
+ * paragraphs and the margins around them.
  */
 @Composable
 internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     val preferences = pages.preferences
 
     HeadingItem(MR.strings.pref_category_for_this_series)
+    // In manga's order: reading mode, rotation, then how the chapter is drawn. Each Default follows Settings ->
+    // Novel reader, so the sheet offers no second row for the default.
+    val ownLayout by pages.textSettings.pageLayout.collectAsState(null)
+    SettingsChipRow(MR.strings.pref_category_reading_mode) {
+        FilterChip(
+            selected = ownLayout == null,
+            onClick = { pages.textSettings.setPageLayout(null) },
+            label = { Text(stringResource(MR.strings.label_default)) },
+        )
+        NovelPageLayout.entries.forEach {
+            FilterChip(
+                selected = ownLayout == it,
+                onClick = { pages.textSettings.setPageLayout(it) },
+                label = { Text(stringResource(it.titleRes)) },
+            )
+        }
+    }
     val orientation by pages.orientation.collectAsState(null)
     EntryRotationRow(orientation) { pages.onChangeOrientation(it.flagValue) }
-    // The renderer this novel keeps, for a book that only reads well in one. Default follows Settings ->
-    // Novel reader, as manga's reading mode does, so the sheet offers no second row for the default.
+    // The renderer this novel keeps, for a book that only reads well in one.
     val ownMode by pages.textSettings.renderingMode.collectAsState(null)
     SettingsChipRow(MR.strings.pref_novel_rendering_mode) {
         FilterChip(
@@ -124,17 +140,7 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     }
 
     HeadingItem(MR.strings.pref_category_text)
-    val pageLayoutPref = preferences.readerPageLayout()
-    val pageLayout by pageLayoutPref.collectAsState()
-    SettingsChipRow(MR.strings.pref_category_reading_mode) {
-        NovelPageLayout.entries.forEach {
-            FilterChip(
-                selected = pageLayout == it,
-                onClick = { pageLayoutPref.set(it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
+    val pageLayout by pages.textSettings.effectivePageLayout.collectAsState()
     // Where manga's sheet has it, beside the paged reading it applies to.
     if (pageLayout.isPaged) {
         val dualPageViewPref = preferences.readerDualPageView()
@@ -275,7 +281,7 @@ internal fun ColumnScope.NovelAppearancePage(pages: ReaderSettingsPages.Novel) {
         )
     }
     // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
-    val pageLayout by preferences.readerPageLayout().collectAsState()
+    val pageLayout by pages.textSettings.effectivePageLayout.collectAsState()
     if (pageLayout.isPaged) ReaderFlashRows(ReaderFlash.novel(preferences))
 
     // The renderer this novel draws with: its own choice, else the default.
@@ -330,7 +336,8 @@ private fun ColumnScope.NovelChapterTextRows(preferences: NovelPreferences, rend
 
 /** Seamless chapters, taps and swipes, and the volume keys; auto-scroll sits above, shared with manga. */
 @Composable
-internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
+internal fun ColumnScope.NovelControlsPage(pages: ReaderSettingsPages.Novel) {
+    val preferences = pages.preferences
     HeadingItem(MR.strings.pref_category_scrolling)
     val seamless by preferences.readerSeamlessChapters().collectAsState()
     if (seamless) {
@@ -348,7 +355,7 @@ internal fun ColumnScope.NovelControlsPage(preferences: NovelPreferences) {
 
     HeadingItem(MR.strings.pref_category_gestures)
     // The open mode's layout, as manga's sheet shows its open viewer's.
-    val pageLayout by preferences.readerPageLayout().collectAsState()
+    val pageLayout by pages.textSettings.effectivePageLayout.collectAsState()
     NovelTapZonesRows(preferences, pageLayout.isPaged)
     if (pageLayout.isPaged) {
         CheckboxItem(

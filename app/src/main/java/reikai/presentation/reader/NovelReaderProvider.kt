@@ -12,6 +12,7 @@ import eu.kanade.tachiyomi.util.system.isNightMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.distinctUntilChangedBy
@@ -137,7 +138,7 @@ class NovelReaderProvider(
         viewModel.settings,
         viewModel.chapterNeighbours,
         novelPreferences.readerShowNavigator().changes(),
-        combine(novelPreferences.readerPageLayout().changes(), shownPage) { layout, page ->
+        combine(viewModel.effectivePageLayout, shownPage) { layout, page ->
             layout to page.takeIf { layout.isPaged }
         },
     ) { percent, settings, neighbours, show, (layout, page) ->
@@ -232,6 +233,12 @@ class NovelReaderProvider(
         override val renderingMode: Flow<NovelRenderingMode?> = viewModel.renderingMode
 
         override fun setRenderingMode(mode: NovelRenderingMode?) = viewModel.setRenderingMode(mode)
+
+        override val pageLayout: Flow<NovelPageLayout?> = viewModel.pageLayout
+
+        override val effectivePageLayout: StateFlow<NovelPageLayout> = viewModel.effectivePageLayout
+
+        override fun setPageLayout(layout: NovelPageLayout?) = viewModel.setPageLayout(layout)
     }
 
     override val autoScrollOnOpen = novelPreferences.readerAutoScrollOnOpen()
@@ -293,11 +300,15 @@ class NovelReaderProvider(
      */
     private val viewportRebuilds: Flow<Unit> = (
         NovelViewportSettings.watched(novelPreferences) +
-            viewModel.renderingMode
+            viewModel.renderingMode +
+            viewModel.pageLayout
         )
-        .snapshotOnChange { NovelViewportSettings.read(novelPreferences, viewModel.renderingMode.value) }
+        .snapshotOnChange(::viewportSettings)
         .drop(1)
         .map { }
+
+    private fun viewportSettings() =
+        NovelViewportSettings.read(novelPreferences, viewModel.renderingMode.value, viewModel.pageLayout.value)
 
     /**
      * The [NovelViewportSettings] are read once here, because the viewport takes them as plain values so
@@ -305,7 +316,7 @@ class NovelReaderProvider(
      * are live without one: the switch is read each press and the rest arrives with every settings push.
      */
     override fun createViewport(host: ReaderActivity): ReaderViewport {
-        val built = NovelViewportSettings.read(novelPreferences, viewModel.renderingMode.value)
+        val built = viewportSettings()
         // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
         val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
@@ -378,13 +389,13 @@ class NovelReaderProvider(
     // Built here rather than from the host's manga collector, which is what updateViewer hangs off and
     // which never fires without a Manga in state.
     override fun attach(host: ReaderActivity) {
-        // The novel's own renderer is read off the main thread at open. Built before it lands, the viewport
-        // took the default and was rebuilt, Activity and chapter both, once the novel's differed.
-        if (viewModel.renderingModeLoaded.isCompleted) {
+        // The novel's own renderer and reading mode are read off the main thread at open. Built before they land,
+        // the viewport took the defaults and was rebuilt, Activity and chapter both, once the novel's differed.
+        if (viewModel.viewerFlagsLoaded.isCompleted) {
             attachViewport(host)
         } else {
             host.lifecycleScope.launch {
-                viewModel.renderingModeLoaded.await()
+                viewModel.viewerFlagsLoaded.await()
                 attachViewport(host)
             }
         }
@@ -498,10 +509,14 @@ internal data class NovelViewportSettings(
     fun selectsText(spread: Boolean): Boolean = textSelectable && !spread
 
     companion object {
-        /** [own] is the novel's own mode, which wins over the setting. */
-        fun read(preferences: NovelPreferences, own: NovelRenderingMode? = null) = NovelViewportSettings(
+        /** [own] and [ownLayout] are the novel's own rendering and reading modes, which win over the settings. */
+        fun read(
+            preferences: NovelPreferences,
+            own: NovelRenderingMode? = null,
+            ownLayout: NovelPageLayout? = null,
+        ) = NovelViewportSettings(
             renderingMode = own ?: preferences.readerRenderingMode().get(),
-            pageLayout = preferences.readerPageLayout().get(),
+            pageLayout = ownLayout ?: preferences.readerPageLayout().get(),
             dualPageView = preferences.readerDualPageView().get(),
             textSelectable = preferences.readerTextSelectable().get(),
             useOriginalFonts = preferences.readerUseOriginalFonts().get(),

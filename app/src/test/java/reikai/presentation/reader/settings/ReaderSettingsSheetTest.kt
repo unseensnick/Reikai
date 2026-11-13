@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderSettingsViewModel
+import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
@@ -19,6 +20,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.ParameterizedRobolectricTestRunner
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.presentation.ComposeTestHost
@@ -68,12 +70,16 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
         compose.onNodeWithText("For this series").assertExists()
     }
 
-    /** The series' own choice, whose Default follows the reader's settings, so the default gets no second row. */
+    /** The series' own choices, whose Default follows the reader's settings, so the default gets no second row. */
     @Test
-    fun `the reading tab shows the series' mode once`() {
+    fun `the reading tab shows each of the series' modes once`() {
         showSheet()
 
-        compose.onAllNodesWithText(probe.seriesModeRow, useUnmergedTree = true).assertCountEquals(1)
+        val counts = probe.seriesModeRows.associateWith {
+            compose.onAllNodesWithText(it, useUnmergedTree = true).fetchSemanticsNodes().size
+        }
+
+        counts shouldBe probe.seriesModeRows.associateWith { 1 }
     }
 
     @Test
@@ -119,13 +125,13 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
 /** One reader's page set for the sheet, built from preferences in memory. */
 interface SheetProbe {
     val tabCount: Int
-    val seriesModeRow: String
+    val seriesModeRows: List<String>
     fun pages(): ReaderSettingsPages
 }
 
 class MangaSheetProbe : SheetProbe {
     override val tabCount = 4
-    override val seriesModeRow = "Reading mode"
+    override val seriesModeRows = listOf("Reading mode")
     override fun toString() = "manga"
 
     override fun pages(): ReaderSettingsPages {
@@ -152,7 +158,7 @@ class MangaSheetProbe : SheetProbe {
 
 class NovelSheetProbe : SheetProbe {
     override val tabCount = 5
-    override val seriesModeRow = "Chapter display"
+    override val seriesModeRows = listOf("Reading mode", "Chapter display")
     override fun toString() = "novels"
 
     override fun pages(): ReaderSettingsPages {
@@ -189,4 +195,10 @@ private object FixedTextSettings : ReaderTextSettings {
     override val renderingMode: Flow<NovelRenderingMode?> = flowOf(null)
 
     override fun setRenderingMode(mode: NovelRenderingMode?) = Unit
+
+    override val pageLayout: Flow<NovelPageLayout?> = flowOf(null)
+
+    override val effectivePageLayout = MutableStateFlow(NovelPageLayout.SCROLL)
+
+    override fun setPageLayout(layout: NovelPageLayout?) = Unit
 }

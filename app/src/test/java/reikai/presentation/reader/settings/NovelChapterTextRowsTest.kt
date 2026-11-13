@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRenderingMode
 import reikai.presentation.ComposeTestHost
@@ -20,8 +21,8 @@ import reikai.presentation.reader.ReaderTextState
 import reikai.presentation.recents.EmittingPreferenceStore
 
 /**
- * The sheet's Chapter text rows follow the renderer the open novel uses, which its own choice sets over
- * the default. Novel-only: a manga page has no renderer to choose.
+ * The sheet's Chapter text rows follow the renderer the open novel uses, and its paged-only rows the reading
+ * mode, which the novel's own choice sets over the default. Novel-only: a manga page has no renderer to choose.
  */
 @RunWith(RobolectricTestRunner::class)
 class NovelChapterTextRowsTest {
@@ -31,13 +32,27 @@ class NovelChapterTextRowsTest {
 
     @Test
     fun `a novel kept on the WebView renderer offers its chapter styling over a native default`() {
+        showSheet(OwnMode(NovelRenderingMode.WEBVIEW))
+        compose.onNodeWithContentDescription("Appearance").performClick()
+
+        compose.onNodeWithText("Use the chapter's own styling").assertExists()
+    }
+
+    @Test
+    fun `a novel kept paged offers the paged rows over a scrolling default`() {
+        showSheet(OwnMode(NovelRenderingMode.NATIVE, NovelPageLayout.PAGED_LTR))
+
+        compose.onNodeWithText("Dual page view").assertExists()
+    }
+
+    private fun showSheet(textSettings: ReaderTextSettings) {
         val preferences = NovelPreferences(EmittingPreferenceStore())
         compose.setContent {
             ComposeTestHost {
                 ReaderSettingsSheet(
                     pages = ReaderSettingsPages.Novel(
                         preferences = preferences,
-                        textSettings = OwnMode(NovelRenderingMode.WEBVIEW),
+                        textSettings = textSettings,
                         filters = filters(preferences),
                         orientation = flowOf(0),
                         onChangeOrientation = {},
@@ -52,9 +67,6 @@ class NovelChapterTextRowsTest {
                 )
             }
         }
-        compose.onNodeWithContentDescription("Appearance").performClick()
-
-        compose.onNodeWithText("Use the chapter's own styling").assertExists()
     }
 
     private fun filters(preferences: NovelPreferences) = ReaderDisplayFilters(
@@ -68,7 +80,10 @@ class NovelChapterTextRowsTest {
         contrastPercent = preferences.readerContrast(),
     )
 
-    private class OwnMode(mode: NovelRenderingMode) : ReaderTextSettings {
+    private class OwnMode(
+        mode: NovelRenderingMode,
+        layout: NovelPageLayout = NovelPageLayout.SCROLL,
+    ) : ReaderTextSettings {
         override val state = MutableStateFlow(
             ReaderTextState(
                 fontSize = 18,
@@ -84,5 +99,11 @@ class NovelChapterTextRowsTest {
         override val renderingMode: Flow<NovelRenderingMode?> = flowOf(mode)
 
         override fun setRenderingMode(mode: NovelRenderingMode?) = Unit
+
+        override val pageLayout: Flow<NovelPageLayout?> = flowOf(layout)
+
+        override val effectivePageLayout = MutableStateFlow(layout)
+
+        override fun setPageLayout(layout: NovelPageLayout?) = Unit
     }
 }

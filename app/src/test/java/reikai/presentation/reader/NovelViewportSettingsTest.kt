@@ -4,6 +4,7 @@ import io.kotest.matchers.shouldBe
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.CsvSource
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.recents.EmittingPreferenceStore
 
@@ -27,5 +28,15 @@ class NovelViewportSettingsTest {
             .copy(textSelectable = selectable)
 
         settings.selectsText(spread) shouldBe selects
+    }
+
+    @Test
+    fun `a novel's own reading mode builds the viewport over the setting`() {
+        val preferences = NovelPreferences(EmittingPreferenceStore())
+        preferences.readerPageLayout().set(NovelPageLayout.SCROLL)
+
+        val settings = NovelViewportSettings.read(preferences, ownLayout = NovelPageLayout.PAGED_RTL)
+
+        settings.pageLayout shouldBe NovelPageLayout.PAGED_RTL
     }
 }

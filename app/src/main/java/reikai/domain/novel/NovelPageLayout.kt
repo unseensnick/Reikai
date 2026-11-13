@@ -19,4 +19,23 @@ enum class NovelPageLayout(val titleRes: StringResource) {
 
     /** Paged always shows the page slider, as manga's pager does, so the rail is a scrolling choice. */
     val offersRail: Boolean get() = !isPaged
+
+    companion object {
+        /** A novel's viewer-flag bits for its own layout, above the rendering mode's; none set follows the setting. */
+        const val MASK = 0x00000300L
+
+        fun ofFlags(flags: Long): NovelPageLayout? = when (flags and MASK) {
+            0x100L -> SCROLL
+            0x200L -> PAGED_LTR
+            0x300L -> PAGED_RTL
+            else -> null
+        }
+
+        fun flagOf(layout: NovelPageLayout?): Long = when (layout) {
+            SCROLL -> 0x100L
+            PAGED_LTR -> 0x200L
+            PAGED_RTL -> 0x300L
+            null -> 0L
+        }
+    }
 }

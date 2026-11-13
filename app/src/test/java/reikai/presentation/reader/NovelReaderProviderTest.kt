@@ -63,7 +63,7 @@ class NovelReaderProviderTest {
         harness.updateNovel(novel) { viewerFlags = NovelRenderingMode.flagOf(NovelRenderingMode.WEBVIEW) }
         val model = harness.open(novel, harness.chapter(novel, 1.0).id)
 
-        model.renderingModeLoaded.await()
+        model.viewerFlagsLoaded.await()
 
         model.renderingMode.value shouldBe NovelRenderingMode.WEBVIEW
     }
@@ -116,6 +116,38 @@ class NovelReaderProviderTest {
         runCurrent()
 
         emissions.last().layout shouldBe NovelTapLayout.RIGHT_AND_LEFT
+    }
+
+    /** Kept paged while every other novel scrolls, as the For this series row sets it. */
+    @Test
+    fun `a novel kept paged opens with the pager's tap layout over a scrolling default`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_LTR) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val emissions = mutableListOf<NovelTapZones>()
+        backgroundScope.launch { provider.tapZoneChanges.collect { emissions += it } }
+        runCurrent()
+
+        emissions.last().layout shouldBe NovelTapLayout.RIGHT_AND_LEFT
+    }
+
+    /** The rail is a scrolling choice, so a novel kept paged gets the page slider over a scrolling default. */
+    @Test
+    fun `a novel kept paged gets the page slider over a scrolling default`() = readerTest { harness ->
+        harness.novelPreferences.readerUseRail().set(true)
+        harness.novelPreferences.readerShowNavigator().set(true)
+        val novel = harness.novel(harness.source("src"))
+        harness.updateNovel(novel) { viewerFlags = NovelPageLayout.flagOf(NovelPageLayout.PAGED_LTR) }
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        val provider = NovelReaderProvider(model, harness.novelPreferences, mockk(), mockk(), EnglishChapterTitleWords)
+        val states = mutableListOf<ReaderNavigatorState>()
+        backgroundScope.launch { provider.navigator.collect { states += it } }
+        runCurrent()
+
+        states.last().shape shouldBe ReaderNavigatorShape.Slider
     }
 
     @Test
