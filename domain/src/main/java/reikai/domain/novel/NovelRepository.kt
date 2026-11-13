@@ -21,6 +21,10 @@ interface NovelRepository {
     /** Clears every novel's reader settings; false when the write failed. Called by `ResetEntryViewerFlags`. */
     suspend fun resetViewerFlags(): Boolean
 
+    /** Writes [flag] into the [mask] bits of one novel's viewer flags in one statement, leaving the rest; false
+     *  when the write failed. */
+    suspend fun setViewerFlags(id: Long, flag: Long, mask: Long): Boolean
+
     /** Non-favorite novels with read progress (read chapters or a mid-chapter position), for the
      *  read-entries backup option. Twin of
      *  [tachiyomi.domain.manga.repository.MangaRepository.getReadMangaNotInLibrary], pinned by

@@ -1,5 +1,6 @@
 package reikai.domain.reader
 
+import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
@@ -10,11 +11,12 @@ import io.mockk.slot
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
-import reikai.domain.novel.NovelRepository
+import reikai.data.novel.NovelRepositoryImpl
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.readerOrientation
+import tachiyomi.data.Database
+import tachiyomi.data.DatabaseBindings
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.manga.repository.MangaRepository
@@ -68,13 +70,15 @@ class ViewerOrientationConformanceTest {
             },
             object : Half {
                 override suspend fun setOrientation(stored: Long, orientation: ReaderOrientation): Pair<Long, Long> {
-                    val written = slot<NovelUpdate>()
-                    val repository = mockk<NovelRepository> {
-                        coEvery { getById(1L) } returns Novel.create().copy(id = 1L, viewerFlags = stored)
-                        coEvery { update(capture(written)) } returns true
-                    }
-                    SetNovelViewerFlags(repository).awaitSetOrientation(1L, orientation.flagValue.toLong())
-                    val flags = written.captured.viewerFlags!!
+                    // A real database, since the novel write is one masked update there.
+                    val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+                    Database.Schema.create(driver).await()
+                    val repository = NovelRepositoryImpl(DatabaseBindings.providesDatabase(driver))
+                    val novel = Novel.create().copy(source = "src", url = "novel", viewerFlags = stored)
+                    val id = repository.insert(novel)!!
+                    SetNovelViewerFlags(repository).awaitSetOrientation(id, orientation.flagValue.toLong())
+                    val flags = repository.getById(id)!!.viewerFlags
+                    driver.close()
                     return Novel.create().copy(viewerFlags = flags).readerOrientation to (flags and NOT_ORIENTATION)
                 }
 

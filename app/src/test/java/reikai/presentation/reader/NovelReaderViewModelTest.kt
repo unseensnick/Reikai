@@ -21,6 +21,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.domain.chapter.hiddenChapterKey
+import reikai.domain.novel.NovelPageLayout
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
@@ -58,6 +59,33 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.window.value.chapters.map { it.chapterId } shouldBe listOf(opened.id, next.id)
+    }
+
+    /** A novel with no reading mode of its own reads in whatever the setting is now, not what it was at open. */
+    @Test
+    fun `a novel on Default follows the reading-mode setting as it changes`() = readerTest { harness ->
+        harness.novelPreferences.readerPageLayout().set(NovelPageLayout.SCROLL)
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+
+        harness.novelPreferences.readerPageLayout().set(NovelPageLayout.PAGED_RTL)
+        advanceUntilIdle()
+
+        model.effectivePageLayout.value shouldBe NovelPageLayout.PAGED_RTL
+    }
+
+    @Test
+    fun `a novel's own reading mode wins over a changing setting`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+        model.setPageLayout(NovelPageLayout.PAGED_LTR)
+
+        harness.novelPreferences.readerPageLayout().set(NovelPageLayout.PAGED_RTL)
+        advanceUntilIdle()
+
+        model.effectivePageLayout.value shouldBe NovelPageLayout.PAGED_LTR
     }
 
     /** A source-scoped session lists one member's chapters only, and the group is still a merged one. */

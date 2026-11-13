@@ -54,6 +54,15 @@ class NovelRepositoryImpl(
             false
         }
 
+    override suspend fun setViewerFlags(id: Long, flag: Long, mask: Long): Boolean =
+        try {
+            database.novelsQueries.setViewerFlagBits(mask = mask, flag = flag, id = id)
+            true
+        } catch (e: Exception) {
+            logcat(LogPriority.ERROR, e) { "Failed to set viewer flags of novel id=$id" }
+            false
+        }
+
     override suspend fun getReadNovelsNotInLibrary(): List<Novel> =
         database.novelsQueries.getReadNovelsNotInLibrary(::mapNovel).awaitAsList()
 
