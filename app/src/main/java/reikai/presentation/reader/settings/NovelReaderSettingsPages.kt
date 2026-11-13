@@ -105,7 +105,8 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     HeadingItem(MR.strings.pref_category_for_this_series)
     val orientation by pages.orientation.collectAsState(null)
     EntryRotationRow(orientation) { pages.onChangeOrientation(it.flagValue) }
-    // The renderer this novel keeps, over the setting below, for a book that only reads well in one.
+    // The renderer this novel keeps, for a book that only reads well in one. Default follows Settings ->
+    // Novel reader, as manga's reading mode does, so the sheet offers no second row for the default.
     val ownMode by pages.textSettings.renderingMode.collectAsState(null)
     SettingsChipRow(MR.strings.pref_novel_rendering_mode) {
         FilterChip(
@@ -123,17 +124,6 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
     }
 
     HeadingItem(MR.strings.pref_category_text)
-    val renderingModePref = preferences.readerRenderingMode()
-    val renderingMode by renderingModePref.collectAsState()
-    SettingsChipRow(MR.strings.pref_novel_rendering_mode) {
-        NovelRenderingMode.entries.forEach {
-            FilterChip(
-                selected = renderingMode == it,
-                onClick = { renderingModePref.set(it) },
-                label = { Text(stringResource(it.titleRes)) },
-            )
-        }
-    }
     val pageLayoutPref = preferences.readerPageLayout()
     val pageLayout by pageLayoutPref.collectAsState()
     SettingsChipRow(MR.strings.pref_category_reading_mode) {

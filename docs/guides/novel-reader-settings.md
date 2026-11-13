@@ -15,7 +15,7 @@ Most of these can also be changed while reading: open a chapter, tap the middle 
 ## Reading
 
 ### Chapter display <Badge type="info" text="Native text" />
-How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. Changing it from the reader's settings sheet rebuilds the reader in place, at the same position.
+How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. A novel can keep its own choice from the reader's settings sheet, under **For this series**, where **Default** follows this setting. Changing it there rebuilds the reader in place, at the same position.
 
 ### Reading mode <Badge type="info" text="Scrolling" />
 **Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. Changing it from the reader's settings sheet rebuilds the reader at the same place.

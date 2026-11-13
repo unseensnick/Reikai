@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -67,6 +68,14 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
         compose.onNodeWithText("For this series").assertExists()
     }
 
+    /** The series' own choice, whose Default follows the reader's settings, so the default gets no second row. */
+    @Test
+    fun `the reading tab shows the series' mode once`() {
+        showSheet()
+
+        compose.onAllNodesWithText(probe.seriesModeRow, useUnmergedTree = true).assertCountEquals(1)
+    }
+
     @Test
     fun `the appearance tab shows the page rows`() {
         showSheet()
@@ -110,11 +119,13 @@ class ReaderSettingsSheetTest(private val probe: SheetProbe) {
 /** One reader's page set for the sheet, built from preferences in memory. */
 interface SheetProbe {
     val tabCount: Int
+    val seriesModeRow: String
     fun pages(): ReaderSettingsPages
 }
 
 class MangaSheetProbe : SheetProbe {
     override val tabCount = 4
+    override val seriesModeRow = "Reading mode"
     override fun toString() = "manga"
 
     override fun pages(): ReaderSettingsPages {
@@ -141,6 +152,7 @@ class MangaSheetProbe : SheetProbe {
 
 class NovelSheetProbe : SheetProbe {
     override val tabCount = 5
+    override val seriesModeRow = "Chapter display"
     override fun toString() = "novels"
 
     override fun pages(): ReaderSettingsPages {

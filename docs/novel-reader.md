@@ -41,7 +41,7 @@ Tap the middle of the screen to show the menu, and the gear icon in it to change
 * **WebView** shows the chapter as a web page. It keeps more of the chapter's own formatting, and it is the only mode where the chapter's own styling, scripts and fonts, and your own CSS and JavaScript snippets, can apply.
 
 If a chapter looks wrong in one mode, try the other.
-Switching from the reader's settings sheet rebuilds the reader at the same place in the chapter.
+A novel can keep its own mode from the reader's settings sheet, under **For this series**, where **Default** follows the setting above. Switching there rebuilds the reader at the same place in the chapter.
 
 ## Read a page at a time
 
