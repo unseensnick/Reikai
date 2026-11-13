@@ -6,9 +6,9 @@ import ca.mpreg.webgpuviewer.viewer.ComposePageSize
 internal const val STRIP_CAPTURE_SCALE = 2
 
 /**
- * The size a long strip's loading or error page is captured at. The viewer keeps one capture buffer per
- * Compose page in reach, up to 27 pages zoomed out, and a window each ran the heap out; a failed page keeps
- * its buffer until Retry. The strip stretches the page to its width, so the slot keeps its shape.
+ * The size a long strip's loading or error page is captured at. Up to 27 such pages are in reach zoomed out,
+ * each keeping a snapshot texture of this size, and the library's capture budget fits four times as many
+ * captures at once at half size. The strip stretches the page to its width, so the slot keeps its shape.
  */
 internal fun stripCaptureSize(viewerWidth: Int, viewerHeight: Int, heightFraction: Float): ComposePageSize.Of =
     ComposePageSize.Of(

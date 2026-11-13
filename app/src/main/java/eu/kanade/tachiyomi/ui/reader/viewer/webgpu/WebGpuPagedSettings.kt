@@ -8,6 +8,7 @@ import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 data class WebGpuPagedSettings(
     val page: Page,
     val common: WebGpuSettings,
+    val spreadGap: Int, // RK: outside [Page], since the viewer re-lays out a spread for it in place
 ) {
 
     /**

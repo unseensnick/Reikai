@@ -1101,6 +1101,8 @@
     <string name="dual_page_view_wide">When wide</string>
     <string name="pref_continuous_minwidth">Min width</string>
     <string name="pref_continuous_gap">Gap</string>
+    <!-- RK: the space between the two pages of a spread, manga and novels -->
+    <string name="pref_spread_gap">Space between pages</string>
     <string name="pref_image_filters">Image filters</string>
     <string name="pref_tile_filters">Tile filters</string>
     <string name="pref_upscaler">Upscaler</string>

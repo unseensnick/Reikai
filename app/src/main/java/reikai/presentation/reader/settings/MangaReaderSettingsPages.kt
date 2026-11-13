@@ -177,7 +177,9 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                     rotate = preferences.dualPageRotateToFitWebtoon,
                     rotateInvert = preferences.dualPageRotateToFitInvertWebtoon,
                 )
-            } else if (!isWebGpuDualPage(webGpu, preferences)) {
+            } else if (isWebGpuDualPage(webGpu, preferences)) {
+                SpreadGapSlider(preferences.spreadGap)
+            } else {
                 ImageScaleTypeRow(preferences, ReaderPreferences.ImageScaleTypeWebGpuViewer)
                 ZoomStartRow(preferences)
                 CheckboxItem(label = stringResource(MR.strings.pref_crop_borders), pref = preferences.cropBorders)

@@ -10,8 +10,11 @@
 # restores that cache rather than re-resolving, so the failure only appears on a fresh clone. This
 # asks the repository directly instead.
 #
+# Reikai's fork of the WebGPU viewer is the same risk from another host: settings.gradle.kts resolves
+# it from the fork's GitHub releases, and a deleted release or tag takes the artifact with it.
+#
 # Maven Central and Google artifacts are immutable once published, so only the JitPack coordinates
-# are checked. Usage: bash scripts/check-external-artifacts.sh
+# and the fork are checked. Usage: bash scripts/check-external-artifacts.sh
 
 set -euo pipefail
 
@@ -33,7 +36,7 @@ for catalog in "${CATALOGS[@]}"; do
             VERSIONS["${BASH_REMATCH[1]}"]="${BASH_REMATCH[2]}"
         elif [ "$section" = libraries ] && [[ "$line" =~ module[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
             module="${BASH_REMATCH[1]}"
-            case "$module" in com.github.*) ;; *) continue ;; esac
+            case "$module" in com.github.*|ca.mpreg:webgpuviewer) ;; *) continue ;; esac
             if [[ "$line" =~ version\.ref[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
                 version="${VERSIONS[${BASH_REMATCH[1]}]:-}"
             elif [[ "$line" =~ version[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
@@ -65,9 +68,12 @@ for coord in "${COORDS[@]}"; do
     rest="${coord#*:}"
     artifact="${rest%%:*}"
     version="${rest#*:}"
-    path="${group//./\/}/$artifact/$version/$artifact-$version.pom"
-    status=$(curl -s -o /dev/null -w '%{http_code}' -m 30 --retry 2 --retry-delay 3 \
-        "https://jitpack.io/$path" || echo 000)
+    if [ "$group:$artifact" = ca.mpreg:webgpuviewer ]; then
+        url="https://github.com/unseensnick/webgpuviewer/releases/download/v$version/ivy-$version.xml"
+    else
+        url="https://jitpack.io/${group//./\/}/$artifact/$version/$artifact-$version.pom"
+    fi
+    status=$(curl -sL -o /dev/null -w '%{http_code}' -m 30 --retry 2 --retry-delay 3 "$url" || echo 000)
     case "$status" in
         200) printf '  ok            %s\n' "$coord" ;;
         404|410)
@@ -100,4 +106,4 @@ if [ "${#inconclusive[@]}" -gt 0 ]; then
     exit 0
 fi
 
-echo "checked ${#COORDS[@]} JitPack dependencies, all still resolve."
+echo "checked ${#COORDS[@]} JitPack and fork dependencies, all still resolve."

@@ -42,6 +42,15 @@ class MangaReaderSettingsRowsTest {
     }
 
     @Test
+    fun `a paged novel offers the spread rows while it may show two pages`() {
+        listOf(
+            dualPageRowsShown(canSpread = true, DualPageView.WIDE),
+            dualPageRowsShown(canSpread = true, DualPageView.NEVER),
+            dualPageRowsShown(canSpread = false, DualPageView.ALWAYS),
+        ) shouldBe listOf(true, false, false)
+    }
+
+    @Test
     fun `crop instead of zoom shows with the renderer and crop borders on`() {
         rows(true).cropInsteadOfZoom(cropBorders = true) shouldBe true
     }

@@ -1,13 +1,22 @@
 package reikai.presentation.reader.settings
 
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
 import tachiyomi.i18n.MR
+import tachiyomi.presentation.core.components.BaseSliderItem
+import tachiyomi.presentation.core.components.SettingsItemsPaddings
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
+import java.text.NumberFormat
 import tachiyomi.core.common.preference.Preference as PreferenceData
 
 /**
@@ -27,8 +36,8 @@ internal class MangaReaderSettingsRows(
     /** A spread skips crop borders, zoom start and landscape zoom, and splits or turns no page. */
     val singlePageRows = !(highQualityRenderer && dualPageView == ReaderPreferences.DualPageView.ALWAYS)
 
-    /** The dual-page variants of transition animation and cutout mode. */
-    val dualPageRows = highQualityRenderer && dualPageView != ReaderPreferences.DualPageView.NEVER
+    /** The dual-page variants of transition animation and cutout mode, and the space between pages. */
+    val dualPageRows = dualPageRowsShown(highQualityRenderer, dualPageView)
 
     /** That renderer's alternative to zooming into the borders the paged Crop borders measures. */
     fun cropInsteadOfZoom(cropBorders: Boolean) = rendererRows && cropBorders && singlePageRows
@@ -42,6 +51,53 @@ internal val dualPageTransitionAnimations = ReaderPreferences.TransitionAnimatio
 /** [offered] scale types keyed by the stored value, which counts from 1 through the full list. */
 internal fun scaleTypeValues(offered: List<StringResource>): Map<Int, StringResource> =
     offered.associateBy { ReaderPreferences.ImageScaleType.indexOf(it) + 1 }
+
+/**
+ * Whether Settings offers the rows only a spread reads: a reader that [canSpread] (manga's high quality renderer,
+ * a paged novel) with Dual page view not Never. Settings has no screen to ask, so When wide counts.
+ */
+internal fun dualPageRowsShown(canSpread: Boolean, dualPageView: ReaderPreferences.DualPageView): Boolean =
+    canSpread && dualPageView != ReaderPreferences.DualPageView.NEVER
+
+/** The space between a spread's two pages, in percent of a page's width, for manga and novels alike. */
+internal val spreadGapRange = 0..20
+
+/** Space between pages in Settings > Manga reader and Settings > Novel reader, over each type's own setting. */
+@Composable
+internal fun spreadGapRow(preference: PreferenceData<Int>, visible: Boolean) =
+    Preference.PreferenceItem.SliderPreference(
+        preference = preference,
+        title = stringResource(MR.strings.pref_spread_gap),
+        valueText = { remember { NumberFormat.getPercentInstance() }.format(it / 100f) },
+        valueRange = spreadGapRange,
+        visible = visible,
+    )
+
+/** Space between pages in a reader sheet. Written as a drag lets go: each value lays the open spread out again. */
+@Composable
+internal fun SpreadGapSlider(preference: PreferenceData<Int>) {
+    val stored by preference.collectAsState()
+    var dragged by remember { mutableStateOf<Int?>(null) }
+    val numberFormat = remember { NumberFormat.getPercentInstance() }
+    val value = dragged ?: stored
+    BaseSliderItem(
+        value = value,
+        valueRange = spreadGapRange,
+        title = stringResource(MR.strings.pref_spread_gap),
+        valueString = numberFormat.format(value / 100f),
+        onChange = { dragged = it },
+        titleStyle = MaterialTheme.typography.bodyMedium,
+        pillColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+        modifier = Modifier.padding(
+            horizontal = SettingsItemsPaddings.Horizontal,
+            vertical = SettingsItemsPaddings.Vertical,
+        ),
+        onChangeFinished = {
+            dragged?.let(preference::set)
+            dragged = null
+        },
+    )
+}
 
 /** Dual page view's row in Settings > Manga reader and Settings > Novel reader, over each type's own setting. */
 @Composable
@@ -87,6 +143,7 @@ internal fun webGpuViewerGroup(
                 title = stringResource(MR.strings.pref_cutout_mode_dual),
                 visible = rows.dualPageRows,
             ),
+            spreadGapRow(preferences.spreadGap, visible = rows.dualPageRows),
             Preference.PreferenceItem.SwitchPreference(
                 preference = preferences.disableDoubleTapGestures,
                 title = stringResource(MR.strings.pref_disable_double_tap_gestures),

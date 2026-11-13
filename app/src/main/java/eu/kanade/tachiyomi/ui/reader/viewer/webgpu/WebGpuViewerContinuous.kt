@@ -2,8 +2,6 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webgpu
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
 import ca.mpreg.webgpuviewer.viewer.ImagePage
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuous
 import ca.mpreg.webgpuviewer.viewer.ImageViewerContinuousState
@@ -12,9 +10,9 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.presentation.reader.StripReadThrough
 import reikai.presentation.reader.holdsStripAutoScroll
 import reikai.presentation.reader.scrollHidesMenu
-import reikai.presentation.reader.stripPageAt
 import kotlin.math.max
 
 class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = false) :
@@ -40,17 +38,11 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         state.backgroundColor = readerBackgroundColor()
 
         state.onViewport = { readThrough ->
-            // RK: see autoScrollBy
-            if (autoScrollReporting) {
-                autoScrollReporting = false
-                state.isPanning = false
-            }
-
-            val pageChanged = readThrough !== lastReadThrough
-            if (pageChanged) {
-                lastReadThrough = readThrough
-                readThrough?.let { select(it) }
-            }
+            // RK --> what is read, which waits for the strip to move after an open or a jump (StripReadThrough)
+            val moved = state.isPanning || state.isFlinging || state.isScaleAnimating || stepped
+            stepped = false
+            reading.report(readThrough, fallback = state.getPage(-1), moved = moved)?.let { select(it) }
+            // RK <--
 
             // RK: the pages auto-scroll's smooth step is held by, read here since only the renderer thread walks them
             autoScrollAhead = (0..state.pagesBelow + 1).mapNotNull { i ->
@@ -95,22 +87,16 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     @Volatile
     private var autoScrollAhead: List<ReaderPage> = emptyList()
 
-    // The library reports onViewport only for a fling or a pan, and a step is neither, so the hold list,
-    // reading progress and the hide threshold would never move. stepWithReport asks for the report of the
-    // frame its step draws; auto-scroll and an unanimated tap or key step both go through it.
-    @Volatile
-    private var autoScrollReporting = false
-
     fun autoScrollBy(px: Int): Boolean {
         if (holdsStripAutoScroll(autoScrollAhead.map { it.status })) return false
-        stepWithReport(px.toFloat())
+        step(px.toFloat())
         return true
     }
 
-    private fun stepWithReport(px: Float) {
+    /** An unanimated step; the frame it draws reports the viewport like any scroll. */
+    private fun step(px: Float) {
+        stepped = true
         state.scrollBy(px)
-        autoScrollReporting = true
-        state.isPanning = true
         state.invalidate()
     }
     // RK <--
@@ -119,8 +105,11 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     @Volatile
     private var wasAtEdge: Boolean? = null
 
+    private val reading = StripReadThrough<ImagePage>() // RK
+
+    // RK: a step since the last report, which moves the strip as a gesture does
     @Volatile
-    private var lastReadThrough: ImagePage? = null
+    private var stepped = false
 
     /**
      * Mark [imagePage] read - its bottom has cleared the viewport, which is later than
@@ -142,24 +131,9 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         return (viewerPageFor(imagePage) as? ViewerReaderPage)?.page
     }
 
-    // RK --> the page under a press, since a strip shows several; offset by the renderer as the strip draws
-    override fun pageAt(offset: Offset): ViewerPage? {
-        val height = state.height.toFloat()
-        val index = stripPageAt(
-            pressY = offset.y,
-            viewerHeight = height,
-            scale = state.scale,
-            scrollY = state.scrollY - WebGpuRenderer.offsetY * height,
-            gap = state.pageGap * height,
-            maxPages = ImageViewerContinuousState.MAX_VISIBLE_PAGES,
-        ) { i -> state.getPage(i)?.let(state::getPageHeight) } ?: return null
-        return state.getPage(index)?.let(::viewerPageFor)
-    }
-    // RK <--
-
     override fun destroy() {
         state.onViewport = null
-        lastReadThrough = null
+        reading.land() // RK
         wasAtEdge = null
         super.destroy()
     }
@@ -167,7 +141,7 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     private fun scrollByHalfPage(direction: Int) {
         // RK --> Page transitions off scrolls at once, as the other long strip does
         if (!general.usePageTransitions) {
-            stepWithReport(direction * state.height / 2f)
+            step(direction * state.height / 2f)
             return
         }
         // RK <--
@@ -180,11 +154,16 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
 
     override fun moveToPage(page: ReaderPage) {
         super.moveToPage(page)
-        wasAtEdge = null
-        lastReadThrough = null
-        lastDocumentY = null // RK
+        landed() // RK
         // Also for a jump to the page already showing, which turns nothing to slide in.
         state.resetScroll()
+    }
+
+    // RK: an open or a jump, which the next reports see as where the strip landed rather than a scroll
+    override fun landed() {
+        reading.land()
+        wasAtEdge = null
+        lastDocumentY = null
     }
 
     override fun animateTurn(direction: Int, fromSpread: ImagePage) {

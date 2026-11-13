@@ -12,13 +12,14 @@ import android.widget.FrameLayout
 import androidx.annotation.ColorInt
 import reikai.presentation.reader.text.NovelChapterSeamView
 import reikai.presentation.reader.text.NovelSeam
+import kotlin.math.roundToInt
 
 /**
  * One reading column shown two pages at a time ([NovelSpreads]). The column is laid out half the spread wide and
  * [heightFactor] times its height, then drawn twice: the left page as it stands and the right page shifted up by
  * the gap between the two pages' tops, so neither renderer learns a second column. The masks are drawn here per
  * page, and a seam's page draws the transition card across the whole spread instead of the column.
- * The reader's side margins sit on the outside of the spread; each page keeps [INNER_MARGIN_DP] beside the gutter.
+ * Side margins sit outside the spread, and each page keeps [INNER_MARGIN_DP] beside the gap ([SpreadColumns]).
  * Right to left, the first page of a spread is on the right, as manga's dual page view puts it.
  */
 class NovelSpreadHost(
@@ -37,12 +38,21 @@ class NovelSpreadHost(
         private set
     private var secondHeight = 0f
 
+    /**
+     * Run after this view takes a new size, the first included: a renderer measuring before layout could only
+     * guess the column's width from the display.
+     */
+    var onResized: (() -> Unit)? = null
+
     /** Until a page is placed nothing is masked, so the column's first layout shows as it stands. */
     private var placed = false
 
-    private val gutter = (INNER_MARGIN_DP * 2 * resources.displayMetrics.density).toInt()
+    private val innerMargin = (INNER_MARGIN_DP * resources.displayMetrics.density).toInt()
     private var outerLeft = 0
     private var outerRight = 0
+
+    /** The spread gap as a share of a page's text width. */
+    private var gapFraction = 0f
     private val paint = Paint()
     private var card: NovelChapterSeamView? = null
 
@@ -72,9 +82,11 @@ class NovelSpreadHost(
         val density = resources.displayMetrics.density
         val left = (settings.margins.left * density).toInt()
         val right = (settings.margins.right * density).toInt()
-        if (left != outerLeft || right != outerRight) {
+        val gap = settings.spreadGap / 100f
+        if (left != outerLeft || right != outerRight || gap != gapFraction) {
             outerLeft = left
             outerRight = right
+            gapFraction = gap
             requestLayout()
         }
         return settings.copy(margins = settings.margins.copy(left = INNER_MARGIN_DP, right = INNER_MARGIN_DP))
@@ -135,12 +147,15 @@ class NovelSpreadHost(
         requestLayout()
     }
 
+    /** Where a spread [w] x [h] draws its column; the display's height stands in before this view has one. */
+    private fun columns(w: Int) = SpreadColumns.of(w, outerLeft, outerRight, innerMargin, gapFraction)
+
     /** How wide the column is laid out in a spread [w] wide, which is what the column measures before it is. */
-    fun columnWidth(w: Int) = ((w - outerLeft - outerRight - gutter) / 2 + gutter).coerceAtLeast(1)
+    fun columnWidth(w: Int) = columns(w).width
 
     /** Where the column is drawn for the left and the right half of the spread. */
-    private val leftX: Int get() = outerLeft - gutter / 2
-    private val rightX: Int get() = width - outerRight + gutter / 2 - columnWidth(width)
+    private val leftX: Int get() = columns(width).leftX
+    private val rightX: Int get() = columns(width).rightX
     private val firstX: Int get() = if (rtl) rightX else leftX
     private val secondX: Int get() = if (rtl) leftX else rightX
 
@@ -153,9 +168,15 @@ class NovelSpreadHost(
             MeasureSpec.makeMeasureSpec(h, MeasureSpec.AT_MOST),
         )
         column.measure(
-            MeasureSpec.makeMeasureSpec(columnWidth(w), MeasureSpec.EXACTLY),
+            MeasureSpec.makeMeasureSpec(columns(w).width, MeasureSpec.EXACTLY),
             MeasureSpec.makeMeasureSpec(h * heightFactor, MeasureSpec.EXACTLY),
         )
+    }
+
+    override fun onSizeChanged(w: Int, h: Int, oldw: Int, oldh: Int) {
+        super.onSizeChanged(w, h, oldw, oldh)
+        // Posted: the renderer redraws from here, which must not run inside this layout pass.
+        (handler ?: Handler(Looper.getMainLooper())).post { onResized?.invoke() }
     }
 
     override fun onLayout(changed: Boolean, l: Int, t: Int, r: Int, b: Int) {
@@ -167,15 +188,18 @@ class NovelSpreadHost(
     override fun dispatchDraw(canvas: Canvas) {
         val w = width.toFloat()
         val h = height.toFloat()
-        val mid = w / 2
+        // Each page draws within its own column, so the gap between the two shows the background.
+        val columns = columns(width)
+        val leftEnd = (columns.leftX + columns.width).toFloat()
+        val rightStart = columns.rightX.toFloat()
         paint.color = background()
         canvas.drawRect(0f, 0f, w, h, paint)
         card?.takeIf { it.visibility == VISIBLE }?.let {
             drawChild(canvas, it, drawingTime)
             return
         }
-        val (firstLeft, firstRight) = if (rtl) mid to w else 0f to mid
-        val (secondLeft, secondRight) = if (rtl) 0f to mid else mid to w
+        val (firstLeft, firstRight) = if (rtl) rightStart to w else 0f to leftEnd
+        val (secondLeft, secondRight) = if (rtl) 0f to leftEnd else rightStart to w
         drawColumn(canvas, firstLeft, firstRight, firstX, 0f)
         val s = shift
         if (s != null || !placed) drawColumn(canvas, secondLeft, secondRight, secondX, s ?: 0f)
@@ -264,7 +288,7 @@ class NovelSpreadHost(
     }
 
     companion object {
-        /** Each page's margin beside the gutter, so the gap between the two pages' text is twice this. */
+        /** Each page's margin beside the gutter, so with no spread gap the two pages' text is twice this apart. */
         const val INNER_MARGIN_DP = 16
 
         /** Over 92 turns on a Fold, four frames after the paint never showed a page from before the move. */
@@ -272,5 +296,25 @@ class NovelSpreadHost(
 
         /** A move whose paint never comes is uncovered after this. */
         private const val HOLD_CAP_MS = 1000L
+    }
+}
+
+/**
+ * Where a spread [SpreadColumns.of] draws its one column: [width] wide, at [leftX] for the left page and [rightX]
+ * for the right. Each page's text keeps an inner margin beside the gap, so the text edges sit that far inside.
+ */
+internal data class SpreadColumns(val width: Int, val leftX: Int, val rightX: Int) {
+    companion object {
+        /**
+         * In a spread [w] wide with the reader's side margins [outerLeft] and [outerRight] on its outside: the two
+         * pages' text sits [gapFraction] of one page's text width apart beyond both [innerMargin]s, and flush with
+         * the outer margins. The text width solves w = 2 text + gap text + both inner margins each + outer margins.
+         */
+        fun of(w: Int, outerLeft: Int, outerRight: Int, innerMargin: Int, gapFraction: Float): SpreadColumns {
+            val text = (w - outerLeft - outerRight - 2 * innerMargin) / (2f + gapFraction)
+            val gap = 2 * innerMargin + (gapFraction * text).roundToInt()
+            val width = ((w - outerLeft - outerRight - gap) / 2 + 2 * innerMargin).coerceAtLeast(1)
+            return SpreadColumns(width, outerLeft - innerMargin, w - outerRight + innerMargin - width)
+        }
     }
 }

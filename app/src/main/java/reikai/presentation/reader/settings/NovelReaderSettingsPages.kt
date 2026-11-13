@@ -35,6 +35,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -71,6 +72,7 @@ import reikai.presentation.reader.readerFontSummary
 import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
+import reikai.presentation.reader.showsTwoPages
 import reikai.presentation.reader.tenthsLabel
 import reikai.util.scaled
 import tachiyomi.core.common.preference.Preference
@@ -153,6 +155,10 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
                     label = { Text(stringResource(it.titleRes)) },
                 )
             }
+        }
+        val configuration = LocalConfiguration.current
+        if (dualPageView.showsTwoPages(configuration.screenWidthDp, configuration.screenHeightDp)) {
+            SpreadGapSlider(preferences.readerSpreadGap())
         }
     }
     FontRow(preferences.readerFontFamily(), pages.installedFonts)

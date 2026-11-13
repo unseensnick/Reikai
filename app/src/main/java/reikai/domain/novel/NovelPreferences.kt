@@ -211,6 +211,9 @@ class NovelPreferences(
     fun readerDualPageView() =
         preferenceStore.getEnum("ln_reader_dual_page_view", ReaderPreferences.DualPageView.NEVER)
 
+    /** The space a spread adds between its two pages' inner margins, in percent of a page's width. */
+    fun readerSpreadGap() = preferenceStore.getInt("ln_reader_spread_gap", 0)
+
     /** The e-ink flash after a page turn, kept apart from the manga reader's so each type has its own. */
     fun readerFlashOnPageChange() = preferenceStore.getBoolean("ln_reader_flash", false)
 

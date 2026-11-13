@@ -22,6 +22,21 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
         maven(url = "https://www.jitpack.io")
+        // RK --> Reikai's fork of the WebGPU viewer, released as GitHub release assets with an ivy descriptor
+        exclusiveContent {
+            forRepository {
+                ivy("https://github.com/unseensnick/webgpuviewer/releases/download") {
+                    name = "webgpuviewer releases"
+                    patternLayout {
+                        artifact("v[revision]/[artifact]-[revision].[ext]")
+                        ivy("v[revision]/ivy-[revision].xml")
+                    }
+                    metadataSources { ivyDescriptor() }
+                }
+            }
+            filter { includeModule("ca.mpreg", "webgpuviewer") }
+        }
+        // RK <--
     }
 }
 

@@ -7,14 +7,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import ca.mpreg.imagedecoder.ImageDecoder
 import ca.mpreg.webgpuviewer.closeTo
 import ca.mpreg.webgpuviewer.renderer.GainmapInput
 import ca.mpreg.webgpuviewer.renderer.Image
 import ca.mpreg.webgpuviewer.renderer.ImageFilterWgsl
 import ca.mpreg.webgpuviewer.renderer.Sampler
-import ca.mpreg.webgpuviewer.renderer.WebGpuRenderer
 import ca.mpreg.webgpuviewer.transition.TransitionBasic
 import ca.mpreg.webgpuviewer.transition.TransitionCube
 import ca.mpreg.webgpuviewer.transition.TransitionCubeOuter
@@ -82,7 +80,6 @@ import reikai.presentation.reader.isCachedPageCurrent
 import reikai.presentation.reader.keepsShownPage
 import reikai.presentation.reader.landsOnSecondHalf
 import reikai.presentation.reader.landscapeZoomApplies
-import reikai.presentation.reader.pressIsLeftOfSeam
 import reikai.presentation.reader.previewAfterError
 import reikai.presentation.reader.requeueForRetry
 import reikai.presentation.reader.reshapePixels
@@ -267,14 +264,6 @@ open class WebGpuViewer(
 
     /** Reading order, in which a second half follows its first. */
     private fun readingOrder(page: ReaderPage) = page.index * 2 + if (page is InsertPage) 1 else 0
-    // RK <--
-
-    // RK --> the page under a press, since a spread shows two; a lone side's empty half is no page
-    protected open fun pageAt(offset: Offset): ViewerPage? {
-        val spread = viewerState.getPage(0) as? ImagePage.ImageSpread ?: return currentPage
-        val left = pressIsLeftOfSeam(offset.x, spread.x, spread.scale, WebGpuRenderer.offsetX)
-        return (if (left) spread.left else spread.right)?.let(::viewerPageFor)
-    }
     // RK <--
 
     /** Check if a page is in the cache by identity. O(1) via key lookup. */
@@ -988,6 +977,7 @@ open class WebGpuViewer(
         }
 
         if (!isDualPageMode()) {
+            page.imagePage.fitsAsSpread = false // RK: a single page fits the screen outside dual page view
             return page.imagePage
         }
 
@@ -998,6 +988,8 @@ open class WebGpuViewer(
 
         if (page.spreadPosition == SpreadPosition.SINGLE) {
             page.spreadPage = null
+            // RK: a double page shown alone fits as the spreads around it do, so their page height holds
+            imagePage.fitsAsSpread = page.standsAlone
             return imagePage
         }
 
@@ -1055,10 +1047,11 @@ open class WebGpuViewer(
                 // RK <--
             }
 
-            // RK: the press's position picks the page, see pageAt
+            // RK: the page under the press, since a spread, a strip or a turn shows several
             onLongTap = { offset ->
                 if (activity.viewModel.state.value.menuVisible || general.longTapEnabled) {
-                    (pageAt(offset) as? ViewerReaderPage)?.let { activity.onPageLongTap(it.page) } // RK
+                    val pressed = pageAt(offset)?.let(::viewerPageFor) as? ViewerReaderPage // RK
+                    pressed?.let { activity.onPageLongTap(it.page) } // RK
                 }
             }
         }
@@ -1073,6 +1066,8 @@ open class WebGpuViewer(
             if (old?.page != new.page) {
                 onPageSettingsChanged()
             }
+            // RK: the library re-lays out its spreads for a new gap, so no page is remade
+            if (old?.spreadGap != new.spreadGap) viewerState.spreadGap = new.spreadGap / 100f
         }
         if (isContinuous) {
             settingsViewModel.longStrip.collectChanges(scope) { old, _ ->
@@ -2114,7 +2109,10 @@ open class WebGpuViewer(
         currentPage = anchor
         // A kept page was reported already. Reported again from a strip, whose top page can still be
         // in the chapter it just scrolled out of, it switched the reader straight back.
-        if (shown == null) progressPage(anchor)?.let { activity.onPageSelected(it.page) }
+        if (shown == null) {
+            progressPage(anchor)?.let { activity.onPageSelected(it.page) }
+            landed()
+        }
         // RK <--
         preloadPages(anchor)
 
@@ -2233,6 +2231,9 @@ open class WebGpuViewer(
             viewerState.invalidate()
         }
     }
+
+    // RK: the reader jumped to a chapter, which the strip must not take for a scroll
+    protected open fun landed() {}
 
     /** How a [moveToPage] turn is shown. [direction] is 1 forward through the pages, -1 back. */
     protected open fun animateTurn(direction: Int, fromSpread: ImagePage) {

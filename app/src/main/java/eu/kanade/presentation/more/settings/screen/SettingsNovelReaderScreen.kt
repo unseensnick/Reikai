@@ -46,8 +46,10 @@ import reikai.presentation.reader.readerFlashGroup
 import reikai.presentation.reader.readerFontLabel
 import reikai.presentation.reader.readerOrientationChoices
 import reikai.presentation.reader.rememberTtsOptions
+import reikai.presentation.reader.settings.dualPageRowsShown
 import reikai.presentation.reader.settings.dualPageViewRow
 import reikai.presentation.reader.settings.progressSizeLabel
+import reikai.presentation.reader.settings.spreadGapRow
 import reikai.presentation.reader.tenthsLabel
 import reikai.presentation.reader.volumeKeyScrollPreference
 import reikai.util.scaled
@@ -399,6 +401,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
     internal fun getReadingGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
         val renderingMode by novelPreferences.readerRenderingMode().collectAsState()
         val pageLayout by novelPreferences.readerPageLayout().collectAsState()
+        val dualPageView by novelPreferences.readerDualPageView().collectAsState()
         val seamless by novelPreferences.readerSeamlessChapters().collectAsState()
         val pagedTaps by novelPreferences.readerTapLayout(paged = true).collectAsState()
         val scrollTaps by novelPreferences.readerTapLayout(paged = false).collectAsState()
@@ -420,6 +423,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
                 ),
                 // The reader sheet offers it only for paged reading too, the one layout it applies to.
                 dualPageViewRow(novelPreferences.readerDualPageView()).takeIf { pageLayout.isPaged },
+                spreadGapRow(novelPreferences.readerSpreadGap(), dualPageRowsShown(pageLayout.isPaged, dualPageView)),
                 // Only the native renderer gives up link taps for it, so only it carries the warning.
                 Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerTextSelectable(),

@@ -187,6 +187,7 @@ class ReaderSettingsViewModel(
         preferences.fastRenderingOnly,
         preferences.holdUntilFinal,
         preferences.cropInsteadOfZoom,
+        preferences.spreadGap, // RK
     ) {
         WebGpuPagedSettings(
             page = WebGpuPagedSettings.Page(
@@ -206,6 +207,7 @@ class ReaderSettingsViewModel(
                 upscaler = upscaler.get().firstOrNull(),
                 downscaler = downscaler.get().firstOrNull(),
             ),
+            spreadGap = spreadGap.get(), // RK
         )
     }
 

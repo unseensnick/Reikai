@@ -202,6 +202,9 @@ class ReaderPreferences(
         DualPageView.NEVER,
     )
 
+    // RK: the space between a spread's two pages, in percent of a page's width
+    val spreadGap: Preference<Int> = preferenceStore.getInt("pref_reader_spread_gap", 0)
+
     // endregion
 
     // region Color filter

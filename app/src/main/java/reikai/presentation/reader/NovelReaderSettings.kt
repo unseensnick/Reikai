@@ -66,6 +66,8 @@ data class NovelReaderSettings(
     val alwaysShowChapterTransition: Boolean = true,
     /** The user's CSS and JavaScript, which only the WebView renderer applies. */
     val webSnippets: NovelWebSnippets = NovelWebSnippets(),
+    /** The space a spread adds between its two pages, in percent of a page's width (NovelSpreadHost). */
+    val spreadGap: Int = 0,
 ) {
     companion object {
         /** The settings as stored now, for a novel whose own orientation flag is [orientation] and whose own
@@ -118,6 +120,7 @@ data class NovelReaderSettings(
                 useRail = readerUseRail().get(),
                 alwaysShowChapterTransition = readerAlwaysShowChapterTransition().get(),
                 webSnippets = NovelWebSnippets.from(readerCssSnippets().get(), readerJsSnippets().get()),
+                spreadGap = readerSpreadGap().get(),
             )
         }
 
@@ -163,6 +166,7 @@ data class NovelReaderSettings(
                 readerAlwaysShowChapterTransition().changes(),
                 readerCssSnippets().changes(),
                 readerJsSnippets().changes(),
+                readerSpreadGap().changes(),
             )
         }
     }

@@ -518,7 +518,7 @@ class NovelTextViewport(
     private val spreadHost: NovelSpreadHost? = if (paged && spread) {
         NovelSpreadHost(context, recycler, heightFactor = 1, rtl = pageLayout.isRtl) {
             settings?.let { readerBackgroundColorInt(it.backgroundColor) } ?: 0
-        }
+        }.apply { onResized = ::redrawIfColumnMoved }
     } else {
         null
     }
@@ -1120,6 +1120,19 @@ class NovelTextViewport(
         return (available - sides).coerceAtLeast(1)
     }
 
+    /** The width the window's pictures were last sized to; null before any. */
+    private var builtColumnWidth: Int? = null
+
+    /**
+     * A spread measured its column before its first layout from the display's size, which can differ from its own:
+     * once it has a size, a window whose pictures were sized to another width is drawn again.
+     */
+    private fun redrawIfColumnMoved() {
+        val settings = settings ?: return
+        val built = builtColumnWidth ?: return
+        if (slots.isNotEmpty() && columnWidthPx(settings) != built) startRedraw()
+    }
+
     /** The column's width in a spread, which the reader's side margins set there; null outside one. */
     private fun spreadColumnWidth(): Int? = spreadHost?.let {
         it.columnWidth(it.width.takeIf { width -> width > 0 } ?: context.resources.displayMetrics.widthPixels)
@@ -1177,7 +1190,7 @@ class NovelTextViewport(
             paragraphIndent = settings.paragraphIndent,
             selectable = textSelectable,
             bionic = settings.bionicReading,
-            contentWidth = columnWidthPx(settings),
+            contentWidth = columnWidthPx(settings).also { builtColumnWidth = it },
             maxPictureHeight = if (paged) pageHeightPx(settings) else null,
             baseUrl = chapter.baseUrl,
             sourceId = chapter.sourceId,
