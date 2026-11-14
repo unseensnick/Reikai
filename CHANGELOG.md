@@ -174,6 +174,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Changed
 
+- **Reading mode and Chapter display in the novel reader's settings sheet now set them for that novel only.** The setting for every novel is in Settings -> Novel reader.
 - **Paged novels now count a chapter's pages from its first page of text, and the transition between chapters keeps you on your page, as in manga.** Opening a chapter lands on its text rather than on the transition.
 - **Failed pages and chapter transitions now look the same in every manga reading mode (from Mihon).**
 

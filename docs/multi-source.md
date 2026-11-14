@@ -86,7 +86,7 @@ Turn those off with **Show source icons on merged covers** in the library displa
 Open a merged series and a row of chips sits below its details: **All** for the combined list, selected when you open it, then one chip per source.
 
 Tap another chip to read that source's version.
-Read and bookmark marks, and the chapter list's sort, filter and display settings, are shared by the whole group, so switching source does not restart anything and every chip lists chapters the same way.
+Read and bookmark marks, the chapter list's sort, filter and display settings, and the reader's reading mode, rotation and (for novels) chapter display are shared by the whole group, whichever source you open it through, so switching source does not restart anything and every chip lists chapters the same way.
 
 The row keeps up with the group on its own, so a source you add through global search appears without backing out to the library first.
 

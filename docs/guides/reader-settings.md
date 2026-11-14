@@ -308,13 +308,13 @@ Stops a pinch from zooming a long strip out smaller than its normal width.
 
 ## High quality renderer
 
-**Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own. All but **Gap** and the filters also appear in <nav to="manga-reader"> under **High quality renderer**.
+**Use high quality renderer** in <nav to="advanced"> <Badge type="info" text="Off" /> draws every reading mode with a newer renderer. While it is on, the reader's settings sheet adds a few options of its own. All but **Gap**, **Crop instead of zoom** (which sits beside **Crop borders** under **Paged**) and the filters also appear in <nav to="manga-reader"> under **High quality renderer**.
 
 ### Dual page view <Badge type="info" text="Never" />
 On the **Reading** tab, for the three **Paged** modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
 
 ### Space between pages <Badge type="info" text="0%" />
-On the **Reading** tab, while **Dual page view** shows two pages. The space between them, as a share of a page's width.
+On the **Reading** tab, while **Dual page view** shows two pages. The space between them, as a share of a page's width, from 0% to 20%.
 
 ### Gap <Badge type="info" text="10%" />
 On the **Reading** tab, for **Long strip with gaps** only. The space between pages, as a share of the screen.
