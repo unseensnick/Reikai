@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
-import reikai.presentation.reader.StripReadThrough
 import reikai.presentation.reader.holdsStripAutoScroll
 import reikai.presentation.reader.scrollHidesMenu
 import kotlin.math.max
@@ -38,11 +37,11 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         state.backgroundColor = readerBackgroundColor()
 
         state.onViewport = { readThrough ->
-            // RK --> what is read, which waits for the strip to move after an open or a jump (StripReadThrough)
-            val moved = state.isPanning || state.isFlinging || state.isScaleAnimating || stepped
-            stepped = false
-            reading.report(readThrough, fallback = state.getPage(-1), moved = moved)?.let { select(it) }
-            // RK <--
+            val pageChanged = readThrough !== lastReadThrough
+            if (pageChanged) {
+                lastReadThrough = readThrough
+                readThrough?.let { select(it) }
+            }
 
             // RK: the pages auto-scroll's smooth step is held by, read here since only the renderer thread walks them
             autoScrollAhead = (0..state.pagesBelow + 1).mapNotNull { i ->
@@ -95,7 +94,6 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
 
     /** An unanimated step; the frame it draws reports the viewport like any scroll. */
     private fun step(px: Float) {
-        stepped = true
         state.scrollBy(px)
         state.invalidate()
     }
@@ -105,11 +103,8 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     @Volatile
     private var wasAtEdge: Boolean? = null
 
-    private val reading = StripReadThrough<ImagePage>() // RK
-
-    // RK: a step since the last report, which moves the strip as a gesture does
     @Volatile
-    private var stepped = false
+    private var lastReadThrough: ImagePage? = null
 
     /**
      * Mark [imagePage] read - its bottom has cleared the viewport, which is later than
@@ -133,7 +128,7 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
 
     override fun destroy() {
         state.onViewport = null
-        reading.land() // RK
+        lastReadThrough = null
         wasAtEdge = null
         super.destroy()
     }
@@ -159,9 +154,10 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         state.resetScroll()
     }
 
-    // RK: an open or a jump, which the next reports see as where the strip landed rather than a scroll
+    // RK: an open or a jump. The library reports nothing from it until a scroll, so auto-scroll drops the pages
+    // it saw before, or a step held on them would wait for a report that never comes
     override fun landed() {
-        reading.land()
+        autoScrollAhead = emptyList()
         wasAtEdge = null
         lastDocumentY = null
     }
