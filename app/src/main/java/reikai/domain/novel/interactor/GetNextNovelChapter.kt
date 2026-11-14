@@ -6,6 +6,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.GroupViewerFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelChapterSettings
@@ -194,4 +195,8 @@ class GetNextNovelChapter(
         val novel = novelRepository.getById(novelId) ?: return null
         return groupSettings.shown(novel, mergeManager.computeRelatedIds(novelId).asList())
     }
+
+    /** Where [novelId]'s series keeps its reader flags ([GroupViewerFlags]). */
+    suspend fun viewerFlags(novelId: Long): GroupViewerFlags =
+        GroupViewerFlags.of(novelId, mergeManager.computeRelatedIds(novelId).asList())
 }

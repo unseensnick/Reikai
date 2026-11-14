@@ -61,6 +61,7 @@ import reikai.domain.merge.ChapterUnit
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.GroupViewerFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.mergeMemberName
@@ -332,22 +333,26 @@ class NovelReaderViewModel(
     private val unwritten = ConcurrentHashMap<Long, ChapterProgress.Percent>()
     private val writeLock = Mutex()
 
+    /** Where this series keeps its reader flags, its merge group's rather than [novelId]'s, which is whichever
+     *  member owns the chapter opened. [novelId] alone once that read fails. */
+    private val viewerFlags = CompletableDeferred<GroupViewerFlags>()
+
     /** Per-novel reader orientation override (a [ReaderOrientation] flagValue; 0 = follow the global
-     *  default). Keyed on the opened entry [novelId] (the anchor for a merged novel), since orientation
-     *  is a book-level preference like sort/filter rather than per-source progress. */
+     *  default), in [viewerFlags]. */
     private val orientationOverride = MutableStateFlow(ReaderOrientation.DEFAULT.flagValue)
 
     fun setOrientation(flagValue: Int) {
         orientationOverride.value = flagValue
-        viewModelScope.launchIO { setNovelViewerFlags.awaitSetOrientation(novelId, flagValue.toLong()) }
+        viewModelScope.launchIO {
+            viewerFlags.await().write { setNovelViewerFlags.awaitSetOrientation(it, flagValue.toLong()) }
+        }
     }
 
-    /** The renderer this novel keeps for itself over the setting, null to follow it; on the opened entry, as rotation. */
+    /** The renderer this novel keeps for itself over the setting, null to follow it; in [viewerFlags]. */
     val renderingMode: StateFlow<NovelRenderingMode?>
         field = MutableStateFlow<NovelRenderingMode?>(null)
 
-    /** The reading mode this novel keeps for itself over the setting, null to follow it; on the opened entry, as
-     *  rotation. */
+    /** The reading mode this novel keeps for itself over the setting, null to follow it; in [viewerFlags]. */
     val pageLayout: StateFlow<NovelPageLayout?>
         field = MutableStateFlow<NovelPageLayout?>(null)
 
@@ -366,12 +371,12 @@ class NovelReaderViewModel(
     fun setRenderingMode(mode: NovelRenderingMode?) {
         renderingMode.value = mode
         textLoader.renderingMode = mode
-        appScope.launchIO { setNovelViewerFlags.awaitSetRenderingMode(novelId, mode) }
+        appScope.launchIO { viewerFlags.await().write { setNovelViewerFlags.awaitSetRenderingMode(it, mode) } }
     }
 
     fun setPageLayout(layout: NovelPageLayout?) {
         pageLayout.value = layout
-        appScope.launchIO { setNovelViewerFlags.awaitSetPageLayout(novelId, layout) }
+        appScope.launchIO { viewerFlags.await().write { setNovelViewerFlags.awaitSetPageLayout(it, layout) } }
     }
 
     fun setKeepScreenOn(enabled: Boolean) = novelPreferences.readerKeepScreenOn().set(enabled)
@@ -786,19 +791,24 @@ class NovelReaderViewModel(
         holdReadClockInMenu()
         viewModelScope.launchIO {
             val novel = try {
-                novelRepo.getById(novelId)?.also {
+                val ownerId = getNextNovelChapter.viewerFlags(novelId).also(viewerFlags::complete).ownerId
+                val opened = novelRepo.getById(novelId)
+                val owner = if (ownerId == novelId) opened else novelRepo.getById(ownerId)
+                owner?.let {
                     NovelRenderingMode.ofFlags(it.viewerFlags)?.let { mode ->
                         textLoader.renderingMode = mode
                         renderingMode.value = mode
                     }
                     pageLayout.value = NovelPageLayout.ofFlags(it.viewerFlags)
+                    orientationOverride.value = it.readerOrientation.toInt()
                 }
+                opened
             } finally {
                 // Also on a failed read, which leaves the default, so the reader still opens.
+                viewerFlags.complete(GroupViewerFlags.of(novelId, emptyList()))
                 viewerFlagsLoaded.complete(Unit)
             }
             novel?.let {
-                orientationOverride.value = it.readerOrientation.toInt()
                 entryTitle.value = it.title
                 isAdultEntry = it.id in adultChecker.adultNovelIdsAmong(listOf(it))
                 detailsRoute.value = DetailsRoute(it.source, it.url)

@@ -98,6 +98,7 @@ import reikai.domain.manga.inReadingOrder
 import reikai.domain.merge.CopyToOpen
 import reikai.domain.merge.DownloadTargets
 import reikai.domain.merge.GroupChapterFlags
+import reikai.domain.merge.GroupViewerFlags
 import reikai.domain.merge.MergeScope
 import reikai.domain.merge.expandToUnits
 import reikai.domain.merge.gapPresent
@@ -674,8 +675,15 @@ class ReaderViewModel(
                     .distinct()
                     .associateWith { sourceManager.getOrStub(it) }
 
+                // RK --> the series' reader flags, read from its merge group's owner rather than from
+                // the member this launch opened through
+                viewerFlags = GroupViewerFlags.of(manga.id, group.mangaById.keys)
+                val flagsOwner = group.mangaById[viewerFlags.ownerId] ?: manga
                 val source = sourceManager.getOrStub(manga.source)
-                mutableState.update { it.copy(manga = manga, source = source) }
+                mutableState.update {
+                    it.copy(manga = manga.copy(viewerFlags = flagsOwner.viewerFlags), source = source)
+                }
+                // RK <--
 
                 chapterList = buildChapterList(applyReadFilter = true)
                 fullChapterList = buildChapterList(applyReadFilter = false) // RK
@@ -1321,6 +1329,20 @@ class ReaderViewModel(
     }
     // RK <--
 
+    // RK -->
+
+    /** Where this series keeps its reader flags, its merge group's rather than the opened manga's; resolved in [init]. */
+    private var viewerFlags = GroupViewerFlags.of(mangaId, emptyList())
+
+    /** [opened] carrying its series' reader flags, read from [viewerFlags]' owner. */
+    private suspend fun withSeriesViewerFlags(opened: Manga?): Manga? {
+        val ownerId = viewerFlags.ownerId
+        if (opened == null || ownerId == opened.id) return opened
+        val flags = getManga.await(ownerId)?.viewerFlags ?: return opened
+        return opened.copy(viewerFlags = flags)
+    }
+    // RK <--
+
     private var readingModeJob: Job? = null
 
     /**
@@ -1331,8 +1353,8 @@ class ReaderViewModel(
         // Only the latest pick matters, and letting an older one finish last would restore its choice
         readingModeJob?.cancel()
         readingModeJob = viewModelScope.launchIO {
-            setMangaViewerFlags.awaitSetReadingMode(manga.id, readingMode.flagValue.toLong())
-            val updatedManga = getManga.await(manga.id)
+            viewerFlags.write { setMangaViewerFlags.awaitSetReadingMode(it, readingMode.flagValue.toLong()) } // RK
+            val updatedManga = withSeriesViewerFlags(getManga.await(manga.id)) // RK
             val currChapters = state.value.viewerChapters
             if (currChapters != null) {
                 // RK: the update below re-emits this same ViewerChapters instance, which the
@@ -1372,8 +1394,8 @@ class ReaderViewModel(
         // Only the latest pick matters, and letting an older one finish last would restore its choice
         orientationJob?.cancel()
         orientationJob = viewModelScope.launchIO {
-            setMangaViewerFlags.awaitSetOrientation(manga.id, orientation.flagValue.toLong())
-            val updatedManga = getManga.await(manga.id)
+            viewerFlags.write { setMangaViewerFlags.awaitSetOrientation(it, orientation.flagValue.toLong()) } // RK
+            val updatedManga = withSeriesViewerFlags(getManga.await(manga.id)) // RK
             val currChapters = state.value.viewerChapters
             if (currChapters != null) {
                 // RK: same re-emit and hand-stamp as setMangaReadingMode, for the same reason.
