@@ -13,6 +13,7 @@ import reikai.domain.reader.CONTRAST_DEFAULT_PERCENT
 import reikai.domain.reader.ChapterTitleFormat
 import reikai.domain.reader.ReaderProgressSize
 import reikai.domain.reader.VOLUME_KEY_SCROLL_DEFAULT_FRACTION
+import reikai.util.floored
 import reikai.util.getStringList
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.preference.PreferenceStore
@@ -288,7 +289,9 @@ class ReaderPreferences(
 
     val cutoutModeDual: Preference<CutoutMode> = preferenceStore.getEnum("webgpu_dual_cutout_mode", CutoutMode.IGNORE)
 
+    // RK: never read below the floor, see CONTINUOUS_MIN_WIDTH_MIN
     val continuousMinWidth: Preference<Int> = preferenceStore.getInt("webgpu_continuous_minwidth", 100)
+        .floored(CONTINUOUS_MIN_WIDTH_MIN)
 
     val continuousGap: Preference<Int> = preferenceStore.getInt("webgpu_continuous_gap", 10)
 

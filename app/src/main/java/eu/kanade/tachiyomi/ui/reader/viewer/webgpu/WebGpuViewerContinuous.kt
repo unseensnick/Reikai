@@ -155,10 +155,12 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     }
 
     // RK: an open or a jump. The library reports nothing from it until a scroll, so auto-scroll drops the pages
-    // it saw before, or a step held on them would wait for a report that never comes
+    // it saw before, or a step held on them would wait for a report that never comes. The jump selected its
+    // own page, so the first report after it selects even the page the last one before it read.
     override fun landed() {
         autoScrollAhead = emptyList()
         wasAtEdge = null
+        lastReadThrough = null
         lastDocumentY = null
     }
 

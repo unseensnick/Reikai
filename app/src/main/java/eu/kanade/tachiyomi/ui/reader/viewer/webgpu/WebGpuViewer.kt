@@ -1157,9 +1157,7 @@ open class WebGpuViewer(
 
             (this as? ImageViewerContinuousState)?.let {
                 backgroundColor = readerBackgroundColor()
-                // RK: a value saved below the floor, from when the slider started at 1
-                homeScale = webgpuLongStrip.page.continuousMinWidth
-                    .coerceAtLeast(ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN) / 100f
+                homeScale = webgpuLongStrip.page.continuousMinWidth / 100f
                 scale = homeScale
                 cropBorders = this@WebGpuViewer.cropBorders
                 // RK: the floor Min width starts at

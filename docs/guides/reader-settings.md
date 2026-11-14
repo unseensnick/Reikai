@@ -295,7 +295,7 @@ Rotates those pages the other way round. Only useful once **Rotate wide pages to
 Adds the specified padding to the left and right of the screen. Shown while **Use high quality renderer** in <nav to="advanced"> is off.
 
 ### Min width <Badge type="info" text="100%" />
-How wide the strip is drawn, as a share of the screen. Shown in place of **Side padding** while **Use high quality renderer** is on.
+How wide the strip is drawn, as a share of the screen, from 10% to 100%. Shown in place of **Side padding** while **Use high quality renderer** is on.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
 How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
@@ -312,6 +312,9 @@ Stops a pinch from zooming a long strip out smaller than its normal width.
 
 ### Dual page view <Badge type="info" text="Never" />
 On the **Reading** tab, for the three **Paged** modes only. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
+
+### Space between pages <Badge type="info" text="0%" />
+On the **Reading** tab, while **Dual page view** shows two pages. The space between them, as a share of a page's width.
 
 ### Gap <Badge type="info" text="10%" />
 On the **Reading** tab, for **Long strip with gaps** only. The space between pages, as a share of the screen.
