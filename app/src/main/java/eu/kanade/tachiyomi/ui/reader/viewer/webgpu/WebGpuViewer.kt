@@ -1157,10 +1157,13 @@ open class WebGpuViewer(
 
             (this as? ImageViewerContinuousState)?.let {
                 backgroundColor = readerBackgroundColor()
-                homeScale = webgpuLongStrip.page.continuousMinWidth / 100f
+                // RK: a value saved below the floor, from when the slider started at 1
+                homeScale = webgpuLongStrip.page.continuousMinWidth
+                    .coerceAtLeast(ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN) / 100f
                 scale = homeScale
                 cropBorders = this@WebGpuViewer.cropBorders
-                minScale = if (longStrip.zoomOutDisabled) 0f else 0.1f
+                // RK: the floor Min width starts at
+                minScale = if (longStrip.zoomOutDisabled) 0f else ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN / 100f
 
                 (this@WebGpuViewer as? WebGpuViewerContinuous)?.let {
                     if (this@WebGpuViewer.useGap) {

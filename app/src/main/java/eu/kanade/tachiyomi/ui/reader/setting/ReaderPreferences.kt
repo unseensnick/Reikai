@@ -455,6 +455,9 @@ class ReaderPreferences(
         const val WEBTOON_PADDING_MIN = 0
         const val WEBTOON_PADDING_MAX = 25
 
+        // RK: the long strip's zoom-out floor, so Min width never sits below what a touch snaps back to
+        const val CONTINUOUS_MIN_WIDTH_MIN = 10
+
         const val MILLI_CONVERSION = 100
 
         val TapZones = listOf(

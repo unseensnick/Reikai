@@ -147,7 +147,7 @@ internal fun ColumnScope.MangaReadingPage(viewModel: ReaderSettingsViewModel, vi
                 val continuousMinWidth by preferences.continuousMinWidth.collectAsState()
                 SliderItem(
                     value = continuousMinWidth,
-                    valueRange = 1..100,
+                    valueRange = ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN..100,
                     label = stringResource(MR.strings.pref_continuous_minwidth),
                     valueString = numberFormat.format(continuousMinWidth / 100f),
                     onChange = { preferences.continuousMinWidth.set(it) },

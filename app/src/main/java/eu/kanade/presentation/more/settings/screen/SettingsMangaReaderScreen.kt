@@ -418,7 +418,7 @@ object SettingsMangaReaderScreen : SearchableSettings {
                 if (highQualityRenderer) {
                     Preference.PreferenceItem.SliderPreference(
                         preference = readerPreferences.continuousMinWidth,
-                        valueRange = 1..100,
+                        valueRange = ReaderPreferences.CONTINUOUS_MIN_WIDTH_MIN..100,
                         title = stringResource(MR.strings.pref_continuous_minwidth),
                         valueText = { numberFormat.format(it / 100f) },
                     )
