@@ -51,6 +51,16 @@ class MangaReaderSettingsRowsTest {
     }
 
     @Test
+    fun `a reader sheet offers the spread rows while paged reading shows two pages on this screen`() {
+        listOf(
+            sheetDualPageRowsShown(paged = true, DualPageView.ALWAYS, 400, 800),
+            sheetDualPageRowsShown(paged = true, DualPageView.WIDE, 800, 400),
+            sheetDualPageRowsShown(paged = true, DualPageView.WIDE, 400, 800),
+            sheetDualPageRowsShown(paged = false, DualPageView.ALWAYS, 800, 400),
+        ) shouldBe listOf(true, true, false, false)
+    }
+
+    @Test
     fun `crop instead of zoom shows with the renderer and crop borders on`() {
         rows(true).cropInsteadOfZoom(cropBorders = true) shouldBe true
     }

@@ -23,7 +23,6 @@ import kotlinx.coroutines.flow.StateFlow
 import reikai.presentation.reader.ReaderFlash
 import reikai.presentation.reader.navigation.MangaTapLayouts
 import reikai.presentation.reader.navigation.setTapLayout
-import reikai.presentation.reader.showsTwoPages
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.CheckboxItem
@@ -63,7 +62,12 @@ private fun Viewer?.running(): RunningViewer = when (this) {
 private fun isWebGpuDualPage(webGpu: WebGpuViewer, preferences: ReaderPreferences): Boolean {
     val dualPageView by preferences.dualPageView.collectAsState()
     val configuration = LocalConfiguration.current
-    return !webGpu.isContinuous && dualPageView.showsTwoPages(configuration.screenWidthDp, configuration.screenHeightDp)
+    return sheetDualPageRowsShown(
+        !webGpu.isContinuous,
+        dualPageView,
+        configuration.screenWidthDp,
+        configuration.screenHeightDp,
+    )
 }
 
 private val readerThemes = listOf(

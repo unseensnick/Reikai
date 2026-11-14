@@ -3,7 +3,6 @@ package reikai.presentation.reader
 import android.graphics.Bitmap
 import android.graphics.Gainmap
 import android.os.Build
-import android.util.Log
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import ca.mpreg.imagedecoder.ImageDecoder
 import org.junit.Assert.assertEquals
@@ -123,34 +122,6 @@ class WidePagesRotateTest {
                 "corners $corners",
                 corners[1] < corners[3] && corners[3] < corners[0] && corners[0] < corners[2],
             )
-        }
-    }
-
-    /** Not a check: logs how long a page-sized turn takes natively against the per-pixel loop it replaced. */
-    @Test
-    fun timesAPageSizedTurn() {
-        val width = 4000
-        val height = 2800
-        val source = ByteBuffer.allocateDirect(width * height * 4).order(ByteOrder.nativeOrder())
-        repeat(3) { reshapePixels(source, width, height, 4, WidePageShape.Rotated(90f)) }
-        val native = (1..5).minOf { timed { reshapePixels(source, width, height, 4, WidePageShape.Rotated(90f)) } }
-        val loop = (1..3).minOf { timed { perPixelTurn(source, width, height) } }
-        Log.i("WidePagesRotateTest", "4000x2800 turn: native ${native}ms, per-pixel loop ${loop}ms")
-    }
-
-    private inline fun timed(block: () -> Unit): Long {
-        val start = System.nanoTime()
-        block()
-        return (System.nanoTime() - start) / 1_000_000
-    }
-
-    // The clockwise loop rotate to fit used before the native turn, kept here only to time against.
-    private fun perPixelTurn(pixels: ByteBuffer, width: Int, height: Int) {
-        val out = ByteBuffer.allocateDirect(width * height * 4).order(pixels.order())
-        for (y in 0 until width) {
-            for (x in 0 until height) {
-                out.putInt((y * height + x) * 4, pixels.getInt(((height - 1 - x) * width + y) * 4))
-            }
         }
     }
 }

@@ -72,7 +72,6 @@ import reikai.presentation.reader.readerFontSummary
 import reikai.presentation.reader.readerTextColorInt
 import reikai.presentation.reader.readerThemeShown
 import reikai.presentation.reader.rememberTtsOptions
-import reikai.presentation.reader.showsTwoPages
 import reikai.presentation.reader.tenthsLabel
 import reikai.util.scaled
 import tachiyomi.core.common.preference.Preference
@@ -157,7 +156,13 @@ internal fun ColumnScope.NovelReadingPage(pages: ReaderSettingsPages.Novel) {
             }
         }
         val configuration = LocalConfiguration.current
-        if (dualPageView.showsTwoPages(configuration.screenWidthDp, configuration.screenHeightDp)) {
+        if (sheetDualPageRowsShown(
+                pageLayout.isPaged,
+                dualPageView,
+                configuration.screenWidthDp,
+                configuration.screenHeightDp,
+            )
+        ) {
             SpreadGapSlider(preferences.readerSpreadGap())
         }
     }

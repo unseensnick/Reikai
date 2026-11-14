@@ -27,7 +27,8 @@ import reikai.presentation.reader.ReaderTextSettings
 import reikai.presentation.reader.ReaderTextState
 import reikai.presentation.recents.EmittingPreferenceStore
 
-/** Space between pages shows only while the reader can show two pages, for manga and novels alike. */
+/** Space between pages shows only while the reader can show two pages: both Settings screens and the novel sheet. The
+ *  manga sheet needs a live viewer, so its rule is pinned on sheetDualPageRowsShown in MangaReaderSettingsRowsTest. */
 @RunWith(RobolectricTestRunner::class)
 class SpreadGapRowsTest {
 
@@ -57,13 +58,19 @@ class SpreadGapRowsTest {
         }
     }
 
-    private fun novelPreferences(dualPageView: DualPageView) = NovelPreferences(EmittingPreferenceStore()).apply {
-        readerPageLayout().set(NovelPageLayout.PAGED_LTR)
+    private fun novelPreferences(
+        dualPageView: DualPageView,
+        layout: NovelPageLayout = NovelPageLayout.PAGED_LTR,
+    ) = NovelPreferences(EmittingPreferenceStore()).apply {
+        readerPageLayout().set(layout)
         readerDualPageView().set(dualPageView)
     }
 
-    private fun novelSettings(dualPageView: DualPageView): List<String> {
-        val preferences = novelPreferences(dualPageView)
+    private fun novelSettings(
+        dualPageView: DualPageView,
+        layout: NovelPageLayout = NovelPageLayout.PAGED_LTR,
+    ): List<String> {
+        val preferences = novelPreferences(dualPageView, layout)
         return shown {
             SettingsNovelReaderScreen.getReadingGroup(preferences).preferenceItems.map { it.title to it.visible }
         }
@@ -125,6 +132,11 @@ class SpreadGapRowsTest {
     @Test
     fun `novel settings hide the space between pages with dual page view off`() {
         novelSettings(DualPageView.NEVER) shouldNotContain SPACE_BETWEEN_PAGES
+    }
+
+    @Test
+    fun `novel settings hide the space between pages while the novel scrolls`() {
+        novelSettings(DualPageView.ALWAYS, NovelPageLayout.SCROLL) shouldNotContain SPACE_BETWEEN_PAGES
     }
 
     @Test

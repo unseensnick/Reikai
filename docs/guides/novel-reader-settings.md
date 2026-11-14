@@ -20,6 +20,12 @@ How a chapter is drawn. **Native text** lays the text out in the app. **WebView*
 ### Reading mode <Badge type="info" text="Scrolling" />
 **Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. A novel can keep its own choice from the reader's settings sheet, under **For this series**, where **Default** follows this setting. Changing it there rebuilds the reader at the same place in the chapter.
 
+### Dual page view <Badge type="info" text="Never" />
+Shown for the **Paged** reading modes. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.
+
+### Space between pages <Badge type="info" text="0%" />
+The space between the two pages, as a share of a page's width. Shown while **Dual page view** is not **Never** and the reading mode is **Paged**.
+
 ### Select text by long press <Badge type="info" text="Off" />
 Lets you select and copy text. Under **Native text**, links stop responding to taps once this is on. Like **Chapter display**, it takes effect at once. Text cannot be selected while **Dual page view** shows two pages side by side.
 

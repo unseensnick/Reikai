@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import dev.icerock.moko.resources.StringResource
 import eu.kanade.presentation.more.settings.Preference
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderPreferences
+import reikai.presentation.reader.showsTwoPages
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.BaseSliderItem
 import tachiyomi.presentation.core.components.SettingsItemsPaddings
@@ -58,6 +59,14 @@ internal fun scaleTypeValues(offered: List<StringResource>): Map<Int, StringReso
  */
 internal fun dualPageRowsShown(canSpread: Boolean, dualPageView: ReaderPreferences.DualPageView): Boolean =
     canSpread && dualPageView != ReaderPreferences.DualPageView.NEVER
+
+/** The reader sheets' version: a [paged] reader whose Dual page view shows two pages on this screen. */
+internal fun sheetDualPageRowsShown(
+    paged: Boolean,
+    dualPageView: ReaderPreferences.DualPageView,
+    screenWidthDp: Int,
+    screenHeightDp: Int,
+): Boolean = paged && dualPageView.showsTwoPages(screenWidthDp, screenHeightDp)
 
 /** The space between a spread's two pages, in percent of a page's width, for manga and novels alike. */
 internal val spreadGapRange = 0..20

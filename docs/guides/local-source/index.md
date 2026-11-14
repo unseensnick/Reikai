@@ -264,7 +264,7 @@ Combining, adding volumes, splitting out and organizing files each show a messag
 
 ### When files move or go missing
 
-A local chapter whose file disappears, for example after you move or rename it in a file manager, keeps its read progress and bookmark. When the file comes back under the same name, or under a new name with the chapter number of the one chapter that went missing, the progress returns with it. Backups carry it in the meantime. Only **Delete volumes** drops it on purpose.
+A local chapter whose file disappears, for example after you move or rename it in a file manager, keeps its read progress and bookmark. When the file comes back under the same name, the progress returns with it, however long it was gone. A change of letter case alone counts as the same name. A file renamed otherwise brings it back only when one refresh finds the old name gone and the new one there, and each is the only one of its kind with that chapter number. Backups carry it in the meantime. Only **Delete volumes** drops it on purpose.
 
 If you renamed a series' folder outside the app, refreshing the series shows **Folder not found**, with the folders that hold its files. Pick one and tap **Link**. Reikai never picks one for you.
 
