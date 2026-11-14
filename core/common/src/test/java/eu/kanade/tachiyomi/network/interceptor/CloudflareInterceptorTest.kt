@@ -101,16 +101,15 @@ class CloudflareInterceptorTest {
     }
 
     // Challenges every request until the host holds a clearance.
-    private fun server(request: Request): Response = Response.Builder()
+    private fun server(request: Request): Response = if (clearance == null) challenge(request) else ok(request)
+
+    private fun challenge(request: Request): Response = Response.Builder()
         .request(request)
         .protocol(Protocol.HTTP_1_1)
-        .apply {
-            if (clearance == null) {
-                code(403).message("Forbidden").header("cf-mitigated", "challenge").header("Server", "cloudflare")
-            } else {
-                code(200).message("OK")
-            }
-        }
+        .code(403)
+        .message("Forbidden")
+        .header("cf-mitigated", "challenge")
+        .header("Server", "cloudflare")
         .body("".toResponseBody())
         .build()
 
@@ -293,9 +292,10 @@ class CloudflareInterceptorTest {
                 }
             },
         )
-        val (challenged, respond) = allChallenged(4, ::server)
-        // The server's solve saves its cookies, a fresh cf_clearance among them, which a sibling would
+        // A host on Cloudflare's stricter tier challenges a replayed clearance, so it keeps challenging after the
+        // server's solve. That solve saves its cookies, a fresh cf_clearance among them, which a sibling would
         // otherwise take for a clearance it can replay.
+        val (challenged, respond) = allChallenged(4, ::challenge)
         solveWith {
             challenged.await(1, TimeUnit.SECONDS)
             clearance = "from the server"
