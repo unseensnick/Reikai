@@ -82,6 +82,7 @@ import reikai.data.coil.NovelImageKeyer
 import reikai.data.work.RenamedWorkers
 import reikai.data.work.WorkerStartFailures
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
+import reikai.util.dumpHeapOnFatalOom
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.preference.Preference
 import tachiyomi.core.common.util.lang.launchIO
@@ -173,6 +174,7 @@ class App :
         TelemetryConfig.init(applicationContext)
 
         GlobalExceptionHandler.initialize(applicationContext, CrashActivity::class.java)
+        if (BuildConfig.DEBUG) dumpHeapOnFatalOom() // RK: a dev build keeps a heap dump of an out-of-memory death
 
         // RK --> registrar and graph.inject moved below the crash handler
         // Assigned before the graph is built, which is safe because every binding is a lambda and

@@ -306,6 +306,14 @@ adb exec-out run-as app.reikai.dev cat databases/tachiyomi.db > local.db
 
 Novels live in `novels` and `novel_chapters`.
 
+A dev build that dies of running out of memory first writes its heap to `oom.hprof` in its external files
+folder (`dumpHeapOnFatalOom`, dev builds only). Each death overwrites it. Pull it, convert it with the SDK's
+`hprof-conv`, and open it in Android Studio's profiler:
+
+```bash
+adb pull /sdcard/Android/data/app.reikai.dev/files/oom.hprof
+```
+
 ### Logcat for LN plugins
 
 Plugins run in the headless QuickJS host (`LnPluginHost`, `LnHostBridge`) and fetch through OkHttp.
