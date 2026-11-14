@@ -355,6 +355,85 @@ class CloudflareInterceptorTest {
     }
 
     @Test
+    fun `a WebView fetch challenged before a sibling's solve and returning after it is not solved again`() {
+        val clearances = clearancesPerHost()
+        val started = CountDownLatch(2)
+        val solved = CountDownLatch(1)
+        val calls = AtomicInteger()
+        // Both fetches land on the main site before it is cleared; the second returns only once the first
+        // request's solve has finished, as a slow thread does.
+        val fetcher = mockk<WebViewFetcher> {
+            every { serves(any()) } returns true
+            every { fetch(any(), any()) } answers {
+                val late = calls.incrementAndGet() == 2
+                val landed = secondArg<Request>().newBuilder().url("https://main.example/").build()
+                val response = if (clearances["main.example"] == null) server(landed) else ok(landed)
+                started.countDown()
+                if (late) solved.await(5, TimeUnit.SECONDS)
+                WebViewFetcher.Outcome.Served(response)
+            }
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(interceptor, fetcher)
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            solves.incrementAndGet()
+            started.await(5, TimeUnit.SECONDS)
+            clearances["main.example"] = "solved"
+            solved.countDown()
+            Unit
+        }
+        val respond = { request: Request -> if (request.url.host == "main.example") ok(request) else server(request) }
+
+        runAll(2) { interceptor.intercept(chain("https://mirror.example/page/$it", respond)).close() }
+
+        solves.get() shouldBe 1
+    }
+
+    @Test
+    fun `a WebView fetch challenged before a direct solve of its landing site is not solved again`() {
+        val clearances = clearancesPerHost()
+        val started = CountDownLatch(1)
+        val solved = CountDownLatch(1)
+        // Only the mirror is fetched in a WebView; the main site is asked for directly and solved there, while
+        // the mirror's fetch, which landed on the main site before that, is still out.
+        val fetcher = mockk<WebViewFetcher> {
+            every { serves(any()) } answers { firstArg<Request>().url.host == "mirror.example" }
+            every { fetch(any(), any()) } answers {
+                val landed = secondArg<Request>().newBuilder().url("https://main.example/").build()
+                val response = if (clearances["main.example"] == null) server(landed) else ok(landed)
+                started.countDown()
+                solved.await(5, TimeUnit.SECONDS)
+                WebViewFetcher.Outcome.Served(response)
+            }
+        }
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(interceptor, fetcher)
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            solves.incrementAndGet()
+            started.await(5, TimeUnit.SECONDS)
+            clearances["main.example"] = "solved"
+            solved.countDown()
+            Unit
+        }
+        val respond = { request: Request ->
+            if (request.url.host == "main.example" &&
+                clearances["main.example"] != null
+            ) {
+                ok(request)
+            } else {
+                server(request)
+            }
+        }
+
+        runAll(2) {
+            val url = if (it == 0) "https://main.example/page" else "https://mirror.example/page"
+            interceptor.intercept(chain(url, respond)).close()
+        }
+
+        solves.get() shouldBe 1
+    }
+
+    @Test
     fun `a challenge served after a redirect to another site is solved once`() {
         val clearances = clearancesPerHost()
         // The mirror redirects every request to the main site, which challenges until it is cleared.
