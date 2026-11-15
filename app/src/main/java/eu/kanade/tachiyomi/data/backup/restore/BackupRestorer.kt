@@ -39,7 +39,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
@@ -651,7 +650,8 @@ class BackupRestorer(
             // and is skipped as a failed restore of it is.
             val entry = try {
                 decode(data)
-            } catch (e: SerializationException) {
+                // Any failure, not only the serializer's: decoding runs no suspension, so nothing here is a cancel.
+            } catch (e: Exception) {
                 errors.add(Date() to "Entry $read could not be read: ${e.message}")
                 restoreProgress.addAndFetch(1)
                 return@read

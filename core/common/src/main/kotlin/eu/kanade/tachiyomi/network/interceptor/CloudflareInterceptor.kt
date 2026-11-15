@@ -167,7 +167,8 @@ class CloudflareInterceptor(
     private fun serverAnswers(request: Request): Boolean =
         flareSolverr.handles(request) && flareSolverr.shouldSkipWebView(request.url.host)
 
-    // [fetchRequest] is the challenged request as it left the application interceptors, auth headers included.
+    // [fetchRequest] is the challenged request as it reached the challenged host: the application interceptors'
+    // headers, less what OkHttp drops on a redirect to another host (Authorization).
     private fun knowsRoute(request: Request, fetchRequest: Request): Boolean = serverAnswers(request) ||
         (!flareSolverr.handles(request) && webViewFetcher.serves(fetchRequest))
 
@@ -224,7 +225,7 @@ class CloudflareInterceptor(
             val host = request.url.host
             val fsActive = flareSolverr.handles(request)
 
-            // The challenged request as it left the application interceptors, auth headers included.
+            // The challenged request as it reached the challenged host, less what a cross-host redirect dropped.
             val fetchRequest = response.request
 
             try {
