@@ -6,6 +6,7 @@ import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.novel.source.NovelExtensionFormat
+import tachiyomi.domain.manga.model.Manga
 
 /**
  * What the single-entry search screen and the batch list's override picker share: the strips they
@@ -27,6 +28,17 @@ class MigrationSourceSearchTest {
         val down = StripResult.Failed(IllegalStateException("down"))
 
         strips.withResult("b", down).map { it.result } shouldBe listOf(StripResult.Loading, down)
+    }
+
+    // As global search orders its rows, so a lone match on a late source is not under a list of empty ones.
+    @Test
+    fun `a source that found something moves above the ones that have not, keeping their order`() {
+        val strips = listOf(source("a").loadingStrip(), source("b").loadingStrip(), source("c").loadingStrip())
+        val found = StripResult.Loaded(
+            listOf(MigrationCandidate("c", "T", 1, 1.0, "c:/t", handle = MangaCandidateHandle(Manga.create()))),
+        )
+
+        strips.withResult("c", found).map { it.sourceKey } shouldBe listOf("c", "a", "b")
     }
 
     @Test

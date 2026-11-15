@@ -47,8 +47,9 @@ data class SourceStrip(
 
 fun MigrationSourceUi.loadingStrip(): SourceStrip = SourceStrip(key, name, lang, format)
 
+// Sources that found something go first, as global search orders its rows; the rest keep their order.
 fun List<SourceStrip>.withResult(sourceKey: String, result: StripResult): List<SourceStrip> =
-    map { if (it.sourceKey == sourceKey) it.copy(result = result) else it }
+    map { if (it.sourceKey == sourceKey) it.copy(result = result) else it }.sortedBy { it.result.candidates.isEmpty() }
 
 /** Novel sources of more than one packaging are searched, so each heading names its own. */
 val List<SourceStrip>.showsFormat: Boolean
