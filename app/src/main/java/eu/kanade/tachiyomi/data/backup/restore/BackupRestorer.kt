@@ -62,6 +62,7 @@ import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.local.VolumeOwner
 import reikai.domain.manga.AdultContentChecker
 import reikai.domain.merge.AlignGroupCategories
+import reikai.domain.merge.GatherGroupViewerFlags
 import reikai.domain.merge.MergeGroupReconstruction
 import reikai.domain.merge.PrefEraGrouping
 import reikai.domain.merge.ReconcileMergedChapters
@@ -110,6 +111,7 @@ class BackupRestorer(
     private val transactions: Transactions,
     private val reikaiLibraryPreferences: ReikaiLibraryPreferences,
     private val alignGroupCategories: AlignGroupCategories,
+    private val gatherGroupViewerFlags: GatherGroupViewerFlags,
     private val restoreExtensionInstaller: RestoreExtensionInstaller,
     private val restoreInstallSources: RestoreInstallSources,
     private val manualOrder: LibraryManualOrderRepository,
@@ -496,6 +498,8 @@ class BackupRestorer(
                 )
                 // Entries were filed one at a time from the backup, so a group can come back disagreeing.
                 alignGroupCategories.align(ContentType.NOVELS)
+                // A backup made before the upgrade that gathered them carries each member's own reader flags.
+                gatherGroupViewerFlags.gather(ContentType.NOVELS)
             }
         }
     }
@@ -598,6 +602,8 @@ class BackupRestorer(
             )
             // RK: entries were filed one at a time from the backup, so a group can come back disagreeing
             alignGroupCategories.align(ContentType.MANGA)
+            // RK: a backup made before the upgrade that gathered them carries each member's own reader flags
+            gatherGroupViewerFlags.gather(ContentType.MANGA)
         }
     }
 

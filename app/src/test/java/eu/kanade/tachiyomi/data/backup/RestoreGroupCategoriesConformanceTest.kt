@@ -14,18 +14,22 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.library.ContentType
 import reikai.domain.merge.AlignGroupCategories
+import reikai.domain.merge.GatherGroupViewerFlags
 import java.util.Collections
 
 /**
  * A restore writes each entry's own backed-up categories, so once a type's groups are restored every
- * group is put back in its first library member's categories. Runs the real BackupRestorer over an
- * encoded backup holding one entry of each type.
+ * group is put back in its first library member's categories, and its members given one set of reader
+ * flags, since a backup made before the upgrade that gathered them carries each member's own. Runs the
+ * real BackupRestorer over an encoded backup holding one entry of each type.
  */
 class RestoreGroupCategoriesConformanceTest {
 
     @ParameterizedTest
     @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `a restore aligns the type's groups' categories once its groups are restored`(type: ContentType) =
+    fun `a restore aligns the type's groups' categories and reader flags once its groups are restored`(
+        type: ContentType,
+    ) =
         runTest {
             val steps = Collections.synchronizedList(mutableListOf<String>())
             restoreEncoded(
@@ -43,8 +47,11 @@ class RestoreGroupCategoriesConformanceTest {
                 alignGroupCategories = mockk<AlignGroupCategories> {
                     coEvery { align(any()) } answers { steps += "align ${firstArg<ContentType>()}" }
                 },
+                gatherGroupViewerFlags = mockk<GatherGroupViewerFlags> {
+                    coEvery { gather(any()) } answers { steps += "flags ${firstArg<ContentType>()}" }
+                },
             )
 
-            steps.filter { it.endsWith(" $type") } shouldBe listOf("groups $type", "align $type")
+            steps.filter { it.endsWith(" $type") } shouldBe listOf("groups $type", "align $type", "flags $type")
         }
 }

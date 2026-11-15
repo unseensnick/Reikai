@@ -12,6 +12,7 @@ import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.library.ContentType
+import reikai.domain.merge.GatherGroupViewerFlags
 import reikai.domain.merge.TestMergeManagers
 import reikai.domain.novel.NovelHistoryRepository
 import reikai.domain.novel.NovelPageLayout
@@ -70,12 +71,14 @@ class MergedViewerFlagsMigrationTest {
     private suspend fun migrate(type: ContentType) {
         val managers = TestMergeManagers(mapOf(type to linkedMapOf(1L to 7L, 2L to 7L, 3L to 7L)), mergingOn = true)
         MergedViewerFlagsMigration(
-            managers.manga,
-            mangaRepository,
-            historyRepository,
-            managers.novel,
-            novelRepository,
-            novelHistoryRepository,
+            GatherGroupViewerFlags(
+                managers.manga,
+                mangaRepository,
+                historyRepository,
+                managers.novel,
+                novelRepository,
+                novelHistoryRepository,
+            ),
         )(MigrationContext(dryrun = false, previousVersion = 208))
     }
 

@@ -21,6 +21,7 @@ import reikai.domain.library.FakeLibraryManualOrderRepository
 import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.AlignGroupCategories
+import reikai.domain.merge.GatherGroupViewerFlags
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.novel.font.NovelFontManager
 import reikai.novel.source.NovelSourceManager
@@ -39,6 +40,7 @@ suspend fun restoreEncoded(
     stubSourceRepository: StubSourceRepository = mockk(relaxed = true),
     novelSourceManager: NovelSourceManager = mockk(relaxed = true),
     alignGroupCategories: AlignGroupCategories = mockk(relaxed = true),
+    gatherGroupViewerFlags: GatherGroupViewerFlags = mockk(relaxed = true),
     manualOrder: LibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
     restoreExtensionInstaller: RestoreExtensionInstaller = mockk(relaxed = true),
     trusted: ApprovedRepos = ApprovedRepos(),
@@ -48,7 +50,7 @@ suspend fun restoreEncoded(
 ) = restoreFile(
     ProtoBuf.encodeToByteArray(Backup.serializer(), backup), options, categoriesRestorer, mangaRestorer,
     novelRestorer, sourceManager, stubSourceRepository, novelSourceManager, alignGroupCategories, manualOrder,
-    restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts, preferenceRestorer,
+    restoreExtensionInstaller, trusted, combineLocalVolumes, novelFonts, preferenceRestorer, gatherGroupViewerFlags,
 )
 
 /** Runs the real [BackupRestorer] over the backup file [file], as another app may have written it. */
@@ -68,6 +70,7 @@ suspend fun restoreFile(
     combineLocalVolumes: CombineLocalVolumes = mockk(relaxed = true),
     novelFonts: NovelFontManager = mockk(relaxed = true),
     preferenceRestorer: PreferenceRestorer = mockk(relaxed = true),
+    gatherGroupViewerFlags: GatherGroupViewerFlags = mockk(relaxed = true),
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
@@ -100,6 +103,7 @@ suspend fun restoreFile(
         transactions = PassThroughTransactions,
         reikaiLibraryPreferences = ReikaiLibraryPreferences(InMemoryPreferenceStore()),
         alignGroupCategories = alignGroupCategories,
+        gatherGroupViewerFlags = gatherGroupViewerFlags,
         restoreExtensionInstaller = restoreExtensionInstaller,
         restoreInstallSources = mockk(relaxed = true),
         manualOrder = manualOrder,
