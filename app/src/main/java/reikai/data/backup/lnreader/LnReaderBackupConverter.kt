@@ -7,13 +7,10 @@ import androidx.core.net.toUri
 import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.create.BackupProtoWriter
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
-import eu.kanade.tachiyomi.data.backup.models.BackupKitsuNativeScale
-import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
-import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
 import eu.kanade.tachiyomi.data.backup.models.StringSetPreferenceValue
 import eu.kanade.tachiyomi.data.backup.restore.BackupRestoreWorker
@@ -51,8 +48,8 @@ class LnReaderBackupConverter(
         val reader = LnReaderBackupReader { checkNotNull(context.contentResolver.openInputStream(uri)) }
         if (!reader.isLnReaderBackup()) return@withIOContext null
         val dir = importDir(context).apply { mkdirs() }
-        // One that never reached a restore; a running restore may still be reading its own.
-        if (!BackupRestoreWorker.isRunning(context.workManager)) dir.listFiles()?.forEach(File::delete)
+        // One that never reached a restore; a restore running or queued may still read its own.
+        if (!BackupRestoreWorker.isPending(context.workManager)) dir.listFiles()?.forEach(File::delete)
 
         val header = reader.header()
         val plugins = header.plugins.associateBy { it.id }
@@ -61,19 +58,9 @@ class LnReaderBackupConverter(
         val sources = LinkedHashSet<String>()
         val file = File(dir, "${UUID.randomUUID()}.tachibk")
         GZIPOutputStream(file.outputStream()).use { out ->
-            reader.forEachNovel { novel ->
-                when {
-                    !novel.inLibrary -> Unit
-                    novel.isLocal -> skippedLocal += novel.name ?: novel.path
-                    else -> {
-                        sources += novel.pluginId
-                        out.write(
-                            BackupFields.NOVELS,
-                            BackupNovel.serializer(),
-                            novel.toImportedNovel(header.categories, zone),
-                        )
-                    }
-                }
+            reader.forEachImported(onLocal = { skippedLocal += it }) { novel ->
+                sources += novel.pluginId
+                out.write(BackupFields.NOVELS, BackupNovel.serializer(), novel.toImportedNovel(header.categories, zone))
             }
             importedCategories(header.categories).forEach {
                 out.write(BackupFields.NOVEL_CATEGORIES, BackupNovelCategory.serializer(), it)
@@ -88,14 +75,7 @@ class LnReaderBackupConverter(
             pluginPreferences(header.plugins).forEach {
                 out.write(BackupFields.PREFERENCES, BackupPreference.serializer(), it)
             }
-            // The markers a current backup carries, so the restore reads it as one rather than an old format.
-            out.write(BackupFields.MERGE_GROUPS_STORED, BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored())
-            out.write(
-                BackupFields.SORT_OVERRIDES_STORED,
-                BackupSortOverridesStored.serializer(),
-                BackupSortOverridesStored(),
-            )
-            out.write(BackupFields.KITSU_NATIVE_SCALE, BackupKitsuNativeScale.serializer(), BackupKitsuNativeScale())
+            BackupProtoWriter.writeFormatMarkers(out, parser)
         }
         Converted(file.toUri(), skippedLocal)
     }

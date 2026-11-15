@@ -20,6 +20,7 @@ import eu.kanade.tachiyomi.util.system.isRunning
 import eu.kanade.tachiyomi.util.system.setForegroundSafely
 import eu.kanade.tachiyomi.util.system.workManager
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import logcat.LogPriority
 import mihon.app.di.AppGraph
@@ -104,6 +105,10 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
         suspend fun isRunning(workManager: WorkManager): Boolean {
             return workManager.isRunning(TAG)
         }
+
+        // RK: running or still queued, either of which holds the file it was started on
+        suspend fun isPending(workManager: WorkManager): Boolean =
+            workManager.getWorkInfosByTagFlow(TAG).first().any { !it.state.isFinished }
 
         fun start(
             workManager: WorkManager,

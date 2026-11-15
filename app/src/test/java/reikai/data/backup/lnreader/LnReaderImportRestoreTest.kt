@@ -63,6 +63,29 @@ class LnReaderImportRestoreTest {
         updates() shouldBe 0L
     }
 
+    @Test
+    fun `an imported novel is stored with its chapters and their read state`() = runTest {
+        val novel = LnReaderNovel(
+            id = 1,
+            path = "novel/a",
+            pluginId = "novelbin",
+            name = "A",
+            inLibrary = true,
+            chapters = listOf(
+                LnReaderChapter(path = "c1", name = "Chapter 1", unread = false),
+                LnReaderChapter(path = "c2", name = "Chapter 2", position = 1),
+            ),
+        )
+
+        restorer().restore(novel.toImportedNovel(emptyList(), TimeZone.UTC), emptyList())
+
+        val stored = NovelRepositoryImpl(database).getByUrlAndSource("novel/a", "novelbin")!!
+        NovelChapterRepositoryImpl(database).getByNovelId(stored.id).sortedBy {
+            it.url
+        }.map { it.url to it.read } shouldBe
+            listOf("c1" to true, "c2" to false)
+    }
+
     private fun updates(): Long = driver.executeQuery(
         null,
         "SELECT COUNT(*) FROM novelUpdatesView",

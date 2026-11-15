@@ -21,11 +21,9 @@ import eu.kanade.tachiyomi.data.backup.models.BackupExtension
 import eu.kanade.tachiyomi.data.backup.models.BackupExtensionStore
 import eu.kanade.tachiyomi.data.backup.models.BackupFeedRow
 import eu.kanade.tachiyomi.data.backup.models.BackupFields
-import eu.kanade.tachiyomi.data.backup.models.BackupKitsuNativeScale
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
-import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelFont // RK
@@ -33,7 +31,6 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSource
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSavedSearch
-import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
 import eu.kanade.tachiyomi.data.backup.models.BackupSource
 import eu.kanade.tachiyomi.data.backup.models.BackupSourcePreferences
 import kotlinx.coroutines.flow.Flow
@@ -244,21 +241,7 @@ class BackupCreator(
                     writeEach(out, BackupFields.FEED_ROWS, BackupFeedRow.serializer(), feedBackupCreator.feedRows())
                 }
                 // Not through writeEach: a marker alone is not content, so the empty-backup guard ignores it.
-                BackupProtoWriter.writeField(
-                    out,
-                    BackupFields.MERGE_GROUPS_STORED,
-                    parser.encodeToByteArray(BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored()),
-                )
-                BackupProtoWriter.writeField(
-                    out,
-                    BackupFields.SORT_OVERRIDES_STORED,
-                    parser.encodeToByteArray(BackupSortOverridesStored.serializer(), BackupSortOverridesStored()),
-                )
-                BackupProtoWriter.writeField(
-                    out,
-                    BackupFields.KITSU_NATIVE_SCALE,
-                    parser.encodeToByteArray(BackupKitsuNativeScale.serializer(), BackupKitsuNativeScale()),
-                )
+                BackupProtoWriter.writeFormatMarkers(out, parser)
 
                 gzipOut.flush()
             } finally {

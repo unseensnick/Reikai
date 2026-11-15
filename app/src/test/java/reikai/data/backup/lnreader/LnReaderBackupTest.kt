@@ -73,6 +73,37 @@ class LnReaderBackupTest {
         reader(formatOne).isLnReaderBackup() shouldBe true
     }
 
+    private val mixedLibrary = zip(
+        "Version.json" to """{"version":"2.1.0"}""",
+        "NovelAndChapters/1.json" to """{"id":1,"path":"in","pluginId":"p","name":"In","inLibrary":true}""",
+        "NovelAndChapters/2.json" to """{"id":2,"path":"out","pluginId":"p","name":"Out","inLibrary":false}""",
+        "NovelAndChapters/3.json" to
+            """{"id":3,"path":"/local/3","pluginId":"local","name":"Mine","inLibrary":true,"isLocal":true}""",
+    )
+
+    @Test
+    fun `only library novels that are not local are imported`() {
+        val imported = mutableListOf<String>()
+        reader(mixedLibrary).forEachImported(onLocal = {}) { imported += it.path }
+
+        imported shouldContainExactly listOf("in")
+    }
+
+    @Test
+    fun `a local library novel is named instead of imported`() {
+        val named = mutableListOf<String>()
+        reader(mixedLibrary).forEachImported(onLocal = { named += it }) {}
+
+        named shouldContainExactly listOf("Mine")
+    }
+
+    @Test
+    fun `an update time LNReader wrote as ISO UTC is read`() {
+        val updated = novel().copy(lastUpdatedAt = "2026-07-28T09:00:00.000Z")
+
+        updated.toImportedNovel(categories, utc).lastUpdate shouldBe 1785229200000L
+    }
+
     @Test
     fun `a file that is no zip is not an LNReader backup`() {
         reader(byteArrayOf(0x1f, 0x8b.toByte(), 8, 0)).isLnReaderBackup() shouldBe false

@@ -4,6 +4,11 @@
 // tested directly (a wrong field number or varint corrupts every backup).
 package eu.kanade.tachiyomi.data.backup.create
 
+import eu.kanade.tachiyomi.data.backup.models.BackupFields
+import eu.kanade.tachiyomi.data.backup.models.BackupKitsuNativeScale
+import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
+import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
+import kotlinx.serialization.protobuf.ProtoBuf
 import java.io.OutputStream
 
 internal object BackupProtoWriter {
@@ -14,6 +19,28 @@ internal object BackupProtoWriter {
         writeVarint(out, (fieldNumber.toLong() shl 3) or 2L)
         writeVarint(out, data.size.toLong())
         out.write(data)
+    }
+
+    /**
+     * The markers that tell a restore this file is in the current format (merge groups stored, the sort
+     * override bit, Kitsu's native scale). Every backup Reikai writes carries them, an LNReader import too.
+     */
+    fun writeFormatMarkers(out: OutputStream, parser: ProtoBuf) {
+        writeField(
+            out,
+            BackupFields.MERGE_GROUPS_STORED,
+            parser.encodeToByteArray(BackupMergeGroupsStored.serializer(), BackupMergeGroupsStored()),
+        )
+        writeField(
+            out,
+            BackupFields.SORT_OVERRIDES_STORED,
+            parser.encodeToByteArray(BackupSortOverridesStored.serializer(), BackupSortOverridesStored()),
+        )
+        writeField(
+            out,
+            BackupFields.KITSU_NATIVE_SCALE,
+            parser.encodeToByteArray(BackupKitsuNativeScale.serializer(), BackupKitsuNativeScale()),
+        )
     }
 
     /** Write [value] as a protobuf base-128 varint. */

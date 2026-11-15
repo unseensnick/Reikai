@@ -155,6 +155,20 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
         }
     }
 
+    /**
+     * The library novels to import, in turn. A local novel's files stay in LNReader, so it is only named
+     * ([onLocal]); one outside the library is left behind.
+     */
+    fun forEachImported(onLocal: (String) -> Unit, onNovel: (LnReaderNovel) -> Unit) {
+        forEachNovel { novel ->
+            when {
+                !novel.inLibrary -> Unit
+                novel.isLocal -> onLocal(novel.name ?: novel.path)
+                else -> onNovel(novel)
+            }
+        }
+    }
+
     private fun entries(block: (name: String, stream: ZipInputStream) -> Unit) {
         ZipInputStream(open()).use { zip ->
             generateSequence { zip.nextEntry }.forEach { if (!it.isDirectory) block(it.name, zip) }
@@ -228,7 +242,11 @@ internal fun LnReaderNovel.toImportedNovel(categories: List<LnReaderCategory>, z
     }
 }
 
-// LNReader writes these times with SQLite's datetime('now','localtime'): "YYYY-MM-DD HH:MM:SS", local, no zone.
-private fun String?.toEpochMillis(zone: TimeZone): Long? = this?.takeIf { it.isNotBlank() }
-    ?.let { runCatching { LocalDateTime.parse(it.trim().replace(' ', 'T')).toInstant(zone) }.getOrNull() }
+// LNReader writes read times with SQLite's datetime('now','localtime'), "YYYY-MM-DD HH:MM:SS" with no zone,
+// and since 2.1.2 a novel's update time as ISO UTC ("2026-07-28T09:00:00.000Z").
+private fun String?.toEpochMillis(zone: TimeZone): Long? = this?.trim()?.takeIf { it.isNotEmpty() }
+    ?.let { text ->
+        runCatching { Instant.parse(text) }.getOrNull()
+            ?: runCatching { LocalDateTime.parse(text.replace(' ', 'T')).toInstant(zone) }.getOrNull()
+    }
     ?.toEpochMilliseconds()
