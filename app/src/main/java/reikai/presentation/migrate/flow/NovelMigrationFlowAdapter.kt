@@ -34,6 +34,7 @@ import reikai.novel.install.LnPluginInstaller
 import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.novel.source.SmartNovelSearchEngine
+import reikai.novel.source.toLangCode
 import reikai.presentation.migrate.PickMember
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.library.service.LibraryPreferences
@@ -127,9 +128,19 @@ class NovelMigrationFlowAdapter(
         novelPreferences.novelMigrationHideWithoutUpdates().set(tuning.hideWithoutUpdates)
     }
 
+    // With its language once the enabled sources span more than one, as a manga row names its source.
     override suspend fun sourceDisplayName(sourceKey: String): String {
-        return sourceManager.nameOf(sourceKey)
+        val name = sourceManager.nameOf(sourceKey)
+        val lang = sourceManager.langOf(sourceKey).toLangCode()
+        return if (lang.isNotEmpty() && activeLanguages().size > 1) "$name (${lang.uppercase()})" else name
     }
+
+    // Read once: every row asks, and the enabled sources do not change while a migration is set up.
+    private var languages: Set<String>? = null
+
+    private suspend fun activeLanguages(): Set<String> = languages
+        ?: getEnabledNovelSources.get().mapNotNullTo(HashSet()) { it.lang.toLangCode().ifEmpty { null } }
+            .also { languages = it }
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
         return novelRepository.getFavoritesBySourceAsFlow(sourceKey).map { list ->
