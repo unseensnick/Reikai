@@ -9,6 +9,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.BackupTracking
 import eu.kanade.tachiyomi.data.backup.restore.restorers.MangaRestorer
 import eu.kanade.tachiyomi.data.backup.restore.restorers.NovelRestorer
+import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
@@ -56,19 +57,19 @@ class RestoreMergeConformanceTest {
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
     fun `an initialized device keeps its details over an initialized backup`(restorer: MergeRestorer) = runTest {
-        restorer.description(deviceInitialized = true, backupInitialized = true) shouldBe "device"
+        restorer.details(deviceInitialized = true, backupInitialized = true) shouldBe SeriesDetails.DEVICE
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
     fun `an initialized backup fills in a device that never fetched its details`(restorer: MergeRestorer) = runTest {
-        restorer.description(deviceInitialized = false, backupInitialized = true) shouldBe "backup"
+        restorer.details(deviceInitialized = false, backupInitialized = true) shouldBe SeriesDetails.BACKUP
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("restorers")
     fun `an uninitialized backup never replaces the device's details`(restorer: MergeRestorer) = runTest {
-        restorer.description(deviceInitialized = false, backupInitialized = false) shouldBe "device"
+        restorer.details(deviceInitialized = false, backupInitialized = false) shouldBe SeriesDetails.DEVICE
     }
 
     // Novels only: a manga keeps no page count.
@@ -178,6 +179,23 @@ class RestoreMergeConformanceTest {
     }
 }
 
+/** Every detail a restore takes from one side, each set apart on the two sides. */
+data class SeriesDetails(
+    val title: String,
+    val author: String?,
+    val artist: String?,
+    val description: String?,
+    val genre: List<String>?,
+    val status: Long,
+    val thumbnailUrl: String?,
+    val updateStrategy: UpdateStrategy,
+) {
+    companion object {
+        val DEVICE = SeriesDetails("dT", "dAu", "dAr", "dD", listOf("dG"), 1, "dC", UpdateStrategy.ALWAYS_UPDATE)
+        val BACKUP = SeriesDetails("bT", "bAu", "bAr", "bD", listOf("bG"), 2, "bC", UpdateStrategy.ONLY_FETCH_ONCE)
+    }
+}
+
 data class ChapterState(val read: Boolean = false, val bookmark: Boolean = false, val progress: Long = 0)
 
 data class TrackState(
@@ -191,8 +209,8 @@ data class TrackState(
 /** One type's restore of a single series already on the device under [RestoreMergeConformanceTest.DEVICE_ID]. */
 interface MergeRestorer {
 
-    /** Restores a series described "backup" over one described "device", returning the description kept. */
-    suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String?
+    /** Restores a series of [SeriesDetails.BACKUP] over one of [SeriesDetails.DEVICE], returning the details kept. */
+    suspend fun details(deviceInitialized: Boolean, backupInitialized: Boolean): SeriesDetails?
 
     /** Restores a series added at [backup] over one added at [device], returning the date kept. */
     suspend fun addedAt(device: Long, backup: Long): Long?
@@ -216,11 +234,23 @@ class MangaMergeRestorer : MergeRestorer {
 
     private val deviceManga = Manga.create().copy(url = "u", source = 1L, title = "T")
 
-    override suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String? =
-        restoreOver(
-            deviceManga.copy(description = "device", initialized = deviceInitialized),
-            BackupManga(source = 1L, url = "u", description = "backup", initialized = backupInitialized),
-        ).description
+    override suspend fun details(deviceInitialized: Boolean, backupInitialized: Boolean): SeriesDetails? {
+        val (dT, dAu, dAr, dD, dG, dS, dC, dU) = SeriesDetails.DEVICE
+        val (bT, bAu, bAr, bD, bG, bS, bC, bU) = SeriesDetails.BACKUP
+        val stored = restoreOver(
+            deviceManga.copy(
+                title = dT, author = dAu, artist = dAr, description = dD, genre = dG, status = dS,
+                thumbnailUrl = dC, updateStrategy = dU, initialized = deviceInitialized,
+            ),
+            BackupManga(
+                source = 1L, url = "u", title = bT, author = bAu, artist = bAr, description = bD, genre = bG!!,
+                status = bS.toInt(), thumbnailUrl = bC, updateStrategy = bU, initialized = backupInitialized,
+            ),
+        )
+        return with(stored) {
+            SeriesDetails(title, author, artist, description, genre, status, thumbnailUrl, updateStrategy)
+        }
+    }
 
     override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
         deviceManga.copy(favoriteAt = Instant.fromEpochMilliseconds(device)),
@@ -339,11 +369,23 @@ class NovelMergeRestorer : MergeRestorer {
 
     private val deviceNovel = Novel.create().copy(id = RestoreMergeConformanceTest.DEVICE_ID, url = "u", source = "s")
 
-    override suspend fun description(deviceInitialized: Boolean, backupInitialized: Boolean): String? =
-        restoreOver(
-            deviceNovel.copy(description = "device", initialized = deviceInitialized),
-            BackupNovel(source = "s", url = "u", description = "backup", initialized = backupInitialized),
-        )?.description
+    override suspend fun details(deviceInitialized: Boolean, backupInitialized: Boolean): SeriesDetails? {
+        val (dT, dAu, dAr, dD, dG, dS, dC, dU) = SeriesDetails.DEVICE
+        val (bT, bAu, bAr, bD, bG, bS, bC, bU) = SeriesDetails.BACKUP
+        val written = restoreOver(
+            deviceNovel.copy(
+                title = dT, author = dAu, artist = dAr, description = dD, genre = dG, status = dS,
+                thumbnailUrl = dC, updateStrategy = dU, initialized = deviceInitialized,
+            ),
+            BackupNovel(
+                source = "s", url = "u", title = bT, author = bAu, artist = bAr, description = bD, genre = bG!!,
+                status = bS, thumbnailUrl = bC, updateStrategy = bU, initialized = backupInitialized,
+            ),
+        )
+        return written?.run {
+            SeriesDetails(title, author, artist, description, genre, status, thumbnailUrl, updateStrategy)
+        }
+    }
 
     override suspend fun addedAt(device: Long, backup: Long): Long? = restoreOver(
         deviceNovel.copy(favoriteAt = Instant.fromEpochMilliseconds(device)),
