@@ -82,6 +82,16 @@ class LocalNovelLanguageBackupTest {
         languages.get("Book") shouldBe "ja"
     }
 
+    // The files on the device name its language now, as a local manga's memo keeps the device's over a backup's.
+    @Test
+    fun `a restore over a local novel already read keeps the device's language`() = runTest {
+        languages.set("Book", "en")
+
+        restorer().restore(BackupNovel(source = LocalNovelSource.ID, url = "Book", language = "ja"), emptyList())
+
+        languages.get("Book") shouldBe "en"
+    }
+
     private suspend fun backupOf(novel: Novel) = NovelBackupCreator(
 
         tombstones = NoChapterTombstoneRepository,

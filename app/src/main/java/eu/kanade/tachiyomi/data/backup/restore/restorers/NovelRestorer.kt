@@ -157,8 +157,9 @@ class NovelRestorer(
         // An entry without custom info leaves the device's own alone, as manga does, pinned by
         // BackupCustomInfoConformanceTest.
         backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
-        // A backup made before the language was carried leaves the one already read alone.
-        if (LocalNovelSource.isLocal(backupNovel.source)) {
+        // Only where the device has read none: its files name the language now, as a local manga's memo
+        // keeps the device's. A backup made before the language was carried leaves it alone too.
+        if (LocalNovelSource.isLocal(backupNovel.source) && localNovelLanguages.get(backupNovel.url) == null) {
             backupNovel.language?.let { localNovelLanguages.set(backupNovel.url, it) }
         }
     }
