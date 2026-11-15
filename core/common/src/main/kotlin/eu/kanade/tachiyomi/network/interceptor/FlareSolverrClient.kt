@@ -238,8 +238,9 @@ class FlareSolverrClient(
         val text = try {
             flareSolverrClient.newBuilder().eventListener(listener).build().newCall(req).execute().use { resp ->
                 if (!resp.isSuccessful) {
-                    // The solver's own failure says why; a proxy's error page in front of it does not.
-                    flareSolverrFailureReason(resp.body.string())?.let { reason ->
+                    // The solver's own failure says why; a proxy's error page in front of it does not. A 404
+                    // is the address's path, which a FastAPI solver answers with a reason of its own.
+                    flareSolverrFailureReason(resp.body.string())?.takeIf { resp.code != 404 }?.let { reason ->
                         return@withIOContext FlareSolverrTestResult.Failure(
                             FlareSolverrTestFailure.SOLVE_FAILED,
                             reason,
