@@ -376,9 +376,11 @@ class BackupRestorer(
             novelSourceNames = novelSourceNames,
             mergeGroupsStored = mergeGroupsStored,
             sortOverridesStored = sortOverridesStored,
+            // Any field only Reikai writes, its format markers included: a manga-only backup may carry nothing else.
             fromReikai = novelCount > 0 || backupNovelCategories.isNotEmpty() || novelSourceNames.isNotEmpty() ||
                 backupExtensions.isNotEmpty() || backupMangaMerges.isNotEmpty() || backupNovelMerges.isNotEmpty() ||
-                backupMangaUnmerges.isNotEmpty() || backupNovelUnmerges.isNotEmpty(),
+                backupMangaUnmerges.isNotEmpty() || backupNovelUnmerges.isNotEmpty() || mergeGroupsStored ||
+                kitsuNativeScale,
             novelDisplayBitStored = sortOverridesStored || novelSourceNames.isNotEmpty(),
             kitsuScoreScale = kitsuScoreScale,
             backupMangaUnmerges = backupMangaUnmerges,

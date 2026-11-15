@@ -2,6 +2,7 @@ package eu.kanade.tachiyomi.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.Backup
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
+import eu.kanade.tachiyomi.data.backup.models.BackupMergeGroupsStored
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.BackupSortOverridesStored
@@ -150,6 +151,17 @@ class CategorizedDisplayRestoreTest {
                 BackupCategory("B", 2, 2, totalDesc.flag),
             ).apply { backupNovelCategories = listOf(BackupNovelCategory("Novels", 1, 5, 0)) },
         ) - "Novels" shouldBe mapOf("A" to true, "B" to false)
+    }
+
+    // Nightlies wrote the merge-groups marker before the sort one, and a manga-only backup has no other Reikai field.
+    @Test
+    fun `a Reikai backup known only by its merge-groups marker is trusted with the bit`() = runTest {
+        overrides(
+            backup(
+                BackupCategory("A", 1, 1, lastReadAsc.flag or CATEGORY_SORT_CUSTOMIZED),
+                BackupCategory("B", 2, 2, totalDesc.flag),
+            ).apply { backupMergeGroupsStored = BackupMergeGroupsStored() },
+        ) shouldBe mapOf("A" to true, "B" to false)
     }
 
     /** Mihon kept a category's display mode in bits 0 and 1 and retired it without clearing them. */
