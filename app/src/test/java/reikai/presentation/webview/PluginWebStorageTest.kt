@@ -99,6 +99,30 @@ class PluginWebStorageTest {
         }
     }
 
+    // A host seen again moves to the end, or the subdomain left first would keep a sign-in made after it.
+    @Test
+    fun `the site's host visited last keeps its storage when the browser closes`() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val sourceManager = mockk<NovelSourceManager>()
+            coEvery { sourceManager.get("plugin") } returns LnPluginSource(
+                mockk(),
+                LnPluginInfo(id = "plugin", name = "Plugin", site = "https://site.example", webStorageUtilized = true),
+            )
+            val host = mockk<LnPluginHost>(relaxed = true)
+            val model = PluginWebStorageViewModel("plugin", null, sourceManager, host, testAppScope())
+            model.onPageStorage("https://www.site.example/", OTHER_STORAGE)
+            model.onPageStorage("https://m.site.example/", OTHER_STORAGE)
+            model.onPageStorage("https://www.site.example/login", SITE_STORAGE)
+
+            ViewModelStore().apply { put("browser", model) }.clear()
+
+            verify(timeout = 5_000) { host.storeWebStorage("plugin", SITE_STORAGE) }
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     // Reading the page's storage runs on Main after every page load, so a plugin that never uses it is spared.
     @Test
     fun `the browser stops reading storage once its plugin is known not to use it`() {
