@@ -128,6 +128,16 @@ class ForeignMergeRestoreTest {
 
     @ParameterizedTest
     @EnumSource(Layout::class)
+    fun `every member takes the merged entry's date added`(layout: Layout) = runTest {
+        restored(rows(layout)) {
+            listOf(INFO_URL to INFO_SOURCE, OTHER_URL to OTHER_SOURCE)
+                .map { (url, source) -> mangas.getMangaByUrlAndSourceId(url, source)!!.favoriteAt }
+                .map { it?.toEpochMilliseconds() }
+        } shouldBe listOf(DATE_ADDED, DATE_ADDED)
+    }
+
+    @ParameterizedTest
+    @EnumSource(Layout::class)
     fun `the merged entry's own row is not restored`(layout: Layout) = runTest {
         restored(rows(layout)) { idOf(MERGED_URL, FOREIGN_MERGED_SOURCE_ID) } shouldBe null
     }
