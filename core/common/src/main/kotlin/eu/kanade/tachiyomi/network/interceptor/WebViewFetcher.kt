@@ -17,6 +17,7 @@ import androidx.webkit.WebViewCompat
 import androidx.webkit.WebViewFeature
 import eu.kanade.tachiyomi.util.system.setDefaultSettings
 import eu.kanade.tachiyomi.util.system.setUserAgent
+import eu.kanade.tachiyomi.util.system.toWebViewHeaders
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
@@ -160,27 +161,36 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
         val userAgent = request.header("User-Agent")
         val page = AtomicReference<Page?>()
         val opened = CountDownLatch(1)
+        val inbox = LinkedBlockingQueue<String>()
         main.post {
             try {
-                page.set(openPage(origin, userAgent))
+                // Registered as the page opens, on the thread that evicts, so it is busy before another fetch
+                // can take it for idle while this one waits for it to be ready.
+                page.set(openPage(origin, userAgent)?.also { it.inboxes[id] = inbox })
             } catch (e: Exception) {
                 logcat(LogPriority.ERROR, e) { "WebView fetch: no WebView for ${request.url.host}" }
             } finally {
                 opened.countDown()
             }
         }
-        if (!opened.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) return Answer.Error("page not created")
+        if (!opened.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
+            // Posted after the open, so it lets go of an inbox the open registers late.
+            main.post {
+                page.get()?.inboxes?.remove(id) ?: return@post
+                scheduleTeardown(origin)
+            }
+            return Answer.Error("page not created")
+        }
         val open = page.get() ?: return Answer.Error("page not created")
-        val proxy = open.awaitReady() ?: return Answer.Error("page not ready")
-        val inbox = LinkedBlockingQueue<String>()
-        open.inboxes[id] = inbox
-        if (open.dead) inbox.offer(PAGE_CLOSED)
-        main.post { if (!open.dead) proxy.postMessage(message.toString()) }
         try {
-            return collect(chain, request, id, inbox)
-        } catch (e: IOException) {
-            main.post { if (!open.dead) proxy.postMessage(buildJsonObject { put("abort", id) }.toString()) }
-            return Answer.Error(e.message ?: "aborted")
+            val proxy = open.awaitReady() ?: return Answer.Error("page not ready")
+            main.post { if (!open.dead) proxy.postMessage(message.toString()) }
+            try {
+                return collect(chain, request, id, inbox)
+            } catch (e: IOException) {
+                main.post { if (!open.dead) proxy.postMessage(buildJsonObject { put("abort", id) }.toString()) }
+                return Answer.Error(e.message ?: "aborted")
+            }
         } finally {
             open.inboxes.remove(id)
             main.post { scheduleTeardown(origin) }
@@ -360,7 +370,8 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
                 }
             }
             view.set(webView)
-            webView.loadUrl(request.url.toString())
+            // With the request's headers, as the solve loads its page: a credentialed redirect answers only to them.
+            webView.loadUrl(request.url.toString(), request.headers.toWebViewHeaders())
         }
         try {
             done.await(TIMEOUT_SECONDS, TimeUnit.SECONDS)

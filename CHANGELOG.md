@@ -341,6 +341,8 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Extensions from a repository added while the app starts are trusted right away, not after a restart.**
 - **A novel plugin that keeps failing to load no longer holds up every novel screen.** It is retried at most once a minute, and Retry or Re-check extensions still retries it at once.
 - **An enhanced source installed in its all-languages version now follows that version's description settings and lists alternative titles in every language.** It had read details as English and judged a series finished by its English chapters only.
+- **Requests that reach a site through WebView to get past Cloudflare no longer fail when several sites load at once.**
+- **A signed-in request that a Cloudflare-protected site redirects elsewhere is now followed through WebView too.**
 
 ### Updates & History
 
