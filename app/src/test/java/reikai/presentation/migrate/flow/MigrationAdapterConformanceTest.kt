@@ -1,5 +1,6 @@
 package reikai.presentation.migrate.flow
 
+import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.MangasPage
@@ -14,6 +15,7 @@ import io.mockk.mockk
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import mihon.domain.source.interactor.UpdateMangaFromRemote
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelChapterSyncRules
@@ -146,6 +148,13 @@ class MigrationAdapterConformanceTest {
         probe.adapter().loadEntries(listOf(ENTRY_ID)).single().sourceName shouldBe OLD_NAME
     }
 
+    // Manga only: novels have no rule yet for which languages are on, since their filter lists the ones off.
+    @Test
+    fun `with more than one language on, a manga row names its source's language`() = runTest {
+        MangaProbe.adapter(languages = setOf("en", "ja")).loadEntries(listOf(ENTRY_ID)).single().sourceName shouldBe
+            "$OLD_NAME (EN)"
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `an entry shows its stored chapter count and highest number`(probe: Probe) = runTest {
@@ -228,6 +237,15 @@ object MangaProbe : Probe {
         chapters: Int,
         sourceChapters: List<String>,
         unnumbered: Boolean,
+    ): MigrationFlowAdapter = adapter(listing, chapters, sourceChapters, unnumbered, languages = setOf("en"))
+
+    /** The adapter with [languages] enabled, which decides whether a row names its source's language. */
+    fun adapter(
+        listing: List<String> = emptyList(),
+        chapters: Int = 1,
+        sourceChapters: List<String> = emptyList(),
+        unnumbered: Boolean = false,
+        languages: Set<String>,
     ): MigrationFlowAdapter {
         val rows = mutableMapOf(stored.id to stored, picked.id to picked)
         var synced = false
@@ -270,7 +288,7 @@ object MangaProbe : Probe {
                 coEvery { get(2L) } returns catalogue
                 coEvery { getOrStub(2L) } returns catalogue
             },
-            sourcePreferences = mockk(relaxed = true),
+            sourcePreferences = SourcePreferences(InMemoryPreferenceStore()).apply { enabledLanguages.set(languages) },
             getManga = mockk<GetManga> { coEvery { await(any<Long>()) } answers { rows[firstArg()] } },
             getChaptersByMangaId = mockk<GetChaptersByMangaId> {
                 coEvery { await(any(), any()) } answers {

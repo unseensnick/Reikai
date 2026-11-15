@@ -9,6 +9,7 @@ import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.tachiyomi.data.cache.CoverCache
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.CatalogueSource
+import eu.kanade.tachiyomi.source.getNameForMangaInfo
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -121,7 +122,9 @@ class MangaMigrationFlowAdapter(
     }
 
     override suspend fun sourceDisplayName(sourceKey: String): String {
-        return sourceKey.toLongOrNull()?.let { sourceManager.getOrStub(it).name } ?: sourceKey
+        // With its language once more than one is enabled, as Mihon's migration rows named it.
+        return sourceKey.toLongOrNull()?.let { sourceManager.getOrStub(it).getNameForMangaInfo(sourcePreferences) }
+            ?: sourceKey
     }
 
     override fun favorites(sourceKey: String): Flow<List<MigrationFavorite>> {
