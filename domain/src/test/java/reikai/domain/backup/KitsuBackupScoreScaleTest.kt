@@ -28,6 +28,12 @@ class KitsuBackupScoreScaleTest {
             .restore(KITSU, 4.0) shouldBe 4.0
     }
 
+    // 10 was the top of the old scale, so a backup topping out there is still on it.
+    @Test
+    fun `an unmarked backup whose highest Kitsu score is exactly 10 is doubled`() {
+        KitsuBackupScoreScale.of(nativeScaleMarked = false, listOf(KITSU to 10.0)).restore(KITSU, 10.0) shouldBe 20.0
+    }
+
     @Test
     fun `another tracker's score above 10 says nothing about Kitsu's scale`() {
         KitsuBackupScoreScale.of(nativeScaleMarked = false, listOf(KITSU to 4.0, ANILIST to 85.0))
