@@ -112,11 +112,10 @@ class AppPreferenceCarry(
             networkPreferences.flareSolverrUsername.key(),
             networkPreferences.flareSolverrPassword.key(),
             -> Unit
-            // Nor installs a plugin, whose script the QuickJS host would run on the next load: the restore
-            // installs the backup's plugins itself, only from repos the user trusts (RestoreExtensionInstaller).
-            novelPreferences.installedPluginUrls().key(), novelPreferences.installedPluginMetadata().key() -> Unit
-            // Nor adds a plugin repo the user has not trusted there; a trusted one is fetched and added live.
-            novelPreferences.addedRepoUrls().key() -> Unit
+            // Nor installs a plugin, whose script the QuickJS host would run on the next load, or adds a repo:
+            // the restore installs the backup's plugins itself, only from repos the user trusts there, and adds
+            // a trusted repo live (RestoreExtensionInstaller).
+            in novelPreferences.pluginInstallKeys() -> Unit
             // Mihon never backs up app state, extension trust among it, so only a crafted backup carries any.
             else -> return key in SKIPPED_KEYS || Preference.isAppState(key) || SKIPPED_PREFIXES.any(key::startsWith)
         }
