@@ -154,6 +154,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Long-press a chapter in the reader's chapter list to select chapters and mark, bookmark, download or delete them, or mark everything before one as read.** The same bar as on the series screen.
 - **A novel can keep its own reading mode and chapter display, from the reader settings' For this series.** Default follows the setting for every other novel.
 - **Long-press a picture in a novel chapter to open it full screen, where you can zoom, rotate, share or save it.** In scrolling mode a tap opens it.
 - **Paged novels keep each picture whole on one page, shrinking a tall one to fit while it stays readable.** A very tall picture keeps its width and continues across pages.

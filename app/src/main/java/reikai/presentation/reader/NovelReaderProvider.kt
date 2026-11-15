@@ -207,13 +207,13 @@ class NovelReaderProvider(
 
         override fun open(chapterId: Long) = viewModel.open(chapterId)
 
-        override fun setRead(chapterId: Long, read: Boolean) = viewModel.setChapterRead(chapterId, read)
+        override fun setRead(chapterIds: List<Long>, read: Boolean) = viewModel.setChapterRead(chapterIds, read)
 
-        override fun setBookmark(chapterId: Long, bookmarked: Boolean) =
-            viewModel.setChapterBookmark(chapterId, bookmarked)
+        override fun setBookmark(chapterIds: List<Long>, bookmarked: Boolean) =
+            viewModel.setChapterBookmark(chapterIds, bookmarked)
 
-        override fun download(chapterId: Long, action: ChapterDownloadAction) =
-            viewModel.downloadChapter(chapterId, action)
+        override fun download(chapterIds: List<Long>, action: ChapterDownloadAction) =
+            viewModel.downloadChapter(chapterIds, action)
     }
 
     override val textSettings: ReaderTextSettings = object : ReaderTextSettings {

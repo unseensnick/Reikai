@@ -1264,32 +1264,40 @@ class NovelReaderViewModel(
     )
 
     /** Reaches every source's copy of the chapter, as the manga sheet and the details list do. */
-    fun setChapterRead(chapterId: Long, read: Boolean) {
+    fun setChapterRead(chapterIds: List<Long>, read: Boolean) {
         appScope.launch {
-            val copies = groupCopies(chapterId)
+            val copies = groupCopies(chapterIds.toSet())
             // Unmarked, it can be finished again, and finishing is what reaches the trackers.
             if (!read) chapterFinish.release(copies.map { it.id })
             setNovelReadStatus.await(read, copies)
         }
     }
 
-    fun setChapterBookmark(chapterId: Long, bookmarked: Boolean) {
-        val ids = expandToUnits(setOf(chapterId), groupStitch)
+    fun setChapterBookmark(chapterIds: List<Long>, bookmarked: Boolean) {
+        val ids = expandToUnits(chapterIds.toSet(), groupStitch)
         // Kept in step so the sheet and the app bar cannot disagree about the chapter being read.
         if (currentChapterId in ids) this.bookmarked.value = bookmarked
         // On Main so quick toggles are saved in order, as manga's are
         viewModelScope.launch { chapterRepo.setBookmarkBulk(ids.toList(), bookmarked) }
     }
 
-    /** Every source's copy of [chapterId] the stored stitch places with it, itself included, as the
-     *  database holds them now. Just the chapter when the novel is ungrouped. */
-    private suspend fun groupCopies(chapterId: Long): List<NovelChapter> =
-        expandToUnits(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
+    /** Every source's copy of [chapterIds] the stored stitch places with them, themselves included, as
+     *  the database holds them now. Just the chapters when the novel is ungrouped. */
+    private suspend fun groupCopies(chapterIds: Set<Long>): List<NovelChapter> {
+        val ids = expandToUnits(chapterIds, groupStitch)
+        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
+        return pooled + (ids - pooled.mapTo(HashSet()) { it.id }).mapNotNull { chapterRepo.getById(it) }
+    }
 
     /** The bar's answer, as the details list gives it: a bookmark on another source's copy counts. */
-    private suspend fun isBookmarkedInGroup(chapterId: Long): Boolean = groupCopies(chapterId).any { it.bookmark }
+    private suspend fun isBookmarkedInGroup(
+        chapterId: Long,
+    ): Boolean = expandToUnits(setOf(chapterId), groupStitch).any {
+        chapterRepo.getById(it)?.bookmark ==
+            true
+    }
 
-    fun toggleBookmark() = setChapterBookmark(currentChapterId, !bookmarked.value)
+    fun toggleBookmark() = setChapterBookmark(listOf(currentChapterId), !bookmarked.value)
 
     /** The novel [chapterId] belongs to, for the browser to save the chapter's text to. */
     suspend fun novelIdOf(chapterId: Long): Long? = chapterRepo.getById(chapterId)?.novelId
@@ -1313,16 +1321,18 @@ class NovelReaderViewModel(
             ?.webUrl(chapterUrl, isNovel = false)
             ?.takeIf { it.isNotBlank() }
 
-    /** Start, cancel or delete a chapter download from the sheet. */
-    fun downloadChapter(chapterId: Long, action: ChapterDownloadAction) {
+    /** Start, cancel or delete chapter downloads from the sheet. */
+    fun downloadChapter(chapterIds: List<Long>, action: ChapterDownloadAction) {
         // The queue edit or delete outlives the reader, which is often closed straight after the tap, as on manga
         appScope.launch {
-            val chapter = chapterRepo.getById(chapterId) ?: return@launch
             val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
-            val fetched = downloadTargets.of(listOf(chapter), pooled + chapter) { it.id }
-            // The copies the row counts as downloaded, which follow this session's scope.
-            downloadManager.runChapterAction(action, rowDownloadChapters(action, listOf(chapter), fetched) { it.id }) {
-                mergeScope.copiesOf(setOf(chapterId), groupStitch).mapNotNull { chapterRepo.getById(it) }
+            val byId = pooled.associateBy { it.id }
+            val picked = chapterIds.mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+            if (picked.isEmpty()) return@launch
+            val fetched = downloadTargets.of(picked, pooled + picked) { it.id }
+            // The copies the rows count as downloaded, which follow this session's scope.
+            downloadManager.runChapterAction(action, rowDownloadChapters(action, picked, fetched) { it.id }) {
+                mergeScope.copiesOf(chapterIds.toSet(), groupStitch).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
             }
         }
     }
@@ -1648,6 +1658,7 @@ internal fun NovelChapter.toReaderChapterRow(
         subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
         dateUpload = dateUpload,
         readProgress = percentProgressLabel(lastTextProgress),
+        progress = ChapterProgress.Percent(lastTextProgress),
         read = flags.isRead(this),
         bookmark = flags.isBookmarked(this),
         downloadState = downloadState,

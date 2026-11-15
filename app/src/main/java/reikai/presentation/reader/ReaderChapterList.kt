@@ -5,8 +5,10 @@ import androidx.compose.runtime.Stable
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import kotlinx.coroutines.flow.Flow
+import reikai.domain.reader.ChapterProgress
 import reikai.presentation.components.UndatedChapterDate
 import reikai.presentation.details.ChapterVolume
+import reikai.presentation.selection.ChapterMarks
 import kotlin.time.Instant
 
 /**
@@ -23,8 +25,9 @@ data class ReaderChapterRow(
     val dateUpload: Instant?,
     /** How far into an unread chapter the reader got, already worded ("42%", "Page 3"), or null. */
     val readProgress: String?,
-    val read: Boolean,
-    val bookmark: Boolean,
+    override val progress: ChapterProgress?,
+    override val read: Boolean,
+    override val bookmark: Boolean,
     /** Queue state where the chapter is queued, else whether it is on disk. */
     val downloadState: Download.State,
     /** Live percent for the spinner; 0 where the type reports no per-chapter progress. */
@@ -33,7 +36,7 @@ data class ReaderChapterRow(
     val offersDownload: Boolean,
     /** The volume of a local series split into volumes, which the sheet heads the row with; null elsewhere. */
     val volume: ChapterVolume? = null,
-)
+) : ChapterMarks
 
 /**
  * The chapter list as a capability, so the sheet is one component over both content types. The rows are
@@ -53,9 +56,9 @@ interface ReaderChapterList {
 
     fun open(chapterId: Long)
 
-    fun setRead(chapterId: Long, read: Boolean)
+    fun setRead(chapterIds: List<Long>, read: Boolean)
 
-    fun setBookmark(chapterId: Long, bookmarked: Boolean)
+    fun setBookmark(chapterIds: List<Long>, bookmarked: Boolean)
 
-    fun download(chapterId: Long, action: ChapterDownloadAction)
+    fun download(chapterIds: List<Long>, action: ChapterDownloadAction)
 }

@@ -289,19 +289,21 @@ class MangaReaderProvider(
                 ?.let { viewModel.loadNewChapterFromDialog(it.chapter) }
         }
 
-        override fun setRead(chapterId: Long, read: Boolean) {
-            chapterOf(chapterId)?.let { viewModel.setChapterReadStatus(it, read) }
+        override fun setRead(chapterIds: List<Long>, read: Boolean) {
+            chaptersOf(chapterIds).takeIf { it.isNotEmpty() }?.let { viewModel.setChapterReadStatus(it, read) }
         }
 
-        override fun setBookmark(chapterId: Long, bookmarked: Boolean) =
-            viewModel.toggleBookmark(chapterId, bookmarked)
+        override fun setBookmark(chapterIds: List<Long>, bookmarked: Boolean) =
+            viewModel.toggleBookmark(chapterIds, bookmarked)
 
-        override fun download(chapterId: Long, action: ChapterDownloadAction) {
-            chapterOf(chapterId)?.let { viewModel.handleChapterDownload(it, action) }
+        override fun download(chapterIds: List<Long>, action: ChapterDownloadAction) {
+            chaptersOf(chapterIds).takeIf { it.isNotEmpty() }?.let { viewModel.handleChapterDownload(it, action) }
         }
 
-        private fun chapterOf(chapterId: Long) =
-            viewModel.getChapters().find { it.chapter.id == chapterId }?.chapter
+        private fun chaptersOf(chapterIds: List<Long>): List<Chapter> {
+            val wanted = chapterIds.toSet()
+            return viewModel.getChapters().map { it.chapter }.filter { it.id in wanted }
+        }
     }
 
     // A manga page is an image the source ships, so there is no text for a size or a page colour to
@@ -406,6 +408,7 @@ internal fun ReaderChapterItem.toReaderChapterRow(
         // Mihon has no reader chapter sheet; this follows its details list, which shows the page.
         readProgress = pageProgressLabel(chapter.lastPageRead, chapter.pageCount)
             ?.let { (resource, args) -> words.pageProgress(resource, args) },
+        progress = ChapterProgress.Pages(chapter.lastPageRead, chapter.pageCount),
         read = flags.isRead(chapter),
         bookmark = flags.isBookmarked(chapter),
         downloadState = downloadState,

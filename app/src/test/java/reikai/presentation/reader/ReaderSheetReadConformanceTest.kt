@@ -27,6 +27,9 @@ class ReaderSheetReadConformanceTest {
     interface Probe {
         /** Marks chapter 2 read from the sheet, then unread when [unmark]: whether it is stored read afterwards. */
         suspend fun readAfterMarking(scope: TestScope, unmark: Boolean): Boolean?
+
+        /** Marks chapters 2 and 3 read in one write, as the sheet's bulk bar does: whether each is stored read. */
+        suspend fun readAfterMarkingTwo(scope: TestScope): List<Boolean?>
     }
 
     @BeforeEach
@@ -45,6 +48,12 @@ class ReaderSheetReadConformanceTest {
     @MethodSource("probes")
     fun `marking a chapter read and then unread from the sheet leaves it unread`(probe: Probe) = runTest {
         probe.readAfterMarking(this, unmark = true) shouldBe false
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `marking two chapters read at once from the sheet stores both read`(probe: Probe) = runTest {
+        probe.readAfterMarkingTwo(this) shouldBe listOf(true, true)
     }
 
     companion object {
@@ -68,11 +77,22 @@ class ReaderSheetReadConformanceTest {
                 harness.chapter(10L, manga, 1.0)
                 val other = harness.chapter(20L, manga, 2.0)
                 harness.open(manga, chapterId = 10L) { model, _ ->
-                    model.setChapterReadStatus(other, read = true)
+                    model.setChapterReadStatus(listOf(other), read = true)
                     val marked = settlesAt(true) { harness.stored(other.id).read }
                     if (!unmark) return@open marked
-                    model.setChapterReadStatus(other, read = false)
+                    model.setChapterReadStatus(listOf(other), read = false)
                     settlesAt(false) { harness.stored(other.id).read }
+                }
+            }
+
+        override suspend fun readAfterMarkingTwo(scope: TestScope): List<Boolean?> =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                harness.chapter(10L, manga, 1.0)
+                val marked = listOf(harness.chapter(20L, manga, 2.0), harness.chapter(30L, manga, 3.0))
+                harness.open(manga, chapterId = 10L) { model, _ ->
+                    model.setChapterReadStatus(marked, read = true)
+                    marked.map { chapter -> settlesAt(true) { harness.stored(chapter.id).read } }
                 }
             }
     }
@@ -88,11 +108,23 @@ class ReaderSheetReadConformanceTest {
                 val model = harness.open(novel, opened.id)
                 scope.advanceUntilIdle()
 
-                model.setChapterRead(other.id, read = true)
+                model.setChapterRead(listOf(other.id), read = true)
                 val marked = settlesAt(true) { harness.isRead(other) }
                 if (!unmark) return@use marked
-                model.setChapterRead(other.id, read = false)
+                model.setChapterRead(listOf(other.id), read = false)
                 settlesAt(false) { harness.isRead(other) }
+            }
+
+        override suspend fun readAfterMarkingTwo(scope: TestScope): List<Boolean?> =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                val novel = harness.novel(harness.source("alpha"))
+                val opened = harness.chapter(novel, 1.0)
+                val marked = listOf(harness.chapter(novel, 2.0), harness.chapter(novel, 3.0))
+                val model = harness.open(novel, opened.id)
+                scope.advanceUntilIdle()
+
+                model.setChapterRead(marked.map { it.id }, read = true)
+                marked.map { chapter -> settlesAt(true) { harness.isRead(chapter) } }
             }
     }
 }

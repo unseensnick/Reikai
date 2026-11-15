@@ -166,9 +166,11 @@ class MangaDownloadProbe : ReaderDownloadProbe {
             queued,
         ->
         model.handleChapterDownload(
-            group.pooledChapters.first {
-                it.id == ids.getValue(row)
-            },
+            listOf(
+                group.pooledChapters.first {
+                    it.id == ids.getValue(row)
+                },
+            ),
             ChapterDownloadAction.START,
         )
         settle(queued)
@@ -282,7 +284,7 @@ class NovelDownloadProbe : ReaderDownloadProbe {
         ->
         val model = harness.open(ids.getValue(ReaderCopy.A1).novel, ids.getValue(ReaderCopy.A1).id)
         scope.advanceUntilIdle()
-        model.downloadChapter(ids.getValue(row).id, ChapterDownloadAction.START)
+        model.downloadChapter(listOf(ids.getValue(row).id), ChapterDownloadAction.START)
         scope.advanceUntilIdle()
         queued
     }

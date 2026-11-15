@@ -187,7 +187,14 @@ class MangaCopyProbe : MergedCopyProbe {
             sourceScoped = false,
             onDownload = { chapters -> chapters.forEach { queued += it.id } },
         ) { model, _, group ->
-            model.handleChapterDownload(group.pooledChapters.first { it.id == 12L }, ChapterDownloadAction.START)
+            model.handleChapterDownload(
+                listOf(
+                    group.pooledChapters.first {
+                        it.id == 12L
+                    },
+                ),
+                ChapterDownloadAction.START,
+            )
             withContext(Dispatchers.Default) {
                 withTimeoutOrNull(3_000) { while (queued.isEmpty()) delay(20) }
             }
@@ -203,7 +210,14 @@ class MangaCopyProbe : MergedCopyProbe {
             sourceScoped = sourceScoped,
             onDelete = { chapters -> chapters.forEach { deleted += it.id } },
         ) { model, _, group ->
-            model.handleChapterDownload(group.pooledChapters.first { it.id == 12L }, ChapterDownloadAction.DELETE)
+            model.handleChapterDownload(
+                listOf(
+                    group.pooledChapters.first {
+                        it.id == 12L
+                    },
+                ),
+                ChapterDownloadAction.DELETE,
+            )
             withContext(Dispatchers.Default) {
                 withTimeoutOrNull(3_000) { while (12L !in deleted) delay(20) }
                 delay(200)
@@ -328,7 +342,7 @@ class NovelCopyProbe : MergedCopyProbe {
             val model = harness.open(leading, opened.id, sourceScoped = sourceScoped)
             scope.advanceUntilIdle()
 
-            model.downloadChapter(opened.id, ChapterDownloadAction.DELETE)
+            model.downloadChapter(listOf(opened.id), ChapterDownloadAction.DELETE)
             scope.advanceUntilIdle()
             sibling.id in deleted
         }

@@ -1065,7 +1065,7 @@ class ReaderEngineTest {
     fun `the sheet's remaining verbs still reach the provider`() {
         val provider = FakeReaderProvider()
 
-        engine(provider).chapterList.setRead(7L, read = true)
+        engine(provider).chapterList.setRead(listOf(7L), read = true)
 
         provider.chapterList.readMarks shouldBe listOf(7L to true)
     }
@@ -1338,13 +1338,13 @@ private class FakeChapterList : ReaderChapterList {
         if (chapterId != NEVER_LOADS || loadsAgain) currentChapterId.value = chapterId
     }
 
-    override fun setRead(chapterId: Long, read: Boolean) {
-        readMarks += chapterId to read
+    override fun setRead(chapterIds: List<Long>, read: Boolean) {
+        chapterIds.forEach { readMarks += it to read }
     }
 
-    override fun setBookmark(chapterId: Long, bookmarked: Boolean) = Unit
+    override fun setBookmark(chapterIds: List<Long>, bookmarked: Boolean) = Unit
 
-    override fun download(chapterId: Long, action: ChapterDownloadAction) = Unit
+    override fun download(chapterIds: List<Long>, action: ChapterDownloadAction) = Unit
 
     companion object {
         /** The id whose load never finishes, standing in for a chapter that failed to open. */

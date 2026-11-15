@@ -1113,7 +1113,7 @@ class ReaderViewModel(
         val duplicateUnreadChapters = groupChapters()
             .duplicatesOfRead(
                 readChapter,
-                groupCopyIds(readChapter.id).toSet(),
+                groupCopyIds(setOf(readChapter.id)),
                 numberOf = { it.chapterNumber },
                 nameOf = { it.name },
                 idOf = { it.id },
@@ -1274,7 +1274,7 @@ class ReaderViewModel(
         // RK --> flipped from the group's answer the bar shows, and written to every source's copy
         // through the chapter sheet's verb, which also moves the bar.
         val bookmarked = !state.value.bookmarked
-        toggleBookmark(readerChapter.chapter.id, bookmarked)
+        toggleBookmark(listOf(readerChapter.chapter.id), bookmarked)
         // RK <--
     }
 
@@ -1509,15 +1509,15 @@ class ReaderViewModel(
     // sheet applies group-wide like the details screen's does, instead of only to the source the row came
     // from. Reads the stored stitch, which is the one place that decides what "the same chapter" means:
     // matching on the number instead reached a chapter several along on a sibling source, and collapsed
-    // every gallery source's chapter 1 into one. Falls back to the chapter alone when unmerged.
-    private fun groupCopyIds(chapterId: Long): List<Long> {
-        val stitch = mergedGroup?.takeIf { it.isMerged }?.stitch ?: return listOf(chapterId)
-        return expandToUnits(setOf(chapterId), stitch).toList().ifEmpty { listOf(chapterId) }
+    // every gallery source's chapter 1 into one. Falls back to the chapters alone when unmerged.
+    private fun groupCopyIds(chapterIds: Set<Long>): Set<Long> {
+        val stitch = mergedGroup?.takeIf { it.isMerged }?.stitch ?: return chapterIds
+        return expandToUnits(chapterIds, stitch).ifEmpty { chapterIds }
     }
 
-    /** Toggle the bookmark of an arbitrary chapter from the chapter dialog. */
-    fun toggleBookmark(chapterId: Long, bookmarked: Boolean) {
-        val ids = groupCopyIds(chapterId)
+    /** Set the bookmark of chapters picked in the chapter dialog. */
+    fun toggleBookmark(chapterIds: List<Long>, bookmarked: Boolean) {
+        val ids = groupCopyIds(chapterIds.toSet())
         val copies = ids.flatMap { chapterCopies(it) }
         if (copies.isEmpty()) return
         copies.forEach { copy -> copy.update { it.copy(bookmark = bookmarked) } }
@@ -1532,7 +1532,7 @@ class ReaderViewModel(
     /** Whether any source's copy of [chapterId] is bookmarked, read fresh: the copies the reader does
      *  not list live only in the database. */
     private suspend fun isBookmarkedInGroup(chapterId: Long): Boolean =
-        groupCopyIds(chapterId).any { getChapter.await(it)?.bookmark == true }
+        groupCopyIds(setOf(chapterId)).any { getChapter.await(it)?.bookmark == true }
 
     /**
      * The group's read, bookmarked and on-disk answer for the chapter sheet's [rows]. The group's
@@ -1560,30 +1560,30 @@ class ReaderViewModel(
 
     // RK -->
 
-    /** Set the read state of an arbitrary chapter from the chapter dialog. Uses SetReadStatus so tracker
+    /** Set the read state of chapters picked in the chapter dialog. Uses SetReadStatus so tracker
      *  sync + delete-after-read fire like the details "mark as read", not just a raw read-flag write.
      *  The targets are read fresh: SetReadStatus skips a chapter already in the state asked for, and
      *  the chapters loaded at open do not know what this session has marked since. */
-    fun setChapterReadStatus(chapter: Chapter, read: Boolean) {
-        val ids = groupCopyIds(chapter.id)
+    fun setChapterReadStatus(chapters: List<Chapter>, read: Boolean) {
+        val ids = groupCopyIds(chapters.mapTo(HashSet()) { it.id })
         ids.forEach { id -> chapterCopies(id).forEach { copy -> copy.update { it.copy(read = read) } } }
         appScope.launch {
-            val targets = ids.mapNotNull { getChapter.await(it) }.ifEmpty { listOf(chapter) }
+            val targets = groupChapters().filter { it.id in ids }.ifEmpty { chapters }
             setReadStatus.await(read, *targets.toTypedArray())
         }
     }
 
-    /** Start/cancel/delete a chapter download from the chapter dialog, each from its own source's folder. */
-    fun handleChapterDownload(chapter: Chapter, action: ChapterDownloadAction) {
+    /** Start/cancel/delete chapter downloads from the chapter dialog, each from its own source's folder. */
+    fun handleChapterDownload(picked: List<Chapter>, action: ChapterDownloadAction) {
         manga ?: return
         // The queue edit or delete outlives the reader, which is often closed straight after the tap
         appScope.launch {
-            val chapters = rowDownloadChapters(action, listOf(chapter), downloadCopiesOf(listOf(chapter))) { it.id }
+            val chapters = rowDownloadChapters(action, picked, downloadCopiesOf(picked)) { it.id }
             chapterDownloadActions.run(action, chapters) {
                 // The copies this session's rows count as downloaded: every source's in group scope,
-                // the chapter's own in source scope.
-                val copies = mergeScope.copiesOf(setOf(chapter.id), mergedGroup?.stitch.orEmpty())
-                getUnfilteredChapterList().filter { it.id in copies }.ifEmpty { listOf(chapter) }
+                // the chapters' own in source scope.
+                val copies = mergeScope.copiesOf(picked.mapTo(HashSet()) { it.id }, mergedGroup?.stitch.orEmpty())
+                getUnfilteredChapterList().filter { it.id in copies }.ifEmpty { picked }
             }
         }
     }
@@ -1748,7 +1748,7 @@ class ReaderViewModel(
             groupChapters()
                 .duplicatesOfRead(
                     chapter,
-                    groupCopyIds(chapter.id).toSet(),
+                    groupCopyIds(setOf(chapter.id)),
                     numberOf = { it.chapterNumber },
                     nameOf = { it.name },
                     idOf = { it.id },
