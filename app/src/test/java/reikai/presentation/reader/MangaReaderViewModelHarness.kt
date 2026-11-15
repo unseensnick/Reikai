@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
+import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.source.Source
@@ -60,6 +61,7 @@ import tachiyomi.domain.history.interactor.UpsertHistory
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.interactor.GetManga
 import tachiyomi.domain.manga.model.Manga
+import tachiyomi.domain.manga.model.MangaUpdate
 import tachiyomi.domain.source.model.StubSource
 import tachiyomi.domain.source.service.SourceManager
 import java.io.IOException
@@ -139,6 +141,12 @@ class MangaReaderViewModelHarness private constructor(
 
     /** [id] as the database holds it now. */
     suspend fun stored(id: Long): Chapter = chapters.getChapterById(id)!!
+
+    suspend fun storedManga(id: Long): Manga = mangas.getMangaById(id)
+
+    suspend fun setViewerFlags(id: Long, flags: Long) {
+        mangas.update(MangaUpdate(id) { viewerFlags = flags })
+    }
 
     /** The chapters of [mangaId] the reader recorded in History. */
     suspend fun historyOf(mangaId: Long): List<Long> = history.getHistoryByMangaId(mangaId).map { it.chapterId }
@@ -247,7 +255,7 @@ class MangaReaderViewModelHarness private constructor(
                 copyMarks = copyMarks,
                 localVolumes = NoLocalVolumes,
                 updateChapter = UpdateChapter(chapters),
-                setMangaViewerFlags = mockk(relaxed = true),
+                setMangaViewerFlags = SetMangaViewerFlags(mangas),
                 getIncognitoState = mockk {
                     coEvery { await(any<SourceKey>()) } answers {
                         (firstArg<SourceKey?>() as? SourceKey.Manga)?.id in incognito

@@ -13,6 +13,7 @@ import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
@@ -59,6 +60,7 @@ class NovelLibraryAdder(
     private val autoBindOnAdd: AutoBindOnAdd,
     private val removeNovelsFromLibrary: RemoveNovelsFromLibrary,
     private val chapterSettings: NovelChapterSettings,
+    private val viewerFlagSettings: NovelViewerFlagSettings,
 ) {
 
     private val groupCategories = NovelGroupCategories(getNovelCategories, setNovelCategories)
@@ -195,7 +197,7 @@ class NovelLibraryAdder(
      */
     suspend fun joinGroup(novelId: Long, selectedIds: List<Long>): Long? {
         val novel = novelRepository.getById(novelId) ?: return null
-        val favorited = chapterSettings.rejoin(novelId, mergeManager) {
+        val favorited = rejoinGroup(novelId) {
             transactions.run {
                 val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
                 if (ok) mergeManager.merge(selectedIds + novelId)
@@ -233,7 +235,7 @@ class NovelLibraryAdder(
      *  row rejoining its group takes the group's chapter settings. */
     private suspend fun favoriteStored(novel: Novel): Long? {
         if (novel.favorite) return novel.id
-        val added = chapterSettings.rejoin(novel.id, mergeManager) {
+        val added = rejoinGroup(novel.id) {
             updateNovel.awaitUpdateFavorite(novel.id, favorite = true)
         }
         if (!added) return null
@@ -304,4 +306,8 @@ class NovelLibraryAdder(
     suspend fun confirmRemove(item: NovelItem, sourceId: String) {
         novelRepository.getByUrlAndSource(item.path, sourceId)?.let { removeNovelsFromLibrary.await(listOf(it.id)) }
     }
+
+    /** [add], after which a series back in the library takes its group's chapter settings and reader flags. */
+    private suspend fun <T> rejoinGroup(id: Long, add: suspend () -> T): T =
+        chapterSettings.rejoin(id, mergeManager) { viewerFlagSettings.rejoin(id, mergeManager, add) }
 }

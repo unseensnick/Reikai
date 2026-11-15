@@ -14,9 +14,11 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelWithChapterCount
 import reikai.novel.source.NovelSource
@@ -217,6 +219,7 @@ class MangaAddDecisionProbe : AddDecisionProbe {
             },
             removeMangaFromLibrary = mockk(relaxed = true),
             chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
+            viewerFlagSettings = MangaViewerFlagSettings(mockk(relaxed = true)),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {
@@ -284,6 +287,7 @@ class NovelAddDecisionProbe : AddDecisionProbe {
             autoBindOnAdd = mockk(relaxed = true),
             removeNovelsFromLibrary = mockk(relaxed = true),
             chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
+            viewerFlagSettings = NovelViewerFlagSettings(mockk(relaxed = true)),
         )
 
     override suspend fun resolve(userCategories: List<Category>, defaultId: Int): Resolution {

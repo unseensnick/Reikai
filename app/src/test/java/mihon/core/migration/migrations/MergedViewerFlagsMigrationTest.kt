@@ -1,5 +1,7 @@
 package mihon.core.migration.migrations
 
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
+import eu.kanade.tachiyomi.ui.reader.setting.ReadingMode
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -8,9 +10,12 @@ import kotlinx.coroutines.test.runTest
 import mihon.core.migration.MigrationContext
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.library.ContentType
 import reikai.domain.merge.TestMergeManagers
 import reikai.domain.novel.NovelHistoryRepository
+import reikai.domain.novel.NovelPageLayout
+import reikai.domain.novel.NovelRenderingMode
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelHistory
@@ -22,7 +27,7 @@ import kotlin.time.Instant
 
 /**
  * The upgrade that gathers a merged series' reader flags onto the whole group, run for both content
- * types over one group (1, 2, 3) and an ungrouped entry (5). Rotation is a field both types keep.
+ * types over one group (1, 2, 3) and an ungrouped entry (5), once per flag field each type keeps.
  */
 class MergedViewerFlagsMigrationTest {
 
@@ -74,12 +79,19 @@ class MergedViewerFlagsMigrationTest {
         )(MigrationContext(dryrun = false, previousVersion = 208))
     }
 
-    @ParameterizedTest
-    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
-    fun `every member takes the rotation of the most recently read one`(type: ContentType) = runTest {
-        migrate(type)
+    /** One reader flag of [type]: member 1 chose [older], member 2, read more recently, chose [newer]. */
+    class Field(val type: ContentType, private val name: String, val older: Long, val newer: Long) {
+        override fun toString() = "$type $name"
+    }
 
-        listOf(flags[1L], flags[2L], flags[3L]) shouldBe listOf(0x10L, 0x10L, 0x10L)
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("fields")
+    fun `every member takes the field the most recently read one chose`(field: Field) = runTest {
+        flags.putAll(mapOf(1L to field.older, 2L to field.newer, 3L to 0L))
+
+        migrate(field.type)
+
+        listOf(flags[1L], flags[2L], flags[3L]) shouldBe List(3) { field.newer }
     }
 
     @ParameterizedTest
@@ -88,5 +100,43 @@ class MergedViewerFlagsMigrationTest {
         migrate(type)
 
         flags[5L] shouldBe 0x18L
+    }
+
+    companion object {
+        private fun rotation(o: ReaderOrientation) = o.flagValue.toLong()
+
+        @JvmStatic
+        fun fields() = listOf(
+            Field(
+                ContentType.MANGA,
+                "reading mode",
+                ReadingMode.RIGHT_TO_LEFT.flagValue.toLong(),
+                ReadingMode.VERTICAL.flagValue.toLong(),
+            ),
+            Field(
+                ContentType.MANGA,
+                "rotation",
+                rotation(ReaderOrientation.PORTRAIT),
+                rotation(ReaderOrientation.LANDSCAPE),
+            ),
+            Field(
+                ContentType.NOVELS,
+                "rotation",
+                rotation(ReaderOrientation.PORTRAIT),
+                rotation(ReaderOrientation.LANDSCAPE),
+            ),
+            Field(
+                ContentType.NOVELS,
+                "rendering mode",
+                NovelRenderingMode.flagOf(NovelRenderingMode.NATIVE),
+                NovelRenderingMode.flagOf(NovelRenderingMode.WEBVIEW),
+            ),
+            Field(
+                ContentType.NOVELS,
+                "reading mode",
+                NovelPageLayout.flagOf(NovelPageLayout.SCROLL),
+                NovelPageLayout.flagOf(NovelPageLayout.PAGED_RTL),
+            ),
+        )
     }
 }

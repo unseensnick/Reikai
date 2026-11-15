@@ -3,6 +3,7 @@ package reikai.domain.merge
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import eu.kanade.domain.manga.interactor.UpdateManga
 import eu.kanade.tachiyomi.ui.manga.seedManga
+import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -17,9 +18,11 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaGroupCategories
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.interactor.SetNovelChapterFlags
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -191,6 +194,39 @@ class GroupChapterSettingsConformanceTest {
         }
 
     /** [SIBLING] in the library and ungrouped, [OWNER] not yet added: the add-to-group prompt's usual pick. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a merge gives the members joining the owner's reader flags`(type: ContentType) = runTest {
+        val side = side(type).apply { GROUP.forEach { setInLibrary(it, true) } }
+
+        side.mergeManager.merge(GROUP)
+
+        side.viewerFlagsOf(SIBLING) shouldBe OWNER_ROTATION
+    }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a member added back after a reader flag change it missed takes the group's flags`(type: ContentType) =
+        runTest {
+            val side = side(type).apply { missARotationOutsideTheLibrary() }
+
+            side.addBack(OWNER)
+
+            side.viewerFlagsOf(OWNER) shouldBe CHANGED_ROTATION
+        }
+
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `a member added back into its group after a reader flag change it missed takes the group's flags`(
+        type: ContentType,
+    ) = runTest {
+        val side = side(type).apply { missARotationOutsideTheLibrary() }
+
+        side.addBackIntoGroupOf(OWNER, SIBLING)
+
+        side.viewerFlagsOf(OWNER) shouldBe CHANGED_ROTATION
+    }
+
     private suspend fun Side.pickInLibraryWithNewcomerOut() {
         setInLibrary(SIBLING, true)
         setInLibrary(OWNER, false)
@@ -204,7 +240,15 @@ class GroupChapterSettingsConformanceTest {
         flipSortThrough(SIBLING, groupOf(SIBLING))
     }
 
-    /** [OWNER] sorted descending and [SIBLING] ascending, each with its own setting. */
+    /** As [missAChangeOutsideTheLibrary], with a rotation set through [SIBLING] as both readers set one. */
+    private suspend fun Side.missARotationOutsideTheLibrary() {
+        GROUP.forEach { setInLibrary(it, true) }
+        mergeManager.merge(GROUP)
+        setInLibrary(OWNER, false)
+        GroupViewerFlags.of(SIBLING, groupOf(SIBLING)).write { setRotation(it, CHANGED_ROTATION) }
+    }
+
+    /** [OWNER] sorted descending and [SIBLING] ascending, each with its own setting and its own rotation. */
     private suspend fun side(type: ContentType): Side {
         Database.Schema.create(driver).await()
         return when (type) {
@@ -237,6 +281,11 @@ class GroupChapterSettingsConformanceTest {
         suspend fun setAsDefault(openedId: Long, applyToLibrary: Boolean)
 
         suspend fun groupOf(id: Long) = mergeManager.computeRelatedIds(id).asList()
+
+        suspend fun viewerFlagsOf(id: Long): Long
+
+        /** The one masked write each reader makes per member when the rotation changes. */
+        suspend fun setRotation(id: Long, flag: Long)
     }
 
     private val reikaiPreferences = ReikaiLibraryPreferences(
@@ -248,6 +297,7 @@ class GroupChapterSettingsConformanceTest {
         private val mangas = MangaRepositoryImpl(database)
         private val setFlags = SetMangaChapterFlags(mangas)
         override val settings = MangaChapterSettings(mangas)
+        private val viewerFlags = MangaViewerFlagSettings(mangas)
 
         // Built as the graph builds it, so the merge hook the app runs is the one tested.
         override val mergeManager = ReikaiBindings.providesMangaMergeManager(
@@ -255,6 +305,7 @@ class GroupChapterSettingsConformanceTest {
             reikaiPreferences,
             propagate = mockk(relaxed = true),
             chapterSettings = settings,
+            viewerFlagSettings = viewerFlags,
             groupCategories = MangaGroupCategories(mockk(relaxed = true), mockk(relaxed = true)),
         )
         private val libraryPreferences = LibraryPreferences(EmittingPreferenceStore())
@@ -274,12 +325,20 @@ class GroupChapterSettingsConformanceTest {
             reikaiLibraryPreferences = reikaiPreferences,
             removeMangaFromLibrary = mockk(relaxed = true),
             chapterSettings = settings,
+            viewerFlagSettings = viewerFlags,
         )
 
         override suspend fun seed(id: Long, descending: Boolean) {
             driver.seedManga(id, chapterId = id * 10)
             val direction = if (descending) Manga.CHAPTER_SORT_DESC else Manga.CHAPTER_SORT_ASC
             mangas.update(MangaUpdate(id) { chapterFlags = direction })
+            mangas.update(MangaUpdate(id) { viewerFlags = if (descending) OWNER_ROTATION else SIBLING_ROTATION })
+        }
+
+        override suspend fun viewerFlagsOf(id: Long) = mangas.getMangaById(id).viewerFlags
+
+        override suspend fun setRotation(id: Long, flag: Long) {
+            mangas.setViewerFlags(id, flag, ReaderOrientation.MASK.toLong())
         }
 
         override suspend fun setInLibrary(id: Long, inLibrary: Boolean) {
@@ -322,11 +381,13 @@ class GroupChapterSettingsConformanceTest {
         private val preferences = NovelPreferences(EmittingPreferenceStore())
         private val setFlags = SetNovelChapterFlags(novels, preferences)
         override val settings = NovelChapterSettings(novels)
+        private val viewerFlags = NovelViewerFlagSettings(novels)
         override val mergeManager = ReikaiBindings.providesNovelMergeManager(
             groups,
             reikaiPreferences,
             propagate = { mockk(relaxed = true) },
             chapterSettings = settings,
+            viewerFlagSettings = viewerFlags,
             groupCategories = NovelGroupCategories(mockk(relaxed = true), mockk(relaxed = true)),
         )
         private val adder = NovelLibraryAdder(
@@ -342,6 +403,7 @@ class GroupChapterSettingsConformanceTest {
             autoBindOnAdd = mockk(relaxed = true),
             removeNovelsFromLibrary = mockk(relaxed = true),
             chapterSettings = settings,
+            viewerFlagSettings = viewerFlags,
         )
 
         override suspend fun setInLibrary(id: Long, inLibrary: Boolean) {
@@ -373,9 +435,16 @@ class GroupChapterSettingsConformanceTest {
                     url = "/novel/$id",
                     title = "Novel",
                     chapterFlags = direction or NovelChapterFlags.SORT_LOCAL,
+                    viewerFlags = if (descending) OWNER_ROTATION else SIBLING_ROTATION,
                 ),
             )
             stored shouldBe id
+        }
+
+        override suspend fun viewerFlagsOf(id: Long) = novels.getById(id)!!.viewerFlags
+
+        override suspend fun setRotation(id: Long, flag: Long) {
+            novels.setViewerFlags(id, flag, ReaderOrientation.MASK.toLong())
         }
 
         private suspend fun shown(openedId: Long, memberIds: List<Long>) =
@@ -397,5 +466,10 @@ class GroupChapterSettingsConformanceTest {
         const val SIBLING = 2L
         const val OTHER = 3L
         val GROUP = listOf(OWNER, SIBLING)
+
+        // Three rotations under ReaderOrientation.MASK, which both types keep in their reader flags.
+        const val OWNER_ROTATION = 0x08L
+        const val SIBLING_ROTATION = 0x10L
+        const val CHANGED_ROTATION = 0x18L
     }
 }

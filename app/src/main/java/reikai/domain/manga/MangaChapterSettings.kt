@@ -16,6 +16,15 @@ class MangaChapterSettings(mangaRepository: MangaRepository) : GroupChapterSetti
     write = { ids, flags -> mangaRepository.updateAll(ids.map { MangaUpdate(it) { chapterFlags = flags } }) },
 )
 
+/** Manga's reader flags (reading mode, rotation) handed over as [GroupChapterSettings] hands chapter flags. */
+@Inject
+class MangaViewerFlagSettings(mangaRepository: MangaRepository) : GroupChapterSettings<Manga>(
+    flagsOf = { it.viewerFlags },
+    withFlags = { copy(viewerFlags = it) },
+    load = { mangaRepository.getMangaById(it) },
+    write = { ids, flags -> mangaRepository.updateAll(ids.map { MangaUpdate(it) { viewerFlags = flags } }) },
+)
+
 /** [this] carrying its merge group's chapter settings, given the group's members in order. */
 fun Manga.withGroupChapterFlags(members: Collection<Manga>): Manga =
     withOwnerChapterFlags(members, { it.chapterFlags }) { copy(chapterFlags = it) }

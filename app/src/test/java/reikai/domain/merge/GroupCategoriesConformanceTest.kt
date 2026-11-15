@@ -21,9 +21,11 @@ import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaGroupCategories
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelPreferences
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -248,6 +250,7 @@ class GroupCategoriesConformanceTest {
             reikaiPreferences,
             propagate = mockk(relaxed = true),
             chapterSettings = MangaChapterSettings(mangas),
+            viewerFlagSettings = MangaViewerFlagSettings(mangas),
             groupCategories = categories,
         )
         private val adder = MangaLibraryAdder(
@@ -267,6 +270,7 @@ class GroupCategoriesConformanceTest {
             reikaiLibraryPreferences = reikaiPreferences,
             removeMangaFromLibrary = mockk(relaxed = true),
             chapterSettings = MangaChapterSettings(mangas),
+            viewerFlagSettings = MangaViewerFlagSettings(mangas),
         )
 
         override suspend fun seed(id: Long) = driver.seedManga(id, chapterId = id * 10)
@@ -307,6 +311,7 @@ class GroupCategoriesConformanceTest {
             reikaiPreferences,
             propagate = { mockk(relaxed = true) },
             chapterSettings = NovelChapterSettings(novels),
+            viewerFlagSettings = NovelViewerFlagSettings(novels),
             groupCategories = categories,
         )
         private val adder = NovelLibraryAdder(
@@ -324,6 +329,7 @@ class GroupCategoriesConformanceTest {
             autoBindOnAdd = mockk(relaxed = true),
             removeNovelsFromLibrary = mockk(relaxed = true),
             chapterSettings = NovelChapterSettings(novels),
+            viewerFlagSettings = NovelViewerFlagSettings(novels),
         )
 
         override suspend fun seed(id: Long) {

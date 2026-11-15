@@ -14,9 +14,11 @@ import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.model.Novel
 import reikai.novel.host.NovelItem
 import reikai.presentation.novel.browse.NovelLibraryAdder
@@ -351,6 +353,7 @@ class MangaGroupAddProbe : GroupAddProbe {
         },
         removeMangaFromLibrary = mockk(relaxed = true),
         chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
+        viewerFlagSettings = MangaViewerFlagSettings(mockk(relaxed = true)),
     )
 
     private fun reset() {
@@ -480,6 +483,7 @@ class NovelGroupAddProbe : GroupAddProbe {
         },
         removeNovelsFromLibrary = mockk(relaxed = true),
         chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
+        viewerFlagSettings = NovelViewerFlagSettings(mockk(relaxed = true)),
     )
 
     private fun reset() {

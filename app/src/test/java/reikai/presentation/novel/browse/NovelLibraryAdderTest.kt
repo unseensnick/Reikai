@@ -14,6 +14,7 @@ import reikai.domain.library.CategorySortOrder
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.interactor.SetNovelCategories
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
@@ -90,6 +91,7 @@ class NovelLibraryAdderTest {
         autoBindOnAdd = mockk(relaxed = true),
         removeNovelsFromLibrary = mockk(relaxed = true),
         chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
+        viewerFlagSettings = NovelViewerFlagSettings(mockk(relaxed = true)),
     )
 
     @Test

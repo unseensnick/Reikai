@@ -13,3 +13,12 @@ class NovelChapterSettings(novelRepository: NovelRepository) : GroupChapterSetti
     load = { novelRepository.getById(it) },
     write = { ids, flags -> novelRepository.updateAll(ids.map { NovelUpdate(it) { chapterFlags = flags } }) },
 )
+
+/** Novels' reader flags (rotation, rendering mode, reading mode) handed over as [GroupChapterSettings] hands chapter flags. */
+@Inject
+class NovelViewerFlagSettings(novelRepository: NovelRepository) : GroupChapterSettings<Novel>(
+    flagsOf = { it.viewerFlags },
+    withFlags = { copy(viewerFlags = it) },
+    load = { novelRepository.getById(it) },
+    write = { ids, flags -> novelRepository.updateAll(ids.map { NovelUpdate(it) { viewerFlags = flags } }) },
+)

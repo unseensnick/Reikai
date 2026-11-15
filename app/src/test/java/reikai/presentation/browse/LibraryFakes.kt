@@ -15,12 +15,14 @@ import reikai.domain.entry.EntryId
 import reikai.domain.library.CategorySortOrder
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.merge.EntryMergeManager
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelMergeManager
 import reikai.domain.novel.NovelPreferences
 import reikai.domain.novel.NovelRepository
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelUpdate
@@ -170,6 +172,7 @@ class FakeMangaLibrary(
         },
         removeMangaFromLibrary = removal,
         chapterSettings = MangaChapterSettings(mockk(relaxed = true)),
+        viewerFlagSettings = MangaViewerFlagSettings(mockk(relaxed = true)),
     )
 
     companion object {
@@ -260,6 +263,7 @@ class FakeNovelLibrary(
             }
         },
         chapterSettings = NovelChapterSettings(mockk(relaxed = true)),
+        viewerFlagSettings = NovelViewerFlagSettings(mockk(relaxed = true)),
     )
 
     companion object {

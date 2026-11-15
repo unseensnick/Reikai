@@ -13,11 +13,13 @@ import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.manga.MangaChapterSettings
 import reikai.domain.manga.MangaGroupCategories
 import reikai.domain.manga.MangaMergeManager
+import reikai.domain.manga.MangaViewerFlagSettings
 import reikai.domain.manga.PropagateTrackerLinks
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.novel.NovelChapterSettings
 import reikai.domain.novel.NovelGroupCategories
 import reikai.domain.novel.NovelMergeManager
+import reikai.domain.novel.NovelViewerFlagSettings
 import reikai.domain.novel.track.PropagateNovelTrackerLinks
 import reikai.domain.recommendation.ReikaiRecommendationPreferences
 import reikai.domain.recommendation.taste.AnilistLibraryFetcher
@@ -55,12 +57,14 @@ object ReikaiBindings {
         preferences: ReikaiLibraryPreferences,
         propagate: PropagateTrackerLinks,
         chapterSettings: MangaChapterSettings,
+        viewerFlagSettings: MangaViewerFlagSettings,
         groupCategories: MangaGroupCategories,
     ): MangaMergeManager = MangaMergeManager(
         repository,
         preferences,
         onMerged = {
             chapterSettings.adoptOwnerSetting(it)
+            viewerFlagSettings.adoptOwnerSetting(it)
             groupCategories.adoptOwnerCategories(it)
         },
     ) { propagate.distribute(it) }
@@ -75,12 +79,14 @@ object ReikaiBindings {
         preferences: ReikaiLibraryPreferences,
         propagate: () -> PropagateNovelTrackerLinks,
         chapterSettings: NovelChapterSettings,
+        viewerFlagSettings: NovelViewerFlagSettings,
         groupCategories: NovelGroupCategories,
     ): NovelMergeManager = NovelMergeManager(
         repository,
         preferences,
         onMerged = {
             chapterSettings.adoptOwnerSetting(it)
+            viewerFlagSettings.adoptOwnerSetting(it)
             groupCategories.adoptOwnerCategories(it)
         },
     ) { propagate().distribute(it) }

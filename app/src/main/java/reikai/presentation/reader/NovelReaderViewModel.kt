@@ -343,7 +343,7 @@ class NovelReaderViewModel(
 
     fun setOrientation(flagValue: Int) {
         orientationOverride.value = flagValue
-        viewModelScope.launchIO {
+        appScope.launchIO {
             viewerFlags.await().write { setNovelViewerFlags.awaitSetOrientation(it, flagValue.toLong()) }
         }
     }
