@@ -45,6 +45,7 @@ import reikai.domain.novel.LnInstalledPluginMetadata
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.registry.LnRegistryFetcher
+import reikai.novel.source.NovelSource
 import reikai.novel.source.NovelSourceManager
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.domain.source.model.StubSource
@@ -163,6 +164,18 @@ class BackupFileValidatorTest {
         )
 
         validator(novel, name).validate(mockk<Uri>()).missingSources shouldBe listOf("Foo")
+    }
+
+    // The registry is empty until something loads the plugins, and a cold open straight to Restore loads nothing.
+    @Test
+    fun `an installed novel source the registry has not loaded yet is not missing`() = runTest {
+        var loaded = false
+        val novelSources = mockk<NovelSourceManager>()
+        coEvery { novelSources.ensureLoaded() } answers { loaded = true }
+        coEvery { novelSources.get(any()) } answers { if (loaded) mockk<NovelSource>() else null }
+        coEvery { novelSources.nameOf(any()) } answers { firstArg() }
+
+        validator(novelSources, listOf(novel)).validate(mockk<Uri>()).missingSources shouldBe emptyList()
     }
 
     @Test
