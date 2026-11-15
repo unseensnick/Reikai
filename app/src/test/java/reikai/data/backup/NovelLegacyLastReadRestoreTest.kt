@@ -57,6 +57,16 @@ class NovelLegacyLastReadRestoreTest {
         lastRead() shouldBe 500L
     }
 
+    // Chapter 2 is the later one, so landing on chapter 1 shows the read state chose it.
+    @Test
+    fun `an old backup's Last read stamp lands on its latest read chapter`() = runTest {
+        restorer().restore(backup(history = emptyList()), emptyList())
+
+        val novelId = NovelRepositoryImpl(database).getByUrlAndSource("novel", "src")!!.id
+        NovelHistoryRepositoryImpl(database).getUrlKeyedHistoryByNovelIds(listOf(novelId))
+            .getValue(novelId).map { it.chapterUrl } shouldBe listOf("c1")
+    }
+
     @Test
     fun `a backup with history keeps its history's Last read`() = runTest {
         restorer().restore(backup(history = listOf(BackupNovelHistory(url = "c1", lastRead = 300L))), emptyList())
