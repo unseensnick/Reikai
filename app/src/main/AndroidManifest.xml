@@ -149,6 +149,25 @@
         </activity-alias>
 
         <activity-alias
+            android:name=".ui.main.LauncherIconOriginalReStable"
+            android:enabled="@bool/launcher_icon_original_re_stable"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_original_re_stable"
+            android:roundIcon="@mipmap/ic_launcher_original_re_stable"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
             android:name=".ui.main.LauncherIconFlameRStable"
             android:enabled="@bool/launcher_icon_flame_r_stable"
             android:exported="true"
@@ -206,6 +225,25 @@
         </activity-alias>
 
         <activity-alias
+            android:name=".ui.main.LauncherIconOriginalReNightly"
+            android:enabled="@bool/launcher_icon_original_re_nightly"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_original_re_nightly"
+            android:roundIcon="@mipmap/ic_launcher_original_re_nightly"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
             android:name=".ui.main.LauncherIconFlameRNightly"
             android:enabled="@bool/launcher_icon_flame_r_nightly"
             android:exported="true"
@@ -249,6 +287,25 @@
             android:exported="true"
             android:icon="@mipmap/ic_launcher_current_dev"
             android:roundIcon="@mipmap/ic_launcher_current_dev"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconOriginalReDev"
+            android:enabled="@bool/launcher_icon_original_re_dev"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_original_re_dev"
+            android:roundIcon="@mipmap/ic_launcher_original_re_dev"
             android:targetActivity=".ui.main.MainActivity">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

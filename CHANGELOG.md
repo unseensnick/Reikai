@@ -12,6 +12,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Added
 
+- **Pick the app icon in Settings -> Appearance -> App icon, from 17 icons in five designs, each with its own themed icon.** The More and About headers show the picked design.
 - **Eleven new app themes in Settings -> Appearance: Cotton Candy, Mocha, Cloudflare, Doom, Matrix and Sapphire (from Aniyomi), plus Yōkai's Spring & Dusk, Strawberries, Teal & Sapphire, Lime and Doki.** Doki is dark only.
 - **A Custom theme builds the app's colors from one color you pick in Settings -> Appearance -> Custom theme color (from Komikku).**
 - **Hide manga or novels across the app with Settings -> Appearance -> Content shown.** A hidden type skips library updates, and nothing is deleted.

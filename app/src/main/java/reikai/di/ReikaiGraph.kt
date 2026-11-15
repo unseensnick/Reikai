@@ -57,6 +57,7 @@ import reikai.presentation.recents.MangaRecentsAdapter
 import reikai.presentation.recents.NovelRecentsAdapter
 import reikai.presentation.widget.UnifiedUpdatesGlanceWidget
 import reikai.presentation.widget.UnifiedUpdatesWidgetManager
+import reikai.util.LauncherIconState
 import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.domain.category.repository.CategoryRepository
 import tachiyomi.domain.manga.interactor.GetExhFavoriteMangaWithMetadata
@@ -117,6 +118,7 @@ interface ReikaiGraph {
     val taskBannerPreferences: TaskBannerPreferences // the Library and Data settings host its two switches
     val chapterCopyMarks: ChapterCopyMarkRepository
     val volumePicking: VolumePicking
+    val launcherIconState: LauncherIconState // the app header and the icon picker read it
 
     val pagePreviewCache: PagePreviewCache
     val mangaCoverMetadata: MangaCoverMetadata

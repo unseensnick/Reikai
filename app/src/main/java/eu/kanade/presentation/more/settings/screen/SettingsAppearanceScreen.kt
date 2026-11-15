@@ -34,6 +34,7 @@ import reikai.domain.category.seedRecentsSurfaceFromUpdates
 import reikai.domain.details.ReadButtonSide
 import reikai.domain.stats.StatsShortcut
 import reikai.presentation.settings.appearance.CustomThemeColorScreen
+import reikai.presentation.settings.appearance.LauncherIconScreen
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.i18n.stringResource
 import tachiyomi.presentation.core.util.collectAsState
@@ -141,6 +142,11 @@ object SettingsAppearanceScreen : SearchableSettings {
                     entries = PaletteStyle.entries.associateWith { it.name },
                     title = stringResource(MR.strings.pref_theme_cover_based_style),
                     visible = themeCoverBased,
+                ),
+                Preference.PreferenceItem.TextPreference(
+                    title = stringResource(MR.strings.pref_app_icon),
+                    subtitle = stringResource(MR.strings.pref_app_icon_summary),
+                    onClick = { navigator.push(LauncherIconScreen()) },
                 ),
                 // RK <--
             ),
