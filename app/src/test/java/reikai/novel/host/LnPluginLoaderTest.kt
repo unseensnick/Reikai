@@ -48,6 +48,15 @@ class LnPluginLoaderTest {
     }
 
     @Test
+    fun `an uninstalled plugin has no script left to load`() = runTest {
+        loader.store(url, script)
+
+        loader.delete(url)
+
+        loader.installed(url) shouldBe null
+    }
+
+    @Test
     fun `a plugin with no stored script has nothing to load`() = runTest {
         loader.installed(url) shouldBe null
     }
