@@ -97,6 +97,15 @@ class FlareSolverrUserAgentPinTest {
         client.pinnedUserAgentFor(post).shouldBeNull()
     }
 
+    // OkHttp refuses such a header with an IllegalArgumentException, which an enqueued call rethrows
+    // on its dispatcher thread, so every later request to the host would take the app down.
+    @Test
+    fun `a User-Agent no header can carry is never pinned`() {
+        val client = solver(enabled = true, url = SOLVER_URL).apply { pin("a.example", "Mozilla/5.0é") }
+
+        client.pinnedUserAgentFor(GET_A).shouldBeNull()
+    }
+
     // Seeded through the constructor: an in-memory preference cannot be written afterwards.
     private fun solver(enabled: Boolean, url: String) = FlareSolverrClient(
         mockk(relaxed = true),

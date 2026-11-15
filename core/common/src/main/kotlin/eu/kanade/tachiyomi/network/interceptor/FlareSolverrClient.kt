@@ -146,8 +146,10 @@ class FlareSolverrClient(
     fun pinnedUserAgentFor(request: Request): String? =
         fsPinByHost[request.url.host]?.takeIf { isActive() && carries(request) }
 
+    // Only a value OkHttp will send: it refuses any other character with an IllegalArgumentException,
+    // which an enqueued call rethrows on its dispatcher thread, so a bad pin would crash every later request.
     internal fun pin(host: String, userAgent: String) {
-        if (userAgent.isNotBlank()) fsPinByHost[host] = userAgent
+        if (userAgent.isNotBlank() && userAgent.all { it == '\t' || it in ' '..'~' }) fsPinByHost[host] = userAgent
     }
 
     fun shouldSkipWebView(host: String): Boolean = fsRequiredHosts.contains(host)

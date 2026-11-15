@@ -316,6 +316,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Tracker updates, forms, searches and logins that FlareSolverr can't send now go through the app's own browser.** A tracker update is no longer reported saved when it was not, and forms no longer go out over plain http.
 - **Pages from a site FlareSolverr answers for now load side by side instead of one at a time.** Chapters and downloads from such a site were taking minutes.
 - **A source's sign-in is no longer sent to another site when a request is redirected there and meets a Cloudflare check.**
+- **A FlareSolverr reply with an unusable User-Agent no longer crashes the app on that site's later requests.**
 - **Requests to a site that sends you on to a Cloudflare-protected one no longer solve its check again one after another.**
 - **Open in WebView now opens the page Cloudflare blocked, such as a later page of a listing or the page a form sent you on to, not the site's front page.**
 - **Passing a Cloudflare check on a novel plugin's site from Extensions or the plugin's page now unblocks the plugin too.**
