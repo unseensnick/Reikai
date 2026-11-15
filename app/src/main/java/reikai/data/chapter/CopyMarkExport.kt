@@ -42,7 +42,8 @@ suspend fun writeCopyMarkReport(
         )
         put(
             "novels",
-            buildJsonArray { novels.forEach { add(it.toJson(novelSourceManager.get(it.source)?.name ?: it.source)) } },
+            // By the seen record, as a backup names one, so an uninstalled plugin keeps its name and none loads.
+            buildJsonArray { novels.forEach { add(it.toJson(novelSourceManager.nameOf(it.source))) } },
         )
     }
     // The provider behind a picked file may refuse it or fail mid-write.
