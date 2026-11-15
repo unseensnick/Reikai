@@ -17,8 +17,21 @@ class GroupViewerFlags private constructor(
         memberIds.forEach { write(it) }
     }
 
+    /** One member's flags and when it was last read, in [memberIds]' order, for [chosen]. */
+    class Member(val flags: Long, val lastReadAt: Long)
+
     companion object {
         fun of(openedId: Long, memberIds: Collection<Long>) =
             GroupViewerFlags(memberIds.toList().ifEmpty { listOf(openedId) })
+
+        /**
+         * Per field in [masks], the value the most recently read of [members] chose, the owner winning a
+         * tie; a field every member leaves at 0 (follow the setting) is left out. What the upgrade that
+         * gathers flags once kept on single members onto the whole group writes.
+         */
+        fun chosen(members: List<Member>, masks: List<Long>): Map<Long, Long> = masks.mapNotNull { mask ->
+            val latest = members.filter { it.flags and mask != 0L }.maxByOrNull { it.lastReadAt }
+            latest?.let { mask to (it.flags and mask) }
+        }.toMap()
     }
 }
