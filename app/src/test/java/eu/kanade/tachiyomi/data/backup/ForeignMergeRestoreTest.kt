@@ -171,6 +171,22 @@ class ForeignMergeRestoreTest {
             listOf(2L)
     }
 
+    // Merge A is [info, a series the file lacks], so it restores as no group; B is [info, third], which
+    // does. Info leads B's group, so it takes B's data rather than A's.
+    @ParameterizedTest
+    @EnumSource(Layout::class)
+    fun `a merge left with one member does not take the Primary of a group led by it`(layout: Layout) = runTest {
+        val rows = listOf(
+            mergedRow(layout, tracking = listOf(BackupTracking(syncId = 3, libraryId = 0)), other = "/gone" to 9L),
+            mergedRow(layout, other = THIRD_URL to THIRD_SOURCE),
+            memberRow(INFO_URL, INFO_SOURCE),
+            memberRow(THIRD_URL, THIRD_SOURCE),
+        )
+
+        restored(rows) { tracks.getTracksByMangaId(idOf(INFO_URL, INFO_SOURCE)!!).map { it.trackerId } } shouldBe
+            listOf(2L)
+    }
+
     // A fork's file carries none of the native-scale markers, so a Kitsu score of 10 or less is doubled.
     @ParameterizedTest
     @EnumSource(Layout::class)

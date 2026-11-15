@@ -120,8 +120,11 @@ class ForeignMerges(merges: List<ForeignMerge>, inFile: Set<Pair<Long, String>>)
         distinct.forEach { merge -> merge.members.forEach { putIfAbsent(it, merge) } }
     }
 
+    // A merge that restores as a group leads first: one left with a single member restores as no group,
+    // so it takes a series' Primary data only when no group's lead is that series.
     private val byPrimary = buildMap {
-        placed.forEach { (merge, members) -> members.firstOrNull()?.let { putIfAbsent(it, merge) } }
+        placed.sortedByDescending { (_, members) -> members.size >= 2 }
+            .forEach { (merge, members) -> members.firstOrNull()?.let { putIfAbsent(it, merge) } }
     }
 
     /** The groups to restore, in each merge's member order. */
