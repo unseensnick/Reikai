@@ -250,9 +250,7 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
     private fun openPage(origin: String, userAgent: String?): Page? {
         pages[origin]?.takeUnless { it.dead }?.let { page ->
             main.removeCallbacksAndMessages(page)
-            if (userAgent != null && page.webView.settings.userAgentString != userAgent) {
-                page.webView.setUserAgent(userAgent)
-            }
+            page.webView.useRequestUserAgent(userAgent)
             return page
         }
         pages.remove(origin)?.destroy()
@@ -263,7 +261,7 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
         }
         val webView = WebView(context).apply {
             setDefaultSettings()
-            if (!userAgent.isNullOrBlank()) setUserAgent(userAgent)
+            useRequestUserAgent(userAgent)
         }
         val page = Page(origin, webView)
         return try {
@@ -315,7 +313,7 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
         main.post {
             val webView = WebView(context).apply {
                 setDefaultSettings()
-                request.header("User-Agent")?.takeIf { it.isNotBlank() }?.let { setUserAgent(it) }
+                useRequestUserAgent(request.header("User-Agent"))
                 webViewClient = object : WebViewClient() {
                     var challenged = false
 
@@ -494,4 +492,9 @@ class WebViewFetcher(private val context: Context, private val verboseLogging: (
             </script></head><body></body></html>
         """.trimIndent()
     }
+}
+
+/** Sends what the request would have: its own User-Agent, or the WebView's when it has none or a blank one. */
+internal fun WebView.useRequestUserAgent(userAgent: String?) {
+    if (!userAgent.isNullOrBlank() && settings.userAgentString != userAgent) setUserAgent(userAgent)
 }
