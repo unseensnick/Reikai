@@ -74,7 +74,7 @@ class CloudflareInterceptorTest {
                 { "ua" },
                 mockk<NetworkPreferences>(relaxed = true) { every { flareSolverrUrl.get() } returns "" },
                 // Not in use, so a failed solve falls to the WebView fetch rather than the server.
-                mockk { every { isActive() } returns false },
+                mockk { every { handles(any()) } returns false },
             ),
             recordPrivateCalls = true,
         )
@@ -207,8 +207,7 @@ class CloudflareInterceptorTest {
     @Test
     fun `a POST the server cannot carry stays with the WebView, even on a host the server solves`() {
         val server = mockk<FlareSolverrClient> {
-            every { isActive() } returns true
-            every { carries(any()) } returns false
+            every { handles(any()) } returns false
             every { shouldSkipWebView(any()) } returns true
         }
         CloudflareInterceptor::class.java.getDeclaredField("flareSolverr").apply { isAccessible = true }
@@ -287,13 +286,12 @@ class CloudflareInterceptorTest {
         val release = CountDownLatch(1)
         setServer(
             mockk {
-                every { isActive() } returns true
-                every { carries(any()) } returns true
+                every { handles(any()) } returns true
                 every { shouldSkipWebView(any()) } returns true
-                every { resolve(any(), any(), any()) } answers {
+                every { resolve(any(), any()) } answers {
                     inside.countDown()
                     release.await(5, TimeUnit.SECONDS)
-                    ok(secondArg())
+                    ok(firstArg())
                 }
             },
         )
@@ -312,12 +310,11 @@ class CloudflareInterceptorTest {
         val marked = AtomicBoolean()
         setServer(
             mockk {
-                every { isActive() } returns true
-                every { carries(any()) } returns true
+                every { handles(any()) } returns true
                 every { shouldSkipWebView(any()) } answers { marked.get() }
-                every { resolve(any(), any(), any()) } answers {
+                every { resolve(any(), any()) } answers {
                     served.incrementAndGet()
-                    ok(secondArg())
+                    ok(firstArg())
                 }
             },
         )
@@ -571,11 +568,10 @@ class CloudflareInterceptorTest {
         val marked = mutableListOf<String>()
         setServer(
             mockk {
-                every { isActive() } returns true
-                every { carries(any()) } returns true
+                every { handles(any()) } returns true
                 every { shouldSkipWebView(any()) } returns false
                 every { markWebViewUnsolvable(any()) } answers { marked += firstArg<String>() }
-                every { resolve(any(), any(), any()) } answers { ok(secondArg()) }
+                every { resolve(any(), any()) } answers { ok(firstArg()) }
             },
         )
         failWebViewSolve()

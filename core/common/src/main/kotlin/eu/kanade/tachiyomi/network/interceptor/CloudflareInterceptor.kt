@@ -165,11 +165,11 @@ class CloudflareInterceptor(
     // RK -->
     // The server's route, for a host it is in use for and already solves.
     private fun serverAnswers(request: Request): Boolean =
-        flareSolverr.isActive() && flareSolverr.carries(request) && flareSolverr.shouldSkipWebView(request.url.host)
+        flareSolverr.handles(request) && flareSolverr.shouldSkipWebView(request.url.host)
 
     // [fetchRequest] is the challenged request as it left the application interceptors, auth headers included.
     private fun knowsRoute(request: Request, fetchRequest: Request): Boolean = serverAnswers(request) ||
-        (!(flareSolverr.isActive() && flareSolverr.carries(request)) && webViewFetcher.serves(fetchRequest))
+        (!flareSolverr.handles(request) && webViewFetcher.serves(fetchRequest))
 
     /**
      * The answer from a route that already serves this host, which needs no solve and so no write lock;
@@ -184,7 +184,7 @@ class CloudflareInterceptor(
                 // tier (cf_clearance is bound to a TLS / __cf_bm fingerprint OkHttp can't reproduce).
                 serverAnswers(request) -> {
                     response.close()
-                    flareSolverr.resolve(networkPreferences.flareSolverrUrl.get().trim(), request, chain.cookieJar)
+                    flareSolverr.resolve(request, chain.cookieJar)
                 }
                 knowsRoute(request, fetchRequest) -> {
                     clearClearance(request.url, challengeUrl)
@@ -222,7 +222,7 @@ class CloudflareInterceptor(
 
             // RK -->
             val host = request.url.host
-            val fsActive = flareSolverr.isActive() && flareSolverr.carries(request)
+            val fsActive = flareSolverr.handles(request)
 
             // The challenged request as it left the application interceptors, auth headers included.
             val fetchRequest = response.request
@@ -254,11 +254,7 @@ class CloudflareInterceptor(
                 // Don't re-pay the 30s WebView timeout on later requests to a host the WebView
                 // can't clear: mark it so subsequent requests go straight to FlareSolverr.
                 flareSolverr.markWebViewUnsolvable(host)
-                return@bypassing flareSolverr.resolve(
-                    networkPreferences.flareSolverrUrl.get().trim(),
-                    request,
-                    chain.cookieJar,
-                )
+                return@bypassing flareSolverr.resolve(request, chain.cookieJar)
             }
 
             // WebView path: retry the request normally. Returning null lets intercept do that

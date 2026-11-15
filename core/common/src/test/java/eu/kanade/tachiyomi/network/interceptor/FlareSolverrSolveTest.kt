@@ -54,7 +54,7 @@ class FlareSolverrSolveTest {
     fun stop() = server.stop(0)
 
     private fun resolve(request: Request = page, cookieJar: CookieJar = CookieJar.NO_COOKIES) =
-        client.resolve("http://127.0.0.1:${server.address.port}", request, cookieJar)
+        client.resolve(request, cookieJar)
 
     @Test
     fun `the cookies forwarded are the ones the request's own client sends`() {

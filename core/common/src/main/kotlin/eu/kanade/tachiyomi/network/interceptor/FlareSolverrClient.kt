@@ -141,10 +141,13 @@ class FlareSolverrClient(
     fun isActive(): Boolean =
         networkPreferences.enableFlareSolverr.get() && networkPreferences.flareSolverrUrl.get().isNotBlank()
 
+    /** Whether [request]'s challenge goes to the server: it is active and can send [request] as asked. */
+    fun handles(request: Request): Boolean = isActive() && carries(request)
+
     // Answered only for a request the server would carry: any other is solved in the WebView under the
     // request's own User-Agent, and a retry sent under the pin would carry a clearance bound to another.
     fun pinnedUserAgentFor(request: Request): String? =
-        fsPinByHost[request.url.host]?.takeIf { isActive() && carries(request) }
+        fsPinByHost[request.url.host]?.takeIf { handles(request) }
 
     // Only a value OkHttp will send: it refuses any other character with an IllegalArgumentException,
     // which an enqueued call rethrows on its dispatcher thread, so a bad pin would crash every later request.
@@ -194,14 +197,14 @@ class FlareSolverrClient(
     }
 
     /**
-     * Solve the challenge for [request] through the FlareSolverr server at [flareSolverrUrl] and
+     * Solve the challenge for [request] through the configured FlareSolverr server and
      * return its fully-fetched response. One solve per host at a time is [CloudflareInterceptor]'s
      * per-host lock, which every caller holds. [cookieJar] is the jar of the client sending [request],
      * whose cookies are the ones forwarded.
      */
-    fun resolve(flareSolverrUrl: String, request: Request, cookieJar: CookieJar): Response {
+    fun resolve(request: Request, cookieJar: CookieJar): Response {
         cookieManager.remove(request.url, listOf(CF_CLEARANCE), 0)
-        return resolveWithFlareSolverr(flareSolverrUrl, request, cookieJar).also {
+        return resolveWithFlareSolverr(networkPreferences.flareSolverrUrl.get().trim(), request, cookieJar).also {
             logBypassServed(it, "solved by FlareSolverr", networkPreferences.verboseLogging.get())
         }
     }
