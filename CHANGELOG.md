@@ -377,6 +377,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
 - **A backup file of zeros, as a damaged copy can be, now shows the invalid-backup message instead of restoring nothing.**
 - **A paged novel restored over a copy that was never opened now gets its full page list right away.** Before, the page picker showed only the pages its chapters came from until the next refresh.
+- **A light-novel plugin you were using picks up its restored settings and sign-in on its next request.** Before, it kept the old ones until it sat unused for a minute or the app restarted.
 
 ### Other
 

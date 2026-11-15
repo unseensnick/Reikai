@@ -81,6 +81,7 @@ class PreferenceRestorerTest {
     private val context = mockk<Context>()
 
     private val restorer = PreferenceRestorer(
+        lnPluginHost = { mockk(relaxed = true) },
         context = context,
         getCategories = mockk<GetCategories>(),
         preferenceStore = store,

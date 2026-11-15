@@ -363,7 +363,14 @@ class LnPluginHost(
         } else {
             bridge.setStorage(pluginId, "storage:$key", buildJsonObject { put("value", value) }.toString())
         }
-        // Many plugins read their settings while constructed, as they do the site storage below.
+        storageChanged(pluginId)
+    }
+
+    /**
+     * Starts [pluginId]'s next call in a fresh engine, since many plugins read their settings and the site
+     * storage while they are constructed: for any write to its storage, a restore's included.
+     */
+    fun storageChanged(pluginId: String) {
         pluginSlots[pluginId]?.rebuild = true
     }
 
@@ -376,14 +383,14 @@ class LnPluginHost(
         // headless.js makeWebStorage reads these keys.
         bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}local", storage.local)
         bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}session", storage.session)
-        pluginSlots[pluginId]?.rebuild = true
+        storageChanged(pluginId)
     }
 
     /** Drops the site storage [storeWebStorage] kept for [pluginId], which carries the site's sign-in. */
     fun forgetWebStorage(pluginId: String) {
         bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}local", null)
         bridge.setStorage(pluginId, "${WEB_STORAGE_KEY_PREFIX}session", null)
-        pluginSlots[pluginId]?.rebuild = true
+        storageChanged(pluginId)
     }
 
     /** Stops the idle sweeper and closes every engine, returning once they are closed. */

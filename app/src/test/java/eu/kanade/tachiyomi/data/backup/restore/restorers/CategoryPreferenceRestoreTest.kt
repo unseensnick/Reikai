@@ -79,6 +79,7 @@ class CategoryPreferenceRestoreTest {
     )
 
     private val restorer = PreferenceRestorer(
+        lnPluginHost = { mockk(relaxed = true) },
         context = mockk(),
         getCategories = mockk<GetCategories> { coEvery { await() } returns deviceCategories },
         preferenceStore = store,

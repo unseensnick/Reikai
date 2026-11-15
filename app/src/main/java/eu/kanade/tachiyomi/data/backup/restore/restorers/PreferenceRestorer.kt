@@ -26,6 +26,8 @@ import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.backupCategoryIdToName
 import reikai.domain.category.byNamePreferring
 import reikai.domain.category.translateCategoryId
+import reikai.novel.host.LnPluginHost
+import reikai.novel.source.lnPluginIdOf
 import reikai.novel.source.pluginStorageScope
 import tachiyomi.core.common.preference.AndroidPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
@@ -45,6 +47,8 @@ class PreferenceRestorer(
     private val getNovelCategories: GetNovelCategories,
     // RK: Reikai's carries and skips for retired and untrusted app keys
     private val appPreferenceCarry: AppPreferenceCarry,
+    // RK: a running plugin engine read its settings when built, so a restore of them starts a fresh one
+    private val lnPluginHost: () -> LnPluginHost,
 ) {
     suspend fun restoreApp(
         preferences: List<BackupPreference>,
@@ -83,6 +87,7 @@ class PreferenceRestorer(
                     },
                     preferenceStore,
                 )
+                lnPluginIdOf(it.sourceKey)?.let { id -> lnPluginHost().storageChanged(id) }
                 return@forEach
             }
             // The key names the file opened below, so only the source_<id> form preferenceKey() writes is

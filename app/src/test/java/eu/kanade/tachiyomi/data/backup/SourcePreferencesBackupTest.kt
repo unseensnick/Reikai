@@ -47,6 +47,7 @@ import reikai.domain.novel.NovelPreferences
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.novel.content.NovelCodeSnippet
 import reikai.novel.content.NovelSnippets
+import reikai.novel.host.LnPluginHost
 import reikai.presentation.recents.EmittingPreferenceStore
 import tachiyomi.core.common.preference.PreferenceStore
 
@@ -147,6 +148,7 @@ class SourcePreferencesBackupTest {
             }
         }
         val restorer = PreferenceRestorer(
+            lnPluginHost = { mockk(relaxed = true) },
             context = mockk(),
             getCategories = mockk(),
             preferenceStore = store,
@@ -173,7 +175,10 @@ class SourcePreferencesBackupTest {
     private val store = EmittingPreferenceStore()
     private val novelPreferences = NovelPreferences(store)
 
+    private val pluginHost = mockk<LnPluginHost>(relaxed = true)
+
     private val restorer = PreferenceRestorer(
+        lnPluginHost = { pluginHost },
         context = mockk(),
         getCategories = mockk(),
         preferenceStore = store,
@@ -232,6 +237,21 @@ class SourcePreferencesBackupTest {
         } finally {
             unmockkStatic("eu.kanade.tachiyomi.source.ConfigurableSourceKt")
         }
+    }
+
+    // A plugin reads its settings and sign-in while its engine is built, so one already running keeps the old ones.
+    @Test
+    fun `a plugin's restored settings start its next call in a fresh engine`() = runTest {
+        restorer.restoreSource(
+            listOf(
+                BackupSourcePreferences(
+                    "ln_storage::boxnovel::",
+                    listOf(BackupPreference("ln_storage::boxnovel::storage:url", StringPreferenceValue("u"))),
+                ),
+            ),
+        )
+
+        verify { pluginHost.storageChanged("boxnovel") }
     }
 
     @Test
