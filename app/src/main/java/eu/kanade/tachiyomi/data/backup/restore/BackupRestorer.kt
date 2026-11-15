@@ -39,6 +39,7 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.protobuf.ProtoBuf
 import logcat.LogPriority
 import reikai.data.backup.ApprovedRepos
@@ -637,10 +638,21 @@ class BackupRestorer(
             batch.clear()
         }
 
+        var read = 0
         BackupProtoReader(context).read(uri) { field, data ->
             if (field != fieldNumber) return@read
             currentCoroutineContext().ensureActive()
-            batch.add(decode(data))
+            read++
+            // The summary pass reads only a few fields of each entry, so one unreadable elsewhere shows up here,
+            // and is skipped as a failed restore of it is.
+            val entry = try {
+                decode(data)
+            } catch (e: SerializationException) {
+                errors.add(Date() to "Entry $read could not be read: ${e.message}")
+                restoreProgress.addAndFetch(1)
+                return@read
+            }
+            batch.add(entry)
             if (batch.size >= RESTORE_CHUNK) flush()
         }
         flush()

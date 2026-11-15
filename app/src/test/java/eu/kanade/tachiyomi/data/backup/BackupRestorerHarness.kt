@@ -28,6 +28,7 @@ import reikai.novel.source.NovelSourceManager
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.source.repository.StubSourceRepository
 import tachiyomi.domain.source.service.SourceManager
+import java.io.File
 
 /** Runs the real [BackupRestorer] over [backup] encoded as a file, every collaborator relaxed but those passed. */
 suspend fun restoreEncoded(
@@ -71,9 +72,12 @@ suspend fun restoreFile(
     novelFonts: NovelFontManager = mockk(relaxed = true),
     preferenceRestorer: PreferenceRestorer = mockk(relaxed = true),
     gatherGroupViewerFlags: GatherGroupViewerFlags = mockk(relaxed = true),
+    // Where the restore writes its error log; a test whose restore records an error passes a temporary folder.
+    cacheDir: File? = null,
 ) {
     val uri = mockk<Uri>()
     val context = mockk<Context>(relaxed = true) {
+        if (cacheDir != null) every { externalCacheDir } returns cacheDir
         every { contentResolver.openInputStream(uri) } answers {
             file.inputStream()
         }

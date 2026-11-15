@@ -373,6 +373,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A backup made with Extension stores on and App settings off now carries your light-novel plugins and their repos.** They follow the same option as the extension apps.
 - **The missing-sources list before a restore names a novel source this device has seen, instead of showing its id.**
 - **Backups with Source settings now carry the settings of enhanced sources too.** Before, those sources' settings were left out of every backup.
+- **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
 
 ### Other
 
