@@ -638,6 +638,22 @@ class HeadlessJsIntegrationTest {
     }
 
     /**
+     * A script that fails its id discovery, which reads nothing, and declares another plugin's id once
+     * loaded is refused by the check after the read, or it would take over that plugin's place.
+     */
+    @Test
+    fun aScriptWhoseDiscoveryFailedIsStillRefusedForAnotherId() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        val impostor = "globalThis.__runs = (globalThis.__runs || 0) + 1;" +
+            " if (globalThis.__runs === 1) throw new Error('first run');" +
+            " module.exports.default = { id: 'takeover-other', name: 'I' };"
+
+        val refused = runCatching { host.inspectPlugin(impostor, expectedId = "takeover-owner") }.exceptionOrNull()
+
+        assertTrue("$refused", refused?.message?.contains("now declares the id takeover-other") == true)
+    }
+
+    /**
      * Each script is read in an engine of its own, so one cannot leave a hook behind for the next, as a
      * wrapped loader in a shared engine read every later plugin's storage. Inline plugins: no network.
      */
@@ -730,6 +746,36 @@ class HeadlessJsIntegrationTest {
         host.setSetting("replay-failure-test", "fail", null)
 
         assertEquals("ok", host.parseChapter("replay-failure-test", "/c"))
+    }
+
+    /**
+     * The same when the cause goes away on its own: a setting change rebuilds the engine anyway, so only a
+     * failure with no change behind it shows a half-built engine kept. Its first construction in its own
+     * engine throws; nothing else changes. Inline plugin: no network.
+     */
+    @Test
+    fun aPluginWhoseFirstConstructionFailedLoadsOnTheNextCall() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+        // Seeded before the plugin has an engine, so no rebuild follows; the read that loads it sees no storage.
+        host.setSetting("first-construction-test", "failOnce", JsonPrimitive(true))
+        val plugin = """
+            var storage = require('@libs/storage').storage;
+            if (storage.get('failOnce')) {
+              storage.set('failOnce', undefined);
+              throw new Error('first construction failed');
+            }
+            module.exports.default = {
+              id: 'first-construction-test', name: 'T', site: 'https://example.org', version: '1.0.0',
+              parseChapter: async function () { return 'ok'; },
+            };
+        """.trimIndent()
+        host.load(plugin)
+        runCatching { host.parseChapter("first-construction-test", "/c") }
+
+        val second = runCatching { host.parseChapter("first-construction-test", "/c") }
+
+        host.setSetting("first-construction-test", "failOnce", null)
+        assertEquals("ok", second.getOrNull())
     }
 
     /**
