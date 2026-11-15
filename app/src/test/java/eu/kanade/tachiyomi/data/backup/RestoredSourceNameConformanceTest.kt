@@ -7,12 +7,13 @@ import eu.kanade.tachiyomi.data.backup.restore.RestoreOptions
 import eu.kanade.tachiyomi.extension.ExtensionManager
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
-import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.source.NovelSourceManager
@@ -25,77 +26,92 @@ import tachiyomi.domain.source.service.SourceManager
 /**
  * A restored entry whose source is not installed keeps the name the backup recorded for that source, so
  * the next backup writes it again and the entry does not show a bare id. Manga keep it as a stub source,
- * novels as the record their sources leave once removed.
+ * novels as the record their sources leave once removed. Runs the real BackupRestorer for each type.
  */
 class RestoredSourceNameConformanceTest {
 
-    private val options = RestoreOptions(libraryEntries = true, categories = false, appSettings = false)
-    private val noSourceInstalled = mockk<SourceManager>(relaxed = true).also { coEvery { it.get(any()) } returns null }
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("types")
+    fun `a source that is not installed keeps its backed-up name`(type: SourceNames) = runTest {
+        type.nameAfterRestore(backedUp = "Gone", onDevice = null) shouldBe "Gone"
+    }
 
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("types")
+    fun `a source this device already has a name for keeps it`(type: SourceNames) = runTest {
+        type.nameAfterRestore(backedUp = "Gone", onDevice = "Stored") shouldBe "Stored"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("types")
+    fun `a blank backed-up name records nothing`(type: SourceNames) = runTest {
+        type.nameAfterRestore(backedUp = " ", onDevice = null) shouldBe null
+    }
+
+    // Manga only: an installed novel source answers its own name, so it needs no record to name it.
     @Test
-    fun `a manga source that is not installed keeps its backed-up name`() = runTest {
-        val stubs = mockk<StubSourceRepository>(relaxed = true) {
-            coEvery { getStubSource(any()) } returns null
-        }
+    fun `an installed manga source gets no stub`() = runTest {
+        MangaSourceNames.nameAfterRestore(backedUp = "Gone", onDevice = null, installed = true) shouldBe null
+    }
 
+    companion object {
+        @JvmStatic
+        fun types() = listOf(MangaSourceNames, NovelSourceNames)
+    }
+}
+
+private val OPTIONS = RestoreOptions(libraryEntries = true, categories = false, appSettings = false)
+
+/** One type's restore of one source's backed-up name, returning the name the device then records for it. */
+interface SourceNames {
+    suspend fun nameAfterRestore(backedUp: String, onDevice: String?): String?
+}
+
+object MangaSourceNames : SourceNames {
+
+    override fun toString() = "manga"
+
+    override suspend fun nameAfterRestore(backedUp: String, onDevice: String?) =
+        nameAfterRestore(backedUp, onDevice, installed = false)
+
+    suspend fun nameAfterRestore(backedUp: String, onDevice: String?, installed: Boolean): String? {
+        var stub = onDevice?.let { StubSource(5L, "en", it) }
+        val stubs = mockk<StubSourceRepository>(relaxed = true) {
+            coEvery { getStubSource(5L) } answers { stub }
+            coEvery { upsertStubSource(5L, any(), any()) } answers { stub = StubSource(5L, secondArg(), thirdArg()) }
+        }
+        val sources = mockk<SourceManager>(relaxed = true) {
+            coEvery { get(5L) } returns if (installed) mockk() else null
+        }
         restoreEncoded(
-            Backup(backupManga = emptyList(), backupSources = listOf(BackupSource(name = "Gone", sourceId = 5L))),
-            options,
-            sourceManager = noSourceInstalled,
+            Backup(backupManga = emptyList(), backupSources = listOf(BackupSource(name = backedUp, sourceId = 5L))),
+            OPTIONS,
+            sourceManager = sources,
             stubSourceRepository = stubs,
         )
-
-        coVerify { stubs.upsertStubSource(5L, "", "Gone") }
+        return stub?.name
     }
+}
 
-    @Test
-    fun `a manga source with a stub already keeps the stub`() = runTest {
-        val stubs = mockk<StubSourceRepository>(relaxed = true) {
-            coEvery { getStubSource(5L) } returns StubSource(5L, "en", "Stored")
-        }
+object NovelSourceNames : SourceNames {
 
-        restoreEncoded(
-            Backup(backupManga = emptyList(), backupSources = listOf(BackupSource(name = "Gone", sourceId = 5L))),
-            options,
-            sourceManager = noSourceInstalled,
-            stubSourceRepository = stubs,
-        )
+    override fun toString() = "novel"
 
-        coVerify(exactly = 0) { stubs.upsertStubSource(any(), any(), any()) }
-    }
-
-    @Test
-    fun `a novel source that is not installed keeps its backed-up name`() = runTest {
-        val novelSources = novelSourceManager(NovelPreferences(EmittingPreferenceStore()))
-
-        restoreEncoded(
-            Backup(backupManga = emptyList(), backupNovelSources = listOf(BackupNovelSource("Gone Novels", "gone"))),
-            options,
-            novelSourceManager = novelSources,
-        )
-
-        novelSources.identityOf("gone").name shouldBe "Gone Novels"
-    }
-
-    @Test
-    fun `a novel source this device already knows keeps what it knows`() = runTest {
+    override suspend fun nameAfterRestore(backedUp: String, onDevice: String?): String? {
         val prefs = NovelPreferences(EmittingPreferenceStore())
-        prefs.seenNovelSources().set(mapOf("seen" to LnSourceIdentity(name = "Seen", iconUrl = "icon")))
-        val novelSources = novelSourceManager(prefs)
-
+        onDevice?.let { prefs.seenNovelSources().set(mapOf("gone" to LnSourceIdentity(name = it))) }
         restoreEncoded(
-            Backup(backupManga = emptyList(), backupNovelSources = listOf(BackupNovelSource("Old name", "seen"))),
-            options,
-            novelSourceManager = novelSources,
+            Backup(backupManga = emptyList(), backupNovelSources = listOf(BackupNovelSource(backedUp, "gone"))),
+            OPTIONS,
+            novelSourceManager = NovelSourceManager(
+                scope = testAppScope(),
+                installer = { error("loaded the plugins") },
+                extensionManager = mockk<ExtensionManager> {
+                    every { loadedNovelExtensionsFlow } returns flowOf(emptyList())
+                },
+                prefs = prefs,
+            ),
         )
-
-        novelSources.identityOf("seen") shouldBe LnSourceIdentity(name = "Seen", iconUrl = "icon")
+        return prefs.seenNovelSources().get()["gone"]?.name
     }
-
-    private fun novelSourceManager(prefs: NovelPreferences) = NovelSourceManager(
-        scope = testAppScope(),
-        installer = { error("loaded the plugins") },
-        extensionManager = mockk<ExtensionManager> { every { loadedNovelExtensionsFlow } returns flowOf(emptyList()) },
-        prefs = prefs,
-    )
 }
