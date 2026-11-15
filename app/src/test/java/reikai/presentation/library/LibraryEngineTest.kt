@@ -51,7 +51,6 @@ import tachiyomi.domain.library.model.LibrarySort
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
-import kotlin.time.Duration.Companion.seconds
 
 class LibraryEngineTest {
 
@@ -216,7 +215,7 @@ class LibraryEngineTest {
 
     /** A tap can land before the drop's write has, so Undo waits on the drop it undoes. */
     @Test
-    fun `an undo tapped straight after a drop still puts the order back`() = runTest(timeout = 10.seconds) {
+    fun `an undo tapped straight after a drop still puts the order back`() = runTest {
         val manualOrder = FakeLibraryManualOrderRepository()
         val before =
             listOf(ManualOrderPosition(ContentType.MANGA, 2, 0, 0), ManualOrderPosition(ContentType.MANGA, 1, 0, 1))

@@ -63,9 +63,10 @@ class ReaderViewerFlagsConformanceTest {
         val CHANGED = ReaderOrientation.REVERSE_PORTRAIT.flagValue.toLong()
         private val MASK = ReaderOrientation.MASK.toLong()
 
-        /** The readers write on the IO dispatcher, which virtual time does not reach, so this polls. */
+        /** The readers write on the IO dispatcher, which virtual time does not reach, so this polls; a busy CI
+         *  runner has taken over 3 s, and a settled write ends the wait at once. */
         suspend fun settlesAt(expected: Long, read: suspend () -> Long): Long = withContext(Dispatchers.Default) {
-            withTimeoutOrNull(3_000) { while (read() != expected) delay(20) }
+            withTimeoutOrNull(15_000) { while (read() != expected) delay(20) }
             read()
         }
     }
