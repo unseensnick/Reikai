@@ -34,7 +34,7 @@ jobs:
   # they share almost no work, and one runner doing both in turn took about 21 minutes.
   checks:
     name: Checks
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Clone repo
@@ -64,7 +64,7 @@ jobs:
 
   test:
     name: Unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Clone repo
@@ -101,7 +101,7 @@ jobs:
   # baseline (app/lint-baseline.xml) does not list fails it; release builds still skip lint.
   lint:
     name: Android Lint
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Clone repo
@@ -127,7 +127,7 @@ jobs:
 
   build:
     name: Build app
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
 
     steps:
       - name: Clone repo

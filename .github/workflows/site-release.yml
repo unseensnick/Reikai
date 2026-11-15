@@ -23,7 +23,7 @@ permissions:
 jobs:
   dispatch:
     name: Ask the site to rebuild
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       # The same fine-grained PAT deploy-docs.yml uses, which already reaches Reikai-website.
       # GITHUB_TOKEN cannot do this: it is scoped to this repository and the dispatch targets

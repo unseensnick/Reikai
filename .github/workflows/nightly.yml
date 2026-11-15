@@ -56,7 +56,7 @@ jobs:
   # a tag that does not climb, and a merge that rebuilds a tree already published.
   check:
     name: Check the build would publish something new
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     outputs:
       skip: ${{ steps.check.outputs.skip }}
     steps:
@@ -77,7 +77,7 @@ jobs:
   # nothing.
   test:
     name: Unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: check
     if: needs.check.outputs.skip != 'true'
     steps:
@@ -110,7 +110,7 @@ jobs:
 
   build:
     name: Build signed nightly
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: check
     if: needs.check.outputs.skip != 'true'
     steps:
@@ -165,7 +165,7 @@ jobs:
 
   publish:
     name: Publish nightly
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [check, test, build]
     if: needs.check.outputs.skip != 'true'
     steps:

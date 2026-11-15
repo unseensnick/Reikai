@@ -36,7 +36,7 @@ jobs:
   # took about 26 minutes in turn.
   test:
     name: Unit tests
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Clone repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -53,7 +53,7 @@ jobs:
 
   release:
     name: Build signed release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Clone repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,7 +106,7 @@ jobs:
   # -Pdist rather than a per-variant one, so it never shared a Gradle run with the release build.
   foss:
     name: Build signed FOSS
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Clone repo
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -150,7 +150,7 @@ jobs:
 
   publish:
     name: Draft the release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     needs: [test, release, foss]
     steps:
       # Full history and tags: the notes link the changes since the previous tag.

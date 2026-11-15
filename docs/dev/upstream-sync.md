@@ -205,6 +205,7 @@ Newest first. "Base" is the `refs/mihon` SHA Reikai is synced through; "Reikai" 
 
 | Base (mihon) | Reikai | Date | Ported |
 |---|---|---|---|
+| `4823ba69c` | `chore: sync Mihon ubuntu-26.04 runners` | 2026-11-15 | Every workflow job pinned to ubuntu-26.04 instead of ubuntu-latest (mihon 71cd94a31, mihonapp/mihon#3986), below the base but missed by its sync; the CI gradle.properties comment names the image too. |
 | `4823ba69c` | `chore: sync Mihon setup-java 6.3.0` | 2026-11-14 | actions/setup-java v6.2.0 to v6.3.0 (mihon 4823ba69c, mihonapp/mihon#4296), in Reikai's shared setup-build action. |
 | `0c888b010` | `chore: sync Mihon dependency bumps` | 2026-11-12 | google-services 4.6.0 (mihon 867c26578, mihonapp/mihon#4282), firebase-bom 35.2.0 (mihon 8503547b8, mihonapp/mihon#4281), kotlinx.serialization 1.13.0 (mihon be582036e, mihonapp/mihon#4288), kotest-assertions-core 6.2.7 (mihon 0c888b010, mihonapp/mihon#4287); none pinned differently in Reikai. |
 | `134e5de3d` | `chore: sync Mihon Gradle 9.9.1` | 2026-11-11 | Gradle wrapper 9.9.0 to 9.9.1 (mihon 134e5de3d, mihonapp/mihon#4276). |
