@@ -1,12 +1,19 @@
 package reikai.data.backup
 
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
+import eu.kanade.tachiyomi.extension.ExtensionManager
+import eu.kanade.tachiyomi.extension.model.Extension
+import eu.kanade.tachiyomi.extension.model.InstallStep
 import io.kotest.matchers.collections.shouldBeEmpty
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
+import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import mihon.data.extension.service.ExtensionStoreService
+import mihon.domain.extension.model.ContentWarning
 import mihon.domain.extension.model.ExtensionStore
 import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.api.Test
@@ -30,6 +37,7 @@ class RestoreExtensionInstallerTest {
         sources: RestoreInstallSources = mockk(),
         pluginInstaller: LnPluginInstaller = mockk(),
         pluginRepoReachable: Boolean = true,
+        extensionManager: ExtensionManager = mockk(),
     ) = RestoreExtensionInstaller(
         sources = sources,
         storeService = mockk<ExtensionStoreService> {
@@ -47,7 +55,7 @@ class RestoreExtensionInstallerTest {
                 }
             }
         },
-        extensionManager = mockk(),
+        extensionManager = extensionManager,
         pluginInstaller = pluginInstaller,
     )
 
@@ -103,6 +111,45 @@ class RestoreExtensionInstallerTest {
 
         installer(liveKey = KEY, sources).install(listOf(BackupExtension("pkg.foo", "Foo")), emptyMap()) shouldBe
             listOf(RestoreExtensionInstaller.NotInstalled("Foo", RestoreExtensionInstaller.Reason.NotListed))
+    }
+
+    @Test
+    fun `a missing app that installs is not reported`() = runTest {
+        installListed(flowOf(InstallStep.Pending, InstallStep.Installing, InstallStep.Installed)).shouldBeEmpty()
+    }
+
+    // The installer reports a dismissed prompt as Idle, which is not a failure the user needs to retry.
+    @Test
+    fun `a missing app whose install prompt was dismissed is reported as cancelled`() = runTest {
+        installListed(flowOf(InstallStep.Pending, InstallStep.Idle)) shouldBe
+            listOf(RestoreExtensionInstaller.NotInstalled("Foo", RestoreExtensionInstaller.Reason.InstallCancelled))
+    }
+
+    /** Restores the backup's one missing app, which a trusted repo lists, through an install that emits [steps]. */
+    private suspend fun installListed(steps: Flow<InstallStep>): List<RestoreExtensionInstaller.NotInstalled> {
+        val listing = Extension.Available(
+            name = "Foo",
+            pkgName = "pkg.foo",
+            versionName = "1",
+            versionCode = 1,
+            libVersion = 1.6,
+            lang = "en",
+            contentWarning = ContentWarning.SAFE,
+            kind = Extension.Kind.MANGA,
+            sources = emptyList(),
+            apkUrl = "a.apk",
+            iconUrl = "a.png",
+            store = store(KEY),
+        )
+        val sources = mockk<RestoreInstallSources> {
+            coEvery { missing(any(), any()) } returns listOf(RestoreItem.App("pkg.foo", "Foo"))
+            coEvery { device() } returns RepoListings(apps = listOf(listing))
+        }
+        return installer(
+            liveKey = KEY,
+            sources,
+            extensionManager = mockk { every { installExtension(listing) } returns steps },
+        ).install(listOf(BackupExtension("pkg.foo", "Foo")), emptyMap())
     }
 
     // A plugin the backup never loaded is named by its script's file; the Restore screen named it by its listing.
