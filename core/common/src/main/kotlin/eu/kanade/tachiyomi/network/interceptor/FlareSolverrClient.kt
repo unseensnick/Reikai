@@ -357,11 +357,7 @@ class FlareSolverrClient(
         // keeps the body from breaking the envelope.
         val isPost = request.method.equals("POST", ignoreCase = true)
         val postData = request.body?.takeIf { isPost }?.let(::flareSolverrPostData)
-        val forwarded = if (isPrivateChannel(flareSolverrUrl)) {
-            cookiesSent(cookieJar, request)
-        } else {
-            emptyList()
-        }
+        val forwarded = cookiesForSolver(flareSolverrUrl, cookieJar, request)
         val command = flareSolverrCommand(targetUrl, isPost, postData, sessionId, forwarded)
         val body = json.encodeToString(JsonObject.serializer(), command)
             .toRequestBody(jsonMime)
@@ -517,6 +513,10 @@ internal fun flareSolverrFailureReason(body: String): String? {
 
 /** Where every command to the solver at [flareSolverrUrl] is posted, a trailing slash on the address or not. */
 internal fun flareSolverrEndpoint(flareSolverrUrl: String): String = "${flareSolverrUrl.trimEnd('/')}/v1"
+
+/** The site's cookies a solve hands the solver at [flareSolverrUrl], none over a channel [isPrivateChannel] refuses. */
+internal fun cookiesForSolver(flareSolverrUrl: String, cookieJar: CookieJar, request: Request): List<Cookie> =
+    if (isPrivateChannel(flareSolverrUrl)) cookiesSent(cookieJar, request) else emptyList()
 
 /**
  * Whether a secret may travel to the FlareSolverr at [flareSolverrUrl]: over https, or in the clear

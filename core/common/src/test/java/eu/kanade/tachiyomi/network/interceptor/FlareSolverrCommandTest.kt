@@ -17,6 +17,7 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.CsvSource
 import org.junit.jupiter.params.provider.ValueSource
 
 class FlareSolverrCommandTest {
@@ -119,6 +120,14 @@ class FlareSolverrCommandTest {
     )
     fun `secrets never cross the internet in the clear`(url: String) {
         isPrivateChannel(url) shouldBe false
+    }
+
+    @ParameterizedTest
+    @CsvSource("http://nas:8191, 1", "https://solver.example.com, 1", "http://solver.example.com:8191, 0")
+    fun `a solve hands the site's cookies only to a solver it may trust with them`(url: String, sent: Int) {
+        val page = okhttp3.Request.Builder().url("https://www.novelupdates.com/").build()
+
+        cookiesForSolver(url, jarOf(cookie("site")), page).size shouldBe sent
     }
 
     @Test
