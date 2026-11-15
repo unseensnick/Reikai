@@ -638,9 +638,9 @@
 
   function makeResponse(payload) {
     var headersObj = payload.headers || {};
-    // arrayBuffer / blob read bytes: an explicit binary body (bodyBase64, e.g. fetchProto) if present,
-    // else the UTF-8 bytes of the text body. Text sources still read through the charset-aware text()
-    // path, so this never disturbs them (no charset-guessing binary fetch; that is deliberately parked).
+    // arrayBuffer / blob read the real bytes when Kotlin sent them (a binary request, or a reply that is
+    // not a text type), else the UTF-8 bytes of the text body. text() always reads the charset-aware
+    // text Kotlin decoded, so a text source is never re-decoded by guessing.
     function bodyBytes() {
       if (payload.bodyBase64 != null) return base64ToBytes(payload.bodyBase64);
       return new TextEncoder().encode(payload.body || "");
@@ -760,6 +760,20 @@
       if (!hasCT)
         normalized.headers["Content-Type"] =
           "application/x-www-form-urlencoded";
+    } else if (
+      normalized.body instanceof ArrayBuffer ||
+      ArrayBuffer.isView(normalized.body)
+    ) {
+      // A binary body (WuxiaWorld's gRPC-web frame) crosses the string bridge as base64, and asks for
+      // the reply as bytes too; JSON.stringify would have sent a typed array as {"0":0,...}.
+      var view = normalized.body;
+      normalized.bodyBase64 = bytesToBase64(
+        view instanceof ArrayBuffer
+          ? new Uint8Array(view)
+          : new Uint8Array(view.buffer, view.byteOffset, view.byteLength),
+      );
+      normalized.binary = true;
+      delete normalized.body;
     }
     var raw = JSON.parse(await __lnFetch(url, JSON.stringify(normalized)));
     if (raw && raw.error) throw new Error(raw.error);
@@ -778,12 +792,11 @@
   globalThis.fetch = fetchApi;
 
   // gRPC-web client. protobufjs (vendored) parses the plugin's .proto string and encodes/decodes
-  // messages; we add the 5-byte gRPC-web frame and round-trip the binary through the Kotlin bridge
-  // as base64 (QuickJS has no Blob/FileReader, so we can't use lnreader's transport). WuxiaWorld.
+  // messages; we add the 5-byte gRPC-web frame, which request() carries over the Kotlin bridge as
+  // bytes (QuickJS has no Blob/FileReader, so we can't use lnreader's transport).
   async function fetchProto(protoInit, url, init) {
     var pb = globalThis.protobuf;
     if (!pb) throw new Error("protobufjs not loaded");
-    var b64 = pb.util.base64;
     var root = pb.parse(protoInit.proto).root;
     var ReqT = root.lookupType(protoInit.requestType);
     var verr = ReqT.verify(protoInit.requestData || {});
@@ -797,17 +810,14 @@
     framed[4] = msg.length & 0xff;
     framed.set(msg, 5);
 
-    var normalized = init ? Object.assign({}, init) : {};
-    normalized.method = "POST";
-    normalized.binary = true;
-    normalized.bodyBase64 = b64.encode(framed, 0, framed.length);
-    delete normalized.body;
-
-    var raw = JSON.parse(await __lnFetch(url, JSON.stringify(normalized)));
-    if (raw && raw.error) throw new Error(raw.error);
-    var enc = raw.bodyBase64 || "";
-    var resp = new Uint8Array(b64.length(enc));
-    b64.decode(enc, resp, 0);
+    // Through request(), as LNReader's fetchProto goes through its fetch: the default headers apply,
+    // and the typed-array body carries the frame as bytes both ways.
+    var res = await request(
+      url,
+      Object.assign({}, init || {}, { method: "POST", body: framed }),
+      undefined,
+    );
+    var resp = new Uint8Array(await res.arrayBuffer());
     return decodeGrpcWebBody(root.lookupType(protoInit.responseType), resp);
   }
 

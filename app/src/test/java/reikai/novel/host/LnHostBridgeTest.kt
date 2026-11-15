@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.network.HttpException
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.types.shouldBeInstanceOf
 import io.mockk.mockk
+import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import okhttp3.Cookie
@@ -18,6 +19,7 @@ import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.util.Base64
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -77,6 +79,30 @@ class LnHostBridgeTest {
         val response = bridge.runFetch("https://example.org/c", """{"encoding":"gbk"}""") {}
 
         LnPluginHost.JSON.parseToJsonElement(response).jsonObject["body"]?.jsonPrimitive?.content shouldBe "镕喆"
+    }
+
+    // WuxiaWorld reads its gRPC-web reply through arrayBuffer(), and UTF-8 text cannot carry 0x92.
+    @Test
+    fun `a binary response reaches the plugin as its bytes`() {
+        val bytes = byteArrayOf(0, 0, 0, 0, 2, 0x92.toByte(), 0x01)
+
+        val response = answeringWith(bytes, "application/grpc-web+proto").runFetch("https://example.org/rpc", "{}") {}
+
+        val bodyBase64 = LnPluginHost.JSON.parseToJsonElement(
+            response,
+        ).jsonObject["bodyBase64"]?.jsonPrimitive?.contentOrNull
+        bodyBase64?.let { Base64.getDecoder().decode(it).toList() } shouldBe bytes.toList()
+    }
+
+    // The parked worry was a mislabelled GBK page garbled by guessing; a text type keeps its text path.
+    @Test
+    fun `a text response carries its text and no bytes`() {
+        val response = answeringWith("<p>é</p>".toByteArray(), "text/html; charset=utf-8")
+            .runFetch("https://example.org/c", "{}") {}
+
+        val body = LnPluginHost.JSON.parseToJsonElement(response).jsonObject
+        (body["body"]?.jsonPrimitive?.content to body["bodyBase64"]?.jsonPrimitive?.contentOrNull) shouldBe
+            ("<p>é</p>" to null)
     }
 
     @Test
@@ -157,6 +183,15 @@ class LnHostBridgeTest {
         }
         return seen.get()
     }
+
+    // Answers every request with [bytes] as [contentType], so no request reaches the network.
+    private fun answeringWith(bytes: ByteArray, contentType: String) = LnHostBridge(
+        preferenceStore = mockk(relaxed = true),
+        client = OkHttpClient.Builder().addInterceptor { chain ->
+            Response.Builder().request(chain.request()).protocol(Protocol.HTTP_1_1).code(200).message("")
+                .body(bytes.toResponseBody(contentType.toMediaType())).build()
+        }.build(),
+    ) { "agent" }
 
     // Answers every request with [code] itself, so no request reaches the network.
     private fun answering(code: Int) = LnHostBridge(

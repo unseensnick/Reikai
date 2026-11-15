@@ -1,6 +1,5 @@
 package reikai.novel.host
 
-import android.util.Base64
 import eu.kanade.tachiyomi.network.WithPluginCookies
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
@@ -12,6 +11,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import logcat.LogPriority
 import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
+import okhttp3.MediaType
 import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -23,6 +23,7 @@ import tachiyomi.core.common.preference.PreferenceStore
 import tachiyomi.core.common.util.system.logcat
 import java.net.URLDecoder
 import java.nio.charset.Charset
+import java.util.Base64
 
 /**
  * Engine-agnostic host services for LN plugins: HTTP over OkHttp, per-plugin storage over the shared
@@ -47,10 +48,10 @@ class LnHostBridge(
             val opts = parseFetchOpts(optsJson)
             val builder = Request.Builder().url(url)
             val method = opts.method?.uppercase() ?: "GET"
-            // Binary body (base64) for gRPC-web / protobuf via fetchProto; multipart for FormData
+            // Binary body (base64) for a typed-array body or fetchProto; multipart for FormData
             // posts (matches browsers / lnreader); otherwise the string body.
             val explicitBody = when {
-                opts.bodyBase64 != null -> Base64.decode(opts.bodyBase64, Base64.NO_WRAP).toRequestBody()
+                opts.bodyBase64 != null -> Base64.getDecoder().decode(opts.bodyBase64).toRequestBody()
                 opts.multipart != null -> MultipartBody.Builder().setType(MultipartBody.FORM).apply {
                     opts.multipart.forEach { addFormDataPart(it.getOrElse(0) { "" }, it.getOrElse(1) { "" }) }
                 }.build()
@@ -90,17 +91,20 @@ class LnHostBridge(
             val headers = res.headers.toMultimap()
                 .mapKeys { it.key.lowercase() }
                 .mapValues { it.value.firstOrNull().orEmpty() }
-            // Binary responses (protobuf) are returned base64 so they survive the string bridge; the
-            // body can be read only once, so the two branches are mutually exclusive.
+            // LNReader's fetchText decodes with the encoding the plugin names over the one the site
+            // declares, which for a GBK site labelled gb2312 loses every character outside GB2312.
+            val charset = opts.encoding?.let { runCatching { Charset.forName(it) }.getOrNull() }
+            val contentType = res.body.contentType()
+            // The bytes go back too, base64 so they survive the string bridge, when the plugin can want
+            // them: it sent a binary body, or the reply is not a text type. A text type keeps the text
+            // path alone, so a mislabelled GBK page is never re-decoded by a guess.
             val bodyText: String
             val bodyBase64: String?
-            if (opts.binary) {
-                bodyText = ""
-                bodyBase64 = Base64.encodeToString(res.body.bytes(), Base64.NO_WRAP)
+            if (opts.binary || contentType?.isText() == false) {
+                val bytes = res.body.bytes()
+                bodyBase64 = Base64.getEncoder().encodeToString(bytes)
+                bodyText = bytes.toString(charset ?: contentType?.charset() ?: Charsets.UTF_8)
             } else {
-                // LNReader's fetchText decodes with the encoding the plugin names over the one the site
-                // declares, which for a GBK site labelled gb2312 loses every character outside GB2312.
-                val charset = opts.encoding?.let { runCatching { Charset.forName(it) }.getOrNull() }
                 bodyText = charset?.let { res.body.bytes().toString(it) } ?: res.body.string()
                 bodyBase64 = null
             }
@@ -181,7 +185,7 @@ class LnHostBridge(
         val body: String? = null,
         // Field pairs for a multipart/form-data body (set by fetchApi for FormData posts).
         val multipart: List<List<String>>? = null,
-        // Set by fetchProto: base64 request body + flag to return the response base64 (binary-safe).
+        // A typed-array body or fetchProto: base64 request body + flag to return the response base64 too.
         val bodyBase64: String? = null,
         val binary: Boolean = false,
         // fetchText's charset override, a Java charset name ("gbk").
@@ -199,6 +203,9 @@ class LnHostBridge(
         val bodyBase64: String? = null,
     )
 }
+
+private fun MediaType.isText(): Boolean =
+    type == "text" || listOf("json", "xml", "javascript", "html", "x-www-form-urlencoded").any { it in subtype }
 
 internal fun loggableUrl(url: String): String =
     url.toHttpUrlOrNull()?.newBuilder()?.query(null)?.fragment(null)?.build()?.toString()

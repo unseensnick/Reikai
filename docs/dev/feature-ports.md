@@ -132,7 +132,6 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 ### Deliberately not taken
 
 - **Novels-as-manga entry merge. Ruled out.** Tsundoku gets its unified-everything simplicity by making novels *be* manga rows (hashing the `String` plugin id to a `Long`). Reikai deliberately keeps `novels.source TEXT` in separate tables; merging the entry tables would mean source-id collisions, broken novel FKs, and forking `mangas.source` from Mihon. No item on the roadmap requires it.
-- **Content-type binary fetch.** Auto-detecting binary responses by Content-Type would garble a mislabeled non-UTF-8 (GBK / Shift-JIS) text source, and no novel plugin fetches raw binary. See ROADMAP "Parked".
 - **LNReader filter -> `FilterList` conversion.** Reikai renders the plugin's raw filter schema directly and that works; the real defect was a member-name mismatch in Reikai's own `filterInputs` shim, fixed in `226dd7d1b`. Adopting tsundoku's model would be a rewrite for no added coverage.
 - **On-device translation stack.** Parked; see ROADMAP.
 - **The source-list system.** Tsundoku runs six parallel Browse tabs (novel + manga pairs) and adapts its novel state into Mihon's `SourcesScreen`; Reikai's chip-switched tabs with a combined All view are already ahead, so there is nothing structural to take. Their persisted `sources.is_js` type tag is not needed: each novel source carries its format as a typed field ([browse-and-sources.md](subsystems/browse-and-sources.md)).

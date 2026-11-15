@@ -10,8 +10,11 @@ import eu.kanade.tachiyomi.network.NetworkHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.jsonObject
 import mihon.app.di.appGraph
 import okhttp3.Request
 import org.junit.Assert.assertEquals
@@ -314,6 +317,54 @@ class HeadlessJsIntegrationTest {
                 """.trimIndent(),
             )
             assertEquals("number:1", status)
+        } finally {
+            q.close()
+        }
+    }
+
+    /**
+     * A typed-array body crosses the bridge as its bytes and asks for the reply as bytes, as WuxiaWorld's
+     * own gRPC-web frame does through fetchApi. JSON.stringify had turned it into {"0":0,...}. The fetch
+     * is a Kotlin stub that records what the runtime sends: no network.
+     */
+    @Test
+    fun aTypedArrayBodyGoesOutAsItsBytes() = runBlocking {
+        val q = DokarQuickJs.create(Dispatchers.IO)
+        try {
+            var sent = ""
+            q.function("__lnLog") { null }
+            q.function("__lnFetch") { args ->
+                sent = args[1] as String
+                """{"status":200,"statusText":"","headers":{},"body":"","url":"","error":null,"bodyBase64":"AJIB"}"""
+            }
+            q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
+            LnPluginHost.RUNTIME_ASSETS.forEach { path ->
+                q.evaluate<Any?>(context.assets.open(path).bufferedReader().use { it.readText() })
+            }
+            q.evaluate<Any?>(
+                "fetch('https://example.org/rpc', { method: 'POST', body: new Uint8Array([0, 0x8a, 0xff]) })" +
+                    ".then(function (r) { return r.arrayBuffer(); })" +
+                    ".then(function (b) { globalThis.__got = Array.from(new Uint8Array(b)).join(','); });",
+            )
+            // The promise settles while evaluate pumps the job queue, so poll for it, bounded.
+            val got = withTimeout(5_000) {
+                var read: String? = null
+                while (read == null) {
+                    read = q.evaluate<String?>("globalThis.__got === undefined ? null : globalThis.__got")
+                    if (read == null) delay(10)
+                }
+                read
+            }
+            val opts = LnPluginHost.JSON.parseToJsonElement(sent).jsonObject
+            assertEquals(
+                listOf("AIr/", "true", "absent", "0,146,1"),
+                listOf(
+                    (opts["bodyBase64"] as JsonPrimitive).content,
+                    (opts["binary"] as JsonPrimitive).content,
+                    if (opts.containsKey("body")) "present" else "absent",
+                    got,
+                ),
+            )
         } finally {
             q.close()
         }
