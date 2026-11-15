@@ -1,5 +1,6 @@
 package reikai.novel.host
 
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.shouldBe
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.async
@@ -8,6 +9,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import java.io.Closeable
@@ -46,6 +48,16 @@ class LnPluginEngineLifecycleTest {
     }
 
     // The same for a plugin's calls, which queue on its one engine.
+    // A call behind a hung one would otherwise wait out every call ahead of it, each its whole timeout.
+    @Test
+    fun `a call that waits longer than its timeout for its plugin gives up`() = runTest {
+        val slot = Mutex()
+        launch { slot.withLockAndTimeout(300_000L, "hung") { delay(200_000L).let { "hung" } } }
+        runCurrent()
+
+        shouldThrow<LnPluginException> { slot.withLockAndTimeout(30_000L, "queued") { "queued" } }
+    }
+
     @Test
     fun `a call queued behind another on its plugin gets its whole timeout once it runs`() = runTest {
         val slot = Mutex()

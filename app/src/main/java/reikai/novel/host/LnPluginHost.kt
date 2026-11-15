@@ -648,12 +648,24 @@ internal suspend fun <T : Any> Semaphore.withPermitAndTimeout(
     block: suspend CoroutineScope.() -> T,
 ): T = withPermit { withPluginTimeout(timeoutMs, what, block) }
 
-/** [block] under this lock, timed from when it holds it, as [withPermitAndTimeout] times a queued read. */
+/**
+ * [block] under this lock, timed from when it holds it, as [withPermitAndTimeout] times a queued read. The
+ * wait for the lock gets [timeoutMs] of its own, so a call behind a hung one gives up rather than waiting out
+ * every call ahead of it.
+ */
 internal suspend fun <T : Any> Mutex.withLockAndTimeout(
     timeoutMs: Long,
     what: String,
     block: suspend CoroutineScope.() -> T,
-): T = withLock { withPluginTimeout(timeoutMs, what, block) }
+): T {
+    withTimeoutOrNull(timeoutMs) { lock() }
+        ?: throw LnPluginException("$what waited over ${timeoutMs / 1000}s for its plugin")
+    return try {
+        withPluginTimeout(timeoutMs, what, block)
+    } finally {
+        unlock()
+    }
+}
 
 /**
  * Closes [engine] on [dispatcher], its confinement thread (close() may pump native state), then retires
