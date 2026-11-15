@@ -69,9 +69,9 @@ import kotlin.math.abs
  * The light-novel adapter under [ReaderViewport], rendering chapters into a document that is
  * Reikai's own: its stylesheet and engine come from `assets/novel-web/`, not the vendored bundle.
  *
- * The volume-key preferences arrive as values rather than a preferences class, so the viewport is
- * constructible without the graph. The switch is read on each press, and the direction and distance
- * come from the last settings push.
+ * The volume-key preferences arrive as values rather than a preferences class: the switch is read on each
+ * press, and the direction and distance come from the last settings push. Building a chapter's page reads
+ * the app graph's UI preferences for its chrome colours, so the context has to be the app's.
  */
 @SuppressLint("SetJavaScriptEnabled")
 class NovelWebViewport(
