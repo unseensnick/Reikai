@@ -195,7 +195,7 @@ class NovelBackupCreator(
         }.map { BackupNovelMergeGroup(refs = it) }
 }
 
-private fun Novel.toBackupNovel() = BackupNovel(
+internal fun Novel.toBackupNovel() = BackupNovel(
     source = this.source,
     url = this.url,
     title = this.title,
@@ -218,7 +218,7 @@ private fun Novel.toBackupNovel() = BackupNovel(
     nextUpdate = this.nextUpdate.toEpochMillisOrZero(),
 )
 
-private fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?, words: Long?, copyMark: Long?) =
+internal fun NovelChapter.toBackupNovelChapter(sourceNumber: Double?, words: Long?, copyMark: Long?) =
     BackupNovelChapter(
         url = this.url,
         name = this.name,

@@ -74,6 +74,9 @@ To convert your backups to JSON or to view and edit the information outside of t
 ## Restoring a backup
 Restore a compatible backup file in <nav to="data-and-storage">.
 
+### Restoring an LNReader backup
+Pick an LNReader backup (`lnreader_backup_….zip`) with **Restore backup** too. Its library novels come across with their read chapters, bookmarks, reading progress, history and categories, and LNReader's plugins are offered for install from the plugin repos you added, like any backup's missing extensions. Local novels are listed instead, since their files stay in LNReader, and downloaded chapters, covers LNReader saved itself and LNReader's settings are left behind. A novel you already have keeps its own read chapters and progress, adding LNReader's where they are further along.
+
 ::: tip
 To ensure a smooth restoration process, remember to:
 

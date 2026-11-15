@@ -343,6 +343,10 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 ### Backup & restore
 
+#### Added
+
+- **Restore backup now takes an LNReader backup too, bringing its library novels with their read chapters, bookmarks, progress, history and categories.** Local novels and downloaded chapters stay in LNReader.
+
 #### Changed
 
 - **Creating a backup makes fewer database reads, which helps most on a large library.** Chapters are read once for both chapters and history, and custom info once per hundred entries instead of once each.

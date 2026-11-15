@@ -26,6 +26,7 @@ import mihon.app.di.AppGraph
 import mihon.core.metro.metroGraph
 import mihon.core.migration.Migrator
 import reikai.data.backup.ApprovedRepos
+import reikai.data.backup.lnreader.LnReaderBackupConverter
 import reikai.data.task.AppTask
 import reikai.data.task.AppTaskProgress
 import tachiyomi.core.common.i18n.stringResource
@@ -83,6 +84,7 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
             }
         } finally {
             context.cancelNotification(Notifications.ID_RESTORE_PROGRESS)
+            LnReaderBackupConverter.discard(context, uri) // RK: an LNReader backup's converted file
         }
     }
 

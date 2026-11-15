@@ -1221,6 +1221,7 @@
     <string name="restore_repos_unread">Repos that couldn\'t be read, or now sign with another key:</string>
     <string name="backup_restore_missing_sources">Missing sources:</string>
     <string name="backup_restore_missing_trackers">Trackers not logged into:</string>
+    <string name="restore_lnreader_local_skipped">Local novels not imported:</string>
     <string name="backup_restore_content_full">You may need to install any missing extensions and log in to tracking services afterwards to use them.</string>
     <string name="restore_completed">Restore completed</string>
     <string name="restore_duration">%1$02d min, %2$02d sec</string>

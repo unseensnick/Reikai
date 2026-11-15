@@ -55,7 +55,7 @@ class NovelPreferences(
     fun installedPluginMetadata() = preferenceStore.getObjectFromString(
         key = "ln_installed_plugin_metadata",
         defaultValue = emptyMap(),
-        serializer = { metadataJson.encodeToString(metadataMapSerializer, it) },
+        serializer = ::encodePluginMetadata,
         deserializer = { decodePluginMetadata(it) },
     )
 
@@ -68,7 +68,7 @@ class NovelPreferences(
     fun seenNovelSources() = preferenceStore.getObjectFromString(
         key = SEEN_NOVEL_SOURCES_KEY,
         defaultValue = emptyMap(),
-        serializer = { metadataJson.encodeToString(seenSourcesMapSerializer, it) },
+        serializer = ::encodeSeenNovelSources,
         deserializer = { decodeSeenNovelSources(it) },
     )
 
@@ -700,7 +700,14 @@ class NovelPreferences(
             MapSerializer(String.serializer(), LnSourceIdentity.serializer())
         private val metadataJson = Json { ignoreUnknownKeys = true }
 
-        // Public for the restore screen, which reads a backup's copies of these two without storing them.
+        // Public for the restore screen, which reads a backup's copies of these two without storing them,
+        // and for the LNReader import, which writes them into the backup it converts to.
+        fun encodePluginMetadata(metadata: Map<String, LnInstalledPluginMetadata>): String =
+            metadataJson.encodeToString(metadataMapSerializer, metadata)
+
+        fun encodeSeenNovelSources(sources: Map<String, LnSourceIdentity>): String =
+            metadataJson.encodeToString(seenSourcesMapSerializer, sources)
+
         fun decodePluginMetadata(stored: String): Map<String, LnInstalledPluginMetadata> =
             runCatching { metadataJson.decodeFromString(metadataMapSerializer, stored) }.getOrElse { emptyMap() }
 

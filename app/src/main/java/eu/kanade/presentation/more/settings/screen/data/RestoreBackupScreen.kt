@@ -47,7 +47,9 @@ import kotlinx.coroutines.launch
 import reikai.data.backup.ApprovedRepos
 import reikai.data.backup.BackupRepo
 import reikai.data.backup.RestoreInstallPlan
+import reikai.data.backup.lnreader.LnReaderBackupConverter
 import reikai.presentation.backup.restoreInstallItems
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.i18n.MR
 import tachiyomi.presentation.core.components.LabeledCheckbox
@@ -164,6 +166,17 @@ class RestoreBackupScreen(
                                         prefix = "- ",
                                     )
                                 }
+                                if (error.skippedLocal.isNotEmpty()) {
+                                    appendLine()
+                                    withStyle(SpanStyle(fontWeight = FontWeight.Bold)) {
+                                        appendLine(stringResource(MR.strings.restore_lnreader_local_skipped))
+                                    }
+                                    error.skippedLocal.joinTo(
+                                        this,
+                                        separator = "\n- ",
+                                        prefix = "- ",
+                                    )
+                                }
                                 // RK <--
                                 if (error.sources.isNotEmpty()) {
                                     appendLine()
@@ -223,6 +236,7 @@ class RestoreBackupViewModel(
     @Assisted private val uri: String,
     private val backupFileValidator: BackupFileValidator,
     private val context: Context,
+    private val lnReaderConverter: LnReaderBackupConverter, // RK
 ) : ViewModel() {
 
     val state: StateFlow<RestoreBackupViewModel.State>
@@ -238,7 +252,16 @@ class RestoreBackupViewModel(
     init {
         // RK: validate now streams the file (suspend), so run it off the main thread.
         viewModelScope.launchIO {
-            validate(uri.toUri())
+            // RK --> an LNReader backup becomes a Reikai one first, and that file is what validates and restores
+            val converted = runCatchingCancellable { lnReaderConverter.convertIfLnReader(uri.toUri()) }.getOrElse {
+                setError(error = InvalidRestore(uri.toUri(), it.message.toString()), canRestore = false)
+                return@launchIO
+            }
+            converted?.let { c ->
+                state.update { it.copy(restoreUri = c.uri.toString(), skippedLocal = c.skippedLocal) }
+            }
+            validate((state.value.restoreUri ?: uri).toUri())
+            // RK <--
         }
     }
 
@@ -260,7 +283,7 @@ class RestoreBackupViewModel(
         val trusted = state.value.installs.repos.filter { it.url in state.value.trusted }
         BackupRestoreWorker.start(
             workManager = context.workManager,
-            uri = uri.toUri(),
+            uri = (state.value.restoreUri ?: uri).toUri(), // RK
             options = state.value.options,
             trusted = ApprovedRepos( // RK
                 apps = trusted.filterNot { it.isPluginRepo }.associate { it.url to it.signingKey.orEmpty() },
@@ -285,7 +308,8 @@ class RestoreBackupViewModel(
             results.missingSources.isNotEmpty() ||
             results.missingTrackers.isNotEmpty() ||
             results.installs.unavailable.isNotEmpty() || // RK
-            results.installs.unreadRepos.isNotEmpty() // RK
+            results.installs.unreadRepos.isNotEmpty() || // RK
+            state.value.skippedLocal.isNotEmpty() // RK
         ) {
             setError(
                 error = MissingRestoreComponents(
@@ -294,6 +318,7 @@ class RestoreBackupViewModel(
                     results.missingTrackers,
                     results.installs.unavailable, // RK
                     results.installs.unreadRepos, // RK
+                    state.value.skippedLocal, // RK
                 ),
                 canRestore = true,
             )
@@ -320,6 +345,9 @@ class RestoreBackupViewModel(
         // RK --> the restore's installs, and the backup repos the user trusted by address
         val installs: RestoreInstallPlan = RestoreInstallPlan(),
         val trusted: Set<String> = emptySet(),
+        // An LNReader backup's converted file, and the local novels it could not carry
+        val restoreUri: String? = null,
+        val skippedLocal: List<String> = emptyList(),
         // RK <--
     )
 }
@@ -331,6 +359,7 @@ private data class MissingRestoreComponents(
     // RK --> in no repo to install from, and the backup's repos that could not be read
     val extensions: List<String>,
     val unreadRepos: List<String>,
+    val skippedLocal: List<String>,
     // RK <--
 )
 

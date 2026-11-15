@@ -1,0 +1,165 @@
+package reikai.data.backup.lnreader
+
+import io.kotest.matchers.collections.shouldContainExactly
+import io.kotest.matchers.shouldBe
+import kotlinx.datetime.TimeZone
+import org.junit.jupiter.api.Test
+import java.io.ByteArrayOutputStream
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
+
+/** An LNReader backup read and turned into Reikai backup entries, in both of LNReader's file formats. */
+class LnReaderBackupTest {
+
+    private val utc = TimeZone.UTC
+
+    private fun zip(vararg files: Pair<String, String>): ByteArray = ByteArrayOutputStream().also { bytes ->
+        ZipOutputStream(bytes).use { zip ->
+            files.forEach { (name, text) ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(text.encodeToByteArray())
+                zip.closeEntry()
+            }
+        }
+    }.toByteArray()
+
+    private fun reader(bytes: ByteArray) = LnReaderBackupReader { bytes.inputStream() }
+
+    // Format 1, as LNReader 2.1.0 writes it: booleans as 0 and 1, plugins inside the settings dump.
+    private val formatOne = zip(
+        "NovelAndChapters/7.json" to """
+            {"id":7,"path":"novel/a","pluginId":"novelbin","name":"A","inLibrary":1,"isLocal":0,
+             "chapters":[{"path":"c1","name":"Chapter 1","unread":0,"bookmark":1,"page":"1","position":0}]}
+        """,
+        "Version.json" to """{"version":"2.1.0"}""",
+        "Setting.json" to
+            """{"INSTALL_PLUGINS":"[{\"id\":\"novelbin\",\"name\":\"NovelBin\",\"url\":\"https://r/novelbin.js\"}]"}""",
+        "Category.json" to """[{"id":1,"name":"Default","novelIds":[]},{"id":3,"name":"Ongoing","novelIds":[7]}]""",
+    )
+
+    private val formatTwo = zip(
+        "Version.json" to """{"appVersion":"2.2.0","formatVersion":2}""",
+        "Plugins.json" to """[{"id":"royalroad","name":"Royal Road","url":"https://r/royalroad.js"}]""",
+        "NovelAndChapters/1.json" to
+            """{"id":1,"path":"fiction/1","pluginId":"royalroad","inLibrary":true,"chapters":[]}""",
+    )
+
+    private fun novel(
+        chapters: List<LnReaderChapter> = emptyList(),
+        cover: String? = null,
+        id: Long = 7,
+    ) = LnReaderNovel(
+        id = id,
+        path = "novel/a",
+        pluginId = "novelbin",
+        name = "A",
+        cover = cover,
+        inLibrary = true,
+        chapters = chapters,
+    )
+
+    private fun chapter(path: String, page: String = "1", position: Int = 0) =
+        LnReaderChapter(path = path, name = path, page = page, position = position)
+
+    private val categories = listOf(
+        LnReaderCategory(1, "Default", listOf(7)),
+        LnReaderCategory(4, "Ongoing", listOf(7)),
+        LnReaderCategory(2, "Local"),
+        LnReaderCategory(5, "Finished"),
+    )
+
+    @Test
+    fun `a zip with a version file and a novel folder is an LNReader backup`() {
+        reader(formatOne).isLnReaderBackup() shouldBe true
+    }
+
+    @Test
+    fun `a file that is no zip is not an LNReader backup`() {
+        reader(byteArrayOf(0x1f, 0x8b.toByte(), 8, 0)).isLnReaderBackup() shouldBe false
+    }
+
+    @Test
+    fun `format one's booleans are read from 0 and 1`() {
+        val novels = mutableListOf<LnReaderNovel>()
+        reader(formatOne).forEachNovel { novels += it }
+
+        novels.single().chapters.single().let { it.unread to it.bookmark } shouldBe (false to true)
+    }
+
+    @Test
+    fun `format one's plugins are read from the settings dump`() {
+        reader(formatOne).header().plugins.map { it.id } shouldContainExactly listOf("novelbin")
+    }
+
+    @Test
+    fun `format two's plugins are read from their own file`() {
+        reader(formatTwo).header().plugins.map { it.id } shouldContainExactly listOf("royalroad")
+    }
+
+    @Test
+    fun `chapters run in LNReader's reading order, page then position, not the order it wrote them`() {
+        val written = listOf(chapter("p2a", page = "2", position = 0), chapter("p1b", position = 1), chapter("p1a"))
+
+        novel(written).toImportedNovel(categories, utc).chapters.sortedBy {
+            it.sourceOrder
+        }.map { it.url } shouldContainExactly
+            listOf("p1a", "p1b", "p2a")
+    }
+
+    @Test
+    fun `progress in whole percent becomes hundredths`() {
+        val read = chapter("c").copy(progress = 61)
+
+        novel(listOf(read)).toImportedNovel(categories, utc).chapters.single().lastTextProgress shouldBe 6100L
+    }
+
+    @Test
+    fun `read and bookmarked chapters carry across`() {
+        val marked = chapter("c").copy(unread = false, bookmark = true)
+
+        novel(listOf(marked)).toImportedNovel(categories, utc).chapters.single().let { it.read to it.bookmark } shouldBe
+            (true to true)
+    }
+
+    @Test
+    fun `imported chapters count as never fetched`() {
+        novel(listOf(chapter("c"))).toImportedNovel(categories, utc).chapters.single().dateFetch shouldBe 0L
+    }
+
+    @Test
+    fun `history comes from each chapter's read time, read in the device's zone, with its time spent`() {
+        val read = chapter("c").copy(readTime = "2026-04-09 22:41:42", timeSpent = 5000)
+
+        novel(listOf(read)).toImportedNovel(categories, utc).history.single().let {
+            Triple(it.url, it.lastRead, it.readDuration)
+        } shouldBe
+            Triple("c", 1775774502000L, 5000L)
+    }
+
+    @Test
+    fun `LNReader's own categories are left out and the rest keep their order`() {
+        importedCategories(categories).map { it.name to it.order } shouldContainExactly
+            listOf("Ongoing" to 0L, "Finished" to 1L)
+    }
+
+    @Test
+    fun `a novel is filed under the categories that list it`() {
+        novel().toImportedNovel(categories, utc).categories shouldContainExactly listOf(0L)
+    }
+
+    @Test
+    fun `a cover LNReader stored itself is dropped`() {
+        novel(cover = "/Novels/novelbin/7/cover.png").toImportedNovel(categories, utc).thumbnailUrl shouldBe null
+    }
+
+    @Test
+    fun `a cover on the web is kept`() {
+        novel(cover = "https://site/cover.jpg").toImportedNovel(categories, utc).thumbnailUrl shouldBe
+            "https://site/cover.jpg"
+    }
+
+    @Test
+    fun `the novel is on its plugin's source at the plugin's path`() {
+        novel().toImportedNovel(categories, utc).let { it.source to it.url } shouldBe ("novelbin" to "novel/a")
+    }
+}
