@@ -216,6 +216,15 @@ class LnReaderBackupTest {
         novel().toImportedNovel(categories, utc).categories shouldContainExactly listOf(0L)
     }
 
+    // LNReader keeps a plugin's parse as it came, escaped, where Reikai decodes a plugin's text as it arrives.
+    @Test
+    fun `a title and chapter name LNReader kept escaped are decoded`() {
+        val imported = novel(listOf(chapter("c").copy(name = "Tom &amp; Jerry"))).copy(name = "A &amp; B")
+            .toImportedNovel(categories, utc)
+
+        (imported.title to imported.chapters.single().name) shouldBe ("A & B" to "Tom & Jerry")
+    }
+
     @Test
     fun `a cover LNReader stored itself is dropped`() {
         novel(cover = "/Novels/novelbin/7/cover.png").toImportedNovel(categories, utc).thumbnailUrl shouldBe null

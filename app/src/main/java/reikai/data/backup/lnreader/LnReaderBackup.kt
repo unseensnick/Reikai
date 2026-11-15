@@ -29,6 +29,8 @@ import reikai.data.novel.toSourceChapters
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
+import reikai.novel.host.withDecodedDetails
+import reikai.novel.host.withDecodedText
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import java.io.IOException
@@ -220,7 +222,6 @@ internal fun importedCategories(categories: List<LnReaderCategory>): List<Backup
  * tab, which lists what arrived after a novel was added, would list every one of them.
  */
 internal fun LnReaderNovel.toImportedNovel(categories: List<LnReaderCategory>, zone: TimeZone): BackupNovel {
-    val title = name.orEmpty()
     val source = SourceNovel(
         path = path,
         name = name,
@@ -232,11 +233,13 @@ internal fun LnReaderNovel.toImportedNovel(categories: List<LnReaderCategory>, z
         artist = artist,
         status = status,
         totalPages = totalPages.coerceAtLeast(1),
-    )
+    ).withDecodedDetails()
+    val title = source.name.orEmpty()
     val ordered = chapters.sortedWith(compareBy({ it.page?.toIntOrNull() ?: 0 }, { it.position }))
     val byPath = ordered.associateBy { it.path }
+    // Escaped as the plugin scraped it, which Reikai decodes as a plugin's text arrives.
     val items = ordered.map {
-        ChapterItem(it.name, it.path, it.releaseTime, it.chapterNumber, it.page, it.scanlator)
+        ChapterItem(it.name, it.path, it.releaseTime, it.chapterNumber, it.page, it.scanlator).withDecodedText()
     }
     val importedChapters = items.toSourceChapters(novelId = -1L, novelTitle = title).map { chapter ->
         val from = byPath.getValue(chapter.url)
