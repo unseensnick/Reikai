@@ -1,12 +1,10 @@
 package exh.eh
 
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import dev.icerock.moko.resources.StringResource
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -33,10 +31,6 @@ class EHentaiUpdateNotifier(
     private val context: Context,
     private val securityPreferences: SecurityPreferences,
 ) {
-
-    private val notificationBitmap by lazy {
-        BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
-    }
 
     val progressNotificationBuilder by lazy { newProgressBuilder() }
 
@@ -78,7 +72,6 @@ class EHentaiUpdateNotifier(
             Notifications.CHANNEL_LIBRARY_EHENTAI,
         ) {
             setUpdateErrorContent(context, failed, NotificationReceiver.openErrorLogPendingActivity(context, uri))
-            setLargeIcon(notificationBitmap)
         }
     }
 
@@ -93,7 +86,6 @@ class EHentaiUpdateNotifier(
     private fun newProgressBuilder() = context.notificationBuilder(Notifications.CHANNEL_LIBRARY_EHENTAI) {
         setContentTitle(context.stringResource(MR.strings.app_name))
         setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
-        setLargeIcon(notificationBitmap)
         setOngoing(true)
         setOnlyAlertOnce(true)
     }

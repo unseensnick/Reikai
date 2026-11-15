@@ -6,7 +6,6 @@ import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat.NotificationWithIdAndTag
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import eu.kanade.tachiyomi.data.notification.Notifications
@@ -36,6 +35,7 @@ import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.withCustomInfo
+import reikai.util.notificationIcon
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -139,7 +139,7 @@ class NovelUpdateNotifier(
                         newChapters.size,
                     ),
                 )
-                setSmallIcon(R.drawable.ic_reikai)
+                setSmallIcon(context.notificationIcon)
                 cover?.let(::setLargeIcon)
                 setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
                 setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
@@ -190,7 +190,7 @@ class NovelUpdateNotifier(
                     hideAll,
                 ),
             )
-            setSmallIcon(R.drawable.ic_reikai)
+            setSmallIcon(context.notificationIcon)
             setGroup(Notifications.GROUP_NOVEL_NEW_CHAPTERS)
             setGroupSummary(true)
             setAutoCancel(true)

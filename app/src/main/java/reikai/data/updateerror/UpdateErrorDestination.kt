@@ -4,10 +4,10 @@ import android.app.PendingIntent
 import android.content.Context
 import android.net.Uri
 import androidx.core.app.NotificationCompat
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.NotificationReceiver
 import reikai.data.notification.mainActivityPendingIntent
 import reikai.domain.library.ContentType
+import reikai.util.notificationIcon
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
@@ -35,7 +35,7 @@ fun updateErrorPendingIntent(
 fun NotificationCompat.Builder.setUpdateErrorContent(context: Context, failed: Int, contentIntent: PendingIntent) {
     setContentTitle(context.pluralStringResource(MR.plurals.notification_update_error, failed, failed))
     setContentText(context.stringResource(MR.strings.action_show_errors))
-    setSmallIcon(R.drawable.ic_reikai)
+    setSmallIcon(context.notificationIcon)
     setAutoCancel(true)
     setContentIntent(contentIntent)
 }

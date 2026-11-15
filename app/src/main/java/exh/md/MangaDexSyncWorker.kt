@@ -13,7 +13,6 @@ import androidx.work.workDataOf
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.track.model.toDbTrack
 import eu.kanade.domain.track.model.toDomainTrack
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.data.track.TrackerManager
@@ -43,6 +42,7 @@ import reikai.domain.manga.GetTracksInGroup
 import reikai.domain.merge.ReconcileMergedChapters
 import reikai.domain.source.ReikaiSourcePreferences
 import reikai.presentation.browse.MangaLibraryAdder
+import reikai.util.notificationIcon
 import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.withUIContext
@@ -186,7 +186,7 @@ class MangaDexSyncWorker(private val context: Context, workerParams: WorkerParam
                 setContentTitle(syncTitle(target))
                 setContentText(summary)
                 setStyle(NotificationCompat.BigTextStyle().bigText(detail))
-                setSmallIcon(R.drawable.ic_reikai)
+                setSmallIcon(context.notificationIcon)
                 setContentIntent(mainActivityPendingIntent(context, action = null))
                 setAutoCancel(true)
             }.build(),

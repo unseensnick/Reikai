@@ -2,12 +2,10 @@ package eu.kanade.tachiyomi.data.library
 
 import android.app.Notification
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.net.Uri
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.Downloader
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
@@ -36,6 +34,7 @@ import reikai.domain.entry.GetEntryCustomInfo
 import reikai.domain.entry.withCustomInfo
 import reikai.domain.library.ContentType
 import reikai.domain.manga.AdultContentChecker
+import reikai.util.notificationIcon
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.domain.chapter.model.Chapter
@@ -83,20 +82,12 @@ class LibraryUpdateNotifier(
     }
 
     /**
-     * Bitmap of the app for notifications.
-     */
-    private val notificationBitmap by lazy {
-        BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher)
-    }
-
-    /**
      * Cached progress notification to avoid creating a lot.
      */
     val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_LIBRARY_PROGRESS) {
             setContentTitle(context.stringResource(MR.strings.app_name))
             setSmallIcon(MaterialSymbolsR.drawable.rounded_refresh)
-            setLargeIcon(notificationBitmap)
             setOngoing(true)
             setOnlyAlertOnce(true)
             addAction(
@@ -243,8 +234,7 @@ class LibraryUpdateNotifier(
                 ),
             )
 
-            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
-            setLargeIcon(notificationBitmap)
+            setSmallIcon(context.notificationIcon) // RK: the shown app icon's logo
 
             setGroup(Notifications.GROUP_NEW_CHAPTERS)
             setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_SUMMARY)
@@ -291,7 +281,7 @@ class LibraryUpdateNotifier(
                 ),
             )
 
-            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai icon
+            setSmallIcon(context.notificationIcon) // RK: the shown app icon's logo
 
             if (icon != null) {
                 setLargeIcon(icon)

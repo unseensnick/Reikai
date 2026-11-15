@@ -221,6 +221,7 @@ class App :
             graph.networkHelper
             graph.sourceManager
             graph.downloadManager
+            graph.launcherIconState // reads the shown app icon, so a notification posted early wears its logo
         }
         // RK <--
 

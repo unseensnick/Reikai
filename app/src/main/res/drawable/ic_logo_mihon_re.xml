@@ -5,10 +5,10 @@
     android:viewportWidth="1024"
     android:viewportHeight="1024">
   <group
-      android:scaleX="1.6522098306484923"
-      android:scaleY="1.6522098306484923"
-      android:translateX="-333.93143329202803"
-      android:translateY="-333.93143329202803">
+      android:scaleX="1.741497"
+      android:scaleY="1.741497"
+      android:translateX="-379.6463"
+      android:translateY="-379.6463">
     <path
         android:strokeColor="#FFFFFFFF"
         android:strokeWidth="46"

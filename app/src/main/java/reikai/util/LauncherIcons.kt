@@ -14,6 +14,7 @@ import eu.kanade.tachiyomi.ui.main.MainActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import mihon.app.di.appGraph
 import mihon.core.metro.AppCoroutineScope
 import tachiyomi.core.common.util.lang.launchIO
 
@@ -167,7 +168,7 @@ enum class LauncherIcon(
     )
 }
 
-/** The icon the launcher shows, for the picker and the app's header; null until the first read. */
+/** The icon the launcher shows, for the picker, the app's header and notifications; null until the first read. */
 @SingleIn(AppScope::class)
 @Inject
 class LauncherIconState(
@@ -187,6 +188,10 @@ class LauncherIconState(
         scope.launchIO { context.setLauncherIcon(icon) }
     }
 }
+
+/** A notification's small icon: the shown design's logo, or the original's until the launcher has been read. */
+val Context.notificationIcon: Int
+    @DrawableRes get() = (appGraph.launcherIconState.shown.value?.design ?: LauncherIcon.Design.CURRENT).logo
 
 /** The icon the launcher shows now. Package manager calls are IPC, so call this off the main thread. */
 fun Context.launcherIcon(): LauncherIcon? = LauncherIcon.entries.firstOrNull { isEnabled(it) }

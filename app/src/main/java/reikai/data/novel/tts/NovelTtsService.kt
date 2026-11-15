@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
 import reikai.data.notification.shownEntryName
 import reikai.domain.novel.tts.TtsPlayback
+import reikai.util.notificationIcon
 import tachiyomi.core.common.i18n.pluralStringResource
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.i18n.MR
@@ -317,7 +318,7 @@ class NovelTtsService : Service() {
             stop,
         )
         return NotificationCompat.Builder(this, Notifications.CHANNEL_NOVEL_TTS)
-            .setSmallIcon(R.drawable.ic_reikai)
+            .setSmallIcon(notificationIcon)
             .setContentTitle(contentTitle(state))
             .setContentText(contentText())
             .apply { actions.forEach { addAction(it) } }

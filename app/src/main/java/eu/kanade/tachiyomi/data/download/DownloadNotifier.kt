@@ -3,11 +3,9 @@ package eu.kanade.tachiyomi.data.download
 import android.app.Notification
 import android.app.PendingIntent
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
 import dev.zacsweers.metro.Inject
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.core.security.SecurityPreferences
 import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.notification.NotificationHandler
@@ -56,7 +54,6 @@ class DownloadNotifier(
 
     private val progressNotificationBuilder by lazy {
         context.notificationBuilder(Notifications.CHANNEL_DOWNLOADER_PROGRESS) {
-            setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             setAutoCancel(false)
             setOnlyAlertOnce(true)
         }
@@ -181,7 +178,6 @@ class DownloadNotifier(
             setContentTitle(context.stringResource(MR.strings.chapter_paused))
             setContentText(reason ?: context.stringResource(MR.strings.download_notifier_download_paused)) // RK
             setSmallIcon(MaterialSymbolsR.drawable.rounded_filled_pause)
-            setLargeIcon(BitmapFactory.decodeResource(context.resources, R.mipmap.ic_launcher))
             setOnlyAlertOnce(true)
             // Open download manager when clicked
             setContentIntent(NotificationHandler.openDownloadManagerPendingActivity(context))

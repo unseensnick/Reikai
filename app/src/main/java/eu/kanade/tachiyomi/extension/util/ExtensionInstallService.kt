@@ -8,7 +8,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.IBinder
 import eu.kanade.domain.base.BasePreferences
-import eu.kanade.tachiyomi.R
 import eu.kanade.tachiyomi.data.notification.Notifications
 import eu.kanade.tachiyomi.extension.installer.Installer
 import eu.kanade.tachiyomi.extension.installer.PackageInstallerInstaller
@@ -17,6 +16,7 @@ import eu.kanade.tachiyomi.extension.util.ExtensionInstaller.Companion.EXTRA_DOW
 import eu.kanade.tachiyomi.util.system.getSerializableExtraCompat
 import eu.kanade.tachiyomi.util.system.notificationBuilder
 import logcat.LogPriority
+import reikai.util.notificationIcon
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.i18n.MR
@@ -27,7 +27,7 @@ class ExtensionInstallService : Service() {
 
     override fun onCreate() {
         val notification = notificationBuilder(Notifications.CHANNEL_EXTENSIONS_UPDATE) {
-            setSmallIcon(R.drawable.ic_reikai) // RK: Reikai's own icon
+            setSmallIcon(notificationIcon) // RK: the shown app icon's logo
             setAutoCancel(false)
             setOngoing(true)
             setShowWhen(false)
