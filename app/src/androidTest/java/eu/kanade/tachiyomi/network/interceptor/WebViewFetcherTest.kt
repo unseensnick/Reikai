@@ -58,7 +58,8 @@ class WebViewFetcherTest {
         val landing = Server { _, _ -> ok("landed") }
         val keyed = Server { _, headers ->
             if (headers.any { it.equals("x-key: secret", ignoreCase = true) }) {
-                "HTTP/1.1 302 Found\r\nLocation: ${landing.url("there")}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                "HTTP/1.1 302 Found\r\nLocation: ${landing.url("there")}\r\n" +
+                    "Content-Length: 0\r\nConnection: close\r\n\r\n"
             } else {
                 ok("no key")
             }
