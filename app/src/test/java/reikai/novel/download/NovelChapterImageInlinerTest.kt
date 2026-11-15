@@ -19,6 +19,7 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import reikai.novel.network.NovelImageClient
+import java.util.concurrent.atomic.AtomicReference
 
 /** A downloaded chapter's copy must not send either reader back to the network for an image. */
 class NovelChapterImageInlinerTest {
@@ -182,23 +183,23 @@ class NovelChapterImageInlinerTest {
     /** A pause cancels the drain mid-chapter, and the pictures left would be fetched for nothing. */
     @Test
     fun `a cancelled save fetches no picture after the one in flight`() = runTest {
-        var save: Job? = null
+        // Read on OkHttp's thread; cancelled once the picture is fetched, so the fetch is recorded first.
+        val save = AtomicReference<Job?>()
         val cancelling = OkHttpClient.Builder()
-            .addInterceptor { chain ->
-                save?.cancel()
-                chain.proceed(chain.request())
-            }
+            .addInterceptor { chain -> chain.proceed(chain.request()).also { save.get()?.cancel() } }
             .addInterceptor(client.interceptors.single())
             .build()
 
-        save = launch {
-            inlineChapterImages(
-                """<img src="/a.png"><img src="/b.png">""",
-                "https://site.example/chapter/1",
-                NovelImageClient(cancelling, headersOf()),
-            )
-        }
-        save.join()
+        save.set(
+            launch {
+                inlineChapterImages(
+                    """<img src="/a.png"><img src="/b.png">""",
+                    "https://site.example/chapter/1",
+                    NovelImageClient(cancelling, headersOf()),
+                )
+            },
+        )
+        save.get()!!.join()
 
         fetched shouldBe listOf("https://site.example/a.png")
     }
