@@ -93,6 +93,21 @@ class BackupProtoReaderTest {
         error.message shouldBe "Invalid backup"
     }
 
+    // Protobuf has no field 0, so a file of zeros, a common shape of a damaged copy, is no backup.
+    @Test
+    fun `a zeroed file reads as invalid, not as an empty backup`() = runTest {
+        val context = mockk<Context> {
+            every { contentResolver.openInputStream(any()) } returns ByteArray(4096).inputStream()
+            every { stringResource(MR.strings.invalid_backup_file_unknown) } returns "Invalid backup"
+        }
+
+        val error = shouldThrow<IOException> {
+            BackupProtoReader(context).read(mockk<Uri>()) { _, _ -> }
+        }
+
+        error.message shouldBe "Invalid backup"
+    }
+
     @Test
     fun `a truncated backup reads as invalid`() = runTest {
         val entry = ProtoBuf.encodeToByteArray(BackupManga.serializer(), BackupManga(source = 1L, url = "m"))

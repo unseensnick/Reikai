@@ -44,6 +44,12 @@ class BackupProtoReader(
                     val tag = orInvalid { readVarint(payloadSource) } ?: break
                     val wireType = (tag and 0x07).toInt()
                     val fieldNumber = (tag ushr 3).toInt()
+                    // No message has a field 0, so the file is not one; Mihon's whole-file decoder refused it too.
+                    if (fieldNumber ==
+                        0
+                    ) {
+                        throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
+                    }
 
                     when (wireType) {
                         WIRE_TYPE_LENGTH_DELIMITED -> {

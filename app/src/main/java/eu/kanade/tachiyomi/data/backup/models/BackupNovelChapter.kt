@@ -5,6 +5,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.protobuf.ProtoNumber
 import mihon.core.common.extensions.toInstantOrNull
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.reader.ChapterProgress
 import kotlin.time.Instant
 
 @Serializable
@@ -40,7 +41,8 @@ class BackupNovelChapter(
             name = this@BackupNovelChapter.name,
             read = this@BackupNovelChapter.read,
             bookmark = this@BackupNovelChapter.bookmark,
-            lastTextProgress = this@BackupNovelChapter.lastTextProgress,
+            // From outside the app, so held within a chapter, as BackupChapter holds a page within an Int.
+            lastTextProgress = this@BackupNovelChapter.lastTextProgress.coerceIn(0L, ChapterProgress.Percent.FULL),
             chapterNumber = this@BackupNovelChapter.chapterNumber,
             sourceOrder = this@BackupNovelChapter.sourceOrder,
             dateFetch = Instant.fromEpochMilliseconds(this@BackupNovelChapter.dateFetch),
