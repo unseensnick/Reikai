@@ -1,6 +1,7 @@
 package eu.kanade.tachiyomi.network
 
 import android.webkit.CookieManager
+import io.kotest.matchers.collections.shouldContain
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import io.mockk.every
@@ -52,7 +53,7 @@ class AndroidCookieJarTest {
     }
 
     @Test
-    fun `removal expires the cookie at the root path rather than the request's directory`() {
+    fun `removal from a deep url also expires the cookie at the root path`() {
         // A bare "name=" inherits the request URL's directory as its path, and the store keys on
         // (name, domain, path), so an expiry written from a deep URL never matched a cookie set
         // at "/". Cloudflare sets cf_clearance at "/".
@@ -61,7 +62,7 @@ class AndroidCookieJarTest {
 
         AndroidCookieJar().remove("https://example.com/manga/123".toHttpUrl(), cookieNames = listOf("cf_clearance"))
 
-        expiries.all { "; Path=/" in it } shouldBe true
+        expiries shouldContain "cf_clearance=; Max-Age=-1; Path=/; Domain=.example.com"
     }
 
     @Test
@@ -80,7 +81,8 @@ class AndroidCookieJarTest {
     }
 
     @Test
-    fun `removal never expires the public suffix itself`() {
+    fun `removal never expires the top-level label itself`() {
+        // A longer public suffix (co.uk) is left to the store, which refuses a Domain that is one.
         every { manager.getCookie(any()) } returns "cf_clearance=1"
         val expiries = captureExpiries()
 
@@ -89,6 +91,21 @@ class AndroidCookieJarTest {
         expiries shouldContainExactly listOf(
             "cf_clearance=; Max-Age=-1; Path=/",
             "cf_clearance=; Max-Age=-1; Path=/; Domain=.example.com",
+        )
+    }
+
+    @Test
+    fun `removal also expires the cookie under each directory of the request path`() {
+        // A Set-Cookie with no Path is stored under the page's own directory, which "/" never matches.
+        every { manager.getCookie(any()) } returns "a=1"
+        val expiries = captureExpiries()
+
+        AndroidCookieJar().remove("http://localhost/manga/123".toHttpUrl())
+
+        expiries shouldContainExactly listOf(
+            "a=; Max-Age=-1; Path=/",
+            "a=; Max-Age=-1; Path=/manga",
+            "a=; Max-Age=-1; Path=/manga/123",
         )
     }
 
