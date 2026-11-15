@@ -16,6 +16,7 @@ import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.chapter.VolumePickRepository
 import reikai.domain.db.PassThroughTransactions
 import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.LibraryManualOrderRepository
 import reikai.domain.merge.MergeGroupRepository
 import reikai.domain.merge.RestoreMergeGroups
 import reikai.domain.novel.local.NoLocalNovelLanguages
@@ -95,9 +96,11 @@ class MangaRestoreHarness private constructor(val driver: JdbcSqliteDriver, val 
     ) = mangaRestorer(database, mergeGroups, customInfo)
 
     /** The novel restore over this database's categories, the rest of it relaxed. */
-    fun novelCategoryRestorer() = NovelRestorer(
+    fun novelCategoryRestorer(
+        manualOrder: LibraryManualOrderRepository = FakeLibraryManualOrderRepository(),
+    ) = NovelRestorer(
         tombstones = NoChapterTombstoneRepository,
-        manualOrder = FakeLibraryManualOrderRepository(),
+        manualOrder = manualOrder,
         novelRepository = mockk(relaxed = true),
         novelChapterRepository = mockk(relaxed = true),
         categoryRepository = categories,

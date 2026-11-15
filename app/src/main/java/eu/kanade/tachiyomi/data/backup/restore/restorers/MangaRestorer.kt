@@ -15,11 +15,11 @@ import exh.metadata.sql.models.SearchTag
 import exh.metadata.sql.models.SearchTitle
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
+import reikai.data.backup.backupCategoryIds
 import reikai.data.backup.restoreLocalVolumes
 import reikai.data.backup.restoredManualOrder
 import reikai.domain.backup.restoredNextUpdate
 import reikai.domain.category.CategoryContentType
-import reikai.domain.category.byNamePreferring
 import reikai.domain.chapter.LocalVolumeRepository
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.chapter.VolumePickRepository
@@ -63,19 +63,19 @@ class MangaRestorer(
         backupMangas: List<BackupManga>,
         backupCategories: List<BackupCategory>,
     ) {
-        // RK: a universal row may share a manga row's name
-        val dbCategoriesByName = getCategories.await().byNamePreferring(CategoryContentType.MANGA)
-        val backupCategoriesByOrder = backupCategories.associateBy { it.order }
+        // RK --> through the kernel the novel restore calls, since a universal row may share a manga row's name
+        val categoryIdOf = backupCategoryIds(
+            backupCategories.associate { it.order to it.name },
+            getCategories.await(),
+            CategoryContentType.MANGA,
+        )
+        // RK <--
 
         val entries = backupMangas.map { backupManga ->
             RestoredManga(
                 manga = backupManga.getMangaImpl(),
                 chapters = backupManga.chapters.map { it.toChapterImpl() },
-                categoryIds = backupManga.categories.mapNotNull { backupCategoryOrder ->
-                    backupCategoriesByOrder[backupCategoryOrder]?.let { backupCategory ->
-                        dbCategoriesByName[backupCategory.name]?.id
-                    }
-                },
+                categoryIds = backupManga.categories.mapNotNull(categoryIdOf), // RK
                 history = backupManga.history.map {
                     val history = it.getHistoryImpl()
                     RestoredHistory(it.url, history.readAt, history.readDuration)
@@ -94,9 +94,7 @@ class MangaRestorer(
                 ),
                 copyMarks = backedUpCopyMarks(backupManga.chapters, { it.url }, { it.copyMark }),
                 readingSessions = backupManga.readingSessions.map { it.toUrlReadingSession() },
-                manualOrder = backupManga.restoredManualOrder { order ->
-                    backupCategoriesByOrder[order]?.let { dbCategoriesByName[it.name]?.id }
-                },
+                manualOrder = backupManga.restoredManualOrder(categoryIdOf),
                 chapterTombstones = backupManga.chapterTombstones.map { it.toChapterTombstone() },
                 // RK <--
             )

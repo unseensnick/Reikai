@@ -15,4 +15,6 @@ class BackupNovelCategory(
     @ProtoNumber(2) var order: Long = 0,
     @ProtoNumber(3) var id: Long = 0,
     @ProtoNumber(4) var flags: Long = 0,
+    // The sort a Manual category started from, as BackupCategory carries it.
+    @ProtoNumber(5) var manualBase: Long? = null,
 )

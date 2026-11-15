@@ -4,6 +4,8 @@ import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupPreference
 import eu.kanade.tachiyomi.data.backup.models.StringPreferenceValue
+import reikai.data.backup.BackedUpManualBase
+import reikai.data.backup.restoreBases
 import reikai.domain.category.CategoryContentType
 import reikai.domain.category.preferring
 import reikai.domain.library.CATEGORY_SORT_CUSTOMIZED
@@ -73,22 +75,15 @@ class CategoriesRestorer(
             },
         )
         // RK <--
-        restoreManualBases(newCategories) // RK
+        // RK -->
+        manualOrder.restoreBases(
+            newCategories.mapNotNull { backup ->
+                backup.manualBase?.let { BackedUpManualBase(backup.name, backup.contentType, it) }
+            },
+        ) { getCategories.await() }
+        // RK <--
         // RK: the switch moved to restoreCategorizedDisplay, which runs once both libraries' categories are in
     }
-
-    // RK -->
-    // A category made by this restore takes the sort its Manual order started from, as its flags came over too.
-    private suspend fun restoreManualBases(created: List<BackupCategory>) {
-        val withBase = created.mapNotNull { backup -> backup.manualBase?.let { backup to it } }
-        if (withBase.isEmpty()) return
-        val byName = getCategories.await().groupBy { it.name }
-        withBase.forEach { (backup, base) ->
-            val category = byName[backup.name].orEmpty().preferring(backup.contentType) ?: return@forEach
-            manualOrder.setBase(category.id, base)
-        }
-    }
-    // RK <--
 
     // RK -->
     // Reikai 0.3.0 to 0.3.2 wrote the override bit before the marker. Bit 1 is Mihon's retired display mode

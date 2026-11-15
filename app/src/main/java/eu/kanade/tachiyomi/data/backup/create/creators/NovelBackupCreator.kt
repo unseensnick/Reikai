@@ -180,11 +180,18 @@ class NovelBackupCreator(
     }
 
     private suspend fun backupNovelCategories(): List<BackupNovelCategory> {
+        val manualBases = manualOrder.subscribeBases().first()
         // Skip the shared universal row 0 (the uncategorized sentinel), like the manga category backup.
         return categoryRepository.getAll(CategoryContentType.NOVEL)
             .filterNot { it.isSystemCategory }
             .map {
-                BackupNovelCategory(name = it.name, order = it.order, id = it.id, flags = it.flags)
+                BackupNovelCategory(
+                    name = it.name,
+                    order = it.order,
+                    id = it.id,
+                    flags = it.flags,
+                    manualBase = manualBases[it.id],
+                )
             }
     }
 
