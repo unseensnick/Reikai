@@ -26,7 +26,6 @@ import reikai.data.backup.restoreBases
 import reikai.data.backup.restoreLocalVolumes
 import reikai.data.backup.restoredManualOrder
 import reikai.data.novel.novelFetchInterval
-import reikai.domain.backup.RestoredChapterHistory
 import reikai.domain.backup.RestoredChapterState
 import reikai.domain.backup.backupChapterReadAhead
 import reikai.domain.backup.backupDetailsWin
@@ -293,7 +292,7 @@ class NovelRestorer(
     ) {
         val chapterIdsByUrl = chapters.associate { it.url to it.id }
         backupHistory
-            .map { RestoredChapterHistory(it.url, it.lastRead.toInstantOrNull(), it.readDuration) }
+            .map { it.toRestoredHistory() }
             .foldHistoryCopies()
             .forEach { history ->
                 val chapterId = chapterIdsByUrl[history.chapterUrl] ?: return@forEach

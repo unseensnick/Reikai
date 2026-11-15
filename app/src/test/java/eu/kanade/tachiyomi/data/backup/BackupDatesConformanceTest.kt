@@ -10,7 +10,6 @@ import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
-import mihon.core.common.extensions.toInstantOrNull
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
 import reikai.domain.backup.RestoredChapterHistory
@@ -218,8 +217,7 @@ class BackupDatesConformanceTest {
                     dateUpload = chapter.dateUpload,
                     startDate = track.startDate,
                     finishDate = track.finishDate,
-                    // NovelRestorer reads history's time inside its merge, by this same call
-                    readAt = backup.history.single().lastRead.toInstantOrNull(),
+                    readAt = backup.history.single().toRestoredHistory().readAt,
                     nextUpdate = backup.toNovelImpl().nextUpdate,
                     readAtOnWire = backup.history.single().lastRead,
                 )
