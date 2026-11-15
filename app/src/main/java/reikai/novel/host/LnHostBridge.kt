@@ -16,7 +16,6 @@ import okhttp3.MultipartBody
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
-import reikai.novel.network.applyNovelDefaults
 import reikai.novel.source.httpFailure
 import reikai.novel.source.lnStorageScope
 import tachiyomi.core.common.preference.PreferenceStore
@@ -62,10 +61,9 @@ class LnHostBridge(
             val body = explicitBody
                 ?: ByteArray(0).toRequestBody().takeIf { method == "POST" || method == "PUT" || method == "PATCH" }
             builder.method(method, body)
+            // The device WebView UA first, so a plugin's own replaces it; the Referer is left to the plugin.
+            userAgent().takeIf { it.isNotBlank() }?.let { builder.header("User-Agent", it) }
             opts.headers?.forEach { (k, v) -> builder.header(k, v) }
-            // Default the device WebView UA unless the plugin set one; the Referer is left to the plugin.
-            val pluginSetUa = opts.headers?.keys?.any { it.equals("User-Agent", ignoreCase = true) } == true
-            builder.applyNovelDefaults(userAgent(), pluginSetUserAgent = pluginSetUa)
             // Laravel / Inertia sources expect the XSRF-TOKEN cookie echoed back as the X-XSRF-TOKEN
             // header. Derive it from the shared cookie jar unless the plugin set the header itself. The
             // token is a per-session CSRF value, applied but never logged.

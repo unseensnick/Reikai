@@ -150,20 +150,30 @@ class LnHostBridgeTest {
     // a plugin sets itself (an age gate, a read token) never reached a site that had set one of its own.
     @Test
     fun `a cookie the plugin sets reaches the site beside the ones it stored`() {
-        cookieSeen("""{"headers":{"Cookie":"fr_read=token"}}""") shouldBe "session=stored; fr_read=token"
+        headerSeen("""{"headers":{"Cookie":"fr_read=token"}}""") shouldBe "session=stored; fr_read=token"
     }
 
     @Test
     fun `a cookie the plugin sets wins over a stored one of the same name`() {
-        cookieSeen("""{"headers":{"Cookie":"session=mine"}}""") shouldBe "session=mine"
+        headerSeen("""{"headers":{"Cookie":"session=mine"}}""") shouldBe "session=mine"
     }
 
-    // The Cookie header a local server receives for one fetch, with the jar holding `session=stored`.
-    private fun cookieSeen(optsJson: String): String? {
+    @Test
+    fun `a fetch the plugin sets no User-Agent on goes with the device's`() {
+        headerSeen("{}", header = "User-Agent") shouldBe "agent"
+    }
+
+    @Test
+    fun `a User-Agent the plugin sets wins over the device's, whatever its case`() {
+        headerSeen("""{"headers":{"user-agent":"plugin"}}""", header = "User-Agent") shouldBe "plugin"
+    }
+
+    // The [header] a local server receives for one fetch, with the jar holding `session=stored`.
+    private fun headerSeen(optsJson: String, header: String = "Cookie"): String? {
         val seen = AtomicReference<String?>()
         val server = HttpServer.create(InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0).apply {
             createContext("/") { exchange ->
-                seen.set(exchange.requestHeaders.getFirst("Cookie"))
+                seen.set(exchange.requestHeaders.getFirst(header))
                 exchange.sendResponseHeaders(200, -1)
                 exchange.close()
             }

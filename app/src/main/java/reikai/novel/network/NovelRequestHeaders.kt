@@ -2,7 +2,6 @@ package reikai.novel.network
 
 import android.content.Context
 import android.webkit.WebSettings
-import okhttp3.Request
 
 /**
  * The request headers a light-novel network call carries when the caller, not a plugin, builds the
@@ -16,22 +15,13 @@ import okhttp3.Request
 @Volatile
 private var cachedDeviceUserAgent: String? = null
 
-/** The device WebView User-Agent (real model + Android + Chrome version), cached per process; empty
- *  string on failure so callers can treat it as "unavailable, keep the client default". */
+/**
+ * The device WebView User-Agent (real model + Android + Chrome version), cached per process once
+ * known; an empty string when the lookup fails, which callers read as "keep the client default" and
+ * which is asked again next time, since a WebView mid-update fails a lookup it later answers.
+ */
 fun deviceWebViewUserAgent(context: Context): String {
     cachedDeviceUserAgent?.let { return it }
-    return runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault("").also {
-        cachedDeviceUserAgent = it
-    }
-}
-
-/**
- * Apply the LN default request headers: the device [deviceUserAgent], unless [pluginSetUserAgent], so
- * a plugin-set UA wins, and only when one is actually available.
- */
-fun Request.Builder.applyNovelDefaults(
-    deviceUserAgent: String,
-    pluginSetUserAgent: Boolean,
-): Request.Builder = apply {
-    if (deviceUserAgent.isNotBlank() && !pluginSetUserAgent) header("User-Agent", deviceUserAgent)
+    val agent = runCatching { WebSettings.getDefaultUserAgent(context) }.getOrNull()
+    return agent?.takeIf { it.isNotBlank() }?.also { cachedDeviceUserAgent = it }.orEmpty()
 }
