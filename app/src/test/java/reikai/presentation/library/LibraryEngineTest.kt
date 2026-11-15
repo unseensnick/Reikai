@@ -225,7 +225,10 @@ class LibraryEngineTest {
         engine.moveInCategory(defaultCategory, listOf(row(1, emptyList()), row(2, emptyList())))
         engine.undoManualMove()
 
-        manualOrder.positions.first { it.toSet() == before.toSet() && it !== before }.toSet() shouldBe before.toSet()
+        // Waits on the two writes: the restored order equals the first one, which a collector would not see again.
+        manualOrder.replacements.first { it == 2 }
+
+        manualOrder.positions.value.toSet() shouldBe before.toSet()
     }
 
     /**

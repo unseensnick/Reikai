@@ -3,12 +3,16 @@ package reikai.domain.library
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 /** An in-memory [LibraryManualOrderRepository] that keeps the real one's replace and upsert rules. */
 class FakeLibraryManualOrderRepository : LibraryManualOrderRepository {
 
     val positions = MutableStateFlow<List<ManualOrderPosition>>(emptyList())
     val bases = MutableStateFlow<Map<Long, Long>>(emptyMap())
+
+    // Counted, since a write that restores an equal order is no change a StateFlow collector would see.
+    val replacements = MutableStateFlow(0)
 
     override fun subscribeAll(): Flow<List<ManualOrderPosition>> = positions
 
@@ -28,6 +32,7 @@ class FakeLibraryManualOrderRepository : LibraryManualOrderRepository {
     override suspend fun replaceCategory(categoryId: Long, positions: List<ManualOrderPosition>) {
         this.positions.value = this.positions.value.filterNot { it.categoryId == categoryId } +
             positions.map { it.copy(categoryId = categoryId) }
+        replacements.update { it + 1 }
     }
 
     override suspend fun yieldToRestore() {
