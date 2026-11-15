@@ -26,7 +26,7 @@ For manga, the option only appears in the three **Paged** modes, and pages pair 
 Light novels offer it whenever the chapter is read a page at a time, with no renderer setting needed. See the [novel reader guide](/docs/novel-reader).
 
 ## Can I mark chapters read without leaving the reader?
-Yes, for manga and light novels alike. Open a chapter, tap the middle of the screen, and press the chapters button in the bottom bar. Swipe a chapter to run your chapter swipe action, or long-press one to select it, tap others to add them, and pick from the bar at the bottom: bookmark, mark as read or unread, download, or delete. With one chapter selected, **Mark previous as read** marks every chapter above it read. The chapter you are reading is left out of a delete.
+Yes, for manga and light novels alike. Open a chapter, tap the middle of the screen, and press the chapters button in the bottom bar. Swipe a chapter to run your chapter swipe action, or long-press one to select it, tap others to add them, and pick from the bar at the bottom: bookmark, mark as read or unread, download, or delete. With one chapter selected, **Mark previous as read** marks every chapter above it read. The chapter you are reading is left out of a delete, and marking it read keeps its download even when **After manually marked as read** is on under **Delete chapters** in <nav to="downloads">.
 
 ## What do all the settings do?
 See [manga reader settings](/docs/guides/reader-settings) and [novel reader settings](/docs/guides/novel-reader-settings).
