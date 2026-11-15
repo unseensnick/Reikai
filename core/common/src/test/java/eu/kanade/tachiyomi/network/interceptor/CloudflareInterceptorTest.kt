@@ -135,21 +135,10 @@ class CloudflareInterceptorTest {
 
     @Test
     fun `concurrent challenges on one host are solved once`() {
-        val queued = CountDownLatch(1)
-        solveWith {
-            queued.await(1, TimeUnit.SECONDS)
-            clearance = "solved"
-        }
-        val start = CountDownLatch(1)
-        val workers = List(8) {
-            thread(isDaemon = true) {
-                start.await()
-                interceptor.intercept(chain("https://site.example/page/$it")).close()
-            }
-        }
-        start.countDown()
-        queued.countDown()
-        workers.forEach { it.join(TimeUnit.SECONDS.toMillis(5)) }
+        val respond = allChallenged(8, ::server)
+        solveWith { clearance = "solved" }
+
+        runAll(8) { interceptor.intercept(chain("https://site.example/page/$it", respond)).close() }
 
         solves.get() shouldBe 1
     }
@@ -260,11 +249,15 @@ class CloudflareInterceptorTest {
         .body("".toResponseBody())
         .build()
 
-    // Every one of [count] requests is challenged before the solve finishes, so each has to queue.
-    private fun allChallenged(count: Int, respond: (Request) -> Response): Pair<CountDownLatch, (Request) -> Response> {
-        val challenged = CountDownLatch(count)
-        return challenged to { request ->
-            respond(request).also { if (it.code == 403) challenged.countDown() }
+    // Every one of [count] requests is challenged before any solve starts, so each has to pass the
+    // dedup check. They meet inside their first response, while the host's read lock still lets them
+    // all in; a solve waiting for them instead holds the write lock that keeps them out.
+    private fun allChallenged(count: Int, respond: (Request) -> Response): (Request) -> Response {
+        val arrived = CountDownLatch(count)
+        return { request ->
+            arrived.countDown()
+            arrived.await(1, TimeUnit.SECONDS)
+            respond(request)
         }
     }
 
@@ -321,9 +314,8 @@ class CloudflareInterceptorTest {
         // A host on Cloudflare's stricter tier challenges a replayed clearance, so it keeps challenging after the
         // server's solve. That solve saves its cookies, a fresh cf_clearance among them, which a sibling would
         // otherwise take for a clearance it can replay.
-        val (challenged, respond) = allChallenged(4, ::challenge)
+        val respond = allChallenged(4, ::challenge)
         solveWith {
-            challenged.await(1, TimeUnit.SECONDS)
             clearance = "from the server"
             marked.set(true)
         }
@@ -463,14 +455,11 @@ class CloudflareInterceptorTest {
     fun `a challenge served after a redirect to another site is solved once`() {
         val clearances = clearancesPerHost()
         // The mirror redirects every request to the main site, which challenges until it is cleared.
-        val (challenged, redirecting) = allChallenged(4) { request ->
+        val redirecting = allChallenged(4) { request ->
             val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
             if (clearances["main.example"] == null) server(landed) else ok(landed)
         }
-        solveWith {
-            challenged.await(1, TimeUnit.SECONDS)
-            clearances["main.example"] = "solved"
-        }
+        solveWith { clearances["main.example"] = "solved" }
 
         runAll(4) { interceptor.intercept(chain("https://mirror.example/page/$it", redirecting)).close() }
 
@@ -481,14 +470,11 @@ class CloudflareInterceptorTest {
     fun `a challenge two sites redirect to is solved once`() {
         val clearances = clearancesPerHost()
         // Two mirrors, each its own host lock, redirect to the main site, which challenges until cleared.
-        val (challenged, redirecting) = allChallenged(4) { request ->
+        val redirecting = allChallenged(4) { request ->
             val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
             if (clearances["main.example"] == null) server(landed) else ok(landed)
         }
-        solveWith {
-            challenged.await(1, TimeUnit.SECONDS)
-            clearances["main.example"] = "solved"
-        }
+        solveWith { clearances["main.example"] = "solved" }
 
         runAll(4) { interceptor.intercept(chain("https://mirror-$it.example/page", redirecting)).close() }
 
