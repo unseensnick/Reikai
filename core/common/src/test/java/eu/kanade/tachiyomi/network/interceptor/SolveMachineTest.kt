@@ -83,6 +83,7 @@ class SolveMachineTest {
         val fake = Fake()
         val m = machine(fake)
         m.arm()
+        fake.advance(2_000)
         interactive(m)
 
         fake.advance(4_000)
@@ -97,6 +98,19 @@ class SolveMachineTest {
         tick(m)
 
         fake.gaveUp shouldBe 1
+    }
+
+    @Test
+    fun `a challenge that turns interactive late gets a full budget from its first press`() {
+        val fake = Fake()
+        val m = machine(fake)
+        m.arm()
+        fake.advance(10_000)
+        interactive(m)
+
+        fake.advance(SOLVE_BUDGET_MS - 1)
+
+        fake.gaveUp shouldBe 0
     }
 
     @Test
@@ -253,6 +267,35 @@ class SolveMachineTest {
         fake.advance(PRESS_COOLDOWN_MS)
 
         m.onEvent("interactiveBegin")
+
+        fake.presses shouldBe 2
+    }
+
+    @Test
+    fun `with no probe a challenge reissued inside the cooldown is pressed once it passes`() {
+        val fake = Fake()
+        val m = machine(fake, watching = false)
+        m.arm()
+        m.onEvent("interactiveBegin")
+        fake.advance(1_000)
+        m.onEvent("interactiveBegin")
+
+        fake.advance(PRESS_COOLDOWN_MS)
+
+        fake.presses shouldBe 2
+    }
+
+    @Test
+    fun `with no probe reissues inside one cooldown queue a single press`() {
+        val fake = Fake()
+        val m = machine(fake, watching = false)
+        m.arm()
+        m.onEvent("interactiveBegin")
+        fake.advance(1_000)
+        m.onEvent("interactiveBegin")
+        m.onEvent("interactiveBegin")
+
+        fake.advance(PRESS_COOLDOWN_MS * 2)
 
         fake.presses shouldBe 2
     }
