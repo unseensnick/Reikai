@@ -87,6 +87,8 @@ class MangaBackupCreator(
     // a whole chunk.
     override suspend fun favorites(): List<Manga> = getFavorites.await()
 
+    override fun identity(entry: Manga): Any = entry.id
+
     override suspend fun readNotInLibrary(): List<Manga> = mangaRepository.getReadMangaNotInLibrary()
 
     // A membership whose row has gone is skipped rather than failing the backup.

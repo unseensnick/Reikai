@@ -31,16 +31,16 @@ class BackupEntryDriverTest {
      * Writes each part's name onto every entry's set, so a test reads back which parts ran, and records the
      * size of each chunk a part was handed.
      */
-    private class FakeParts(
+    private open class FakeParts(
         private val favorites: List<String> = listOf("fav"),
         private val readOnly: List<String> = listOf("read"),
         private val groupMembers: List<String> = emptyList(),
     ) : BackupEntryParts<String, MutableSet<String>> {
         val chapterChunks = mutableListOf<Int>()
 
-        override suspend fun favorites() = favorites
+        open override suspend fun favorites() = favorites
         override suspend fun readNotInLibrary() = readOnly
-        override suspend fun groupMembersOutsideLibrary() = groupMembers
+        open override suspend fun groupMembersOutsideLibrary() = groupMembers
         override suspend fun base(entries: List<String>) = entries.map { mutableSetOf("base:$it") }
         override suspend fun chapters(batch: List<Pair<String, MutableSet<String>>>) {
             chapterChunks += batch.size
@@ -105,6 +105,19 @@ class BackupEntryDriverTest {
         // Its group is written whatever that option says, and restore resolves a ref only against a row.
         BackupOptions(readEntries = false).backupEntries(FakeParts(groupMembers = listOf("member")))
             .toList().map { it.first() } shouldBe listOf("base:fav", "base:member")
+    }
+
+    // The removal lands between the two reads, whichever goes first: the first sees the member in the library.
+    @Test
+    fun `a group member taken out of the library while the backup picks its series is still backed up`() = runTest {
+        val parts = object : FakeParts() {
+            var reads = 0
+            override suspend fun favorites() = if (++reads == 1) listOf("fav", "member") else listOf("fav")
+            override suspend fun groupMembersOutsideLibrary() = if (++reads == 1) emptyList() else listOf("member")
+        }
+
+        BackupOptions(readEntries = false).backupEntries(parts).toList().map { it.first() } shouldBe
+            listOf("base:fav", "base:member")
     }
 
     @Test

@@ -24,6 +24,9 @@ import reikai.domain.entry.EntryCustomInfo
 interface BackupEntryParts<E, B> {
     suspend fun favorites(): List<E>
 
+    /** What one series is across the lists, which read it at different moments: its row id. */
+    fun identity(entry: E): Any? = entry
+
     /** Series outside the library that still carry read progress, which "All read entries" keeps. */
     suspend fun readNotInLibrary(): List<E>
 
@@ -68,9 +71,12 @@ const val BACKUP_CHUNK = 100
  * and a restore resolves a member only against a row it restored.
  */
 fun <E, B> BackupOptions.backupEntries(parts: BackupEntryParts<E, B>): Flow<B> = flow {
+    // The library first: a series taken out of it after that read is in it or in the outside reads, never neither,
+    // and one in both is the same series read twice.
+    val favorites = parts.favorites()
     val readOnly = if (readEntries) parts.readNotInLibrary() else emptyList()
-    val outsideLibrary = (readOnly + parts.groupMembersOutsideLibrary()).distinct()
-    for (chunk in (parts.favorites() + outsideLibrary).chunked(BACKUP_CHUNK)) {
+    val entries = (favorites + readOnly + parts.groupMembersOutsideLibrary()).distinctBy(parts::identity)
+    for (chunk in entries.chunked(BACKUP_CHUNK)) {
         backupChunk(chunk, parts).forEach { emit(it) }
         yield()
     }

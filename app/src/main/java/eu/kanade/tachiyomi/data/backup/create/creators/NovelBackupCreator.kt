@@ -94,6 +94,8 @@ class NovelBackupCreator(
     // chunk.
     override suspend fun favorites(): List<Novel> = novelRepository.getFavorites()
 
+    override fun identity(entry: Novel): Any = entry.id
+
     override suspend fun readNotInLibrary(): List<Novel> = novelRepository.getReadNovelsNotInLibrary()
 
     override suspend fun groupMembersOutsideLibrary(): List<Novel> =

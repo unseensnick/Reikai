@@ -11,6 +11,8 @@
 # - NovelBackupCreator, NovelRestorer and the novel models beside them (NovelDownloadManager, the
 #   novel library, details and reader models, StatsLibrary): constructor parameter lists naming the
 #   same repositories, with no logic shared.
+# - MangaBackupCreator / NovelBackupCreator: each one's BackupEntryParts list reads (favorites, identity, the
+#   two outside-the-library lists), each from its own engine's repositories; the driver holds the logic.
 # - SyncChaptersWithSource / NovelChapterSync: each engine's sync calling the LocalChapterTombstones
 #   kernel (held, confirm, around) in the same order; pinned by ChapterTombstoneConformanceTest and
 #   ChapterSyncConformanceTest.
@@ -52,6 +54,7 @@
 app/src/main/java/eu/kanade/domain/chapter/interactor/SyncChaptersWithSource.kt	app/src/main/java/reikai/data/novel/NovelChapterSync.kt	a3dbd4a121a97b83
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	2bbcb70481ae4872
 app/src/main/java/eu/kanade/presentation/more/settings/screen/SettingsMangaReaderScreen.kt	app/src/main/java/reikai/presentation/recommendation/SettingsRecommendationsScreen.kt	38f3f7e648005bc6
+app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/MangaBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	77c2ef3440169b61
 app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	app/src/main/java/eu/kanade/tachiyomi/data/backup/restore/restorers/NovelRestorer.kt	0ba4418288464ef8
 app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	app/src/main/java/reikai/novel/download/NovelDownloadManager.kt	ffea154bde13eb27
 app/src/main/java/eu/kanade/tachiyomi/data/backup/create/creators/NovelBackupCreator.kt	app/src/main/java/reikai/presentation/library/novels/NovelLibraryViewModel.kt	8fddfcbd0f4ed41e
