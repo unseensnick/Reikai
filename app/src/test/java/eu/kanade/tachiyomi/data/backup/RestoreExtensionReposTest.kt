@@ -13,8 +13,10 @@ import reikai.data.backup.RestoreExtensionInstaller
 
 class RestoreExtensionReposTest {
 
-    @Test
-    fun `with Extension repos off a trusted repo is not added`() = runTest {
+    private val trusted = ApprovedRepos(plugins = setOf("https://plugins.example/index.json"))
+
+    /** The repos the restore asked the installer to add, with Extension repos [on] or off. */
+    private suspend fun addedWith(on: Boolean): List<ApprovedRepos> {
         val added = mutableListOf<ApprovedRepos>()
         val installer = mockk<RestoreExtensionInstaller>(relaxed = true) {
             coEvery { addTrusted(any()) } answers {
@@ -22,14 +24,22 @@ class RestoreExtensionReposTest {
                 emptyList()
             }
         }
-
         restoreEncoded(
             Backup(emptyList(), backupCategories = listOf(BackupCategory("Queue"))),
-            RestoreOptions(extensionStores = false, extensions = false),
+            RestoreOptions(extensionStores = on, extensions = false),
             restoreExtensionInstaller = installer,
-            trusted = ApprovedRepos(plugins = setOf("https://plugins.example/index.json")),
+            trusted = trusted,
         )
+        return added
+    }
 
-        added shouldBe emptyList()
+    @Test
+    fun `with Extension repos off a trusted repo is not added`() = runTest {
+        addedWith(on = false) shouldBe emptyList()
+    }
+
+    @Test
+    fun `with Extension repos on the repos the user trusted are added`() = runTest {
+        addedWith(on = true) shouldBe listOf(trusted)
     }
 }

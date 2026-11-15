@@ -12,6 +12,8 @@ import mihon.domain.extension.repository.ExtensionStoreRepository
 import org.junit.jupiter.api.Test
 import reikai.novel.install.LnPluginInstaller
 import reikai.novel.registry.LnRegistryEntry
+import reikai.novel.registry.LnRepoRegistries
+import java.io.IOException
 
 /** After a restore: the repos the user trusted, and the backup's apps that did not come back. */
 class RestoreExtensionInstallerTest {
@@ -21,17 +23,30 @@ class RestoreExtensionInstallerTest {
         coEvery { upsert(any()) } answers { stored += firstArg<ExtensionStore>() }
     }
 
+    private val addedPluginRepos = mutableListOf<String>()
+
     private fun installer(
-        liveKey: String,
+        liveKey: String?,
         sources: RestoreInstallSources = mockk(),
         pluginInstaller: LnPluginInstaller = mockk(),
+        pluginRepoReachable: Boolean = true,
     ) = RestoreExtensionInstaller(
         sources = sources,
         storeService = mockk<ExtensionStoreService> {
-            coEvery { fetch(URL) } returns Result.success(store(liveKey))
+            coEvery { fetch(URL) } returns
+                (liveKey?.let { Result.success(store(it)) } ?: Result.failure(IOException("unreachable")))
         },
         storeRepository = storeRepository,
-        pluginRepos = mockk(),
+        pluginRepos = mockk<LnRepoRegistries> {
+            coEvery { add(any()) } answers {
+                if (pluginRepoReachable) {
+                    addedPluginRepos += firstArg<String>()
+                    Result.success(Unit)
+                } else {
+                    Result.failure(IOException("unreachable"))
+                }
+            }
+        },
         extensionManager = mockk(),
         pluginInstaller = pluginInstaller,
     )
@@ -48,6 +63,34 @@ class RestoreExtensionInstallerTest {
         installer(liveKey = "other").addTrusted(ApprovedRepos(apps = mapOf(URL to KEY)))
 
         stored.shouldBeEmpty()
+    }
+
+    @Test
+    fun `a trusted repo whose key changed is reported`() = runTest {
+        installer(liveKey = "other").addTrusted(ApprovedRepos(apps = mapOf(URL to KEY))) shouldBe
+            listOf("Repo not added (signing key changed): $URL")
+    }
+
+    @Test
+    fun `a trusted repo that cannot be reached is reported`() = runTest {
+        installer(liveKey = null).addTrusted(ApprovedRepos(apps = mapOf(URL to KEY))) shouldBe
+            listOf("Repo not added (unreachable): $URL")
+    }
+
+    @Test
+    fun `a trusted plugin repo is added`() = runTest {
+        installer(liveKey = KEY).addTrusted(ApprovedRepos(plugins = setOf(PLUGIN_REPO)))
+
+        addedPluginRepos shouldBe listOf(PLUGIN_REPO)
+    }
+
+    @Test
+    fun `a trusted plugin repo that cannot be reached is reported`() = runTest {
+        installer(
+            liveKey = KEY,
+            pluginRepoReachable = false,
+        ).addTrusted(ApprovedRepos(plugins = setOf(PLUGIN_REPO))) shouldBe
+            listOf("Repo not added (unreachable): $PLUGIN_REPO")
     }
 
     @Test
@@ -91,6 +134,7 @@ class RestoreExtensionInstallerTest {
 
     private companion object {
         const val PLUGIN_URL = "https://plugins.example/plugin.js"
+        const val PLUGIN_REPO = "https://plugins.example/plugins.min.json"
         const val URL = "https://repo.example/index.min.json"
         const val KEY = "key"
 
