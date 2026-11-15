@@ -6,10 +6,21 @@ import org.junit.jupiter.api.Test
 import reikai.domain.chapter.LocalVolume
 import reikai.domain.chapter.LooseFiles
 import reikai.domain.library.ContentType
+import reikai.domain.local.VolumeOwner
 import tachiyomi.domain.manga.model.Manga
 
 /** How a local series' chapter list is grouped under its volumes, for both types' addresses. */
 class EntryVolumesTest {
+
+    // Ticked with another, it stopped the delete before that one too, since it is no one thing to delete.
+    @Test
+    fun `Delete volumes leaves out the loose files shown as Extras`() {
+        val extras = EntryChapterListItem.Volume("Saga", VolumeOwner.LOOSE, VolumeLabel.Loose, listOf(1L), 0)
+        val vol1 = EntryChapterListItem.Volume("Saga", "Vol 1", VolumeLabel.Number(1.0), listOf(2L), 0)
+        val structural = VolumeView(listOf(extras, vol1), picked = null, items = emptyList())
+
+        volumesToDelete(structural, null, listOf(VolumeOwner.LOOSE, "Vol 1")).map { it.key } shouldBe listOf("Vol 1")
+    }
 
     private fun row(id: Long, volume: ChapterVolume?, read: Boolean = false) = EntryChapterListItem.Chapter(
         id = id,

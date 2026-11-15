@@ -394,10 +394,7 @@ fun EntryDetailsContent(
     }
     deletingVolumes?.let { keys ->
         DeleteVolumesDialog(
-            volumes = (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }.filter {
-                it.key in
-                    keys
-            },
+            volumes = volumesToDelete(structural, volumes, keys),
             onDismissRequest = { deletingVolumes = null },
             onConfirm = { picked ->
                 deletingVolumes = null

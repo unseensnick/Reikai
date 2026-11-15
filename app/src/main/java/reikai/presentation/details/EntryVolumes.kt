@@ -362,3 +362,11 @@ class LocalVolumeCovers(private val manga: LocalSource, private val novels: Loca
         else -> withIOContext { manga.volumeCover(series, key)?.uri }
     }
 }
+
+/**
+ * The volumes of [structural] and [volumes] that Delete volumes offers for [keys]. A manga folder's loose files
+ * shown as one Extras volume are left out: they are no one thing to delete, so the delete stops at them.
+ */
+internal fun volumesToDelete(structural: VolumeView?, volumes: VolumeView?, keys: List<String>) =
+    (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }
+        .filter { it.key in keys && it.key != VolumeOwner.LOOSE }
