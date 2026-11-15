@@ -30,7 +30,9 @@ class BackupNovel(
     // Read only, from backups made before the Last read sort came from history: NovelRestorer seeds a
     // history row from it for a novel that has none. Nothing writes it any more.
     @ProtoNumber(17) var lastReadAt: Long? = null,
-    // @ProtoNumber(18) var editedFlags: Long, a retired lock bitmask; edits ride in the custom fields below
+    // Read only, from Reikai 0.1.x and 0.2.x: which of the novel's own fields above held the user's edits, by bit
+    // (author, artist, description, genres, status). Edits ride in the custom fields below since.
+    @ProtoNumber(18) var legacyEditedFlags: Long = 0,
     @ProtoNumber(19) var favorite: Boolean = true,
     @ProtoNumber(20) var chapters: List<BackupNovelChapter> = emptyList(),
     @ProtoNumber(21) var categories: List<Long> = emptyList(),
@@ -91,4 +93,18 @@ class BackupNovel(
             nextUpdate = this@BackupNovel.nextUpdate.toInstantOrNull(),
         )
     }
+}
+
+/** The edits a 0.1.x or 0.2.x backup kept in the novel's own fields, as the custom info a refresh leaves alone. */
+fun BackupNovel.legacyEdits(): BackupCustomInfo? {
+    val flags = legacyEditedFlags
+    if (flags == 0L) return null
+    fun edited(bit: Int) = flags and (1L shl bit) != 0L
+    return BackupCustomInfo(
+        author = author.takeIf { edited(0) },
+        artist = artist.takeIf { edited(1) },
+        description = description.takeIf { edited(2) },
+        genre = genre.takeIf { edited(3) },
+        status = status.takeIf { edited(4) },
+    )
 }

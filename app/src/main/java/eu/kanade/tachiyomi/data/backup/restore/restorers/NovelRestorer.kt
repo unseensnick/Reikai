@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupNovelMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelSourceRef
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelTracking
 import eu.kanade.tachiyomi.data.backup.models.customInfo
+import eu.kanade.tachiyomi.data.backup.models.legacyEdits
 import eu.kanade.tachiyomi.data.backup.models.toUrlReadingSession
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toLocalDateTime
@@ -156,7 +157,7 @@ class NovelRestorer(
         }
         // An entry without custom info leaves the device's own alone, as manga does, pinned by
         // BackupCustomInfoConformanceTest.
-        backupNovel.customInfo?.let { restoreCustomInfo(novelId, it) }
+        (backupNovel.customInfo ?: backupNovel.legacyEdits())?.let { restoreCustomInfo(novelId, it) }
         // Only where the device has read none: its files name the language now, as a local manga's memo
         // keeps the device's. A backup made before the language was carried leaves it alone too.
         if (LocalNovelSource.isLocal(backupNovel.source) && localNovelLanguages.get(backupNovel.url) == null) {
