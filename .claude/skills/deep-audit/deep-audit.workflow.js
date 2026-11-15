@@ -17,8 +17,15 @@ if (!A.base || !A.head) throw new Error('args.base and args.head are required')
 
 const QUICK = !!A.quick
 const RANGE = `${A.base}...${A.head}`
-const SCOPE = A.pathFilter ? `${RANGE}, limited to ${A.pathFilter}` : RANGE
+// Tree mode audits a list of files as they stand now; base...head is then only the history window
+// the sibling and deleted-code lenses read. rkFiles are Mihon's files, audited for their RK islands.
+const TREE = Array.isArray(A.files) && A.files.length > 0
+const RK_FILES = new Set(A.rkFiles || [])
+const SCOPE = TREE
+  ? `the current tree of ${A.files.length} listed files (wave "${A.wave || 'unnamed'}"), with ${RANGE} as the history window for fix commits and deleted code`
+  : A.pathFilter ? `${RANGE}, limited to ${A.pathFilter}` : RANGE
 const GROUND = A.ground || {}
+const IN = TREE ? 'in this slice' : 'the range added'
 
 // Every agent inherits the session model (Opus); no smaller model, since it misses what an audit is for.
 const FINDER = { effort: 'medium' }
@@ -30,13 +37,16 @@ const PARITY_BATCH = 10
 const ALWAYS_RULES = ['code-quality.md', 'content-layer.md', 'architecture.md']
 const TAGGED_RULES = { 'screen-conventions.md': 'screens', 'testing.md': 'tests', 'database.md': 'sql' }
 const TAGS = ['untrusted', 'hotpath', 'screens', 'tests', 'sql']
-const ALL_LENSES = ['correctness', 'security', 'performance', 'async', 'dead', 'dry', 'rules', 'docs', 'tests', 'wiring', 'parity', 'sibling', 'upstream', 'twoends']
+const ALL_LENSES = ['correctness', 'security', 'performance', 'async', 'dead', 'dry', 'rules', 'docs', 'tests', 'wiring', 'parity', 'sibling', 'upstream', 'twoends', 'hygiene']
+const HYGIENE_BATCH = 3
 
 // Finders get the parked list but not the ledger: only a verifier needs a past refutation, and the
 // ledger is long enough that carrying it in every finder prompt was a large share of a run's cost.
 const PREAMBLE = `You are one agent in a read-only audit of Reikai, an Android manga and light-novel reader built on Mihon (Compose + Voyager, Metro DI, SQLDelight). The current directory is the repo root. Read-only reference clones sit beside it in ../refs/ (mihon, tsundoku, komikku, lnreader-main).
 
-The range under audit is ${SCOPE}. Commits whose subject starts with "chore: sync Mihon" are upstream ports and out of scope, except for the // RK islands they touch. Translation files outside i18n/src/commonMain/moko-resources/base/ are out of scope.
+${TREE
+  ? `Under audit: ${SCOPE}. This is a whole-tree audit: every listed file is in scope as it is now, however old the code. A file listed as Mihon's (an RK file) is audited for its // RK islands and RK-marked lines, the code they call and the code that calls them; the rest of it is upstream's and not a finding unless an island breaks it.`
+  : `The range under audit is ${SCOPE}. Commits whose subject starts with "chore: sync Mihon" are upstream ports and out of scope, except for the // RK islands they touch.`} Translation files outside i18n/src/commonMain/moko-resources/base/ are out of scope.${A.focus ? `\n\nFocus for this wave: ${A.focus}` : ''}
 
 Hard rules:
 - Read-only. Never edit, create, stage or commit a file, and never run Gradle.
@@ -55,24 +65,27 @@ const REPORTING = QUICK
 
 const LENS_BRIEFS = {
   core: { agentType: 'code-reviewer', brief: 'Find real correctness and ordering defects. Correctness: wrong logic, null and empty handling, state bugs, coroutine and flow misuse, broken Compose and Voyager conventions, error handling that swallows failures; the changes have to work together, so follow each changed public function to its callers inside and outside the slice. Ordering and lifecycle: work sent before the receiver is ready (a call into a WebView or view before load or attach), a dialog that clears state on dismiss before its confirm reads it, View.postDelayed on a detached view (it never fires), stateIn or WhileSubscribed windows that never close, flows collected without a lifecycle, a hot provider flow that outlives its Activity, an init block reading a property declared below it, cancellation dropping side effects batched to the end of a loop. Name the ordering that breaks and what the user sees.' },
-  security: { agentType: 'security-reviewer', brief: 'Find security defects per .claude/rules/security.md: untrusted source and extension input, WebView hardening and JavaScript bridges, secrets or personal data in logs, crash reports or backups, file paths built from input.' },
+  security: { agentType: 'security-reviewer', brief: 'Find security defects per .claude/rules/security.md: untrusted source and extension input, WebView hardening and JavaScript bridges, secrets or personal data in logs, crash reports or backups, what crash reporting and analytics send off the device, links and intents opened from outside the app, file paths built from input.' },
+  hygiene: { brief: 'Find Android hygiene defects in these screens and the code behind them. Process death: a Voyager Screen constructor argument that is not serializable, state a user would lose on restore that should survive. Strings: user-visible text hardcoded rather than in i18n base/strings.xml, a format argument or plural that does not match its string, a string breaking the "In-app strings match Mihon" rule in .claude/rules/prose-style.md. Accessibility: an icon-only control with no content description, a touch target well under 48dp. Old Android: a call above the module\'s minSdk (read it from the build files) with no version guard. Name the device state that breaks and what the user sees.' },
   performance: { agentType: 'performance-reviewer', brief: 'Find real bottlenecks: recomposition storms, main-thread I/O, per-entry work in library-sized loops, queries in loops, leaked scopes, listeners and WebViews.' },
-  dead: { brief: 'Find dead and unused code the range added or left behind: unused functions, parameters, preferences, strings, resources and flags, branches that can no longer be reached, commented-out blocks, // RK islands whose purpose is gone. Before calling anything unused, search the WHOLE repository, including src/test, src/androidTest, src/debug, scripts/, .github/, build files, manifests and resources; reflection, @JavascriptInterface, XML references and Metro-generated code all count as uses. "Nothing calls X" is the claim class that fails most, so put exactly what you searched in evidenceDetail. If Spotless or the compiler would already flag it, it is not a finding.' },
-  dry: { brief: 'Find duplicated code and duplicated rules the range added, per the DRY rule in .claude/rules/code-quality.md ("DRY, with a receipt"). For each non-private top-level fun, class, object, extension or composable the range added (git diff ' + RANGE + ' and its "+" declaration lines), search the whole tree for an existing equivalent three ways: by name stem, by receiver and return type, and by the rule it encodes (the same key, constant, condition or formula restated under another name). Search every module, the reikai/domain kernels first, and ../refs/mihon for an inherited shape. A finding names both sites and says which one should call the other, or which kernel both should call. Also report two declarations the range added that restate each other, a private Mihon helper copied rather than shared without a stated reason, and a manga/novel twin that names no pin (a shared kernel, a typed capability or a conformance test). Not findings: an engine twin content-layer.md sanctions and that names its pin, and three similar lines the rule prefers over a helper used once.' },
-  rules: { brief: 'Audit against the rule files named below. Read each one first and turn it into a checklist, then walk the code the range changed. Each finding quotes a few words of the exact rule it breaks. Rules a hook already enforces (comment length cap, em dashes, dates in comments, plan codenames) are findings only where the hook cannot see them.' },
+  dead: { brief: `Find dead and unused code ${TREE ? 'in this slice' : 'the range added or left behind'}: unused functions, parameters, preferences, strings, resources and flags, branches that can no longer be reached, commented-out blocks, // RK islands whose purpose is gone. Before calling anything unused, search the WHOLE repository, including src/test, src/androidTest, src/debug, scripts/, .github/, build files, manifests and resources; reflection, @JavascriptInterface, XML references and Metro-generated code all count as uses. "Nothing calls X" is the claim class that fails most, so put exactly what you searched in evidenceDetail. If Spotless or the compiler would already flag it, it is not a finding.` },
+  dry: { brief: 'Find duplicated code and duplicated rules ' + IN + ', per the DRY rule in .claude/rules/code-quality.md ("DRY, with a receipt"). For each non-private top-level fun, class, object, extension or composable ' + (TREE ? 'declared in this slice\'s files' : 'the range added (git diff ' + RANGE + ' and its "+" declaration lines)') + ', and each condition, key, constant or formula written inline that a kernel or helper already encodes, search the whole tree for an existing equivalent three ways: by name stem, by receiver and return type, and by the rule it encodes (the same key, constant, condition or formula restated under another name). Search every module, the reikai/domain kernels first, and ../refs/mihon for an inherited shape. A finding names both sites and says which one should call the other, or which kernel both should call. Also report two declarations ' + IN + ' that restate each other, a speculative parameter, option or abstraction nothing uses (YAGNI), code materially more complicated than a simpler correct shape (KISS, name the simpler shape), a private Mihon helper copied rather than shared without a stated reason, and a manga/novel twin that names no pin (a shared kernel, a typed capability or a conformance test). Not findings: an engine twin content-layer.md sanctions and that names its pin, and three similar lines the rule prefers over a helper used once.' },
+  rules: { brief: 'Audit against the rule files named below. Read each one first and turn it into a checklist, then walk ' + (TREE ? 'every line of the code in your target' : 'the code the range changed') + '. Each finding quotes a few words of the exact rule it breaks. Rules a hook already enforces (comment length cap, em dashes, dates in comments, plan codenames) are findings only where the hook cannot see them.' },
   docs: { agentType: 'doc-reviewer', brief: 'Check every claim in the docs in this slice against current code: files, symbols, counts, behaviour. Re-derive any stated count rather than trusting it. Also check CLAUDE.md and .claude/rules claims about code the range changed.' },
-  tests: { brief: 'Audit the tests: tests that cannot fail (assertTrue(true), asserting a mock was called without checking arguments, asserting the value just set), names that claim more than the body checks, twin tests that .claude/rules/testing.md says should be one conformance test, and a rule for both content types pinned on only one. For up to five new tests, do a reasoned mutation: name the production clause the test pins and say whether deleting it would turn the test red. If it would not, that is a finding, labelled traced.' },
-  parity: { brief: 'For each user-visible change below, check that manga and novels both got it in this range, per the write-once rule in .claude/rules/content-layer.md. A gap is a finding unless a named mechanism makes the type unable to support it and the Decisions of the surface\'s subsystem doc record that, or ROADMAP.md labels the gap gated. Also report any "twin of" marker in the range that names no pin (a shared kernel, a typed capability or a conformance test).' },
+  tests: { brief: 'Audit the tests: tests that cannot fail (assertTrue(true), asserting a mock was called without checking arguments, asserting the value just set), names that claim more than the body checks, twin tests that .claude/rules/testing.md says should be one conformance test, and a rule for both content types pinned on only one. Also name behaviour of the code under test that no test pins, when a regression there would reach a user. For up to five ' + (TREE ? '' : 'new ') + 'tests, do a reasoned mutation: name the production clause the test pins and say whether deleting it would turn the test red. If it would not, that is a finding, labelled traced.' },
+  parity: { brief: 'For each user-visible change below, check that manga and novels both have it ' + (TREE ? 'in the current code' : 'in this range') + ', per the write-once rule in .claude/rules/content-layer.md. A gap is a finding unless a named mechanism makes the type unable to support it and the Decisions of the surface\'s subsystem doc record that, or ROADMAP.md labels the gap gated. Also report any "twin of" marker ' + (TREE ? 'in these files' : 'in the range') + ' that names no pin, and the same rule written for each type with nothing pinning the two (a shared kernel, a typed capability or a conformance test).' },
   sibling: { brief: 'Each commit below fixed a defect. For each one, read its diff, state the defect as a pattern, then search the whole tree for other sites with the same pattern: the other content type\'s twin, the other rendering mode, the other viewer, the same call shape elsewhere. Report every site that still carries the defect. A site the commit message deliberately left, with a reason, is not a finding.' },
   upstream: { brief: 'This surface was taken over, or code on it was deleted. Walk the replaced code\'s behaviour end to end, starting from theirs rather than ours: for a Mihon takeover read ../refs/mihon (docs/dev/off-path-manifest.md lists the replaced files); for Reikai code the range deleted read it with git show at the range base. Mark each behaviour present (cite ours), deliberately dropped (cite the subsystem doc\'s Decisions) or missing. Report only the missing ones as findings.' },
 }
 
 // Range-wide and mostly executed, so it runs once in both modes rather than per slice.
-const DRY_RANGE_BRIEF = 'Check duplication with the tools in scripts/, all read-only. 1) Run pwsh scripts/dup-check.ps1 with no switches (it reads the tree and the refs/mihon clone and writes nothing; never pass -UpdateBaseline) and report every clone it lists that touches a file the range changed, labelled executed. 2) Read git diff ' + RANGE + ' -- scripts/dup-baseline.txt: each line the range added accepts a clone, and is a finding unless the commit that added it explains why the code cannot be shared. 3) Read the commit messages (git log --format=%H%n%B ' + RANGE + '): for each "Reuse: none (searched: ...)" footer, re-run the search it names, plus one by the rule the new symbol encodes; an existing equivalent means the footer is wrong and the code is a duplicate.'
+const DRY_RANGE_BRIEF = TREE
+  ? 'Check duplication with the tools in scripts/, all read-only. 1) Run pwsh scripts/dup-check.ps1 with no switches (it reads the tree and the refs/mihon clone and writes nothing; never pass -UpdateBaseline) and report every clone it lists that touches a listed file, labelled executed. 2) Read scripts/dup-baseline.txt: each accepted clone that touches a listed file is a finding unless the commit that added its line (git log -S on the line) explains why the code cannot be shared, or that reason no longer holds.'
+  : 'Check duplication with the tools in scripts/, all read-only. 1) Run pwsh scripts/dup-check.ps1 with no switches (it reads the tree and the refs/mihon clone and writes nothing; never pass -UpdateBaseline) and report every clone it lists that touches a file the range changed, labelled executed. 2) Read git diff ' + RANGE + ' -- scripts/dup-baseline.txt: each line the range added accepts a clone, and is a finding unless the commit that added it explains why the code cannot be shared. 3) Read the commit messages (git log --format=%H%n%B ' + RANGE + '): for each "Reuse: none (searched: ...)" footer, re-run the search it names, plus one by the rule the new symbol encodes; an existing equivalent means the footer is wrong and the code is a duplicate.'
 
 const WIRING_TASKS = [
-  { target: 'build and platform wiring', brief: 'Audit build and platform wiring for the range: AndroidManifest entries, ProGuard keeps for surviving Injekt call sites (the keep list and its reasons are in .claude/rules/architecture.md), Gradle dependencies and version-catalog entries that are unused or missing, Metro DI scoping and registration (read scripts/di-interop-check.ps1 and apply its rules by reading, do not run it), build variants and applicationId suffixes.' },
-  { target: 'data and settings wiring', brief: 'Audit data and settings wiring for the range: each preference migration gates on its own versionCode (CLAUDE.md states the rule), .sqm numbering against the schema, backup fields written versus restored, preferences with no reader, settings shown with no effect, effects with no setting, strings defined and unused or used and missing.' },
+  { target: 'build and platform wiring', brief: 'Audit build and platform wiring for ' + (TREE ? 'the listed files' : 'the range') + ': AndroidManifest entries, ProGuard keeps for surviving Injekt call sites (the keep list and its reasons are in .claude/rules/architecture.md), Gradle dependencies and version-catalog entries that are unused or missing, Metro DI scoping and registration (read scripts/di-interop-check.ps1 and apply its rules by reading, do not run it), build variants and applicationId suffixes.' },
+  { target: 'data and settings wiring', brief: 'Audit data and settings wiring for ' + (TREE ? 'the listed files' : 'the range') + ': each preference migration gates on its own versionCode (CLAUDE.md states the rule), .sqm numbering against the schema, backup fields written versus restored, preferences with no reader, settings shown with no effect, effects with no setting, strings defined and unused or used and missing.' },
 ]
 
 // A per-slice sweep for quick mode: the code lenses and the slice's own wiring in one read.
@@ -142,7 +155,9 @@ const chunk = (xs, n) => {
   for (let i = 0; i < xs.length; i += n) out.push(xs.slice(i, i + n))
   return out
 }
-const sliceText = s => `Slice "${s.id}" (${s.title}; surface: ${s.surface}; content types: ${s.contentTypes}; tags: ${(s.tags || []).join(', ') || 'none'}). Its changed files: run git diff --name-only ${RANGE} -- ${s.paths.join(' ')}`
+const sliceText = s => `Slice "${s.id}" (${s.title}; surface: ${s.surface}; content types: ${s.contentTypes}; tags: ${(s.tags || []).join(', ') || 'none'}). ${TREE
+  ? `Its files (audit each as it stands now): ${s.paths.map(p => RK_FILES.has(p) ? `${p} (Mihon's file: its RK islands)` : p).join(' ')}`
+  : `Its changed files: run git diff --name-only ${RANGE} -- ${s.paths.join(' ')}`}`
 const findingsPrompt = (brief, target) => `${PREAMBLE}\n\nYour lens: ${brief}\n\nYour target:\n${target}\n\n${REPORTING} Return only findings that survive your own re-read. An empty list is a valid answer when "searched" says what you covered.`
 const tagged = (slices, tag) => slices.filter(s => (s.tags || []).includes(tag))
 
@@ -214,6 +229,9 @@ Then, over every code slice: ${LENS_BRIEFS.dry.brief}`, whole))
   if (on.has('docs')) for (const s of map.slices.filter(x => x.kind === 'docs')) add('docs', s.id, findingsPrompt(LENS_BRIEFS.docs.brief, sliceText(s)), LENS_BRIEFS.docs.agentType)
   if (on.has('tests')) for (const s of tests) add('tests', s.id, findingsPrompt(LENS_BRIEFS.tests.brief, sliceText(s)))
   if (on.has('wiring')) for (const w of WIRING_TASKS) add('wiring', w.target, findingsPrompt(w.brief, `The whole range ${SCOPE}.`))
+  if (on.has('hygiene')) {
+    for (const batch of chunk(tagged(code, 'screens'), HYGIENE_BATCH)) add('hygiene', batch.map(s => s.id).join(','), findingsPrompt(LENS_BRIEFS.hygiene.brief, batch.map(sliceText).join('\n')))
+  }
   if (on.has('parity')) {
     for (const batch of chunk(map.userVisibleChanges, PARITY_BATCH)) {
       add('parity', batch.map(c => c.summary).join(' | ').slice(0, 120),
@@ -274,15 +292,64 @@ const SURFACES_PROPS = {
 }
 
 const SLICES_ASK = `Split the files changed in ${SCOPE} (git diff --name-only ${RANGE}${A.pathFilter ? ' -- ' + A.pathFilter : ''}) into cohesive slices of about 8 to 15 files that belong together (one feature, one surface, one subsystem). Kind is code, docs or tests. Tag each slice with what applies: untrusted (source or extension input, network, WebView, JavaScript bridges, file paths from input), hotpath (library-sized lists, reader rendering, update jobs, recomposition-heavy screens), screens (Compose screens or Voyager navigation), tests (test sources), sql (.sq, .sqm, repositories). Exclude, and list under excluded with the reason: translation files outside i18n/src/commonMain/moko-resources/base/, and files whose only changes in the range come from "chore: sync Mihon" commits (check with git log --format=%s ${RANGE} -- <file>); a synced file that also carries // RK changes stays in.`
-const PAIRS_ASK = `Find the write/read pairs this range touches where a value crosses a boundary and could disagree: stored values first (preferences and their migrations, database columns, backup fields, intent extras), then host/guest messages (a WebView bridge). Rank by risk and return at most ${MAX_PAIRS}.`
-const COMMITS_ASK = `Classify commits in ${SCOPE}. "fixCommits": every commit that fixed a defect (usually a "fix" subject; exclude "chore: sync Mihon"). "userVisibleChanges": what a user could notice, from CHANGELOG.md [Unreleased] entries added in the range (git diff ${RANGE} -- CHANGELOG.md) or commit subjects, with the content types each affects.`
-const SURFACES_ASK = `List the surfaces this range took over from Mihon (the seam-depth table in .claude/rules/content-layer.md; docs/dev/off-path-manifest.md names replaced Mihon files) or on which it deleted Reikai code with behaviour of its own (git diff --diff-filter=D --name-only ${RANGE}). For each, its subsystem doc (the Doc column of that table) and the replaced or deleted files.`
+// Tree mode slices in code rather than by agent, so every listed file lands in exactly one slice.
+const SLICE_MAX = 12
+const kindOf = p => /\/src\/(test|androidTest)\/|\/hooks\/tests\//.test(p) ? 'tests' : /\.md$|navigation\.json$/.test(p) ? 'docs' : 'code'
+const parentOf = p => p.slice(0, p.lastIndexOf('/'))
+// The first six segments name one area of a module (app/src/main/java/reikai/presentation); a
+// seventh left a hundred single-file areas, each an agent of its own.
+const areaOf = dir => dir.split('/').slice(0, 6).join('/')
+// Sorted paths keep a directory's files together, so even chunks of one area stay cohesive.
+function treeSlices(files) {
+  const groups = {}
+  for (const p of [...files].sort()) {
+    const key = `${kindOf(p)}|${areaOf(parentOf(p))}`
+    ;(groups[key] = groups[key] || []).push(p)
+  }
+  const out = []
+  for (const [key, paths] of Object.entries(groups)) {
+    const size = Math.ceil(paths.length / Math.ceil(paths.length / SLICE_MAX))
+    for (const part of chunk(paths, size)) out.push({ kind: key.split('|')[0], paths: part })
+  }
+  return out.map((s, i) => ({ id: `s${i + 1}`, ...s }))
+}
+const TAGS_ASK = slices => `Tag each slice below; do not move files between slices. For each, give a short title, the surface or subsystem it belongs to, the content types it serves, and the tags that apply: untrusted (source or extension input, network, WebView, JavaScript bridges, file paths from input, restored backups, hook and guard input), hotpath (library-sized lists, reader rendering, update jobs, recomposition-heavy screens), screens (Compose screens or Voyager navigation), tests (test sources), sql (.sq, .sqm, repositories). Open files where a path alone does not settle it.\n\n${slices.map(s => `${s.id} (${s.kind}): ${s.paths.join(' ')}`).join('\n')}`
+const TAG_PROPS = {
+  slices: { type: 'array', items: { type: 'object', properties: {
+    id: { type: 'string' }, title: { type: 'string' }, surface: { type: 'string' },
+    contentTypes: { type: 'string', enum: ['manga', 'novel', 'both', 'neutral'] },
+    tags: { type: 'array', items: { type: 'string', enum: TAGS } },
+  }, required: ['id', 'title', 'surface', 'contentTypes', 'tags'] } },
+}
+
+const PAIRS_ASK = `Find the write/read pairs ${TREE ? 'the listed files hold' : 'this range touches'} where a value crosses a boundary and could disagree: stored values first (preferences and their migrations, database columns, backup fields, intent extras), then host/guest messages (a WebView bridge). Rank by risk and return at most ${MAX_PAIRS}.`
+const COMMITS_ASK = TREE
+  ? `List two things for ${SCOPE}. "fixCommits": every commit in ${RANGE} that fixed a defect in a listed file (git log --format='%h %s' ${RANGE} -- <the listed files>, keeping "fix" subjects; exclude "chore: sync Mihon"). "userVisibleChanges": every behaviour a user can observe that the listed code implements, taken from the area's docs/dev/subsystems/ doc, the user docs in docs/ and the strings the screens show, with the content types each should serve. Be complete: this list drives the manga/novel parity check.`
+  : `Classify commits in ${SCOPE}. "fixCommits": every commit that fixed a defect (usually a "fix" subject; exclude "chore: sync Mihon"). "userVisibleChanges": what a user could notice, from CHANGELOG.md [Unreleased] entries added in the range (git diff ${RANGE} -- CHANGELOG.md) or commit subjects, with the content types each affects.`
+const SURFACES_ASK = TREE
+  ? `List the surfaces the listed files took over from Mihon (the seam-depth table in .claude/rules/content-layer.md; docs/dev/off-path-manifest.md names replaced Mihon files), and Reikai files under the listed files' directories that ${RANGE} deleted while they carried behaviour of their own (git diff --diff-filter=D --name-only ${RANGE}). For each, its subsystem doc (the Doc column of that table) and the replaced or deleted files.`
+  : `List the surfaces this range took over from Mihon (the seam-depth table in .claude/rules/content-layer.md; docs/dev/off-path-manifest.md names replaced Mihon files) or on which it deleted Reikai code with behaviour of its own (git diff --diff-filter=D --name-only ${RANGE}). For each, its subsystem doc (the Doc column of that table) and the replaced or deleted files.`
 
 if (A.mode === 'map') {
   phase('Map')
   const mapBase = `${PREAMBLE}\n\nYou are building the audit's map, not auditing. Be complete: whatever you leave out goes unaudited.`
   let map
-  if (QUICK) {
+  if (TREE) {
+    const raw = treeSlices(A.files)
+    const [tg, pr, cm, su] = await parallel([
+      () => agent(`${mapBase}\n\n${TAGS_ASK(raw)}`, { label: 'map:tags', phase: 'Map', effort: 'medium', schema: { type: 'object', properties: TAG_PROPS, required: ['slices'] } }),
+      () => agent(`${mapBase}\n\n${PAIRS_ASK}`, { label: 'map:pairs', phase: 'Map', effort: 'high', schema: { type: 'object', properties: PAIRS_PROPS, required: ['pairs'] } }),
+      () => agent(`${mapBase}\n\n${COMMITS_ASK}`, { label: 'map:commits', phase: 'Map', effort: 'medium', schema: { type: 'object', properties: COMMITS_PROPS, required: ['fixCommits', 'userVisibleChanges'] } }),
+      () => agent(`${mapBase}\n\n${SURFACES_ASK}`, { label: 'map:surfaces', phase: 'Map', effort: 'low', schema: { type: 'object', properties: SURFACES_PROPS, required: ['surfaces'] } }),
+    ])
+    if (tg && pr && cm && su) {
+      const byId = Object.fromEntries(tg.slices.map(t => [t.id, t]))
+      const untagged = raw.filter(s => !byId[s.id]).map(s => s.id)
+      if (untagged.length) throw new Error(`the tag agent skipped slices ${untagged.join(', ')}; re-run the map`)
+      const slices = raw.map(s => ({ ...s, ...byId[s.id], kind: s.kind, paths: s.paths }))
+      map = { slices, excluded: [], pairs: pr.pairs, fixCommits: cm.fixCommits, userVisibleChanges: cm.userVisibleChanges, surfaces: su.surfaces }
+    }
+  } else if (QUICK) {
     const m = await agent(`${mapBase}\n\nDo all four parts in one pass.\n\n1. ${SLICES_ASK}\n\n2. ${PAIRS_ASK}\n\n3. ${COMMITS_ASK}\n\n4. ${SURFACES_ASK}`, {
       label: 'map', phase: 'Map', effort: 'medium',
       schema: { type: 'object', properties: { ...SLICES_PROPS, ...PAIRS_PROPS, ...COMMITS_PROPS, ...SURFACES_PROPS }, required: ['slices', 'excluded', 'pairs', 'fixCommits', 'userVisibleChanges', 'surfaces'] },
@@ -303,8 +370,9 @@ if (A.mode === 'map') {
   for (const t of tasks) byLens[t.lens] = (byLens[t.lens] || 0) + 1
   const verification = QUICK
     ? 'plus one Opus skeptic per high finding; medium findings are listed unverified'
-    : 'plus two skeptics per high finding, one per batch of up to five medium findings (lows are listed unverified), and at most five critic gaps with their own finders and verifiers'
-  return { mode: QUICK ? 'quick' : 'full', map, estimate: { finderAgents: countAgents(tasks), byLens, verification } }
+    : `plus two skeptics per high finding, one per batch of up to five medium${A.verifyLows ? ' and low' : ''} findings${A.verifyLows ? '' : ' (lows are listed unverified)'}, and at most five critic gaps with their own finders and verifiers`
+  const sliced = map.slices.reduce((n, s) => n + s.paths.length, 0)
+  return { mode: QUICK ? 'quick' : 'full', map, coverage: TREE ? { listed: A.files.length, sliced } : undefined, estimate: { finderAgents: countAgents(tasks), byLens, verification } }
 }
 
 // ---------------------------------------------------------------- audit mode
@@ -401,12 +469,13 @@ function groupBySurface(fs) {
 
 async function verifyAll(deduped) {
   const highs = deduped.filter(f => f.severity === 'high')
-  const mediums = deduped.filter(f => f.severity === 'medium')
+  // verifyLows sends lows through the same batched skeptic as mediums, so no finding is reported unchecked.
+  const batched = deduped.filter(f => f.severity === 'medium' || (A.verifyLows && f.severity === 'low'))
   const verified = (await parallel([
     ...highs.map(f => () => verifyHigh(f)),
-    ...(QUICK ? [] : groupBySurface(mediums).map(b => () => verifyMediums(b))),
+    ...(QUICK ? [] : groupBySurface(batched).map(b => () => verifyMediums(b))),
   ])).filter(Boolean).flat()
-  const unverified = deduped.filter(f => f.severity === 'low' || (QUICK && f.severity === 'medium'))
+  const unverified = deduped.filter(f => (f.severity === 'low' && (QUICK || !A.verifyLows)) || (QUICK && f.severity === 'medium'))
   return { verified, unverified }
 }
 
@@ -435,7 +504,7 @@ if (!QUICK) {
     schema: {
       type: 'object',
       properties: { gaps: { type: 'array', items: { type: 'object', properties: {
-        lens: { type: 'string', enum: ['core', 'dead', 'dry', 'security', 'performance', 'rules', 'docs', 'tests', 'parity', 'sibling', 'upstream'] },
+        lens: { type: 'string', enum: ['core', 'dead', 'dry', 'security', 'performance', 'rules', 'docs', 'tests', 'parity', 'sibling', 'upstream', 'hygiene'] },
         target: { type: 'string', description: 'paths, commits or the behaviour to audit' }, why: { type: 'string' },
       }, required: ['lens', 'target', 'why'] } } },
       required: ['gaps'],
@@ -461,7 +530,7 @@ let mutation = null
 if (A.mutate) {
   phase('Mutate')
   const suspects = verified.filter(v => v.survives && v.lenses.includes('tests')).map(v => `${v.file}:${v.line} ${v.title}`)
-  mutation = await agent(`You work in a throwaway git worktree of the Reikai repo, so edits here never reach the owner's tree. Pick up to five tests added in ${RANGE}, preferring these suspects:\n${suspects.join('\n') || '(none flagged; pick tests whose production clause is easy to isolate)'}\n\nFor each, one at a time: delete the production clause the test claims to pin, run only that test class through the PowerShell tool (never Bash, which cannot run Gradle here): $env:JAVA_HOME='C:\\Users\\unseensnick\\.jdks\\temurin-21.0.11'; .\\gradlew :<module>:testDebugUnitTest --tests <FQCN> (the domain module uses :domain:test). Never pipe gradlew into Select-String, which hides a failed build. Record red or green, restore the clause, move on. A test that stays green with its clause deleted is a confirmed finding with evidence "executed". If Gradle will not run, report that rather than guessing.`, {
+  mutation = await agent(`You work in a throwaway git worktree of the Reikai repo, so edits here never reach the owner's tree. Pick up to five tests ${TREE ? 'among the listed files' : `added in ${RANGE}`}, preferring these suspects:\n${suspects.join('\n') || '(none flagged; pick tests whose production clause is easy to isolate)'}\n\nFor each, one at a time: delete the production clause the test claims to pin, run only that test class through the PowerShell tool (never Bash, which cannot run Gradle here): $env:JAVA_HOME='C:\\Users\\unseensnick\\.jdks\\temurin-21.0.11'; .\\gradlew :<module>:testDebugUnitTest --tests <FQCN> (the domain module uses :domain:test). Never pipe gradlew into Select-String, which hides a failed build. Record red or green, restore the clause, move on. A test that stays green with its clause deleted is a confirmed finding with evidence "executed". If Gradle will not run, report that rather than guessing.`, {
     label: 'mutate', phase: 'Mutate', isolation: 'worktree', schema: FINDINGS,
   })
 }

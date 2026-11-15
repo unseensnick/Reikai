@@ -47,6 +47,16 @@ raised to match, it is "Dynamic workflow size" in the app's config.
   Off by default: it needs CLI Gradle, which is intermittent on this machine, and it runs one test at a
   time.
 - **`--yes`**: skip the approval stop after the map.
+- **Whole-tree mode** (workflow args, no flag): pass `files` (repo-relative paths) to audit those files as
+  they stand now, however old. `rkFiles` names the ones that are Mihon's, audited for their `// RK` islands;
+  `wave` labels the run; `focus` adds a sentence to every prompt. Slices are cut in code by area, so every
+  listed file lands in exactly one, and the map returns `coverage` to prove it. `base...head` becomes the
+  history window the sibling and deleted-code lenses read. Parity checks the behaviours the area's docs
+  describe rather than `[Unreleased]`.
+- **`verifyLows`** (workflow arg): low findings go through the same batched skeptic as mediums instead of
+  being listed unverified.
+- **`hygiene`** lens: process death, hardcoded or mismatched strings, accessibility and calls above
+  minSdk, over slices tagged `screens`, batched three to an agent.
 - **A `+Nk` token target** in the owner's message caps the run: once it is spent, remaining agents fail
   and are reported as uncovered. It counts output tokens only, so it is a backstop, not a meter.
 
