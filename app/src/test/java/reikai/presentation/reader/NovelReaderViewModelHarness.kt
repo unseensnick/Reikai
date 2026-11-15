@@ -193,7 +193,11 @@ class NovelReaderViewModelHarness private constructor(
     val downloadManager = mockk<NovelDownloadManager>(relaxed = true) {
         every { queueState } returns MutableStateFlow(emptyList())
         every { getChapterText(any(), any()) } answers { downloaded[secondArg<NovelChapter>().id] }
+        every { deleteChapters(any()) } answers { deletedAfterRead += firstArg<List<NovelChapter>>().map { it.id } }
     }
+
+    /** The chapters a mark read removed the download of, with "Remove after marked as read" on. */
+    val deletedAfterRead: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
 
     /** What a details page's remove from library runs. */
     var removeNovelsFromLibrary = mockk<RemoveNovelsFromLibrary>(relaxed = true)

@@ -1569,7 +1569,8 @@ class ReaderViewModel(
         ids.forEach { id -> chapterCopies(id).forEach { copy -> copy.update { it.copy(read = read) } } }
         appScope.launch {
             val targets = groupChapters().filter { it.id in ids }.ifEmpty { chapters }
-            setReadStatus.await(read, *targets.toTypedArray())
+            val open = groupCopyIds(setOfNotNull(getCurrentChapter()?.chapter?.id))
+            setReadStatus.await(read, *targets.toTypedArray(), keepDownloaded = open)
         }
     }
 

@@ -30,7 +30,12 @@ class SetReadStatus(
         }
     }
 
-    suspend fun await(read: Boolean, vararg chapters: Chapter): Result {
+    suspend fun await(
+        read: Boolean,
+        vararg chapters: Chapter,
+        // RK: chapters the reader has open, whose pages may still load from their download, are not removed
+        keepDownloaded: Set<Long> = emptySet(),
+    ): Result {
         val chaptersToUpdate = chapters.filter {
             when (read) {
                 true -> !it.read
@@ -60,6 +65,7 @@ class SetReadStatus(
 
         if (read && downloadPreferences.removeAfterMarkedAsRead.get()) {
             chaptersToUpdate
+                .filter { it.id !in keepDownloaded } // RK
                 // Chapters here still carry their pre-update read state; downstream
                 // deletion filtering (excluded categories) relies on the new state.
                 .map { it.copy(read = true) }

@@ -6,6 +6,7 @@ import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.chapter.interactor.SetReadStatus
+import eu.kanade.domain.download.interactor.DeleteDownload
 import eu.kanade.domain.manga.interactor.SetMangaViewerFlags
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.tachiyomi.data.download.DownloadManager
@@ -144,6 +145,9 @@ class MangaReaderViewModelHarness private constructor(
 
     suspend fun storedManga(id: Long): Manga = mangas.getMangaById(id)
 
+    /** The chapters a mark read removed the download of, with "Remove after marked as read" on. */
+    val deletedAfterRead: MutableList<Long> = java.util.Collections.synchronizedList(mutableListOf())
+
     suspend fun setViewerFlags(id: Long, flags: Long) {
         mangas.update(MangaUpdate(id) { viewerFlags = flags })
     }
@@ -276,7 +280,11 @@ class MangaReaderViewModelHarness private constructor(
                 // Download removal and the source's own tracker leave the process.
                 setReadStatus = SetReadStatus(
                     downloadPreferences,
-                    mockk(relaxed = true),
+                    mockk<DeleteDownload> {
+                        coEvery { awaitAll(any(), *anyVararg()) } answers {
+                            deletedAfterRead += (args[1] as Array<*>).map { (it as Chapter).id }
+                        }
+                    },
                     mangas,
                     chapters,
                     mockk(relaxed = true),

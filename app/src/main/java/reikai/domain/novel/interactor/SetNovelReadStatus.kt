@@ -24,10 +24,15 @@ class SetNovelReadStatus(
     private val pushNovelUnread: PushNovelUnread,
 ) {
 
-    suspend fun await(read: Boolean, chapters: List<NovelChapter>): Result = write(read, chapters) { written ->
+    /** [keepDownloaded]: chapters the reader has open, whose text may still load from their download. */
+    suspend fun await(
+        read: Boolean,
+        chapters: List<NovelChapter>,
+        keepDownloaded: Set<Long> = emptySet(),
+    ): Result = write(read, chapters) { written ->
         if (read) {
             // As written, so a category kept from removal keeps them.
-            deleteAfterRead.await(written.map { it.copy(read = true) })
+            deleteAfterRead.await(written.filter { it.id !in keepDownloaded }.map { it.copy(read = true) })
         } else {
             // A chapter merely started was never marked on a site, so only one that was read moves it back.
             pushNovelUnread.launch(written.filter { it.read })

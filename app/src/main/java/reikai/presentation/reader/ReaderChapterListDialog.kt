@@ -26,6 +26,7 @@ import eu.kanade.presentation.manga.components.DeleteChaptersDialog
 import eu.kanade.presentation.manga.components.MangaBottomActionMenu
 import eu.kanade.presentation.manga.components.MangaChapterListItem
 import eu.kanade.tachiyomi.data.download.model.Download
+import reikai.domain.chapter.ReadingOrder
 import reikai.domain.chapter.volumeRuns
 import reikai.domain.download.swipeDownloadAction
 import reikai.domain.download.whereDownloadOffered
@@ -195,7 +196,7 @@ fun ReaderChapterListDialog(
                 onMarkAsUnreadClicked = { act { markRead(ids, false) } }.takeIf { offers.markUnread },
                 // The rows run in reading order, so the chapters before the picked one are the rows above it.
                 onMarkPreviousAsReadClicked = {
-                    act { markRead(orderedIds.takeWhile { it != ids.single() }, true) }
+                    act { markRead(ReadingOrder.before(orderedIds) { it == ids.single() }, true) }
                 }.takeIf { ids.size == 1 },
                 onDownloadClicked = {
                     val fetch = ids.filterIndexed { i, _ -> downloads[i] !in setOf(null, Download.State.DOWNLOADED) }

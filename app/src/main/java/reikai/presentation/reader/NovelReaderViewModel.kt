@@ -1269,7 +1269,7 @@ class NovelReaderViewModel(
             val copies = groupCopies(chapterIds.toSet())
             // Unmarked, it can be finished again, and finishing is what reaches the trackers.
             if (!read) chapterFinish.release(copies.map { it.id })
-            setNovelReadStatus.await(read, copies)
+            setNovelReadStatus.await(read, copies, keepDownloaded = expandToUnits(setOf(currentChapterId), groupStitch))
         }
     }
 

@@ -30,6 +30,9 @@ class ReaderSheetReadConformanceTest {
 
         /** Marks chapters 2 and 3 read in one write, as the sheet's bulk bar does: whether each is stored read. */
         suspend fun readAfterMarkingTwo(scope: TestScope): List<Boolean?>
+
+        /** With Remove after marked as read on, marks the open chapter and another read: whether each lost its download. */
+        suspend fun downloadsRemovedMarkingOpenAndOther(scope: TestScope): List<Boolean>
     }
 
     @BeforeEach
@@ -52,6 +55,12 @@ class ReaderSheetReadConformanceTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
+    fun `marking the open chapter read from the sheet keeps its download`(probe: Probe) = runTest {
+        probe.downloadsRemovedMarkingOpenAndOther(this) shouldBe listOf(false, true)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
     fun `marking two chapters read at once from the sheet stores both read`(probe: Probe) = runTest {
         probe.readAfterMarkingTwo(this) shouldBe listOf(true, true)
     }
@@ -59,6 +68,11 @@ class ReaderSheetReadConformanceTest {
     companion object {
         @JvmStatic
         fun probes() = listOf(MangaProbe(), NovelProbe())
+
+        /** Waits for [id]'s download to be removed, the sign the whole mark has run. */
+        private suspend fun removed(deleted: List<Long>, id: Long) = withContext(Dispatchers.Default) {
+            withTimeoutOrNull(3_000) { while (id !in deleted) delay(20) }
+        }
 
         /** The sheet writes on the IO dispatcher, which virtual time does not reach, so this polls. */
         private suspend fun settlesAt(expected: Boolean, read: suspend () -> Boolean?): Boolean? =
@@ -95,6 +109,22 @@ class ReaderSheetReadConformanceTest {
                     marked.map { chapter -> settlesAt(true) { harness.stored(chapter.id).read } }
                 }
             }
+
+        override suspend fun downloadsRemovedMarkingOpenAndOther(scope: TestScope): List<Boolean> =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                val opened = harness.chapter(10L, manga, 1.0)
+                val other = harness.chapter(20L, manga, 2.0)
+                harness.open(
+                    manga,
+                    chapterId = opened.id,
+                    preferences = mapOf("pref_remove_after_marked_as_read_key" to true),
+                ) { model, _ ->
+                    model.setChapterReadStatus(listOf(opened, other), read = true)
+                    removed(harness.deletedAfterRead, other.id)
+                    listOf(opened.id in harness.deletedAfterRead, other.id in harness.deletedAfterRead)
+                }
+            }
     }
 
     class NovelProbe : Probe {
@@ -125,6 +155,20 @@ class ReaderSheetReadConformanceTest {
 
                 model.setChapterRead(marked.map { it.id }, read = true)
                 marked.map { chapter -> settlesAt(true) { harness.isRead(chapter) } }
+            }
+
+        override suspend fun downloadsRemovedMarkingOpenAndOther(scope: TestScope): List<Boolean> =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                harness.novelPreferences.removeAfterMarkedAsRead().set(true)
+                val novel = harness.novel(harness.source("alpha"))
+                val opened = harness.chapter(novel, 1.0)
+                val other = harness.chapter(novel, 2.0)
+                val model = harness.open(novel, opened.id)
+                scope.advanceUntilIdle()
+
+                model.setChapterRead(listOf(opened.id, other.id), read = true)
+                removed(harness.deletedAfterRead, other.id)
+                listOf(opened.id in harness.deletedAfterRead, other.id in harness.deletedAfterRead)
             }
     }
 }
