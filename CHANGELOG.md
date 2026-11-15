@@ -285,6 +285,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **Settings -> Advanced -> Clear cookies and Clear WebView data now also sign novel plugins out of their sites.**
 - **Settings -> Advanced -> Test FlareSolverr now says why the server could not fetch the page, and no longer shows a stale result after the address or sign-in changes.** A source that fails through the server reports the server's reason too.
+- **Settings -> Advanced -> Novel web page developer tools now turns off the moment you untick it.** It stayed on until a novel was next opened.
 
 ### Browse
 

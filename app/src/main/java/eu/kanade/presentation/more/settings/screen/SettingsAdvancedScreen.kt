@@ -59,6 +59,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.novel.NovelPreferences
 import reikai.presentation.settings.bypassPreferenceItems
 import reikai.presentation.settings.forgetAllWebStorage
+import reikai.util.isDebugInspectorBuild
+import reikai.util.webContentsDebugging
 import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.lang.withUIContext
@@ -467,6 +469,7 @@ object SettingsAdvancedScreen : SearchableSettings {
         // RK
         novelPreferences: NovelPreferences,
     ): Preference.PreferenceGroup {
+        val context = LocalContext.current // RK
         return Preference.PreferenceGroup(
             title = stringResource(MR.strings.pref_category_reader),
             preferenceItems = listOf(
@@ -481,6 +484,13 @@ object SettingsAdvancedScreen : SearchableSettings {
                     title = stringResource(MR.strings.pref_novel_webview_dev_tools),
                     visible = showsContent(ContentType.NOVELS),
                     subtitle = stringResource(MR.strings.pref_novel_webview_dev_tools_summary),
+                    // The switch is process-wide, so it changes now rather than when a novel page is next built.
+                    onValueChanged = { on ->
+                        WebView.setWebContentsDebuggingEnabled(
+                            webContentsDebugging(on, context.isDebugInspectorBuild()),
+                        )
+                        true
+                    },
                 ),
                 // RK <--
             ),
