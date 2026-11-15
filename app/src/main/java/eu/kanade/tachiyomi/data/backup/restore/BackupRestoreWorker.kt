@@ -115,7 +115,7 @@ class BackupRestoreWorker(private val context: Context, workerParams: WorkerPara
             uri: Uri,
             options: RestoreOptions,
             sync: Boolean = false,
-            trusted: ApprovedRepos = ApprovedRepos(), // RK
+            trusted: ApprovedRepos, // RK
         ) {
             val inputData = workDataOf(
                 LOCATION_URI_KEY to uri.toString(),

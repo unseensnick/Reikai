@@ -193,6 +193,7 @@ class BackupRestorer(
         if (options.appSettings) {
             restoreAmount += 1
         }
+        // RK: the backup's extension stores restore through restoreExtensions, which reports no progress of its own
         if (options.sourceSettings) {
             restoreAmount += 1
         }
@@ -249,6 +250,7 @@ class BackupRestorer(
             }
             restoreNovelsStream(uri, summary, options)
             // RK <--
+            // RK: restoreExtensionStores moved to restoreExtensions below, which adds only the stores the user trusted
 
             // TODO: optionally trigger online library + tracker update
         }
@@ -695,6 +697,7 @@ class BackupRestorer(
         )
     }
 
+    // RK: restoreExtensionStores is replaced by restoreExtensions, see the constructor's note
     private fun CoroutineScope.restoreSourcePreferences(preferences: List<BackupSourcePreferences>) = launch {
         ensureActive()
         preferenceRestorer.restoreSource(preferences)

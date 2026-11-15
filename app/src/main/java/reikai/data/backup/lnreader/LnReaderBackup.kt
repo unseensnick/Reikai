@@ -82,7 +82,6 @@ internal data class LnReaderPlugin(
     val url: String,
     val site: String? = null,
     val lang: String? = null,
-    val version: String? = null,
     val iconUrl: String? = null,
 )
 

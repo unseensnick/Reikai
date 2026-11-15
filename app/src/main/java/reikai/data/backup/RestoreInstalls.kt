@@ -79,9 +79,7 @@ data class RestoreInstallPlan(
     val repos: List<BackupRepo> = emptyList(),
     val unavailable: List<String> = emptyList(),
     val unreadRepos: List<String> = emptyList(),
-) {
-    val isEmpty get() = ready.isEmpty() && repos.isEmpty() && unavailable.isEmpty() && unreadRepos.isEmpty()
-}
+)
 
 /** The backup repos the user trusted on the Restore screen: app repos by index address with the key they saw. */
 @Serializable

@@ -228,7 +228,7 @@ class BackupCreator(
                         out,
                         BackupFields.NOVEL_MERGES,
                         BackupNovelMergeGroup.serializer(),
-                        novelBackupCreator.novelMerges(options),
+                        novelBackupCreator.novelMerges(),
                     )
                 }
                 if (options.savedSearches) {

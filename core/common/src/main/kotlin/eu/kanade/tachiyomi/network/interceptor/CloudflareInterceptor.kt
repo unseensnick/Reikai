@@ -139,7 +139,7 @@ class CloudflareInterceptor(
     }
 
     override fun intercept(chain: Interceptor.Chain, request: Request, response: Response): Response {
-        // RK: as in intercept(chain)
+        // RK: unreached while intercept(chain) is overridden, which the base declares abstract; answers as that does
         return answerKnown(chain, request, response) ?: solve(chain, request, response) ?: chain.proceed(request)
     }
 

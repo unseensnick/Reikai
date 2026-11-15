@@ -25,9 +25,8 @@
   delete globalThis.__lnGetStorage;
   delete globalThis.__lnSetStorage;
 
-  // QuickJS has no browser globals; plugins (and the cheerio/dayjs bundles) expect a handful.
-  globalThis.window = globalThis;
-  globalThis.self = globalThis;
+  // QuickJS has no browser globals; plugins (and the vendor bundles) expect a handful. window and self are
+  // seeded by the host before the vendors load, since a UMD bundle looks for them as it loads.
 
   if (typeof globalThis.console === "undefined") {
     var mkLog = function (level) {
@@ -947,23 +946,8 @@
       return decodeURIComponent(String(s));
     },
   };
-  // @libs/aes is backed by the @noble/ciphers vendor bundle (globalThis.nobleCiphers). The stub is
-  // a fallback that throws a clear error if the bundle somehow didn't load.
-  var aesStub = new Proxy(
-    {},
-    {
-      get: function (_t, prop) {
-        return function () {
-          throw new Error("@libs/aes not available (" + String(prop) + ")");
-        };
-      },
-    },
-  );
-  var aesLib =
-    typeof globalThis.nobleCiphers !== "undefined" &&
-    globalThis.nobleCiphers.gcm
-      ? { gcm: globalThis.nobleCiphers.gcm }
-      : aesStub;
+  // @libs/aes is the @noble/ciphers vendor bundle, which loads before this runtime or the engine fails to start.
+  var aesLib = { gcm: globalThis.nobleCiphers.gcm };
 
   // -- the require() resolver -------------------------------------------------
 

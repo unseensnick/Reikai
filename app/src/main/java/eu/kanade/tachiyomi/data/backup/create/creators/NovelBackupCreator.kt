@@ -82,8 +82,8 @@ class NovelBackupCreator(
     suspend fun novelCategories(options: BackupOptions): List<BackupNovelCategory> =
         if (options.categories) backupNovelCategories() else emptyList()
 
-    suspend fun novelMerges(options: BackupOptions): List<BackupNovelMergeGroup> =
-        if (options.libraryEntries) serializeGroups() else emptyList()
+    // Written with the novels, as the manga groups are, so the caller gates both on Library entries.
+    suspend fun novelMerges(): List<BackupNovelMergeGroup> = serializeGroups()
 
     /** Each source's name, as manga's source list carries it, so a restore can name one not installed. */
     suspend fun sources(sourceIds: Set<String>): List<BackupNovelSource> =

@@ -506,6 +506,13 @@ class NovelWebViewport(
         syncEnd()
     }
 
+    // Rewrites the page's variables when the cutout inset moved after the build, which they carry.
+    private fun refreshTopInset() {
+        val settings = documentSettings
+        // The column's settings already, which a spread must not turn into the column's again.
+        if (settings != null && callbacks.cutoutTopDp() != documentInset) writeSettings(settings)
+    }
+
     /**
      * Pushes changed display settings into the live document, so a size or colour change reflows in
      * place rather than waiting for the next chapter. The custom properties are rewritten wholesale,
@@ -513,17 +520,10 @@ class NovelWebViewport(
      * object. Queued like a window verb, because a change made while a document is still loading
      * would otherwise find no engine and be dropped with no trace until the next chapter.
      */
-    private fun refreshTopInset() {
-        val settings = documentSettings
-        // The column's settings already, which a spread must not turn into the column's again.
-        if (settings != null && callbacks.cutoutTopDp() != documentInset) writeSettings(settings)
-    }
-
     override fun applySettings(settings: NovelReaderSettings) {
         writeSettings(spreadHost?.columnSettings(settings) ?: settings)
     }
 
-    /** Writes the column's [settings] into the live document. */
     private fun writeSettings(settings: NovelReaderSettings) {
         val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition

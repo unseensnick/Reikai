@@ -82,7 +82,7 @@ object TurnstileBench {
         })();
     """.trimIndent()
 
-    fun run(context: Context, sitekey: String = INTERACTIVE_SITEKEY) {
+    fun run(context: Context, sitekey: String) {
         Handler(Looper.getMainLooper()).post {
             start(context, HOST, ORIGIN, { webView ->
                 log("loading the test widget, sitekey $sitekey")

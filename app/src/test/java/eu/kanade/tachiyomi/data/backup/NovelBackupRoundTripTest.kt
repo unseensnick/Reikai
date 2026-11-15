@@ -1,6 +1,5 @@
 package eu.kanade.tachiyomi.data.backup
 
-import eu.kanade.tachiyomi.data.backup.create.BackupOptions
 import eu.kanade.tachiyomi.data.backup.create.creators.NovelBackupCreator
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
 import eu.kanade.tachiyomi.data.backup.models.BackupNovelChapter
@@ -97,16 +96,7 @@ class NovelBackupRoundTripTest {
             readingPace = NoReadingPace,
             localNovelLanguages = NoLocalNovelLanguages,
         )
-        // Library + merges only; skip chapters/categories/tracking/history so no DB is touched.
-        val options = BackupOptions(
-            libraryEntries = true,
-            chapters = false,
-            categories = false,
-            tracking = false,
-            history = false,
-        )
-
-        val merges = creator.novelMerges(options)
+        val merges = creator.novelMerges()
 
         // The group is serialized as stable {url, source} refs, not the raw ids.
         merges.map { group -> group.refs.map { it.url to it.source } } shouldContainExactly

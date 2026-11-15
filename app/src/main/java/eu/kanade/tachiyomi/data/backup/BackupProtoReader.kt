@@ -1,5 +1,5 @@
 // Net-new. Streams a backup's top-level protobuf fields one at a time so a large backup is
-// never fully materialised in memory (the read counterpart to BackupCreator.writeProtoField). Used
+// never fully materialised in memory (the read counterpart to BackupProtoWriter.writeField). Used
 // by BackupFileValidator and BackupRestorer to replace the whole-file decodeFromByteArray, which
 // OOMs on large libraries. Generic proto framing, no content-type coupling.
 package eu.kanade.tachiyomi.data.backup
