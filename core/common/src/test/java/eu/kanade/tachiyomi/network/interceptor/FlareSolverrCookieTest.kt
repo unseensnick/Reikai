@@ -24,7 +24,8 @@ class FlareSolverrCookieTest {
 
     @Test
     fun `a cookie's expiry and flags reach the jar as cookie attributes`() {
-        val solved = FlareSolverrCookie("n", "v", "example.com", expires = 1_700_000_000.0, httpOnly = true, secure = true)
+        val solved =
+            FlareSolverrCookie("n", "v", "example.com", expires = 1_700_000_000.0, httpOnly = true, secure = true)
 
         solved.toRawCookieString("example.com") shouldBe
             "n=v; Domain=.example.com; Path=/; Expires=Tue, 14-Nov-2023 22:13:20 GMT; Secure; HttpOnly"
