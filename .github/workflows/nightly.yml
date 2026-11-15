@@ -108,6 +108,15 @@ jobs:
       - name: Run unit tests
         run: ./gradlew test
 
+      # The log names a failure in one line; the report holds its stack and any error a test left behind.
+      - name: Upload test reports
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: test-reports
+          path: "**/build/reports/tests/"
+          if-no-files-found: ignore
+
   build:
     name: Build signed nightly
     runs-on: ubuntu-26.04
