@@ -1,5 +1,7 @@
 package reikai.presentation.reader.text
 
+import android.graphics.Bitmap
+import android.graphics.Color
 import android.text.Spanned
 import android.text.style.ImageSpan
 import android.util.TypedValue
@@ -168,7 +170,8 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
     fun aPictureAloneInAParagraphIsCentred() {
         // Narrower than the column at any density, since a picture is drawn at its own dp width.
         server.close()
-        server = PngServer(pngOf(100, 60))
+        // Solid, so where it is drawn can be read off the screen.
+        server = PngServer(solidPngOf(100, 60, Color.MAGENTA))
         onMain {
             renderer.render(
                 block = block,
@@ -190,23 +193,35 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
         }
         awaitWhile { block.imagesLoading }
 
-        var left = 0f
         var width = 0
         var column = 0
+        var columnLeftOnScreen = 0
+        var rowOnScreen = 0
         instrumentation.runOnMainSync {
             val view = block.chunkViews.first { view ->
                 (view.text as? Spanned)?.let { it.getSpans(0, it.length, ImageSpan::class.java).isNotEmpty() } == true
             }
             val text = view.text as Spanned
-            val span = text.getSpans(0, text.length, ImageSpan::class.java).first()
-            left = view.layout.getPrimaryHorizontal(text.getSpanStart(span))
+            val span = text.getSpans(0, text.length, ChapterImageSpan::class.java).first()
             width = span.drawable.bounds.width()
             column = view.layout.width
+            val onScreen = IntArray(2).also(view::getLocationOnScreen)
+            val line = view.layout.getLineForOffset(text.getSpanStart(span))
+            columnLeftOnScreen = onScreen[0] + view.totalPaddingLeft
+            rowOnScreen = onScreen[1] + view.totalPaddingTop + view.layout.getLineTop(line) + span.topPx +
+                span.drawable.bounds.height() / 2
         }
+        // Where the picture is drawn, not where its span starts: the span takes the whole column and centres the
+        // picture inside it. Read off the screen, since the loaded picture is a hardware bitmap a software canvas
+        // does not draw.
+        val screen = instrumentation.uiAutomation.takeScreenshot().copy(Bitmap.Config.ARGB_8888, false)
+        val left = (0 until screen.width).firstOrNull { isMagenta(screen.getPixel(it, rowOnScreen)) }
+            ?.let { it - columnLeftOnScreen } ?: -1
+        screen.recycle()
         assertTrue("the picture is ${width}px, as wide as the ${column}px column", width < column - 2)
         assertTrue(
             "a ${width}px picture starts at ${left}px in a ${column}px column",
-            abs(left - (column - width) / 2f) <= 1,
+            abs(left - (column - width) / 2f) <= 2,
         )
     }
 
@@ -271,6 +286,10 @@ class NovelImageLayoutTest(private val selectable: Boolean) {
 
     private fun placeholderPx(): Int =
         (PLACEHOLDER_DP * instrumentation.targetContext.resources.displayMetrics.density).toInt()
+
+    // Loose, since scaling blends a picture's edge and this screen shifts colours (reference_fold_device_tests).
+    private fun isMagenta(pixel: Int): Boolean =
+        Color.red(pixel) > 150 && Color.green(pixel) < 100 && Color.blue(pixel) > 150
 
     private fun awaitWhile(condition: () -> Boolean) {
         val deadline = System.currentTimeMillis() + TimeUnit.SECONDS.toMillis(TIMEOUT_S)

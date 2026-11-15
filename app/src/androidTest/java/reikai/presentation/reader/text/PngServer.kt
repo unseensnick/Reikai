@@ -95,3 +95,9 @@ internal class PngServer(
 internal fun pngOf(width: Int, height: Int): ByteArray = ByteArrayOutputStream().also {
     Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).compress(Bitmap.CompressFormat.PNG, 100, it)
 }.toByteArray()
+
+/** A picture of one [color] throughout, for a test that finds where it is drawn. */
+internal fun solidPngOf(width: Int, height: Int, color: Int): ByteArray = ByteArrayOutputStream().also {
+    Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        .compress(Bitmap.CompressFormat.PNG, 100, it)
+}.toByteArray()
