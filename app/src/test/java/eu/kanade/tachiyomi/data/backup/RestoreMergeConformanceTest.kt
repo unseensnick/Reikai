@@ -13,6 +13,7 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.MethodSource
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -68,6 +69,13 @@ class RestoreMergeConformanceTest {
     @MethodSource("restorers")
     fun `an uninitialized backup never replaces the device's details`(restorer: MergeRestorer) = runTest {
         restorer.description(deviceInitialized = false, backupInitialized = false) shouldBe "device"
+    }
+
+    // Novels only: a manga keeps no page count.
+    @Test
+    fun `a novel's page count comes with the details the backup fills in`() = runTest {
+        listOf(NovelMergeRestorer().totalPages(false, true), NovelMergeRestorer().totalPages(true, true)) shouldBe
+            listOf(12L, 1L)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -338,6 +346,12 @@ class NovelMergeRestorer : MergeRestorer {
         deviceNovel.copy(favoriteAt = Instant.fromEpochMilliseconds(device)),
         BackupNovel(source = "s", url = "u", favorite = true, dateAdded = backup),
     )?.favoriteAt?.toEpochMilliseconds()
+
+    // A novel's page count is one of its details, so it comes from the side the details do.
+    suspend fun totalPages(deviceInitialized: Boolean, backupInitialized: Boolean): Long? = restoreOver(
+        deviceNovel.copy(totalPages = 1, initialized = deviceInitialized),
+        BackupNovel(source = "s", url = "u", totalPages = 12, initialized = backupInitialized),
+    )?.totalPages
 
     /** Restores [backup] over [dbNovel], returning the novel as written. */
     private suspend fun restoreOver(dbNovel: Novel, backup: BackupNovel): Novel? {

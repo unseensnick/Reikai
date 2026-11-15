@@ -376,6 +376,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Backups with Source settings now carry the settings of enhanced sources too.** Before, those sources' settings were left out of every backup.
 - **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
 - **A backup file of zeros, as a damaged copy can be, now shows the invalid-backup message instead of restoring nothing.**
+- **A paged novel restored over a copy that was never opened now gets its full page list right away.** Before, the page picker showed only the pages its chapters came from until the next refresh.
 
 ### Other
 

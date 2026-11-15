@@ -179,6 +179,7 @@ class NovelRestorer(
             status = details.status,
             thumbnailUrl = details.thumbnailUrl,
             updateStrategy = details.updateStrategy,
+            totalPages = details.totalPages,
             initialized = dbNovel.initialized || novel.initialized,
             nextUpdate = dbNovel.nextUpdate ?: novel.nextUpdate,
         )
