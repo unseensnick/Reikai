@@ -347,6 +347,27 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * A chapter's own markup can carry the reader's chapter marker. Past such an element, progress and the
+     * fits test have to keep naming the chapter it sits in, whether it opened the page or was added to it.
+     */
+    @Test
+    fun aChaptersOwnChapterMarkerIsNotTakenForAChapter() {
+        val nested = "<div class=\"rk-chapter\" data-rk-chapter-id=\"7\">${"<p>inside</p>".repeat(50)}</div>"
+        loadDocument(document(chapterHtml = "<p>lorem</p>".repeat(20) + nested + "<p>lorem</p>".repeat(200)))
+        eval(
+            "window.rkReader.appendChapter('99', '${"<p>x</p>".repeat(
+                20,
+            )}<div class=\"rk-chapter\">y</div>', null, $SEAM)",
+        )
+        eval("window.scrollTo({ top: 3000, behavior: 'instant' })")
+        settleFrames()
+        awaitProgress(CHAPTER_ID.toString())
+
+        val markers = eval("String(document.querySelectorAll('.rk-chapter').length)")
+        assertEquals(listOf("2", null), listOf(markers, progressByChapter["7"]))
+    }
+
+    /**
      * The hold only matters once a short chapter can be scrolled into, which takes a chapter below it.
      * Measured against its own height, a few pixels into one read as a negative percent.
      */

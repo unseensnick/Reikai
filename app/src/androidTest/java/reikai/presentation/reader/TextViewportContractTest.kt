@@ -1648,6 +1648,18 @@ class TextViewportContractTest(private val renderer: Renderer) {
         assertEquals(at[1].toFloat(), textBox(NOTE).top, textSizePx() * 3)
     }
 
+    /** An address is read trimmed, as a browser reads it, so a space before the fragment changes nothing. */
+    @Test
+    fun aLinkToAPlaceWrittenWithALeadingSpaceScrollsWithinItsOwnChapter() {
+        val target = "<p id=\"note\">$NOTE</p>"
+        open(chapter(SECOND, "<p><a href=\" #note\">$JUMP_LINK</a></p>${long("filler")}$target${long("after")}"))
+        prepend(chapter(FIRST, "${long("before")}<p id=\"note\">$OTHER_NOTE</p>"))
+        awaitScrollStill()
+        tapOn(JUMP_LINK)
+        awaitNoteAtTop()
+        assertEquals(viewTop().toFloat(), textBox(NOTE).top, textSizePx() * 3)
+    }
+
     /** The chapter's own address plus a fragment is the same jump, which the page left to the browser's. */
     @Test
     fun aLinkToTheChaptersOwnAddressAndAPlaceScrollsWithinItsOwnChapter() {

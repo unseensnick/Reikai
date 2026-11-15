@@ -990,7 +990,8 @@
   /* A link's fragment when it points into its own chapter, else null: a bare #name, or the chapter's trusted
      base with one, the rule NovelChapterAddress.fragmentInDocument gives the native reader. */
   function fragmentWithin(link, chapter) {
-    var href = link.getAttribute('href');
+    // Trimmed, as a browser and NovelChapterAddress.absolute read an address.
+    var href = link.getAttribute('href').trim();
     if (href.charAt(0) === '#') return href.substring(1);
     var id = chapter.getAttribute(CHAPTER_ID_ATTR);
     var base = id in chapterBases ? chapterBases[id] : DOCUMENT_BASE;
@@ -1637,9 +1638,21 @@
    * chapter's own base first, parsed in a template so nothing is fetched before the rewrite. A chapter
    * with no base keeps its values as written.
    */
+  /*
+   * Takes the reader's chapter marker off a chapter's own markup, which a source can carry. Left on, the
+   * nested element reads as a chapter of its own, and progress, ends and fits past it name the wrong one.
+   */
+  function disownMarkers(root) {
+    root.querySelectorAll(CHAPTER_SELECTOR + ', [' + CHAPTER_ID_ATTR + ']').forEach(function (node) {
+      node.classList.remove('rk-chapter');
+      node.removeAttribute(CHAPTER_ID_ATTR);
+    });
+  }
+
   function chapterContent(html, baseUrl) {
     var template = document.createElement('template');
     template.innerHTML = html;
+    disownMarkers(template.content);
     if (!baseUrl) return template.content;
     template.content.querySelectorAll('[src], [href], [srcset]').forEach(function (node) {
       ['src', 'href'].forEach(function (name) {
@@ -1915,6 +1928,8 @@
 
   /* What needs the chapter parsed, which this script, running in the head, is ahead of. */
   function start() {
+    // The opening chapter came in with the page, past chapterContent.
+    document.querySelectorAll('#rk-chapters > ' + CHAPTER_SELECTOR).forEach(disownMarkers);
     if (PAGED) document.documentElement.classList.add('rk-paged');
     if (SPREAD) document.documentElement.classList.add('rk-spread');
     if (typeof ResizeObserver === 'function') {
