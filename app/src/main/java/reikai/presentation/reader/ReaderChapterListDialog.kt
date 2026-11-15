@@ -87,6 +87,10 @@ fun ReaderChapterListDialog(
         // elsewhere while the sheet is open is not masked by an earlier delete-swipe.
         fun downloadStateOf(row: ReaderChapterRow) =
             if (row.downloadState.isQueued) row.downloadState else stateOverrides[row.id] ?: row.downloadState
+
+        // The chapter being read is never deleted from under the reader, by its row, its swipe or the bar.
+        fun keepsDownload(id: Long, state: Download.State) =
+            id == currentChapterId && state == Download.State.DOWNLOADED
         fun runDownloadAction(chapterIds: List<Long>, action: ChapterDownloadAction) {
             chapterIds.forEach {
                 when (action) {
@@ -140,12 +144,16 @@ fun ReaderChapterListDialog(
                         read = read,
                         bookmark = bookmark,
                         selected = row.id in selection,
-                        downloadIndicatorEnabled = true,
+                        downloadIndicatorEnabled = !keepsDownload(row.id, downloadState),
                         downloadIndicatorShown = row.offersDownload,
                         downloadStateProvider = { downloadState },
                         downloadProgressProvider = { row.downloadProgress },
-                        chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(row.offersDownload),
-                        chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(row.offersDownload),
+                        chapterSwipeStartAction = chapterSwipeStartAction.whereDownloadOffered(
+                            row.offersDownload && !keepsDownload(row.id, downloadState),
+                        ),
+                        chapterSwipeEndAction = chapterSwipeEndAction.whereDownloadOffered(
+                            row.offersDownload && !keepsDownload(row.id, downloadState),
+                        ),
                         onLongClick = { selection = EntrySelection.rangeOrToggle(selection, row.id, orderedIds) },
                         onClick = {
                             if (selection.isEmpty) {
@@ -175,11 +183,8 @@ fun ReaderChapterListDialog(
                     downloadState = downloadStateOf(it),
                 )
             }
-            // The chapter being read is never deleted from under the reader, so it adds no Delete.
             val downloads = selected.map { row ->
-                row.downloadState.takeIf {
-                    row.offersDownload && !(row.id == currentChapterId && it == Download.State.DOWNLOADED)
-                }
+                row.downloadState.takeIf { row.offersDownload && !keepsDownload(row.id, it) }
             }
             val offers = chapterSelectionOffers(selected, downloads)
             val ids = selected.map { it.id }

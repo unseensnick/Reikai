@@ -8,6 +8,7 @@ import androidx.compose.ui.test.longClick
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeRight
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.model.Download
 import io.kotest.matchers.shouldBe
@@ -49,7 +50,11 @@ class ReaderChapterListDialogTest {
         offersDownload = true,
     )
 
-    private fun show(rows: List<ReaderChapterRow>, current: Long = rows.first().id) {
+    private fun show(
+        rows: List<ReaderChapterRow>,
+        current: Long = rows.first().id,
+        swipe: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+    ) {
         compose.setContent {
             ComposeTestHost {
                 ReaderChapterListDialog(
@@ -57,8 +62,8 @@ class ReaderChapterListDialogTest {
                     rows = rows,
                     currentChapterId = current,
                     undatedChapterDate = UndatedChapterDate.Blank,
-                    chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Disabled,
-                    chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+                    chapterSwipeStartAction = swipe,
+                    chapterSwipeEndAction = swipe,
                     onClickChapter = { opened += it },
                     onMarkRead = { ids, read -> marks += ids to read },
                     onBookmark = { ids, bookmarked -> bookmarks += ids to bookmarked },
@@ -138,6 +143,22 @@ class ReaderChapterListDialogTest {
         longPress("Chapter 1")
 
         bar("Delete").assertDoesNotExist()
+    }
+
+    // The bar leaves it out, so its row's own swipe has to as well.
+    @Test
+    fun `a delete swipe on the chapter being read leaves its download`() {
+        show(
+            listOf(row(1, Download.State.DOWNLOADED), row(2, Download.State.DOWNLOADED)),
+            current = 1,
+            swipe = LibraryPreferences.ChapterSwipeAction.Download,
+        )
+
+        compose.onNodeWithText("Chapter 1").performTouchInput { swipeRight() }
+        compose.onNodeWithText("Chapter 2").performTouchInput { swipeRight() }
+        compose.waitForIdle()
+
+        downloads shouldBe listOf(listOf(2L) to ChapterDownloadAction.DELETE)
     }
 
     @Test
