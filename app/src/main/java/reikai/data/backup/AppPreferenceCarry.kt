@@ -125,7 +125,8 @@ class AppPreferenceCarry(
     /** How long the app stays unlocked, where -1 is never locking again. */
     private fun lockDelayRank(minutes: Int) = if (minutes < 0) Int.MAX_VALUE else minutes
 
-    private companion object {
+    // Internal so PreferenceRestorerTest reads the lists rather than a copy that drifts from them.
+    internal companion object {
         val SKIPPED_KEYS = setOf(
             DEAD_READER_TTS_ENABLED_KEY, // carried after it
             // The retired merge prefs hold ids from the device the backup came from; the restorers rebuild

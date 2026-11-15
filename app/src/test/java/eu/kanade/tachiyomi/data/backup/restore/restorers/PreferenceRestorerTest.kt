@@ -457,12 +457,10 @@ class PreferenceRestorerTest {
             Arguments.of(DEAD_READER_TAP_TO_SCROLL_KEY, BooleanPreferenceValue(true)),
             Arguments.of(DEAD_READER_AUTO_SCROLL_KEY, BooleanPreferenceValue(true)),
             Arguments.of(ReikaiSourcePreferences.DEAD_SHOW_NSFW_SOURCE_KEY, BooleanPreferenceValue(false)),
-            Arguments.of(DEAD_READER_TTS_ENABLED_KEY, BooleanPreferenceValue(true)),
-            Arguments.of(ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY, StringPreferenceValue("NOVELS")),
-            Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_NOVEL_PAGE_KEY, IntPreferenceValue(3)),
-            Arguments.of(ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY, IntPreferenceValue(3)),
-            Arguments.of(DEAD_PLUGINS_NEED_REVALIDATION_KEY, BooleanPreferenceValue(true)),
-        ) + DEAD_READER_TTS_BUTTON_KEYS.map { Arguments.of(it, IntPreferenceValue(120)) }
+        ) +
+            // Every key and prefix the carry skips, read from its own lists so a new entry is covered too.
+            AppPreferenceCarry.SKIPPED_KEYS.map { Arguments.of(it, IntPreferenceValue(3)) } +
+            AppPreferenceCarry.SKIPPED_PREFIXES.map { Arguments.of("${it}42", IntPreferenceValue(3)) }
 
         @JvmStatic
         fun saferSwitches(): List<Arguments> {
