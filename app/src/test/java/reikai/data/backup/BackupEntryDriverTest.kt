@@ -148,14 +148,12 @@ class BackupEntryDriverTest {
     @Test
     fun `one bad entry does not lose the rest of its batch`() = runTest {
         val tx = RollbackTransactions()
-        val restored = mutableListOf<String>()
         restoreBatch(listOf("a", "bad", "c"), tx) {
             if (it == "bad") error("broken")
             tx.pending += it
-            restored += it
         }
-        // The batch rolled back, then the retry restored the good entries one at a time.
-        restored.takeLast(2) shouldBe listOf("a", "c")
+        // The batch rolled back, then the retry committed the good entries one at a time.
+        tx.committed shouldBe listOf("a", "c")
     }
 
     @Test
