@@ -122,7 +122,9 @@ import reikai.presentation.library.updateerror.UpdateErrorsScreen
 import reikai.presentation.local.ImportHandOff
 import reikai.presentation.local.LocalImportScreen
 import reikai.presentation.local.importedFiles
+import reikai.util.isHandedOver
 import reikai.util.isLauncherIntent
+import reikai.util.toOwnTask
 import tachiyomi.core.common.Constants
 import tachiyomi.core.common.util.lang.launchIO
 import tachiyomi.core.common.util.system.logcat
@@ -205,11 +207,15 @@ class MainActivity : BaseActivity() {
         lifecycleScope.launch { databaseRepository.awaitOpen() }
 
         // Do not let the launcher create a new activity http://stackoverflow.com/questions/16283079
-        // RK: the launcher's only; a backup or link opened from another app lands in that app's task
-        if (!isTaskRoot && intent.isLauncherIntent()) {
+        // RK --> a file or link opened from another app is handed to the app's own task with its read grant,
+        // rather than running a second copy of the app in the sender's
+        if (!isTaskRoot && !intent.isHandedOver()) {
+            // Finished first: a single-top start goes to this very screen while it is still the top one.
             finish()
+            if (!intent.isLauncherIntent()) startActivity(intent.toOwnTask())
             return
         }
+        // RK <--
 
         setComposeContent {
             val appMigrating by isAppMigrating.collectAsState()

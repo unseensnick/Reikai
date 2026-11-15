@@ -4,6 +4,7 @@ import android.content.Intent
 import io.kotest.matchers.shouldBe
 import io.mockk.every
 import io.mockk.mockk
+import org.junit.jupiter.api.Test
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
 import org.junit.jupiter.params.provider.MethodSource
@@ -29,6 +30,17 @@ class LauncherIntentTest {
         }
 
         intent.isLauncherIntent() shouldBe dropped
+    }
+
+    @Test
+    fun `a handed over launch keeps the sender's read grant and none of its launch flags`() {
+        val sent = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_DOCUMENT or
+            Intent.FLAG_ACTIVITY_MULTIPLE_TASK
+
+        ownTaskFlags(sent) shouldBe (
+            Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK or
+                Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+            )
     }
 
     companion object {
