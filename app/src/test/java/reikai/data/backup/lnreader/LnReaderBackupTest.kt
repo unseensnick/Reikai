@@ -92,6 +92,21 @@ class LnReaderBackupTest {
         imported shouldContainExactly listOf("in")
     }
 
+    // A novel file cut short, or missing a field LNReader always writes, costs that novel and not the import.
+    @Test
+    fun `a novel file that does not read is skipped and the rest import`() {
+        val damaged = zip(
+            "Version.json" to """{"version":"2.1.0"}""",
+            "NovelAndChapters/1.json" to """{"id":1,"path":"in","pluginId":"p","na""",
+            "NovelAndChapters/2.json" to """{"id":2,"path":"kept","pluginId":"p","name":"Kept","inLibrary":true}""",
+        )
+        val imported = mutableListOf<String>()
+
+        reader(damaged).forEachImported(onLocal = {}) { imported += it.path }
+
+        imported shouldContainExactly listOf("kept")
+    }
+
     @Test
     fun `a local library novel is named instead of imported`() {
         val named = mutableListOf<String>()

@@ -10,6 +10,7 @@ import kotlinx.datetime.LocalDateTime
 import kotlinx.datetime.TimeZone
 import kotlinx.datetime.toInstant
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.Json
@@ -20,6 +21,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import logcat.LogPriority
 import okio.buffer
 import okio.source
 import reikai.data.novel.toNovel
@@ -27,6 +29,7 @@ import reikai.data.novel.toSourceChapters
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.manga.model.Manga
 import java.io.IOException
 import java.io.InputStream
@@ -153,7 +156,14 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
     fun forEachNovel(block: (LnReaderNovel) -> Unit) {
         entries { name, stream ->
             if (name.startsWith(NOVEL_FOLDER) && name.endsWith(".json")) {
-                block(json.decodeFromString<LnReaderNovel>(read(stream)))
+                // One file cut short or missing a field costs that novel, not the rest of the import.
+                val novel = try {
+                    json.decodeFromString<LnReaderNovel>(read(stream))
+                } catch (e: SerializationException) {
+                    logcat(LogPriority.WARN, e) { "LNReader import skipped $name" }
+                    return@entries
+                }
+                block(novel)
             }
         }
     }
@@ -196,10 +206,12 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
     }
 }
 
+// The user's own categories, in LNReader's order, which is each one's order in the backup.
+private fun userCategories(categories: List<LnReaderCategory>) = categories.filter { it.id !in BUILT_IN_CATEGORY_IDS }
+
 /** The categories a Reikai backup carries for [categories], each ordered by its place in LNReader's list. */
 internal fun importedCategories(categories: List<LnReaderCategory>): List<BackupNovelCategory> =
-    categories.filter { it.id !in BUILT_IN_CATEGORY_IDS }
-        .mapIndexed { i, it -> BackupNovelCategory(name = it.name, order = i.toLong()) }
+    userCategories(categories).mapIndexed { i, it -> BackupNovelCategory(name = it.name, order = i.toLong()) }
 
 /**
  * [this] as a Reikai backup entry, filed under the [importedCategories] orders that list it.
@@ -236,9 +248,9 @@ internal fun LnReaderNovel.toImportedNovel(categories: List<LnReaderCategory>, z
             dateFetch = Instant.fromEpochMilliseconds(0),
         ).toBackupNovelChapter(sourceNumber = null, words = null, copyMark = null)
     }
-    val categoryOrders = importedCategories(categories).zip(categories.filter { it.id !in BUILT_IN_CATEGORY_IDS })
+    val categoryOrders = userCategories(categories).withIndex()
         .filter { (_, category) -> id in category.novelIds }
-        .map { (imported, _) -> imported.order }
+        .map { (order, _) -> order.toLong() }
     return source.toNovel(pluginId).copy(favoriteAt = Manga.UNKNOWN_FAVORITE_AT).toBackupNovel().apply {
         lastUpdate = lastUpdatedAt.toEpochMillis(zone) ?: 0L
         lastReadAt = this@toImportedNovel.lastReadAt.toEpochMillis(zone)
