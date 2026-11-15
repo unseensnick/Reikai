@@ -6,6 +6,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomMangaInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupCustomNovelInfo
 import eu.kanade.tachiyomi.data.backup.models.BackupExtension
+import eu.kanade.tachiyomi.data.backup.models.BackupFields
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaMergeGroup
 import eu.kanade.tachiyomi.data.backup.models.BackupMangaSourceRef
@@ -27,10 +28,10 @@ import java.io.ByteArrayOutputStream
 
 /**
  * The streamed backup hand-writes each top-level protobuf field (BackupProtoWriter) instead of
- * encoding the whole Backup at once. A wrong field number or a varint bug would silently corrupt or
- * drop data on a user's backup, so this proves the streamed bytes decode back through the real
- * Backup serializer, across every Reikai (700+) field. If a field number drifts, this fails to
- * build, not on a restore.
+ * encoding the whole Backup at once. A varint or framing bug would silently corrupt a user's backup,
+ * so this proves streamed bytes, a repeated field and tags past one byte among them, decode back
+ * through the real Backup serializer. It writes a sample of fields by their BackupFields numbers;
+ * that each number matches Backup's annotation is BackupFieldsTest's job.
  */
 class BackupStreamFramingTest {
 
@@ -44,39 +45,47 @@ class BackupStreamFramingTest {
     fun `streamed fields decode back through the Backup serializer`() {
         val out = ByteArrayOutputStream()
 
-        // Two manga to prove repeated framing, plus every content type and each RK field.
-        out.write(1, BackupManga.serializer(), BackupManga(source = 1L, url = "m1", title = "Manga 1"))
-        out.write(1, BackupManga.serializer(), BackupManga(source = 2L, url = "m2", title = "Manga 2"))
-        out.write(700, BackupNovel.serializer(), BackupNovel(source = "ns", url = "n1", title = "Novel 1"))
+        // Two manga to prove repeated framing, plus both content types and Reikai's 700-range fields.
+        out.write(BackupFields.MANGA, BackupManga.serializer(), BackupManga(source = 1L, url = "m1", title = "Manga 1"))
+        out.write(BackupFields.MANGA, BackupManga.serializer(), BackupManga(source = 2L, url = "m2", title = "Manga 2"))
         out.write(
-            2,
+            BackupFields.NOVELS,
+            BackupNovel.serializer(),
+            BackupNovel(source = "ns", url = "n1", title = "Novel 1"),
+        )
+        out.write(
+            BackupFields.CATEGORIES,
             BackupCategory.serializer(),
             BackupCategory(name = "Cat", contentType = CategoryContentType.UNIVERSAL),
         )
-        out.write(101, BackupSource.serializer(), BackupSource(name = "Src", sourceId = 1L))
-        out.write(710, BackupExtension.serializer(), BackupExtension(pkgName = "pkg", name = "Ext"))
+        out.write(BackupFields.SOURCES, BackupSource.serializer(), BackupSource(name = "Src", sourceId = 1L))
+        out.write(BackupFields.EXTENSIONS, BackupExtension.serializer(), BackupExtension(pkgName = "pkg", name = "Ext"))
         out.write(
-            711,
+            BackupFields.MANGA_MERGES,
             BackupMangaMergeGroup.serializer(),
             BackupMangaMergeGroup(refs = listOf(BackupMangaSourceRef("a", 1L), BackupMangaSourceRef("b", 2L))),
         )
         out.write(
-            713,
+            BackupFields.CUSTOM_MANGA_INFO,
             BackupCustomMangaInfo.serializer(),
             BackupCustomMangaInfo(source = 1L, url = "m1", title = "Custom Manga"),
         )
-        out.write(701, BackupNovelCategory.serializer(), BackupNovelCategory(name = "NCat"))
+        out.write(BackupFields.NOVEL_CATEGORIES, BackupNovelCategory.serializer(), BackupNovelCategory(name = "NCat"))
         out.write(
-            702,
+            BackupFields.NOVEL_MERGES,
             BackupNovelMergeGroup.serializer(),
             BackupNovelMergeGroup(refs = listOf(BackupNovelSourceRef("na", "ns1"), BackupNovelSourceRef("nb", "ns2"))),
         )
         out.write(
-            714,
+            BackupFields.CUSTOM_NOVEL_INFO,
             BackupCustomNovelInfo.serializer(),
             BackupCustomNovelInfo(source = "ns", url = "n1", title = "Custom Novel"),
         )
-        out.write(717, BackupNovelSource.serializer(), BackupNovelSource(name = "Novel Src", sourceId = "ns"))
+        out.write(
+            BackupFields.NOVEL_SOURCES,
+            BackupNovelSource.serializer(),
+            BackupNovelSource(name = "Novel Src", sourceId = "ns"),
+        )
 
         val backup = proto.decodeFromByteArray(Backup.serializer(), out.toByteArray())
 
