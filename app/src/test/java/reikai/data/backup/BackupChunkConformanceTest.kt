@@ -10,6 +10,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupReadingSession
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.mockk
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.encodeToHexString
@@ -18,24 +19,28 @@ import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.EnumSource
+import reikai.data.chapter.ChapterCopyMarkRepositoryImpl
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.data.chapter.ChapterTombstoneRepositoryImpl
+import reikai.data.chapter.VolumePickRepositoryImpl
+import reikai.data.library.LibraryManualOrderRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
 import reikai.data.novel.NovelHistoryRepositoryImpl
 import reikai.data.novel.NovelTrackRepositoryImpl
 import reikai.data.readinglog.ReadingLogRepositoryImpl
 import reikai.data.readinglog.ReadingPaceRepositoryImpl
-import reikai.domain.chapter.InMemoryChapterCopyMarks
+import reikai.domain.chapter.ChapterCopyMark
+import reikai.domain.chapter.CopyMark
 import reikai.domain.chapter.LocalVolumeRepository
-import reikai.domain.chapter.NoChapterTombstoneRepository
 import reikai.domain.chapter.NoLocalVolumes
-import reikai.domain.chapter.NoVolumePicks
 import reikai.domain.library.ContentType
-import reikai.domain.library.FakeLibraryManualOrderRepository
+import reikai.domain.library.ManualOrderPosition
 import reikai.domain.local.VolumeOwner
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.readinglog.ReadingPaceRepository
 import reikai.novel.local.LocalNovelSource
+import reikai.util.testAppScope
 import tachiyomi.data.Database
 import tachiyomi.data.DatabaseBindings
 import tachiyomi.data.category.CategoryRepositoryImpl
@@ -50,19 +55,20 @@ import tachiyomi.source.local.LocalSource
 /**
  * A chunk reads its rows for all its series at once, so a row has to land on the series it belongs to.
  * Two series backed up in one chunk come out exactly as each does in a chunk of its own, for both types,
- * over the real queries.
+ * over the real queries, each series holding every kind of row a chunk reads: kept states, duplicate
+ * marks, Manual places and, for a local series, its volume pick among them.
  */
 @OptIn(ExperimentalSerializationApi::class)
 class BackupChunkConformanceTest {
 
     private lateinit var driver: JdbcSqliteDriver
-    private lateinit var database: Database
+    private lateinit var store: Store
 
     @BeforeEach
     fun setUp() = runTest {
         driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
         Database.Schema.create(driver).await()
-        database = DatabaseBindings.providesDatabase(driver)
+        store = Store(DatabaseBindings.providesDatabase(driver))
         listOf(
             "INSERT INTO category(id, name, `order`, flags, content_type) VALUES (1, 'A', 1, 0, 0), (2, 'B', 2, 0, 0)",
         ).forEach { driver.execute(null, it, 0).await() }
@@ -70,17 +76,31 @@ class BackupChunkConformanceTest {
 
     @AfterEach
     fun tearDown() {
+        store.scope.cancel()
         driver.close()
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a chunk writes each series what a chunk of its own writes`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
         val options = BackupOptions(customInfo = false)
 
-        val together = type.backUp(options, database, listOf(1L, 2L))
-        val apart = type.backUp(options, database, listOf(1L)) + type.backUp(options, database, listOf(2L))
+        val together = type.backUp(options, store, listOf(1L, 2L))
+        val apart = type.backUp(options, store, listOf(1L)) + type.backUp(options, store, listOf(2L))
+
+        together shouldBe apart
+    }
+
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chunk of local series writes each what a chunk of its own writes`(type: Type) = runTest {
+        type.seed(driver, store)
+        val options = BackupOptions(customInfo = false)
+
+        val together = type.backUp(options, store, listOf(1L, 2L), local = true)
+        val apart = type.backUp(options, store, listOf(1L), local = true) +
+            type.backUp(options, store, listOf(2L), local = true)
 
         together shouldBe apart
     }
@@ -88,27 +108,27 @@ class BackupChunkConformanceTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a chunk's order moves no row to another series`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
 
-        type.backUp(BackupOptions(customInfo = false), database, listOf(1L, 2L)) shouldBe
-            type.backUp(BackupOptions(customInfo = false), database, listOf(2L, 1L)).reversed()
+        type.backUp(BackupOptions(customInfo = false), store, listOf(1L, 2L)) shouldBe
+            type.backUp(BackupOptions(customInfo = false), store, listOf(2L, 1L)).reversed()
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `each series in a chunk carries its own reading sessions`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
 
-        type.sessions(database, listOf(1L, 2L)) shouldBe
+        type.sessions(store, listOf(1L, 2L)) shouldBe
             listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
     }
 
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `each series in a chunk carries its own history`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
 
-        type.history(database, listOf(1L, 2L)) shouldBe
+        type.history(store, listOf(1L, 2L)) shouldBe
             listOf(listOf(Triple("/a1", 1000L, 5L)), listOf(Triple("/b1", 2000L, 6L)))
     }
 
@@ -116,9 +136,9 @@ class BackupChunkConformanceTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a local series' grouping is backed up with Chapters unticked`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
 
-        type.ownersWithoutChapters(database) shouldBe listOf(listOf("B"), emptyList())
+        type.ownersWithoutChapters(store) shouldBe listOf(listOf("B"), emptyList())
     }
 
     // Manga history keys by chapter url and novel history takes its read-aloud times from the pace rows, both
@@ -126,13 +146,22 @@ class BackupChunkConformanceTest {
     @ParameterizedTest
     @EnumSource(Type::class)
     fun `a chunk reads the rows its chapters and history share once`(type: Type) = runTest {
-        type.seed(driver)
+        type.seed(driver, store)
 
-        type.sharedReads(database, listOf(1L, 2L)) shouldBe 1
+        type.sharedReads(store, listOf(1L, 2L)) shouldBe 1
     }
 
-    enum class Type {
-        MANGA {
+    /** The database and the repositories over it whose rows a chunk reads for every series at once. */
+    class Store(val database: Database) {
+        val scope = testAppScope()
+        val tombstones = ChapterTombstoneRepositoryImpl(database)
+        val copyMarks = ChapterCopyMarkRepositoryImpl(database, scope)
+        val manualOrder = LibraryManualOrderRepositoryImpl(database)
+        val volumePicks = VolumePickRepositoryImpl(database, scope)
+    }
+
+    enum class Type(val contentType: ContentType) {
+        MANGA(ContentType.MANGA) {
             override val statements = listOf(
                 "INSERT INTO manga(id, source_id, remote_url, remote_title, remote_status, state_initialized, " +
                     "user_reader_flags, user_chapter_flags, state_cover_last_modified, user_favorite_at, " +
@@ -155,40 +184,44 @@ class BackupChunkConformanceTest {
                 "INSERT INTO manga_chapter_number_override(manga_id, url, number, source_number) VALUES " +
                     "(1, '/a1', 1.5, 1.0), (2, '/b1', 2.5, 7.0)",
                 "INSERT INTO excluded_scanlator(manga_id, scanlator) VALUES (1, 'X'), (2, 'Y')",
+                "INSERT INTO manga_chapter_tombstone(manga_id, url, read, bookmark, last_page_read, page_count, " +
+                    "date_fetch, history_read_at, history_read_duration, removed_at) VALUES " +
+                    "(1, '/a9', 1, 0, 3, 10, 0, 1500, 4, 0), (2, '/b9', 0, 1, 7, 20, 0, NULL, NULL, 0)",
             )
 
-            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>) =
-                chunk(options, database, ids).map { ProtoBuf.encodeToHexString(BackupManga.serializer(), it) }
+            override suspend fun backUp(options: BackupOptions, store: Store, ids: List<Long>, local: Boolean) =
+                chunk(options, store, ids, local).map { ProtoBuf.encodeToHexString(BackupManga.serializer(), it) }
 
-            override suspend fun sessions(database: Database, ids: List<Long>) =
-                chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
+            override suspend fun sessions(store: Store, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), store, ids).map { it.readingSessions.asTriples() }
 
-            override suspend fun history(database: Database, ids: List<Long>) =
-                chunk(BackupOptions(customInfo = false), database, ids).map { backup ->
+            override suspend fun history(store: Store, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), store, ids).map { backup ->
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
-            override suspend fun ownersWithoutChapters(database: Database) =
-                chunk(BackupOptions(chapters = false, customInfo = false), database, listOf(1L, 2L), local = true)
+            override suspend fun ownersWithoutChapters(store: Store) =
+                chunk(BackupOptions(chapters = false, customInfo = false), store, listOf(1L, 2L), local = true)
                     .map { backup -> backup.volumeOwners.map { it.folder } }
 
-            override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
+            override suspend fun sharedReads(store: Store, ids: List<Long>): Int {
                 var reads = 0
-                chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
+                chunk(BackupOptions(customInfo = false), store, ids) { reads++ }
                 return reads
             }
 
             private suspend fun chunk(
                 options: BackupOptions,
-                database: Database,
+                store: Store,
                 ids: List<Long>,
                 local: Boolean = false,
                 onSharedRead: () -> Unit = {},
             ): List<BackupManga> {
+                val database = store.database
                 val chapters = ChapterRepositoryImpl(database)
                 val creator = MangaBackupCreator(
-                    tombstones = NoChapterTombstoneRepository,
-                    manualOrder = FakeLibraryManualOrderRepository(),
+                    tombstones = store.tombstones,
+                    manualOrder = store.manualOrder,
                     mangaRepository = MangaRepositoryImpl(database),
                     chapterRepository = object : ChapterRepository by chapters {
                         override suspend fun getChaptersByMangaIds(mangaIds: List<Long>) =
@@ -203,9 +236,9 @@ class BackupChunkConformanceTest {
                     getManga = mockk(),
                     mergeGroupRepository = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
-                    copyMarks = InMemoryChapterCopyMarks(),
+                    copyMarks = store.copyMarks,
                     localVolumes = if (local) grouped else NoLocalVolumes,
-                    volumePicks = NoVolumePicks,
+                    volumePicks = store.volumePicks,
                     readingLog = ReadingLogRepositoryImpl(database),
                 )
                 val source = if (local) LocalSource.ID else 1L
@@ -217,7 +250,7 @@ class BackupChunkConformanceTest {
                 )
             }
         },
-        NOVELS {
+        NOVELS(ContentType.NOVELS) {
             override val statements = listOf(
                 "INSERT INTO novels(_id, source, url, title, status, initialized, chapter_flags, favorite_at) " +
                     "VALUES (1, 'src', 'u1', 'T1', 0, 0, 0, 0), (2, 'src', 'u2', 'T2', 0, 0, 0, 0)",
@@ -234,40 +267,44 @@ class BackupChunkConformanceTest {
                 "INSERT INTO novel_reading_session(chapter_id, ended_at, duration) VALUES (10, 1000, 5), (11, 2000, 6)",
                 "INSERT INTO novel_chapter_number_override(novel_id, url, number, source_number) VALUES " +
                     "(1, '/a1', 1.5, 1.0), (2, '/b1', 2.5, 7.0)",
+                "INSERT INTO novel_chapter_tombstone(novel_id, url, read, bookmark, last_text_progress, words, " +
+                    "listened_ms, date_fetch, history_last_read, history_time_read, removed_at) VALUES " +
+                    "(1, '/a9', 1, 0, 30, 900, 0, 0, 1500, 4, 0), (2, '/b9', 0, 1, 70, NULL, NULL, 0, NULL, NULL, 0)",
             )
 
-            override suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>) =
-                chunk(options, database, ids).map { ProtoBuf.encodeToHexString(BackupNovel.serializer(), it) }
+            override suspend fun backUp(options: BackupOptions, store: Store, ids: List<Long>, local: Boolean) =
+                chunk(options, store, ids, local).map { ProtoBuf.encodeToHexString(BackupNovel.serializer(), it) }
 
-            override suspend fun sessions(database: Database, ids: List<Long>) =
-                chunk(BackupOptions(customInfo = false), database, ids).map { it.readingSessions.asTriples() }
+            override suspend fun sessions(store: Store, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), store, ids).map { it.readingSessions.asTriples() }
 
-            override suspend fun history(database: Database, ids: List<Long>) =
-                chunk(BackupOptions(customInfo = false), database, ids).map { backup ->
+            override suspend fun history(store: Store, ids: List<Long>) =
+                chunk(BackupOptions(customInfo = false), store, ids).map { backup ->
                     backup.history.map { Triple(it.url, it.lastRead, it.readDuration) }
                 }
 
-            override suspend fun ownersWithoutChapters(database: Database) =
-                chunk(BackupOptions(chapters = false, customInfo = false), database, listOf(1L, 2L), local = true)
+            override suspend fun ownersWithoutChapters(store: Store) =
+                chunk(BackupOptions(chapters = false, customInfo = false), store, listOf(1L, 2L), local = true)
                     .map { backup -> backup.volumeOwners.map { it.folder } }
 
-            override suspend fun sharedReads(database: Database, ids: List<Long>): Int {
+            override suspend fun sharedReads(store: Store, ids: List<Long>): Int {
                 var reads = 0
-                chunk(BackupOptions(customInfo = false), database, ids) { reads++ }
+                chunk(BackupOptions(customInfo = false), store, ids) { reads++ }
                 return reads
             }
 
             private suspend fun chunk(
                 options: BackupOptions,
-                database: Database,
+                store: Store,
                 ids: List<Long>,
                 local: Boolean = false,
                 onSharedRead: () -> Unit = {},
             ): List<BackupNovel> {
+                val database = store.database
                 val pace = ReadingPaceRepositoryImpl(database)
                 val creator = NovelBackupCreator(
-                    tombstones = NoChapterTombstoneRepository,
-                    manualOrder = FakeLibraryManualOrderRepository(),
+                    tombstones = store.tombstones,
+                    manualOrder = store.manualOrder,
                     novelRepository = mockk(),
                     novelChapterRepository = NovelChapterRepositoryImpl(database),
                     categoryRepository = CategoryRepositoryImpl(database),
@@ -277,9 +314,9 @@ class BackupChunkConformanceTest {
                     novelHistoryRepository = NovelHistoryRepositoryImpl(database),
                     novelSourceManager = mockk(),
                     chapterNumberOverrides = ChapterNumberOverrideRepositoryImpl(database),
-                    copyMarks = InMemoryChapterCopyMarks(),
+                    copyMarks = store.copyMarks,
                     localVolumes = if (local) grouped else NoLocalVolumes,
-                    volumePicks = NoVolumePicks,
+                    volumePicks = store.volumePicks,
                     readingLog = ReadingLogRepositoryImpl(database),
                     readingPace = object : ReadingPaceRepository by pace {
                         override suspend fun novelChapterPace(novelIds: List<Long>) =
@@ -299,22 +336,39 @@ class BackupChunkConformanceTest {
 
         abstract val statements: List<String>
 
-        suspend fun seed(driver: JdbcSqliteDriver) = statements.forEach { driver.execute(null, it, 0).await() }
+        /** Every row kind for both series: through SQL, and through the repositories where they own the encoding. */
+        suspend fun seed(driver: JdbcSqliteDriver, store: Store) {
+            statements.forEach { driver.execute(null, it, 0).await() }
+            store.copyMarks.set(
+                contentType,
+                listOf(ChapterCopyMark(1L, "/a1", CopyMark.NeverSkip), ChapterCopyMark(2L, "/b1", CopyMark.Group(4L))),
+            )
+            store.manualOrder.upsert(
+                listOf(ManualOrderPosition(contentType, 1L, 1L, 5L), ManualOrderPosition(contentType, 2L, 2L, 7L)),
+            )
+            store.volumePicks.set(contentType, 1L, "v1")
+            store.volumePicks.set(contentType, 2L, "v2")
+        }
 
         /** Each series' backup on the wire, so two are compared field by field without a data class. */
-        abstract suspend fun backUp(options: BackupOptions, database: Database, ids: List<Long>): List<String>
+        abstract suspend fun backUp(
+            options: BackupOptions,
+            store: Store,
+            ids: List<Long>,
+            local: Boolean = false,
+        ): List<String>
 
         /** Each series' reading sessions as (url, endedAt, duration), since the backup class has no equals. */
-        abstract suspend fun sessions(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
+        abstract suspend fun sessions(store: Store, ids: List<Long>): List<List<Triple<String, Long, Long>>>
 
         /** Each series' history as (url, lastRead, readDuration). */
-        abstract suspend fun history(database: Database, ids: List<Long>): List<List<Triple<String, Long, Long>>>
+        abstract suspend fun history(store: Store, ids: List<Long>): List<List<Triple<String, Long, Long>>>
 
         /** How many times one chunk ran the read its chapters and history parts share. */
-        abstract suspend fun sharedReads(database: Database, ids: List<Long>): Int
+        abstract suspend fun sharedReads(store: Store, ids: List<Long>): Int
 
         /** The folders each local series' backup says its group holds, from a backup made with Chapters unticked. */
-        abstract suspend fun ownersWithoutChapters(database: Database): List<List<String>>
+        abstract suspend fun ownersWithoutChapters(store: Store): List<List<String>>
 
         protected fun List<BackupReadingSession>.asTriples() = map { Triple(it.url, it.endedAt, it.duration) }
 
