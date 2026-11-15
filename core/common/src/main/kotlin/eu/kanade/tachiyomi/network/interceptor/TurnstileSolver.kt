@@ -92,7 +92,6 @@ object TurnstileSolver {
         }
     }
 
-    private const val BRIDGE = "reikaiTurnstileWatch"
     private const val WORLD = "reikai-turnstile"
 
     /**
@@ -291,6 +290,8 @@ object TurnstileSolver {
     private const val DEFAULT_HEIGHT = 1920
 }
 
+private const val BRIDGE = "reikaiTurnstileWatch"
+
 /**
  * Reports what the challenge page shows, twice a second and the moment Cloudflare says anything the
  * solver acts on, from a world its scripts cannot read.
@@ -306,7 +307,7 @@ private val WATCH = """
   const TOKEN = 'input[name="cf-turnstile-response"]';
   const CHALLENGE = '#challenge-form,#challenge-stage,#cf-challenge-running,#cf-please-wait,#challenge-spinner';
   const CHALLENGE_ORIGIN = 'https://challenges.cloudflare.com';
-  const DECIDING = ['interactiveBegin', 'complete'];
+  const DECIDING = ['$INTERACTIVE_BEGIN', '$COMPLETE'];
   // Ported from Solverr, including what it deliberately leaves out: Cloudflare leaves a
   // /cdn-cgi/challenge-platform/ beacon on solved pages too, so that string is not a marker.
   const MARKERS = [
@@ -335,7 +336,7 @@ private val WATCH = """
       const challenged = markup || !document.body || looksLikeChallenge();
       const seen = events.join('|');
       events = [];
-      window.reikaiTurnstileWatch.postMessage(JSON.stringify({
+      window.$BRIDGE.postMessage(JSON.stringify({
         challenged: challenged,
         token: input ? input.value : '',
         cf: seen,

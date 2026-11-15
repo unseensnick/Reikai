@@ -196,6 +196,6 @@ internal const val SOLVE_BUDGET_MS = 20_000L
 private const val ACCEPT_POLL_MS = 250L
 private const val ACCEPT_POLL_ATTEMPTS = 20
 
-/** The events Cloudflare posts that this decides anything from. */
-private const val INTERACTIVE_BEGIN = "interactiveBegin"
-private const val COMPLETE = "complete"
+/** The events Cloudflare posts that this decides anything from, which the probe also filters on. */
+internal const val INTERACTIVE_BEGIN = "interactiveBegin"
+internal const val COMPLETE = "complete"
