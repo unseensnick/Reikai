@@ -350,6 +350,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Fixed
 
 - **Manga migration rows show a source's language again when more than one language is enabled.**
+- **The migrate search now lists the sources that found something above the ones that found nothing.**
 - **A migration that fails to carry tracker links or reading history now shows as failed, so Retry can finish it.**
 - **The Copy and Migrate buttons in the migration list no longer sit under the navigation bar.**
 
