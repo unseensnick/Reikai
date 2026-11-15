@@ -332,7 +332,7 @@ internal fun DetailLine(label: String, value: String) {
 }
 
 @Composable
-private fun AddRepoDialog(
+internal fun AddRepoDialog(
     dialog: RepoDialog.Add,
     addedAddresses: Set<String>,
     onAdd: (String) -> Unit,
@@ -364,6 +364,10 @@ private fun AddRepoDialog(
                         }
                         dialog.failed != null -> {
                             { Text(text = stringResource(MR.strings.repo_add_failed)) }
+                        }
+                        // Allowed, since a local test server has no certificate, but nothing checks what it serves.
+                        address.startsWith("http://", ignoreCase = true) -> {
+                            { Text(text = stringResource(MR.strings.repo_add_cleartext)) }
                         }
                         else -> null
                     },

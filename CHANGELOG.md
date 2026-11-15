@@ -289,6 +289,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 #### Added
 
 - **A light-novel plugin's page now has Clear cookies in its ⋮ menu, as an extension's page does.**
+- **Adding a repo at a plain http:// address now warns that anyone on your network can change what it serves.**
 
 #### Changed
 

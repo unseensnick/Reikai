@@ -21,6 +21,7 @@ import reikai.domain.novel.LnSourceIdentity
 import reikai.domain.novel.NovelPreferences
 import reikai.novel.host.LnPluginHost
 import reikai.novel.host.LnPluginLoader
+import reikai.novel.host.loggableUrl
 import reikai.novel.registry.LnRegistry
 import reikai.novel.registry.LnRegistryEntry
 import reikai.novel.registry.LnRegistryFetcher
@@ -230,7 +231,7 @@ class LnPluginInstaller(
                 loader.installedStylesheet(url)?.let(::NovelChapterStylesheet)
             }
             LnPluginSource(host, info, stylesheet) to src
-        }.onFailure { logcat(LogPriority.ERROR, it) { "loadInstalled: failed for $url" } }
+        }.onFailure { logcat(LogPriority.ERROR, it) { "loadInstalled: failed for ${loggableUrl(url)}" } }
         return registryMutex.withLock {
             if (url !in prefs.installedPluginUrls().get()) return@withLock null
             loaded.map { (source, src) ->

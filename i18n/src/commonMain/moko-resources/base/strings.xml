@@ -453,6 +453,7 @@
     <string name="repo_add_input">Repo address</string>
     <string name="repo_add_failed">Couldn\'t read a repo at this address</string>
     <string name="repo_add_unreachable">Couldn\'t reach this address</string>
+    <string name="repo_add_cleartext">Anyone on your network can change what an http:// address serves</string>
     <string name="repo_already_added">This repo is already added</string>
     <string name="repo_add_deeplink">Add the repo below?</string>
     <string name="repo_remove_title">Remove repo</string>

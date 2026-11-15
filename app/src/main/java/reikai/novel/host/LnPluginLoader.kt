@@ -28,7 +28,7 @@ class LnPluginLoader(
 ) {
     /** The script [url] serves now. Stores nothing: the caller decides whether it becomes installed. */
     suspend fun download(url: String): String = withIOContext {
-        logcat(LogPriority.INFO) { "downloading plugin from $url" }
+        logcat(LogPriority.INFO) { "downloading plugin from ${loggableUrl(url)}" }
         val req = Request.Builder()
             .url(url)
             .header("Cache-Control", "no-cache")
@@ -36,10 +36,14 @@ class LnPluginLoader(
             .build()
         networkHelper.client.newCall(req).execute().use { res ->
             if (!res.isSuccessful) {
-                throw LnPluginException("plugin download failed: HTTP ${res.code} from $url")
+                throw LnPluginException("plugin download failed: HTTP ${res.code} from ${loggableUrl(url)}")
             }
             val source = res.body.string()
-            if (source.isBlank()) throw LnPluginException("plugin download returned empty body from $url")
+            if (source.isBlank()) {
+                throw LnPluginException(
+                    "plugin download returned empty body from ${loggableUrl(url)}",
+                )
+            }
             source
         }
     }
@@ -53,7 +57,7 @@ class LnPluginLoader(
         // Written whole since scripts left the cache folder, but one adopted from there can be a partial
         // download. The compiled plugin always carries its default export, so without it nothing loads.
         if (!script.contains(PLUGIN_EXPORT_MARKER)) {
-            logcat(LogPriority.WARN) { "installed plugin ${file.name} looks truncated for $url" }
+            logcat(LogPriority.WARN) { "installed plugin ${file.name} looks truncated for ${loggableUrl(url)}" }
             return@withIOContext null
         }
         script
