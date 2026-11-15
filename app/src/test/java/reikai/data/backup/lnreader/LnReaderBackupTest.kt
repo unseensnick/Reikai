@@ -199,10 +199,11 @@ class LnReaderBackupTest {
     fun `history comes from each chapter's read time, read in the device's zone, with its time spent`() {
         val read = chapter("c").copy(readTime = "2026-04-09 22:41:42", timeSpent = 5000)
 
-        novel(listOf(read)).toImportedNovel(categories, utc).history.single().let {
+        // Tokyo runs nine hours ahead of UTC all year, so a zone ignored moves the read nine hours later.
+        novel(listOf(read)).toImportedNovel(categories, TimeZone.of("Asia/Tokyo")).history.single().let {
             Triple(it.url, it.lastRead, it.readDuration)
         } shouldBe
-            Triple("c", 1775774502000L, 5000L)
+            Triple("c", 1775774502000L - 9 * 3_600_000L, 5000L)
     }
 
     @Test
