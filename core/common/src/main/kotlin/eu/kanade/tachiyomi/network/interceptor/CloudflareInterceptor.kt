@@ -230,7 +230,13 @@ class CloudflareInterceptor(
             try {
                 // One solve per host is the host lock's job; a sibling that queued behind
                 // this one re-checks the jar and never reaches here.
-                resolveWithWebView(request, challengeUrl, oldClearance)
+                // With the headers that reached the challenged host: OkHttp dropped Authorization
+                // on a redirect to another host, and the WebView must not hand it to that site.
+                resolveWithWebView(
+                    request.newBuilder().headers(fetchRequest.headers).build(),
+                    challengeUrl,
+                    oldClearance,
+                )
                 markSolved(challengeUrl.host)
             } catch (e: CloudflareBypassException) {
                 if (!fsActive) {

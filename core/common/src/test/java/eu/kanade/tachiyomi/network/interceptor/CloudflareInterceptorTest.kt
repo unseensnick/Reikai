@@ -219,6 +219,27 @@ class CloudflareInterceptorTest {
         blockedUrl(login) { server(landed) } shouldBe "https://site.example/account?tab=1"
     }
 
+    // OkHttp drops Authorization on a redirect to another host; the WebView must not put it back.
+    @Test
+    fun `a solve after a redirect to another host loads without the first host's sign-in`() {
+        val signedIn = Request.Builder().url("https://api.a.example/feed").header("Authorization", "Bearer t").build()
+        val landed = Request.Builder().url("https://b.example/feed").build()
+        val loaded = AtomicReference<Request>()
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            loaded.set(firstArg())
+            clearance = "solved"
+        }
+        val chain = mockk<Interceptor.Chain> {
+            every { request() } returns signedIn
+            every { proceed(any()) } answers { if (clearance == null) challenge(landed) else ok(firstArg()) }
+            every { cookieJar } returns CookieJar.NO_COOKIES
+        }
+
+        runBounded { interceptor.intercept(chain) }
+
+        loaded.get()?.header("Authorization") shouldBe null
+    }
+
     private fun setServer(server: FlareSolverrClient) {
         CloudflareInterceptor::class.java.getDeclaredField("flareSolverr").apply { isAccessible = true }
             .set(interceptor, server)
