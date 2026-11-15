@@ -229,6 +229,27 @@ class PagedReadingTest(private val renderer: Renderer) {
         }
     }
 
+    // A cutout that changes after the build rewrites the page's settings, which must not narrow the spread's
+    // outside margins to a page's inner one.
+    @Test
+    fun aSpreadKeepsItsSideMarginsWhenTheCutoutChanges() {
+        build(NovelPageLayout.PAGED_LTR, spread = true)
+        open(
+            1L,
+            long("first"),
+            settings = readerTestSettings.copy(margins = readerTestSettings.margins.copy(left = 48, right = 48)),
+        )
+        cutoutDp = 24
+        onMain { column.requestLayout() }
+        settle()
+        val outerLeft = NovelSpreadHost::class.java.getDeclaredField("outerLeft").apply { isAccessible = true }
+        assertEquals(
+            "[$renderer] the spread's outside margin",
+            (48 * instrumentation.targetContext.resources.displayMetrics.density).toInt(),
+            outerLeft.get(view),
+        )
+    }
+
     @Test
     fun aTopMarginChangeThereAndBackKeepsThePage() {
         build(NovelPageLayout.PAGED_LTR)

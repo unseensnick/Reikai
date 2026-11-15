@@ -515,12 +515,16 @@ class NovelWebViewport(
      */
     private fun refreshTopInset() {
         val settings = documentSettings
-        if (settings != null && callbacks.cutoutTopDp() != documentInset) applySettings(settings)
+        // The column's settings already, which a spread must not turn into the column's again.
+        if (settings != null && callbacks.cutoutTopDp() != documentInset) writeSettings(settings)
     }
 
     override fun applySettings(settings: NovelReaderSettings) {
-        @Suppress("NAME_SHADOWING")
-        val settings = spreadHost?.columnSettings(settings) ?: settings
+        writeSettings(spreadHost?.columnSettings(settings) ?: settings)
+    }
+
+    /** Writes the column's [settings] into the live document. */
+    private fun writeSettings(settings: NovelReaderSettings) {
         val previous = documentSettings
         val seamsMoved = documentSettings?.alwaysShowChapterTransition != settings.alwaysShowChapterTransition
         documentSettings = settings
