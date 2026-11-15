@@ -15,7 +15,7 @@ class ChapterGapTest {
     private val none = ChapterGap.Present.NONE
 
     private fun presentOf(vararg rows: ChapterGap.Neighbour) =
-        ChapterGap.Present.of(rows.asList(), { it.ownerId }, { it.number })
+        ChapterGap.Present.of(rows.asList()) { it.number }
 
     /** A list in reading order, oldest first, with each row's number and name as the source gave them. */
     private fun ascending(vararg rows: Pair<Double, String>) = rows.map { (number, name) -> at(number, name) }
@@ -25,19 +25,30 @@ class ChapterGapTest {
             rows,
             neighbourOf = { it },
             isHidden = { false },
-            present = ChapterGap.Present.of(rows, { it.ownerId }, { it.number }),
+            present = ChapterGap.Present.of(rows) { it.number },
             descending = false,
             row = { "${it.number}" },
         ) { _, _, count -> "missing $count" }
             .filter { it.startsWith("missing") }
 
     private fun header(rows: List<ChapterGap.Neighbour>) =
-        ChapterGap.total(rows, { it }, { false }, ChapterGap.Present.of(rows, { it.ownerId }, { it.number }), false)
+        ChapterGap.total(rows, { it }, { false }, ChapterGap.Present.of(rows) { it.number }, false)
 
     @Test
     @DisplayName("consecutive chapters are missing nothing")
     fun consecutiveIsZero() {
         ChapterGap.between(at(5.0), at(4.0), none) shouldBe 0
+    }
+
+    // A merged list fills one source's gap with another's row, so the series has the number even when a filter,
+    // a hide or a skip takes that row away and the first source's rows meet.
+    @Test
+    @DisplayName("a number another source of the series supplies is not missing")
+    fun anotherSourcesNumberIsPresent() {
+        val trunk = listOf(1.0, 2.0, 3.0, 5.0, 6.0).map { at(it, owner = 1L) }
+        val present = presentOf(*(trunk + at(4.0, owner = 2L)).toTypedArray())
+
+        ChapterGap.between(at(5.0, owner = 1L), at(3.0, owner = 1L), present) shouldBe 0
     }
 
     @Test

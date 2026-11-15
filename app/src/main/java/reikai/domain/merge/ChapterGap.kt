@@ -21,37 +21,34 @@ object ChapterGap {
     }
 
     /**
-     * The whole numbers each owner's chapters carry, taken from every chapter of the series, hidden ones
-     * and the ones a filter drops included, so a number the series has elsewhere is never counted missing.
-     * Every recognised number counts, believed or not: that can only take a marker away.
+     * The whole numbers the series' chapters carry, taken from every chapter, hidden ones and the ones a filter
+     * drops included, so a number the series has elsewhere is never counted missing. Every source's count: a
+     * merged list fills one source's gap with another's row, so its number is the series' own. Every recognised
+     * number counts, believed or not: that can only take a marker away.
      */
-    class Present private constructor(private val byOwner: Map<Long, IntArray>) {
+    class Present private constructor(private val numbers: IntArray) {
 
-        /** How many whole numbers strictly between [lo] and [hi] [owner] has no chapter for. */
-        fun absentBetween(owner: Long, lo: Int, hi: Int): Int {
+        /** How many whole numbers strictly between [lo] and [hi] the series has no chapter for. */
+        fun absentBetween(lo: Int, hi: Int): Int {
             val span = hi - lo - 1
             if (span <= 0) return 0
-            val numbers = byOwner[owner] ?: return span
             return span - (firstAtLeast(numbers, hi) - firstAtLeast(numbers, lo + 1))
         }
 
         // A screen state carries this, so two equal lists must compare equal for it to settle.
-        override fun equals(other: Any?): Boolean = other is Present &&
-            byOwner.keys == other.byOwner.keys &&
-            byOwner.all { (owner, numbers) -> numbers.contentEquals(other.byOwner.getValue(owner)) }
+        override fun equals(other: Any?): Boolean = other is Present && numbers.contentEquals(other.numbers)
 
-        override fun hashCode(): Int =
-            byOwner.entries.sumOf { (owner, numbers) -> owner.hashCode() xor numbers.contentHashCode() }
+        override fun hashCode(): Int = numbers.contentHashCode()
 
         companion object {
             /** Nothing known to be present, which counts every number between two neighbours. */
-            val NONE = Present(emptyMap())
+            val NONE = Present(IntArray(0))
 
-            fun <T> of(chapters: Iterable<T>, ownerOf: (T) -> Long, numberOf: (T) -> Double): Present =
+            fun <T> of(chapters: Iterable<T>, numberOf: (T) -> Double): Present =
                 Present(
-                    chapters.filter { isRecognizedChapterNumber(numberOf(it)) }
-                        .groupBy(ownerOf) { floor(numberOf(it)).toInt() }
-                        .mapValues { (_, numbers) -> numbers.toSortedSet().toIntArray() },
+                    chapters.map(numberOf).filter(::isRecognizedChapterNumber)
+                        .mapTo(sortedSetOf()) { floor(it).toInt() }
+                        .toIntArray(),
                 )
 
             private fun firstAtLeast(sorted: IntArray, value: Int): Int {
@@ -66,21 +63,21 @@ object ChapterGap {
         }
     }
 
-    /** The whole numbers strictly between [lo] and [hi] of [owner] that a gap would count, before [Present]. */
-    private data class Span(val owner: Long, val lo: Int, val hi: Int)
+    /** The whole numbers strictly between [lo] and [hi] that a gap would count, before [Present]. */
+    private data class Span(val lo: Int, val hi: Int)
 
     private fun spanOf(higher: Neighbour?, lower: Neighbour?): Span? {
         if (higher == null || !higher.trusted) return null
         // The list edge: everything below the last chapter's number is missing.
-        if (lower == null) return Span(higher.ownerId, 0, floor(higher.number).toInt())
+        if (lower == null) return Span(0, floor(higher.number).toInt())
         if (!lower.trusted) return null
         // Two sources of one entry count differently, so the difference measures nothing.
         if (higher.ownerId != lower.ownerId) return null
         // A pair the list order puts the wrong way round spans nothing rather than a negative something.
-        return Span(higher.ownerId, floor(lower.number).toInt(), floor(higher.number).toInt())
+        return Span(floor(lower.number).toInt(), floor(higher.number).toInt())
     }
 
-    private fun Present.count(span: Span?): Int = span?.let { absentBetween(it.owner, it.lo, it.hi) } ?: 0
+    private fun Present.count(span: Span?): Int = span?.let { absentBetween(it.lo, it.hi) } ?: 0
 
     fun between(higher: Neighbour?, lower: Neighbour?, present: Present): Int = present.count(spanOf(higher, lower))
 
@@ -118,8 +115,8 @@ object ChapterGap {
     }
 
     /**
-     * The header's count: every number the markers of [rows] cover, each owner's number once, so two
-     * markers over the same stretch of a list the source orders oddly are not added twice. [paged] as in
+     * The header's count: every number the markers of [rows] cover, once, so two markers over the same stretch
+     * of a list a source orders oddly, or of two sources' runs, are not added twice. [paged] as in
      * [withMarkers].
      */
     fun <T> total(
@@ -134,22 +131,20 @@ object ChapterGap {
         walk(rows, neighbourOf, isHidden, descending, paged, onRow = {}) { _, _, span ->
             if (span != null && span.hi - span.lo > 1) spans += span
         }
-        return spans.groupBy { it.owner }.entries.sumOf { (owner, own) ->
-            var counted = 0
-            var start = Int.MIN_VALUE
-            var end = Int.MIN_VALUE
-            for (span in own.sortedBy { it.lo }) {
-                if (span.lo < end) {
-                    end = maxOf(end, span.hi)
-                } else {
-                    if (end > start) counted += present.absentBetween(owner, start, end)
-                    start = span.lo
-                    end = span.hi
-                }
+        var counted = 0
+        var start = Int.MIN_VALUE
+        var end = Int.MIN_VALUE
+        for (span in spans.sortedBy { it.lo }) {
+            if (span.lo < end) {
+                end = maxOf(end, span.hi)
+            } else {
+                if (end > start) counted += present.absentBetween(start, end)
+                start = span.lo
+                end = span.hi
             }
-            if (end > start) counted += present.absentBetween(owner, start, end)
-            counted
         }
+        if (end > start) counted += present.absentBetween(start, end)
+        return counted
     }
 
     /** Hands each displayed row to [onRow] and each place a marker could sit to [onGap], in order. */
@@ -221,4 +216,4 @@ fun Chapter.toGapNeighbour() = ChapterGap.Neighbour(chapterNumber, name, mangaId
 
 /** The numbers a manga's gaps are counted against: every chapter of [this], as [ChapterGap.Present] asks. */
 fun Iterable<Chapter>.gapPresent(): ChapterGap.Present =
-    ChapterGap.Present.of(this, { it.mangaId }, { it.chapterNumber })
+    ChapterGap.Present.of(this) { it.chapterNumber }

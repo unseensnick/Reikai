@@ -36,7 +36,7 @@ private fun NovelChapter.toGapNeighbour() = ChapterGap.Neighbour(chapterNumber, 
 
 /** The numbers a novel's gaps are counted against: every chapter of [this], as [ChapterGap.Present] asks. */
 fun Iterable<NovelChapter>.gapPresent(): ChapterGap.Present =
-    ChapterGap.Present.of(this, { it.novelId }, { it.chapterNumber })
+    ChapterGap.Present.of(this) { it.chapterNumber }
 
 /** The header's total, over the same rule the inline markers use, so the two cannot disagree. */
 fun novelMissingChapterCount(

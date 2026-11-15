@@ -101,6 +101,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A merged series now keeps its reading mode, chapter display and rotation whichever source you open it through.** Opening it from History, Updates or another source used to drop what you had set; on upgrade each series takes the settings of the source you read most recently.
 - **Manage sources now opens on the real primary source when you hide a scanlator.**
+- **In a merged series, a chapter that one source supplies no longer shows as missing when a filter or hide takes its row away.** The reader's chapter warning follows the same rule.
 - **Local series in a merge are now named by their titles instead of all reading Local source.** It shows on the source chips, in Manage sources and on each chapter, in the details screen and the reader.
 
 ### Downloads
