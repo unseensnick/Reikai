@@ -41,6 +41,7 @@ import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
 import reikai.novel.network.deviceWebViewUserAgent
 import reikai.novel.source.FetchFailures
+import reikai.novel.source.SETTING_KEY_PREFIX
 import reikai.novel.source.WEB_STORAGE_KEY_PREFIX
 import reikai.quickjs.createQuickJs
 import reikai.util.runCatchingCancellable
@@ -353,15 +354,15 @@ class LnPluginHost(
      *  lnreader's StoredItem envelope (`{value: ...}`), so a value the settings UI writes here is
      *  exactly what the plugin sees at runtime. Values are typed JsonElements (string / bool / array). */
     fun getSetting(pluginId: String, key: String): JsonElement? {
-        val raw = bridge.getStorage(pluginId, "storage:$key") ?: return null
+        val raw = bridge.getStorage(pluginId, "$SETTING_KEY_PREFIX$key") ?: return null
         return runCatching { JSON.parseToJsonElement(raw).jsonObject["value"] }.getOrNull()
     }
 
     fun setSetting(pluginId: String, key: String, value: JsonElement?) {
         if (value == null) {
-            bridge.setStorage(pluginId, "storage:$key", null)
+            bridge.setStorage(pluginId, "$SETTING_KEY_PREFIX$key", null)
         } else {
-            bridge.setStorage(pluginId, "storage:$key", buildJsonObject { put("value", value) }.toString())
+            bridge.setStorage(pluginId, "$SETTING_KEY_PREFIX$key", buildJsonObject { put("value", value) }.toString())
         }
         storageChanged(pluginId)
     }

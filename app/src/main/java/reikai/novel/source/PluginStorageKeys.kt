@@ -13,6 +13,9 @@ fun lnPluginIdOf(scope: String): String? =
 /** Leads a plugin's storage key holding the site storage its WebView captured; headless.js reads it too. */
 const val WEB_STORAGE_KEY_PREFIX = "webview:"
 
+/** Leads a plugin's own settings, as `@libs/storage`'s `storage` writes them (headless.js makeStorage). */
+const val SETTING_KEY_PREFIX = "storage:"
+
 /**
  * Whether [key] holds a plugin's captured site storage, which carries the site's sign-in: a backup
  * treats it like a tracker token and carries it only with sensitive settings included.
