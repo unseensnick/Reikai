@@ -59,6 +59,12 @@ class FlareSolverrJsonViewerTest {
     }
 
     @Test
+    fun `a page whose first pre happens to hold json is left as-is`() {
+        val page = "<html><body><h1>Chapter 3</h1><pre>{\"a\":1}</pre><p>The story goes on.</p></body></html>"
+        unwrapBrowserJsonViewer(page) shouldBe null
+    }
+
+    @Test
     fun `an unsolved cloudflare challenge page is left as-is`() {
         val challenge = "<html lang=\"en-US\" dir=\"ltr\"><head><title>Just a moment...</title></head>" +
             "<body><div id=\"cf-please-wait\"></div></body></html>"

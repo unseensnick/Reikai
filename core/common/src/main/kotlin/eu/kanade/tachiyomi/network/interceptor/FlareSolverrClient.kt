@@ -616,16 +616,18 @@ internal fun flareSolverrCommand(
 
 /**
  * A browser-based solver wraps a JSON-API response in the browser's JSON viewer (a `<pre>` holding
- * the JSON, in Firefox and Chrome alike), which a JSON source then fails to parse.
- *
- * Returns the raw JSON when [response] is such a wrapper, else null (serve as-is): markup whose
- * first `<pre>`, entity-decoded via [org.jsoup.nodes.Element.wholeText], is itself JSON.
+ * the JSON, in Firefox and Chrome alike), which a JSON source then fails to parse. Returns the raw
+ * JSON when [response] is such a wrapper, else null (serve as-is): markup whose first `<pre>`,
+ * entity-decoded via [org.jsoup.nodes.Element.wholeText], is itself JSON and holds all the page's
+ * text, as a viewer's does; a page with text of its own beside it is a page. Internal for tests.
  */
-// internal so the unwrap is unit-testable, like FlareSolverrCookie below.
 internal fun unwrapBrowserJsonViewer(response: String): String? {
     if (!response.trimStart().startsWith('<')) return null
     if (!response.contains("<pre", ignoreCase = true)) return null
-    val pre = Jsoup.parse(response).selectFirst("pre")?.wholeText()?.trim().orEmpty()
+    val document = Jsoup.parse(response)
+    val element = document.selectFirst("pre") ?: return null
+    if (document.body().text() != element.text()) return null
+    val pre = element.wholeText().trim()
     if (!pre.startsWith('{') && !pre.startsWith('[')) return null
     // A page's own <pre> can open with a bracket too ("[Chapter 12]"); the viewers only ever wrap JSON.
     return pre.takeIf { runCatching { Json.parseToJsonElement(it) }.isSuccess }
