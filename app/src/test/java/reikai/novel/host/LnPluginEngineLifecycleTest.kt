@@ -6,6 +6,7 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
@@ -40,6 +41,17 @@ class LnPluginEngineLifecycleTest {
         val first = async { permits.withPermitAndTimeout(30_000L, "first") { delay(20_000L).let { "first" } } }
 
         val queued = permits.withPermitAndTimeout(30_000L, "queued") { delay(20_000L).let { "queued" } }
+
+        listOf(first.await(), queued) shouldBe listOf("first", "queued")
+    }
+
+    // The same for a plugin's calls, which queue on its one engine.
+    @Test
+    fun `a call queued behind another on its plugin gets its whole timeout once it runs`() = runTest {
+        val slot = Mutex()
+        val first = async { slot.withLockAndTimeout(30_000L, "first") { delay(20_000L).let { "first" } } }
+
+        val queued = slot.withLockAndTimeout(30_000L, "queued") { delay(20_000L).let { "queued" } }
 
         listOf(first.await(), queued) shouldBe listOf("first", "queued")
     }

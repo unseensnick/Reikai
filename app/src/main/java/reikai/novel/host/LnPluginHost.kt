@@ -451,16 +451,18 @@ class LnPluginHost(
         pluginId: String,
         method: String,
         args: List<JsonElement>,
-    ): JsonElement = withPluginTimeout(CALL_TIMEOUT_MS, method) {
+    ): JsonElement {
         val slot = pluginSlots[pluginId] ?: throw LnPluginException("plugin not loaded: $pluginId")
-        var started = false
-        try {
-            slot.mutex.withLock { callLocked(slot, method, args) { started = true } }
-        } catch (e: CancellationException) {
-            // The library runs a call's fetches in the engine's own scope, so a timed-out or cancelled call
-            // leaves them running, and the next call would wait on them; only closing the engine stops them.
-            if (started) slot.rebuild = true
-            throw e
+        return slot.mutex.withLockAndTimeout(CALL_TIMEOUT_MS, method) {
+            var started = false
+            try {
+                callLocked(slot, method, args) { started = true }
+            } catch (e: CancellationException) {
+                // The library runs a call's fetches in the engine's own scope, so a timed-out or cancelled call
+                // leaves them running, and the next call would wait on them; only closing the engine stops them.
+                if (started) slot.rebuild = true
+                throw e
+            }
         }
     }
 
@@ -637,6 +639,13 @@ internal suspend fun <T : Any> Semaphore.withPermitAndTimeout(
     what: String,
     block: suspend CoroutineScope.() -> T,
 ): T = withPermit { withPluginTimeout(timeoutMs, what, block) }
+
+/** [block] under this lock, timed from when it holds it, as [withPermitAndTimeout] times a queued read. */
+internal suspend fun <T : Any> Mutex.withLockAndTimeout(
+    timeoutMs: Long,
+    what: String,
+    block: suspend CoroutineScope.() -> T,
+): T = withLock { withPluginTimeout(timeoutMs, what, block) }
 
 /**
  * Closes [engine] on [dispatcher], its confinement thread (close() may pump native state), then retires
