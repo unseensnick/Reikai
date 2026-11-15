@@ -3,4 +3,19 @@
     <color name="launcher_bg_stable">#280055</color>
     <color name="launcher_bg_nightly">#053A48</color>
     <color name="launcher_bg_dev">#242424</color>
+    <!-- Which app icon each build starts with; nightly and debug override their own. -->
+    <bool name="launcher_icon_current_stable">true</bool>
+    <bool name="launcher_icon_flame_r_stable">false</bool>
+    <bool name="launcher_icon_flame_re_stable">false</bool>
+    <bool name="launcher_icon_current_nightly">false</bool>
+    <bool name="launcher_icon_flame_r_nightly">false</bool>
+    <bool name="launcher_icon_flame_re_nightly">false</bool>
+    <bool name="launcher_icon_current_dev">false</bool>
+    <bool name="launcher_icon_flame_r_dev">false</bool>
+    <bool name="launcher_icon_flame_re_dev">false</bool>
+    <bool name="launcher_icon_mihon_re_stable">false</bool>
+    <bool name="launcher_icon_mihon_re_nightly">false</bool>
+    <bool name="launcher_icon_mihon_re_dev">false</bool>
+    <bool name="launcher_icon_mihon_re_mihon_light">false</bool>
+    <bool name="launcher_icon_mihon_re_mihon_dark">false</bool>
 </resources>

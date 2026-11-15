@@ -57,11 +57,7 @@
             android:exported="true"
             android:launchMode="singleTop"
             android:theme="@style/Theme.Tachiyomi.SplashScreen">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+            <!-- RK: the launcher entry and its shortcuts are on the app icon aliases below -->
 
             <!-- Legacy deeplink to add extension store -->
             <intent-filter android:label="@string/action_addExtensionStore">
@@ -128,11 +124,276 @@
                 <data android:mimeType="application/x-cb7" />
             </intent-filter>
 
+        </activity>
+
+        <!-- RK: one launcher entry per app icon, MainActivity behind each; the build's own is enabled by
+             default and Settings > Appearance > App icon switches between them. Names never change or go:
+             a launcher keeps an icon the user picked by its name, across updates. -->
+        <activity-alias
+            android:name=".ui.main.LauncherIconCurrentStable"
+            android:enabled="@bool/launcher_icon_current_stable"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_current_stable"
+            android:roundIcon="@mipmap/ic_launcher_current_stable"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
             <!--suppress AndroidDomInspection -->
             <meta-data
                 android:name="android.app.shortcuts"
                 android:resource="@xml/shortcuts" />
-        </activity>
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameRStable"
+            android:enabled="@bool/launcher_icon_flame_r_stable"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_r_stable"
+            android:roundIcon="@mipmap/ic_launcher_flame_r_stable"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameReStable"
+            android:enabled="@bool/launcher_icon_flame_re_stable"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_re_stable"
+            android:roundIcon="@mipmap/ic_launcher_flame_re_stable"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconCurrentNightly"
+            android:enabled="@bool/launcher_icon_current_nightly"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_current_nightly"
+            android:roundIcon="@mipmap/ic_launcher_current_nightly"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameRNightly"
+            android:enabled="@bool/launcher_icon_flame_r_nightly"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_r_nightly"
+            android:roundIcon="@mipmap/ic_launcher_flame_r_nightly"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameReNightly"
+            android:enabled="@bool/launcher_icon_flame_re_nightly"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_re_nightly"
+            android:roundIcon="@mipmap/ic_launcher_flame_re_nightly"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconCurrentDev"
+            android:enabled="@bool/launcher_icon_current_dev"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_current_dev"
+            android:roundIcon="@mipmap/ic_launcher_current_dev"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameRDev"
+            android:enabled="@bool/launcher_icon_flame_r_dev"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_r_dev"
+            android:roundIcon="@mipmap/ic_launcher_flame_r_dev"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameReDev"
+            android:enabled="@bool/launcher_icon_flame_re_dev"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_re_dev"
+            android:roundIcon="@mipmap/ic_launcher_flame_re_dev"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReStable"
+            android:enabled="@bool/launcher_icon_mihon_re_stable"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_stable"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_stable"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReNightly"
+            android:enabled="@bool/launcher_icon_mihon_re_nightly"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_nightly"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_nightly"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReDev"
+            android:enabled="@bool/launcher_icon_mihon_re_dev"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_dev"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_dev"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReMihonLight"
+            android:enabled="@bool/launcher_icon_mihon_re_mihon_light"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_mihon_light"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_mihon_light"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReMihonDark"
+            android:enabled="@bool/launcher_icon_mihon_re_mihon_dark"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_mihon_dark"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_mihon_dark"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
 
         <activity
             android:name=".crash.CrashActivity"
