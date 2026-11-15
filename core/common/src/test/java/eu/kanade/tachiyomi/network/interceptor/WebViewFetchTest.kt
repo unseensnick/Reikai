@@ -46,12 +46,21 @@ class WebViewFetchTest {
         headersSent(request) shouldBe listOf("Authorization" to "Bearer t")
     }
 
+    private val form = MultipartBody.Builder("b").setType(MultipartBody.FORM).addFormDataPart("action", "x").build()
+
     @Test
-    fun `a posted form goes as its bytes with its multipart type`() {
-        val body = MultipartBody.Builder("b").setType(MultipartBody.FORM).addFormDataPart("action", "x").build()
-        val message = webViewFetchMessage("id", get().post(body).build(), false)!!
+    fun `a posted form goes with its multipart type`() {
+        val message = webViewFetchMessage("id", get().post(form).build(), false)!!
 
         message["contentType"]!!.jsonPrimitive.content shouldBe "multipart/form-data; boundary=b"
+    }
+
+    @Test
+    fun `a posted form goes as its own bytes`() {
+        val message = webViewFetchMessage("id", get().post(form).build(), false)!!
+
+        Base64.getDecoder().decode(message["body"]!!.jsonPrimitive.content).decodeToString() shouldBe
+            Buffer().also { form.writeTo(it) }.readUtf8()
     }
 
     @Test
