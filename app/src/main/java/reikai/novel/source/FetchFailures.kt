@@ -38,8 +38,9 @@ private suspend fun <T> orFailedFetch(isEmpty: (T) -> Boolean, call: suspend () 
 internal suspend fun listingOrFailedFetch(call: suspend () -> NovelItemsPage): NovelItemsPage =
     orFailedFetch({ it.items.isEmpty() }, call)
 
+// A paged plugin leaves the chapters to parsePage, so one with pages is found though it lists none yet.
 internal suspend fun novelOrFailedFetch(call: suspend () -> SourceNovel): SourceNovel =
-    orFailedFetch({ it.chapters.isNullOrEmpty() }, call)
+    orFailedFetch({ it.chapters.isNullOrEmpty() && it.totalPages <= 1 }, call)
 
 internal suspend fun chapterOrFailedFetch(call: suspend () -> String): String =
     orFailedFetch({ it.isBlank() }, call)
