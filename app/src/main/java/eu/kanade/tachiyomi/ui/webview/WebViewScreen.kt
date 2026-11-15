@@ -12,6 +12,7 @@ import eu.kanade.presentation.util.Screen
 import eu.kanade.presentation.webview.WebViewScreenContent
 import reikai.presentation.webview.rememberNovelPageActions
 import reikai.presentation.webview.rememberPluginStorageCapture
+import reikai.presentation.webview.webViewNovelSourceId
 import tachiyomi.presentation.core.screens.LoadingScreen
 
 class WebViewScreen(
@@ -37,7 +38,7 @@ class WebViewScreen(
         val context = LocalContext.current
         val viewModel = assistedMetroViewModel<WebViewViewModel, WebViewViewModel.Factory> {
             // RK: a plugin's source id is its plugin id, so its site opens under the agent its fetches send
-            create(sourceId = sourceId, url = url, novelSourceId = novelSourceId ?: pluginId)
+            create(sourceId = sourceId, url = url, novelSourceId = webViewNovelSourceId(pluginId, novelSourceId))
         }
 
         val headers by viewModel.headers.collectAsState()

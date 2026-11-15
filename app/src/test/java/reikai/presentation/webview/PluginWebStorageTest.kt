@@ -99,6 +99,23 @@ class PluginWebStorageTest {
         }
     }
 
+    // Reading the page's storage runs on Main after every page load, so a plugin that never uses it is spared.
+    @Test
+    fun `the browser stops reading storage once its plugin is known not to use it`() {
+        Dispatchers.setMain(UnconfinedTestDispatcher())
+        try {
+            val sourceManager = mockk<NovelSourceManager>()
+            coEvery { sourceManager.get("plugin") } returns plugin(webStorageUtilized = false)
+            val model = PluginWebStorageViewModel("plugin", null, sourceManager, mockk(), testAppScope())
+            val deadline = System.currentTimeMillis() + 5_000
+            while (model.capturesStorage && System.currentTimeMillis() < deadline) Thread.sleep(10)
+
+            model.capturesStorage shouldBe false
+        } finally {
+            Dispatchers.resetMain()
+        }
+    }
+
     private companion object {
         val SITE_STORAGE = WebStorageSnapshot(local = """{"token":"site"}""", session = "{}")
         val OTHER_STORAGE = WebStorageSnapshot(local = "{}", session = "{}")

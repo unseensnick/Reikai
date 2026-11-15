@@ -39,8 +39,11 @@ fun rememberPluginStorageCapture(pluginId: String?, novelSourceId: String?): (We
     }
     return remember(model) {
         { webView: WebView ->
-            val pageUrl = webView.url
-            webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(pageUrl, parseWebStorage(it)) }
+            // Read on Main, as the WebView answers, so skipped for a plugin that never uses the storage.
+            if (model.capturesStorage) {
+                val pageUrl = webView.url
+                webView.evaluateJavascript(WEB_STORAGE_SCRIPT) { model.onPageStorage(pageUrl, parseWebStorage(it)) }
+            }
         }
     }
 }
@@ -65,15 +68,25 @@ class PluginWebStorageViewModel(
     @Volatile
     private var target: LnPluginSource? = null
 
+    @Volatile
+    private var resolved = false
+
+    /** False once the source is known to be no plugin that uses the site's storage. */
+    val capturesStorage: Boolean get() = !resolved || target != null
+
     // Each host's newest storage with the page it came from, newest host last. Which host is the
     // plugin's site is known only once its source resolves, so the choice waits for the close.
     private val storageByHost = LinkedHashMap<String, Pair<String, WebStorageSnapshot>>()
 
-    // A plugin's source id is its plugin id, so both entries resolve the same way.
-    private val id = pluginId ?: novelSourceId
+    private val id = webViewNovelSourceId(pluginId, novelSourceId)
 
     init {
-        if (id != null) viewModelScope.launchIO { target = webStoragePlugin(sourceManager.get(id)) }
+        if (id != null) {
+            viewModelScope.launchIO {
+                target = webStoragePlugin(sourceManager.get(id))
+                resolved = true
+            }
+        }
     }
 
     fun onPageStorage(pageUrl: String?, snapshot: WebStorageSnapshot?) {
@@ -111,3 +124,9 @@ internal fun pluginSiteStorage(site: String, pages: Collection<Pair<String, WebS
  */
 internal fun webStoragePlugin(source: NovelSource?): LnPluginSource? =
     (source as? LnPluginSource)?.takeIf { it.webStorageUtilized }
+
+/**
+ * The novel source a browser opened with [pluginId] or [novelSourceId] belongs to, for its headers and its
+ * storage alike. A plugin's source id is its plugin id, so either names the same one.
+ */
+fun webViewNovelSourceId(pluginId: String?, novelSourceId: String?): String? = novelSourceId ?: pluginId
