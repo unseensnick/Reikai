@@ -300,6 +300,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **A light-novel plugin novel split into pages now opens when one of its site's requests fails along the way.**
 - **Light-novel plugins that exchange binary data with their site load novels and chapters again.**
 - **A light-novel plugin can no longer read or change another plugin's settings or site sign-in.**
 - **A light-novel plugin's settings now take effect when you save them, without restarting the app.**
