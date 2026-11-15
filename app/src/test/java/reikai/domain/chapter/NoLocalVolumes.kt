@@ -14,6 +14,8 @@ object NoLocalVolumes : LocalVolumeRepository {
 
     override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) = Unit
 
+    override suspend fun setNotes(type: ContentType, series: String, key: String, notes: String) = Unit
+
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) = Unit
 
     override suspend fun all(type: ContentType) = emptyList<VolumeOwner>()

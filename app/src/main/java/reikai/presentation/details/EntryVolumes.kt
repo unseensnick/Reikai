@@ -145,7 +145,7 @@ private fun labelOf(name: String) = volumeNumberIn(name)?.let(VolumeLabel::Numbe
 class VolumePicking(
     private val picks: VolumePickRepository,
     private val volumes: LocalVolumeRepository,
-    private val covers: VolumeCovers,
+    private val files: VolumeFiles,
     private val combine: CombineLocalVolumes,
     private val relink: LocalSeriesRelink,
     private val novelRepository: NovelRepository,
@@ -174,7 +174,10 @@ class VolumePicking(
     suspend fun splitOut(type: ContentType, series: CombinableSeries, keys: List<String>, title: String) =
         combine.splitOut(type, series, keys, title)
 
-    suspend fun cover(type: ContentType, series: String, key: String): Any? = covers.cover(type, series, key)
+    suspend fun cover(type: ContentType, series: String, key: String): Any? = files.cover(type, series, key)
+
+    suspend fun description(type: ContentType, series: String, key: String): String? =
+        files.description(type, series, key)
 
     fun picks(type: ContentType): StateFlow<Map<Long, String>> = picks.picks(type)
 
@@ -348,18 +351,25 @@ fun List<EntryChapterListItem>.inVolumes(
     return VolumeView(chips.map { it.numbered() }, shown, items)
 }
 
-/** A local volume's cover, as an image the cover loader takes, or null when the volume has none. */
-fun interface VolumeCovers {
+/** What a local volume's own files hold for its page: a cover the cover loader takes, and a description. */
+interface VolumeFiles {
     suspend fun cover(type: ContentType, series: String, key: String): Any?
+
+    suspend fun description(type: ContentType, series: String, key: String): String?
 }
 
-/** A manga volume folder's own picture, or a novel book's cover. */
+/** A manga volume folder's own picture and ComicInfo summary, or a novel book's cover and description. */
 @Inject
 @ContributesBinding(AppScope::class)
-class LocalVolumeCovers(private val manga: LocalSource, private val novels: LocalNovelSource) : VolumeCovers {
+class LocalVolumeFiles(private val manga: LocalSource, private val novels: LocalNovelSource) : VolumeFiles {
     override suspend fun cover(type: ContentType, series: String, key: String): Any? = when (type) {
         ContentType.NOVELS -> novels.volumeCover(series, key)
         else -> withIOContext { manga.volumeCover(series, key)?.uri }
+    }
+
+    override suspend fun description(type: ContentType, series: String, key: String): String? = when (type) {
+        ContentType.NOVELS -> novels.volumeDescription(series, key)
+        else -> manga.volumeDescription(series, key)
     }
 }
 
@@ -370,3 +380,20 @@ class LocalVolumeCovers(private val manga: LocalSource, private val novels: Loca
 internal fun volumesToDelete(structural: VolumeView?, volumes: VolumeView?, keys: List<String>) =
     (structural?.chips.orEmpty() + volumes?.chips.orEmpty()).distinctBy { it.key }
         .filter { it.key in keys && it.key != VolumeOwner.LOOSE }
+
+/** What a picked volume's own files give its page: a [cover] where it has one, and a [description]. */
+@Immutable
+data class VolumeOwnFiles(val cover: Any?, val description: String?)
+
+/**
+ * This page as a picked volume heads it: the volume's own cover, else the series', and its own description and
+ * [notes], none where it has none, since the series' would read as the volume's. [files] is null while they load.
+ */
+internal fun EntryDetailsScreenState.Loaded.headedBy(files: VolumeOwnFiles?, notes: String) = copy(
+    details = details.copy(
+        header = files?.cover?.let { details.header.copy(coverModel = it, coverFallbacks = emptyList()) }
+            ?: details.header,
+        description = files?.description,
+        notes = notes,
+    ),
+)

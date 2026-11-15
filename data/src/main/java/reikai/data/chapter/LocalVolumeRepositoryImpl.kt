@@ -33,8 +33,8 @@ class LocalVolumeRepositoryImpl(
     private val queries = database.local_volumeQueries
 
     private val byType = HeldRows(
-        queries.getAll { type, series, key, position, label ->
-            Triple(type.toContentType(), series, LocalVolume(key, position, label))
+        queries.getAll { type, series, key, position, label, notes ->
+            Triple(type.toContentType(), series, LocalVolume(key, position, label, notes))
         }.asFlow()
             .map { query -> query.awaitAsList().groupBy { it.first } }
             .map { rows -> rows.mapValues { (_, typed) -> typed.groupBy({ it.second }, { it.third }) } },
@@ -58,6 +58,10 @@ class LocalVolumeRepositoryImpl(
 
     override suspend fun setLabel(type: ContentType, series: String, key: String, label: String?) {
         queries.setLabel(type.toDbValue(), series, key, label?.trim()?.ifEmpty { null })
+    }
+
+    override suspend fun setNotes(type: ContentType, series: String, key: String, notes: String) {
+        queries.setNotes(type.toDbValue(), series, key, notes.ifBlank { null })
     }
 
     override suspend fun all(type: ContentType): List<VolumeOwner> =
@@ -103,6 +107,7 @@ class LocalVolumeRepositoryImpl(
             volumes.forEach {
                 it.position?.let { position -> queries.setPosition(type.toDbValue(), series, it.key, position) }
                 it.label?.let { label -> queries.setLabel(type.toDbValue(), series, it.key, label) }
+                it.notes?.let { notes -> queries.setNotes(type.toDbValue(), series, it.key, notes) }
             }
         }
     }

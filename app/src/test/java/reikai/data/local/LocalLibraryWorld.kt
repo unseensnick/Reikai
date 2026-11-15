@@ -1236,7 +1236,7 @@ private class DirectLocalVolumes(
 
     override suspend fun loadedVolumes(type: ContentType): Map<String, List<LocalVolume>> =
         database.local_volumeQueries.getAll().awaitAsList().filter { it.content_type == type.db() }
-            .groupBy({ it.series }, { LocalVolume(it.volume_key, it.position, it.label) })
+            .groupBy({ it.series }, { LocalVolume(it.volume_key, it.position, it.label, it.notes) })
 
     override fun looseFiles() = MutableStateFlow(emptyMap<String, LooseFiles>())
 

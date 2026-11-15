@@ -1024,6 +1024,17 @@ class LocalMovesUnderLockTest {
     }
 
     @Test
+    fun `a volume folder's ComicInfo summary is its description, the series' own loose files none`() = runTest {
+        chapterFolder("Kept", "Vol 2", "Ch 2")
+        File(local, "Kept/Vol 2/ComicInfo.xml").writeText(
+            """<?xml version="1.0"?><ComicInfo><Summary>Volume two</Summary></ComicInfo>""",
+        )
+
+        listOf(source.volumeDescription("Kept", "Vol 2"), source.volumeDescription("Kept", "")) shouldBe
+            listOf("Volume two", null)
+    }
+
+    @Test
     fun `a member another series also lists from is not linked from this one`() = runTest {
         chapterFolder("Kept", "Vol 2", "Ch 2")
         refreshed(KEPT)

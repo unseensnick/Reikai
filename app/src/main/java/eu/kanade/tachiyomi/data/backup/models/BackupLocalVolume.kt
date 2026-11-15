@@ -1,5 +1,5 @@
-// A local series' volume the user ordered or named, carried on BackupManga and BackupNovel alike at 703.
-// It is keyed by the volume's file or folder, which a restore of the same files finds again.
+// A local series' volume the user ordered, named or wrote notes on, carried on BackupManga and BackupNovel
+// alike at 703. It is keyed by the volume's file or folder, which a restore of the same files finds again.
 package eu.kanade.tachiyomi.data.backup.models
 
 import kotlinx.serialization.Serializable
@@ -12,11 +12,12 @@ class BackupLocalVolume(
     @ProtoNumber(1) var key: String,
     @ProtoNumber(2) var position: Long? = null,
     @ProtoNumber(3) var label: String? = null,
+    @ProtoNumber(4) var notes: String? = null,
 ) {
-    fun toLocalVolume() = LocalVolume(key, position, label)
+    fun toLocalVolume() = LocalVolume(key, position, label, notes)
 }
 
-fun LocalVolume.toBackup() = BackupLocalVolume(key, position, label)
+fun LocalVolume.toBackup() = BackupLocalVolume(key, position, label, notes)
 
 /** A local series' own volume rows, carried on BackupManga and BackupNovel alike at 703, 705 and 706. */
 interface BackupLocalVolumeFields {

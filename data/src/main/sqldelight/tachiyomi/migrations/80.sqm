@@ -1,0 +1,2 @@
+-- A local volume's own notes (local_volume.sq), shown on its series' page while its chip is picked.
+ALTER TABLE local_volume ADD COLUMN notes TEXT;

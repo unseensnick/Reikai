@@ -63,6 +63,7 @@ import reikai.presentation.components.MergeSourceChips
 import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.readProgressLabel
 import reikai.presentation.components.reportVolumeMove
+import reikai.presentation.notes.VolumeNotesScreen
 import reikai.presentation.novel.details.novelPageText
 import reikai.presentation.reader.chapterRowTitle
 import reikai.presentation.reader.chapterTitleWords
@@ -171,7 +172,27 @@ fun EntryDetailsContent(
     val volumes = remember(filtered.chapters.items, picks, savedVolumes, state.chapters.volumes, looseFiles) {
         filtered.chapters.items.inVolumes(picks[state.entryId.rawId], savedVolumes, state.chapters.volumes, looseFiles)
     }
-    val shown = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
+    // A picked volume heads the page with its own cover, description and notes.
+    val pickedVolume = volumes?.let { view -> view.chips.firstOrNull { it.key == view.picked } }
+    val volumeFiles by produceState<VolumeOwnFiles?>(null, pickedVolume?.series, pickedVolume?.key) {
+        value = pickedVolume?.let {
+            VolumeOwnFiles(
+                cover = behavior.volumePicking.cover(type, it.series, it.key),
+                description = behavior.volumePicking.description(type, it.series, it.key),
+            )
+        }
+    }
+    val volumeNotes = pickedVolume?.let { picked ->
+        savedVolumes[picked.series]?.firstOrNull { it.key == picked.key }?.notes
+    }.orEmpty()
+    val listed = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
+    val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
+    val pageNav = pickedVolume?.let { picked ->
+        val label = volumeName(picked)
+        libraryNav.copy(
+            onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key, label, volumeNotes)) },
+        )
+    } ?: libraryNav
     val shownIds = remember(shown.chapters.items) {
         shown.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
     }
@@ -254,7 +275,7 @@ fun EntryDetailsContent(
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
-            libraryNav,
+            pageNav,
             web,
             extras,
             chrome,
@@ -266,7 +287,7 @@ fun EntryDetailsContent(
             snackbarHostState,
             chapterSwipeStartAction,
             chapterSwipeEndAction,
-            libraryNav,
+            pageNav,
             web,
             extras,
             chrome,

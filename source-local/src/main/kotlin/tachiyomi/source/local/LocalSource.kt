@@ -488,6 +488,34 @@ class LocalSource(
         return pictures.firstOrNull { it.isNamedCover() } ?: pictures.singleOrNull()
     }
 
+    /**
+     * A volume's own summary: its folder's ComicInfo.xml, else the first of its archives that carries one, or a
+     * volume archive's own. A series combined in whole shows that series' summary; this series' loose files, none.
+     */
+    suspend fun volumeDescription(series: String, key: String): String? = withIOContext {
+        val (folder, volume) = localGroupUnit(series, key)
+        val dir = fileSystem.getMangaDirectory(folder)
+        val unit = when {
+            volume != VolumeOwner.LOOSE -> dir?.findFile(volume)
+            folder != series -> dir
+            else -> null
+        } ?: return@withIOContext null
+        val infos = if (unit.isDirectory) {
+            listOfNotNull(unit.findFile(COMIC_INFO_FILE)) + unit.volumeArchives()
+        } else {
+            listOf(unit)
+        }
+        infos.firstNotNullOfOrNull { file ->
+            runCatching {
+                if (file.name == COMIC_INFO_FILE) {
+                    file.openInputStream().use(::parseComicInfo)
+                } else {
+                    getComicInfoForChapter(file, ::parseComicInfo)
+                }
+            }.getOrNull()?.summary?.value?.takeIf { it.isNotBlank() }
+        }
+    }
+
     private fun List<UniFile>.extraPictures(): List<UniFile> = volumeExtras(filter { it.isPicture() })
 
     // By name alone, as a picture-named folder is never a chapter: each isDirectory is a query on a picked folder.

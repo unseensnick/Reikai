@@ -42,4 +42,43 @@ class LocalVolumeRepositoryTest {
             listOf("a", "b", "c")
         driver.close()
     }
+
+    @Test
+    fun `a volume keeps its own notes beside its name`() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        Database.Schema.create(driver).await()
+        val repository = LocalVolumeRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
+        repository.setLabel(ContentType.NOVELS, "S", "v1.epub", "Prologue")
+
+        repository.setNotes(ContentType.NOVELS, "S", "v1.epub", "Proper translation")
+
+        repository.loadedVolumes(ContentType.NOVELS).getValue("S").single() shouldBe
+            LocalVolume("v1.epub", null, "Prologue", "Proper translation")
+        driver.close()
+    }
+
+    @Test
+    fun `blank notes clear a volume's notes`() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        Database.Schema.create(driver).await()
+        val repository = LocalVolumeRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
+        repository.setNotes(ContentType.MANGA, "S", "v1", "MTL")
+
+        repository.setNotes(ContentType.MANGA, "S", "v1", "  ")
+
+        repository.loadedVolumes(ContentType.MANGA).getValue("S").single().notes shouldBe null
+        driver.close()
+    }
+
+    @Test
+    fun `a restored volume brings back its notes`() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        Database.Schema.create(driver).await()
+        val repository = LocalVolumeRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
+
+        repository.restore(ContentType.MANGA, "S", listOf(LocalVolume("v1", null, null, "MTL")))
+
+        repository.loadedVolumes(ContentType.MANGA).getValue("S").single().notes shouldBe "MTL"
+        driver.close()
+    }
 }

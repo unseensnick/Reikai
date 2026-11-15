@@ -313,10 +313,20 @@ class LocalNovelSource(
 
     /** The cover of the book [volume] in the series at [seriesPath], for its volume header. */
     suspend fun volumeCover(seriesPath: String, key: String): String? = withIOContext {
-        val (folder, volume) = localGroupUnit(seriesPath, key)
-        val file = seriesAt(folder)?.volumes?.firstOrNull { it.name == volume } ?: return@withIOContext null
-        val book = runCatching { book(file) }.getOrNull() ?: return@withIOContext null
+        val (folder, file, book) = volumeBook(seriesPath, key) ?: return@withIOContext null
         copyCover(file, book, folder)
+    }
+
+    /** The description the book [key] in the series at [seriesPath] carries itself, for its volume chip. */
+    suspend fun volumeDescription(seriesPath: String, key: String): String? = withIOContext {
+        volumeBook(seriesPath, key)?.third?.metadata?.description?.takeIf { it.isNotBlank() }
+    }
+
+    private fun volumeBook(seriesPath: String, key: String): Triple<String, UniFile, EpubBook>? {
+        val (folder, volume) = localGroupUnit(seriesPath, key)
+        val file = seriesAt(folder)?.volumes?.firstOrNull { it.name == volume } ?: return null
+        val book = runCatching { book(file) }.getOrNull() ?: return null
+        return Triple(folder, file, book)
     }
 
     /** [book]'s cover copied out of [file] once, since a cover loader cannot read inside an EPUB. */

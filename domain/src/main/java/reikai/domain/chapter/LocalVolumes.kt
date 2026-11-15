@@ -5,8 +5,8 @@ import reikai.domain.library.ContentType
 import reikai.domain.local.LocalVolumeOwnerRepository
 import reikai.domain.local.VolumeOwner
 
-/** A local series' volume the user has ordered or named, by its file or folder [key]. */
-data class LocalVolume(val key: String, val position: Long?, val label: String?)
+/** A local series' volume the user has ordered, named or written [notes] on, by its file or folder [key]. */
+data class LocalVolume(val key: String, val position: Long?, val label: String?, val notes: String? = null)
 
 /**
  * How a local manga series shows the chapter files loose beside its volume folders. A novel has none, since every
@@ -41,6 +41,9 @@ interface LocalVolumeRepository : LocalVolumeOwnerRepository {
 
     /** Names a volume [label], or back to the name its file gives when it is null. */
     suspend fun setLabel(type: ContentType, series: String, key: String, label: String?)
+
+    /** Sets a volume's own [notes], or clears them when blank. */
+    suspend fun setNotes(type: ContentType, series: String, key: String, notes: String)
 
     /** Stores [volumes] as a backup carried them for [series]. */
     suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>)

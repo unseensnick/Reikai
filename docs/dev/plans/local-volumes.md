@@ -29,6 +29,8 @@ Merging separate local volumes is the only way to keep them together today, and 
 
 **Duplicates.** Nothing is decided silently. Volumes that show one label both show ("Vol. 3", "Vol. 3 (2)", by chip order) under a notice above the chips until the user keeps them, **Keep all** saving each later one's shown name as its label so they no longer clash, or deletes some, which opens **Delete volumes** (also in ⋮ for a local series of its own) on just the clashing ones. Delete lists each volume with its file and read count, asks to confirm since it cannot be undone, deletes the files for good (a manga volume folder with all it holds), forgets their saved order, names and picked chip, and lists the series again. An import clash, a file the series already holds by size, shows on its card with Replace, Keep both or Skip, Keep both chosen until changed; Replace copies beside the old file and takes its name only once whole, so its chapters keep their read state. The import's silent name-and-size skip is gone.
 
+**A picked volume heads the page.** With a volume chip picked, the details header shows that volume's own cover (else the series'), its own description and its own notes, for both types (`headedBy`, `VolumeFiles`): a novel book's EPUB description, and for manga a volume folder's `ComicInfo.xml` summary, else the first of its archives that carries one. The description is read from the files when the chip is picked, like the cover, so nothing is stored for it. Notes are a column of `local_volume`, edited through the shared notes editor (`VolumeNotesScreen`) and carried in the backup's volume rows, so they follow a volume through every move. All volumes shows the series' own.
+
 **Merged sources that have volumes** are not being built: a watch item in [parked.md](../parked.md), revived by a request on GitHub. The design kept for that case: the stitch pairs chapters by volume and chapter rather than number alone, a picked local source gets a second chip row (the source row's first chip reading **All sources**, the volume row's **All volumes**), and in the merged All list each chapter carries its volume in its subtitle; a source without volumes gives no basis to pair a local volume's chapters, so they stay unpaired.
 
 ## Key files
@@ -51,6 +53,7 @@ Merging separate local volumes is the only way to keep them together today, and 
 
 ## Decisions & tradeoffs
 
+- **A volume with no description of its own shows none** (owner ruling): the series' description would read as the volume's, and the notes follow the same rule.
 - **One series, not a better merge.** A merge's job is to line up the same chapters from different places; volumes are different chapters, so the fix is to stop merging them.
 - **Duplicates are never resolved automatically** (owner ruling): both copies show until the user chooses.
 - **Combine as volumes replaces Merge only for an all-local selection** (owner ruling), with Merge still in the overflow for two local copies of one series.

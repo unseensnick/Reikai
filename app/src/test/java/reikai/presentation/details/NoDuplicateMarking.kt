@@ -27,7 +27,11 @@ fun noDuplicateMarking(): DuplicateMarking {
 fun noVolumePicking() = VolumePicking(
     NoVolumePicks,
     NoLocalVolumes,
-    { _, _, _ -> null },
+    object : VolumeFiles {
+        override suspend fun cover(type: ContentType, series: String, key: String): Any? = null
+
+        override suspend fun description(type: ContentType, series: String, key: String): String? = null
+    },
     mockk(relaxed = true),
     mockk(relaxed = true),
     mockk(),
