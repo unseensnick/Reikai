@@ -1,6 +1,7 @@
 package reikai.presentation.novel.browse
 
 import dev.zacsweers.metro.Inject
+import logcat.LogPriority
 import reikai.data.novel.toNovel
 import reikai.domain.category.GetNovelCategories
 import reikai.domain.category.groupCategoryIds
@@ -37,8 +38,10 @@ import reikai.presentation.browse.duplicatePrompt
 import reikai.presentation.browse.finishAdd
 import reikai.presentation.browse.step
 import reikai.presentation.library.reikaiSortCategories
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.model.Category
 
 /**
@@ -198,10 +201,16 @@ class NovelLibraryAdder(
     suspend fun joinGroup(novelId: Long, selectedIds: List<Long>): Long? {
         val novel = novelRepository.getById(novelId) ?: return null
         val favorited = rejoinGroup(novelId) {
-            transactions.run {
-                val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
-                if (ok) mergeManager.merge(selectedIds + novelId)
-                ok
+            // As manga's: a rolled-back unit is a failed write.
+            runCatchingCancellable {
+                transactions.runThrowingOnRollback {
+                    val ok = novel.favorite || updateNovel.awaitUpdateFavorite(novelId, favorite = true)
+                    if (ok) mergeManager.merge(selectedIds + novelId)
+                    ok
+                }
+            }.getOrElse { e ->
+                logcat(LogPriority.ERROR, e) { "Adding to a group failed" }
+                false
             }
         }
         if (!favorited) return null

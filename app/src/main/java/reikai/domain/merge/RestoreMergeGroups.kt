@@ -110,7 +110,7 @@ class RestoreMergeGroups(
         // before rebuilding, and the remainders that put untouched local members back run last, so a
         // failure or a cancelled restore part way through used to leave those members ungrouped with
         // nothing recording what they had been.
-        transactions.run {
+        transactions.runThrowingOnRollback {
             plans.forEach { (ids, override) ->
                 repository.materializeGroup(contentType, ids, overrideSourceRanking = override)
             }

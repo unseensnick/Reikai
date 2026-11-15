@@ -240,6 +240,14 @@ class MigrateEngineConformanceTest {
             (listOf("replace $SOURCE->$TARGET in tx", "swap in tx") to 1)
     }
 
+    // A write that catches its own failure still rolls the transaction back, which plain run() does in silence.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("engines")
+    fun `a migration whose transaction rolled back in silence fails the row`(engine: MigrateEngine) = runTest {
+        engine.migrate(Setup(group = longArrayOf(SOURCE, 7L), rollsBackSilently = true), replace = true).error
+            .shouldBeInstanceOf<IllegalStateException>()
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("engines")
     fun `a failing swap rolls back the transaction that moved the group`(engine: MigrateEngine) = runTest {
@@ -553,6 +561,8 @@ data class Setup(
     val trackWriteFails: Boolean = false,
     val historyWriteFails: Boolean = false,
     val swapFails: Boolean = false,
+    /** A write inside the migration's transaction swallows its own failure, which rolls the whole of it back. */
+    val rollsBackSilently: Boolean = false,
 )
 
 /** The manga source id no installed extension answers for, used by [Setup.sourceUninstalled]. */
@@ -656,6 +666,12 @@ private class Recorder : Transactions {
         }
     }
 
+    // The real store throws here when the transaction rolled back though its block returned; run() does not.
+    var rollsBackSilently = false
+
+    override suspend fun <T> runThrowingOnRollback(block: suspend () -> T): T =
+        run(block).also { if (rollsBackSilently) throw IllegalStateException("rolled back") }
+
     fun group(write: String) {
         groupWrites += write
         writeOrder += if (inside) "$write in tx" else write
@@ -727,6 +743,7 @@ class MangaEngine : MigrateEngine {
         val rec = Recorder().apply {
             seedCover(setup)
             seedHistory(setup)
+            rollsBackSilently = setup.rollsBackSilently
         }
         val chapters = (
             setup.sourceChapters.map { it.toChapter(MigrateEngineConformanceTest.SOURCE) } +
@@ -923,6 +940,7 @@ class NovelEngine : MigrateEngine {
         val rec = Recorder().apply {
             seedCover(setup)
             seedHistory(setup)
+            rollsBackSilently = setup.rollsBackSilently
         }
         val chapters = (
             setup.sourceChapters.map { it.toChapter(MigrateEngineConformanceTest.SOURCE) } +

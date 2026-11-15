@@ -3,6 +3,7 @@ package reikai.presentation.browse
 import dev.zacsweers.metro.Inject
 import eu.kanade.domain.manga.interactor.UpdateManga
 import kotlinx.coroutines.flow.firstOrNull
+import logcat.LogPriority
 import reikai.domain.category.groupCategoryIds
 import reikai.domain.category.resolveDefaultCategoryIds
 import reikai.domain.category.withoutSystemCategory
@@ -16,8 +17,10 @@ import reikai.domain.manga.RemoveMangaFromLibrary
 import reikai.domain.track.autobind.AutoBindOnAdd
 import reikai.presentation.browse.components.EntrySourceLabel
 import reikai.presentation.library.reikaiSortCategories
+import reikai.util.runCatchingCancellable
 import tachiyomi.core.common.preference.CheckboxState
 import tachiyomi.core.common.preference.mapAsCheckboxState
+import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.category.interactor.GetCategories
 import tachiyomi.domain.category.interactor.SetMangaCategories
 import tachiyomi.domain.category.model.Category
@@ -126,10 +129,16 @@ class MangaLibraryAdder(
     suspend fun joinGroup(manga: Manga, selectedIds: List<Long>): Long? {
         val stored = getManga.await(manga.id) ?: return null
         val favorited = rejoinGroup(manga.id) {
-            transactions.run {
-                val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
-                if (ok) mergeManager.merge(selectedIds + manga.id)
-                ok
+            // A write inside that swallowed its failure rolled the whole unit back, which is a failed write too.
+            runCatchingCancellable {
+                transactions.runThrowingOnRollback {
+                    val ok = stored.favorite || updateManga.awaitUpdateFavorite(manga.id, true)
+                    if (ok) mergeManager.merge(selectedIds + manga.id)
+                    ok
+                }
+            }.getOrElse { e ->
+                logcat(LogPriority.ERROR, e) { "Adding to a group failed" }
+                false
             }
         }
         if (!favorited) return null

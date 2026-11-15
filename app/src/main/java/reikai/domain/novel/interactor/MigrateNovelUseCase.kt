@@ -199,7 +199,7 @@ class MigrateNovelUseCase(
                 viewerFlags = current.viewerFlags
                 if (NovelMigrationFlag.NOTES in flags) notes = current.notes
             }
-            transactions.run {
+            transactions.runThrowingOnRollback {
                 // Keep the merge consistent: the target takes the source's place in the group on a
                 // replace, or joins it on a copy.
                 if (replace) {

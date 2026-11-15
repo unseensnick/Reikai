@@ -232,7 +232,7 @@ class MigrateMangaUseCase(
             // between them, so a batch the user cancelled could commit the swap and never reach the
             // rewrite: the source ended up out of the library but still in the group, feeding
             // chapters into it while invisible there and unreachable to unmerge.
-            transactions.run {
+            transactions.runThrowingOnRollback {
                 // The target takes the source's place in the group on a replace, or joins it on a
                 // copy. Works for manual and same-title auto groups.
                 if (replace) {
