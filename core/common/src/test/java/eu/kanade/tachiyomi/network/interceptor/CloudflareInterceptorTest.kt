@@ -168,19 +168,27 @@ class CloudflareInterceptorTest {
         runBounded { interceptor.intercept(chain("https://site.example/b")) }?.code shouldBe 200
     }
 
-    private fun blockedUrl(request: Request, respond: (Request) -> Response = ::server): String? {
-        // Neither route answers: the WebView solve fails and the WebView fetch is challenged too.
-        val fetcher = mockk<WebViewFetcher> {
-            every { serves(any()) } returns false
-            every { fetch(any(), any()) } returns WebViewFetcher.Outcome.Challenged
-        }
-        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
-            .set(interceptor, fetcher)
+    // Every WebView solve gives up, as one that times out does.
+    private fun failWebViewSolve() {
         val bypassFailure = Class.forName("eu.kanade.tachiyomi.network.interceptor.CloudflareBypassException")
             .getDeclaredConstructor(HttpUrl::class.java).apply { isAccessible = true }
         every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
             throw bypassFailure.newInstance(null) as Throwable
         }
+    }
+
+    private fun blockedUrl(
+        request: Request,
+        // Neither route answers by default: the WebView solve fails and the WebView fetch is challenged too.
+        fetcher: WebViewFetcher = mockk {
+            every { serves(any()) } returns false
+            every { fetch(any(), any()) } returns WebViewFetcher.Outcome.Challenged
+        },
+        respond: (Request) -> Response = ::server,
+    ): String? {
+        CloudflareInterceptor::class.java.getDeclaredField("webViewFetcher").apply { isAccessible = true }
+            .set(interceptor, fetcher)
+        failWebViewSolve()
         val chain = mockk<Interceptor.Chain> {
             every { request() } returns request
             every { proceed(any()) } answers { respond(firstArg()) }
@@ -531,5 +539,49 @@ class CloudflareInterceptorTest {
         val page = Request.Builder().url("https://site.example/series/1?page=2").build()
 
         blockedUrl(page) shouldBe "https://site.example/series/1?page=2"
+    }
+
+    // The root a redirect lands on is often not challenged at all, so the page asked for is the one to open.
+    @Test
+    fun `a GET redirected into a challenge that cannot be solved offers the page asked for`() {
+        val page = Request.Builder().url("https://site.example/series/1").build()
+        val landed = Request.Builder().url("https://site.example/").build()
+
+        blockedUrl(page) { server(landed) } shouldBe "https://site.example/series/1"
+    }
+
+    @Test
+    fun `a WebView fetch sent to a challenge that cannot be solved offers the challenged page`() {
+        val fetcher = mockk<WebViewFetcher> {
+            every { serves(any()) } returns true
+            every { fetch(any(), any()) } answers {
+                WebViewFetcher.Outcome.Served(
+                    challenge(secondArg<Request>().newBuilder().url("https://main.example/").build()),
+                )
+            }
+            every { markServed(any()) } returns true
+        }
+
+        blockedUrl(Request.Builder().url("https://mirror.example/page").build(), fetcher = fetcher) shouldBe
+            "https://main.example/"
+    }
+
+    @Test
+    fun `a failed WebView solve hands the request to the server and leaves the host to it`() {
+        val marked = mutableListOf<String>()
+        setServer(
+            mockk {
+                every { isActive() } returns true
+                every { carries(any()) } returns true
+                every { shouldSkipWebView(any()) } returns false
+                every { markWebViewUnsolvable(any()) } answers { marked += firstArg<String>() }
+                every { resolve(any(), any(), any()) } answers { ok(secondArg()) }
+            },
+        )
+        failWebViewSolve()
+
+        val code = runBounded { interceptor.intercept(chain("https://site.example/page")) }?.code
+
+        (code to marked) shouldBe (200 to listOf("site.example"))
     }
 }
