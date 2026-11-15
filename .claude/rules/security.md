@@ -13,7 +13,7 @@ paths:
 - SQLDelight queries are parameterized by default, so never build SQL by string concatenation. Don't reach for raw cursor APIs to bypass type safety.
 - Never log secrets, auth tokens, cookies, or full user-identifying URLs. `logcat { }` output goes to the system log, and the crash-log dump users share in bug reports (`CrashLogUtil.dumpLogs`) copies it, at error level or verbose when verbose logging is on. Crashlytics receives uncaught exceptions with their messages.
 - Crashlytics: never call `recordException` / `setCustomKey` with raw network responses, file contents, or anything that could contain PII. Strip query strings and auth headers first.
-- OkHttp interceptors: never log full request/response bodies in release builds. Gate verbose logging behind `BuildConfig.DEBUG`.
+- OkHttp interceptors: never log full request/response bodies in release builds. Network logging is gated on the user's verbose-logging setting (`NetworkPreferences.verboseLogging`, on by default only in a debug build), which adds `HttpLoggingInterceptor` at `HEADERS` level in `NetworkHelper`, with auth and cookie headers redacted while `redactSensitiveHeaders` is on. Gate any new network logging on the same setting.
 - Tracker OAuth tokens, source preferences, and extension credentials live in `PreferenceStore` / the typed `*Preferences` classes. Treat them as secrets, don't expose via `toString()`, debug overlays, or copy-to-clipboard helpers.
 - WebView (used in some sources / Flaresolverr): never enable `setAllowFileAccessFromFileURLs` / `setAllowUniversalAccessFromFileURLs`. JavaScript bridge methods must validate caller origin.
 - File I/O on `Uri` inputs: resolve via `ContentResolver` and check MIME types. Never trust path components from external apps.

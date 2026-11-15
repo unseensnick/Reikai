@@ -170,7 +170,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **Grayscale and inverted colors now work with the manga reader's high quality renderer.**
 - **Split wide pages and Rotate wide pages to fit now work with the manga reader's high quality renderer, paged and long strip.** A page they change shows once it has downloaded.
 - **Smart fit and Stretch now work as scale types with the manga reader's high quality renderer.**
-- **Settings -> Manga reader now shows the high quality renderer's own options while it is on, and hides the ones it ignores.** Dual page view, Transition animation, Cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
+- **Settings -> Manga reader now shows the high quality renderer's own options while it is on, and hides the ones it ignores.** Dual page view, Transition animation, Display cutout mode, Crop instead of zoom and Disable double tap gestures were only in the reader menu.
 - **Either reader's bottom bar can now show a Grayscale button, added from Edit bottom bar.**
 - **Either reader's Edit bottom bar can fill the on/off buttons while they are on, so you can tell they are on with a black-and-white screen.**
 
@@ -200,7 +200,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A slow find-and-replace rule or chapter text search no longer stalls a novel chapter or the search.** A slow rule is skipped, and a slow search says so.
 - **Adding a reader font over one of the same name now replaces it whole, and keeps the old one if the copy fails or the folder cannot be read.**
 - **Auto-split no longer puts a blank line inside a novel chapter's list items, headings or quotes.**
-- **A novel chapter read aloud is now marked read and keeps your place, with Keep in view off too.** Reopening the chapter takes you to the paragraph being read.
+- **A novel chapter read aloud is now marked read and keeps your place, with Keep paragraph in view off too.** Reopening the chapter takes you to the paragraph being read.
 - **Read aloud no longer speaks brackets, quote marks, tildes, emoji or symbols like ♪ aloud, and skips scene-break lines.** The words around them are still read.
 - **Turning back onto the second half of a split wide page now shows that page's number.**
 - **Long-pressing a page with the high quality renderer now acts on the page you pressed.** Save, share and Set as cover used another page on screen in long strip or a two-page spread.
@@ -363,7 +363,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 - **A backup with App settings now carries the reader fonts you imported or downloaded, so a restore finds them.** Before, the font setting came back and the reader fell back to the default face.
 - **Restoring someone else's backup can no longer change where an extension repo you already have installs from.** The repos on your device keep their own address, name and signing key.
-- **Unticking Extension repos on the Restore screen now keeps the backup's repos off your device.** The repos to trust are no longer offered then.
+- **Unticking Extension stores on the Restore screen now keeps the backup's repos off your device.** The repos to trust are no longer offered then.
 - **Restoring someone else's backup can no longer weaken your privacy or security settings.** Header redaction, verbose logging, crash reports, analytics, the app lock and hidden notifications only ever restore to the safer choice.
 - **Restoring App settings no longer forgets the names of novel sources you have uninstalled.** The device's own records are kept and the backup only adds ones it lacks.
 - **A Mihon backup's categories no longer restore with their own sorts wrong because of an old display setting.** Mihon kept each category's grid or list choice where Reikai now marks a category's own sort.
@@ -375,6 +375,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **The missing-sources list before a restore names a novel source this device has seen, instead of showing its id.**
 - **Backups with Source settings now carry the settings of enhanced sources too.** Before, those sources' settings were left out of every backup.
 - **A restore now skips a damaged series in the backup and restores the rest, listing it in the error log.** Before, it stopped partway with no error log or completion notice.
+- **A backup file of zeros, as a damaged copy can be, now shows the invalid-backup message instead of restoring nothing.**
 
 ### Other
 

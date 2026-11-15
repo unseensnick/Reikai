@@ -15,7 +15,7 @@ enum class MangaField(vararg val aliases: String, val fieldOnly: Boolean = false
     // database lookup, so a bare word must never sweep it.
     CHAPTER("chapter", "ch", fieldOnly = true),
 
-    // RK --> fields Statistics' details rows open the library with; field-only, as no bare word means them
+    // RK --> a series' status, tracker and category, named only by their field, as no bare word means them
     STATUS("status", fieldOnly = true),
     TRACKER("tracker", fieldOnly = true),
     CATEGORY("category", "cat", fieldOnly = true),

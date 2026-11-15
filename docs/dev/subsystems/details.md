@@ -21,7 +21,7 @@ The body, not the screens, decides the actions both types gate the same way: Mig
 
 ### Dialogs
 
-`EntryDetailsDialog` is the union both types can fill: `EditInfo`, `Cover`, `ManageSources`, `TrackSheet`, `DeleteChapters`, `SetFetchInterval`, `ClearDownloads`, `RemoveFromLibrary` and `ChapterNumber`. `Screen.EntryDetailsDialogHost` renders them for both screens. Dialogs one type alone has stay in that screen's own dispatcher (novels: `NovelChapterSettingsDialog` in `NovelDetailsDialogs.kt`, the page selector, word count), so the union never carries a case one side cannot fill.
+`EntryDetailsDialog` is the union both types can fill: `EditInfo`, `Cover`, `ManageSources`, `TrackSheet`, `DeleteChapters`, `SetFetchInterval`, `ClearDownloads`, `RemoveFromLibrary`, `ChapterNumber` and `RelinkSeries`. `Screen.EntryDetailsDialogHost` renders them for both screens. Dialogs one type alone has stay in that screen's own dispatcher (novels: `NovelChapterSettingsDialog` in `NovelDetailsDialogs.kt`, the page selector, word count), so the union never carries a case one side cannot fill.
 
 ### What the page shows
 

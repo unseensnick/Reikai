@@ -107,7 +107,7 @@ Both engines refuse a self-target and a missing target source, and rethrow every
 - **A commit and a dialog are two cells.** `CommitActivity` is what runs, `Dialog` is what the user asked to see, and `State.visibleProgress` / `visibleDialog` decide what renders. Folding them let back clear the busy state under a running commit.
 - **Use only `MigrationPickHandoff` to hand a pick back across screens.** It is a consume-once slot keyed by entry, cleared when the asking model is cleared; an event channel drops a pick made while the list is off screen.
 - **The favorite swap goes last, inside the same transaction as the group rewrite.** Split, a cancelled batch could unfavorite the source and leave it feeding a group it no longer shows in.
-- **There is no Compose UI test here.** After a bulk deletion on a flow screen, diff its composables against the previous commit and check every model API has a caller; a regex once removed the progress dialog with every test green.
+- **The Compose UI tests cover the list's back handling, its dialogs and the commit bar, not every screen.** After a bulk deletion on a flow screen, diff its composables against the previous commit and check every model API has a caller; a regex once removed the progress dialog with every test green.
 
 ## Decisions
 
@@ -139,7 +139,7 @@ The migrate flow files of Mihon (`mihon/feature/migration/` config, list and dia
 
 ## Tests
 
-Flow logic: `MigrationRowRulesTest`, `MigratingEntryRowTest`, `EntryMigrationListViewModelTest` (driver, claim, finish gate, over `FakeMigrationFlowAdapter`), `EntryMigrationConfigViewModelTest`, `EntryMigrationFavoritesViewModelTest`, `EntryMigrationSearchViewModelTest`, `MigrationSourceSearchTest`, `SelectMigrationSourcesTest`, `MigrationRouteTest`. Adapters: `MigrationAdapterConformanceTest` (both real adapters through the same cases), `MigrationAdapterRulesTest`, `NovelMigrationFlowAdapterTest`. Engines: `MigrateEngineConformanceTest` (every shared rule over both use cases), `MigrateNovelUseCaseTest` (novel-only behaviour), `MergedHistoryTest`. Matching: `SmartNovelSearchEngineTest`. The Migrate tab: `CompareMigrateRowsTest`, `MigrateNovelSourcesTest`, `MigrateNovelSourcesViewModelTest`.
+Flow logic: `MigrationRowRulesTest`, `MigratingEntryRowTest`, `EntryMigrationListViewModelTest` (driver, claim, finish gate, over `FakeMigrationFlowAdapter`), `EntryMigrationConfigViewModelTest`, `EntryMigrationFavoritesViewModelTest`, `EntryMigrationSearchViewModelTest`, `MigrationSourceSearchTest`, `SelectMigrationSourcesTest`, `MigrationRouteTest`. Adapters: `MigrationAdapterConformanceTest` (both real adapters through the same cases), `MigrationAdapterRulesTest`, `NovelMigrationFlowAdapterTest`. Engines: `MigrateEngineConformanceTest` (every shared rule over both use cases), `MigrateNovelUseCaseTest` (novel-only behaviour), `MergedHistoryTest`. Matching: `SmartNovelSearchEngineTest`. The Migrate tab: `CompareMigrateRowsTest`, `MigrateNovelSourcesTest`, `MigrateNovelSourcesViewModelTest`. Compose UI: `EntryMigrationListTest` (back and up ask before stopping), `MigrationListDialogsTest` (each dialog renders), `MigrationCommitBarTest` (the Migrate button clears the navigation bar).
 
 Run one class with `./gradlew :app:testDebugUnitTest --tests "<FullyQualifiedClassName>"`, or `:domain:test` for `MergedHistoryTest`.
 

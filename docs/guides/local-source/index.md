@@ -53,7 +53,7 @@ Local novels live in a `localnovels` folder in your storage location, beside the
 * Chapters come from the book's table of contents. A file that holds several chapters is divided at them, and a part title with no text of its own joins the chapter after it.
 * A book with no table of contents gets a chapter per file, or, for a book that is one long file, a chapter per heading.
 * Pictures, and the book's own layout such as indents and centred text, carry over. Its text colours give way to your reader theme.
-* To change a series' details, put a `details.json` in its folder (the format is in [Advanced editing](/docs/guides/local-source/advanced)). A `cover.jpg` or `cover.png` there replaces the book's own cover.
+* To change a series' details, put a `details.json` in its folder (the format is in [Advanced editing](/docs/guides/local-source/advanced)). A picture named `cover` there (`cover.jpg`, `cover.png`, `cover.webp` or any other image format) replaces the book's own cover.
 
 Chapters you add later appear on the next library update, or when you pull to refresh the series.
 
@@ -246,7 +246,7 @@ For local manga, **Loose files** at the bottom of **Reorder volumes** decides ho
 
 **Organize files** in the <nav to="overflow"> menu moves every volume into the series' folder and gives it the name shown in the app, the series title followed by its volume label. Every old name is listed with its new one before anything changes, and **Rename** goes ahead. Read progress stays. The menu item only shows where your storage lets Reikai move and rename files.
 
-If another series already uses the folder name, Reikai picks a free one, like `Title (2)`, and says so. **Choose another name** lets you type your own, which then becomes the series title as well.
+If another series already uses the folder name, Reikai picks a free one, like `Title (2)`, and says so. A volume already in the series' folder whose name differs from its new one only in letter case is renamed to the new name with ` (2)` after it, like `Title - Vol. 1 (2)`, since the folder counts the two spellings as one name. **Choose another name** lets you type your own, which then becomes the series title as well.
 
 **Combine as volumes**, **Add volumes**, **Split out volumes**, **Edit info** and **Reorder volumes** offer an **Also organize files** box, the last two once you change the title or a volume's name. It starts unticked; tick it to organize the files when you close them.
 

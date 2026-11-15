@@ -17,7 +17,7 @@ Each adapter is a `LibraryProvider`: it yields `rows` (its favourites as `Librar
 - the chip (`contentType`, the `libraryContentType` preference), and `setContentType`, which drops the selection through `EntrySelection.afterChipFlip` and hands the outgoing view's search query to the incoming one, so the library has one search;
 - `assembled`, the list the tab renders;
 - the selection as `Set<EntryId>` in a `SelectionStore`, and every selection verb;
-- `dialog` (`LibraryDialog`: `ChangeCategory`, `Delete`, `Settings`), built by the engine from the providers' answers;
+- `dialog` (`LibraryDialog`: `ChangeCategory`, `Delete`, `Settings`, `CombineVolumes`), built by the engine from the providers' answers;
 - `display` (`LibraryDisplayState`: display mode, columns, tabs, counts, Reikai's display block);
 - collapse, one library-wide value written to the shared preferences;
 - the pager seed (`initialPageFor`, `lastUsedCategoryPref`), `randomEntry`, `refresh`, and `settingsFor`.

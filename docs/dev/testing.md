@@ -138,6 +138,13 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 |---|---|---|
 | Library category tabs | `TabTextTest` (`presentation-core`) | a label keeps its width and count in a scrollable row, and a long label gives way to its count in a narrow tab |
 | Library pull-to-refresh | `LibraryUpdatePullRefreshTest` | a pull starts an update and holds the spinner until it runs |
+| Library Manual order | `ManualOrderTest` | a drag reorders, a still long press selects, a tap opens |
+| Library tag filter | `TagFilterPickerTest` | a tag cycles through shown and hidden, saved filters apply and delete, a strip chip clears its tag |
+| Toolbar menus | `AppBarActionsTest` | a menu opens from the button that shows it |
+| Details selection | `DetailsShownSelectionTest` | select all acts on the rows the details filters leave on screen |
+| Details scroll actions | `ChapterJumpsTest` | scroll to top, bottom and next unread land on their row, from the top bar and from the menu |
+| Local series dialogs | `AddVolumesDialogTest`, `MissingVolumeDialogTest`, `RelinkSeriesDialogTest`, `UnfinishedOrganizeViewsTest` | add volumes takes every ticked series, a missing volume or renamed folder is linked only once picked, an unfinished organize is forgotten only on Forget |
+| Organize files | `OrganizeTickTest`, `OrganizeUndoHandOverTest` | Also organize files starts unticked and is hidden where storage cannot move files; the opened screen offers the move's Undo |
 | Reader settings sheet | `ReaderSettingsSheetTest` | every tab's rows, for manga and novels |
 | Reader sheet, manga rows | `MangaReaderSheetRowsTest` | each viewer offers only rows that change something |
 | Reader sheet, tap zones | `TapZonesRowsTest` | which rows each tap layout shows, for both readers |
@@ -145,6 +152,9 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 | Reader chrome pages | `ReaderChromePagesTest` | capture sizes, Open in WebView's source, a transition keeps its height, the download badge on the first frame |
 | Reader page indicator | `ReaderPageIndicatorTest` | the largest size draws taller, a backed line spans the screen |
 | Reader bar toggles | `ReaderActionRowToggleTest` | an on button says so, and its fill stands out in lightness only when asked |
+| Reader sheet, novel chapter text | `NovelChapterTextRowsTest` | the Chapter text rows follow the novel's renderer and its paged-only rows its reading mode |
+| Space between pages | `SpreadGapRowsTest` | the row shows only while the reader can show two pages, in both Settings screens and the novel sheet |
+| Reader chapter sheet | `ReaderChapterListDialogTest` | long-press selection and the bulk bar, which never deletes the chapter being read |
 | Reader mouse wheel | `MouseWheelConformanceTest` | a notch turns the same way in both readers |
 | Novel renderer host | `ViewportHostTest` | the page filter sits on the view, not on a page turn's copy |
 | Novel chapter seam | `NovelSeamCardTest` | the missing-chapters warning uses the reader's text colour |
@@ -159,17 +169,18 @@ A screen not listed here can stop rendering, or lose a button's wiring, with the
 | Saved search chips | `SavedSearchChipTest` | a tap applies, a long press offers deletion |
 | Recents selection bar | `RecentsToolbarTest` | select all, inverse and cancel reach their handlers |
 | Local import | `ImportListTest`, `ImportGroupCardTest` | rows that look alike are all listed; type chips keep one line at the largest font |
+| Add repo dialog | `AddRepoDialogTest` | a plain http address is warned about, an https one is not |
 | Restore repo card | `RestoreInstallItemsTest` | a store's signing key shows, or none for a keyless store |
 | Statistics | `StatsStripTest`, `StatsArrangeListTest`, `StatsDonutWidthTest`, `StatsReadingCardTest`, `StatsScoresCardTest`, `StatsPeriodChipsTest` | the strip in its shelf, hiding and dragging while arranging, the pie by shelf width, the reading card's lines, a score row's series, period chips at the largest font |
 
-Not covered yet, among the larger surfaces: the details screen itself (its edit-info dialog is), the library grid and lists, the recents rows, the downloads queue, the browse grids, settings beyond the Novel reader screen, and tracking. The reader's page rendering is View-based and stays on a device.
+Not covered yet, among the larger surfaces: the details header and chapter rows beyond selection and the scroll actions, the library grid and lists, the recents rows, the downloads queue, the browse grids, settings beyond the Novel reader screen, and tracking. The reader's page rendering is View-based and stays on a device.
 
 ### Screenshot tests
 
 `ScreenshotTest` (`app/src/test/java/reikai/presentation/`) captures each covered screen with Roborazzi into `app/src/test/screenshots/`, and CI's `build_check.yml` compares them with `-Proborazzi.test.verify=true`, uploading the actual and diff images as `screenshot-diffs` when one changes. A plain `./gradlew test` renders them without comparing. Robolectric's native graphics bring their own fonts and renderer, so Windows and Linux produce the same pixels and the images can be recorded anywhere.
 
 - **Variants:** a method-level `@Config(qualifiers = "+night")` renders the dark theme, and `TABLET` a 1280x800 landscape screen, where the reader sheet becomes a dialog. Give layout-sensitive screens both.
-- **Add one** as a test in `ScreenshotTest` (or any class under `@GraphicsMode(NATIVE)`) ending in `capture()`, which waits for Compose to settle (the Roborazzi call alone does not, and caught a sheet mid-animation) and then draws every window, dialogs and sheets included.
+- **Add one** as a test in `ScreenshotTest` ending in its private `capture()`, which waits for Compose to settle (the Roborazzi call alone does not, and caught a sheet mid-animation) and then draws every window, dialogs and sheets included.
 - **Record after an intended change:** `./gradlew :app:recordRoborazziDebug --tests "*ScreenshotTest"`, look at the new images, and commit them with the change.
 - **Check locally:** `./gradlew :app:testDebugUnitTest --tests "*ScreenshotTest" -Proborazzi.test.verify=true`; diffs land in `app/build/outputs/roborazzi/`.
 

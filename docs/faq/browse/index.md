@@ -21,7 +21,7 @@ With **Also apply to installed extensions** on, an extension you already install
 Tap the search icon in <nav to="sources"> and type part of a source's or extension's name. Separate several names with commas to match any of them. The search works together with the **All** / **Manga** / **Novels** chips.
 
 ## Can I keep one source out of my reading history?
-Long-press the source in <nav to="sources"> and turn on **Incognito mode** in the dialog. Reading from that source then stays out of your history, as it would with <nav to="incognito-mode"> on. For a manga source, and a novel source from an extension app, the switch covers every source that extension provides; for a novel plugin it covers that source only. The same dialog pins or disables the source.
+Long-press the source in <nav to="sources"> and turn on **Incognito mode** in the dialog. Reading from that source then stays out of your history, as it would with <nav to="incognito-mode"> on. For a manga source, and a novel source from an extension app, the switch covers every source that extension provides; for a novel plugin it covers that source only. The manga local source belongs to no extension, so its dialog has no switch. The same dialog pins or disables the source.
 
 ## Can I see the newest from several sources at once?
 Yes, with the Feed tab. See [Feed and saved searches](/docs/feed).
