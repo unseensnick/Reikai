@@ -199,6 +199,14 @@ class PreferenceRestorerTest {
         store.getString(key, "").isSet() shouldBe false
     }
 
+    // It orders the queue on the device that wrote it, which a backup does not carry.
+    @Test
+    fun `the download queue's card order is not restored`() = runTest {
+        restoreString(ReikaiSourcePreferences.DOWNLOAD_QUEUE_ORDER_KEY, "MANGA-1,NOVEL-2")
+
+        store.getString(ReikaiSourcePreferences.DOWNLOAD_QUEUE_ORDER_KEY, "").isSet() shouldBe false
+    }
+
     @Test
     @DisplayName("a backup taken with novel auto-scroll on starts it when the reader opens")
     fun retiredAutoScrollReachesStartOnOpen() = runTest {

@@ -48,7 +48,7 @@ class ReikaiSourcePreferences(
 
     /** The download queue's card order across manga and novels, as card keys joined by commas. */
     val downloadQueueOrder: Preference<String> =
-        preferenceStore.getString("download_queue_order", "")
+        preferenceStore.getString(DOWNLOAD_QUEUE_ORDER_KEY, "")
 
     /** Leave the Latest button off Sources rows, since a catalogue's own chip switches to Latest. */
     val hideSourceLatestButton: Preference<Boolean> =
@@ -256,6 +256,9 @@ class ReikaiSourcePreferences(
     // endregion
 
     companion object {
+        // The queue it orders is never backed up, so a restore leaves the device's own order (AppPreferenceCarry).
+        const val DOWNLOAD_QUEUE_ORDER_KEY = "download_queue_order"
+
         // Retired per-content-type Updates category-filter keys and their master switch: the filter
         // became one selection per rendered surface over the shared category id space. Values dropped,
         // not migrated (a filter is casually re-picked, and the switch defaults off); skipped on

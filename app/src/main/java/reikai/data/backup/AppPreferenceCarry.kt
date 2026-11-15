@@ -147,6 +147,8 @@ class AppPreferenceCarry(
             ReikaiLibraryPreferences.DEAD_LAST_USED_ALL_PAGE_KEY,
             ReikaiSourcePreferences.DEAD_UPDATES_FILTER_CATEGORIES_KEY,
             ReikaiSourcePreferences.DEAD_DOWNLOAD_CONTENT_TYPE_KEY,
+            // Orders a download queue no backup carries, so another device's would only reorder this one's.
+            ReikaiSourcePreferences.DOWNLOAD_QUEUE_ORDER_KEY,
             DEAD_PLUGINS_NEED_REVALIDATION_KEY,
             // The WebView developer tools let any computer with debugging rights inspect the app's
             // WebViews, so a backup never turns them on.
