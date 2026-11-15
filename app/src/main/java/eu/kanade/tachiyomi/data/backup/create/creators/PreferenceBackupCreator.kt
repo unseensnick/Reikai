@@ -15,6 +15,7 @@ import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.preferenceKey
 import eu.kanade.tachiyomi.source.sourcePreferences
+import exh.source.configurableSource
 import kotlinx.coroutines.flow.first
 import reikai.novel.source.isSensitivePluginKey
 import reikai.novel.source.pluginStorageScope
@@ -99,14 +100,15 @@ class PreferenceBackupCreator(
 // RK -->
 
 /**
- * Every source whose settings a backup carries: the manga sources and the novel apps' catalogues. A
- * manga and a novel source with the same number share one settings file, which is written once.
+ * Every source whose settings a backup carries: the manga sources, a delegated one through the source its
+ * settings screen shows, and the novel apps' catalogues. A manga and a novel source with the same number
+ * share one settings file, which is written once.
  */
 internal fun configurableSources(
     mangaSources: List<Source>,
     novelApps: List<Extension.Loaded>,
 ): List<ConfigurableSource> =
     (mangaSources + novelApps.flatMap { it.sources })
-        .filterIsInstance<ConfigurableSource>()
+        .mapNotNull { it.configurableSource() }
         .distinctBy { it.preferenceKey() }
 // RK <--

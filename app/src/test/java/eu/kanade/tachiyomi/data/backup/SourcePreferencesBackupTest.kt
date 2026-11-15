@@ -19,8 +19,10 @@ import eu.kanade.tachiyomi.network.NetworkPreferences
 import eu.kanade.tachiyomi.network.interceptor.FLARESOLVERR_URL_KEY
 import eu.kanade.tachiyomi.source.ConfigurableSource
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.online.HttpSource
 import eu.kanade.tachiyomi.source.sourcePreferences
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderBottomButton
+import exh.source.EnhancedHttpSource
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
@@ -77,6 +79,17 @@ class SourcePreferencesBackupTest {
     fun `a settings file a manga and a novel source share is written once`() {
         configurableSources(listOf(configurable(7)), listOf(novelApp(configurable(7)))).map { it.id } shouldBe
             listOf(7L)
+    }
+
+    // A delegated extension arrives wrapped, and the wrapper itself is never configurable.
+    @Test
+    fun `a delegated extension's settings go into the backup`() {
+        val extension = mockk<HttpSource>(moreInterfaces = arrayOf(ConfigurableSource::class)) {
+            every { id } returns 3
+        }
+
+        configurableSources(listOf(EnhancedHttpSource(extension, mockk<HttpSource>())), emptyList())
+            .map { it.id } shouldBe listOf(3L)
     }
 
     @Test
