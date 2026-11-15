@@ -542,6 +542,19 @@ class HeadlessJsIntegrationTest {
         assertEquals("blocked", host.parseChapter("thief-test", "/c"))
     }
 
+    /**
+     * An id is the prefix of its plugin's storage scope, so `a::b` would hold keys that plugin `a`'s
+     * scope also matches, and `tachiyomi:5` would take an APK source's id. Inline plugin: no network.
+     */
+    @Test
+    fun aPluginIdWithAColonIsRefused() = runBlocking {
+        val host = LnPluginHost(scope, context, Injekt.get<NetworkHelper>(), context.appGraph.preferenceStore)
+
+        val read = runCatching { host.inspectPlugin("module.exports.default = { id: 'a::b', name: 'C' };") }
+
+        assertTrue(read.exceptionOrNull() is LnPluginException)
+    }
+
     /** A reload that now declares another plugin's id would take over that plugin's engine and storage. */
     @Test
     fun aReloadDeclaringAnotherIdIsRefused() = runBlocking {

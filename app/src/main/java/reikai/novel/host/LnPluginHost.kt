@@ -242,6 +242,9 @@ class LnPluginHost(
         if (expectedId != null && info.id != expectedId) {
             throw LnPluginException("now declares the id ${info.id}, installed as $expectedId")
         }
+        // The id is the prefix of its storage scope, so `a::b` would hold keys plugin `a`'s scope matches,
+        // and the other source kinds' ids are `tachiyomi:` and `ireader:` ones.
+        if (':' in info.id) throw LnPluginException("declares the id ${info.id}, which may not hold ':'")
         return info.copy(
             iconUrl = iconUrl?.ifEmpty { null },
             lang = lang?.ifEmpty { null } ?: info.lang,
