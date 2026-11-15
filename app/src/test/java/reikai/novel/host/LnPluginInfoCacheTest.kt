@@ -3,6 +3,7 @@ package reikai.novel.host
 import android.content.Context
 import eu.kanade.tachiyomi.network.NetworkHelper
 import io.kotest.matchers.shouldBe
+import io.kotest.matchers.shouldNotBe
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,7 @@ import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
+import reikai.novel.source.lnStorageScope
 import reikai.presentation.recents.EmittingPreferenceStore
 import reikai.util.testAppScope
 import java.io.File
@@ -47,24 +49,46 @@ class LnPluginInfoCacheTest {
         LnPluginInfoCache(dir).get("plugin", key(runtime = "runtime 2")) shouldBe null
     }
 
+    @Test
+    fun `the host keys a plugin's description by its script`() {
+        val host = host()
+
+        host.infoKey("script 2", "plugin") shouldNotBe host.infoKey("script", "plugin")
+    }
+
+    @Test
+    fun `the host keys a plugin's description by the settings it can read`() {
+        val store = EmittingPreferenceStore()
+        val host = host(store)
+        val before = host.infoKey("script", "plugin")
+
+        store.getString("${lnStorageScope("plugin")}site", "").set("https://other.test")
+
+        host.infoKey("script", "plugin") shouldNotBe before
+    }
+
     /** The JVM has no QuickJS, so an uncached read fails here: an answer means no engine was asked. */
     @Test
     fun `an installed plugin read before is described without an engine`() = runTest {
-        val context = mockk<Context> {
-            every { applicationContext } returns this
-            every { filesDir } returns dir
-            every { assets.open(any()) } answers { "".byteInputStream() }
-        }
-        val host = LnPluginHost(
-            testAppScope(),
-            context,
-            mockk<NetworkHelper> { every { client } returns OkHttpClient() },
-            EmittingPreferenceStore(),
-        )
+        val host = host()
         LnPluginInfoCache(File(dir, "lnplugin-info")).put("plugin", host.infoKey("script", "plugin"), info)
 
         // Real time: the read's timeout runs on the test clock, which skips ahead while the cache reads disk.
         withContext(Dispatchers.Default) { host.inspectPlugin("script", expectedId = "plugin") }.site shouldBe
             "https://site.test"
+    }
+
+    private fun host(store: EmittingPreferenceStore = EmittingPreferenceStore()): LnPluginHost {
+        val context = mockk<Context> {
+            every { applicationContext } returns this
+            every { filesDir } returns dir
+            every { assets.open(any()) } answers { "".byteInputStream() }
+        }
+        return LnPluginHost(
+            testAppScope(),
+            context,
+            mockk<NetworkHelper> { every { client } returns OkHttpClient() },
+            store,
+        )
     }
 }
