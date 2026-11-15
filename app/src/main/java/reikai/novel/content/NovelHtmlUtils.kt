@@ -114,10 +114,13 @@ object NovelHtmlUtils {
 
     private val paddingEntityRegex = Regex("(?:&nbsp;\\s*|[\\u200b]\\s*)+(?=</?p[> ])", RegexOption.IGNORE_CASE)
     private val breakRunRegex = Regex("<br>\\s*<br>\\s*(?:<br>\\s*)+", RegexOption.IGNORE_CASE)
-    private val breakBesideParagraphRegex =
-        Regex("<br>\\s*<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*<br>\\s*", RegexOption.IGNORE_CASE)
-    private val loneBreakBesideParagraphRegex =
-        Regex("<br>\\s*(?=</?p[> ])|(?<=</?p>)\\s*<br>\\s*", RegexOption.IGNORE_CASE)
+    private val breakPairBeforeParagraphRegex = Regex("<br>\\s*<br>\\s*(?=</?p[> ])", RegexOption.IGNORE_CASE)
+    private val breakBeforeParagraphRegex = Regex("<br>\\s*(?=</?p[> ])", RegexOption.IGNORE_CASE)
+
+    // A paragraph tag, attributes allowed, then the tags and whitespace before any text: a break in that run pads the
+    // paragraph. Matched as a run rather than looked back on, since Android's regex refuses an unbounded lookbehind.
+    private val paragraphTagRunRegex = Regex("</?p(?:\\s[^>]*)?>(?:\\s*<[^>]+>)*\\s*", RegexOption.IGNORE_CASE)
+    private val breakAndSpaceRegex = Regex("<br>\\s*", RegexOption.IGNORE_CASE)
     val entityRegex = Regex("&#?[A-Za-z0-9]+;")
     private val tagOrEntityRegex = Regex("<[^>]*>|${entityRegex.pattern}")
 
@@ -130,8 +133,9 @@ object NovelHtmlUtils {
         prose
             .replace(paddingEntityRegex, "")
             .replace(breakRunRegex, "<br><br>")
-            .replace(breakBesideParagraphRegex, "")
-            .replace(loneBreakBesideParagraphRegex, "")
+            .replace(breakPairBeforeParagraphRegex, "")
+            .replace(paragraphTagRunRegex) { it.value.replace(breakAndSpaceRegex, "") }
+            .replace(breakBeforeParagraphRegex, "")
     }
 
     /**

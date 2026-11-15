@@ -168,9 +168,10 @@ Mihon is the base and is not credited in the README that way, but its **syncs ar
 
 [LNReader](https://github.com/LNReader/lnreader) is the origin of Reikai's retired novel-reader engine and of the LN plugin format. Refs: `refs/lnreader-main`, `refs/lnreader-2.0.3-Pre-release`, `refs/lnreader-plugins`.
 
-One live relationship, not shaped like the two above:
+Two live relationships, not shaped like the two above:
 
-- **The reader engine is no longer vendored.** `assets/lnreader-web/` (LNReader's `core.js` and its bundles) was deleted at the reader takeover's cutover (`d6904484d`); novels now render natively or in Reikai's own WebView document, with tsundoku as the reference ([reader.md](subsystems/reader.md)). Nothing from LNReader's reader is left to sync.
+- **The reader engine is no longer vendored.** `assets/lnreader-web/` (LNReader's `core.js` and its bundles) was deleted at the reader takeover's cutover (`d6904484d`); novels now render natively or in Reikai's own WebView document, with tsundoku as the reference ([reader.md](subsystems/reader.md)). One piece of its reader lives on as a port, below.
+- **The Remove blank lines between paragraphs rules.** `NovelHtmlUtils.removeExtraParagraphSpacing` carries `core.js`'s `removeExtraParagraphSpacing` rules into the text pipeline for both renderers. Synced 2026-11-15 @ `65b3bb19` (LNReader/lnreader#2020): a paragraph tag with attributes, and tags between the tag and its breaks, now count. Rewritten as a match over the tag run, since upstream's unbounded lookbehind does not compile on Android; upstream's guard that runs the pair rule only where a `/p>` follows is not kept, as before.
 - **The plugin format + `@libs` semantics.** Reikai's QuickJS host (`app/src/main/assets/lnhost/headless.js`) implements LNReader's plugin contract, and cites `refs/lnreader-main` inline where it mirrors upstream helper behavior (`fetch` defaults, the storage envelope, filter types). Those citations are the record; the host is Reikai-owned code, not a port to re-sync.
 
 **The plugin ecosystem is tracked elsewhere.** Reikai's plugins live in the [`reikai-lnreader-plugins`](https://github.com/unseensnick/reikai-lnreader-plugins) fork, which has its own `docs/upstream-sync.md`, its own upstream-frozen marker, and its own health-sweep tooling. Do not duplicate that record here; it would drift. Plugin-side work belongs in that repo.

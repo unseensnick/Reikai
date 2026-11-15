@@ -73,4 +73,37 @@ class NovelExtraSpacingTest {
 
         NovelHtmlUtils.removeExtraParagraphSpacing(clean) shouldBe clean
     }
+
+    /** Sources style their paragraphs, so the tag a break pads often carries attributes. */
+    @Test
+    @DisplayName("breaks padding a paragraph tag with attributes are dropped")
+    fun dropsBreaksAfterAParagraphWithAttributes() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("<p class=\"text\"><br><br>One</p>")
+
+        cleaned shouldBe "<p class=\"text\">One</p>"
+    }
+
+    @Test
+    @DisplayName("a single break after a paragraph tag with attributes is dropped")
+    fun dropsLoneBreakAfterAParagraphWithAttributes() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("<p style=\"margin: 0\"><br>One</p>")
+
+        cleaned shouldBe "<p style=\"margin: 0\">One</p>"
+    }
+
+    @Test
+    @DisplayName("a break between a paragraph tag and its text with other tags in between is dropped")
+    fun dropsBreakBehindOtherTags() {
+        val cleaned = NovelHtmlUtils.removeExtraParagraphSpacing("<p><span> <br>One</span></p>")
+
+        cleaned shouldBe "<p><span> One</span></p>"
+    }
+
+    @Test
+    @DisplayName("a break after text in a styled paragraph is left alone")
+    fun keepsBreaksInsideTextOfAStyledParagraph() {
+        val styled = "<p class=\"text\"><span>One<br>Two</span></p>"
+
+        NovelHtmlUtils.removeExtraParagraphSpacing(styled) shouldBe styled
+    }
 }
