@@ -1,10 +1,13 @@
 package reikai.data.backup.lnreader
 
+import eu.kanade.tachiyomi.data.backup.BackupProtoReader
+import io.kotest.assertions.throwables.shouldThrow
 import io.kotest.matchers.collections.shouldContainExactly
 import io.kotest.matchers.shouldBe
 import kotlinx.datetime.TimeZone
 import org.junit.jupiter.api.Test
 import java.io.ByteArrayOutputStream
+import java.io.IOException
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -102,6 +105,26 @@ class LnReaderBackupTest {
         val updated = novel().copy(lastUpdatedAt = "2026-07-28T09:00:00.000Z")
 
         updated.toImportedNovel(categories, utc).lastUpdate shouldBe 1785229200000L
+    }
+
+    // A crafted zip can inflate one entry past the heap, and the out-of-memory error reading it whole
+    // raises is no Exception, so it would end the app instead of reaching the Restore screen's error.
+    @Test
+    fun `an entry larger than any backup entry is refused without being buffered`() {
+        val bomb = ByteArrayOutputStream().also { bytes ->
+            ZipOutputStream(bytes).use { zip ->
+                zip.putNextEntry(ZipEntry("Category.json"))
+                val zeros = ByteArray(1 shl 16)
+                var written = 0L
+                while (written <= BackupProtoReader.MAX_FIELD_BYTES) {
+                    zip.write(zeros)
+                    written += zeros.size
+                }
+                zip.closeEntry()
+            }
+        }.toByteArray()
+
+        shouldThrow<IOException> { reader(bomb).header() }
     }
 
     @Test

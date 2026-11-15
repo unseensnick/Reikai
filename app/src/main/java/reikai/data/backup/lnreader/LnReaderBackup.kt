@@ -1,5 +1,6 @@
 package reikai.data.backup.lnreader
 
+import eu.kanade.tachiyomi.data.backup.BackupProtoReader
 import eu.kanade.tachiyomi.data.backup.create.creators.toBackupNovel
 import eu.kanade.tachiyomi.data.backup.create.creators.toBackupNovelChapter
 import eu.kanade.tachiyomi.data.backup.models.BackupNovel
@@ -19,12 +20,15 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.intOrNull
+import okio.buffer
+import okio.source
 import reikai.data.novel.toNovel
 import reikai.data.novel.toSourceChapters
 import reikai.domain.reader.ChapterProgress
 import reikai.novel.host.ChapterItem
 import reikai.novel.host.SourceNovel
 import tachiyomi.domain.manga.model.Manga
+import java.io.IOException
 import java.io.InputStream
 import java.util.zip.ZipInputStream
 import kotlin.time.Instant
@@ -175,7 +179,12 @@ internal class LnReaderBackupReader(private val open: () -> InputStream) {
         }
     }
 
-    private fun read(stream: ZipInputStream) = stream.readBytes().decodeToString()
+    // Bounded as a backup's own fields are: a crafted zip can inflate one entry past the heap.
+    private fun read(stream: ZipInputStream): String {
+        val entry = stream.source().buffer()
+        if (entry.request(BackupProtoReader.MAX_FIELD_BYTES + 1)) throw IOException("A backup entry is too large")
+        return entry.readUtf8()
+    }
 
     // The settings dump stores the list as a JSON string; Plugins.json stores the array itself.
     private fun pluginList(element: JsonElement): List<LnReaderPlugin> {

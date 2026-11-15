@@ -49,7 +49,7 @@ class BackupProtoReader(
                         WIRE_TYPE_LENGTH_DELIMITED -> {
                             val length = orInvalid { readVarint(payloadSource) }
                                 ?: throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
-                            if (length !in 0..Int.MAX_VALUE.toLong()) {
+                            if (length !in 0..MAX_FIELD_BYTES) {
                                 throw IOException(context.stringResource(MR.strings.invalid_backup_file_unknown))
                             }
                             val bytes = orInvalid { payloadSource.readByteArray(length) }
@@ -100,6 +100,11 @@ class BackupProtoReader(
     }
 
     companion object {
+        // One field is one entry (a series with its chapters, history and tracks, or one setting),
+        // which runs to a few MB at most. A crafted file can declare and inflate a field past the heap,
+        // and the out-of-memory error buffering it raises is no Exception, so no caller reports it.
+        internal const val MAX_FIELD_BYTES = 64L shl 20
+
         private const val WIRE_TYPE_VARINT = 0
         private const val WIRE_TYPE_64BIT = 1
         private const val WIRE_TYPE_LENGTH_DELIMITED = 2

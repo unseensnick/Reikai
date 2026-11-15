@@ -58,6 +58,41 @@ class BackupProtoReaderTest {
         error.message shouldBe "Invalid backup"
     }
 
+    // A few-KB gzip file can declare and inflate one field far past the heap, and the out-of-memory
+    // error buffering it raises is no Exception, so it would end the app rather than show the message.
+    @Test
+    fun `a field larger than any backup entry reads as invalid without being buffered`() = runTest {
+        val length = BackupProtoReader.MAX_FIELD_BYTES + 1
+        val file = ByteArrayOutputStream().also { out ->
+            GZIPOutputStream(out).use { gzip ->
+                gzip.write(byteArrayOf(0x0A)) // field 1, length-delimited
+                var left = length
+                while (left >= 0x80) {
+                    gzip.write(((left and 0x7F) or 0x80).toInt())
+                    left = left ushr 7
+                }
+                gzip.write(left.toInt())
+                val zeros = ByteArray(1 shl 16)
+                var written = 0L
+                while (written < length) {
+                    val n = minOf(zeros.size.toLong(), length - written).toInt()
+                    gzip.write(zeros, 0, n)
+                    written += n
+                }
+            }
+        }.toByteArray()
+        val context = mockk<Context> {
+            every { contentResolver.openInputStream(any()) } returns file.inputStream()
+            every { stringResource(MR.strings.invalid_backup_file_unknown) } returns "Invalid backup"
+        }
+
+        val error = shouldThrow<IOException> {
+            BackupProtoReader(context).read(mockk<Uri>()) { _, _ -> }
+        }
+
+        error.message shouldBe "Invalid backup"
+    }
+
     @Test
     fun `a truncated backup reads as invalid`() = runTest {
         val entry = ProtoBuf.encodeToByteArray(BackupManga.serializer(), BackupManga(source = 1L, url = "m"))
