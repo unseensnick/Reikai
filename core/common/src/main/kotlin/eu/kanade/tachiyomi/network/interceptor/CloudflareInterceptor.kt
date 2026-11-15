@@ -85,6 +85,7 @@ class CloudflareInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         val request = chain.request()
         val lock = hostLocks.computeIfAbsent(request.url.host) { ReentrantReadWriteLock() }
+        val since = solveCount.get() // RK: see solvedAt
 
         val (response, clearance) = lock.read {
             val response = chain.proceed(request)
@@ -104,15 +105,22 @@ class CloudflareInterceptor(
         // RK --> a sibling's solve may have left the host to a route that answers itself, whose answer is
         //     fetched outside the lock too; one that turned out challenged again forgot the host, so the
         //     request starts over. The clearance is the challenged page's.
+        //     A challenge a redirect put on another host is solved under that host's lock too, as a WebView
+        //     fetch's hop is, or requests sent there from different hosts each ran a WebView.
+        val challenged = response.request.url
         val known = lock.write {
             when {
                 knowsRoute(request, response.request) -> true
                 // Another request may have solved the challenge while this one waited
-                isCleared(response.request.url, clearance) -> {
+                cleared(challenged, clearance, since) -> {
                     response.close()
                     false
                 }
-                else -> {
+                else -> underHostLock(challenged.host.takeIf { it != request.url.host }) {
+                    if (cleared(challenged, clearance, since)) {
+                        response.close()
+                        return@underHostLock false
+                    }
                     if (!prepareWebView()) return response
                     solve(chain, request, response)?.let { return it } // a route that answers the request itself
                     false
@@ -143,6 +151,16 @@ class CloudflareInterceptor(
         val clearance = clearance(url)
         return !clearance.isNullOrBlank() && clearance != previousClearance
     }
+
+    // RK --> cleared since the challenge, or solved by a sibling after this request left, which reads the
+    //     sibling's fresh clearance as the one it was challenged under; [since] is [solveCount] as it left.
+    private fun cleared(url: HttpUrl, previousClearance: String?, since: Long): Boolean =
+        isCleared(url, previousClearance) || (solvedAt[url.host] ?: 0L) > since
+
+    /** [block] under [host]'s write lock, or as it is when there is no other host to hold. */
+    private inline fun <T> underHostLock(host: String?, block: () -> T): T =
+        host?.let { hostLocks.computeIfAbsent(it) { ReentrantReadWriteLock() }.write(block) } ?: block()
+    // RK <--
 
     // RK -->
     // The server's route, for a host it is in use for and already solves.
@@ -296,7 +314,7 @@ class CloudflareInterceptor(
         // each ran a WebView and cleared the clearance the other earned. A cross-site lock cycle would
         // need two sites redirecting into each other, which no browser follows.
         hostLocks.computeIfAbsent(hop.url.host) { ReentrantReadWriteLock() }.write {
-            if (isCleared(hop.url, challenged) || (solvedAt[hop.url.host] ?: 0L) > since) return@write
+            if (cleared(hop.url, challenged, since)) return@write
             clearClearance(hop.url)
             try {
                 resolveWithWebView(hop, hop.url, clearance(hop.url))

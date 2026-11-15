@@ -452,6 +452,60 @@ class CloudflareInterceptorTest {
     }
 
     @Test
+    fun `a challenge two sites redirect to is solved once`() {
+        val clearances = clearancesPerHost()
+        // Two mirrors, each its own host lock, redirect to the main site, which challenges until cleared.
+        val (challenged, redirecting) = allChallenged(4) { request ->
+            val landed = request.newBuilder().url("https://main.example${request.url.encodedPath}").build()
+            if (clearances["main.example"] == null) server(landed) else ok(landed)
+        }
+        solveWith {
+            challenged.await(1, TimeUnit.SECONDS)
+            clearances["main.example"] = "solved"
+        }
+
+        runAll(4) { interceptor.intercept(chain("https://mirror-$it.example/page", redirecting)).close() }
+
+        solves.get() shouldBe 1
+    }
+
+    @Test
+    fun `a request redirected into a challenge a direct solve then clears is not solved again`() {
+        val clearances = clearancesPerHost()
+        val solved = CountDownLatch(1)
+        // The mirror's request lands on the main site challenged, and only returns once a direct request to the
+        // main site has solved it, so the clearance it then reads is the fresh one.
+        val respond = { request: Request ->
+            when {
+                request.url.host == "mirror.example" -> {
+                    val landed = request.newBuilder().url("https://main.example/").build()
+                    if (solved.count == 0L) {
+                        ok(landed)
+                    } else {
+                        solved.await(5, TimeUnit.SECONDS)
+                        challenge(landed)
+                    }
+                }
+                clearances["main.example"] != null -> ok(request)
+                else -> server(request)
+            }
+        }
+        every { interceptor["resolveWithWebView"](any<Request>(), any<HttpUrl>(), any<String>()) } answers {
+            solves.incrementAndGet()
+            clearances["main.example"] = "solved"
+            solved.countDown()
+            Unit
+        }
+
+        runAll(2) {
+            val url = if (it == 0) "https://main.example/page" else "https://mirror.example/page"
+            interceptor.intercept(chain(url, respond)).close()
+        }
+
+        solves.get() shouldBe 1
+    }
+
+    @Test
     fun `a challenged GET that cannot be solved offers the page itself to open`() {
         val page = Request.Builder().url("https://site.example/series/1?page=2").build()
 
