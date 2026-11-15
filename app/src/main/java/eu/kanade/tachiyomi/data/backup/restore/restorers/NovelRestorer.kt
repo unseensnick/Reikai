@@ -136,7 +136,7 @@ class NovelRestorer(
             val update = novelFetchInterval(stored, { chapters }, currentFetchWindow, timeZone, now).apply {
                 nextUpdate = restoredNextUpdate(restored.nextUpdate, nextUpdate, currentFetchWindow)
             }
-            novelRepository.update(update)
+            check(novelRepository.update(update)) { "Failed to update novel ${novel.url}" }
         }
         restoreCategoryPlaces(novelId, backupNovel, backupCategories)
         restoreTracks(novelId, backupNovel.tracking)

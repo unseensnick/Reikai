@@ -22,6 +22,7 @@ import reikai.domain.novel.NovelTrackRepository
 import reikai.domain.novel.local.NoLocalNovelLanguages
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
+import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.readinglog.NoReadingLog
 import reikai.domain.readinglog.NoReadingPace
 import kotlin.time.Instant
@@ -38,6 +39,7 @@ class NovelRestorerWriteFailureTest {
             coEvery { getByUrlAndSource(any(), any()) } returns null
             coEvery { insert(any()) } returns NOVEL_ID
             coEvery { update(any<Novel>()) } returns true
+            coEvery { update(any<NovelUpdate>()) } returns true
         }
         val chapters = mockk<NovelChapterRepository>(relaxed = true) {
             coEvery { getByNovelId(any()) } returns emptyList()
@@ -79,6 +81,12 @@ class NovelRestorerWriteFailureTest {
             coEvery { chapters.update(any()) } returns false
         }),
         TRACK_UPSERT({ coEvery { tracks.upsert(any()) } returns false }),
+
+        // The new novel's predicted next update, written once its chapters are in.
+        UPDATE_INTERVAL({
+            coEvery { novels.getById(any()) } returns Novel.create().copy(id = NOVEL_ID, url = URL, source = SOURCE)
+            coEvery { novels.update(any<NovelUpdate>()) } returns false
+        }),
     }
 
     @Test
