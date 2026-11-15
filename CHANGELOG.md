@@ -388,6 +388,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 - **A light-novel plugin you were using picks up its restored settings and sign-in on its next request.** Before, it kept the old ones until it sat unused for a minute or the app restarted.
 - **Restoring App settings no longer reorders this device's download queue.**
 - **A novel's edited author, artist, description, genres or status in a backup from Reikai 0.1 or 0.2 now survives the next refresh after a restore.**
+- **Restoring a backup now fills in a manga chapter's page count when the rest of that chapter already matches the device.** Before, it showed the page you reached without the total until the chapter was opened again.
 
 ### Other
 

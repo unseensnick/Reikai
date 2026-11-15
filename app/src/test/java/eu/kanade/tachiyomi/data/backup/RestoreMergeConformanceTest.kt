@@ -280,7 +280,10 @@ class MangaMergeRestorer : MergeRestorer {
 
     override suspend fun length(device: Long, backup: Long): Long = MangaRestoreHarness.create().use { harness ->
         val id = harness.insert(deviceManga)
-        harness.insert(Chapter.create().copy(mangaId = id, url = "c", name = "C", pageCount = device.toInt()))
+        // Every other field matches the backup's, so the restore cannot tell the two apart but for the length.
+        harness.insert(
+            Chapter.create().copy(mangaId = id, url = "c", name = "C", chapterNumber = 0.0, pageCount = device.toInt()),
+        )
         val backupChapter = BackupChapter(url = "c", name = "C", pageCount = backup)
         harness.restorer().restore(
             listOf(BackupManga(source = 1L, url = "u", chapters = listOf(backupChapter))),

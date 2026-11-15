@@ -202,7 +202,8 @@ class RestoreRepositoryImpl(
                     ?: // New chapter
                     return@mapNotNull chapter
 
-                if (chapter.forComparison() == dbChapter.forComparison()) {
+                // RK: a larger page count in the backup still writes, since the comparison leaves it out
+                if (chapter.forComparison() == dbChapter.forComparison() && chapter.pageCount <= dbChapter.pageCount) {
                     // Same state; skip
                     return@mapNotNull null
                 }
