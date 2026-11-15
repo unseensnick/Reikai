@@ -88,6 +88,17 @@ class LocalVolumeRepositoryImpl(
     override suspend fun restore(type: ContentType, series: String, volumes: List<LocalVolume>) {
         if (volumes.isEmpty()) return
         database.transaction {
+            // The device's ordered volumes the backup does not name, ones added since it was taken, move after
+            // its order in their own, or a position they share with a restored volume ties.
+            val restoredEnd = volumes.mapNotNull { it.position }.maxOrNull()?.plus(1)
+            if (restoredEnd != null) {
+                val named = volumes.mapTo(HashSet()) { it.key }
+                queries.positionsOf(type.toDbValue(), series).awaitAsList()
+                    .filter { it.volume_key !in named }
+                    .forEachIndexed { i, row ->
+                        queries.setPosition(type.toDbValue(), series, row.volume_key, restoredEnd + i)
+                    }
+            }
             // Only what the backup holds, so a field it lacks keeps the one set on this device.
             volumes.forEach {
                 it.position?.let { position -> queries.setPosition(type.toDbValue(), series, it.key, position) }

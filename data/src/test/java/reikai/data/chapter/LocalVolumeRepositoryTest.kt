@@ -23,4 +23,23 @@ class LocalVolumeRepositoryTest {
         repository.loadedVolumes(ContentType.MANGA).getValue("S").single() shouldBe LocalVolume("v1", 2, "Prologue")
         driver.close()
     }
+
+    // A volume added after the backup was taken keeps its place behind the backup's order, never tied in it.
+    @Test
+    fun `a restored order goes first and the device's other ordered volumes follow it`() = runTest {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        Database.Schema.create(driver).await()
+        val repository = LocalVolumeRepositoryImpl(DatabaseBindings.providesDatabase(driver), backgroundScope)
+        repository.setOrder(ContentType.MANGA, "S", listOf("c", "a", "b"))
+
+        repository.restore(
+            ContentType.MANGA,
+            "S",
+            listOf(LocalVolume("a", position = 0, label = null), LocalVolume("b", position = 1, label = null)),
+        )
+
+        repository.loadedVolumes(ContentType.MANGA).getValue("S").sortedBy { it.position }.map { it.key } shouldBe
+            listOf("a", "b", "c")
+        driver.close()
+    }
 }

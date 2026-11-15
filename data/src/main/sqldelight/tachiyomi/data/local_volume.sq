@@ -23,3 +23,9 @@ setLabel:
 INSERT INTO local_volume(content_type, series, volume_key, label)
 VALUES (:contentType, :series, :volumeKey, :label)
 ON CONFLICT(content_type, series, volume_key) DO UPDATE SET label = excluded.label;
+
+positionsOf:
+SELECT volume_key, position
+FROM local_volume
+WHERE content_type = :contentType AND series = :series AND position IS NOT NULL
+ORDER BY position, volume_key;
