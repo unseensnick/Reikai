@@ -242,13 +242,14 @@ class NovelWebViewport(
             webFonts,
             scope,
             onRendererGone = ::closeReader,
-        ) { image ->
-            // The text renderer's fetch and cache, so switching modes downloads nothing again.
+        ) { image, fresh ->
+            // The text renderer's fetch and cache, so switching modes downloads nothing again. A Retry reads
+            // past the cache, as the text renderer's does, since the bytes that failed may be what it holds.
             fetchNovelImage(
                 image,
                 imageRequests,
                 context.imageLoader.diskCache,
-                readCache = true,
+                readCache = !fresh,
                 writeCache = true,
             )
         }

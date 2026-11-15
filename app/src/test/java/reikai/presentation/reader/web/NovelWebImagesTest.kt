@@ -16,6 +16,20 @@ class NovelWebImagesTest {
     private fun img(html: String, baseUrl: String? = base) =
         Jsoup.parseBodyFragment(images.rewrite(html, baseUrl, "p")).selectFirst("img")!!
 
+    // reader.js marks a Retry's address so the app fetches the picture again rather than serve its cached bytes.
+    @Test
+    fun `a Retry's address still names its picture and reads as a retry`() {
+        val retry = img("""<img src="/a.jpg">""").attr("src") + "&retry=1"
+
+        (images.imageFor(retry) to images.isRetry(retry)) shouldBe
+            (NovelImage("https://site.example/a.jpg", "p") to true)
+    }
+
+    @Test
+    fun `a first load is no retry`() {
+        images.isRetry(img("""<img src="/a.jpg">""").attr("src")) shouldBe false
+    }
+
     @Test
     fun `a relative picture comes back as its absolute address and source`() {
         images.imageFor(img("""<img src="/a.jpg">""").attr("src")) shouldBe

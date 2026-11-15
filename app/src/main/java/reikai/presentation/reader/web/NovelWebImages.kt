@@ -47,6 +47,9 @@ class NovelWebImages {
         return NovelImage(image, parsed.queryParameter("s")).takeIf { it in routed }
     }
 
+    /** Whether an address from [rewrite] is a Retry's, which the page marks so the picture is fetched afresh. */
+    fun isRetry(url: String): Boolean = appAddressAt(url, PATH)?.queryParameter(RETRY) != null
+
     private fun routed(url: String, sourceId: String?): String? {
         if (!isNovelImageAddress(url)) return null
         routed += NovelImage(url, sourceId)
@@ -61,6 +64,9 @@ class NovelWebImages {
         /** The host Android reserves for an app to answer itself, which the reader's fonts use too. */
         const val HOST = "appassets.androidplatform.net"
         private const val PATH = "rk-image"
+
+        // reader.js adds it on Retry; the cache may hold the bytes that failed, so a retry reads past it.
+        private const val RETRY = "retry"
 
         /** An address on [HOST] at [path], which the reader's `shouldInterceptRequest` answers. */
         internal fun appAddress(path: String): HttpUrl.Builder =

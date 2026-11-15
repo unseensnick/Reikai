@@ -36,6 +36,9 @@ class NovelWebImagesInterceptTest {
     private val instrumentation get() = InstrumentationRegistry.getInstrumentation()
     private lateinit var scenario: ActivityScenario<WebViewHostActivity>
     private val fetched = CopyOnWriteArrayList<NovelImage>()
+
+    // Each picture asked for, by whether its address carried a Retry's mark.
+    private val freshByUrl = java.util.concurrent.ConcurrentHashMap<String, Boolean>()
     private val scope = CoroutineScope(SupervisorJob())
 
     /** A 2 by 1 picture, so a drawn one is told apart from a broken one by its width. */
@@ -55,16 +58,17 @@ class NovelWebImagesInterceptTest {
             activity.webView.settings.javaScriptEnabled = true
             val images = NovelWebImages()
             activity.webView.webViewClient =
-                NovelChapterNavigationClient(activity, { BASE }, images, NovelWebFonts(), scope, {}) { image ->
+                NovelChapterNavigationClient(activity, { BASE }, images, NovelWebFonts(), scope, {}) { image, fresh ->
                     fetched += image
-                    if (!image.url.endsWith("ok.png")) throw HttpException(404)
+                    freshByUrl[image.url] = fresh
+                    if (image.url.endsWith("gone.png")) throw HttpException(404)
                     SourceFetchResult(ImageSource(Buffer().write(png), FileSystem.SYSTEM), null, DataSource.DISK)
                 }
             val chapter = images.rewrite(
-                """<img id="a" src="/ok.png"><img id="b" src="/gone.png">""",
+                """<img id="a" src="/ok.png"><img id="b" src="/gone.png"><img id="c" src="/fresh.png">""",
                 BASE,
                 "p",
-            )
+            ).replace("fresh.png", "fresh.png&retry=1")
             activity.webView.loadDataWithBaseURL(BASE, "<html><body>$chapter</body></html>", "text/html", "UTF-8", null)
         }
     }
@@ -84,6 +88,18 @@ class NovelWebImagesInterceptTest {
     fun theFetchIsAskedForThePictureAndItsSource() {
         awaitWidths()
         assertEquals(NovelImage("https://site.example/ok.png", "p"), fetched.first { it.url.endsWith("ok.png") })
+    }
+
+    @Test
+    fun aRetrysPictureIsFetchedAfreshAndAFirstLoadIsNot() {
+        awaitWidths()
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_S)
+        while (freshByUrl.size < 3 && System.nanoTime() < deadline) Thread.sleep(50)
+
+        assertEquals(
+            mapOf("https://site.example/ok.png" to false, "https://site.example/fresh.png" to true),
+            freshByUrl.filterKeys { !it.endsWith("gone.png") },
+        )
     }
 
     /** Both pictures' drawn widths once each has loaded or failed. */

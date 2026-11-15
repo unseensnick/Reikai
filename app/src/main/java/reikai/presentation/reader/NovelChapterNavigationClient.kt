@@ -45,7 +45,8 @@ class NovelChapterNavigationClient(
     private val scope: CoroutineScope,
     /** Closes the reader once the renderer died; the WebView takes nothing but destroy() from here on. */
     private val onRendererGone: () -> Unit,
-    private val fetchImage: suspend (NovelImage) -> SourceFetchResult,
+    /** The picture, and whether it is a Retry, which reads past the cache. */
+    private val fetchImage: suspend (NovelImage, fresh: Boolean) -> SourceFetchResult,
 ) : WebViewClient() {
 
     override fun onRenderProcessGone(view: WebView, detail: RenderProcessGoneDetail): Boolean =
@@ -56,11 +57,12 @@ class NovelChapterNavigationClient(
     override fun shouldInterceptRequest(view: WebView, request: WebResourceRequest): WebResourceResponse? {
         fonts.response(context, request.url.toString())?.let { return it }
         val image = images.imageFor(request.url.toString()) ?: return null
+        val fresh = images.isRetry(request.url.toString())
         return try {
             // The body is read inside the scope too, interruptibly, so closing the reader stops it mid-transfer.
             val (bytes, mimeType) = runBlocking {
                 scope.async(Dispatchers.IO) {
-                    val result = fetchImage(image)
+                    val result = fetchImage(image, fresh)
                     runInterruptible { result.source.use { it.source().readByteArray() } } to result.mimeType
                 }.await()
             }

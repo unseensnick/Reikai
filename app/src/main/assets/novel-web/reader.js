@@ -1900,6 +1900,26 @@
    * same (NovelImageGetter). The box is a failure, so a tap on it is not the reader's (installGestures).
    * The picture stays in the chapter, hidden, since a link may name it and its attributes are the chapter's.
    */
+  /*
+   * A Retry's picture carries a mark on the app's own address for it (NovelWebImages.isRetry), so the app
+   * fetches it afresh rather than serving the bytes that just failed from its cache. A site's address is left.
+   */
+  var IMAGE_ROUTE = 'https://appassets.androidplatform.net/rk-image?';
+  var retries = 0;
+  function retried(url) {
+    return url.indexOf(IMAGE_ROUTE) === 0 ? url + '&retry=' + (++retries) : url;
+  }
+  function markRetry(img) {
+    var src = img.getAttribute('src');
+    if (src) img.setAttribute('src', retried(src));
+    var srcset = img.getAttribute('srcset');
+    if (srcset) {
+      img.setAttribute('srcset', srcset.replace(SRCSET_CANDIDATE, function (_, lead, url, tail) {
+        return lead + retried(url) + tail;
+      }));
+    }
+  }
+
   document.addEventListener('error', function (e) {
     var img = e.target;
     if (img.tagName !== 'IMG' || !img.closest(CHAPTER_SELECTOR)) return;
@@ -1913,6 +1933,7 @@
       button.addEventListener('click', function (click) {
         if (!click.isTrusted) return;
         var fresh = img.cloneNode(false);
+        markRetry(fresh);
         fresh.style.display = '';
         box.parentNode.removeChild(box);
         img.parentNode.replaceChild(fresh, img);

@@ -181,7 +181,7 @@ class NovelWebDocumentTest {
         webFonts,
         scope,
         {},
-    ) { error("no chapter pictures here") }
+    ) { _, _ -> error("no chapter pictures here") }
 
     /** The last fit answer the page sent per chapter. */
     private val fitsReports = mutableMapOf<String, Boolean>()
