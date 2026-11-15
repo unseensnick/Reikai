@@ -651,35 +651,8 @@
       status: payload.status,
       statusText: payload.statusText || "",
       ok: payload.status >= 200 && payload.status < 300,
-      headers: {
-        get: function (name) {
-          return headersObj[name.toLowerCase()] || null;
-        },
-        has: function (name) {
-          return Object.prototype.hasOwnProperty.call(
-            headersObj,
-            name.toLowerCase(),
-          );
-        },
-        forEach: function (fn) {
-          Object.keys(headersObj).forEach(function (k) {
-            fn(headersObj[k], k);
-          });
-        },
-        keys: function () {
-          return Object.keys(headersObj);
-        },
-        values: function () {
-          return Object.keys(headersObj).map(function (k) {
-            return headersObj[k];
-          });
-        },
-        entries: function () {
-          return Object.keys(headersObj).map(function (k) {
-            return [k, headersObj[k]];
-          });
-        },
-      },
+      // The shim's own Headers, so a reply's headers behave as one a plugin builds (an empty value included).
+      headers: new globalThis.Headers(headersObj),
       text: function () {
         return Promise.resolve(payload.body);
       },

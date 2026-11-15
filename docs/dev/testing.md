@@ -212,7 +212,8 @@ and the JVM tests only pin the size Reikai asks it for.
 
 `reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost` loads LNReader
 plugins in the production QuickJS host (no WebView, no Activity) and runs search, `parseNovel` and
-`parseChapter` on each. It is network-dependent and on demand only.
+`parseChapter` on each. It is network-dependent and on demand only: it skips unless the run passes
+`-e network true`, so a run of the class for its sandbox tests never depends on a site.
 
 - It fetches the **published** registry (`REGISTRY_URL`, the `v3.0.0` plugins branch), so it tests
   plugins as published, not local edits.
@@ -224,7 +225,7 @@ plugins in the production QuickJS host (no WebView, no Activity) and runs search
 
 ```powershell
 & $adb logcat -c
-& $adb shell am instrument -w -e class reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost app.reikai.dev.test/androidx.test.runner.AndroidJUnitRunner
+& $adb shell am instrument -w -e network true -e class reikai.novel.host.HeadlessJsIntegrationTest#lnPluginsRunInProductionHeadlessHost app.reikai.dev.test/androidx.test.runner.AndroidJUnitRunner
 & $adb logcat -d -s HeadlessJsTest:I
 ```
 

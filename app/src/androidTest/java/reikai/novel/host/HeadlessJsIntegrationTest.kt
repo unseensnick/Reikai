@@ -20,6 +20,7 @@ import okhttp3.Request
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import reikai.data.novel.NovelStatusCode
@@ -47,8 +48,11 @@ class HeadlessJsIntegrationTest {
     // Stands in for the graph's app scope; only the hosts' idle sweeper runs on it.
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    // Reaches the live registry and novel sites, so it runs only when asked (`-e network true`): a site
+    // down or changed would otherwise fail a run that is checking the sandbox tests beside it.
     @Test
     fun lnPluginsRunInProductionHeadlessHost() = runBlocking {
+        assumeTrue(InstrumentationRegistry.getArguments().getString("network") == "true")
         val networkHelper = Injekt.get<NetworkHelper>()
         val client = networkHelper.client
         val host = LnPluginHost(scope, context, networkHelper, context.appGraph.preferenceStore)
@@ -317,6 +321,37 @@ class HeadlessJsIntegrationTest {
                 """.trimIndent(),
             )
             assertEquals("number:1", status)
+        } finally {
+            q.close()
+        }
+    }
+
+    /** A reply's headers are the same Headers a plugin builds, so an empty value reads as empty, not missing. */
+    @Test
+    fun aRepliesHeadersAreTheRuntimesHeaders() = runBlocking {
+        val q = DokarQuickJs.create(Dispatchers.IO)
+        try {
+            q.function("__lnLog") { null }
+            q.function("__lnFetch") {
+                """{"status":200,"statusText":"","headers":{"x-token":""},"body":"","url":"","error":null}"""
+            }
+            q.evaluate<Any?>("(function(){globalThis.self=globalThis;globalThis.window=globalThis;})()")
+            LnPluginHost.RUNTIME_ASSETS.forEach { path ->
+                q.evaluate<Any?>(context.assets.open(path).bufferedReader().use { it.readText() })
+            }
+            q.evaluate<Any?>(
+                "fetch('https://example.org/').then(function (r) {" +
+                    " globalThis.__got = [r.headers instanceof Headers, String(r.headers.get('X-Token'))].join(','); });",
+            )
+            val got = withTimeout(5_000) {
+                var read: String? = null
+                while (read == null) {
+                    read = q.evaluate<String?>("globalThis.__got === undefined ? null : globalThis.__got")
+                    if (read == null) delay(10)
+                }
+                read
+            }
+            assertEquals("true,", got)
         } finally {
             q.close()
         }
