@@ -408,9 +408,9 @@ class ReaderEngine(
                     }
                     is ReaderLoadState.Failed -> {
                         latestFailure = state.attempt
-                        // The failed chapter's own page, where a site challenge is solved or, for a
-                        // source that takes pages, the chapter saved from.
-                        val webUrl = state.chapterId?.let { provider.chapterWebUrl(it) }
+                        // The page a site challenge blocked, where it is solved; else the failed chapter's own,
+                        // where one on the page is, or, for a source that takes pages, the chapter saved from.
+                        val webUrl = state.blockedUrl ?: state.chapterId?.let { provider.chapterWebUrl(it) }
                         openDialog(
                             ReaderDialog.LoadFailed(state.message, state.canKeepReading, webUrl, state.chapterId),
                         )

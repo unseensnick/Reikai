@@ -14,18 +14,18 @@ sealed interface ReaderLoadState {
     data object Loading : ReaderLoadState
 
     /**
-     * The chapter could not be loaded. [message] is what to tell the reader, null where there is nothing
-     * worth showing. [canKeepReading] is false when nothing reached the screen, so giving up closes the
-     * reader, as manga does, rather than leaving it blank (pinned by ReaderLoadFailureConformanceTest).
-     * [chapterId] is the failed chapter, whose page the dialog offers, null where it is not one chapter.
-     * [attempt] tells one failure from the next: the state is conflated, so a repeat with the Loading
-     * between missed would read as nothing new. Stamped by default, so no site can repeat the last one.
+     * The chapter could not be loaded. [message] is what to tell the reader, null for nothing worth showing.
+     * [canKeepReading] is false when nothing reached the screen, so giving up closes the reader rather than
+     * leaving it blank. [chapterId] is the failed chapter, whose page the dialog offers, null where it is not
+     * one, and [blockedUrl] the page a site challenge blocked, offered in its place. [attempt] tells one
+     * failure from the next, since the state is conflated; stamped by default, so no site repeats the last.
      */
     data class Failed(
         val message: String?,
         val canKeepReading: Boolean,
         val chapterId: Long?,
         val attempt: Long = nextAttempt(),
+        val blockedUrl: String? = null,
     ) : ReaderLoadState {
         companion object {
             private val attempts = AtomicLong()

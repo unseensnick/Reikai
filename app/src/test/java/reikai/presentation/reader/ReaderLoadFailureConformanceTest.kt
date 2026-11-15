@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import eu.kanade.tachiyomi.network.interceptor.CloudflareBypassIOException
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.model.ReaderChapter
 import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
@@ -52,6 +53,13 @@ class ReaderLoadFailureConformanceTest {
         (state as? ReaderLoadState.Failed)?.canKeepReading shouldBe false
     }
 
+    // The chapter's own page often carries no challenge, so opening it would earn no clearance for the request.
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `a load a site challenge blocked offers the blocked page`(probe: ReaderLoadFailureProbe) = runTest {
+        probe.blockedPage(this) shouldBe BLOCKED
+    }
+
     @ParameterizedTest(name = "{0}")
     @MethodSource("probes")
     fun `retrying a failed reload from the source reloads from the source`(probe: ReaderLoadFailureProbe) =
@@ -60,6 +68,8 @@ class ReaderLoadFailureConformanceTest {
         }
 
     companion object {
+        const val BLOCKED = "https://api.site.example/chapter/5"
+
         @JvmStatic
         fun probes() = listOf(MangaLoadFailureProbe(), NovelLoadFailureProbe())
     }
@@ -70,6 +80,9 @@ interface ReaderLoadFailureProbe {
 
     /** The state after a chapter fails to load, with or without [chapterOnScreen] already showing. */
     suspend fun failedLoad(scope: TestScope, chapterOnScreen: Boolean): ReaderLoadState
+
+    /** The page the load's failure says a site challenge blocked, as the failed state carries it. */
+    suspend fun blockedPage(scope: TestScope): String?
 
     /** A reload from the source that failed, then retried: whether the retry read the source. */
     suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean
@@ -96,6 +109,13 @@ class MangaLoadFailureProbe : ReaderLoadFailureProbe {
             adjacentLoadFailure = ReaderViewModel.AdjacentLoadFailure(5L, "no connection", false, 1L),
         )
         return provider(state).loadState.first()
+    }
+
+    override suspend fun blockedPage(scope: TestScope): String? {
+        val state = ReaderViewModel.State(
+            initError = CloudflareBypassIOException("blocked", ReaderLoadFailureConformanceTest.BLOCKED, null),
+        )
+        return (provider(state).loadState.first() as ReaderLoadState.Failed).blockedUrl
     }
 
     override suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean {
@@ -140,6 +160,20 @@ class NovelLoadFailureProbe : ReaderLoadFailureProbe {
             scope.advanceUntilIdle()
 
             provider(harness, model).loadState.first()
+        }
+
+    override suspend fun blockedPage(scope: TestScope): String? =
+        NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+            val source = harness.source("src")
+            val novel = harness.novel(source)
+            val blocked = harness.chapter(novel, 1.0).also {
+                source.blocked[it.url] =
+                    ReaderLoadFailureConformanceTest.BLOCKED
+            }
+            val model = harness.open(novel, blocked.id)
+            scope.advanceUntilIdle()
+
+            (provider(harness, model).loadState.first() as ReaderLoadState.Failed).blockedUrl
         }
 
     override suspend fun retryOfFailedSourceReloadReadsTheSource(scope: TestScope): Boolean =

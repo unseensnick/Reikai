@@ -37,6 +37,7 @@ import eu.kanade.tachiyomi.data.download.model.Download
 import eu.kanade.tachiyomi.data.saver.Image
 import eu.kanade.tachiyomi.data.saver.ImageSaver
 import eu.kanade.tachiyomi.data.saver.Location
+import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.online.HttpSource
@@ -816,7 +817,8 @@ class ReaderViewModel(
                 throw e
             }
             logcat(LogPriority.ERROR, e)
-            val failure = AdjacentLoadFailure(chapterId, describeFailure(e), fromSource)
+            val failure =
+                AdjacentLoadFailure(chapterId, describeFailure(e), fromSource, blockedUrl = e.cloudflareBlockedUrl())
             mutableState.update { it.copy(adjacentLoadFailure = failure) }
         } finally {
             mutableState.update { it.copy(isLoadingAdjacentChapter = false) }
@@ -1789,6 +1791,8 @@ class ReaderViewModel(
         val fromSource: Boolean,
         // RK: stamped here, so two identical failures still read as two
         val attempt: Long = ReaderLoadState.Failed.nextAttempt(),
+        // RK: the page a site challenge kept the load from, offered in place of the chapter's own
+        val blockedUrl: String? = null,
     )
 
     @Immutable

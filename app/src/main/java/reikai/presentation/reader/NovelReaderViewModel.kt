@@ -17,6 +17,7 @@ import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.loadFailureMessage
+import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -1015,6 +1016,7 @@ class NovelReaderViewModel(
                     with(context) { e.loadFailureMessage },
                     canKeepReading = chapter.value != null,
                     chapterId = target,
+                    blockedUrl = e.cloudflareBlockedUrl(),
                 )
                 readAloud.onChapterLoadFailed()
             }

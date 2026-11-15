@@ -192,6 +192,7 @@ Reikai uses its own [Semantic Versioning](https://semver.org/) from the Mihon-ba
 
 #### Fixed
 
+- **When a chapter fails to load behind a site's challenge, Open in WebView now opens the page that was challenged, so solving it lets Retry work.** Before, it opened the chapter's page, which often had no challenge to solve.
 - **Marking the chapter you're reading as read from the reader's chapter list no longer deletes its download when Settings -> Downloads -> After manually marked as read is on.**
 - **Reopening a chapter in the high quality renderer's long strip now returns to the page you left, also after a touch.** The saved page used to move a page or more on each reopen.
 - **Min width in the high quality renderer's long strip now starts at 10%, so a touch no longer snaps the strip wider.** Lower values used to snap back to 10% on the first touch.

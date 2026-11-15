@@ -6,6 +6,7 @@ import eu.kanade.domain.manga.model.readerOrientation
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.data.download.DownloadManager
 import eu.kanade.tachiyomi.data.download.model.Download
+import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
 import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
@@ -188,6 +189,7 @@ class MangaReaderProvider(
                 // No chapter without the series, which is also what resolves the chapter's page.
                 chapterId = viewModel.openingChapterId.takeIf { state.manga != null },
                 attempt = attemptOf(initError),
+                blockedUrl = initError.cloudflareBlockedUrl(),
             )
             state.isLoadingAdjacentChapter -> ReaderLoadState.Loading
             failure != null -> ReaderLoadState.Failed(
@@ -195,6 +197,7 @@ class MangaReaderProvider(
                 canKeepReading = state.currentChapter != null,
                 chapterId = failure.chapterId,
                 attempt = failure.attempt,
+                blockedUrl = failure.blockedUrl,
             )
             else -> ReaderLoadState.Idle
         }

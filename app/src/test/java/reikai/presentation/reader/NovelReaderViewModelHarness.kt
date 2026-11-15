@@ -10,6 +10,7 @@ import eu.kanade.domain.base.BasePreferences
 import eu.kanade.domain.source.interactor.GetIncognitoState
 import eu.kanade.domain.source.service.SourcePreferences
 import eu.kanade.domain.track.service.TrackPreferences
+import eu.kanade.tachiyomi.network.interceptor.CloudflareBypassIOException
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
@@ -584,6 +585,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     val failing = mutableSetOf<String>()
 
+    /** Chapter paths a site challenge stops, by the page it blocked, as the bypass reports one it gave up on. */
+    val blocked: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
+
     /** Chapter paths whose fetch waits on their gate, as a slow connection does. */
     val holding: MutableMap<String, CompletableDeferred<Unit>> = java.util.concurrent.ConcurrentHashMap()
 
@@ -615,6 +619,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
         chaptersAsked += chapterPath
         holding[chapterPath]?.await()
         if (chapterPath in failing) throw IOException("no connection")
+        blocked[chapterPath]?.let { throw CloudflareBypassIOException("blocked", it, null) }
         return "<p>From the source: $chapterPath</p>"
     }
 
