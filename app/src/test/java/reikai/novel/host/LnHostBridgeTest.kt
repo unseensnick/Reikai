@@ -8,6 +8,8 @@ import io.mockk.mockk
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
+import logcat.LogPriority
+import logcat.LogcatLogger
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
@@ -17,6 +19,7 @@ import okhttp3.Protocol
 import okhttp3.Response
 import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.jupiter.api.Test
+import java.io.IOException
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.util.Base64
@@ -107,7 +110,26 @@ class LnHostBridgeTest {
 
     @Test
     fun `a failed fetch is logged without its query or fragment`() {
-        loggableUrl("https://example.org/search?q=private+terms&token=abc#top") shouldBe "https://example.org/search"
+        val logged = mutableListOf<String>()
+        val logger = object : LogcatLogger {
+            override fun log(priority: LogPriority, tag: String, message: String) {
+                logged += message
+            }
+        }
+        if (!LogcatLogger.isInstalled) LogcatLogger.install()
+        LogcatLogger.loggers += logger
+        val failing = LnHostBridge(
+            preferenceStore = mockk(relaxed = true),
+            client = OkHttpClient.Builder().addInterceptor { throw IOException("offline") }.build(),
+        ) { "agent" }
+
+        try {
+            failing.runFetch("https://example.org/search?q=private+terms&token=abc#top", "{}") {}
+        } finally {
+            LogcatLogger.loggers -= logger
+        }
+
+        logged.single { it.startsWith("fetch(") }.lines().first() shouldBe "fetch(https://example.org/search) failed"
     }
 
     /**
