@@ -28,24 +28,30 @@ class BackedUpAppPreferencesTest {
 
     companion object {
         private val prefs = NovelPreferences(EmittingPreferenceStore())
-        private val plugins = prefs.installedPluginUrls().key()
+
+        // Named one by one rather than through pluginInstallKeys, so a key that falls out of it is caught.
+        private val plugins = listOf(
+            prefs.installedPluginUrls().key(),
+            prefs.installedPluginMetadata().key(),
+            prefs.addedRepoUrls().key(),
+        )
         private val seen = prefs.seenNovelSources().key()
         private const val FONT_SIZE = "font_size"
-        private val all = listOf(plugins, seen, FONT_SIZE).map { BackupPreference(it, IntPreferenceValue(1)) }
+        private val all = (plugins + seen + FONT_SIZE).map { BackupPreference(it, IntPreferenceValue(1)) }
 
         @JvmStatic
         fun cases() = listOf(
             Arguments.of(
                 "extension stores only",
                 BackupOptions(appSettings = false, extensionStores = true),
-                listOf(plugins, seen),
+                plugins + seen,
             ),
             Arguments.of(
                 "app settings only",
                 BackupOptions(appSettings = true, extensionStores = false),
                 listOf(seen, FONT_SIZE),
             ),
-            Arguments.of("both", BackupOptions(), listOf(plugins, seen, FONT_SIZE)),
+            Arguments.of("both", BackupOptions(), plugins + seen + FONT_SIZE),
         )
     }
 }
