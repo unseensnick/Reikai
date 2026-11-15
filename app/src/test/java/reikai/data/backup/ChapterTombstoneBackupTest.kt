@@ -123,17 +123,45 @@ class ChapterTombstoneBackupTest {
         type.seed(driver)
         type.restore(database, tombstones = emptyList(), chapters = listOf("/c5"))
         val real = ChapterTombstoneRepositoryImpl(database)
+        var captured = false
         val capturingAfterItsRead = object : ChapterTombstoneRepository by real {
             override suspend fun getByOwners(contentType: ContentType, ownerIds: List<Long>) =
                 real.getByOwners(contentType, ownerIds).also {
-                    type.tombstone(driver)
-                    driver.exec(type.deleteChapterStatement)
+                    if (!captured) {
+                        captured = true
+                        type.tombstone(driver)
+                        driver.exec(type.deleteChapterStatement)
+                    }
                 }
         }
 
         val backed = type.backedUp(database, capturingAfterItsRead)
 
         (backed.chapterUrls + backed.tombstones.map { it.url }).contains("/c5") shouldBe true
+    }
+
+    /** The chapters part has read the chapter and the history part finds no history row: only its kept state has it. */
+    @ParameterizedTest
+    @EnumSource(Type::class)
+    fun `a chapter captured between the backup's chapters and history keeps its history`(type: Type) = runTest {
+        type.seed(driver)
+        type.restore(database, tombstones = emptyList(), chapters = listOf("/c5"))
+        val real = ChapterTombstoneRepositoryImpl(database)
+        var captured = false
+        val capturingAfterTheChapters = object : ChapterTombstoneRepository by real {
+            override suspend fun getByOwners(contentType: ContentType, ownerIds: List<Long>) =
+                real.getByOwners(contentType, ownerIds).also {
+                    if (!captured) {
+                        captured = true
+                        type.tombstone(driver)
+                        driver.exec(type.deleteChapterStatement)
+                    }
+                }
+        }
+
+        val backed = type.backedUp(database, capturingAfterTheChapters)
+
+        backed.tombstones.map { it.url to it.historyReadAt } shouldBe listOf("/c5" to 200L)
     }
 
     @ParameterizedTest
