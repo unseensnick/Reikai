@@ -9,6 +9,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
+import io.mockk.verify
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -760,6 +761,22 @@ class NovelReaderViewModelTest {
                 unmockkObject(Clock.System)
             }
         }
+
+    /** As manga's drops its page images: otherwise the chapter's pictures come straight back from the cache. */
+    @Test
+    fun `a reload from the source drops the chapter's cached pictures`() = readerTest { harness ->
+        val source = harness.source("src")
+        val novel = harness.novel(source)
+        val first = harness.chapter(novel, 1.0)
+        harness.download(first, """<p><img src="https://a.test/plate.png"></p>""")
+        val model = harness.open(novel, first.id)
+        advanceUntilIdle()
+
+        model.reloadChapter(fromSource = true)
+        advanceUntilIdle()
+
+        verify { harness.pictureCache.evict(match { "https://a.test/plate.png" in it }, any(), source.id) }
+    }
 
     @Test
     fun `a chapter's picture set as cover becomes the novel's own cover`() = readerTest { harness ->

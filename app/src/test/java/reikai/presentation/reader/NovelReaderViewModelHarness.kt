@@ -36,6 +36,7 @@ import kotlinx.coroutines.test.TestCoroutineScheduler
 import kotlinx.coroutines.withContext
 import mihon.domain.extension.model.ContentWarning
 import reikai.data.chapter.ChapterNumberOverrideRepositoryImpl
+import reikai.data.coil.NovelChapterPictureCache
 import reikai.data.merge.MergeGroupRepositoryImpl
 import reikai.data.merge.MergedChapterUnitRepositoryImpl
 import reikai.data.novel.NovelChapterRepositoryImpl
@@ -364,6 +365,9 @@ class NovelReaderViewModelHarness private constructor(
     /** What the reader's trim behind it queued for deletion on leaving. */
     val pendingDeletes = mutableListOf<NovelChapter>()
 
+    /** The picture caches a reload from source drops, which are the app's image loader's. */
+    val pictureCache = mockk<NovelChapterPictureCache>(relaxed = true)
+
     /** The bytes written as each novel's own cover, by id. */
     val customCovers = java.util.Collections.synchronizedMap(mutableMapOf<Long, ByteArray>())
 
@@ -465,6 +469,7 @@ class NovelReaderViewModelHarness private constructor(
                 },
                 mockk(),
             ),
+            pictureCache = pictureCache,
             io = dispatcher,
         ).also(::track)
     }

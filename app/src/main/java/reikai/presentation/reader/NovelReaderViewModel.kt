@@ -50,6 +50,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import logcat.LogPriority
 import mihon.core.metro.AppCoroutineScope
+import reikai.data.coil.NovelChapterPictureCache
 import reikai.data.novel.tts.SystemTtsEngine
 import reikai.domain.chapter.ChapterCopyMarkRepository
 import reikai.domain.chapter.LocalVolumeRepository
@@ -187,6 +188,7 @@ class NovelReaderViewModel(
     private val adultChecker: AdultContentChecker,
     private val getNextNovelChapter: GetNextNovelChapter,
     private val setNovelCustomCover: SetNovelCustomCover,
+    private val pictureCache: NovelChapterPictureCache,
     // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
     // run the whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher,
@@ -281,7 +283,8 @@ class NovelReaderViewModel(
 
     /**
      * The chapter on screen opened again where the reader is, as a chapter-text setting reloads it, with
-     * its cached text dropped. [fromSource] skips a downloaded copy. A load already running is left alone.
+     * its cached text dropped. [fromSource] skips a downloaded copy and the pictures cached of it. A load
+     * already running is left alone.
      */
     fun reloadChapter(fromSource: Boolean) {
         viewModelScope.launchIO {
@@ -291,6 +294,11 @@ class NovelReaderViewModel(
                 currentChapterId.also { pendingChapterId = it }
             }
             htmlCache.remove(id)
+            if (fromSource) {
+                chapter.value?.takeIf {
+                    it.chapterId == id
+                }?.let { pictureCache.evict(it.html, it.baseUrl, it.sourceId) }
+            }
             load()
         }
     }

@@ -1,18 +1,24 @@
 package reikai.data.coil
 
+import android.content.Context
 import coil3.ImageLoader
 import coil3.decode.DataSource
 import coil3.decode.ImageSource
 import coil3.disk.DiskCache
 import coil3.fetch.Fetcher
 import coil3.fetch.SourceFetchResult
+import coil3.imageLoader
 import coil3.key.Keyer
+import coil3.memory.MemoryCache
 import coil3.request.Options
+import dev.zacsweers.metro.Inject
 import eu.kanade.tachiyomi.network.awaitSuccess
 import okio.Buffer
 import okio.BufferedSource
 import okio.FileSystem
+import org.jsoup.Jsoup
 import reikai.novel.content.NovelChapterAddress
+import reikai.novel.content.NovelImageSources
 import reikai.novel.local.LocalNovelSource
 import reikai.novel.network.NovelImageRequests
 import java.io.FileNotFoundException
@@ -89,6 +95,30 @@ suspend fun fetchNovelImage(
 fun isNovelImageAddress(address: String): Boolean =
     NovelChapterAddress.isWebAddress(address) || LocalNovelSource.isPictureAddress(address)
 
+/**
+ * Drops every picture [html] names (img src and srcset, resolved against [baseUrl]) from coil's caches, so a
+ * reload from the source fetches them again, as manga's drops its page images. Both renderers read these caches.
+ */
+fun evictChapterPictures(
+    html: String,
+    baseUrl: String?,
+    sourceId: String?,
+    memoryCache: MemoryCache?,
+    diskCache: DiskCache?,
+) {
+    val document = Jsoup.parseBodyFragment(html)
+    val addresses = document.select("img[src]").map { it.attr("src") } +
+        document.select("[srcset]").flatMap { element ->
+            NovelImageSources.parseSrcset(element.attr("srcset")).map { it.first }
+        }
+    val keys = addresses.map { NovelChapterAddress.absolute(baseUrl, it) }
+        .filter(::isNovelImageAddress)
+        .mapTo(HashSet()) { novelImageCacheKey(it, sourceId) }
+    keys.forEach { diskCache?.remove(it) }
+    // A memory entry is keyed by the picture and the size it was decoded at, so each size goes.
+    memoryCache?.keys?.filter { it.key in keys }?.forEach(memoryCache::remove)
+}
+
 private fun noLocalPicture() = FileNotFoundException("No such picture in the local novels folder")
 
 /** [source] written into [cache] under [key] and read back from there, or handed on as it is with no cache. */
@@ -118,3 +148,12 @@ private fun DiskCache.Snapshot.toResult(cache: DiskCache, key: String, mimeType:
         mimeType,
         dataSource,
     )
+
+/** [evictChapterPictures] over the app's image loader, what a novel chapter's Reload from source runs. */
+@Inject
+class NovelChapterPictureCache(private val context: Context) {
+    fun evict(html: String, baseUrl: String?, sourceId: String?) {
+        val loader = context.imageLoader
+        evictChapterPictures(html, baseUrl, sourceId, loader.memoryCache, loader.diskCache)
+    }
+}
