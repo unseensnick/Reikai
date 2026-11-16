@@ -802,6 +802,34 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertWholeLines()
     }
 
+    /** A keyboard or a page-turner remote reads through the same key map as manga, on release. */
+    @Test
+    fun aPageDownKeyTurnsAPage() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        val before = lastPercent()
+        val turns = turned.get()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_PAGE_DOWN))
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_PAGE_DOWN))
+        }
+        awaitWhile { turned.get() == turns }
+        settle()
+        assertTrue("[$renderer] page down read on", lastPercent() > before)
+    }
+
+    @Test
+    fun theMenuKeyTogglesTheMenu() {
+        build(NovelPageLayout.PAGED_LTR)
+        open(1L, long("first"))
+        val toggles = menuToggles.get()
+        instrumentation.runOnMainSync {
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MENU))
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MENU))
+        }
+        assertEquals("[$renderer] the menu key toggled once", toggles + 1, menuToggles.get())
+    }
+
     /** A turn the redraw refuses must not take the reading position the redraw carries with it. */
     @Test
     fun aVolumeKeyDuringARedrawKeepsThePage() {

@@ -10,7 +10,6 @@ import eu.kanade.tachiyomi.ui.reader.model.ViewerChapters
 import eu.kanade.tachiyomi.ui.reader.viewer.Viewer
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation
 import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.Action
-import eu.kanade.tachiyomi.ui.reader.viewer.ViewerNavigation.NavigationRegion
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.PagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.pager.R2LPagerViewer
 import eu.kanade.tachiyomi.ui.reader.viewer.webgpu.WebGpuViewer
@@ -102,11 +101,10 @@ class MangaViewport(
 
     override fun destroy() = viewer.destroy()
 
-    // Upstream's mapping, kept at the Activity's dispatch so it works while anything holds focus. Movement is on key up.
+    // Kept at the Activity's dispatch so it works while anything holds focus. Movement is on key up.
     override fun handleKeyEvent(event: KeyEvent): Boolean {
         val navigation = input.navigation ?: return false
         val isUp = event.action == KeyEvent.ACTION_UP
-        val ctrl = event.metaState and KeyEvent.META_CTRL_ON != 0
         val action = when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_DOWN, KeyEvent.KEYCODE_VOLUME_UP -> {
                 if (!volumeKeysActive(input.volumeKeysEnabled, input.menuVisible)) return false
@@ -117,12 +115,7 @@ class MangaViewport(
                 }
                 if (forward) Action.FORWARD else Action.BACKWARD
             }
-            KeyEvent.KEYCODE_DPAD_RIGHT -> if (ctrl) Action.FORWARD else navigation.actionOf(NavigationRegion.RIGHT)
-            KeyEvent.KEYCODE_DPAD_LEFT -> if (ctrl) Action.BACKWARD else navigation.actionOf(NavigationRegion.LEFT)
-            KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_PAGE_DOWN -> Action.FORWARD
-            KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_PAGE_UP -> Action.BACKWARD
-            KeyEvent.KEYCODE_MENU -> Action.MENU
-            else -> return false
+            else -> return handleReaderKey(event, navigation.isReversed, ::perform)
         }
         if (isUp) perform(action)
         return true

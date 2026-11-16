@@ -409,7 +409,8 @@ class NovelWebViewport(
     }
 
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode)) return handleReaderKey(event, pageLayout.isRtl, ::perform)
+        if (!callbacks.volumeKeysActive()) return false
         val current = documentSettings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
             val fraction = NovelVolumeKeys.scrollFraction(
@@ -618,7 +619,12 @@ class NovelWebViewport(
     private fun onPageTap(x: Float, y: Float) {
         // A spread's zones are across both pages, where the page only knows the half it was touched on.
         val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x to y)
-        when (NovelTapZones.tapAction(documentSettings?.tapZones, zoneX, zoneY, pageLayout.isRtl)) {
+        NovelTapZones.tapAction(documentSettings?.tapZones, zoneX, zoneY, pageLayout.isRtl)?.let(::perform)
+    }
+
+    /** What a tap zone or a key asked for. */
+    private fun perform(action: ViewerNavigation.Action) {
+        when (action) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             ViewerNavigation.Action.BACKWARD -> if (paged) {
                 turnPage(
@@ -634,7 +640,6 @@ class NovelWebViewport(
             } else {
                 scrollByFraction(NovelTapZones.SCROLL_FRACTION)
             }
-            null -> Unit
         }
     }
 

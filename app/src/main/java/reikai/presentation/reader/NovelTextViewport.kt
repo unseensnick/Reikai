@@ -1267,7 +1267,8 @@ class NovelTextViewport(
 
     /** The same contract [NovelWebViewport] answers, so a volume press behaves the same in either. */
     override fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
+        if (!NovelVolumeKeys.isVolumeKey(event.keyCode)) return handleReaderKey(event, pageLayout.isRtl, ::perform)
+        if (!callbacks.volumeKeysActive()) return false
         val current = settings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
             val fraction = NovelVolumeKeys.scrollFraction(
@@ -1315,15 +1316,19 @@ class NovelTextViewport(
             callbacks.onToggleMenu()
             return
         }
-        val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
         // A spread's zones are across both pages, where the column only knows the half it was touched on.
         val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x / width to y / height)
-        when (NovelTapZones.tapAction(settings?.tapZones, zoneX, zoneY, pageLayout.isRtl)) {
+        NovelTapZones.tapAction(settings?.tapZones, zoneX, zoneY, pageLayout.isRtl)?.let(::perform)
+    }
+
+    /** What a tap zone or a key asked for, with a three-quarter-screen step. */
+    private fun perform(action: ViewerNavigation.Action) {
+        val step = (recycler.height * NovelTapZones.SCROLL_FRACTION).roundToInt()
+        when (action) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             // A turn says the reader moved itself, once it happens (see handleKeyEvent).
             ViewerNavigation.Action.BACKWARD -> if (paged) turnPage(forward = false) else scrollByReader(-step)
             ViewerNavigation.Action.FORWARD -> if (paged) turnPage(forward = true) else scrollByReader(step)
-            null -> Unit
         }
     }
 
