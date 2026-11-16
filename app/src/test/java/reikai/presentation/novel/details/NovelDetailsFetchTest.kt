@@ -263,7 +263,6 @@ class NovelDetailsFetchTest {
             val novel = harness.novel(source, totalPages = 3)
             val firstPage = harness.chapter(novel, 1.0, page = "1")
             harness.chapter(novel, 2.0, page = "2")
-            harness.chapter(novel, 3.0, page = "3")
             val model = harness.openDetails(novel)
             model.awaitLoaded { it.pages.size == 3 && it.sourceName == "alpha" }
             model.selectPage(2)
@@ -273,6 +272,57 @@ class NovelDetailsFetchTest {
         }
 
         (loaded.pageIndex to loaded.chapters.map { it.id }) shouldBe (0 to listOf(firstPage))
+    }
+
+    /** An update stores and announces every page it reached, while the count it keeps stops below a failed one. */
+    @Test
+    fun `a page stored past the novel's page count can be picked`() = runTest {
+        val pages = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"), totalPages = 2)
+            harness.chapter(novel, 1.0, page = "1")
+            harness.chapter(novel, 2.0, page = "2")
+            harness.chapter(novel, 4.0, page = "4")
+            harness.openDetails(novel).awaitLoaded { it.sourceName == "alpha" }.pages
+        }
+
+        pages shouldBe listOf("1", "2", "3", "4")
+    }
+
+    /** Its second page failed on the first walk, so the count it keeps never rose past one. */
+    @Test
+    fun `a novel kept at one page with later pages stored shows them all`() = runTest {
+        val pages = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"))
+            harness.chapter(novel, 1.0, page = "1")
+            harness.chapter(novel, 3.0, page = "3")
+            harness.openDetails(novel).awaitLoaded { it.sourceName == "alpha" }.pages
+        }
+
+        pages shouldBe listOf("1", "2", "3")
+    }
+
+    @Test
+    fun `a novel grouped by labels shows its labels`() = runTest {
+        val pages = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"))
+            harness.chapter(novel, 1.0, page = "Volume 1")
+            harness.chapter(novel, 2.0, page = "Volume 2")
+            harness.openDetails(novel).awaitLoaded { it.sourceName == "alpha" }.pages
+        }
+
+        pages shouldBe listOf("Volume 1", "Volume 2")
+    }
+
+    @Test
+    fun `a novel grouped by labels with a numbered one keeps its labels`() = runTest {
+        val pages = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val novel = harness.novel(harness.source("alpha"))
+            harness.chapter(novel, 1.0, page = "Prologue")
+            harness.chapter(novel, 2.0, page = "3")
+            harness.openDetails(novel).awaitLoaded { it.sourceName == "alpha" }.pages
+        }
+
+        pages shouldBe listOf("Prologue", "3")
     }
 
     @Test

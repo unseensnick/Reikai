@@ -767,10 +767,19 @@ class NovelDetailsViewModel(
     }
 
     /** Page keys for the selector: "1".."N" for a `parsePage` source, distinct volume labels for a
-     *  label-grouped one, or empty (single unpaged list, no selector). */
-    private suspend fun computePages(novel: Novel): List<String> = when {
-        novel.totalPages > 1L -> (1..novel.totalPages).map { it.toString() }
-        else -> chapterRepo.getDistinctPages(novel.id).takeIf { it.size > 1 } ?: emptyList()
+     *  label-grouped one, or empty (single unpaged list, no selector). N reaches the highest numbered
+     *  page stored, since an update stores every page it walked while [Novel.totalPages] stops below
+     *  the first that failed (`walkNovelPages`); picking the failed one asks for it again. */
+    private suspend fun computePages(novel: Novel): List<String> {
+        val stored = chapterRepo.getDistinctPages(novel.id)
+        val numbered = stored.mapNotNull { it.toLongOrNull() }
+        val storedLast = if (numbered.size == stored.size) numbered.maxOrNull() ?: 0L else 0L
+        val last = maxOf(novel.totalPages, storedLast)
+        return when {
+            last > 1L -> (1..last).map { it.toString() }
+            stored.size > 1 -> stored
+            else -> emptyList()
+        }
     }
 
     /** Build the list's half of [NovelDetailsState.Loaded] from the [anchor] (identity, favorite, chapter-view
