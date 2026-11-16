@@ -63,7 +63,7 @@ object NovelWebDocument {
             context,
             "reader.js",
             mapOf(
-                "__SWIPE__" to settings.swipeGestures.toString(),
+                "__SETTINGS__" to behaviourJson(settings).toString(),
                 "__PAGED__" to paged.toString(),
                 "__SPREAD__" to spread.toString(),
                 "__SWIPE_MIN_PX__" to CHAPTER_SWIPE_MIN_DP.toString(),
@@ -73,8 +73,6 @@ object NovelWebDocument {
                 "__LONG_PRESS_MS__" to ViewConfiguration.getLongPressTimeout().toString(),
                 "__PICTURE_OPENS_ON_TAP__" to NovelPictureGesture.opensOnTap(paged).toString(),
                 "__MIN_PAGE_FIT_SCALE__" to MIN_PAGE_FIT_SCALE.toString(),
-                "__BIONIC__" to settings.bionicReading.toString(),
-                "__READ_ALOUD__" to readAloudJson(settings).toString(),
                 "__INITIAL_FRACTION__" to initialFraction.coerceIn(0f, 1f).toString(),
                 "__INITIAL_LINE__" to (initialLine?.coerceAtLeast(0) ?: -1).toString(),
                 "__IMAGE_WAIT_MS__" to CHAPTER_IMAGE_WAIT_MS.toString(),

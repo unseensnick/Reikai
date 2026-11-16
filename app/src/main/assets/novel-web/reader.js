@@ -94,12 +94,8 @@
   // Two pages side by side: the window is two pages tall, the second drawn beside the first by the host.
   var SPREAD = __SPREAD__;
 
-  var settings = {
-    swipe: __SWIPE__,
-    bionic: __BIONIC__,
-    // { highlight, style, color, textColor, keepInView, scrollToTop }, from NovelWebDocument.readAloudJson.
-    readAloud: __READ_ALOUD__,
-  };
+  // { swipe, bionic, readAloud }, NovelWebDocument.behaviourJson: the same object every settings push sends.
+  var settings = __SETTINGS__;
 
   var boundaries = [];
   var lastChapterSeen = null;
