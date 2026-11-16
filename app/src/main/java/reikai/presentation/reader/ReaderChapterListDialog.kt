@@ -56,6 +56,7 @@ fun ReaderChapterListDialog(
     onDismissRequest: () -> Unit,
     rows: List<ReaderChapterRow>,
     currentChapterId: Long,
+    heldChapterIds: Set<Long>,
     undatedChapterDate: UndatedChapterDate,
     chapterSwipeStartAction: LibraryPreferences.ChapterSwipeAction,
     chapterSwipeEndAction: LibraryPreferences.ChapterSwipeAction,
@@ -101,9 +102,9 @@ fun ReaderChapterListDialog(
         fun downloadStateOf(row: ReaderChapterRow) =
             stateOverrides[row.id]?.takeIf { it.first == row.downloadState }?.second ?: row.downloadState
 
-        // The chapter being read is never deleted from under the reader, by its row, its swipe or the bar.
+        // What the reader holds is never deleted from under it, by its row, its swipe or the bar.
         fun keepsDownload(id: Long, state: Download.State) =
-            id == currentChapterId && state == Download.State.DOWNLOADED
+            id in heldChapterIds && state == Download.State.DOWNLOADED
         fun runDownloadAction(chapterIds: List<Long>, action: ChapterDownloadAction) {
             chapterIds.forEach { id ->
                 val row = rowsById[id]

@@ -1316,9 +1316,16 @@ class NovelReaderViewModel(
             val copies = groupCopies(chapterIds.toSet())
             // Unmarked, it can be finished again, and finishing is what reaches the trackers.
             if (!read) chapterFinish.release(copies.map { it.id })
-            setNovelReadStatus.await(read, copies, keepDownloaded = expandToUnits(setOf(currentChapterId), groupStitch))
+            setNovelReadStatus.await(read, copies, keepDownloaded = expandToUnits(heldIds(), groupStitch))
         }
     }
+
+    /** The chapter being read and every chapter the window holds beside it, see ReaderChapterList.heldChapterIds. */
+    val heldChapterIds: Flow<Set<Long>>
+        get() = combine(window, chapter) { _, _ -> heldIds() }.distinctUntilChanged()
+
+    private fun heldIds(): Set<Long> =
+        window.value.chapters.mapTo(hashSetOf(currentChapterId)) { it.chapterId }
 
     fun setChapterBookmark(chapterIds: List<Long>, bookmarked: Boolean) {
         val ids = expandToUnits(chapterIds.toSet(), groupStitch)

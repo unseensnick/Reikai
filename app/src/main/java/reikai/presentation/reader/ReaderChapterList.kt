@@ -51,6 +51,10 @@ interface ReaderChapterList {
     /** The row the reader is on, which is where the sheet opens scrolled to. */
     val currentChapterId: Flow<Long>
 
+    /** The chapter being read and every neighbour the reader holds beside it, whose pages a strip or the
+     *  window may still draw from disk: the sheet never deletes their downloads. */
+    val heldChapterIds: Flow<Set<Long>>
+
     /** What a row the source dated nothing shows, the answer the type's details list gives. */
     val undatedChapterDate: UndatedChapterDate
 

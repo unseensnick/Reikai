@@ -1586,10 +1586,18 @@ class ReaderViewModel(
         chapterCopies(ids).forEach { copy -> copy.update { it.copy(read = read) } }
         appScope.launch {
             val targets = groupChapters().filter { it.id in ids }.ifEmpty { chapters }
-            val open = groupCopyIds(setOfNotNull(getCurrentChapter()?.chapter?.id))
+            val open = groupCopyIds(heldChapterIds(state.value))
             setReadStatus.await(read, *targets.toTypedArray(), keepDownloaded = open)
         }
     }
+
+    /** The chapter being read and the neighbours the viewer holds beside it, see ReaderChapterList.heldChapterIds. */
+    fun heldChapterIds(state: State): Set<Long> = setOfNotNull(
+        state.currentChapter?.chapter?.id,
+        state.viewerChapters?.currChapter?.chapter?.id,
+        state.viewerChapters?.prevChapter?.chapter?.id,
+        state.viewerChapters?.nextChapter?.chapter?.id,
+    )
 
     /** Start/cancel/delete chapter downloads from the chapter dialog, each from its own source's folder. */
     fun handleChapterDownload(picked: List<Chapter>, action: ChapterDownloadAction) {

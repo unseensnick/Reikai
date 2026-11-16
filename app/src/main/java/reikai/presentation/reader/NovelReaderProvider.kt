@@ -208,6 +208,8 @@ class NovelReaderProvider(
 
         override val currentChapterId: Flow<Long> = viewModel.chapter.map { it?.chapterId ?: -1L }
 
+        override val heldChapterIds: Flow<Set<Long>> = viewModel.heldChapterIds
+
         override val undatedChapterDate = UndatedChapterDate.Blank
 
         override fun open(chapterId: Long) = viewModel.open(chapterId)

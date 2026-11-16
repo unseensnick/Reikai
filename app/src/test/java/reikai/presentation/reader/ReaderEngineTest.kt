@@ -1349,6 +1349,7 @@ private class FakeChapterList : ReaderChapterList {
     override val rows = MutableStateFlow(emptyList<ReaderChapterRow>())
 
     override val currentChapterId = MutableStateFlow(-1L)
+    override val heldChapterIds = flowOf(emptySet<Long>())
 
     override val undatedChapterDate = UndatedChapterDate.Blank
 

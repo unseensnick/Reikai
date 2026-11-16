@@ -725,10 +725,12 @@ class ReaderActivity : BaseActivity() {
                     val chapterList = engine.chapterList
                     val rows by chapterList.rows.collectAsState(emptyList())
                     val current by chapterList.currentChapterId.collectAsState(-1L)
+                    val held by chapterList.heldChapterIds.collectAsState(emptySet())
                     ReaderChapterListDialog(
                         onDismissRequest = onDismissRequest,
                         rows = rows,
                         currentChapterId = current,
+                        heldChapterIds = held,
                         undatedChapterDate = chapterList.undatedChapterDate,
                         chapterSwipeStartAction = viewModel.chapterSwipeStartAction,
                         chapterSwipeEndAction = viewModel.chapterSwipeEndAction,

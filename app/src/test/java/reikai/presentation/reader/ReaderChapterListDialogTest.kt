@@ -60,6 +60,7 @@ class ReaderChapterListDialogTest {
         rows: List<ReaderChapterRow>,
         current: Long = rows.first().id,
         swipe: LibraryPreferences.ChapterSwipeAction = LibraryPreferences.ChapterSwipeAction.Disabled,
+        held: Set<Long> = setOf(current),
     ) {
         compose.setContent {
             ComposeTestHost {
@@ -67,6 +68,7 @@ class ReaderChapterListDialogTest {
                     onDismissRequest = {},
                     rows = rows,
                     currentChapterId = current,
+                    heldChapterIds = held,
                     undatedChapterDate = UndatedChapterDate.Blank,
                     chapterSwipeStartAction = swipe,
                     chapterSwipeEndAction = swipe,
@@ -142,6 +144,27 @@ class ReaderChapterListDialogTest {
         downloads shouldBe listOf(listOf(2L) to ChapterDownloadAction.DELETE)
     }
 
+    // A strip still draws the neighbour's pages from disk beside the chapter being read.
+    @Test
+    fun `delete leaves out a neighbour the reader still holds`() {
+        show(
+            listOf(
+                row(1, Download.State.DOWNLOADED),
+                row(2, Download.State.DOWNLOADED),
+                row(3, Download.State.DOWNLOADED),
+            ),
+            current = 2,
+            held = setOf(1, 2),
+        )
+
+        longPress("Chapter 1")
+        compose.onNodeWithText("Chapter 3").performClick()
+        tap("Delete")
+        compose.onNodeWithText("OK").performClick()
+
+        downloads shouldBe listOf(listOf(3L) to ChapterDownloadAction.DELETE)
+    }
+
     @Test
     fun `the chapter being read alone offers no delete`() {
         show(listOf(row(1, Download.State.DOWNLOADED), row(2)), current = 1)
@@ -198,6 +221,7 @@ class ReaderChapterListDialogTest {
                     onDismissRequest = {},
                     rows = rows,
                     currentChapterId = 1,
+                    heldChapterIds = setOf(1),
                     undatedChapterDate = UndatedChapterDate.Blank,
                     chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Download,
                     chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Download,

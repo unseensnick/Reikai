@@ -38,6 +38,10 @@ class ReaderSheetReadConformanceTest {
         /** With Remove after marked as read on, marks the open chapter and another read: whether each lost its download. */
         suspend fun downloadsRemovedMarkingOpenAndOther(scope: TestScope): List<Boolean>
 
+        /** Chapters 1 to 4, opened on 2. With Remove after marked as read on, marks 3, the neighbour the
+         *  reader holds beside it, and 4 read: whether each lost its download. */
+        suspend fun downloadsRemovedMarkingNeighbourAndOther(scope: TestScope): List<Boolean>
+
         /** A series merged from two sources, each with chapters 5 and 6, opened on the first's chapter 5. Marks
          *  the first's chapter 6 read: whether the second source's copy is stored read. */
         suspend fun mergedCopyReadAfterMarking(scope: TestScope): Boolean?
@@ -69,6 +73,12 @@ class ReaderSheetReadConformanceTest {
     @MethodSource("probes")
     fun `marking the open chapter read from the sheet keeps its download`(probe: Probe) = runTest {
         probe.downloadsRemovedMarkingOpenAndOther(this) shouldBe listOf(false, true)
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("probes")
+    fun `marking a neighbour the reader holds read from the sheet keeps its download`(probe: Probe) = runTest {
+        probe.downloadsRemovedMarkingNeighbourAndOther(this) shouldBe listOf(false, true)
     }
 
     @ParameterizedTest(name = "{0}")
@@ -139,7 +149,9 @@ class ReaderSheetReadConformanceTest {
             MangaReaderViewModelHarness.create().use { harness ->
                 val manga = harness.manga(1L, source = 100L, title = "Series")
                 val opened = harness.chapter(10L, manga, 1.0)
-                val other = harness.chapter(20L, manga, 2.0)
+                // Past the neighbour the viewer holds beside the open chapter.
+                harness.chapter(20L, manga, 2.0)
+                val other = harness.chapter(30L, manga, 3.0)
                 harness.open(
                     manga,
                     chapterId = opened.id,
@@ -151,6 +163,24 @@ class ReaderSheetReadConformanceTest {
                 }
             }
 
+        override suspend fun downloadsRemovedMarkingNeighbourAndOther(scope: TestScope): List<Boolean> =
+            MangaReaderViewModelHarness.create().use { harness ->
+                val manga = harness.manga(1L, source = 100L, title = "Series")
+                harness.chapter(10L, manga, 1.0)
+                val opened = harness.chapter(20L, manga, 2.0)
+                val neighbour = harness.chapter(30L, manga, 3.0)
+                val other = harness.chapter(40L, manga, 4.0)
+                harness.open(
+                    manga,
+                    chapterId = opened.id,
+                    preferences = mapOf("pref_remove_after_marked_as_read_key" to true),
+                ) { model, _ ->
+                    model.setChapterReadStatus(listOf(neighbour, other), read = true)
+                    removed(harness.deletedAfterRead, other.id)
+                    listOf(neighbour.id in harness.deletedAfterRead, other.id in harness.deletedAfterRead)
+                }
+            }
+
         override suspend fun mergedCopyReadAfterMarking(scope: TestScope): Boolean? = openMerged { harness, model ->
             model.setChapterReadStatus(listOf(harness.stored(FIRST_SIX)), read = true)
             settlesAt(true) { harness.stored(SECOND_SIX).read }
@@ -158,20 +188,29 @@ class ReaderSheetReadConformanceTest {
 
         override suspend fun mergedCopyDownloadsRemovedMarkingOpenAndOther(scope: TestScope): List<Boolean> =
             openMerged(mapOf("pref_remove_after_marked_as_read_key" to true)) { harness, model ->
-                model.setChapterReadStatus(listOf(harness.stored(FIRST_FIVE), harness.stored(FIRST_SIX)), read = true)
-                removed(harness.deletedAfterRead, SECOND_SIX)
-                listOf(SECOND_FIVE in harness.deletedAfterRead, SECOND_SIX in harness.deletedAfterRead)
+                // Seven rather than six, which is the neighbour the viewer holds beside the open chapter.
+                model.setChapterReadStatus(listOf(harness.stored(FIRST_FIVE), harness.stored(FIRST_SEVEN)), read = true)
+                removed(harness.deletedAfterRead, SECOND_SEVEN)
+                listOf(SECOND_FIVE in harness.deletedAfterRead, SECOND_SEVEN in harness.deletedAfterRead)
             }
 
-        /** Two sources carrying chapters 5 and 6, newest first, stitched unit by unit, opened on the first's 5. */
+        /** Two sources carrying chapters 5 to 7, newest first, stitched unit by unit, opened on the first's 5. */
         private suspend fun <T> openMerged(
             preferences: Map<String, Any> = emptyMap(),
             probe: suspend (MangaReaderViewModelHarness, ReaderViewModel) -> T,
         ): T = MangaReaderViewModelHarness.create().use { harness ->
             val first = harness.manga(1L, source = 100L, title = "First")
             val second = harness.manga(2L, source = 200L, title = "Second")
-            val firsts = listOf(harness.chapter(FIRST_SIX, first, 6.0), harness.chapter(FIRST_FIVE, first, 5.0))
-            val seconds = listOf(harness.chapter(SECOND_SIX, second, 6.0), harness.chapter(SECOND_FIVE, second, 5.0))
+            val firsts = listOf(
+                harness.chapter(FIRST_SEVEN, first, 7.0),
+                harness.chapter(FIRST_SIX, first, 6.0),
+                harness.chapter(FIRST_FIVE, first, 5.0),
+            )
+            val seconds = listOf(
+                harness.chapter(SECOND_SEVEN, second, 7.0),
+                harness.chapter(SECOND_SIX, second, 6.0),
+                harness.chapter(SECOND_FIVE, second, 5.0),
+            )
             val stitch = firsts.indices.flatMap { unit ->
                 listOf(ChapterUnit(firsts[unit].id, unit, 0), ChapterUnit(seconds[unit].id, unit, 1))
             }
@@ -194,6 +233,8 @@ class ReaderSheetReadConformanceTest {
             const val FIRST_SIX = 16L
             const val SECOND_FIVE = 25L
             const val SECOND_SIX = 26L
+            const val FIRST_SEVEN = 17L
+            const val SECOND_SEVEN = 27L
         }
     }
 
@@ -239,6 +280,24 @@ class ReaderSheetReadConformanceTest {
                 model.setChapterRead(listOf(opened.id, other.id), read = true)
                 removed(harness.deletedAfterRead, other.id)
                 listOf(opened.id in harness.deletedAfterRead, other.id in harness.deletedAfterRead)
+            }
+
+        override suspend fun downloadsRemovedMarkingNeighbourAndOther(scope: TestScope): List<Boolean> =
+            NovelReaderViewModelHarness.create(scope.testScheduler).use { harness ->
+                harness.novelPreferences.removeAfterMarkedAsRead().set(true)
+                // Opened past the point the next chapter joins the window at, so the window holds it.
+                harness.novelPreferences.readerAutoLoadNextAt().set(30)
+                val novel = harness.novel(harness.source("alpha"))
+                harness.chapter(novel, 1.0)
+                val opened = harness.chapter(novel, 2.0, progressPercent = 50)
+                val neighbour = harness.chapter(novel, 3.0)
+                val other = harness.chapter(novel, 4.0)
+                val model = harness.open(novel, opened.id)
+                scope.advanceUntilIdle()
+
+                model.setChapterRead(listOf(neighbour.id, other.id), read = true)
+                removed(harness.deletedAfterRead, other.id)
+                listOf(neighbour.id in harness.deletedAfterRead, other.id in harness.deletedAfterRead)
             }
 
         override suspend fun mergedCopyReadAfterMarking(scope: TestScope): Boolean? =

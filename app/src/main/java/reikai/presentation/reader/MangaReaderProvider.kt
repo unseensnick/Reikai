@@ -285,6 +285,9 @@ class MangaReaderProvider(
         override val currentChapterId: Flow<Long> =
             viewModel.state.map { it.currentChapter?.chapter?.id ?: -1L }
 
+        override val heldChapterIds: Flow<Set<Long>> =
+            viewModel.state.map(viewModel::heldChapterIds).distinctUntilChanged()
+
         override val undatedChapterDate = UndatedChapterDate.NotApplicable
 
         override fun open(chapterId: Long) {
