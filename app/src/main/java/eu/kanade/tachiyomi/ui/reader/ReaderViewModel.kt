@@ -796,8 +796,16 @@ class ReaderViewModel(
             if (!ReaderResume.keepsPosition(chapter.chapter.read, readerPreferences.preserveReadingPosition.get())) {
                 chapter.requestedPage = 0
             }
-            withIOContext {
-                loadChapter(loader, chapter)
+            // The chapter left is stamped into history with its time read, as a novel step does; a page
+            // switch does it in loadNewChapter. A failed load starts the clock again in the chapter kept.
+            flushProgress()
+            updateHistory()
+            try {
+                withIOContext {
+                    loadChapter(loader, chapter)
+                }
+            } finally {
+                restartReadTimer()
             }
         }
         // RK <--
