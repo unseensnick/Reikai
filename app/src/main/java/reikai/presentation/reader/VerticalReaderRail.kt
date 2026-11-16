@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.FilledIconButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.IconButtonColors
 import androidx.compose.material3.SliderState
 import androidx.compose.material3.Text
 import androidx.compose.material3.VerticalSlider
@@ -17,8 +17,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import eu.kanade.presentation.util.isTabletUi
 import mihon.icons.materialsymbols.MaterialSymbols
 import mihon.icons.materialsymbols.rounded.SkipNext
 import mihon.icons.materialsymbols.rounded.SkipPrevious
@@ -30,7 +31,7 @@ import tachiyomi.presentation.core.i18n.stringResource
  * labelled vertical slider pill, and a next-chapter skip button. The caller owns the [sliderState] and
  * the [topLabel]/[bottomLabel], which carry each content type's unit. A null [sliderState] is a chapter
  * with nowhere to scrub to, carried by the state rather than beside a flag a caller could set to
- * disagree with it.
+ * disagree with it. The padding and colours are the navigator's, which the horizontal bar shares.
  */
 @Composable
 fun VerticalReaderRail(
@@ -44,15 +45,11 @@ fun VerticalReaderRail(
     onNextChapter: () -> Unit,
     enabledNext: Boolean,
     interactionSource: MutableInteractionSource,
+    mainAxisPadding: Dp,
+    backgroundColor: Color,
+    buttonColor: IconButtonColors,
     modifier: Modifier = Modifier,
 ) {
-    val mainAxisPadding = if (isTabletUi()) 24.dp else 8.dp
-    val backgroundColor = readerChromeColor()
-    val buttonColor = IconButtonDefaults.filledIconButtonColors(
-        containerColor = backgroundColor,
-        disabledContainerColor = backgroundColor,
-    )
-
     Column(
         modifier = modifier
             .fillMaxHeight()

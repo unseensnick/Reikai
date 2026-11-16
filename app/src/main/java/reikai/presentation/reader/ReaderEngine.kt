@@ -21,7 +21,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -341,10 +340,10 @@ class ReaderEngine(
         appScope.launch { paceRepository.addListenedTime(listened.first, listened.second) }
     }
 
+    override fun onCleared() {
         // The host flushes on pause, but a renderer still settling reports after that, and its hold would
         // end with the session's scope. The write itself runs on the app scope.
         provider.flushPosition()
-    override fun onCleared() {
         // The paragraph being spoken when the reader closes has had no step to credit it yet.
         listening.value.next(playing = false, progress = null, nowMs = clock.elapsedNow().inWholeMilliseconds)
             .listened?.let(::recordListened)
@@ -383,15 +382,15 @@ class ReaderEngine(
 
     // Dialogs: one slot, so raising a dialog is also how the previous one closes.
 
-    private val mutableDialog = MutableStateFlow<ReaderDialog?>(null)
-    val dialog: StateFlow<ReaderDialog?> = mutableDialog.asStateFlow()
+    val dialog: StateFlow<ReaderDialog?>
+        field = MutableStateFlow<ReaderDialog?>(null)
 
     fun openDialog(dialog: ReaderDialog) {
-        mutableDialog.value = dialog
+        this.dialog.value = dialog
     }
 
     fun dismissDialog() {
-        mutableDialog.value = null
+        dialog.value = null
     }
 
     // Raises the load surface as the load moves, from the engine's own scope. A failure is a one-shot
@@ -406,7 +405,7 @@ class ReaderEngine(
                     // Never over a sheet the reader opened: a setting changed in one reloads the chapter in
                     // place, and read aloud steps chapters by itself, so replacing it would close it mid-use.
                     // A pick from the chapter list closes that sheet before it loads.
-                    ReaderLoadState.Loading -> if (mutableDialog.value.let { it == null || it.isLoadSurface }) {
+                    ReaderLoadState.Loading -> if (dialog.value.let { it == null || it.isLoadSurface }) {
                         openDialog(ReaderDialog.Loading)
                     }
                     is ReaderLoadState.Failed -> {
@@ -427,7 +426,7 @@ class ReaderEngine(
     }
 
     private fun dismissLoadDialog() {
-        if (mutableDialog.value?.isLoadSurface == true) dismissDialog()
+        if (dialog.value?.isLoadSurface == true) dismissDialog()
     }
 
     /** What this raises for a load, as against a sheet the reader opened. */
@@ -436,8 +435,8 @@ class ReaderEngine(
 
     // Viewport: what is currently rendering the entry, whatever content type it is.
 
-    private val mutableViewport = MutableStateFlow<ReaderViewport?>(null)
-    val viewport: StateFlow<ReaderViewport?> = mutableViewport.asStateFlow()
+    val viewport: StateFlow<ReaderViewport?>
+        field = MutableStateFlow<ReaderViewport?>(null)
 
     /**
      * Swaps in the viewport the host just built. Destroying the outgoing one happens here rather
@@ -448,14 +447,14 @@ class ReaderEngine(
      * folding that in here would mean nothing could exercise the swap without inventing a host.
      */
     fun installViewport(viewport: ReaderViewport) {
-        mutableViewport.value?.let(::release)
-        mutableViewport.value = viewport
+        this.viewport.value?.let(::release)
+        this.viewport.value = viewport
     }
 
     /** Called when the host goes away, since the viewport holds its view tree. */
     fun destroyViewport() {
-        mutableViewport.value?.let(::release)
-        mutableViewport.value = null
+        viewport.value?.let(::release)
+        viewport.value = null
     }
 
     private fun release(viewport: ReaderViewport) {
@@ -471,8 +470,8 @@ class ReaderEngine(
         viewModelScope.launch {
             combine(
                 autoScrollRunning,
-                mutableViewport,
-                combine(autoScrollPause, mutableDialog) { pause, dialog -> pause to (dialog != null) },
+                viewport,
+                combine(autoScrollPause, dialog) { pause, raised -> pause to (raised != null) },
                 readAloudState,
                 seekHeld,
             ) { running, viewport, (pause, dialogOpen), readAloud, held ->

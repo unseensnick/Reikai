@@ -16,9 +16,9 @@ data class PageColorAdjust(
     val grayscale: Boolean = false,
     val inverted: Boolean = false,
     /** 100 leaves the page alone; contrast stretches or squeezes it around mid grey. */
-    val contrastPercent: Int = CONTRAST_DEFAULT,
+    val contrastPercent: Int = CONTRAST_DEFAULT_PERCENT,
 ) {
-    val isIdentity: Boolean get() = !grayscale && !inverted && contrastPercent == CONTRAST_DEFAULT
+    val isIdentity: Boolean get() = !grayscale && !inverted && contrastPercent == CONTRAST_DEFAULT_PERCENT
 
     /** Rows R, G, B; columns red, green, blue and an offset, all in 0..1. Alpha passes through. */
     private val matrix: FloatArray by lazy {
@@ -76,7 +76,6 @@ data class PageColorAdjust(
     }
 
     companion object {
-        const val CONTRAST_DEFAULT = CONTRAST_DEFAULT_PERCENT
         const val CONTRAST_STEP = 10
         val CONTRAST_RANGE = 50..200
 

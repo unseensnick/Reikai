@@ -300,8 +300,9 @@ class NovelReaderProvider(
     override fun setKeepScreenOn(enabled: Boolean) = viewModel.setKeepScreenOn(enabled)
 
     /**
-     * A change to a setting [createViewport] reads once, after the one it was built with. The sheet reaches
-     * all four, so the host rebuilds the viewport around the live session, as a rotation does.
+     * A change to a setting [createViewport] reads once, after the one it was built with: the
+     * [NovelViewportSettings] and the novel's own renderer and reading mode. The sheet reaches them, so the
+     * host rebuilds the viewport around the live session, as a rotation does.
      */
     private val viewportRebuilds: Flow<Unit> = (
         NovelViewportSettings.watched(novelPreferences) +

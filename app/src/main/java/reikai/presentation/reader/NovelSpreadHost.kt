@@ -147,7 +147,7 @@ class NovelSpreadHost(
         requestLayout()
     }
 
-    /** Where a spread [w] x [h] draws its column; the display's height stands in before this view has one. */
+    /** Where a spread [w] wide draws its column. */
     private fun columns(w: Int) = SpreadColumns.of(w, outerLeft, outerRight, innerMargin, gapFraction)
 
     /** How wide the column is laid out in a spread [w] wide, which is what the column measures before it is. */

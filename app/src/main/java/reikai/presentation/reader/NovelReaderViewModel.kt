@@ -182,9 +182,9 @@ class NovelReaderViewModel(
     private val pageFetcher: NovelPageFetcher,
     private val adultChecker: AdultContentChecker,
     private val getNextNovelChapter: GetNextNovelChapter,
-    // Dispatchers.IO, which is what launchIO would have used. Passed in so a JVM test can run the
-    // whole session on its own scheduler.
-    @Assisted private val io: CoroutineDispatcher = Dispatchers.IO,
+    // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
+    // run the whole session on its own scheduler.
+    @Assisted private val io: CoroutineDispatcher,
 ) : ViewModel() {
 
     @AssistedFactory
@@ -331,10 +331,9 @@ class NovelReaderViewModel(
         context = context,
     )
 
-    /** Positions not written yet, the latest per chapter, so writes that run out of order store the
-     *  newest rather than whichever ran last. */
+    /** Positions not written yet, the latest per chapter, so a write queued before a newer report for its
+     *  chapter stores the newer one. The writes themselves run in order on [progressWrites]. */
     private val unwritten = ConcurrentHashMap<Long, ChapterProgress.Percent>()
-    private val writeLock = Mutex()
 
     /** Where this series keeps its reader flags, its merge group's rather than [novelId]'s, which is whichever
      *  member owns the chapter opened. [novelId] alone once that read fails. */
@@ -606,8 +605,8 @@ class NovelReaderViewModel(
         latestReport = id to clamped
         if (id == currentChapterId) {
             val before = progress.value.wholePercent
-            keepPosition(id, clamped)
             progress.value = clamped
+            keepPosition(id, clamped)
             // Reaching the threshold is what lets the next chapter join below, so the window follows at once.
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
             if (before < threshold && clamped.wholePercent >= threshold) viewModelScope.launchIO { rebuildWindow() }
@@ -630,6 +629,7 @@ class NovelReaderViewModel(
     /** Write the last reported position now. The host calls this on pause, so being backgrounded or
      *  killed cannot drop a held write. */
     fun flushProgress() = progressSave.flush()
+
     /** The chapter being read's position, kept for a process kill as manga keeps its page: in incognito the
      *  database holds none to reopen at. */
     private fun keepPosition(chapterId: Long, at: ChapterProgress.Percent) {
@@ -641,7 +641,6 @@ class NovelReaderViewModel(
     private fun unstoredPosition(chapterId: Long): Long? = progressSave.heldFor(chapterId)?.hundredths
         ?: unwritten[chapterId]?.hundredths
         ?: savedState.get<LongArray>(SAVED_POSITION)?.takeIf { it[0] == chapterId }?.get(1)
-
 
     /** The chapter on screen, which a merged session moves across sources. Every bar verb acts on this
      *  one, so it advances only once a chapter has actually rendered. Saved on the way, so a process
@@ -711,6 +710,15 @@ class NovelReaderViewModel(
         },
     )
 
+    /**
+     * Raised whenever [htmlCache] is cleared for a chapter-text setting or the renderer, so text a load or a
+     * warm was already processing for the old ones is dropped rather than cached or shown. The pipeline's
+     * output depends on the renderer: the native one keeps event handlers its text view never runs, and the
+     * WebView would run them.
+     */
+    @Volatile
+    private var textGeneration = 0
+
     /** The last warm failure per chapter, which [ChapterRetryCooldown] reads to decide whether the window
      *  may reach for that chapter again unprompted. An explicit open clears the lot. */
     private val warmFailures = ChapterRetryCooldown.Failures()
@@ -722,15 +730,6 @@ class NovelReaderViewModel(
     /** Chapters the renderer found fit on one screen, so a forward step from one reads it. Kept current
      *  rather than latched, since a chapter can measure short before its images land. */
     private val fitsOnScreen: MutableSet<Long> = Collections.synchronizedSet(mutableSetOf())
-
-    /**
-     * Raised whenever [htmlCache] is cleared for a chapter-text setting or the renderer, so text a load or a
-     * warm was already processing for the old ones is dropped rather than cached or shown. The pipeline's
-     * output depends on the renderer: the native one keeps event handlers its text view never runs, and the
-     * WebView would run them.
-     */
-    @Volatile
-    private var textGeneration = 0
 
     fun reportFitsOnScreen(chapterId: Long, fits: Boolean) {
         // A measurement of the page an open replaced says nothing about the window that replaced it.
@@ -894,6 +893,7 @@ class NovelReaderViewModel(
     fun open(chapterId: Long) {
         if (chapterId == currentChapterId && chapter.value != null) return
         readAloud.onUserNavigated()
+        textLoader.retryFailedPlugin()
         goTo(chapterId)
     }
 
@@ -923,7 +923,6 @@ class NovelReaderViewModel(
         if (window.value.chapters.none { it.chapterId == chapterId }) return
         visibleReport = generation to chapterId
         if (landing.mayRead(chapterId)) requestCrossing()
-        textLoader.retryFailedPlugin()
     }
 
     /** The reader dragged the page or pressed a key that scrolls it, which the host sees first. The
@@ -972,8 +971,8 @@ class NovelReaderViewModel(
         this.bookmarked.value = bookmarked
         chapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
-        keepPosition(target, progress.value)
         progress.value = latestReport?.takeIf { it.first == target }?.second ?: arriving.progress
+        keepPosition(target, progress.value)
         settleNeighbours(around)
         window.value = recentred
         return passed
@@ -1021,6 +1020,10 @@ class NovelReaderViewModel(
         loadState.value = ReaderLoadState.Loading
         viewModelScope.launchIO {
             try {
+                // The text is processed for the renderer the novel keeps, read at open, so the first chapter
+                // is processed once, for the renderer that will draw it.
+                viewerFlagsLoaded.await()
+                val generation = textGeneration
                 if (orderedIds.isEmpty()) resolveReadingOrder()
                 target = copiesToOpen?.idOf(requested) ?: requested
                 val row = chapterRepo.getById(target) ?: error("Chapter not found: $target")
@@ -1034,10 +1037,6 @@ class NovelReaderViewModel(
                 }
                 val bookmarked = isBookmarkedInGroup(row.id)
                 lane.withLock {
-                // The text is processed for the renderer the novel keeps, read at open, so the first chapter
-                // is processed once, for the renderer that will draw it.
-                viewerFlagsLoaded.await()
-                val generation = textGeneration
                     // A later open overtook this one while it loaded, and committing it now would put
                     // the reader back on the chapter they had moved on from. A text change since has
                     // its own load running, for the text this one processed by the old settings.
@@ -1087,8 +1086,8 @@ class NovelReaderViewModel(
         this.bookmarked.value = bookmarked
         chapter.value = opened
         if (!reloading) {
-            keepPosition(row.id, opened.progress)
             progress.value = opened.progress
+            keepPosition(row.id, opened.progress)
             latestTopLine = null
         }
         openGeneration = window.generation
@@ -1146,16 +1145,14 @@ class NovelReaderViewModel(
         progress.isChapterComplete(novelPreferences.readerMarkReadPercent().get())
 
     private suspend fun writeUnwritten(id: Long, clamped: ChapterProgress.Percent) {
-        val chapter = writeLock.withLock {
-            val position = unwritten.remove(id)
-            // By the chapter's own owner, which in a window crossing a merged novel's seam may not be the
-            // current chapter's.
-            val owner = chapterRepo.getById(id)?.novelId
-            if (owner == null || incognito.of(owner)) return@withLock null
-            position?.let { chapterRepo.setLastTextProgress(id, it.hundredths) }
-            // Fetched before marking, so the shared interactor still sees it unread.
-            chapterRepo.getById(id)
-        } ?: return
+        val position = unwritten.remove(id)
+        // By the chapter's own owner, which in a window crossing a merged novel's seam may not be the
+        // current chapter's.
+        val owner = chapterRepo.getById(id)?.novelId
+        if (owner == null || incognito.of(owner)) return
+        position?.let { chapterRepo.setLastTextProgress(id, it.hundredths) }
+        // Fetched before marking, so the shared interactor still sees it unread.
+        val chapter = chapterRepo.getById(id) ?: return
         if (completesChapter(clamped)) markChapterRead(chapter)
     }
 
@@ -1268,9 +1265,8 @@ class NovelReaderViewModel(
      */
     fun chapterRows(words: ChapterTitleWords): Flow<List<ReaderChapterRow>> = flow {
         if (orderedIds.isEmpty()) resolveReadingOrder()
-        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
-        val byId = pooled.associateBy { it.id }
-        val chapters = orderedIds.mapNotNull { id -> byId[id] ?: chapterRepo.getById(id) }
+        val pooled = groupPool()
+        val chapters = pooled.resolve(orderedIds)
         val sourceNames = chapterSourceNames()
         val novels = novelRepo.ownersOf(pooled + chapters)
         val installed = novels.values.filter { isInstalled(it) }.mapTo(HashSet()) { it.id }
@@ -1328,10 +1324,17 @@ class NovelReaderViewModel(
 
     /** Every source's copy of [chapterIds] the stored stitch places with them, themselves included, as
      *  the database holds them now. Just the chapters when the novel is ungrouped. */
-    private suspend fun groupCopies(chapterIds: Set<Long>): List<NovelChapter> {
-        val ids = expandToUnits(chapterIds, groupStitch)
-        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }.filter { it.id in ids }
-        return pooled + (ids - pooled.mapTo(HashSet()) { it.id }).mapNotNull { chapterRepo.getById(it) }
+    private suspend fun groupCopies(chapterIds: Set<Long>): List<NovelChapter> =
+        groupPool().resolve(expandToUnits(chapterIds, groupStitch))
+
+    /** Every chapter of the merge group's members, as the database holds them now. */
+    private suspend fun groupPool(): List<NovelChapter> = memberIds.flatMap { chapterRepo.getByNovelId(it) }
+
+    /** [ids] as rows, from this pool where it holds them, else read on their own: a chapter outside the
+     *  members, such as one a group-scoped open put back. */
+    private suspend fun List<NovelChapter>.resolve(ids: Iterable<Long>): List<NovelChapter> {
+        val byId = associateBy { it.id }
+        return ids.mapNotNull { byId[it] ?: chapterRepo.getById(it) }
     }
 
     /** The bar's answer, as the details list gives it: a bookmark on another source's copy counts. */
@@ -1370,14 +1373,13 @@ class NovelReaderViewModel(
     fun downloadChapter(chapterIds: List<Long>, action: ChapterDownloadAction) {
         // The queue edit or delete outlives the reader, which is often closed straight after the tap, as on manga
         appScope.launch {
-            val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
-            val byId = pooled.associateBy { it.id }
-            val picked = chapterIds.mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+            val pooled = groupPool()
+            val picked = pooled.resolve(chapterIds)
             if (picked.isEmpty()) return@launch
             val fetched = downloadTargets.of(picked, pooled + picked) { it.id }
             // The copies the rows count as downloaded, which follow this session's scope.
             downloadManager.runChapterAction(action, rowDownloadChapters(action, picked, fetched) { it.id }) {
-                mergeScope.copiesOf(chapterIds.toSet(), groupStitch).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+                pooled.resolve(mergeScope.copiesOf(chapterIds.toSet(), groupStitch))
             }
         }
     }
@@ -1560,6 +1562,12 @@ class NovelReaderViewModel(
         }
     }
 
+    /** Caches [text] for [chapterId] if no change has replaced the settings it was processed by, [generation]'s. */
+    private fun cacheIfCurrent(chapterId: Long, text: Pair<String, String?>, generation: Int): Boolean =
+        synchronized(htmlCache) {
+            (generation == textGeneration).also { current -> if (current) htmlCache[chapterId] = text }
+        }
+
     private suspend fun rebuildWindow() = lane.withLock { publishWindow() }
 
     /** Publishes the chapter being read with whichever neighbours are warmed, so the renderer's window
@@ -1577,12 +1585,6 @@ class NovelReaderViewModel(
      * state and leave everything as it was if this throws.
      */
     private suspend fun buildWindow(current: LoadedChapter, around: Neighbours, generation: Int): Window {
-    /** Caches [text] for [chapterId] if no change has replaced the settings it was processed by, [generation]'s. */
-    private fun cacheIfCurrent(chapterId: Long, text: Pair<String, String?>, generation: Int): Boolean =
-        synchronized(htmlCache) {
-            (generation == textGeneration).also { current -> if (current) htmlCache[chapterId] = text }
-        }
-
         if (!windowedReading()) return Window(generation, current.chapterId, listOf(current))
         val published = window.value.takeIf { it.generation == generation }?.chapters.orEmpty()
         val forward = NovelWindowReach.joinable(
@@ -1657,9 +1659,8 @@ class NovelReaderViewModel(
         if (ahead <= 0) return
         val index = aheadIds.indexOf(currentChapterId)
         if (index < 0) return
-        val pooled = memberIds.flatMap { chapterRepo.getByNovelId(it) }
-        val byId = pooled.associateBy { it.id }
-        val candidates = aheadIds.drop(index + 1).mapNotNull { byId[it] ?: chapterRepo.getById(it) }
+        val pooled = groupPool()
+        val candidates = pooled.resolve(aheadIds.drop(index + 1))
         val flags = groupFlags(pooled, candidates, novelRepo.ownersOf(pooled + candidates))
         // Already on disk is left to downloadChapters, which drops it, as manga's queue does.
         val picked = chaptersToDownloadAhead(candidates, from = 0, count = ahead, isRead = flags::isRead)
@@ -1728,9 +1729,9 @@ internal fun NovelChapter.toReaderChapterRow(
  *  intent carries: a restored Activity is handed that same intent, naming the chapter it opened on. */
 private const val SAVED_CHAPTER_ID = "novel_chapter_id"
 
-/** Chapters held in the forward-prefetch cache. Small: it exists to make one step instant, not to
 /** The chapter being read with its position, kept beside it for the same process kill. */
 private const val SAVED_POSITION = "novel_chapter_position"
 
+/** Chapters held in the forward-prefetch cache. Small: it exists to make one step instant, not to
  *  keep a session's reading in memory. */
 private const val MAX_CACHED_CHAPTERS = 5

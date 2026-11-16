@@ -140,7 +140,7 @@ fun ChapterNavigator(
             modifier = modifier,
         )
     } else {
-        // RK --> the shared rail takes its own padding and colours, see VerticalChapterNavigator
+        // RK --> the shared rail, see VerticalChapterNavigator
         VerticalChapterNavigator(
             state = state,
             onSeekFraction = onSeekFraction,
@@ -151,6 +151,9 @@ fun ChapterNavigator(
             enabledPrevious = enabledPrevious,
             progress = progress,
             interactionSource = interactionSource,
+            mainAxisPadding = mainAxisPadding,
+            backgroundColor = backgroundColor,
+            buttonColor = buttonColor,
             modifier = modifier,
         )
         // RK <--
@@ -268,6 +271,9 @@ fun VerticalChapterNavigator(
     enabledPrevious: Boolean,
     progress: ChapterProgress?,
     interactionSource: MutableInteractionSource,
+    mainAxisPadding: Dp,
+    backgroundColor: Color,
+    buttonColor: IconButtonColors,
     modifier: Modifier = Modifier,
 ) {
     VerticalReaderRail(
@@ -281,6 +287,9 @@ fun VerticalChapterNavigator(
         onNextChapter = onNextChapter,
         enabledNext = enabledNext,
         interactionSource = interactionSource,
+        mainAxisPadding = mainAxisPadding,
+        backgroundColor = backgroundColor,
+        buttonColor = buttonColor,
         modifier = modifier,
     )
 }
