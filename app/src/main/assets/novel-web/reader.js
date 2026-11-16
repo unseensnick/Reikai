@@ -928,7 +928,10 @@
    * bionicBoldsTheLettersTheNativeRendererDoes runs both.
    */
   var FIXATION = [0, 4, 12, 17, 24, 29, 35, 42, 48];
-  var WORD = /[\p{L}\p{Nd}]*\p{L}[\p{L}\p{Nd}]*/gu;
+  // A run, then checked for its letter: a pattern that finds the letter inside the run backtracks
+  // quadratically over a long run of digits.
+  var WORD = /[\p{L}\p{Nd}]+/gu;
+  var LETTER = /\p{L}/u;
 
   function boldLength(wordLength) {
     for (var i = 0; i < FIXATION.length; i++) {
@@ -966,6 +969,7 @@
     var match;
     WORD.lastIndex = 0;
     while ((match = WORD.exec(text)) !== null) {
+      if (!LETTER.test(match[0])) continue;
       var n = boldLength(match[0].length);
       if (n === 0) continue;
       if (match.index > from) span.appendChild(document.createTextNode(text.slice(from, match.index)));
