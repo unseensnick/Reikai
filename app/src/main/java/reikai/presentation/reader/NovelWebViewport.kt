@@ -299,9 +299,9 @@ class NovelWebViewport(
             ),
             NovelWebBridge.NAME,
         )
-        // Only a scroll made while a finger is down is the reader's: the page's own seek, keys, read aloud
-        // and auto-scroll move the window too. Not consumed, so selection and the page's touches still run,
-        // except under the veil, where a scroll would cancel the landing the veil is waiting on.
+        // A scroll made while a finger is down is the reader's, as is the fling after it: the page's own seek,
+        // keys, read aloud and auto-scroll move the window too. Not consumed, so selection and the page's touches
+        // still run, except under the veil, where a scroll would cancel the landing the veil is waiting on.
         setOnTouchListener { _, event ->
             when (event.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
@@ -314,7 +314,7 @@ class NovelWebViewport(
         }
         setOnGenericMotionListener { _, _ -> resumeVeil.isUp }
         setOnScrollChangeListener { _, _, y, _, oldY ->
-            if (fingerDown) callbacks.onReaderScrolled(y - oldY)
+            callbacks.onScrolled(y - oldY, fingerDown)
             viewScrollCaughtUp()
         }
     }

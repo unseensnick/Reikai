@@ -118,6 +118,7 @@ class WebtoonViewer(val activity: ReaderActivity, val isContinuous: Boolean = tr
                         dy = dy.toFloat(),
                         firstVisible = layoutManager.findFirstVisibleItemPosition(),
                         lastEndVisible = layoutManager.findLastEndVisibleItemPosition(),
+                        touching = recyclerView.scrollState == RecyclerView.SCROLL_STATE_DRAGGING, // RK
                     )
                 }
             },

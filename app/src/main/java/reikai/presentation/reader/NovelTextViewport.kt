@@ -487,7 +487,7 @@ class NovelTextViewport(
             override fun onScrolled(view: RecyclerView, dx: Int, dy: Int) {
                 scrolled += dy
                 requestSnap()
-                if (view.scrollState == RecyclerView.SCROLL_STATE_DRAGGING) callbacks.onReaderScrolled(dy)
+                callbacks.onScrolled(dy, view.scrollState == RecyclerView.SCROLL_STATE_DRAGGING)
                 showTallPictures()
                 reportVisibleChapter()
                 report(callbacks.onProgressChanged)

@@ -223,7 +223,7 @@ Inverts what the volume keys do.
 How much of the screen one press moves. Hidden while reading a page at a time, where a press turns a whole page.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-How quickly you have to scroll before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
+How quickly you have to scroll or fling before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Show chapter navigator <Badge type="info" text="On" />
 Shows the progress slider or the vertical navigator. While reading a page at a time it is always a slider above the buttons, showing the page you are on and the chapter's page count. With it off, neither is drawn, the previous and next chapter buttons move to the two ends of the button bar, and the settings below it are hidden.

@@ -333,7 +333,7 @@ class NovelReaderProvider(
         val built = viewportSettings()
         // One rule for both renderers, as the long-strip manga viewer hides the menu: read once per
         // viewport, so a changed threshold takes effect on the next open, as manga's does.
-        val hideThreshold = novelPreferences.readerHideThreshold().get().threshold
+        val menuHide = MenuHideOnScroll(novelPreferences.readerHideThreshold().get().threshold)
         val callbacks = NovelViewportCallbacks(
             // The keys are the reader's only while the menu is down, as they are for manga. Read from the
             // host each press, since the menu opens and closes mid-session.
@@ -354,7 +354,7 @@ class NovelReaderProvider(
             cutoutTopDp = host::displayCutoutTopDp,
             onChapterFits = viewModel::reportFitsOnScreen,
             onChapterEndSeen = viewModel::reportChapterEndSeen,
-            onReaderScrolled = { dy -> if (scrollHidesMenu(dy.toFloat(), hideThreshold)) host.hideMenu() },
+            onScrolled = { dy, touching -> if (menuHide.hides(dy.toFloat(), touching)) host.hideMenu() },
             // A turn is the reader moving, as a drag or a key is, which lets an earlier chapter be read.
             onReaderTurned = viewModel::readerMoved,
             onPageTurned = host::pageTurned,

@@ -92,7 +92,7 @@ class NovelWebViewportGateTest {
                     cutoutTopDp = { 0 },
                     onChapterFits = { id, _ -> fitsReports += id },
                     onChapterEndSeen = { endsSeen += it },
-                    onReaderScrolled = {},
+                    onScrolled = { _, _ -> },
                     onReaderTurned = {},
                     onPageTurned = {},
                     onPageShown = { _, _ -> },

@@ -3,8 +3,8 @@ package eu.kanade.tachiyomi.ui.reader.viewer.webtoon
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
 import eu.kanade.tachiyomi.ui.reader.model.ChapterTransition
 import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
+import reikai.presentation.reader.MenuHideOnScroll
 import tachiyomi.core.common.util.system.logcat
-import kotlin.math.abs
 
 /**
  * The item a webtoon viewer of [items] is on, shared by the view and Compose viewers. It tells [activity] of each new
@@ -37,12 +37,16 @@ class WebtoonPageTracker(
         }
     }
 
+    // RK: which scrolls hide the menu is every reader's one rule, see MenuHideOnScroll
+    private val menuHide = MenuHideOnScroll(hideThreshold)
+
     /**
      * Called when the list scrolled by [dy] pixels, leaving the items from [firstVisible] to [lastEndVisible] on
      * screen.
      */
-    fun onScrolledBy(dy: Float, firstVisible: Int, lastEndVisible: Int) {
-        if (abs(dy) > hideThreshold && activity.viewModel.state.value.menuVisible) {
+    fun onScrolledBy(dy: Float, firstVisible: Int, lastEndVisible: Int, touching: Boolean) { // RK: touching
+        // RK: a drag and its fling hide the menu, the app's own scrolls do not
+        if (menuHide.hides(dy, touching) && activity.viewModel.state.value.menuVisible) {
             activity.hideMenu()
         }
 

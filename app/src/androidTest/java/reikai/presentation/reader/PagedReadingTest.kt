@@ -104,7 +104,7 @@ class PagedReadingTest(private val renderer: Renderer) {
         cutoutTopDp = { cutoutDp },
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = { endsSeen += it },
-        onReaderScrolled = {},
+        onScrolled = { _, _ -> },
         onReaderTurned = { events += "turn" },
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { page, count -> shownPage.set(page to count) },

@@ -10,8 +10,8 @@ import eu.kanade.tachiyomi.ui.reader.model.ReaderPage
 import eu.kanade.tachiyomi.ui.reader.viewer.mouseWheelPaging
 import kotlinx.coroutines.launch
 import mihon.app.di.appGraph
+import reikai.presentation.reader.MenuHideOnScroll
 import reikai.presentation.reader.holdsStripAutoScroll
-import reikai.presentation.reader.scrollHidesMenu
 import kotlin.math.max
 
 class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = false) :
@@ -65,8 +65,8 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
     }
 
     // RK --> the long strip's hide threshold, read as the other long strip reads it (WebtoonPageTracker): one
-    // frame's scroll in screen pixels, so a fast scroll hides the menu and a slow one leaves it
-    private val hideThreshold = activity.appGraph.readerPreferences.readerHideThreshold.get().threshold
+    // frame's scroll in screen pixels, so a fast drag or fling hides the menu and a slow one leaves it
+    private val menuHide = MenuHideOnScroll(activity.appGraph.readerPreferences.readerHideThreshold.get().threshold)
 
     /** Where the last report saw the strip; null after a jump, which is no scroll. Renderer thread. */
     @Volatile
@@ -76,7 +76,8 @@ class WebGpuViewerContinuous(activity: ReaderActivity, val useGap: Boolean = fal
         val documentY = state.documentY
         val dy = lastDocumentY?.let { (documentY - it) * state.scale } ?: 0f
         lastDocumentY = documentY
-        return activity.viewModel.state.value.menuVisible && scrollHidesMenu(dy, hideThreshold)
+        // A finger pans the strip; a tap's step, auto-scroll and a jump move it with none down.
+        return menuHide.hides(dy, touching = state.isPanning) && activity.viewModel.state.value.menuVisible
     }
     // RK <--
 

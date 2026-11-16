@@ -51,7 +51,7 @@ class SpreadPictureCaptureTest(private val renderer: PagedReadingTest.Renderer) 
         cutoutTopDp = { 0 },
         onChapterFits = { id, fit -> fits[id] = fit },
         onChapterEndSeen = {},
-        onReaderScrolled = {},
+        onScrolled = { _, _ -> },
         onReaderTurned = {},
         onPageTurned = { turned.incrementAndGet() },
         onPageShown = { _, _ -> },

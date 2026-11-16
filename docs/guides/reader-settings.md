@@ -304,7 +304,7 @@ Adds the specified padding to the left and right of the screen. Shown while **Us
 How wide the strip is drawn, as a share of the screen, from 10% to 100%. Shown in place of **Side padding** while **Use high quality renderer** is on.
 
 ### Sensitivity for hiding menu on scroll <Badge type="info" text="Low" />
-How quickly you have to scroll a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
+How quickly you have to scroll or fling a long strip before the menu hides: **Highest** hides it on the slightest scroll, **Lowest** only on a fast one. A change applies the next time the reader opens.
 
 ### Double tap to zoom <Badge type="info" text="On" />
 Zooms into the image on double tap. Hidden while **Use high quality renderer** in <nav to="advanced"> is on.
