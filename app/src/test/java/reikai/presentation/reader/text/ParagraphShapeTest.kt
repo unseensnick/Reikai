@@ -85,4 +85,29 @@ class ParagraphShapeTest {
 
         before.needsRedrawFor(before.copy(fontSize = 24), holdsPictures = true) shouldBe true
     }
+
+    /** A restyle would re-measure every chunk on the main thread, where a redraw precomputes off it. */
+    @Test
+    @DisplayName("a changed font family needs a redraw")
+    fun changedFontFamilyNeedsRedraw() {
+        val before = ParagraphShape(indent = 0f, spacing = 0f, fontSize = 16, bionic = false, sideMargins = 32)
+
+        before.needsRedrawFor(before.copy(fontFamily = "Lora.ttf"), holdsPictures = false) shouldBe true
+    }
+
+    @Test
+    @DisplayName("a paged window holding a picture needs a redraw when the page's height moves")
+    fun pageMarginsWithPicturesNeedsRedraw() {
+        val before = ParagraphShape(0f, 0f, 16, false, sideMargins = 32, pageMargins = 32)
+
+        before.needsRedrawFor(before.copy(pageMargins = 96), holdsPictures = true) shouldBe true
+    }
+
+    @Test
+    @DisplayName("a page's height moving redraws nothing while no picture is held")
+    fun pageMarginsWithoutPicturesRestyles() {
+        val before = ParagraphShape(0f, 0f, 16, false, sideMargins = 32, pageMargins = 32)
+
+        before.needsRedrawFor(before.copy(pageMargins = 96), holdsPictures = false) shouldBe false
+    }
 }

@@ -1,7 +1,8 @@
 package reikai.presentation.reader.text
 
 /**
- * The values the chapter's spans are built from, paragraph shape, bionic emphasis and image bounds.
+ * The values the chapter's spans are built from, paragraph shape, bionic emphasis and image bounds, plus
+ * the font family, which is cheaper to build again off the main thread than to re-measure on it.
  *
  * Indent and spacing become pixels at build time, bionic emphasis becomes bold spans, and an image's
  * bounds are fixed to the text column, so none of them can be restyled into a view afterwards: the
@@ -15,6 +16,10 @@ data class ParagraphShape(
     /** Left plus right, in dp: the text column width every image was bound to when the chapter was
      *  built. A restyle re-pads the column but cannot re-fit a drawable, which would then overflow. */
     val sideMargins: Int,
+    /** A one-off pick rather than a drag, so it re-parses off the main thread instead of re-measuring on it. */
+    val fontFamily: String = "",
+    /** Top plus bottom, in dp, in paged mode only: a page's height, which every picture's height is capped at. */
+    val pageMargins: Int? = null,
 ) {
 
     /**
@@ -27,7 +32,8 @@ data class ParagraphShape(
      */
     fun needsRedrawFor(next: ParagraphShape, holdsPictures: Boolean): Boolean {
         if (indent != next.indent || spacing != next.spacing || bionic != next.bionic) return true
-        if (sideMargins != next.sideMargins) return true
+        if (sideMargins != next.sideMargins || fontFamily != next.fontFamily) return true
+        if (holdsPictures && pageMargins != next.pageMargins) return true
         val measuredAgainstSize = next.indent > 0f || next.spacing > 0f || holdsPictures
         return measuredAgainstSize && fontSize != next.fontSize
     }

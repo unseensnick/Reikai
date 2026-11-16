@@ -76,7 +76,7 @@ class ChapterTextBlock(
             val text = view.text as? Spanned ?: return@forEach
             text.getSpans(0, text.length, ChapterImageSpan::class.java).forEach { span ->
                 val picture = (span.drawable as? DrawableWrapper)?.innerDrawable as? TiledPicture ?: return@forEach
-                tiledPictures += TiledAnchor(view, text.getSpanStart(span), span.topPx, picture)
+                tiledPictures += TiledAnchor(view, text.getSpanStart(span), span, picture)
             }
         }
     }

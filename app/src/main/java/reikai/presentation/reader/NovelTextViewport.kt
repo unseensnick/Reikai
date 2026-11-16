@@ -863,7 +863,8 @@ class NovelTextViewport(
         if (previous != null && previous.renderShape() == settings.renderShape()) return
         // A chapter still rendering built its pictures at the old size and joins with a restyle.
         val holdsPictures = slots.any { !it.rendered || it.block.holdsPictures() }
-        if (previous != null && previous.paragraphShape().needsRedrawFor(settings.paragraphShape(), holdsPictures)) {
+        val reshaped = previous?.paragraphShape(paged)?.needsRedrawFor(settings.paragraphShape(paged), holdsPictures)
+        if (reshaped == true) {
             startRedraw()
             return
         }
@@ -1072,7 +1073,7 @@ class NovelTextViewport(
         slots.forEach { slot ->
             slot.block.tiledPictures.forEach { anchor ->
                 // A chapter scrolled out of the recycler draws nothing, so its pictures let their slices go.
-                val top = lineTopOf(anchor.view, anchor.offset)?.plus(anchor.topPx)
+                val top = lineTopOf(anchor.view, anchor.offset)?.let(anchor.span::pictureTop)
                 if (top ==
                     null
                 ) {
@@ -1269,15 +1270,16 @@ class NovelTextViewport(
         if (!NovelVolumeKeys.isVolumeKey(event.keyCode) || !callbacks.volumeKeysActive()) return false
         val current = settings ?: return false
         if (event.action == KeyEvent.ACTION_DOWN && !resumeVeil.isUp) {
-            readerMoved()
             val fraction = NovelVolumeKeys.scrollFraction(
                 event.keyCode,
                 current.volumeButtonsInverted,
                 current.volumeButtonsFraction,
             )
+            // A turn says the reader moved once it happens: one a redraw refuses must keep the landing it carries.
             if (paged) {
                 turnPage(forward = fraction > 0)
             } else {
+                readerMoved()
                 val step = (recycler.height * abs(fraction)).roundToInt()
                 recycler.smoothScrollBy(0, if (fraction > 0) step else -step)
             }
@@ -1318,22 +1320,23 @@ class NovelTextViewport(
         val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x / width to y / height)
         when (zones.actionAt(zoneX, zoneY, pageLayout.isRtl)) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
-            ViewerNavigation.Action.BACKWARD -> {
-                readerMoved()
-                if (paged) turnPage(forward = false) else recycler.smoothScrollBy(0, -step)
-            }
-            ViewerNavigation.Action.FORWARD -> {
-                readerMoved()
-                if (paged) turnPage(forward = true) else recycler.smoothScrollBy(0, step)
-            }
+            // A turn says the reader moved itself, once it happens (see handleKeyEvent).
+            ViewerNavigation.Action.BACKWARD -> if (paged) turnPage(forward = false) else scrollByReader(-step)
+            ViewerNavigation.Action.FORWARD -> if (paged) turnPage(forward = true) else scrollByReader(step)
             null -> Unit
         }
     }
 
+    private fun scrollByReader(dy: Int) {
+        readerMoved()
+        recycler.smoothScrollBy(0, dy)
+    }
+
     /**
-     * A tap on a boundary failure is that box's, as the WebView page treats it. The watcher sees a
-     * tap on its Retry as well as the button does, so without this one tap retried and also scrolled
-     * or toggled the chrome; a tap beside the button falls through to the item's click the same way.
+     * A tap on a boundary failure or a failed picture is that box's, as the WebView page treats every
+     * `.rk-failure`. The watcher sees a tap on its Retry as well as the button does, so without this one tap
+     * retried and also scrolled or toggled the chrome; a tap beside the button, or on a box with no Retry,
+     * is the box's the same way.
      */
     private fun onReaderTap(x: Float, y: Float) {
         val item = recycler.findChildViewUnder(x, y) as? ViewGroup
@@ -1342,7 +1345,8 @@ class NovelTextViewport(
                 x - item.left in it.left.toFloat()..it.right.toFloat() &&
                 y - item.top in it.top.toFloat()..it.bottom.toFloat()
         } == true
-        if (!onFailure) onTap(x, y)
+        val onFailedPicture = pictureSpanAt(x, y)?.second?.drawnPicture() is ImageFailureDrawable
+        if (!onFailure && !onFailedPicture) onTap(x, y)
     }
 
     /**
@@ -1374,6 +1378,14 @@ class NovelTextViewport(
 
     /** What coil loads for the loaded block picture drawn under [x], [y], null for anything else there. */
     private fun pictureAt(x: Float, y: Float): Any? {
+        val (slot, picture) = pictureSpanAt(x, y) ?: return null
+        val drawn = picture.drawnPicture()
+        if (drawn == null || drawn is ImageLoadingDrawable || drawn is ImageFailureDrawable) return null
+        return NovelPictureGesture.modelOf(picture.source, slot.chapter.sourceId)
+    }
+
+    /** The chapter picture under [x], [y], hit where it is drawn, with the chapter it is in. */
+    private fun pictureSpanAt(x: Float, y: Float): Pair<ChapterSlot, ChapterImageSpan>? {
         val (slot, chunk, bounds) = chunkAt(x, y) ?: return null
         val text = chunk.text as? Spanned ?: return null
         val layout = chunk.layout ?: return null
@@ -1381,12 +1393,12 @@ class NovelTextViewport(
         val line = layout.getLineForVertical(inChunk.toInt())
         val picture = text.getSpans(layout.getLineStart(line), layout.getLineEnd(line), ChapterImageSpan::class.java)
             .firstOrNull() ?: return null
-        val drawn = (picture.drawable as? DrawableWrapper)?.innerDrawable
-        if (drawn == null || drawn is ImageLoadingDrawable || drawn is ImageFailureDrawable) return null
-        val top = layout.getLineTop(line) + picture.topPx
-        if (inChunk < top || inChunk > top + picture.drawable.bounds.height()) return null
-        return NovelPictureGesture.modelOf(picture.source, slot.chapter.sourceId)
+        val lineTop = layout.getLineTop(line)
+        if (inChunk < picture.pictureTop(lineTop) || inChunk > picture.pictureBottom(lineTop)) return null
+        return slot to picture
     }
+
+    private fun ChapterImageSpan.drawnPicture() = (drawable as? DrawableWrapper)?.innerDrawable
 
     /** A swipe: paged it turns a page, else it steps chapters, by the rules both renderers take from `ChapterSwipe.kt`. */
     private fun onPointerUp(x: Float, y: Float) {
@@ -1685,8 +1697,7 @@ class NovelTextViewport(
                 bands += if (picture == null) {
                     NovelPaging.Band(top.toFloat(), (base + layout.getLineBottom(line)).toFloat())
                 } else {
-                    val pictureTop = top + picture.topPx
-                    NovelPaging.Band(pictureTop.toFloat(), (pictureTop + picture.drawable.bounds.height()).toFloat())
+                    NovelPaging.Band(picture.pictureTop(top).toFloat(), picture.pictureBottom(top).toFloat())
                 }
             }
         }
@@ -2319,5 +2330,12 @@ class NovelTextViewport(
     }
 }
 
-private fun NovelReaderSettings.paragraphShape() =
-    ParagraphShape(paragraphIndent, paragraphSpacing, fontSize, bionicReading, margins.left + margins.right)
+private fun NovelReaderSettings.paragraphShape(paged: Boolean) = ParagraphShape(
+    paragraphIndent,
+    paragraphSpacing,
+    fontSize,
+    bionicReading,
+    margins.left + margins.right,
+    fontFamily,
+    pageMargins = if (paged) margins.top + margins.bottom else null,
+)

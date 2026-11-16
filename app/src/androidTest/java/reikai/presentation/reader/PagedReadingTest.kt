@@ -802,6 +802,24 @@ class PagedReadingTest(private val renderer: Renderer) {
         assertWholeLines()
     }
 
+    /** A turn the redraw refuses must not take the reading position the redraw carries with it. */
+    @Test
+    fun aVolumeKeyDuringARedrawKeepsThePage() {
+        assumeTrue("only the native renderer refuses a turn while it redraws", renderer == Renderer.NATIVE)
+        build(NovelPageLayout.PAGED_LTR)
+        volumeKeys = true
+        open(1L, long("first"))
+        repeat(8) { forwardTap() }
+
+        instrumentation.runOnMainSync {
+            viewport.applySettings(readerTestSettings.copy(fontSize = readerTestSettings.fontSize + 6))
+            (viewport as ReaderViewport).handleKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_VOLUME_DOWN))
+        }
+        repeat(3) { settle() }
+
+        assertTrue("[$renderer] the redraw lost the page for the chapter's start", checkNotNull(lastTopLine()) > 0)
+    }
+
     @Test
     fun everyTurnAsksForOneFlash() {
         build(NovelPageLayout.PAGED_LTR)

@@ -23,6 +23,11 @@ internal class ChapterImageSpan(
     ImageSpan(drawable, source.orEmpty()),
     LineHeightSpan {
 
+    /** Where [draw] puts the picture's top for a line whose top is at [lineTop], for every hit test and measure. */
+    fun pictureTop(lineTop: Int): Int = lineTop + topPx
+
+    fun pictureBottom(lineTop: Int): Int = pictureTop(lineTop) + drawable.bounds.height()
+
     /** The spacing the view adds under each line, taken back off this one. Set by [NovelTextStyle]. */
     @Volatile
     var lineExtraPx = 0
@@ -58,7 +63,7 @@ internal class ChapterImageSpan(
         paint: Paint,
     ) {
         canvas.save()
-        canvas.translate(x + ((columnPx - drawable.bounds.width()) / 2).coerceAtLeast(0), (top + topPx).toFloat())
+        canvas.translate(x + ((columnPx - drawable.bounds.width()) / 2).coerceAtLeast(0), pictureTop(top).toFloat())
         drawable.draw(canvas)
         canvas.restore()
     }

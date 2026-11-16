@@ -114,12 +114,12 @@ internal class TiledPicture(
 }
 
 /**
- * A tall picture in a chapter's text: the chunk it sits in, where its span starts, the space above it its
- * span draws, and the picture. Enough for the viewport to say which of its rows are on screen.
+ * A tall picture in a chapter's text: the chunk it sits in, where its span starts, the span that places it,
+ * and the picture. Enough for the viewport to say which of its rows are on screen.
  */
 internal class TiledAnchor(
     val view: TextView,
     val offset: Int,
-    val topPx: Int,
+    val span: ChapterImageSpan,
     val picture: TiledPicture,
 )
