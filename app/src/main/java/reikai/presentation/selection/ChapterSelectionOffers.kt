@@ -40,6 +40,14 @@ fun chapterSelectionOffers(chapters: List<ChapterMarks>, downloads: List<Downloa
     removeBookmark = chapters.isNotEmpty() && chapters.all { it.bookmark },
     markRead = chapters.any { !it.read },
     markUnread = chapters.any { it.hasStarted },
-    download = downloads.any { it != null && it != Download.State.DOWNLOADED },
-    delete = downloads.any { it == Download.State.DOWNLOADED },
+    download = downloads.any { it.takesBulkDownload },
+    delete = downloads.any { it.takesBulkDelete },
 )
+
+/** Whether a row in this state is one the bar's Download fetches, null being a row with no download control. */
+val Download.State?.takesBulkDownload: Boolean
+    get() = this != null && this != Download.State.DOWNLOADED
+
+/** Whether a row in this state is one the bar's Delete removes. */
+val Download.State?.takesBulkDelete: Boolean
+    get() = this == Download.State.DOWNLOADED

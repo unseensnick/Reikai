@@ -1,10 +1,14 @@
 package reikai.presentation.reader
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.longClick
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
@@ -19,6 +23,8 @@ import org.robolectric.RobolectricTestRunner
 import reikai.domain.reader.ChapterProgress
 import reikai.presentation.ComposeTestHost
 import reikai.presentation.components.UndatedChapterDate
+import reikai.presentation.details.ChapterVolume
+import reikai.presentation.details.VolumeLabel
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -159,6 +165,62 @@ class ReaderChapterListDialogTest {
         compose.waitForIdle()
 
         downloads shouldBe listOf(listOf(2L) to ChapterDownloadAction.DELETE)
+    }
+
+    private fun inVolume(row: ReaderChapterRow, key: String, number: Double = 3.0) =
+        row.copy(volume = ChapterVolume("Series", key, VolumeLabel.Number(number), prefix = ""))
+
+    /** Neither provider re-emits its rows on a mark, so the header has to count what the sheet just marked. */
+    @Test
+    fun `a volume marked read from its header unmarks on the next tap`() {
+        show(listOf(inVolume(row(1), "a"), inVolume(row(2), "a"), inVolume(row(3), "b")), current = 3)
+
+        compose.onAllNodesWithContentDescription("Mark as read")[0].performClick()
+        compose.onAllNodesWithContentDescription("Mark as unread")[0].performClick()
+
+        marks shouldBe listOf(listOf(1L, 2L) to true, listOf(1L, 2L) to false)
+    }
+
+    @Test
+    fun `a volume showing an earlier one's label is numbered`() {
+        show(listOf(inVolume(row(1), "a"), inVolume(row(2), "b")), current = 2)
+
+        compose.onNodeWithText("Vol. 3 (2)").assertExists()
+    }
+
+    /** A download started elsewhere and finished while the sheet is open is on disk, whatever it was deleted as. */
+    @Test
+    fun `a chapter downloaded again after a delete from the sheet shows as downloaded`() {
+        var rows by mutableStateOf(listOf(row(1), row(2, Download.State.DOWNLOADED)))
+        compose.setContent {
+            ComposeTestHost {
+                ReaderChapterListDialog(
+                    onDismissRequest = {},
+                    rows = rows,
+                    currentChapterId = 1,
+                    undatedChapterDate = UndatedChapterDate.Blank,
+                    chapterSwipeStartAction = LibraryPreferences.ChapterSwipeAction.Download,
+                    chapterSwipeEndAction = LibraryPreferences.ChapterSwipeAction.Download,
+                    onClickChapter = {},
+                    onMarkRead = { _, _ -> },
+                    onBookmark = { _, _ -> },
+                    onDownloadAction = { ids, action -> downloads += ids to action },
+                )
+            }
+        }
+        compose.onNodeWithText("Chapter 2").performTouchInput { swipeRight() }
+        compose.waitForIdle()
+        // The delete, then that chapter queued again and finished, which the queue reports one at a time.
+        rows = listOf(row(1), row(2, Download.State.NOT_DOWNLOADED))
+        compose.waitForIdle()
+        rows = listOf(row(1), row(2, Download.State.QUEUE))
+        compose.waitForIdle()
+        rows = listOf(row(1), row(2, Download.State.DOWNLOADED))
+        compose.waitForIdle()
+
+        longPress("Chapter 2")
+
+        bar("Delete").assertExists()
     }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -35,9 +36,13 @@ import reikai.presentation.components.chapterRowDate
 import reikai.presentation.components.progressWhileUnread
 import reikai.presentation.details.EntryChapterListItem
 import reikai.presentation.details.VolumeHeader
+import reikai.presentation.details.duplicateIndexByKey
+import reikai.presentation.details.volumeHeaders
 import reikai.presentation.selection.EntrySelection
 import reikai.presentation.selection.SelectionState
 import reikai.presentation.selection.chapterSelectionOffers
+import reikai.presentation.selection.takesBulkDelete
+import reikai.presentation.selection.takesBulkDownload
 import tachiyomi.domain.library.service.LibraryPreferences
 
 /**
@@ -71,31 +76,41 @@ fun ReaderChapterListDialog(
         // A local series split into volumes reads under a header per volume, as its details list does.
         val listed = remember(rows) { rows.underVolumeHeaders() }
         val orderedIds = remember(rows) { rows.map { it.id } }
+        val rowsById = remember(rows) { rows.associateBy { it.id } }
         val listState = rememberLazyListState(
             listed.indexOfFirst { it is ReaderChapterRow && it.id == currentChapterId }.coerceAtLeast(0),
         )
         // Optimistic per-row overrides so a swipe lands immediately: every one of these writes is async,
-        // and a deletion in particular is only visible once the cache catches up.
-        val stateOverrides = remember { mutableStateMapOf<Long, Download.State>() }
+        // and a deletion in particular is only visible once the cache catches up. A download override is
+        // kept with the row state it was set over, see downloadStateOf.
+        val stateOverrides = remember { mutableStateMapOf<Long, Pair<Download.State, Download.State>>() }
         val readOverrides = remember { mutableStateMapOf<Long, Boolean>() }
         val bookmarkOverrides = remember { mutableStateMapOf<Long, Boolean>() }
         var selection by remember { mutableStateOf(SelectionState<Long>()) }
         var confirmingDelete by remember { mutableStateOf<List<Long>?>(null) }
         BackHandler(enabled = !selection.isEmpty) { selection = EntrySelection.clear() }
 
-        // A row the queue is actually working on outranks an override, so a download started
-        // elsewhere while the sheet is open is not masked by an earlier delete-swipe.
+        // Once a row moves off the state an override was set over, the write landed or something else
+        // changed the chapter, such as a download started elsewhere, so the row is the truth again. Dropped
+        // then rather than only skipped, since that download finishing returns the row to the same state.
+        LaunchedEffect(rows) {
+            stateOverrides.keys.toList().forEach { id ->
+                if (rowsById[id]?.downloadState != stateOverrides[id]?.first) stateOverrides.remove(id)
+            }
+        }
         fun downloadStateOf(row: ReaderChapterRow) =
-            if (row.downloadState.isQueued) row.downloadState else stateOverrides[row.id] ?: row.downloadState
+            stateOverrides[row.id]?.takeIf { it.first == row.downloadState }?.second ?: row.downloadState
 
         // The chapter being read is never deleted from under the reader, by its row, its swipe or the bar.
         fun keepsDownload(id: Long, state: Download.State) =
             id == currentChapterId && state == Download.State.DOWNLOADED
         fun runDownloadAction(chapterIds: List<Long>, action: ChapterDownloadAction) {
-            chapterIds.forEach {
-                when (action) {
-                    ChapterDownloadAction.DELETE -> stateOverrides[it] = Download.State.NOT_DOWNLOADED
-                    else -> stateOverrides.remove(it)
+            chapterIds.forEach { id ->
+                val row = rowsById[id]
+                when {
+                    action == ChapterDownloadAction.DELETE && row != null ->
+                        stateOverrides[id] = row.downloadState to Download.State.NOT_DOWNLOADED
+                    else -> stateOverrides.remove(id)
                 }
             }
             onDownloadAction(chapterIds, action)
@@ -126,7 +141,10 @@ fun ReaderChapterListDialog(
                 ) { item ->
                     if (item is EntryChapterListItem.Volume) {
                         VolumeHeader(
-                            volume = item,
+                            // Counted with the overrides, as its rows are drawn: neither provider re-emits on a mark.
+                            volume = item.copy(
+                                readCount = item.chapterIds.count { readOverrides[it] ?: rowsById.getValue(it).read },
+                            ),
                             onSelect = { selection = EntrySelection.toggleBlock(selection, item.chapterIds) },
                             onMarkRead = { read -> markRead(item.chapterIds, read) },
                         )
@@ -204,11 +222,11 @@ fun ReaderChapterListDialog(
                     act { markRead(ReadingOrder.before(orderedIds) { it == ids.single() }, true) }
                 }.takeIf { ids.size == 1 },
                 onDownloadClicked = {
-                    val fetch = ids.filterIndexed { i, _ -> downloads[i] !in setOf(null, Download.State.DOWNLOADED) }
+                    val fetch = ids.filterIndexed { i, _ -> downloads[i].takesBulkDownload }
                     act { runDownloadAction(fetch, ChapterDownloadAction.START) }
                 }.takeIf { offers.download },
                 onDeleteClicked = {
-                    val doomed = ids.filterIndexed { i, _ -> downloads[i] == Download.State.DOWNLOADED }
+                    val doomed = ids.filterIndexed { i, _ -> downloads[i].takesBulkDelete }
                     act { confirmingDelete = doomed }
                 }.takeIf { offers.delete },
             )
@@ -222,26 +240,16 @@ fun ReaderChapterListDialog(
     }
 }
 
-/** Whether the queue is holding this chapter, which is the state a row must not let an override mask. */
-private val Download.State.isQueued: Boolean
-    get() = this == Download.State.QUEUE || this == Download.State.DOWNLOADING || this == Download.State.ERROR
-
-/** [this] with a header before each volume, or as it is where volumes cannot head it ([volumeRuns]). */
+/**
+ * [this] with a header before each volume, or as it is where volumes cannot head it ([volumeRuns]). Volumes
+ * sharing a label are numbered in list order, which the details list's chip order follows unless the user
+ * reordered the series' volumes.
+ */
 private fun List<ReaderChapterRow>.underVolumeHeaders(): List<Any> {
     val runs = volumeRuns { it.volume?.key } ?: return this
-    return runs.flatMap { (key, run) ->
-        val volume = run.first().volume!!
-        listOf(
-            EntryChapterListItem.Volume(
-                volume.series,
-                key,
-                volume.label,
-                run.map {
-                    it.id
-                },
-                run.count { it.read },
-            ),
-        ) +
-            run
+    val headers = runs.volumeHeaders({ it.volume!! }, { it.id }, { it.read })
+    val duplicates = headers.duplicateIndexByKey()
+    return runs.zip(headers).flatMap { (run, header) ->
+        listOf(header.copy(duplicate = duplicates.getValue(header.key))) + run.second
     }
 }

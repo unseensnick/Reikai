@@ -321,10 +321,7 @@ fun List<EntryChapterListItem>.inVolumes(
     val runs = filterIsInstance<EntryChapterListItem.Chapter>()
         .map { row -> row.volume?.let { row.copy(volume = it.shown(loose, saved)) } ?: row }
         .volumeRuns { it.volume?.key } ?: return null
-    val headers = runs.map { (key, rows) ->
-        val volume = rows.first().volume!!
-        EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map { it.id }, rows.count { it.read })
-    }
+    val headers = runs.volumeHeaders({ it.volume!! }, { it.id }, { it.read })
     val series = headers.first().series
     val shownByKey = headers.associateBy { it.key }
     val all = every.mapNotNull { it.shown(loose, saved) }.filter { it.series == series }.distinctBy { it.key }
@@ -338,10 +335,8 @@ fun List<EntryChapterListItem>.inVolumes(
         numbers.all { it != null } -> all.sortedBy { (it.label as VolumeLabel.Number).number }
         else -> all
     }
-    // A later volume showing an earlier one's label is told apart by its place among them, in chip order.
-    val duplicates = chips.groupBy {
-        it.label
-    }.values.flatMap { same -> same.mapIndexed { i, it -> it.key to i } }.toMap()
+    // Numbered in chip order.
+    val duplicates = chips.duplicateIndexByKey()
     fun EntryChapterListItem.Volume.numbered() = copy(duplicate = duplicates.getValue(key))
     val shown = picked?.takeIf { key -> headers.any { it.key == key } }
     val items = runs.zip(headers).filter { (_, header) -> shown == null || header.key == shown }
@@ -350,6 +345,20 @@ fun List<EntryChapterListItem>.inVolumes(
         }
     return VolumeView(chips.map { it.numbered() }, shown, items)
 }
+
+/** A header per run of [volumeRuns], counting the run's [isRead] rows, for the details list and the reader's sheet. */
+fun <T> List<Pair<String, List<T>>>.volumeHeaders(
+    volumeOf: (T) -> ChapterVolume,
+    idOf: (T) -> Long,
+    isRead: (T) -> Boolean,
+): List<EntryChapterListItem.Volume> = map { (key, rows) ->
+    val volume = volumeOf(rows.first())
+    EntryChapterListItem.Volume(volume.series, key, volume.label, rows.map(idOf), rows.count(isRead))
+}
+
+/** Each volume's place among those showing its label, in this order, which tells a later one apart: its duplicate. */
+fun List<EntryChapterListItem.Volume>.duplicateIndexByKey(): Map<String, Int> =
+    groupBy { it.label }.values.flatMap { same -> same.mapIndexed { i, it -> it.key to i } }.toMap()
 
 /** What a local volume's own files hold for its page: a cover the cover loader takes, and a description. */
 interface VolumeFiles {
