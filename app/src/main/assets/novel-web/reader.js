@@ -1633,22 +1633,26 @@
   var SRCSET_CANDIDATE = /([\s,]*)(\S+?)(,+(?=\s|$)|(?=\s|$)[^,]*)/g;
 
   /*
+   * Takes the reader's chapter marker off a chapter's own markup, which a source can carry. Left on, the
+   * nested element reads as a chapter of its own, and progress, ends and fits past it name the wrong one.
+   * The seam class and the reader's own ids go too: fitSeams reads a seam's card, and setEnd and
+   * setFailure replace whatever element carries their id.
+   */
+  function disownMarkers(root) {
+    var owned = CHAPTER_SELECTOR + ', [' + CHAPTER_ID_ATTR + '], .rk-seam, [id^="rk-"]';
+    root.querySelectorAll(owned).forEach(function (node) {
+      node.classList.remove('rk-chapter', 'rk-seam');
+      node.removeAttribute(CHAPTER_ID_ATTR);
+      if (node.id.indexOf('rk-') === 0) node.removeAttribute('id');
+    });
+  }
+
+  /*
    * The document has one base, the chapter it opened on, so a chapter added by scrolling would resolve
    * its relative images and links against that chapter's site. They are made absolute against the
    * chapter's own base first, parsed in a template so nothing is fetched before the rewrite. A chapter
    * with no base keeps its values as written.
    */
-  /*
-   * Takes the reader's chapter marker off a chapter's own markup, which a source can carry. Left on, the
-   * nested element reads as a chapter of its own, and progress, ends and fits past it name the wrong one.
-   */
-  function disownMarkers(root) {
-    root.querySelectorAll(CHAPTER_SELECTOR + ', [' + CHAPTER_ID_ATTR + ']').forEach(function (node) {
-      node.classList.remove('rk-chapter');
-      node.removeAttribute(CHAPTER_ID_ATTR);
-    });
-  }
-
   function chapterContent(html, baseUrl) {
     var template = document.createElement('template');
     template.innerHTML = html;

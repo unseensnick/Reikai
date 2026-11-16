@@ -379,6 +379,23 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * Nor can it pose as a seam (whose card the fit reads, so a bare one threw before the boundaries were
+     * rebuilt) or as the end or failure marker the host replaces, which would take the chapter's text with it.
+     */
+    @Test
+    fun aChaptersOwnSeamAndEndMarkersAreNotTakenForTheReaders() {
+        val own = "<p class=\"rk-seam\">seam</p><div id=\"rk-end\">end</div><div id=\"rk-failure-end\">fail</div>"
+        loadDocument(document(chapterHtml = own + "<p>lorem</p>".repeat(20)))
+        eval("window.rkReader.appendChapter('99', '$own', null, $SEAM)")
+        settleFrames()
+
+        val posing = eval(
+            "String(document.querySelectorAll('.rk-chapter .rk-seam, .rk-chapter [id^=\"rk-\"]').length)",
+        )
+        assertEquals("0", posing)
+    }
+
+    /**
      * The hold only matters once a short chapter can be scrolled into, which takes a chapter below it.
      * Measured against its own height, a few pixels into one read as a negative percent.
      */
