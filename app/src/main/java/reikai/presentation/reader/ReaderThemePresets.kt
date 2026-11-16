@@ -3,6 +3,8 @@ package reikai.presentation.reader
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.toArgb
+import dev.icerock.moko.resources.StringResource
+import tachiyomi.i18n.MR
 
 /**
  * A reader background + text colour pairing. Choosing one writes both.
@@ -35,6 +37,18 @@ val readerThemePresets = listOf(
     ReaderThemePreset("Dark", "#121212", "#E0E0E0"),
     ReaderThemePreset("Black", "#000000", "#B3B3B3"),
 )
+
+/** What a preset is called on screen, which the swatch, showing only its colours, gives TalkBack. */
+val ReaderThemePreset.label: StringResource
+    get() = when (name) {
+        "Light" -> MR.strings.theme_light
+        "Sepia" -> MR.strings.sepia_background
+        "Mint" -> MR.strings.mint_background
+        "Grey" -> MR.strings.gray_background
+        "Dark" -> MR.strings.theme_dark
+        "Black" -> MR.strings.black_background
+        else -> MR.strings.pref_reader_theme
+    }
 
 /**
  * Presets the "Auto" (follow-system) option resolves to for light and dark system modes. Dark mode keeps

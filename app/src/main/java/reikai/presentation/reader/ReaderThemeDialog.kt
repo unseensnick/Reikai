@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -21,6 +22,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import eu.kanade.presentation.components.AdaptiveSheet
@@ -90,9 +95,10 @@ fun ReaderThemeSwatches(
 private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: () -> Unit) {
     val bg = remember(preset.background) { Color(readerBackgroundColorInt(preset.background)) }
     val fg = remember(preset.textColor) { Color(readerTextColorInt(preset.textColor)) }
+    val label = stringResource(preset.label)
     Box(
         modifier = Modifier
-            .size(44.dp)
+            .size(48.dp)
             .clip(CircleShape)
             .background(bg)
             .border(
@@ -100,9 +106,11 @@ private fun PresetSwatch(preset: ReaderThemePreset, selected: Boolean, onClick: 
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
                 shape = CircleShape,
             )
-            .clickable(onClick = onClick),
+            // A radio choice by name, since the swatch shows only its colours and the selection only its border.
+            .selectable(selected = selected, onClick = onClick, role = Role.RadioButton)
+            .semantics { contentDescription = label },
         contentAlignment = Alignment.Center,
     ) {
-        Text("A", color = fg, fontWeight = FontWeight.Bold)
+        Text("A", color = fg, fontWeight = FontWeight.Bold, modifier = Modifier.clearAndSetSemantics {})
     }
 }
