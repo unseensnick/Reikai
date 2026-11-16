@@ -4,6 +4,9 @@ import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Test
 import reikai.data.novel.NovelChapterSyncRules
@@ -14,9 +17,11 @@ import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
 import reikai.domain.novel.model.NovelUpdate
+import reikai.novel.download.NovelChapterSaver.SaveResult
 import reikai.novel.host.SourceNovel
 import tachiyomi.core.common.preference.InMemoryPreferenceStore
 import tachiyomi.domain.library.service.LibraryPreferences
+import kotlin.time.Instant
 
 class NovelPageFetcherTest {
 
@@ -63,5 +68,58 @@ class NovelPageFetcherTest {
         useDetailsPage(emptyList())
 
         written.single().totalPages shouldBe 4L
+    }
+
+    private val chapter = NovelChapter(
+        id = 7L, novelId = 1L, url = "/1/7", name = "Chapter 7", read = false, bookmark = false,
+        lastTextProgress = 0L, chapterNumber = 7.0, sourceOrder = 0L,
+        dateFetch = Instant.fromEpochMilliseconds(0L), dateUpload = null, page = "",
+    )
+
+    private fun textFetcher(text: suspend () -> String, saved: SaveResult = SaveResult.SAVED): NovelPageFetcher {
+        val fetch = mockk<NovelPageFetch> { coEvery { chapterText(any(), any(), any()) } coAnswers { text() } }
+        val source = mockk<NovelSource> { every { pageFetch } returns fetch }
+        return NovelPageFetcher(
+            novelRepo = mockk<NovelRepository> { coEvery { getById(1L) } returns novel },
+            chapterRepo = mockk<NovelChapterRepository> {
+                coEvery { getById(7L) } returns chapter
+                coEvery { getByNovelId(1L) } returns emptyList()
+            },
+            sourceManager = mockk<NovelSourceManager>().also { coEvery { it.get("src") } returns source },
+            libraryPreferences = LibraryPreferences(InMemoryPreferenceStore()),
+            syncRules = NovelChapterSyncRules(mockk(), InMemoryChapterCopyMarks(), NoChapterTombstones),
+            coverCache = mockk(relaxed = true),
+            saver = mockk { coEvery { save(any(), any(), any(), any()) } returns saved },
+            novelDownloadManager = { mockk(relaxed = true) },
+        )
+    }
+
+    /** The reader reloads an open chapter, or retries a failed one, on this. */
+    @Test
+    fun `a saved chapter's text is announced to the reader`() = runTest {
+        val fetcher = textFetcher({ "<p>Text</p>" })
+        val announced = async(start = CoroutineStart.UNDISPATCHED) { fetcher.chapterSaved.first() }
+
+        fetcher.useForChapterText(7L, "https://src.example/1/7", "<html/>")
+
+        announced.await() shouldBe 7L
+    }
+
+    @Test
+    fun `a page with no chapter text says so`() = runTest {
+        textFetcher({ " " }).useForChapterText(7L, "https://src.example/1/7", "<html/>") shouldBe
+            NovelPageFetcher.ChapterFromPage.NO_TEXT
+    }
+
+    @Test
+    fun `a chapter whose file name another chapter holds says so`() = runTest {
+        textFetcher({ "<p>Text</p>" }, SaveResult.NAME_TAKEN).useForChapterText(7L, "u", "<html/>") shouldBe
+            NovelPageFetcher.ChapterFromPage.NAME_TAKEN
+    }
+
+    @Test
+    fun `a source parser that throws on the page is reported, not thrown`() = runTest {
+        textFetcher({ throw IllegalStateException("parser") }).useForChapterText(7L, "u", "<html/>") shouldBe
+            NovelPageFetcher.ChapterFromPage.UNREADABLE
     }
 }
