@@ -6,6 +6,7 @@ import androidx.test.core.app.ActivityScenario
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -142,7 +143,9 @@ class NovelWebViewportGateTest {
                 viewport.readAloud.paragraphs(1L)
                 asked.complete(viewport.readAloud.firstVisibleParagraph())
             }
-            scope.launch { viewport.load(chapter(3L), readerTestSettings) }
+            // Undispatched, so the caller the load releases resumes inside it: started the usual way, the load
+            // runs in an event loop that holds that resumption until the load suspends, whatever its order.
+            scope.launch(start = CoroutineStart.UNDISPATCHED) { viewport.load(chapter(3L), readerTestSettings) }
         }
         assertNotEquals(42, bounded { asked.await() }?.paragraph)
     }
