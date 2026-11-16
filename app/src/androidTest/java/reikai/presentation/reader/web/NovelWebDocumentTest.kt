@@ -935,6 +935,20 @@ class NovelWebDocumentTest {
         assertEquals(4, topLines[CHAPTER_ID.toString()])
     }
 
+    /** A picture that failed leaves its box's words at the top, which the count skips: the line below is still named. */
+    @Test
+    fun aFailedPictureAtTheTopNamesTheLineBelowIt() {
+        // No gate: the test host serves nothing, so the picture fails into its box.
+        val chapter = "<p>lead</p><img src=\"https://rk.test/$TALL_IMAGE\">" + "<p>lorem ipsum</p>".repeat(60)
+        loadDocument(document(chapterHtml = chapter))
+        awaitEval("String(document.querySelector('.rk-chapter .rk-failure') !== null)", "true")
+        eval(
+            "window.scrollTo({ top: document.querySelector('.rk-chapter .rk-failure').offsetTop + 2, behavior: 'instant' })",
+        )
+        settleFrames()
+        assertEquals(4, topLines[CHAPTER_ID.toString()])
+    }
+
     /** The chapter the page opened on runs its scripts as it loads; one arriving by scrolling has to too. */
     @Test
     fun aSeamlessChapterRunsItsOwnScripts() {

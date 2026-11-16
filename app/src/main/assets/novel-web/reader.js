@@ -489,12 +489,13 @@
       var counts = countsOf(chapter);
       if (text) {
         var before = counts.get(node);
-        return before === undefined ? -1 : before + countedLength(node.nodeValue.slice(0, caret.startOffset));
+        if (before !== undefined) return before + countedLength(node.nodeValue.slice(0, caret.startOffset));
       }
-      // A picture at the top: the line where the text resumes below it, as the native renderer counts the
-      // line of the chunk that holds the picture rather than reporting none and landing a rebuild by percent.
+      // A picture at the top, or text the count skips (a failed picture's box): the line where the counted text
+      // resumes below it, as the native renderer counts the line of the chunk that holds the picture rather
+      // than reporting none and landing a rebuild by percent.
       var walker = document.createTreeWalker(chapter, NodeFilter.SHOW_TEXT);
-      walker.currentNode = node.childNodes[caret.startOffset] || node;
+      walker.currentNode = text ? node : node.childNodes[caret.startOffset] || node;
       while (walker.nextNode()) {
         if (counts.has(walker.currentNode)) return counts.get(walker.currentNode);
       }
