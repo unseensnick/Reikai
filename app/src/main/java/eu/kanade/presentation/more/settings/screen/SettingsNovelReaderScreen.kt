@@ -85,6 +85,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
             getTapGroup(novelPreferences = novelPref, paged = false),
             getTextDisplayGroup(novelPreferences = novelPref),
             getChapterTextGroup(novelPreferences = novelPref),
+            getWebViewGroup(novelPreferences = novelPref),
             getNavigationGroup(novelPreferences = novelPref),
             // A flash clears a page turn's ghosting; a scroll has no turn to flash on.
             readerFlashGroup(ReaderFlash.novel(novelPref)).takeIf { pageLayout.isPaged },
@@ -307,7 +308,7 @@ object SettingsNovelReaderScreen : SearchableSettings {
 
     /**
      * How a chapter's markup is processed before it is rendered, in the order the pipeline applies
-     * them. The two embedded-markup rows only bind while a WebView renders the chapter; a text
+     * them. The embedded-styling rows only bind while a WebView renders the chapter; a text
      * renderer draws CSS and scripts as visible characters, so it strips them regardless.
      */
     @Composable
@@ -355,11 +356,6 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_keep_embedded_css_summary),
                 ).takeIf { renderingMode.rendersMarkup },
                 Preference.PreferenceItem.SwitchPreference(
-                    preference = novelPreferences.readerKeepEmbeddedJs(),
-                    title = stringResource(MR.strings.pref_keep_embedded_js),
-                    subtitle = stringResource(MR.strings.pref_keep_embedded_js_summary),
-                ).takeIf { renderingMode.rendersMarkup },
-                Preference.PreferenceItem.SwitchPreference(
                     preference = novelPreferences.readerSourceCssPriority(),
                     title = stringResource(MR.strings.pref_source_css_priority),
                     subtitle = stringResource(MR.strings.pref_source_css_priority_summary),
@@ -383,16 +379,36 @@ object SettingsNovelReaderScreen : SearchableSettings {
                     subtitle = stringResource(MR.strings.pref_novel_regex_rules_summary),
                     onClick = { navigator.push(NovelRegexRulesScreen()) },
                 ),
+            ),
+        )
+    }
+
+    /**
+     * Settings only the WebView renderer reads, shown whatever the default renderer, as the manga reader
+     * always shows its Paged and Long strip groups: a novel kept on WebView reads them, and the sheet has
+     * no row for them.
+     */
+    @Composable
+    internal fun getWebViewGroup(novelPreferences: NovelPreferences): Preference.PreferenceGroup {
+        val navigator = LocalNavigator.currentOrThrow
+        return Preference.PreferenceGroup(
+            title = stringResource(MR.strings.pref_category_webview_mode),
+            preferenceItems = listOf(
+                Preference.PreferenceItem.SwitchPreference(
+                    preference = novelPreferences.readerKeepEmbeddedJs(),
+                    title = stringResource(MR.strings.pref_keep_embedded_js),
+                    subtitle = stringResource(MR.strings.pref_keep_embedded_js_summary),
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_css_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_css_snippets_summary),
                     onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.CSS)) },
-                ).takeIf { renderingMode.rendersMarkup },
+                ),
                 Preference.PreferenceItem.TextPreference(
                     title = stringResource(MR.strings.pref_novel_js_snippets),
                     subtitle = stringResource(MR.strings.pref_novel_js_snippets_summary),
                     onClick = { navigator.push(NovelCodeSnippetsScreen(NovelSnippetKind.JS)) },
-                ).takeIf { renderingMode.rendersMarkup },
+                ),
             ),
         )
     }

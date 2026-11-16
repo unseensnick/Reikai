@@ -186,9 +186,6 @@ Adds paragraph breaks to chapters that arrive as one unbroken block. **Words bef
 ### Use the chapter's own styling <Badge type="info" text="On" />
 Keeps a chapter's CSS instead of stripping it. **WebView** only.
 
-### Run scripts a chapter embeds <Badge type="info" text="Off" />
-Usually leftover code from the source page rather than part of the chapter. **WebView** only.
-
 ### Chapter styling overrides yours <Badge type="info" text="Off" />
 Lets the chapter's size, colour and spacing override yours. **WebView** only.
 
@@ -201,8 +198,15 @@ Shows a chapter's markup as text.
 ### Find and replace
 Rules that rewrite chapter text before it is shown. See [the guide](/docs/novel-reader#find-and-replace).
 
+## WebView mode
+
+Only **WebView** reads these. They show whatever the default **Chapter display** is, so a novel you keep on WebView can still use them.
+
+### Run scripts a chapter embeds <Badge type="info" text="Off" />
+Usually leftover code from the source page rather than part of the chapter.
+
 ### CSS snippets and JavaScript snippets
-Your own styles and code, added to every chapter page. **WebView** only. A restored backup brings JavaScript snippets back switched off.
+Your own styles and code, added to every chapter page. A restored backup brings JavaScript snippets back switched off.
 
 ## Navigation
 
