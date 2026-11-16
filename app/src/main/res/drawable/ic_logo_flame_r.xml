@@ -10,12 +10,12 @@
       android:translateX="38.8198"
       android:translateY="36.4924">
     <path
-        android:strokeColor="#FFFFFFFF"
+        android:strokeColor="#FF000000"
         android:strokeWidth="26"
         android:strokeLineJoin="round"
         android:pathData="M 512,66 C 572,210 704,246 716,414 740,330 704,282 692,246 824,354 872,510 848,654 824,846 680,966 512,966 344,966 200,846 176,654 158,522 224,414 296,354 c 0,84 36,132 72,156 C 332,354 416,210 512,66 Z" />
     <path
-        android:fillColor="#FFFFFFFF"
+        android:fillColor="#FF000000"
         android:fillType="evenOdd"
         android:pathData="M 320 310 L 520 310 C 610 310 662 370 662 455 C 662 520 615 570 548 596 L 698 829 L 584 829  L 463 612 L 424 598 L 424 829 L 320 829 Z  M 424 396 L 505 396 C 540 396 558 420 558 452 C 558 488 535 510 505 510 L 424 510 Z" />
   </group>

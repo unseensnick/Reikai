@@ -452,6 +452,101 @@
                 android:resource="@xml/shortcuts" />
         </activity-alias>
 
+        <activity-alias
+            android:name=".ui.main.LauncherIconCurrentOutline"
+            android:enabled="@bool/launcher_icon_current_outline"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_current_outline"
+            android:roundIcon="@mipmap/ic_launcher_current_outline"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconOriginalReOutline"
+            android:enabled="@bool/launcher_icon_original_re_outline"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_original_re_outline"
+            android:roundIcon="@mipmap/ic_launcher_original_re_outline"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameROutline"
+            android:enabled="@bool/launcher_icon_flame_r_outline"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_r_outline"
+            android:roundIcon="@mipmap/ic_launcher_flame_r_outline"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconFlameReOutline"
+            android:enabled="@bool/launcher_icon_flame_re_outline"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_flame_re_outline"
+            android:roundIcon="@mipmap/ic_launcher_flame_re_outline"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
+        <activity-alias
+            android:name=".ui.main.LauncherIconMihonReOutline"
+            android:enabled="@bool/launcher_icon_mihon_re_outline"
+            android:exported="true"
+            android:icon="@mipmap/ic_launcher_mihon_re_outline"
+            android:roundIcon="@mipmap/ic_launcher_mihon_re_outline"
+            android:targetActivity=".ui.main.MainActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <!--suppress AndroidDomInspection -->
+            <meta-data
+                android:name="android.app.shortcuts"
+                android:resource="@xml/shortcuts" />
+        </activity-alias>
+
         <activity
             android:name=".crash.CrashActivity"
             android:exported="false"

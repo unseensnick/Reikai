@@ -52,6 +52,13 @@ enum class LauncherIcon(
         Design.CURRENT,
         Scheme.DEV,
     ),
+    CURRENT_OUTLINE(
+        "LauncherIconCurrentOutline",
+        R.drawable.ic_reikai,
+        R.drawable.ic_launcher_bg_outline,
+        Design.CURRENT,
+        Scheme.OUTLINE,
+    ),
     ORIGINAL_RE_STABLE(
         "LauncherIconOriginalReStable",
         R.drawable.ic_launcher_fg_original_re_stable,
@@ -87,12 +94,26 @@ enum class LauncherIcon(
         Design.ORIGINAL_RE,
         Scheme.DEV,
     ),
+    ORIGINAL_RE_OUTLINE(
+        "LauncherIconOriginalReOutline",
+        R.drawable.ic_logo_original_re,
+        R.drawable.ic_launcher_bg_outline,
+        Design.ORIGINAL_RE,
+        Scheme.OUTLINE,
+    ),
     FLAME_R_DEV(
         "LauncherIconFlameRDev",
         R.drawable.ic_launcher_fg_flame_r_dev,
         R.drawable.ic_launcher_bg_dev,
         Design.FLAME_R,
         Scheme.DEV,
+    ),
+    FLAME_R_OUTLINE(
+        "LauncherIconFlameROutline",
+        R.drawable.ic_logo_flame_r,
+        R.drawable.ic_launcher_bg_outline,
+        Design.FLAME_R,
+        Scheme.OUTLINE,
     ),
     FLAME_RE_STABLE(
         "LauncherIconFlameReStable",
@@ -114,6 +135,13 @@ enum class LauncherIcon(
         R.drawable.ic_launcher_bg_dev,
         Design.FLAME_RE,
         Scheme.DEV,
+    ),
+    FLAME_RE_OUTLINE(
+        "LauncherIconFlameReOutline",
+        R.drawable.ic_logo_flame_re,
+        R.drawable.ic_launcher_bg_outline,
+        Design.FLAME_RE,
+        Scheme.OUTLINE,
     ),
     MIHON_RE_STABLE(
         "LauncherIconMihonReStable",
@@ -150,6 +178,13 @@ enum class LauncherIcon(
         Design.MIHON_RE,
         Scheme.MIHON_DARK,
     ),
+    MIHON_RE_OUTLINE(
+        "LauncherIconMihonReOutline",
+        R.drawable.ic_logo_mihon_re,
+        R.drawable.ic_launcher_bg_outline,
+        Design.MIHON_RE,
+        Scheme.OUTLINE,
+    ),
     ;
 
     /** A design, with its line-art [logo]: the app's header and, inset, the launcher's themed icon. */
@@ -161,7 +196,18 @@ enum class LauncherIcon(
         MIHON_RE(R.drawable.ic_logo_mihon_re),
     }
 
-    enum class Scheme { STABLE, NIGHTLY, DEV, MIHON_LIGHT, MIHON_DARK }
+    enum class Scheme { STABLE, NIGHTLY, DEV, MIHON_LIGHT, MIHON_DARK, OUTLINE }
+
+    /**
+     * How much of the 108 dp canvas [foreground] fills. An Outline icon's foreground is its themed layer, the logo
+     * inset by [THEMED_INSET] on each side, and the picker draws the logo itself at that size.
+     */
+    val foregroundScale: Float get() = if (scheme == Scheme.OUTLINE) 1 - 2 * THEMED_INSET else 1f
+
+    companion object {
+        /** The ic_launcher_mono* layers' inset of the logo, per side (LauncherIconsTest reads it off the XML). */
+        const val THEMED_INSET = 0.197375f
+    }
 
     // Class.getPackageName needs API 31, so the package comes off the class name.
     fun component(context: Context) = ComponentName(

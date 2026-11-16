@@ -15,6 +15,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
+import java.io.File
 
 /**
  * The launcher entries behind the app icon switcher, against the merged manifest of the variant under test (debug).
@@ -85,6 +86,14 @@ class LauncherIconsTest {
     private fun iconOf(id: Int) = notifications.activeNotifications.single { it.id == id }.notification.icon
 
     @Test
+    fun `the picker draws an Outline logo at the inset its themed layer uses`() {
+        val insets = File("src/main/res/drawable").listFiles { f -> f.name.startsWith("ic_launcher_mono") }!!
+            .map { Regex("""android:inset="([0-9.]+)%"""").find(it.readText())!!.groupValues[1].toFloat() / 100 }
+
+        insets.distinct() shouldBe listOf(LauncherIcon.THEMED_INSET)
+    }
+
+    @Test
     fun `every icon's alias is in the manifest`() {
         val missing = LauncherIcon.entries.filter {
             runCatching {
@@ -108,6 +117,8 @@ class LauncherIconsTest {
             "LauncherIconMihonReStable", "LauncherIconMihonReNightly", "LauncherIconMihonReDev",
             "LauncherIconMihonReMihonLight", "LauncherIconMihonReMihonDark",
             "LauncherIconOriginalReStable", "LauncherIconOriginalReNightly", "LauncherIconOriginalReDev",
+            "LauncherIconCurrentOutline", "LauncherIconOriginalReOutline", "LauncherIconFlameROutline",
+            "LauncherIconFlameReOutline", "LauncherIconMihonReOutline",
         )
     }
 }

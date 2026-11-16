@@ -141,7 +141,7 @@ private fun IconTile(icon: LauncherIcon, isShown: Boolean, onClick: () -> Unit) 
             Image(
                 painterResource(icon.foreground),
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().scale(1.5f),
+                modifier = Modifier.fillMaxSize().scale(1.5f * icon.foregroundScale),
             )
         }
         Text(
@@ -172,5 +172,6 @@ private val LauncherIcon.Scheme.label
             LauncherIcon.Scheme.DEV -> MR.strings.app_icon_dev
             LauncherIcon.Scheme.MIHON_LIGHT -> MR.strings.app_icon_mihon_light
             LauncherIcon.Scheme.MIHON_DARK -> MR.strings.app_icon_mihon_dark
+            LauncherIcon.Scheme.OUTLINE -> MR.strings.app_icon_outline
         },
     )

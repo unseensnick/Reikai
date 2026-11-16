@@ -600,6 +600,7 @@
     <string name="app_icon_dev">Dev</string>
     <string name="app_icon_mihon_light">Mihon</string>
     <string name="app_icon_mihon_dark">Mihon dark</string>
+    <string name="app_icon_outline">Outline</string>
     <string name="app_icon_themed_hint">Themed icons show the design without its colors</string>
     <string name="app_icon_change_title">Change app icon?</string>
     <string name="app_icon_change_message">The app reopens with the new icon. Your launcher may drop it from the home screen; add it back from the app drawer.</string>
