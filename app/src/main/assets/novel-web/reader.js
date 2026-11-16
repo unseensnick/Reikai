@@ -944,44 +944,70 @@
     return Math.max(wordLength - FIXATION.length, 0);
   }
 
+  // Where a word cannot run on, as the native renderer's Html.fromHtml breaks its text there.
+  var BIONIC_BLOCKS = 'p, div, li, ul, ol, h1, h2, h3, h4, h5, h6, blockquote, pre, table, tr, td, th, ' +
+    'dl, dd, dt, section, article, figure, figcaption';
+
   function applyBionic(root) {
     // A chapter's own script and style blocks are text nodes too, and wrapping them in spans empties
     // them: an element child is not script or CSS, so the chapter's styling and code were lost. Text
     // already inside a span this made is skipped, or switching bionic off and on nests the emphasis.
-    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
       acceptNode: function (node) {
-        var parent = node.parentNode;
-        if (!parent || parent.nodeName === 'SCRIPT' || parent.nodeName === 'STYLE') return NodeFilter.FILTER_REJECT;
-        return parent.closest('.rk-bionic') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+        if (node.nodeType === Node.TEXT_NODE) return NodeFilter.FILTER_ACCEPT;
+        var skipped = node.nodeName === 'SCRIPT' || node.nodeName === 'STYLE' || node.classList.contains('rk-bionic');
+        return skipped ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
       },
     });
-    var texts = [];
+    // The words are read across the whole run of inline text, as the native renderer reads its one
+    // Spannable, so a word split by markup (<i>un</i>believable) is still one word.
+    var texts = [], starts = [], flat = '', broken = false, lastBlock = null;
     while (walker.nextNode()) {
-      if (walker.currentNode.nodeValue.trim()) texts.push(walker.currentNode);
+      var node = walker.currentNode;
+      if (node.nodeType !== Node.TEXT_NODE) {
+        if (node.matches(BIONIC_BLOCKS + ', br, hr')) broken = true;
+        continue;
+      }
+      var block = node.parentElement && node.parentElement.closest(BIONIC_BLOCKS);
+      if (broken || block !== lastBlock) flat += '\n';
+      broken = false;
+      lastBlock = block;
+      texts.push(node);
+      starts.push(flat.length);
+      flat += node.nodeValue;
     }
-    texts.forEach(function (node) {
-      node.parentNode.replaceChild(emphasised(node.nodeValue), node);
+    var bolds = texts.map(function () { return []; });
+    var at = 0;
+    var match;
+    WORD.lastIndex = 0;
+    while ((match = WORD.exec(flat)) !== null) {
+      if (!LETTER.test(match[0])) continue;
+      var end = match.index + boldLength(match[0].length);
+      while (at < texts.length - 1 && starts[at + 1] <= match.index) at++;
+      for (var i = at; i < texts.length && starts[i] < end; i++) {
+        var from = Math.max(match.index, starts[i]) - starts[i];
+        var to = Math.min(end, starts[i] + texts[i].nodeValue.length) - starts[i];
+        if (to > from) bolds[i].push([from, to]);
+      }
+    }
+    texts.forEach(function (node, i) {
+      if (node.nodeValue.trim()) node.parentNode.replaceChild(emphasised(node.nodeValue, bolds[i]), node);
     });
   }
 
   // Built from nodes, never markup: the text is already decoded, so a chapter's escaped `&lt;i&gt;`
-  // arrives here as `<i>` and would become a tag.
-  function emphasised(text) {
+  // arrives here as `<i>` and would become a tag. bolds are [from, to) runs of text, in order.
+  function emphasised(text, bolds) {
     var span = document.createElement('span');
     span.className = 'rk-bionic';
     var from = 0;
-    var match;
-    WORD.lastIndex = 0;
-    while ((match = WORD.exec(text)) !== null) {
-      if (!LETTER.test(match[0])) continue;
-      var n = boldLength(match[0].length);
-      if (n === 0) continue;
-      if (match.index > from) span.appendChild(document.createTextNode(text.slice(from, match.index)));
+    bolds.forEach(function (run) {
+      if (run[0] > from) span.appendChild(document.createTextNode(text.slice(from, run[0])));
       var bold = document.createElement('b');
-      bold.textContent = match[0].slice(0, n);
+      bold.textContent = text.slice(run[0], run[1]);
       span.appendChild(bold);
-      from = match.index + n;
-    }
+      from = run[1];
+    });
     if (from < text.length) span.appendChild(document.createTextNode(text.slice(from)));
     return span;
   }

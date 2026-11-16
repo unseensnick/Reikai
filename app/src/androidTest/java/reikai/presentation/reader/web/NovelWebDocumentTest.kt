@@ -1071,6 +1071,28 @@ class NovelWebDocumentTest {
     }
 
     /**
+     * The native renderer reads its one Spannable, so a word split by markup is one word there. A paragraph
+     * break still ends one, as Html.fromHtml's newline does.
+     */
+    @Test
+    fun bionicReadsAWordSplitByMarkupAsOneWord() {
+        val html = "<p><i>un</i>believable</p><p>stop</p><p>start</p>"
+        val text = "unbelievable\n\nstop\n\nstart"
+        val native = SpannableString(text).also(NovelBionicSpans::apply).let { spanned ->
+            spanned.getSpans(0, spanned.length, StyleSpan::class.java)
+                .sortedBy(spanned::getSpanStart)
+                .joinToString("") { text.substring(spanned.getSpanStart(it), spanned.getSpanEnd(it)) }
+        }
+        loadDocument()
+        eval("window.rkReader.setSettings({ bionic: true })")
+        eval("window.rkReader.appendChapter('99', ${JSONObject.quote(html)}, null, $SEAM)")
+        assertEquals(
+            native,
+            eval("[...document.querySelectorAll('[data-rk-chapter-id=\"99\"] b')].map(b => b.textContent).join('')"),
+        )
+    }
+
+    /**
      * `core.js`'s rule, which the native renderer also implements: far enough sideways, mostly
      * sideways, and started on the half it moves away from. The WebView mode used a quarter of the
      * viewport with no origin rule, so a short corner flick changed chapter in one renderer only.
