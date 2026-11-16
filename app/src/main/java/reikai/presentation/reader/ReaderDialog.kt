@@ -30,6 +30,9 @@ sealed interface ReaderDialog {
 
     data object ReadingModeSelect : ReaderDialog
 
+    /** A novel's reading-mode picker, over the capability that holds its own mode, which manga builds none of. */
+    data class PageLayoutSelect(val settings: ReaderTextSettings) : ReaderDialog
+
     data object OrientationSelect : ReaderDialog
 
     data object ChapterList : ReaderDialog

@@ -101,6 +101,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -129,12 +130,14 @@ import reikai.presentation.reader.ReaderDialog
 import reikai.presentation.reader.ReaderEngine
 import reikai.presentation.reader.ReaderNavigatorShape
 import reikai.presentation.reader.ReaderOrientationDialog
+import reikai.presentation.reader.ReaderPageLayoutDialog
 import reikai.presentation.reader.ReaderPictureDialog
 import reikai.presentation.reader.ReaderSleepTimerDialog
 import reikai.presentation.reader.ReaderTextSizeDialog
 import reikai.presentation.reader.ReaderThemeDialog
 import reikai.presentation.reader.ReaderViewport
 import reikai.presentation.reader.TextViewport
+import reikai.presentation.reader.barIcon
 import reikai.presentation.reader.brightness
 import reikai.presentation.reader.chapterTitleWords
 import reikai.presentation.reader.isSameLaunch
@@ -656,6 +659,22 @@ class ReaderActivity : BaseActivity() {
                         },
                     )
                 }
+                // RK --> a novel's own reading mode, named as manga's is: the rebuild that follows names
+                // it when Show reading mode is on, so only an off switch toasts here.
+                is ReaderDialog.PageLayoutSelect -> {
+                    ReaderPageLayoutDialog(
+                        settings = dialog.settings,
+                        onChange = { layout ->
+                            dialog.settings.setPageLayout(layout)
+                            menuToggleToast?.cancel()
+                            if (!novelPreferences.readerShowReadingMode().get()) {
+                                menuToggleToast = toast(layout?.titleRes ?: MR.strings.label_default)
+                            }
+                        },
+                        onDismiss = onDismissRequest,
+                    )
+                }
+                // RK <--
                 // RK: over the engine, so the flag written belongs to whichever entry is open.
                 is ReaderDialog.OrientationSelect -> {
                     ReaderOrientationDialog(
@@ -1027,6 +1046,10 @@ class ReaderActivity : BaseActivity() {
         val bionicActive by engine.bionicReadingEnabled.collectAsState()
         val readAloudState by engine.readAloudState.collectAsState()
         val readAloud = engine.readAloud
+        // RK --> a novel keeps its reading mode on the text capability, which manga builds none of.
+        val textSettings = engine.textSettings
+        val novelLayout by remember(textSettings) { textSettings?.pageLayout ?: flowOf(null) }.collectAsState(null)
+        // RK <--
 
         ReaderAppBars(
             visible = state.menuVisible,
@@ -1077,10 +1100,15 @@ class ReaderActivity : BaseActivity() {
                 isScrollingThroughPages = false
             },
 
-            readingMode = ReadingMode.fromPreference(
-                viewModel.getMangaReadingMode(resolveDefault = false),
-            ),
-            onClickReadingMode = { engine.openDialog(ReaderDialog.ReadingModeSelect) },
+            // A novel's button draws and edits its own reading mode.
+            readingMode = if (textSettings != null) {
+                novelLayout.barIcon
+            } else {
+                ReadingMode.fromPreference(viewModel.getMangaReadingMode(resolveDefault = false))
+            },
+            onClickReadingMode = {
+                engine.openDialog(textSettings?.let(ReaderDialog::PageLayoutSelect) ?: ReaderDialog.ReadingModeSelect)
+            },
             orientation = ReaderOrientation.fromPreference(orientation),
             onClickOrientation = { engine.openDialog(ReaderDialog.OrientationSelect) },
             cropEnabled = cropEnabled,

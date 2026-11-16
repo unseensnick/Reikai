@@ -15,10 +15,10 @@ Most of these can also be changed while reading: open a chapter, tap the middle 
 ## Reading
 
 ### Chapter display <Badge type="info" text="Native text" />
-How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. A novel can keep its own choice from the reader's settings sheet, under **For this series**, where **Default** follows this setting. Changing it there rebuilds the reader at the same place in the chapter.
+How a chapter is drawn. **Native text** lays the text out in the app. **WebView** renders the chapter as a web page, which keeps more of its own formatting and unlocks the styling and snippet options under **Chapter text**. A novel can keep its own choice from the reader's settings sheet, under **For this series**, where **Default** follows this setting. Changing it either way rebuilds the reader at the same place in the chapter.
 
 ### Reading mode <Badge type="info" text="Scrolling" />
-**Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. A novel can keep its own choice from the reader's settings sheet, under **For this series**, where **Default** follows this setting. Changing it there rebuilds the reader at the same place in the chapter.
+**Scrolling** scrolls the chapter. **Paged (left to right)** and **Paged (right to left)** show a screen of whole lines at a time and turn it with a tap, a swipe or a volume key, in that direction. A novel can keep its own choice from the reader's settings sheet, under **For this series**, or from the **Reading mode** button once you add it under **Bottom bar buttons**; **Default** follows this setting. Changing it either way rebuilds the reader at the same place in the chapter.
 
 ### Dual page view <Badge type="info" text="Never" />
 Shown for the **Paged** reading modes. **Always** shows two pages side by side, and **When wide** does so only while the screen is wider than it is tall.

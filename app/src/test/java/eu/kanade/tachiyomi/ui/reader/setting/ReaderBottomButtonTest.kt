@@ -81,6 +81,16 @@ class ReaderBottomButtonTest {
             listOf(ViewChapters, KeepScreenOn, Settings)
     }
 
+    /** Each type keeps its own per-series reading mode, which the button's picker writes. */
+    @ParameterizedTest
+    @EnumSource(value = Scope::class, names = ["Manga", "Novel"])
+    fun `either reader's bar draws Reading mode when it is selected`(scope: Scope) {
+        val chosen = setOf(ViewChapters, ReaderBottomButton.ReadingMode).map { it.value }.toSet()
+
+        ReaderBottomButton.ordered(chosen, order = emptyList(), scope) shouldBe
+            listOf(ViewChapters, ReaderBottomButton.ReadingMode, Settings)
+    }
+
     @Test
     fun `the gear is drawn though nothing selects it`() {
         ReaderBottomButton.ordered(emptySet(), order = emptyList(), Scope.Novel) shouldBe listOf(Settings)
