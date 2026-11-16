@@ -106,7 +106,7 @@ The following illustrates the folder structure:
 </div>
 :::
 
-Three more folders are created beside these. **`fonts`** holds the fonts you import or download for the novel reader. **`localnovels`** holds your own light novels (see [Local source](/docs/guides/local-source)). **`novel_downloads`** follows a similar shape to `downloads`, `novel_downloads/Source/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images. The source folder carries the source's name (see [how downloads are organized](/docs/faq/downloads#how-are-downloads-organized-on-the-filesystem)).
+Three more folders are created beside these. **`fonts`** holds the fonts you import or download for the novel reader. **`localnovels`** holds your own light novels (see [Local source](/docs/guides/local-source/)). **`novel_downloads`** follows a similar shape to `downloads`, `novel_downloads/Source/Novel title/`, with each chapter saved as an `.html` file rather than an archive of images. The source folder carries the source's name (see [how downloads are organized](/docs/faq/downloads#how-are-downloads-organized-on-the-filesystem)).
 
 Backup file name prefixes are unique for the app to avoid potential collisions between forks.
 
