@@ -1310,15 +1310,15 @@ class NovelTextViewport(
         }
         val width = recycler.width
         val height = recycler.height
-        val zones = settings?.tapZones
-        if (zones == null || width <= 0 || height <= 0) {
+        // Unmeasured, there is no fraction of the page to read a zone at.
+        if (width <= 0 || height <= 0) {
             callbacks.onToggleMenu()
             return
         }
         val step = (height * NovelTapZones.SCROLL_FRACTION).roundToInt()
         // A spread's zones are across both pages, where the column only knows the half it was touched on.
         val (zoneX, zoneY) = spreadHost?.tapPoint() ?: (x / width to y / height)
-        when (zones.actionAt(zoneX, zoneY, pageLayout.isRtl)) {
+        when (NovelTapZones.tapAction(settings?.tapZones, zoneX, zoneY, pageLayout.isRtl)) {
             ViewerNavigation.Action.MENU -> callbacks.onToggleMenu()
             // A turn says the reader moved itself, once it happens (see handleKeyEvent).
             ViewerNavigation.Action.BACKWARD -> if (paged) turnPage(forward = false) else scrollByReader(-step)
