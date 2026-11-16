@@ -4,6 +4,8 @@ import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldNotContain
 import org.junit.jupiter.api.DisplayName
 import org.junit.jupiter.api.Test
+import org.junit.jupiter.params.ParameterizedTest
+import org.junit.jupiter.params.provider.ValueSource
 
 class NovelExtraSpacingTest {
 
@@ -105,5 +107,29 @@ class NovelExtraSpacingTest {
         val styled = "<p class=\"text\"><span>One<br>Two</span></p>"
 
         NovelHtmlUtils.removeExtraParagraphSpacing(styled) shouldBe styled
+    }
+
+    /** The pass runs on the source's own markup, before any parser has rewritten a break as `<br>`. */
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["<br/>", "<br />", "<br class=\"x\">"])
+    @DisplayName("a run of breaks collapses to two however the break is written")
+    fun collapsesBreakRunsInAnySpelling(br: String) {
+        NovelHtmlUtils.removeExtraParagraphSpacing("One$br$br$br${br}Two") shouldBe "One<br><br>Two"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["<br/>", "<br />"])
+    @DisplayName("breaks padding a paragraph are dropped however the break is written")
+    fun dropsParagraphBreaksInAnySpelling(br: String) {
+        val padded = "<p>${br}One</p>$br$br<p>Two$br</p>"
+
+        NovelHtmlUtils.removeExtraParagraphSpacing(padded) shouldBe "<p>One</p><p>Two</p>"
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @ValueSource(strings = ["&#160;", "&#xa0;", " "])
+    @DisplayName("padding before a paragraph boundary is dropped however the no-break space is written")
+    fun dropsPaddingInAnySpelling(space: String) {
+        NovelHtmlUtils.removeExtraParagraphSpacing("<p>Real text$space$space</p>") shouldBe "<p>Real text</p>"
     }
 }

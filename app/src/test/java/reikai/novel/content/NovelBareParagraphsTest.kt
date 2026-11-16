@@ -34,4 +34,14 @@ class NovelBareParagraphsTest {
 
         NovelHtmlUtils.wrapBareParagraphs(chapter) shouldBe chapter
     }
+
+    @Test
+    fun `a paragraph's hand-typed indent is dropped when the tag carries attributes`() {
+        NovelHtmlUtils.wrapBareParagraphs("<p class=\"t\">&nbsp;&nbsp;Hi</p>") shouldBe "<p class=\"t\">Hi</p>"
+    }
+
+    @Test
+    fun `a paragraph's hand-typed indent is dropped whatever the tag's case`() {
+        NovelHtmlUtils.wrapBareParagraphs("<P>&nbsp;Hi</P>") shouldBe "<P>Hi</P>"
+    }
 }

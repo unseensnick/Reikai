@@ -17,7 +17,7 @@ class NovelChapterTitleStripTest {
     }
 
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = ["script", "style", "textarea"])
+    @ValueSource(strings = ["script", "style", "textarea", "noscript"])
     @DisplayName("a heading inside a verbatim block is left alone and the chapter's heading is removed")
     fun skipsVerbatimBlocks(block: String) {
         val verbatim = "<$block>x = \"<h2>Sponsored</h2>\"</$block>"
@@ -63,5 +63,24 @@ class NovelChapterTitleStripTest {
         val content = "<script>Chapter 5</script>\nIt was raining."
 
         NovelHtmlUtils.stripChapterTitle(content, "Chapter 5") shouldBe content
+    }
+
+    @Test
+    @DisplayName("a heading inside a comment is left alone and the chapter's heading is removed")
+    fun skipsComments() {
+        val comment = "<!-- <h1>Old draft title</h1> -->"
+
+        val stripped = NovelHtmlUtils.stripChapterTitle("$comment<h1>Chapter 5</h1><p>Text.</p>", "Chapter 5")
+
+        stripped shouldBe "$comment<p>Text.</p>"
+    }
+
+    /** A comment may hold a `>`, which ends a tag but not the comment. */
+    @Test
+    @DisplayName("a first line inside a comment is not taken for the title")
+    fun firstLineSkipsComments() {
+        val stripped = NovelHtmlUtils.stripChapterTitle("<!-- a > b -->Chapter 5\n<p>Text.</p>", "Chapter 5")
+
+        stripped shouldBe "<!-- a > b --><p>Text.</p>"
     }
 }
