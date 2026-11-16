@@ -1401,7 +1401,7 @@ class ReaderViewModel(
         val default = readerPreferences.defaultOrientationType.get()
         val orientation = ReaderOrientation.fromPreference(manga?.readerOrientation?.toInt())
         return when {
-            orientation == ReaderOrientation.DEFAULT -> default
+            orientation == ReaderOrientation.DEFAULT -> default // RK
             else -> manga?.readerOrientation?.toInt() ?: default
         }
     }
