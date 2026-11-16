@@ -355,7 +355,7 @@ class NovelImageGetter(
             }
             // The loader keeps its own copy of what it decoded, so letting ours go frees nothing until it drops it.
             if (standIn != null) {
-                val key = novelImageCacheKey(imageUrl)
+                val key = novelImageCacheKey(imageUrl, sourceId)
                 context.imageLoader.memoryCache?.let { cache ->
                     cache.keys.filter { it.key == key }.forEach(cache::remove)
                 }
@@ -419,7 +419,7 @@ class NovelImageGetter(
     /** The file the fetch cached the picture in, which outlives the fetch itself, or null once the cache has
      *  dropped it. Slices and the picture's size are read from it. */
     private fun cachedFile(imageUrl: String): File? = runCatching {
-        context.imageLoader.diskCache?.openSnapshot(novelImageCacheKey(imageUrl))?.use { it.data.toFile() }
+        context.imageLoader.diskCache?.openSnapshot(novelImageCacheKey(imageUrl, sourceId))?.use { it.data.toFile() }
     }.getOrNull()?.takeIf { it.exists() }
 
     private fun queueSwap(wrapper: DrawableWrapper, replacement: Drawable) {

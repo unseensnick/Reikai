@@ -22,12 +22,14 @@ data class NovelImage(val url: String, val sourceId: String?)
 
 /**
  * The key a chapter picture is cached under, in memory and on disk: its address alone, so the picture is one
- * cache entry whichever chapter or mode asks for it. The text renderer reads the stored entry by it too.
+ * cache entry whichever chapter or mode asks for it. The text renderer reads the stored entry by it too. A
+ * local book's picture is keyed by its source as well, since a memory hit skips the fetch's local-source check.
  */
-fun novelImageCacheKey(url: String): String = url
+fun novelImageCacheKey(url: String, sourceId: String?): String =
+    if (LocalNovelSource.isPictureAddress(url)) "$url#$sourceId" else url
 
 class NovelImageKeyer : Keyer<NovelImage> {
-    override fun key(data: NovelImage, options: Options): String = novelImageCacheKey(data.url)
+    override fun key(data: NovelImage, options: Options): String = novelImageCacheKey(data.url, data.sourceId)
 }
 
 class NovelImageFetcher(
@@ -63,9 +65,9 @@ suspend fun fetchNovelImage(
     readCache: Boolean,
     writeCache: Boolean,
 ): SourceFetchResult {
-    val key = novelImageCacheKey(image.url)
+    val key = novelImageCacheKey(image.url, image.sourceId)
     val isLocalPicture = LocalNovelSource.isPictureAddress(image.url)
-    // Before the cache, which keys by address alone: another source's chapter naming a book's picture gets nothing.
+    // Another source's chapter naming a book's picture gets nothing, cached or not.
     if (isLocalPicture && !LocalNovelSource.isLocal(image.sourceId)) throw noLocalPicture()
     if (readCache) diskCache?.openSnapshot(key)?.let { return it.toResult(diskCache, key, null, DataSource.DISK) }
     val cache = diskCache?.takeIf { writeCache }

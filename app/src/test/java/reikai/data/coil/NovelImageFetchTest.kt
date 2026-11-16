@@ -2,6 +2,7 @@ package reikai.data.coil
 
 import coil3.disk.DiskCache
 import io.kotest.assertions.throwables.shouldThrow
+import io.kotest.matchers.shouldNotBe
 import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
@@ -42,5 +43,14 @@ class NovelImageFetchTest {
         } finally {
             cache.shutdown()
         }
+    }
+
+    /** The renderer reads Coil's memory cache before any fetch, so a picture decoded for the book must not answer there. */
+    @Test
+    fun `a local book's picture is cached apart from another source's chapter naming it`() {
+        val keyer = NovelImageKeyer()
+
+        keyer.key(NovelImage(address, "lnreader.x"), mockk()) shouldNotBe
+            keyer.key(NovelImage(address, LocalNovelSource.ID), mockk())
     }
 }
