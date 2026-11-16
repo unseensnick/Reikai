@@ -1,6 +1,7 @@
 package reikai.presentation.reader
 
 import androidx.lifecycle.SavedStateHandle
+import eu.kanade.tachiyomi.ui.reader.ReaderViewModel.SetAsCoverResult
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -759,6 +760,29 @@ class NovelReaderViewModelTest {
                 unmockkObject(Clock.System)
             }
         }
+
+    @Test
+    fun `a chapter's picture set as cover becomes the novel's own cover`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"))
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+
+        val result = model.setPictureAsCover { byteArrayOf(1, 2, 3) }
+
+        (result to harness.customCovers[novel]?.toList()) shouldBe (SetAsCoverResult.Success to listOf<Byte>(1, 2, 3))
+    }
+
+    /** As a manga page's: the cover would go with the entry, so the reader is asked to add it first. */
+    @Test
+    fun `a picture of a novel outside the library is not made its cover`() = readerTest { harness ->
+        val novel = harness.novel(harness.source("src"), inLibrary = false)
+        val model = harness.open(novel, harness.chapter(novel, 1.0).id)
+        advanceUntilIdle()
+
+        val result = model.setPictureAsCover { byteArrayOf(1) }
+
+        (result to harness.customCovers[novel]) shouldBe (SetAsCoverResult.AddToLibraryFirst to null)
+    }
 
     private class TestClock {
         @Volatile

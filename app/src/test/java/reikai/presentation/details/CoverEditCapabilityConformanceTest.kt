@@ -2,6 +2,7 @@ package reikai.presentation.details
 
 import android.content.Context
 import android.net.Uri
+import eu.kanade.tachiyomi.data.cache.CoverCache
 import io.kotest.matchers.shouldBe
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -26,6 +27,7 @@ import org.junit.jupiter.params.provider.MethodSource
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
+import reikai.domain.novel.interactor.SetNovelCustomCover
 import reikai.domain.novel.model.Novel
 import reikai.novel.local.LocalNovelSource
 import reikai.presentation.novel.details.NovelCoverViewModel
@@ -155,17 +157,18 @@ class NovelCoverEditProbe(private val appScope: CoroutineScope = testAppScope())
                 inLibrary
             },
         )
+        val repo = mockk<NovelRepository>(relaxed = true) {
+            every { getByUrlAndSourceAsFlow(novel.url, novel.source) } returns flowOf(novel)
+        }
+        val coverCache = mockk<CoverCache>(relaxed = true)
         return NovelCoverViewModel(
             novelUrl = novel.url,
             novelSource = novel.source,
-            novelRepo = mockk<NovelRepository>(relaxed = true) {
-                every { getByUrlAndSourceAsFlow(novel.url, novel.source) } returns flowOf(novel)
-            },
+            novelRepo = repo,
             getCustomNovelInfo = mockk<GetCustomNovelInfo> { every { subscribe(novel.id) } returns flowOf(null) },
-            updateNovel = mockk(relaxed = true),
-            coverCache = mockk(relaxed = true),
+            coverCache = coverCache,
             clearCustomCover = mockk(relaxed = true),
-            localNovelSource = localSource,
+            setNovelCustomCover = SetNovelCustomCover(repo, mockk(relaxed = true), coverCache, localSource),
             imageSaver = mockk(relaxed = true),
             appScope = appScope,
         )

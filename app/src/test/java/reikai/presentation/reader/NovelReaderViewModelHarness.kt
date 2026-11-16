@@ -49,6 +49,7 @@ import reikai.domain.chapter.NoChapterTombstones
 import reikai.domain.chapter.NoLocalVolumes
 import reikai.domain.download.NovelRemovableDownloads
 import reikai.domain.download.SourceContacts
+import reikai.domain.entry.EntryId
 import reikai.domain.library.ContentType
 import reikai.domain.library.ReikaiLibraryPreferences
 import reikai.domain.merge.ReconcileMergedChapters
@@ -64,8 +65,10 @@ import reikai.domain.novel.interactor.FilterNovelChaptersForDownload
 import reikai.domain.novel.interactor.GetNextNovelChapter
 import reikai.domain.novel.interactor.RemoveNovelsFromLibrary
 import reikai.domain.novel.interactor.SetNovelChapterFlags
+import reikai.domain.novel.interactor.SetNovelCustomCover
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
+import reikai.domain.novel.interactor.UpdateNovel
 import reikai.domain.novel.interactor.UpsertNovelHistory
 import reikai.domain.novel.model.Novel
 import reikai.domain.novel.model.NovelChapter
@@ -361,6 +364,9 @@ class NovelReaderViewModelHarness private constructor(
     /** What the reader's trim behind it queued for deletion on leaving. */
     val pendingDeletes = mutableListOf<NovelChapter>()
 
+    /** The bytes written as each novel's own cover, by id. */
+    val customCovers = java.util.Collections.synchronizedMap(mutableMapOf<Long, ByteArray>())
+
     private val removable =
         NovelRemovableDownloads(novelPreferences, GetNovelCategories(CategoryRepositoryImpl(database)))
 
@@ -447,6 +453,17 @@ class NovelReaderViewModelHarness private constructor(
                 mergeManager,
                 mergedChapterProvider,
                 NovelChapterSettings(novelRepo),
+            ),
+            setNovelCustomCover = SetNovelCustomCover(
+                novelRepo,
+                UpdateNovel(novelRepo, mockk(relaxed = true)),
+                // The cache's directory is the app's; what reaches it is what a test asks about.
+                mockk {
+                    every { setCustomCoverToCache(any<EntryId>(), any()) } answers {
+                        customCovers[firstArg<EntryId.Novel>().rawId] = secondArg<java.io.InputStream>().readBytes()
+                    }
+                },
+                mockk(),
             ),
             io = dispatcher,
         ).also(::track)

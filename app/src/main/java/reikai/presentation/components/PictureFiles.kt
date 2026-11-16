@@ -1,7 +1,10 @@
 package reikai.presentation.components
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.net.Uri
+import androidx.core.content.getSystemService
 import coil3.asDrawable
 import coil3.imageLoader
 import coil3.request.ImageRequest
@@ -33,16 +36,8 @@ suspend fun savePicture(
     name: String,
     forSharing: Boolean,
 ): Uri? {
-    val request = ImageRequest.Builder(context)
-        .data(model)
-        .size(Size.ORIGINAL)
-        .build()
+    val bytes = pictureBytes(context, model) ?: return null
     return withIOContext {
-        val result = context.imageLoader.execute(request).image?.asDrawable(context.resources)
-        val bitmap = result?.getBitmapOrNull() ?: return@withIOContext null
-        // A PNG when the picture has transparency, which a Cover's fixed JPEG turns black. ImageSaver
-        // names a Page's file by the type it reads from the bytes.
-        val bytes = coverPicture(bitmap).bytes
         imageSaver.save(
             Image.Page(
                 inputStream = { ByteArrayInputStream(bytes) },
@@ -51,6 +46,27 @@ suspend fun savePicture(
             ),
         )
     }
+}
+
+/**
+ * The picture coil loads for [model], encoded as a file: a PNG when it has transparency, which a Cover's
+ * fixed JPEG turns black. Null when nothing loads. What a picture's Save, Share and Set as cover write.
+ */
+suspend fun pictureBytes(context: Context, model: Any): ByteArray? {
+    val request = ImageRequest.Builder(context)
+        .data(model)
+        .size(Size.ORIGINAL)
+        .build()
+    return withIOContext {
+        val result = context.imageLoader.execute(request).image?.asDrawable(context.resources)
+        result?.getBitmapOrNull()?.let { coverPicture(it).bytes }
+    }
+}
+
+/** Puts the saved picture at [uri] on the clipboard, as a manga page's Copy to clipboard does. */
+fun Context.copyPictureToClipboard(uri: Uri) {
+    val clipboardManager = applicationContext.getSystemService<ClipboardManager>() ?: return
+    clipboardManager.setPrimaryClip(ClipData.newUri(applicationContext.contentResolver, "", uri))
 }
 
 /**

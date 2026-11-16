@@ -87,7 +87,7 @@ fun ReaderPageActionsDialog(
 }
 
 @Composable
-private fun SetCoverDialog(
+internal fun SetCoverDialog( // RK: a novel chapter picture's Set as cover confirms through it too
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {

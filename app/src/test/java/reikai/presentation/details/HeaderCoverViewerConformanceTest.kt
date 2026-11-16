@@ -123,10 +123,9 @@ class NovelHeaderCoverProbe : HeaderCoverProbe {
             getCustomNovelInfo = mockk<GetCustomNovelInfo> {
                 every { subscribe(sibling.id) } returns flowOf(siblingInfo)
             },
-            updateNovel = mockk(relaxed = true),
             coverCache = mockk(relaxed = true),
             clearCustomCover = mockk(relaxed = true),
-            localNovelSource = mockk(),
+            setNovelCustomCover = mockk(),
             imageSaver = mockk(relaxed = true),
             appScope = testAppScope(),
         )

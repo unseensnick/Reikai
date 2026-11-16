@@ -15,13 +15,11 @@ import reikai.domain.entry.ClearCustomCover
 import reikai.domain.entry.EntryId
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.interactor.GetCustomNovelInfo
-import reikai.domain.novel.interactor.UpdateNovel
+import reikai.domain.novel.interactor.SetNovelCustomCover
 import reikai.domain.novel.model.Novel
-import reikai.domain.novel.model.NovelUpdate
 import reikai.domain.novel.model.asNovelCover
 import reikai.domain.novel.model.hasCustomCover
 import reikai.domain.novel.model.withCustomInfo
-import reikai.novel.local.LocalNovelSource
 import reikai.presentation.details.EntryCoverViewModel
 import java.io.InputStream
 
@@ -36,10 +34,9 @@ class NovelCoverViewModel(
     @Assisted private val novelSource: String,
     private val novelRepo: NovelRepository,
     private val getCustomNovelInfo: GetCustomNovelInfo,
-    private val updateNovel: UpdateNovel,
     private val coverCache: CoverCache,
     private val clearCustomCover: ClearCustomCover,
-    private val localNovelSource: LocalNovelSource,
+    private val setNovelCustomCover: SetNovelCustomCover,
     imageSaver: ImageSaver,
     @AppCoroutineScope appScope: CoroutineScope,
 ) : EntryCoverViewModel<Novel>(imageSaver, appScope) {
@@ -60,22 +57,14 @@ class NovelCoverViewModel(
 
     override fun coverName(entry: Novel): String = entry.title
 
-    // As manga's: a local novel's cover goes into its own folder, so it needs no library entry to keep it.
-    override fun canEditCover(entry: Novel): Boolean = entry.favorite || LocalNovelSource.isLocal(entry.source)
+    override fun canEditCover(entry: Novel): Boolean = SetNovelCustomCover.canSet(entry)
 
     override fun hasCustomCover(): Boolean = entry.value?.hasCustomCover(coverCache) ?: false
 
-    override suspend fun persistCustomCover(entry: Novel, stream: InputStream) {
-        val isLocal = LocalNovelSource.isLocal(entry.source)
-        val inFolder = if (isLocal) localNovelSource.writeCover(entry.url, stream) else null
-        // The stored address may be the book's own picture, copied out, which the folder's cover now replaces.
-        if (inFolder != null) {
-            novelRepo.update(NovelUpdate(entry.id) { thumbnailUrl = inFolder })
-        } else {
-            coverCache.setCustomCoverToCache(EntryId.Novel(entry.id), stream)
-        }
-        updateNovel.awaitUpdateCoverLastModified(entry.id)
-    }
+    override suspend fun persistCustomCover(entry: Novel, stream: InputStream) = setNovelCustomCover.await(
+        entry,
+        stream,
+    )
 
     override suspend fun removeCustomCover(entry: Novel) {
         clearCustomCover.await(EntryId.Novel(entry.id))

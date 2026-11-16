@@ -18,6 +18,7 @@ import eu.kanade.domain.track.service.TrackPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.presentation.util.loadFailureMessage
 import eu.kanade.tachiyomi.network.interceptor.cloudflareBlockedUrl
+import eu.kanade.tachiyomi.ui.reader.ReaderViewModel
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -27,6 +28,7 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -76,6 +78,7 @@ import reikai.domain.novel.downloadedChapterIds
 import reikai.domain.novel.gapPresent
 import reikai.domain.novel.interactor.DeleteNovelChaptersBehindReader
 import reikai.domain.novel.interactor.GetNextNovelChapter
+import reikai.domain.novel.interactor.SetNovelCustomCover
 import reikai.domain.novel.interactor.SetNovelReadStatus
 import reikai.domain.novel.interactor.SetNovelViewerFlags
 import reikai.domain.novel.interactor.UpsertNovelHistory
@@ -136,6 +139,7 @@ import tachiyomi.core.common.i18n.stringResource
 import tachiyomi.core.common.util.system.logcat
 import tachiyomi.domain.library.service.LibraryPreferences
 import tachiyomi.i18n.MR
+import java.io.ByteArrayInputStream
 import java.util.Collections
 import java.util.concurrent.ConcurrentHashMap
 import kotlin.time.Clock
@@ -182,6 +186,7 @@ class NovelReaderViewModel(
     private val pageFetcher: NovelPageFetcher,
     private val adultChecker: AdultContentChecker,
     private val getNextNovelChapter: GetNextNovelChapter,
+    private val setNovelCustomCover: SetNovelCustomCover,
     // Dispatchers.IO in the app, which is what launchIO would have used. Passed in so a JVM test can
     // run the whole session on its own scheduler.
     @Assisted private val io: CoroutineDispatcher,
@@ -1326,6 +1331,26 @@ class NovelReaderViewModel(
 
     private fun heldIds(): Set<Long> =
         window.value.chapters.mapTo(hashSetOf(currentChapterId)) { it.chapterId }
+
+    /**
+     * Makes a chapter's picture, [picture]'s bytes, the novel's cover, with a manga page's answers: a novel
+     * that would lose the cover with its library entry is asked to be added first. On the app scope, so
+     * closing the viewer does not drop the write.
+     */
+    suspend fun setPictureAsCover(picture: suspend () -> ByteArray?): ReaderViewModel.SetAsCoverResult =
+        appScope.async {
+            try {
+                val novel = novelRepo.getById(novelId) ?: return@async ReaderViewModel.SetAsCoverResult.Error
+                if (!SetNovelCustomCover.canSet(novel)) return@async ReaderViewModel.SetAsCoverResult.AddToLibraryFirst
+                val bytes = picture() ?: return@async ReaderViewModel.SetAsCoverResult.Error
+                setNovelCustomCover.await(novel, ByteArrayInputStream(bytes))
+                ReaderViewModel.SetAsCoverResult.Success
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logcat(LogPriority.ERROR, e)
+                ReaderViewModel.SetAsCoverResult.Error
+            }
+        }.await()
 
     fun setChapterBookmark(chapterIds: List<Long>, bookmarked: Boolean) {
         val ids = expandToUnits(chapterIds.toSet(), groupStitch)

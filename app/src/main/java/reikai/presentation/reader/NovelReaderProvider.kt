@@ -356,7 +356,7 @@ class NovelReaderProvider(
             onPictureOpened = { model, chapterTitle ->
                 val chapter = chapterTitle ?: viewModel.chapter.value?.title
                 val name = chapterPictureName(viewModel.entryTitle.value, chapter, model)
-                host.engine.openDialog(ReaderDialog.Picture(model, name))
+                host.engine.openDialog(ReaderDialog.Picture(model, name, viewModel::setPictureAsCover))
             },
         )
         // A new viewport reports its own page, and one scrolling reports none.
