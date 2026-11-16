@@ -1272,7 +1272,7 @@ class NovelDetailsViewModel(
             appScope.launch {
                 setNovelChapterFlags.awaitSetAsDefault(loaded.novel, applyToLibrary)
                 chapterSettings.change(loaded.novel.id, mergeGroup.relatedIds.asList()) {
-                    setNovelChapterFlags.awaitClearLocalOverrides(loaded.novel)
+                    setNovelChapterFlags.awaitClearLocalOverrides(it)
                 }
             }.join()
             snackbarHostState.showSnackbar(message = context.stringResource(MR.strings.chapter_settings_updated))
@@ -1282,13 +1282,13 @@ class NovelDetailsViewModel(
     fun resetChapterSettings() =
         changeChapterSettings { setNovelChapterFlags.awaitClearLocalOverrides(it) }
 
-    /** Runs [change] on the novel as shown, carrying its group's shared settings, then gives every other
+    /** Runs [change] on the novel as shown now, carrying its group's shared settings, then gives every other
      *  member the result, so a merged series keeps one setting (GroupChapterSettings). */
     private fun changeChapterSettings(change: suspend (Novel) -> Unit) {
         val n = (state.value as? NovelDetailsState.Loaded)?.novel ?: return
         // On the app scope, as manga's flag writes are, so a sheet closed with the screen still saves
         appScope.launch {
-            chapterSettings.change(n.id, mergeGroup.relatedIds.asList()) { change(n) }
+            chapterSettings.change(n.id, mergeGroup.relatedIds.asList(), change)
         }
     }
 

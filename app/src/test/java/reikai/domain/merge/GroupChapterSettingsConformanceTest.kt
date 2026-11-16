@@ -6,7 +6,10 @@ import eu.kanade.tachiyomi.ui.manga.seedManga
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.mockk.mockk
+import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.yield
 import mihon.app.di.ReikaiBindings
 import org.junit.jupiter.api.AfterEach
 import org.junit.jupiter.params.ParameterizedTest
@@ -67,6 +70,20 @@ class GroupChapterSettingsConformanceTest {
         val side = side(type)
 
         side.shownDescending(SIBLING, GROUP) shouldBe true
+    }
+
+    /** Two quick taps on the shown sort each flip it, the second from what the first wrote. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `two sort picks made at once both flip the sort`(type: ContentType) = runTest {
+        val side = side(type)
+
+        listOf(
+            launch { side.flipSortThrough(OWNER, GROUP) { yield() } },
+            launch { side.flipSortThrough(OWNER, GROUP) { yield() } },
+        ).joinAll()
+
+        side.shownDescending(OWNER, GROUP) shouldBe true
     }
 
     @ParameterizedTest
@@ -263,8 +280,9 @@ class GroupChapterSettingsConformanceTest {
         suspend fun seed(id: Long, descending: Boolean)
         suspend fun shownDescending(openedId: Long, memberIds: List<Long>): Boolean
 
-        /** Picks the sort already shown, which flips its direction, as the details sort page does. */
-        suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>)
+        /** Picks the sort already shown, which flips its direction, as the details sort page does. [beforeWrite]
+         *  runs between reading what is shown and writing, where a second pick can land. */
+        suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>, beforeWrite: suspend () -> Unit = {})
 
         suspend fun setInLibrary(id: Long, inLibrary: Boolean)
 
@@ -370,9 +388,11 @@ class GroupChapterSettingsConformanceTest {
         override suspend fun shownDescending(openedId: Long, memberIds: List<Long>) =
             shown(openedId, memberIds).sortDescending()
 
-        override suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>) {
-            val shown = shown(openedId, memberIds)
-            settings.change(openedId, memberIds) { setFlags.awaitSetSortingModeOrFlipOrder(shown, shown.sorting) }
+        override suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>, beforeWrite: suspend () -> Unit) {
+            settings.change(openedId, memberIds) { shown ->
+                beforeWrite()
+                setFlags.awaitSetSortingModeOrFlipOrder(shown, shown.sorting)
+            }
         }
     }
 
@@ -453,9 +473,9 @@ class GroupChapterSettingsConformanceTest {
         override suspend fun shownDescending(openedId: Long, memberIds: List<Long>) =
             shown(openedId, memberIds).effectiveSortDescending(preferences)
 
-        override suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>) {
-            val shown = shown(openedId, memberIds)
-            settings.change(openedId, memberIds) {
+        override suspend fun flipSortThrough(openedId: Long, memberIds: List<Long>, beforeWrite: suspend () -> Unit) {
+            settings.change(openedId, memberIds) { shown ->
+                beforeWrite()
                 setFlags.awaitSetSortingModeOrFlipOrder(shown, shown.effectiveSorting(preferences))
             }
         }

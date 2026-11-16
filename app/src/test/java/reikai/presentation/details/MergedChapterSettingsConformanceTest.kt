@@ -96,23 +96,39 @@ class MergedChapterSettingsConformanceTest {
         } shouldBe true
     }
 
+    /** Two settings picked before the first one's write reaches the page both land, each over the other. */
+    @ParameterizedTest
+    @EnumSource(ContentType::class, names = ["MANGA", "NOVELS"])
+    fun `two settings picked at once both land`(type: ContentType) = runTest {
+        group(type, ownerShowsNumbers = false) { open ->
+            open(SIBLING).apply { settled() }.apply {
+                showNumbers()
+                filterUnread()
+            }
+            open(OWNER).settled { it.showChapterNumberOnly }.showChapterNumberOnly
+        } shouldBe true
+    }
+
     /** One details page of the group, through its type's model. */
     private interface Page {
         val behavior: EntryDetailsBehavior
         fun selectSource(id: Long)
         fun showNumbers()
+        fun filterUnread()
     }
 
     private class MangaPage(private val model: MangaViewModel) : Page {
         override val behavior = MangaEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setDisplayMode(Manga.CHAPTER_DISPLAY_NUMBER)
+        override fun filterUnread() = model.setUnreadFilter(TriState.ENABLED_IS)
     }
 
     private class NovelPage(private val model: NovelDetailsViewModel) : Page {
         override val behavior = NovelEntryAdapter(model, mockk(relaxed = true), noDuplicateMarking(), noVolumePicking())
         override fun selectSource(id: Long) = model.selectSource(id)
         override fun showNumbers() = model.setHideChapterTitles(true)
+        override fun filterUnread() = model.setFilters(NovelChapterFlags.SHOW_UNREAD, 0L, 0L)
     }
 
     /** The merged page once loaded, on [chip] (null = All) and once [until] holds. A chip counts once its

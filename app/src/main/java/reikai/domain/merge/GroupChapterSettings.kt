@@ -1,5 +1,8 @@
 package reikai.domain.merge
 
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 /**
  * A flag word a merged series keeps once (its chapter settings, and its reader flags through the
  * ViewerFlagSettings subclasses): its settings owner's, the first library member in stored source order
@@ -21,10 +24,17 @@ open class GroupChapterSettings<E>(
         return opened.withOwnerChapterFlags(listOfNotNull(load(ownerId)), flagsOf, withFlags)
     }
 
-    /** Runs [change], which writes [openedId]'s own setting, then gives every other member the result. */
-    suspend fun change(openedId: Long, memberIds: List<Long>, change: suspend () -> Unit) {
-        change()
-        spread(openedId, memberIds)
+    /**
+     * Runs [change] on [openedId] as it is shown now, which writes its own setting, then gives every other
+     * member the result. One change at a time, each read fresh, so two quick picks made from one screen's
+     * copy cannot undo each other: a flag word is written whole.
+     */
+    suspend fun change(openedId: Long, memberIds: List<Long>, change: suspend (shown: E) -> Unit) {
+        changes.withLock {
+            val opened = load(openedId) ?: return
+            change(shown(opened, memberIds))
+            spread(openedId, memberIds)
+        }
     }
 
     /** After a merge: every member of [memberIds] takes the settings owner's setting. */
@@ -53,6 +63,11 @@ open class GroupChapterSettings<E>(
         if (others.isEmpty()) return
         val flags = load(fromId)?.let(flagsOf) ?: return
         write(others, flags)
+    }
+
+    private companion object {
+        // One for every settings word of both types: these writes are rare, so nothing needs a finer lock.
+        val changes = Mutex()
     }
 }
 

@@ -1647,7 +1647,7 @@ class MangaViewModel(
             TriState.ENABLED_IS -> Manga.CHAPTER_SHOW_UNREAD
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_READ
         }
-        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetUnreadFilter(manga, flag) } // RK
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetUnreadFilter(it, flag) } // RK
     }
 
     /**
@@ -1663,7 +1663,7 @@ class MangaViewModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_DOWNLOADED
         }
 
-        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDownloadedFilter(manga, flag) } // RK
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDownloadedFilter(it, flag) } // RK
     }
 
     /**
@@ -1679,7 +1679,7 @@ class MangaViewModel(
             TriState.ENABLED_NOT -> Manga.CHAPTER_SHOW_NOT_BOOKMARKED
         }
 
-        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetBookmarkFilter(manga, flag) } // RK
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetBookmarkFilter(it, flag) } // RK
     }
 
     /**
@@ -1689,7 +1689,7 @@ class MangaViewModel(
     fun setDisplayMode(mode: Long) {
         val manga = successState?.manga ?: return
 
-        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDisplayMode(manga, mode) } // RK
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetDisplayMode(it, mode) } // RK
     }
 
     /**
@@ -1699,7 +1699,7 @@ class MangaViewModel(
     fun setSorting(sort: Long) {
         val manga = successState?.manga ?: return
 
-        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(manga, sort) } // RK
+        changeChapterSettings(manga) { setMangaChapterFlags.awaitSetSortingModeOrFlipOrder(it, sort) } // RK
     }
 
     fun setCurrentSettingsAsDefault(applyToExisting: Boolean) {
@@ -1717,12 +1717,12 @@ class MangaViewModel(
 
     fun resetToDefaultSettings() {
         val manga = successState?.manga ?: return
-        changeChapterSettings(manga) { setMangaDefaultChapterFlags.await(manga) } // RK
+        changeChapterSettings(manga) { setMangaDefaultChapterFlags.await(it) } // RK
     }
 
-    // RK --> a merged series shares one chapter setting, so [change] writes the opened manga from the
+    // RK --> a merged series shares one chapter setting, so [change] writes the opened manga, read fresh, from the
     // setting it shows, the settings owner's, and every other member takes the result (GroupChapterSettings)
-    private fun changeChapterSettings(manga: Manga, change: suspend () -> Unit) {
+    private fun changeChapterSettings(manga: Manga, change: suspend (Manga) -> Unit) {
         appScope.launch {
             chapterSettings.change(manga.id, mergeGroup.relatedIds.asList(), change)
         }
