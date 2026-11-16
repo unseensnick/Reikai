@@ -18,7 +18,7 @@ class ReaderColorTest {
 
     /** CSS drops these, so the reader falls back rather than drawing a colour the page never shows. */
     @ParameterizedTest(name = "{0}")
-    @ValueSource(strings = ["#12345", "#1234567", "#ggg", "red", "", "#"])
+    @ValueSource(strings = ["#12345", "#1234567", "#ggg", "red", "", "#", "#١٢٣١٢٣"])
     fun `a value CSS does not read is no colour`(stored: String) {
         readerColorOrNull(stored) shouldBe null
     }
