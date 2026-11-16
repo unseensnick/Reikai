@@ -11,6 +11,7 @@ object EnglishChapterTitleWords : ChapterTitleWords {
 
     override fun pageProgress(resource: StringResource, args: Array<Any>) = when (resource) {
         MR.strings.chapter_progress_of_total -> "Page: ${args[0]}/${args[1]}"
+        MR.strings.chapter_progress_percent -> "${args[0]}%"
         else -> "Page: ${args[0]}"
     }
 }

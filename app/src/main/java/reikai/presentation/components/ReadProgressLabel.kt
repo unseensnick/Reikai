@@ -17,6 +17,7 @@ fun readProgressLabel(progress: ChapterProgress?): String? = when (progress) {
     is ChapterProgress.Pages -> pageProgressLabel(progress.lastPageRead, progress.pageCount)
         ?.let { (resource, args) -> stringResource(resource, *args) }
     is ChapterProgress.Percent -> percentProgressLabel(progress.hundredths)
+        ?.let { (resource, args) -> stringResource(resource, *args) }
 }
 
 /**
@@ -34,11 +35,12 @@ fun pageProgressLabel(lastPageRead: Int, pageCount: Int): Pair<StringResource, A
 }
 
 /**
- * The same line for a novel, whose reader stores hundredths of a percent. A fraction of a percent
- * claims no progress rather than rounding up to one, and no total is written: a percent carries it.
+ * The same line for a novel, whose reader stores hundredths of a percent, as a string to localise like a page's. A
+ * fraction of a percent claims no progress rather than rounding up to one, and no total is written: a percent carries it.
  */
-fun percentProgressLabel(hundredths: Long): String? =
-    ChapterProgress.Percent(hundredths).wholePercent.takeIf { it > 0L }?.let { "$it%" }
+fun percentProgressLabel(hundredths: Long): Pair<StringResource, Array<Any>>? =
+    ChapterProgress.Percent(hundredths).wholePercent.takeIf { it > 0L }
+        ?.let { MR.strings.chapter_progress_percent to arrayOf<Any>(it) }
 
 /**
  * A row's progress, shown only while the row reads as unread. [read] is the flag the row draws, so in a

@@ -1714,7 +1714,8 @@ internal fun NovelChapter.toReaderChapterRow(
         title = chapterRowTitle(name, chapterNumber, numberOnly, words),
         subtitle = chapterSubtitle(sourceNames[novelId], scanlator),
         dateUpload = dateUpload,
-        readProgress = percentProgressLabel(lastTextProgress),
+        readProgress = percentProgressLabel(lastTextProgress)
+            ?.let { (resource, args) -> words.pageProgress(resource, args) },
         progress = ChapterProgress.Percent(lastTextProgress),
         read = flags.isRead(this),
         bookmark = flags.isBookmarked(this),

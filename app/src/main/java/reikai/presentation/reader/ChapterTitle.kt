@@ -17,7 +17,7 @@ interface ChapterTitleWords {
 
     fun numberedWithName(number: String, name: String): String
 
-    /** A line [reikai.presentation.components.pageProgressLabel] chose, in words. */
+    /** A line [reikai.presentation.components.pageProgressLabel] or percentProgressLabel chose, in words. */
     fun pageProgress(resource: StringResource, args: Array<Any>): String
 }
 

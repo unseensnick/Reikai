@@ -155,7 +155,13 @@ class RecentsMappingTest {
 
     @Test
     fun `hundredths of a percent round down to a whole percent`() {
-        percentProgressLabel(hundredths = 4999) shouldBe "49%"
+        percentProgressLabel(hundredths = 4999).pageArgs() shouldBe listOf(49)
+    }
+
+    /** A locale writes a percent its own way ("42 %", "%42"), so the sign comes from the strings. */
+    @Test
+    fun `a percent is written through the strings, as a page is`() {
+        percentProgressLabel(hundredths = 4999)?.first shouldBe MR.strings.chapter_progress_percent
     }
 
     @Test
