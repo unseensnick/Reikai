@@ -606,6 +606,7 @@ class NovelReaderViewModel(
         latestReport = id to clamped
         if (id == currentChapterId) {
             val before = progress.value.wholePercent
+            keepPosition(id, clamped)
             progress.value = clamped
             // Reaching the threshold is what lets the next chapter join below, so the window follows at once.
             val threshold = novelPreferences.readerAutoLoadNextAt().get()
@@ -629,6 +630,18 @@ class NovelReaderViewModel(
     /** Write the last reported position now. The host calls this on pause, so being backgrounded or
      *  killed cannot drop a held write. */
     fun flushProgress() = progressSave.flush()
+    /** The chapter being read's position, kept for a process kill as manga keeps its page: in incognito the
+     *  database holds none to reopen at. */
+    private fun keepPosition(chapterId: Long, at: ChapterProgress.Percent) {
+        savedState[SAVED_POSITION] = longArrayOf(chapterId, at.hundredths)
+    }
+
+    /** The newest position this session has for [chapterId] that the database may not hold yet: one held
+     *  back, one waiting to be written, or the one kept across a process kill. */
+    private fun unstoredPosition(chapterId: Long): Long? = progressSave.heldFor(chapterId)?.hundredths
+        ?: unwritten[chapterId]?.hundredths
+        ?: savedState.get<LongArray>(SAVED_POSITION)?.takeIf { it[0] == chapterId }?.get(1)
+
 
     /** The chapter on screen, which a merged session moves across sources. Every bar verb acts on this
      *  one, so it advances only once a chapter has actually rendered. Saved on the way, so a process
@@ -959,6 +972,7 @@ class NovelReaderViewModel(
         this.bookmarked.value = bookmarked
         chapter.value = arriving
         // Its own first report usually beat this here, and was not the current chapter's when it came.
+        keepPosition(target, progress.value)
         progress.value = latestReport?.takeIf { it.first == target }?.second ?: arriving.progress
         settleNeighbours(around)
         window.value = recentred
@@ -1073,6 +1087,7 @@ class NovelReaderViewModel(
         this.bookmarked.value = bookmarked
         chapter.value = opened
         if (!reloading) {
+            keepPosition(row.id, opened.progress)
             progress.value = opened.progress
             latestTopLine = null
         }
@@ -1092,7 +1107,7 @@ class NovelReaderViewModel(
             baseUrl = baseUrl,
             progress = NovelResume.progress(
                 read,
-                lastTextProgress,
+                unstoredPosition(id) ?: lastTextProgress,
                 novelPreferences.readerPreserveReadingPosition().get(),
             ),
             chapterNumber = chapterNumber,
@@ -1714,5 +1729,8 @@ internal fun NovelChapter.toReaderChapterRow(
 private const val SAVED_CHAPTER_ID = "novel_chapter_id"
 
 /** Chapters held in the forward-prefetch cache. Small: it exists to make one step instant, not to
+/** The chapter being read with its position, kept beside it for the same process kill. */
+private const val SAVED_POSITION = "novel_chapter_position"
+
  *  keep a session's reading in memory. */
 private const val MAX_CACHED_CHAPTERS = 5

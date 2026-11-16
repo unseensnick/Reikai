@@ -6,6 +6,7 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.ViewModelStore
 import eu.kanade.domain.ui.UiPreferences
 import eu.kanade.presentation.manga.components.ChapterDownloadAction
 import eu.kanade.tachiyomi.ui.reader.ReaderActivity
@@ -209,6 +210,39 @@ class ReaderEngineTest {
     /** Ids overlap across the two types, so the override is found by the entry's typed id. */
     @ParameterizedTest(name = "{0}")
     @MethodSource("editedEntries")
+    /** The paragraph being spoken has had no step to credit it, so closing the reader is its last chance. */
+    @Test
+    fun `closing the reader keeps the read-aloud time of the paragraph being spoken`() = runTest(scheduler) {
+        val provider = FakeReaderProvider()
+        val readAloud = FakeReadAloud()
+        readAloud.state.value = ReaderReadAloudState(
+            playback = TtsPlayback.Playing,
+            progress = ReadAloudProgress(chapterId = 9, wordsSpoken = 0, words = 2_000),
+        )
+        provider.readAloudSlot = readAloud
+        val engine = engine(provider)
+        provider.chapterLength.value = length(ContentType.NOVELS, units = 2_000)
+        advanceUntilIdle()
+        // The listening clock is a real monotonic one, so the paragraph needs real time to have been heard.
+        Thread.sleep(5)
+
+        ViewModelStore().apply { put("engine", engine) }.clear()
+        advanceUntilIdle()
+
+        paceRepository.listened.value.map { it.first } shouldBe listOf(9L)
+    }
+
+    /** A renderer still settling reports after the pause flush, and the session's scope ending drops a hold. */
+    @Test
+    fun `closing the reader writes the position held back`() {
+        val provider = FakeReaderProvider()
+        val engine = engine(provider)
+
+        ViewModelStore().apply { put("engine", engine) }.clear()
+
+        provider.flushed shouldBe true
+    }
+
     fun `the bar names the entry by its Edit info title`(entry: EntryId, custom: EntryCustomInfo) {
         val provider = FakeReaderProvider()
         provider.chrome.value = ReaderChromeState(entryTitle = "Source title", entry = entry)
@@ -1197,7 +1231,12 @@ private class FakeReaderProvider(
 
     override fun onReaderMoved() = Unit
 
-    override fun flushPosition() = Unit
+    /** Whether the position held back was written, which the host asks for on pause and the engine on close. */
+    var flushed = false
+
+    override fun flushPosition() {
+        flushed = true
+    }
 
     override fun detailsIntent(context: Context): Intent? = null
 

@@ -1,5 +1,6 @@
 package reikai.presentation.reader
 
+import androidx.lifecycle.SavedStateHandle
 import eu.kanade.tachiyomi.ui.reader.setting.ReaderOrientation
 import io.kotest.matchers.shouldBe
 import io.kotest.matchers.string.shouldContain
@@ -311,6 +312,26 @@ class NovelReaderViewModelTest {
         advanceUntilIdle()
 
         model.window.value.generation shouldBe 1
+    }
+
+    /** Incognito keeps the position out of the database, so it reopens from the host's state, as manga's page does. */
+    @Test
+    fun `an incognito chapter reopens after a process kill where it was`() = readerTest { harness ->
+        harness.incognito.set(true)
+        val novel = harness.novel(harness.source("src"))
+        val opened = harness.chapter(novel, 1.0)
+        val savedState = SavedStateHandle()
+        val model = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+        model.rendererLanded(model.window.value.generation)
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(40))
+        model.saveProgress(opened.id, ChapterProgress.Percent.ofWhole(60))
+        advanceUntilIdle()
+
+        val restored = harness.open(novel, opened.id, savedState = savedState)
+        advanceUntilIdle()
+
+        restored.chapter.value?.progress shouldBe ChapterProgress.Percent.ofWhole(60)
     }
 
     /** Mark read on skip is off by default, so the step on to the next chapter marks nothing. */

@@ -371,7 +371,13 @@ class NovelReaderViewModelHarness private constructor(
         mockk(relaxed = true),
     )
 
-    fun open(novelId: Long, chapterId: Long, sourceScoped: Boolean = false): NovelReaderViewModel {
+    /** [savedState] is the host's, which a test hands a second model to reopen it as after a process kill. */
+    fun open(
+        novelId: Long,
+        chapterId: Long,
+        sourceScoped: Boolean = false,
+        savedState: SavedStateHandle = SavedStateHandle(),
+    ): NovelReaderViewModel {
         val context = mockk<Context>(relaxed = true)
         val reikaiLibraryPreferences = ReikaiLibraryPreferences(store)
         val mergeManager = NovelMergeManager(groups, reikaiLibraryPreferences, onMerged = {}) {}
@@ -385,7 +391,7 @@ class NovelReaderViewModelHarness private constructor(
             novelId = novelId,
             initialChapterId = chapterId,
             sourceScoped = sourceScoped,
-            savedState = SavedStateHandle(),
+            savedState = savedState,
             novelRepo = novelRepo,
             chapterRepo = chapterRepo,
             sourceManager = sourceManager,
