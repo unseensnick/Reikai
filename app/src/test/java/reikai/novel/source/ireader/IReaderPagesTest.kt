@@ -19,6 +19,11 @@ class IReaderPagesTest {
     }
 
     @Test
+    fun `a line break inside a text page is kept`() = runTest {
+        listOf(Text("a\nb")).toChapterHtml(unresolved) shouldBe "<p>a<br>b</p>"
+    }
+
+    @Test
     fun `a linked picture is shown`() = runTest {
         listOf(ImageUrl("https://s.example/p.png")).toChapterHtml(unresolved) shouldBe
             "<img src=\"https://s.example/p.png\">"

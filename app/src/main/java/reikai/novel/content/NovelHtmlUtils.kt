@@ -226,7 +226,10 @@ object NovelHtmlUtils {
      *  default and need an inline style the embedded-CSS setting strips. A break inside a paragraph is
      *  a `br`, not a newline: a newline survives `pre-wrap` in a WebView and collapses to a space in
      *  the text renderer, laying the same chapter out two ways. */
-    fun plainTextToHtml(text: String): String {
+    fun plainTextToHtml(text: String): String = "<div data-reikai-plain-text=\"1\">${plainTextParagraphs(text)}</div>"
+
+    /** [text]'s paragraphs as [plainTextToHtml] writes them, without its wrapper, for a sink that adds its own. */
+    fun plainTextParagraphs(text: String): String {
         val normalized = normalizePlainTextContent(text)
         // Unescape before re-escaping: a source may hand back content where &lt;D&gt; is already
         // encoded, and escaping its & again would render the entity as literal text.
@@ -238,12 +241,7 @@ object NovelHtmlUtils {
         val paragraphs = decoded.split(paragraphBreakRegex)
             .map { it.trim('\n', ' ', '\t') }
             .filter { it.isNotEmpty() }
-        if (paragraphs.isEmpty()) return "<div data-reikai-plain-text=\"1\"></div>"
-        return paragraphs.joinToString(
-            separator = "",
-            prefix = "<div data-reikai-plain-text=\"1\">",
-            postfix = "</div>",
-        ) { "<p>${escapeHtml(it).replace("\n", "<br>")}</p>" }
+        return paragraphs.joinToString(separator = "") { "<p>${escapeHtml(it).replace("\n", "<br>")}</p>" }
     }
 
     /** [html] as the markup it is, escaped for an HTML sink, one line per tag that follows another so a
