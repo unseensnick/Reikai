@@ -1066,7 +1066,10 @@ class ReaderViewModel(
         // RK: only when it is the chapter held: a skip finishes the chapter left, not the one opened
         if (chapterToDownload?.chapter?.id == currentChapter.chapter.id) chapterToDownload = null
 
-        if (chapterToDelete == null || !chapterToDelete.chapter.read) return
+        // RK: or as stored, since a copy the duplicate pass marked is read only there, while the chapter
+        // being finished is read only in memory until its save lands
+        if (chapterToDelete == null) return
+        if (!chapterToDelete.chapter.read && getChapter.await(chapterToDelete.chapter.id)?.read != true) return
 
         val markDuplicateAsRead = libraryPreferences.markDuplicateReadChapterAsRead.get()
             .contains(LibraryPreferences.MARK_DUPLICATE_CHAPTER_READ_EXISTING)
@@ -1091,7 +1094,9 @@ class ReaderViewModel(
 
         // RK: asked under the lock ReaderProgressWrites takes, which the order of the writes rests on
         if (!incognito.of(readerChapter.chapter.mangaId) && page.status !is Page.State.Error) { // RK
-            val wasRead = readerChapter.chapter.read // RK: the finish below reports only a newly read chapter
+            // RK: the finish below reports only a newly read chapter. Asked of the row as stored, as the
+            // novel finish does: the duplicate pass marks a copy read there and not in the chapter loaded.
+            val wasRead = readerChapter.chapter.read || getChapter.await(readerChapter.chapter.id)?.read == true
             val read = wasRead || progress.isChapterComplete // RK: the kernel's completion rule
             readerChapter.update { it.copy(lastPageRead = pageIndex, read = read) }
 
@@ -1162,7 +1167,9 @@ class ReaderViewModel(
     fun markChapterReadOnSkip(readerChapter: ReaderChapter) {
         if (readerChapter.chapter.read || !readerPreferences.markReadOnSkip.get()) return
         progressWrites.launch {
+            // Asked of the row as well, as the novel twin does: a copy the duplicate pass marked is read there
             if (incognito.of(readerChapter.chapter.mangaId)) return@launch
+            if (getChapter.await(readerChapter.chapter.id)?.read == true) return@launch
             readerChapter.update { it.copy(read = true) }
             updateChapterProgressOnComplete(readerChapter, wasRead = false)
             updateChapter.await(
