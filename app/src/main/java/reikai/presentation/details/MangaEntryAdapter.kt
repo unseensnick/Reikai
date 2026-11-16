@@ -289,8 +289,8 @@ class MangaEntryAdapter(
         model.showChangeCategoryDialog()
     }
 
-    override fun showCoverDialog() {
-        model.showCoverDialog()
+    override fun showCoverDialog(volume: EntryChapterListItem.Volume?) {
+        model.showCoverDialog(volume)
     }
     override fun createCoverViewModel(): EntryCoverViewModel<*> =
         coverViewModelFactory.create(shownCover()?.id ?: 0L)

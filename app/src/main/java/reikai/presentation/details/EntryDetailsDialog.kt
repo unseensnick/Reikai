@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -45,8 +46,11 @@ sealed interface EntryDetailsDialog {
         val coverModel: (String) -> Any,
     ) : EntryDetailsDialog
 
-    /** Full cover viewer; the per-type cover ViewModel is resolved via [EntryDetailsBehavior.createCoverViewModel]. */
-    data object Cover : EntryDetailsDialog
+    /**
+     * Full cover viewer; the per-type cover ViewModel is resolved via [EntryDetailsBehavior.createCoverViewModel].
+     * A picked local [volume] shows that volume's own cover.
+     */
+    data class Cover(val volume: EntryChapterListItem.Volume?) : EntryDetailsDialog
 
     data class ManageSources(
         val sources: List<EntryManageSourceInfo>,
@@ -118,7 +122,7 @@ fun Screen.EntryDetailsDialogHost(
                 mergedTags = behavior::mergedSourceTags,
             )
         }
-        EntryDetailsDialog.Cover -> {
+        is EntryDetailsDialog.Cover -> {
             // The behavior returns the per-type subclass through the star-projected base. Voyager only
             // used that type as a store key, but AndroidX's default factory would try to instantiate it
             // reflectively, so the construction moves into an explicit initializer. An initializer
@@ -138,21 +142,37 @@ fun Screen.EntryDetailsDialogHost(
             val isCoverAnchored = (page as? EntryDetailsScreenState.Loaded)?.isCoverAnchored == true
             // The header's fallbacks, so the viewer, Save and Share show the cover the header drew.
             val coverFallbacks = (page as? EntryDetailsScreenState.Loaded)?.details?.header?.coverFallbacks.orEmpty()
-            if (cover != null) {
+            // A picked volume shows its own cover, the one its header draws; one with none shows the series'.
+            val volume = dialog.volume
+            val type = (page as? EntryDetailsScreenState.Loaded)?.entryId?.contentType
+            val volumeCover by produceState<Any?>(if (volume == null) null else VolumeCoverLoading, volume, type) {
+                value =
+                    if (volume == null ||
+                        type == null
+                    ) {
+                        null
+                    } else {
+                        behavior.volumePicking.cover(type, volume.series, volume.key)
+                    }
+            }
+            if (cover != null && volumeCover !== VolumeCoverLoading) {
                 val getContent = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
                     if (uri != null) coverViewModel.editCover(context, uri)
                 }
-                val shownCover = remember(cover, coverFallbacks) { withCoverFallbacks(cover!!, coverFallbacks) }
+                val shownCover = remember(cover, coverFallbacks, volumeCover) {
+                    volumeCover ?: withCoverFallbacks(cover!!, coverFallbacks)
+                }
                 EntryCoverDialog(
                     cover = shownCover,
-                    isCustomCover = remember(cover) { coverViewModel.hasCustomCover() },
+                    isCustomCover = remember(cover, volume) { volume == null && coverViewModel.hasCustomCover() },
                     snackbarHostState = coverViewModel.snackbarHostState,
                     onShareClick = { coverViewModel.shareCover(context, shownCover) },
                     onSaveClick = { coverViewModel.saveCover(context, shownCover) },
-                    // Null hides Edit and Delete: for an entry that cannot keep a custom cover, and for
+                    // Null hides Edit and Delete: for an entry that cannot keep a custom cover, for
                     // a chip's sibling, since a custom cover has to land on the entry the library
-                    // renders, so it is only offered where the group's own cover is the one on screen.
-                    onEditClick = if (isCoverEditable && isCoverAnchored) {
+                    // renders, so it is only offered where the group's own cover is the one on screen,
+                    // and for a picked volume, whose cover is its book's, not the series' they write.
+                    onEditClick = if (volume == null && isCoverEditable && isCoverAnchored) {
                         { action: EditCoverAction ->
                             when (action) {
                                 EditCoverAction.EDIT -> getContent.launch("image/*")
@@ -231,3 +251,6 @@ fun Screen.EntryDetailsDialogHost(
         )
     }
 }
+
+/** The viewer's volume cover before its file has been read, told apart from a volume that has none. */
+private object VolumeCoverLoading

@@ -242,8 +242,8 @@ class NovelEntryAdapter(
     override fun showChangeCategoryDialog() {
         model.showChangeCategoryDialog()
     }
-    override fun showCoverDialog() {
-        model.showCoverDialog()
+    override fun showCoverDialog(volume: EntryChapterListItem.Volume?) {
+        model.showCoverDialog(volume)
     }
     override fun createCoverViewModel(): EntryCoverViewModel<*> = coverArgs().let { (url, source) ->
         coverViewModelFactory.create(novelUrl = url, novelSource = source)

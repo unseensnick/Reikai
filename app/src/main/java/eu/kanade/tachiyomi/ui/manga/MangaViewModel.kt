@@ -159,6 +159,7 @@ import reikai.presentation.browse.finishAdd
 import reikai.presentation.details.AddToLibraryOffer
 import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
+import reikai.presentation.details.EntryChapterListItem
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
@@ -1789,7 +1790,7 @@ class MangaViewModel(
         data class RelinkSeries(val title: String, val candidates: List<String>) : Dialog
         data object SettingsSheet : Dialog
         data object TrackSheet : Dialog
-        data object FullCover : Dialog
+        data class FullCover(val volume: EntryChapterListItem.Volume?) : Dialog // RK: a picked volume's cover
 
         // RK: manage the grouped sources (reorder / split / remove). Rows arrive trunk-first (primary on
         // top); isOverridden gates the reset action.
@@ -2005,8 +2006,8 @@ class MangaViewModel(
         dialog.value = Dialog.TrackSheet
     }
 
-    fun showCoverDialog() {
-        dialog.value = Dialog.FullCover
+    fun showCoverDialog(volume: EntryChapterListItem.Volume?) { // RK: volume
+        dialog.value = Dialog.FullCover(volume) // RK
     }
 
     fun showMigrateDialog(duplicate: Manga) {

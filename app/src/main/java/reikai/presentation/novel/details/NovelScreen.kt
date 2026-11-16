@@ -337,7 +337,7 @@ private fun NovelDetailsState.Loaded.toSharedDetailsDialog(isUpdateIntervalEnabl
             source = novel.toEntryEditInfoUi(),
             coverModel = { url -> novel.asNovelCover(url.ifBlank { null }) },
         )
-        NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover
+        is NovelDetailsDialog.FullCover -> EntryDetailsDialog.Cover(d.volume)
         is NovelDetailsDialog.ManageSources -> EntryDetailsDialog.ManageSources(
             sources = d.sources,
             isOverridden = d.isOverridden,

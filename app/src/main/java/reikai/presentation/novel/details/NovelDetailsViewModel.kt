@@ -163,6 +163,7 @@ import reikai.presentation.browse.DuplicatePrompt
 import reikai.presentation.details.AddToLibraryOffer
 import reikai.presentation.details.ClearDownloadsTarget
 import reikai.presentation.details.EntryAutoTrackOnMarkRead
+import reikai.presentation.details.EntryChapterListItem
 import reikai.presentation.details.EntryEditInfoUi
 import reikai.presentation.details.EntryManageSourceInfo
 import reikai.presentation.details.EntryMergeActionHost
@@ -1341,7 +1342,7 @@ class NovelDetailsViewModel(
         }
     }
 
-    fun showCoverDialog() = showDialog(NovelDetailsDialog.FullCover)
+    fun showCoverDialog(volume: EntryChapterListItem.Volume?) = showDialog(NovelDetailsDialog.FullCover(volume))
 
     /** A rebuilt chapter list drops whatever it no longer holds, the range anchor included, so a write
      *  starts from the selection retained to the rows the page shows: [shown], which the screen's own
@@ -1928,7 +1929,7 @@ sealed interface NovelDetailsDialog {
 
     data class ClearDownloads(val target: ClearDownloadsTarget) : NovelDetailsDialog
     data class RemoveFromLibrary(val removal: DetailsRemoval) : NovelDetailsDialog
-    data object FullCover : NovelDetailsDialog
+    data class FullCover(val volume: EntryChapterListItem.Volume?) : NovelDetailsDialog
     data class ManageSources(
         val sources: List<EntryManageSourceInfo>,
         val isOverridden: Boolean,

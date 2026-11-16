@@ -147,7 +147,9 @@ interface EntryDetailsBehavior {
     fun showChangeCategoryDialog()
 
     // Cover and custom-info edit.
-    fun showCoverDialog()
+
+    /** The cover viewer, for [volume]'s own cover when a local volume is picked. */
+    fun showCoverDialog(volume: EntryChapterListItem.Volume?)
 
     /**
      * The per-type full-cover ViewModel, resolved by the shared dialog host. Built for the entry the

@@ -401,7 +401,7 @@ private fun MangaViewModel.State.Success.toSharedDetailsDialog(isUpdateIntervalE
                 )
             },
         )
-        MangaViewModel.Dialog.FullCover -> EntryDetailsDialog.Cover
+        is MangaViewModel.Dialog.FullCover -> EntryDetailsDialog.Cover(d.volume) // RK
         is MangaViewModel.Dialog.ManageSources -> EntryDetailsDialog.ManageSources(
             sources = d.sources,
             isOverridden = d.isOverridden,

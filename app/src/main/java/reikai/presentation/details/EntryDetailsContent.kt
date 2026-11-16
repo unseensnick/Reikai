@@ -91,6 +91,8 @@ data class EntryDetailsNavigation(
     val onTagSearch: (String) -> Unit,
     /** A tag's Show only / Hide this tag, which set the library's tag filter; filled by the shared body. */
     val onFilterLibraryByTag: ((tag: String, show: Boolean) -> Unit)? = null,
+    /** The header cover's tap, which opens the cover on screen, a picked volume's own; filled by the shared body. */
+    val onCoverClick: () -> Unit = {},
     /** The Tracking tap with no tracker logged in; with one, the body opens the track sheet itself. */
     val onOpenTrackingSettings: () -> Unit,
     val onEditNotes: () -> Unit,
@@ -187,12 +189,16 @@ fun EntryDetailsContent(
     }.orEmpty()
     val listed = volumes?.let { filtered.copy(chapters = filtered.chapters.copy(items = it.items)) } ?: filtered
     val shown = if (pickedVolume == null) listed else listed.headedBy(volumeFiles, volumeNotes)
-    val pageNav = pickedVolume?.let { picked ->
-        val label = volumeName(picked)
-        libraryNav.copy(
-            onEditNotes = { navigator.push(VolumeNotesScreen(type, picked.series, picked.key, label, volumeNotes)) },
-        )
-    } ?: libraryNav
+    val pageNav = (
+        pickedVolume?.let { picked ->
+            val label = volumeName(picked)
+            libraryNav.copy(
+                onEditNotes = {
+                    navigator.push(VolumeNotesScreen(type, picked.series, picked.key, label, volumeNotes))
+                },
+            )
+        } ?: libraryNav
+        ).copy(onCoverClick = { behavior.showCoverDialog(pickedVolume) })
     val shownIds = remember(shown.chapters.items) {
         shown.chapters.items.mapNotNull { (it as? EntryChapterListItem.Chapter)?.id }
     }
@@ -769,7 +775,7 @@ private fun LazyListScope.entryInfoBlock(
         isTabletUi = isTabletUi,
         appBarPadding = appBarPadding,
         state = state.details,
-        onCoverClick = behavior::showCoverDialog,
+        onCoverClick = nav.onCoverClick,
         onGlobalSearch = nav.onGlobalSearch,
         librarySearch = nav.onLibrarySearch,
         onBrowseSource = nav.onBrowseSource,
