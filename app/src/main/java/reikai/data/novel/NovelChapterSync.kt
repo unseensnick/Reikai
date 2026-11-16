@@ -32,8 +32,8 @@ import kotlin.time.Clock
  * inherits the read/bookmark state and `dateFetch` of the one it replaces, so it is not new. A [page]
  * sync matches against the whole novel, so a chapter that moved pages is re-tagged in place, and never
  * deletes: one page cannot tell a removed chapter from one that moved to a page this run did not fetch.
- * Null syncs the whole novel and drops what the source no longer lists. Predicting the next update is
- * the caller's, once per whole-novel sync ([predictNovelFetchInterval]).
+ * Null syncs the whole novel and drops what the source no longer lists; [pageOpened], that the page opened
+ * since the last walk. Predicting the next update is the caller's, once per whole-novel sync ([predictNovelFetchInterval]).
  */
 suspend fun syncChaptersWithNovelSource(
     rawSourceChapters: List<ChapterItem>,
@@ -43,6 +43,7 @@ suspend fun syncChaptersWithNovelSource(
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
     page: String? = null,
+    pageOpened: Boolean = false,
     novelDownloadManager: NovelDownloadManager? = null,
 ): NovelChapterSyncResult {
     if (rawSourceChapters.isEmpty()) throw NoChaptersException()
@@ -190,8 +191,10 @@ suspend fun syncChaptersWithNovelSource(
     // A page is compared with what that page held: chapters filling a page never stored are the back
     // catalogue, whatever other pages the novel has.
     val hadChapters = if (page == null) dbChapters.isNotEmpty() else dbChapters.any { it.page == page }
+    // Nor are they new, unless the page opened since the last walk or the novel had nothing stored to compare with.
+    val backCatalogue = !hadChapters && !pageOpened && dbChapters.isNotEmpty()
     return NovelChapterSyncResult(
-        insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls },
+        if (backCatalogue) emptyList() else insertedChapters.filterNot { it.url in changedOrDuplicateReadUrls },
         changed = true,
         foundRelease(
             hadChapters,

@@ -120,6 +120,7 @@ class NovelRefreshTest {
         manualFetch: Boolean = false,
         preferences: LibraryPreferences = libraryPreferences,
         downloadManager: NovelDownloadManager = mockk(relaxed = true),
+        viewedPage: Long? = null,
     ) = refreshNovelFromSource(
         novel,
         source,
@@ -131,6 +132,7 @@ class NovelRefreshTest {
         novelDownloadManager = downloadManager,
         manualFetch = manualFetch,
         fetchWindow = Instant.fromEpochMilliseconds(1_000L)..Instant.fromEpochMilliseconds(2_000L),
+        viewedPage = viewedPage,
     )
 
     /** A refresh writes only what the source owns, so a change made to the novel since the job read it stays. */
@@ -445,6 +447,62 @@ class NovelRefreshTest {
             libraryPreferences,
             NovelChapterSyncRules(NoChapterNumberOverrides, InMemoryChapterCopyMarks(), NoChapterTombstones),
         )!!
+
+    /** A three-page novel stored through its last page, with one chapter per page. */
+    private suspend fun threeStoredPages(): Novel {
+        val novel = storedNovel(totalPages = 3L)
+        (1..3).forEach { storedChapter(novel, "/c/$it", it.toDouble(), read = false, page = "$it") }
+        return novel
+    }
+
+    private fun pagesThrough(last: Int, failingOnce: MutableSet<String> = mutableSetOf()) = PagedSource(
+        listOf(chapter("/c/1", 1.0)),
+        (2..last).associate { "$it" to listOf(chapter("/c/$it", it.toDouble())) },
+        failingOnce = failingOnce,
+    )
+
+    @Test
+    fun `a page that failed during a walk is fetched by the next refresh`() = runTest {
+        val novel = threeStoredPages()
+        val source = pagesThrough(6, failingOnce = mutableSetOf("5"))
+        refresh(novel, source)
+
+        refresh(novels.getById(novel.id)!!, source).newChapters.map { it.url } shouldBe listOf("/c/5")
+    }
+
+    @Test
+    fun `a chapter added to the previously last page is reported with the page that opened after it`() = runTest {
+        val novel = threeStoredPages()
+        val source = PagedSource(
+            listOf(chapter("/c/1", 1.0)),
+            mapOf(
+                "2" to listOf(chapter("/c/2", 2.0)),
+                "3" to listOf(chapter("/c/3", 3.0), chapter("/c/3.5", 3.5)),
+                "4" to listOf(chapter("/c/4", 4.0)),
+            ),
+        )
+
+        refresh(novel, source).newChapters.map { it.url } shouldBe listOf("/c/3.5", "/c/4")
+    }
+
+    @Test
+    fun `the back catalogue on an opened novel's last page is not reported as new`() = runTest {
+        val opened = open(twoPages)
+        novels.update(NovelUpdate(opened.id) { favoriteAt = Instant.fromEpochMilliseconds(0L) })
+
+        refresh(novels.getById(opened.id)!!, twoPages).newChapters shouldBe emptyList()
+    }
+
+    @Test
+    fun `a new chapter on the viewed middle page is reported`() = runTest {
+        val novel = threeStoredPages()
+        val source = PagedSource(
+            listOf(chapter("/c/1", 1.0)),
+            mapOf("2" to listOf(chapter("/c/2", 2.0), chapter("/c/2.5", 2.5)), "3" to listOf(chapter("/c/3", 3.0))),
+        )
+
+        refresh(novel, source, viewedPage = 2L).newChapters.map { it.url } shouldBe listOf("/c/2.5")
+    }
 
     @Test
     fun `an opened novel is stored outside the library`() = runTest {

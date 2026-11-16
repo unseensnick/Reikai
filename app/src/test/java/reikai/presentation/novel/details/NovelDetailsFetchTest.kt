@@ -146,6 +146,37 @@ class NovelDetailsFetchTest {
     }
 
     @Test
+    fun `a page whose source cannot answer says why`() = runTest {
+        val message = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source("alpha").apply { failingPages += "2" }
+            val (_, model) = harness.openPaged(source)
+            model.selectPage(1)
+            model.snackbarWithin(10_000)?.visuals?.message
+        }
+
+        message shouldBe "no connection"
+    }
+
+    @Test
+    fun `a page that failed is asked again when it is picked again`() = runTest {
+        val asked = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
+            val source = harness.source("alpha").apply { failingPages += "2" }
+            val (_, model) = harness.openPaged(source)
+            model.selectPage(1)
+            model.snackbarWithin(10_000)
+            model.selectPage(0)
+            model.awaitLoaded { it.pageIndex == 0 }
+            model.selectPage(1)
+            withContext(Dispatchers.Default) {
+                withTimeout(10_000) { while (source.pagesAsked.size < 2) delay(20) }
+            }
+            source.pagesAsked.toList()
+        }
+
+        asked shouldContainExactly listOf("2", "2")
+    }
+
+    @Test
     fun `a paged novel shows its pages while its source is still busy with its web address`() = runTest {
         val loaded = NovelReaderViewModelHarness.create(testScheduler).use { harness ->
             val busy = CompletableDeferred<Unit>()

@@ -356,6 +356,9 @@ class NovelDetailsViewModel(
     /** Paged keys already lazily fetched, so an empty page doesn't re-fetch on every flow emission. */
     private val triedPages = java.util.Collections.synchronizedSet(HashSet<String>())
 
+    /** Tried pages whose fetch failed, tried again once the user picks the page again. */
+    private val failedPages = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private val dialog = MutableStateFlow<NovelDetailsDialog?>(null)
 
     private val isRefreshing = MutableStateFlow(false)
@@ -899,7 +902,8 @@ class NovelDetailsViewModel(
 
     /** Lazily fetch a paged source's page when it has no stored rows yet. Skipped while a filter is
      *  active (0 rows may just mean the filter hid them, not that the page is unfetched) and once a
-     *  page has been tried (an empty page must not re-fetch on every emission). */
+     *  page has been tried (an empty page must not re-fetch on every emission). A failed fetch is
+     *  reported as a refresh's is, and picking the page again retries it. */
     private fun maybeFetchPage(novel: Novel, pageKey: String, filters: ChapterListFilters) {
         val src = resolvedSource ?: return
         if (filters.isActive) return
@@ -921,7 +925,10 @@ class NovelDetailsViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Throwable) {
+            } catch (e: Throwable) {
+                failedPages.add(pageKey)
+                val message = with(context) { e.refreshFailureMessage() }
+                launchUI { snackbarHostState.showSnackbar(message) }
             } finally {
                 isPageLoading.value = false
             }
@@ -931,6 +938,7 @@ class NovelDetailsViewModel(
     fun selectPage(index: Int) {
         val loaded = state.value as? NovelDetailsState.Loaded ?: return
         if (index < 0 || index >= loaded.pages.size || index == loaded.pageIndex) return
+        loaded.pages[index].let { if (failedPages.remove(it)) triedPages.remove(it) }
         clearSelection()
         pageIndex.value = index
         dismissDialog()
@@ -1043,15 +1051,14 @@ class NovelDetailsViewModel(
             isRefreshing.value = true
             try {
                 val toDownload = mutableListOf<NovelChapter>()
-                // The anchor's refreshed novel drives the viewed-page fix below.
-                var anchorSrc = resolvedSource
-                var anchorUpdated: Novel? = null
+                // Only the anchor's own list has pages; the unified view has none.
+                val viewedPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull()
+                    ?.takeIf { loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id }
                 val firstError = refreshMergeGroup(
                     anchor = {
                         runCatchingCancellable {
-                            val src = anchorSrc ?: sourceManager.getOrThrow(loaded.novel.source)
-                            anchorSrc = src
-                            refreshNovel(src, loaded.novel, toDownload).also { anchorUpdated = it }
+                            val src = resolvedSource ?: sourceManager.getOrThrow(loaded.novel.source)
+                            refreshNovel(src, loaded.novel, toDownload, viewedPage)
                         }
                     },
                     siblings = mergeGroup.relatedIds
@@ -1061,15 +1068,6 @@ class NovelDetailsViewModel(
                     refresh = { novel, src -> runCatchingCancellable { refreshNovel(src, novel, toDownload) } },
                 )
                 if (toDownload.isNotEmpty()) downloadManager.downloadChapters(toDownload)
-                // Force-refresh the viewed page when viewing the anchor's own (paged) list and the walk
-                // skipped it (a middle page); the unified view has no pages so this is a no-op there.
-                val viewedAnchor = anchorSrc
-                val updatedAnchor = anchorUpdated
-                if (viewedAnchor != null && updatedAnchor != null &&
-                    (loaded.selectedSourceNovelId == null || loaded.selectedSourceNovelId == loaded.novel.id)
-                ) {
-                    forceRefreshViewedPage(loaded, updatedAnchor, viewedAnchor)
-                }
                 firstError?.let { e ->
                     // A local series whose folder is gone may have been renamed outside the app, so the folders
                     // holding its files are offered in place of the failure, as the manga details do; a failure
@@ -1097,7 +1095,12 @@ class NovelDetailsViewModel(
      *  never a full fetch-all. Returns the refreshed novel and adds the new chapters the
      *  download-new-chapters setting takes to [toDownload]; a failure is the caller's to report. Recorded
      *  as a contact, so a new chapter queued after it still waits out the source's delay. */
-    private suspend fun refreshNovel(src: NovelSource, novel: Novel, toDownload: MutableList<NovelChapter>): Novel =
+    private suspend fun refreshNovel(
+        src: NovelSource,
+        novel: Novel,
+        toDownload: MutableList<NovelChapter>,
+        viewedPage: Long? = null,
+    ): Novel =
         sourceContacts.reaching(novel.source) {
             refreshNovelFromSource(
                 novel,
@@ -1109,31 +1112,9 @@ class NovelDetailsViewModel(
                 coverCache,
                 novelDownloadManager = downloadManager,
                 manualFetch = true,
+                viewedPage = viewedPage,
             )
         }.also { toDownload += filterChaptersForDownload.await(it.novel, it.newChapters) }.novel
-    private suspend fun forceRefreshViewedPage(loaded: NovelDetailsState.Loaded, updated: Novel, src: NovelSource) {
-        val newTotalPages = updated.totalPages
-        if (newTotalPages <= 1L) return
-        val walkFrom = maxOf(2L, loaded.novel.totalPages)
-        val curPage = loaded.pages.getOrNull(loaded.pageIndex)?.toLongOrNull() ?: return
-        if (curPage > 1L && curPage !in walkFrom..newTotalPages) {
-            val key = curPage.toString()
-            runCatchingCancellable {
-                src.parsePage(updated.url, key)?.chapters?.takeIf { it.isNotEmpty() }?.let {
-                    syncChaptersWithNovelSource(
-                        it,
-                        updated,
-                        chapterRepo,
-                        novelRepo,
-                        libraryPreferences,
-                        syncRules,
-                        page = key,
-                        novelDownloadManager = downloadManager,
-                    )
-                }
-            }
-        }
-    }
 
     fun toggleFavorite() {
         viewModelScope.launchIO {

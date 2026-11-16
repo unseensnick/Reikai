@@ -1,9 +1,6 @@
 package reikai.data.novel
 
 import reikai.data.novel.NovelChapterSyncRules
-import reikai.domain.chapter.ChapterCopyMarkRepository
-import reikai.domain.chapter.ChapterNumberOverrideRepository
-import reikai.domain.chapter.LocalChapterTombstones
 import reikai.domain.novel.NovelChapterRepository
 import reikai.domain.novel.NovelRepository
 import reikai.domain.novel.model.Novel
@@ -12,32 +9,41 @@ import reikai.novel.source.NovelSource
 import reikai.util.runCatchingCancellable
 import tachiyomi.domain.library.service.LibraryPreferences
 
+/** What [walkNovelPages] synced, and the page count the next walk starts from. */
+data class NovelPageWalk(val synced: NovelChapterSyncResult, val walkedThrough: Long)
+
 /**
- * Walk a paged source's chapter pages [fromPage]..[toPage] inclusive, syncing each into the novel's
- * stored chapters (tagged with its transport index). Callers pass `fromPage = oldTotalPages` so the
- * previously-last page is re-fetched too, surfacing chapters appended to it before a new page opened.
- * Page 1 is the caller's responsibility, coming from `parseNovel` rather than `parsePage`. A page that
- * throws or returns nothing is skipped rather than fatal, so one flaky page cannot abort the rest.
- * Returns the pages' sync results added together.
+ * Walk a paged source's chapter pages from the stored mark [walkedThrough] to [toPage], syncing each into the novel's
+ * stored chapters (tagged with its transport index). The mark page itself is fetched again, so chapters appended to
+ * it before a new page opened are picked up, and a page past it counts as opened since. [alsoPage], the page a user
+ * is viewing, is synced too when the range leaves it out. Page 1 is the caller's, from `parseNovel`. A page that
+ * throws is skipped so one flaky page cannot abort the rest, but the returned mark stops below it, so the next walk
+ * fetches it again.
  */
 suspend fun walkNovelPages(
     novel: Novel,
     source: NovelSource,
-    fromPage: Long,
+    walkedThrough: Long,
     toPage: Long,
     novelChapterRepository: NovelChapterRepository,
     novelRepository: NovelRepository,
     libraryPreferences: LibraryPreferences,
     syncRules: NovelChapterSyncRules,
     novelDownloadManager: NovelDownloadManager? = null,
-): NovelChapterSyncResult {
-    var walked = NovelChapterSyncResult.UNCHANGED
-    if (toPage <= 1L) return walked
-    for (p in maxOf(fromPage, 1L)..toPage) {
+    alsoPage: Long? = null,
+): NovelPageWalk {
+    val range = maxOf(2L, walkedThrough)..toPage
+    val pages = listOfNotNull(alsoPage?.takeIf { it in 2L..toPage && it !in range }) + range
+    var synced = NovelChapterSyncResult.UNCHANGED
+    var mark = walkedThrough
+    var failed = false
+    for (p in pages) {
         val key = p.toString()
-        val chapters = runCatchingCancellable { source.parsePage(novel.url, key)?.chapters }.getOrNull().orEmpty()
-        if (chapters.isNotEmpty()) {
-            runCatchingCancellable {
+        val walked = runCatchingCancellable {
+            val chapters = source.parsePage(novel.url, key)?.chapters.orEmpty()
+            if (chapters.isEmpty()) {
+                NovelChapterSyncResult.UNCHANGED
+            } else {
                 syncChaptersWithNovelSource(
                     chapters,
                     novel,
@@ -46,10 +52,16 @@ suspend fun walkNovelPages(
                     libraryPreferences,
                     syncRules,
                     page = key,
+                    pageOpened = p > walkedThrough,
                     novelDownloadManager = novelDownloadManager,
                 )
-            }.onSuccess { walked += it }
+            }
+        }.getOrNull()
+        if (walked != null) synced += walked
+        if (p in range) {
+            failed = failed || walked == null
+            if (!failed) mark = maxOf(mark, p)
         }
     }
-    return walked
+    return NovelPageWalk(synced, mark)
 }

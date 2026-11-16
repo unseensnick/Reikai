@@ -156,7 +156,8 @@ data class NovelRefreshResult(val novel: Novel, val newChapters: List<NovelChapt
 /**
  * Re-parse a favorited [novel] from its [source] and bring its stored data up to date: merge the
  * parsed metadata (persisting only on a change), sync the first page's chapters, walk any pages
- * opened since the previous [Novel.totalPages], then predict the next update once over the result.
+ * opened since the previous [Novel.totalPages] plus the [viewedPage] a details screen shows, then predict
+ * the next update once over the result.
  * Shared by the update job and the details refresh; browse-open inserts a shadow row instead. Fails as
  * manga's refresh does: [NoChaptersException] when the source lists no chapter, else what the source threw.
  */
@@ -173,14 +174,17 @@ suspend fun refreshNovelFromSource(
     manualFetch: Boolean = false,
     fetchWindow: ClosedRange<Instant>? = null,
     details: StoredDetails = StoredDetails.KEPT,
+    viewedPage: Long? = null,
 ): NovelRefreshResult = source.seriesLocked(novel, novelRepository) { current ->
     // The parse and every row write under one hold of a local series' lock, so a move of its files cannot
     // land between them; any other source runs this at once.
     val sourceNovel = source.parseNovel(current.url)
     val parsed = sourceNovel.toNovel(sourceId = source.id, favorite = current.favorite)
-    val merged = storeRefreshedNovel(
+    val sourcePages = parsed.totalPages.takeIf { it > 0L } ?: current.totalPages
+    // A grown page count is stored by the walk as far as it got, never before it.
+    var merged = storeRefreshedNovel(
         current,
-        parsed,
+        parsed.copy(totalPages = minOf(sourcePages, current.totalPages)),
         novelRepository,
         libraryPreferences,
         novelDownloadManager,
@@ -190,7 +194,7 @@ suspend fun refreshNovelFromSource(
     )
 
     // After the details are stored, as manga's sync throws after its details write.
-    if (sourceNovel.chapters.isNullOrEmpty() && merged.totalPages <= 1L) throw NoChaptersException()
+    if (sourceNovel.chapters.isNullOrEmpty() && sourcePages <= 1L) throw NoChaptersException()
 
     var synced = syncFirstPage(
         sourceNovel,
@@ -201,19 +205,24 @@ suspend fun refreshNovelFromSource(
         syncRules,
         novelDownloadManager,
     )
-    if (merged.totalPages > 1L) {
-        val walked = walkNovelPages(
+    if (sourcePages > 1L) {
+        val walk = walkNovelPages(
             merged,
             source,
-            maxOf(2L, current.totalPages),
-            merged.totalPages,
+            walkedThrough = merged.totalPages,
+            toPage = sourcePages,
             novelChapterRepository,
             novelRepository,
             libraryPreferences,
             syncRules,
             novelDownloadManager = novelDownloadManager,
+            alsoPage = viewedPage,
         )
-        synced = synced?.plus(walked) ?: walked
+        synced = synced?.plus(walk.synced) ?: walk.synced
+        if (walk.walkedThrough != merged.totalPages) {
+            novelRepository.update(NovelUpdate(merged.id) { totalPages = walk.walkedThrough })
+            merged = merged.copy(totalPages = walk.walkedThrough)
+        }
     }
     if (synced != null) {
         predictNovelFetchInterval(

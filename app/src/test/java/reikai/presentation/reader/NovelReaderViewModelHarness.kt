@@ -617,6 +617,9 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
     /** Every page key asked for, in order. A page answers with no chapters. */
     val pagesAsked: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
+    /** Page keys whose fetch throws, as a source with no connection does. */
+    val failingPages: MutableSet<String> = java.util.concurrent.ConcurrentHashMap.newKeySet()
+
     override val version = "1.0.0"
     override val site = "https://$id.example"
     override val lang = "en"
@@ -647,6 +650,7 @@ class FakeNovelSource(override val id: String, override val name: String) : Nove
 
     override suspend fun parsePage(novelPath: String, page: String): SourceNovel? {
         pagesAsked += page
+        if (page in failingPages) throw IOException("no connection")
         return null
     }
 

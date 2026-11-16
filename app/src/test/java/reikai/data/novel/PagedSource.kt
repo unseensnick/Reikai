@@ -8,8 +8,12 @@ import reikai.novel.source.NovelFilterState
 import reikai.novel.source.NovelItemsPage
 import reikai.novel.source.NovelListing
 import reikai.novel.source.NovelSource
+import java.io.IOException
 
-/** Page 1 comes from [parseNovel]; the rest from [parsePage]. More than one page makes it a paged source. */
+/**
+ * Page 1 comes from [parseNovel]; the rest from [parsePage]. More than one page makes it a paged source. A page in
+ * [failingOnce] throws on its first fetch, as a flaky network does.
+ */
 internal class PagedSource(
     private val firstPage: List<ChapterItem>,
     private val otherPages: Map<String, List<ChapterItem>> = emptyMap(),
@@ -17,7 +21,10 @@ internal class PagedSource(
     private val summary: String? = null,
     private val genres: String? = null,
     private val cover: String? = null,
+    private val failingOnce: MutableSet<String> = mutableSetOf(),
 ) : NovelSource {
+    val fetchedPages = mutableListOf<String>()
+
     override val id = "src"
     override val name = "Source"
     override val version = "1.0.0"
@@ -39,8 +46,11 @@ internal class PagedSource(
             totalPages = otherPages.size + 1,
         )
 
-    override suspend fun parsePage(novelPath: String, page: String) =
-        SourceNovel(path = novelPath, chapters = otherPages[page])
+    override suspend fun parsePage(novelPath: String, page: String): SourceNovel {
+        fetchedPages += page
+        if (failingOnce.remove(page)) throw IOException("page $page timed out")
+        return SourceNovel(path = novelPath, chapters = otherPages[page])
+    }
 
     override suspend fun parseChapter(chapterPath: String): String = unused()
 
